@@ -5,10 +5,11 @@
 base_url="https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession"
 
 # Define accessions to download (replace with your accessions)
-accessions=("GCA_000146045.2" "GCA_000005845.2" "GCA_000001405.29" "GCA_002163515.1")
+accessions="GCA_000146045.2"
+#("GCA_000146045.2" "GCA_000005845.2" "GCA_000001405.29" "GCA_002163515.1")
 
 # Set a download directory (modify as needed)
-download_dir="downloaded_genomes"
+download_dir="."
 
 # Create the download directory if it doesn't exist
 mkdir -p "$download_dir"
@@ -28,7 +29,7 @@ for accession in "${accessions[@]}"; do
   fi
 
   # Unzip archive with suppressed output
-  unzip > /dev/null 2>&1 "$download_dir/${accession}_genome.zip" -d "$download_dir/${accession}_genome"
+  unzip > /dev/null 2>&1 "$download_dir/${accession}_genome.zip" -d "$download_dir/${accession}_genome" && rm "$download_dir/${accession}_genome.zip"
 
   echo "Download and extraction complete for accession: $accession"
 done
