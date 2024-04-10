@@ -5,11 +5,10 @@
 base_url="https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession"
 
 # Define accessions to download (replace with your accessions)
-accessions="GCA_000146045.2"
-#("GCA_000146045.2" "GCA_000005845.2" "GCA_000001405.29" "GCA_002163515.1")
+accessions=("GCA_000146045.2" "GCA_000005845.2" "GCA_000001405.29" "GCA_002163515.1")
 
 # Set a download directory (modify as needed)
-download_dir="."
+download_dir="./REFGENS"
 
 # Create the download directory if it doesn't exist
 mkdir -p "$download_dir"
