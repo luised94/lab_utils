@@ -1,0 +1,222 @@
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Chromatin/Co-IP with GFP-Trap_20210426.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Chromatin/gkab1180_supplemental_files/Supplementary Table legends.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Chromatin/Histone Octamer Purification.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Chromatin/MNase Digestion.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/DNA binding/2020_09_15 Gel Shift Attempt/RPA_EMSA Protocol_Caitlin.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/DNA binding/2021_03_29 Footprinting/FOOTPRINT PROBE PREP(recovered).docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/DNA binding/2021_03_29 Footprinting/ORC Footprinting Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Purifications/2021_07_23 ORC 6C 4R and 4RPS/ORC 6C CBP Labeling and Purification.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Purifications/2022_02_16 ORC4R6C Orc5 E104K and Orc6 E304K/ORC-FLAG Complex Purification Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Purifications/2023_02_17 ORC Flg WT and 4R/ORC-FLAG Complex Purification Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Purifications/2023_02_17 ORC Flg WT and 4R/~$C-FLAG Complex Purification Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Purifications/ORC-FLAG Complex Purification Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Yeast Genetics/2019_5_1 Orc4 suppressor screen/2019_10_22 3.5-10xBS1 1st Tetrad Dis Scoring Sheet.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Yeast Genetics/2019_5_1 Orc4 suppressor screen/Ethyl Methane Sulfonate.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Yeast Genetics/2021_07_07_CHIP_and_Conditional_Orc4/ScriptManager-Tutorial.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Yeast Genetics/2021_07_07_CHIP_and_Conditional_Orc4/TCA+DOC_precipitation.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Yeast Genetics/2022_08_26_CHIP-seq_ORC-MCM-supps/CHIP_Protocol_LEMR.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Lab stocks/Cdc6/Cdc6 Purification - Updated 10-04-17.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/other-things/Single Molecule Trials/Constructing a Manual Driftlist.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/other-things/Single Molecule Trials/Using the Fit AOIs interface.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Picking Zygotes.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/1.3kb protocol from 2013.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/ChiP Protocol(SPB).docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/ChIP protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/CHIP_Protocol_LEMR.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Constructing a Manual Driftlist_LEMR.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Cytoplasmic lysis protocol_for LF.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Homemade SEQ library generation protocol for MNase '22.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/HPLC purifying the fluorescently labeled peptide.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Maxi plasmid prep.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/MCM-CDT1 labeling with Gel Filtration.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/MNase.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/One-step CRISPR protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/ORC-FLAG Complex Purification Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Plasmid Stability Assay (SPB).doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/._Bell_lab_Freezer Maps.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/._PhosphorScreens_unmounted.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._Audra fast TCA precipitation protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._Bell - SLIC Cloning Protocol.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._Bell Lab Mini-Prep.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._Bell Lab Yeast Transformation Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._Double Hexamer assay protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._FACS Protocol 10-22-17.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._Helicase Loading Assay.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._MFM off bead replication assay protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._Polyermase α - Primase Assay.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._TCA Precipitation of Yeast Cell Protein.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._V5 integration to tag endogenous genes.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._~$constituted Replication Assay _CB.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._~$CS Protocol 10-22-17.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._~$dra fast TCA precipitation protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._~$licase Loading Assay.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._~$ll Lab Yeast Transformation Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/._~$lyermase α - Primase Assay.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/Audra fast TCA precipitation protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/Bell - SLIC Cloning Protocol.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/Bell Lab Mini-Prep.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/Bell Lab Yeast Transformation Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/Double Hexamer assay protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/FACS Protocol 10-22-17.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/Helicase Loading Assay.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/MFM off bead replication assay protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/Polyermase α - Primase Assay.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/TCA Precipitation of Yeast Cell Protein.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Assays and Techniques/V5 integration to tag endogenous genes.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Bell_lab_Freezer Maps.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/NanoBody Protos/._NanoBody Periplasmic Expression A La Adam.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/NanoBody Protos/._Subcloning Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/NanoBody Protos/NanoBody Periplasmic Expression A La Adam.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/NanoBody Protos/pET30 vs pHEN6 Antiquated.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/NanoBody Protos/Subcloning Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/NanoBody Protos/VHH Phage Panning Protocol - Shoemaker Revised.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/PhosphorScreens_unmounted.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Cdc45 purification.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Cdc6 Purification - Updated 10062017.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._CDK purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._DDK Purification.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._DDK-lambda Purification .docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Dpb11 purification protocol NEW.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Dpb11 purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._FLAG SD ORC purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._GINS purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Gp32 purification protocol_ Keck.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Histone Purification.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._MCM-CDT1 labeling with Gel Filtration.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._ORC-Diffley protocol Diffley.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._ORC-FLAG Complex Purification Protocol copy.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._ORC-FLAG Complex Purification Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Polyermase Epsilon Purification.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Polyermase α - Primase Purification.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._RPA purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._RPA-SNAP purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Sld2 purification protocol NEW.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Sld2 purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Sld3 Sld7 purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._Superdex Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._~$C-FLAG Complex Purification Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._~$d3 Sld7 purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/._~$M-CDT1 labeling with Gel Filtration.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Cdc45 purification.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Cdc6 Purification - Updated 10062017.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/CDK purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/DDK Purification.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/DDK-lambda Purification .docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Dpb11 purification protocol NEW.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Dpb11 purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/FLAG SD ORC purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/GINS purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Gp32 purification protocol_ Keck.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Histone Purification.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/MCM-CDT1 labeling with Gel Filtration.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/MCM-CDT1 Prep.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/ORC-Diffley protocol Diffley.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/ORC-FLAG Complex Purification Protocol copy.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/ORC-FLAG Complex Purification Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Polyermase Epsilon Purification.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Polyermase α - Primase Purification.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/RPA purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/RPA-SNAP purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Sld2 purification protocol NEW.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Sld2 purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Sld3 Sld7 purification protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Protein Purification and Labelling Protocols/Superdex Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._1.3kb Template Coupling(10062017).docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._1.3kb Template Coupling.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._20X   TBST.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._3.8kb Circular Template Coupling -10062017.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._5x SDS Loading Buffer for PAGE.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._6x Adam Especial DNA Loading Buffer.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._7.6kb Template Coupling -10062017.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._Bell Binding Buffer protocol.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._Bell lab plate ordering sheet template.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._BellLab_PlateOrder_LYS.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._BellLab_PlateOrder_Ura.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._Colloidal Coomassie Stain.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._Competent Cell Proto.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._Coomassie Brilliant Blue Stain.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._Creatine Kinase stock.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._Dropout Plate Ordering.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._Dropout Plate Ordering_YPD.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._Dropout Plates.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._Lower and Stacking Buffers.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._plate key.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._YPD Plates.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._~$3kb Template Coupling.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/._~$eatine Kinase stock.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/1.3kb Template Coupling(10062017).docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/1.3kb Template Coupling.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/20X   TBST.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/3.8kb Circular Template Coupling -10062017.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/5x SDS Loading Buffer for PAGE.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/6x Adam Especial DNA Loading Buffer.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/7.6kb Template Coupling -10062017.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/Bell Binding Buffer protocol.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/Bell lab plate ordering sheet template.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/BellLab_PlateOrder_LYS.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/BellLab_PlateOrder_Ura.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/Colloidal Coomassie Stain.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/Competent Cell Proto.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/Coomassie Brilliant Blue Stain.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/Creatine Kinase stock.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/Dropout Plate Ordering.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/Dropout Plate Ordering_YPD.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/Dropout Plates.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/LB Amp Plates.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/Lower and Stacking Buffers.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/Making Competent Bacterial Cells (Old).doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/plate key.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Reagents/YPD Plates.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._bioPEG aliquot protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._Brandeis Microscope Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._Coupling Fluorescent dye to LPETGG peptide.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._Coupling Fluroecent dye to LPETGG peptide_OLD.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._Fluorescent peptide preparation.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._HPLC purifying the fluorescently labeled peptide.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._HPLC purifying the fluorescently labeled peptide_Mar19.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._Lab_passwords.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._Making background traces.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._Slide Making.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._Sortase Labeling SD ORC.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._ST Brandeis microscope instructions.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._Streptavidin aliquot protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._~$ Detailed Protocol for Intervals Analysis.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._~$ Mapping and Drift Correction Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._~$ide Making.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._~$rtase Labeling SD ORC.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/._~$upling Fluorescent dye to LPETGG peptide.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/bioPEG aliquot protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/Brandeis Microscope Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/Coupling Fluorescent dye to LPETGG peptide.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/Coupling Fluroecent dye to LPETGG peptide_OLD.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/Fluorescent peptide preparation.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/HPLC purifying the fluorescently labeled peptide.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/HPLC purifying the fluorescently labeled peptide_Mar19.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/Lab_passwords.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/Making background traces.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/Slide Making.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/Sortase Labeling SD ORC.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/ST Brandeis microscope instructions.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Protocols/Single molecule protocols/Streptavidin aliquot protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Purifications_info/Cdc6/Cdc6 Purification - Updated 10-04-17.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Purifications_info/ORC/ORC-FLAG Complex Purification Protocol_modificadopor LEMR.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Purifications_info/Reagents/1.3kb Template Coupling.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Reconstituted Replication Assay _CB.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Removal of Ethidium Bromide from DNA by Extraction with Organic Solvents.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Slide Making.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/SmallscaleYeastMating.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Sortase Labeling SD ORC.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Super High Efficiency Yeast Transformation.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/TBP Purification Protocol.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Tetrad scoring sheet.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Using gatk on command line.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Variant calling and filtering with Samtools and Bcftools.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/VosLab-nucleosome-preparation.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Yeast DNA Isolation v3.6.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Yeast genomic DNA extraction with LiOAc-modified 20180729.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/YeastCulturev1.6.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/Yeast_Chromosomal_DNA_Prep.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Protocols/yeast_lab.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Ramp-up Research Plan LEMR.docx
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Tetrad Dissection Sheet Template.doc
+/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Tetrad scoring sheet.doc
