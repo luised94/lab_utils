@@ -6,18 +6,19 @@
 #SBATCH --exclude=c[5-22]
 #SBATCH --mem-per-cpu=20G # amount of RAM per node#
 #SBATCH --array=1-4%16
-#USAGE: From anywhere, run 'sbatch ~/data/lab_utils/next_generation_sequencing/slurm_003_bt2buildRefGenomes.sh'
-#ALTERNATIVE: node_bt2build_refgenomes.sh was created as a workaround but is unnecessary now. Uses for loop for bowtie2-build. File moved to archive. 
+#USAGE: From anywhere, run 'sbatch ~/data/lab_utils/next_generation_sequencing/test_001_filterFastq.sh <dir>'
+
+DIR_TO_PROCESS="$1"
 
 # Define the log directory
-LOG_DIR="$HOME/data/REFGENS/logs"
+LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 
 # Ensure the log directory exists
 mkdir -p "$LOG_DIR"
 timeid=$(date "+%Y-%m-%d-%M-%S")
 # Construct the file names
-OUT_FILE="${LOG_DIR}/${timeid}_indexing_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
-ERR_FILE="${LOG_DIR}/${timeid}_indexing_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.err"
+OUT_FILE="${LOG_DIR}/${timeid}_filtering_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
+ERR_FILE="${LOG_DIR}/${timeid}_filtering_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.err"
 
 # Redirect stdout and stderr to the respective files
 exec >"$OUT_FILE" 2>"$ERR_FILE"
@@ -28,19 +29,21 @@ echo "SLURM_JOB_ID=${SLURM_JOB_ID}, SLURM_ARRAY_JOB_ID=${SLURM_ARRAY_JOB_ID}, SL
 echo "Started from $(pwd)"
 echo "START TIME: $(date "+%Y-%m-%d-%M-%S")"
 refgenome_dir="$HOME/data/REFGENS"
-echo "Executing from $refgenome_dir"
+echo "Executing from $DIR_TO_PROCESS"
 
 module purge
-module load gnu/5.4.0
-module load bowtie2/2.3.5.1
+module load 
+module load 
 
-mapfile -t genome_paths < <(find "${refgenome_dir}" -type f -name "*_refgenome.fna")
+mapfile -t fastq_paths < <(find "${refgenome_dir}" -type f \( -name "*unmapped*" \) -prune -o -name  "*.fastq")
 
-genome_path=${genome_paths[$SLURM_ARRAY_TASK_ID-1]}
+fastq_path=${genome_paths[$SLURM_ARRAY_TASK_ID-1]}
 
 echo "Starting indexing for $genome_path"
 #Confirmed bowtie2-build works
-bowtie2-build $genome_path "${genome_path%_refgenome.fna}_index"
+#bowtie2-build $fastq_path "${fastq_path%.fastq}_processed.fastq"
+fastp -i in1.fastq  -o out1.fastq --qualified_quality_phred 20 --unqualified_percent_limit 50
 
 echo "Indexing completed"
 echo "END TIME: $(date "+%Y-%m-%d-%M-%S")"
+
