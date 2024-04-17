@@ -4,9 +4,11 @@
 #SBATCH --mail-type=ALL # Type of email notification- BEGIN,END,FAIL,ALL. Equivalent to the -m option in SGE
 #SBATCH --mail-user=luised94@mit.edu  # Email to which notifications will be sent. Equivalent to the -M option in SGE.
 #SBATCH --exclude=c[5-22]
-#SBATCH --mem-per-cpu=20G # amount of RAM per node#
-#SBATCH --array=1-98%16
-#USAGE: First, determine this by running the INITIALIZE_ARRAY and multiplying by number of genomes, modify the array number. Then, from anywhere, run 'sbatch ~/data/lab_utils/next_generation_sequencing/test_002_alignFastq.sh <dir>'
+#SBATCH --mem-per-cpu=50G # amount of RAM per node
+#SBATCH --cpus-per-task=4
+#SBATCH --array=1-392%16
+#SBATCH --nice=10000
+#USAGE: First, determine this by running the INITIALIZE_ARRAY and multiplying by number of genomes, modify the array number. For test, leave at 1-2 to test array creation. Then, from anywhere, run 'sbatch ~/data/lab_utils/next_generation_sequencing/test_002_alignFastq.sh <dir>'
 #SETUP
 DIR_TO_PROCESS="$1"
 
@@ -30,29 +32,43 @@ echo "Started from $(pwd)"
 echo "START TIME: $(date "+%Y-%m-%d-%M-%S")"
 DIR_TO_PROCESS="$HOME/data/$DIR_TO_PROCESS"
 echo "Executing for $DIR_TO_PROCESS"
+REFGENOME_DIR="$HOME/data/REFGENS"
 
 #MODULE_LOAD
 module purge
-module load fastp/0.20.0
+module load bowtie2/2.3.5.1
+module load samtools/1.10
 
 #INITIALIZE_ARRAY
 mapfile -t fastq_paths < <(find "${DIR_TO_PROCESS}" -type f -name "processed_*.fastq" )
+mapfile -t genomes_paths < <(find "${REFGENOME_DIR}" -type f -name "*_refgenome.fna")
 
 #INPUT_OUTPUT
-fastq_path=${fastq_paths[$SLURM_ARRAY_TASK_ID-1]}
-output_path=$(echo "$fastq_path" | cut -d/ -f7 | xargs -I {} echo "${DIR_TO_PROCESS}processed-fastq/processed_{}")
-json_path=$(echo "$fastq_path" | cut -d/ -f7 | xargs -I {} echo "${DIR_TO_PROCESS}logs/processed_{}")
-#LOG
-echo "Starting fitering"
-echo "FASTQ_FILE: $fastq_path"
-echo "OUTPUT_FILE: $output_path"
+#fastq_path=${fastq_paths[$SLURM_ARRAY_TASK_ID-1]}
+#output_path=$(echo "$fastq_path" | cut -d/ -f7 | xargs -I {} echo "${DIR_TO_PROCESS}processed-fastq/processed_{}")
 
-#Confirmed fastp works from node using example file
+#LOG
+# Perform indexing by getting quotient and remainder
+GENOME_INDEX=$(( ($SLURM_ARRAY_TASK_ID - 1) / ${#fastq_paths[@]}))
+FASTQ_INDEX=$(( ($SLURM_ARRAY_TASK_ID - 1)  % ${#fastq_paths[@]}))
+echo "Processing ${GENOME_INDEX} and ${FASTQ_INDEX}"
+
+#Get names for output
+fastq_ID=$(echo "${fastq_paths[$fastq_index]}" | cut -d_ -f3 )
+genome_name=$( echo "${genomes_paths[$genome_index]}" | cut -d_ -f1 | rev | cut -d/ -f1 | rev )
+echo "$(basename $fastq_ID) | $(basename $genome_name)"
+
+echo "Starting fitering"
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
-fastp -i "${fastq_path}"  -o "${output_path}" --json "${json_path%.fastq}.json" --html /dev/null --cut_window_size 4 --cut_mean_quality 20 --n_base_limit 5 --average_qual 20 --length_required 50 --qualified_quality_phred 20 --unqualified_percent_limit 50
+#bowtie2 [options]* -x <bt2-idx> {-1 <m1> -2 <m2> | -U <r> | --interleaved <i> | -b <bam>} [-S <sam>]
+bowtie2 -x ${genomes_paths[$GENOME_INDEX]%_refgenome.fna}_index -U ${fastq_paths[$FASTQ_INDEX]} -p $SLURM_CPUS_PER_TASK -q --mp 4 --met-stderr - |
+samtools view -@ ${SLURM_CPUS_PER_TASK} -bS |
+samtools sort -@ ${SLURM_CPUS_PER_TASK} -o ${DIR_TO_PROCESS}alignment/${fastq_ID}_${genome_name}.bam 
+
+samtools index ${DIR_TO_PROCESS}alignment/${fastq_ID}_${genome_name}.bam
 
 #LOG
 echo "COMMAND_OUTPUT_END"
-echo "Filtering completed"
+echo "Aligning completed"
 echo "END TIME: $(date "+%Y-%m-%d-%M-%S")"
