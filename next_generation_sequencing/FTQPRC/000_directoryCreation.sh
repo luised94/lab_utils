@@ -7,6 +7,6 @@ mapfile -t bel_dirs < <(find "$data_dir" -maxdepth 1 -type d -name "*Bel*")
 
 for dir in "${bel_dirs[@]}"; do
   echo "Creating subdirs for $dir"	
-  mkdir -p "$dir"/{peak,alignment,fastqc,processed-fastq,bw,plots,logs}
+  mkdir -p "$dir"/{peak,alignment,qualityControl,processed-fastq,bw,plots,logs}
 done
 

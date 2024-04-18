@@ -49,12 +49,14 @@ mapfile -t BAM_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*.bam" )
 
 #LOG
 
-echo "Starting alignment"
+echo "Starting quality control check"
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
 fastqc 
-samtools flagstat 
+#samtools flagstat -O tsv ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]}
+#samtools quickcheck ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} && echo 'QUICKCHECK AllOK' || echo 'QUICKCHECK FAIL'
+#samtools stats ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} > samstats.txt
 #LOG
 echo "COMMAND_OUTPUT_END"
-echo "Aligning completed"
+echo "Quality control check completed"
 echo "END TIME: $(date "+%Y-%m-%d-%M-%S")"
