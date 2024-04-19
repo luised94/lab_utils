@@ -6,7 +6,7 @@
 #SBATCH --exclude=c[5-22] #Required by MIT
 #SBATCH --mem-per-cpu=50G # amount of RAM per node
 #SBATCH --cpus-per-task=4
-#SBATCH --array=1-4%16 # Required %16 to limit number of tasks created to 16 for resource management purposes.
+#SBATCH --array=1-392%16 # Required %16 to limit number of tasks created to 16 for resource management purposes. Needs to be calculated before hand. TODO: Write wrapper script to dynamically calculate taks number.:w
 #SBATCH --nice=10000 #Required by MIT
 #USAGE: First, determine this by running the INITIALIZE_ARRAY and multiplying by number of genomes, modify the array number. For test, leave at 1-2 to test array creation. Then, from anywhere, run 'sbatch ~/data/lab_utils/next_generation_sequencing/slurm_002_alignFastq.sh <dir>'
 #SETUP
@@ -56,7 +56,7 @@ echo "Starting coverage output"
 echo "COMMAND_OUTPUT_START"
 OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"$(echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]%.bam}.bw | cut -d/ -f7)"
 
-echo "bamCoverage -b ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} -o ${OUTPUT_FILE} --binSize 10 --normalizeUsing RPKM"
+bamCoverage -b ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} -o ${OUTPUT_FILE} --binSize 10 --normalizeUsing RPKM
 
 #LOG
 echo "COMMAND_OUTPUT_END"

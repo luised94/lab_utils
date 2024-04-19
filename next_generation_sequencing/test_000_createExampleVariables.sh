@@ -14,7 +14,8 @@ module load gnu/5.4.0
 module load bowtie2/2.3.5.1
 module load samtools/1.10
 module load fastqc
-
+module load python/2.7.13
+module load deeptools/3.0.1
 #INITIALIZE_ARRAY
 mapfile -t FASTQ_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "processed_*.fastq" )
 mapfile -t GENOME_PATHS < <(find "${REFGENOME_DIR}" -type f -name "*_refgenome.fna")
