@@ -117,6 +117,46 @@ Extra code and chunks to confirm how functions works ----
 # levels(aln[[1]]$rname)[!grepl("chrM", levels(aln[[1]]$rname))] == sacCer3_df$chrom
 
 
+#Reads in using Rsamtools functions a bam file by chunking through the chromosomes
+#Provide chromosome name and chromosome size
+#Can modify the ScanBamParam to read other ways
+bamReadPosAndQwidthByChromToRle <- function(chrom_name, bam_file, chromosome_size, ...)
+{
+  #Commented message used for diagnostic purposes
+  #print(paste("Scanning", chrom_name, "Length is", chromosome_size, sep = " "))
+  #Define parameters to read. See SAM manual for details. POS is first position. QWidth is length of read essentially
+  param <- ScanBamParam(
+    what = c('pos', 'qwidth'),
+    which = GRanges(chrom_name, IRanges(1, chromosome_size)),
+    flag = scanBamFlag(isUnmappedQuery = FALSE)
+  )
+  #Read in the bam file according to param
+  x <- scanBam(bam_file, ..., param = param)[[1]]
+  #Get coverage of an IRanges object constructed using  pos and width
+  coverage(IRanges(x[["pos"]], width = x[["qwidth"]]))
+}
+
+
+
+assignChrTracks <- function(genome_df, index_, feature_df, range_){
+  assign(genome_df$gr_var[index_], GRanges(seqnames=genome_df$chrom[index_], ranges = IRanges(start= 1, end = genome_df$size[index_]), strand = "*"), envir = .GlobalEnv)
+  assign(genome_df$chr_df[index_], feature_df %>% filter(Chromosome == index_) %>% data.frame(), envir = .GlobalEnv)
+  start <- get(genome_df$chr_df[index_]) %>% .$Position - range_
+  end <- get(genome_df$chr_df[index_]) %>% .$Position + range_
+  assign(genome_df$origin_gr_var[index_], GRanges(seqnames = genome_df$chrom[index_], ranges = IRanges(start = start, end = end), strand = "*"), envir = .GlobalEnv)
+  assign(genome_df$origin_track_var[index_], AnnotationTrack(get(genome_df$origin_gr_var[index_]), name=paste(sacCer3_df$chrom[index_], "Origins", sep = " ")), envir = .GlobalEnv)
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 
