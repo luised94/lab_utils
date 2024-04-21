@@ -1,3 +1,90 @@
+nstall.packages(c("tidyverse", "stringr","R.utils"), lib.loc = "/home/luised94/R/x86_64-pc-linux-gnu-library/4.2")
+
+bPaths( c( "/home/luised94/R/x86_64-pc-linux-gnu-library/4.2", .libPaths() ) )
+
+.libPaths()
+
+library(tidyverse, lib.loc = "/home/luised94/R/x86_64-pc-linux-gnu-library/4.2")
+library(stringr, lib.loc = "/home/luised94/R/x86_64-pc-linux-gnu-library/4.2")
+
+#Create the variables that will be assign the directory locations
+#Some processing has to be done based on how they were created. Remove ./data/, -files and replace and - with _
+dir_variables <- paste(paste(stringr::str_replace(stringr::str_replace(list.dirs(data_folder, recursive = FALSE), pattern = "./data/", replace = ""), pattern = "-files", replace=""), "_directory", sep = ""))
+dir_variables <- stringr::str_replace(dir_variables, pattern = "-", "_")
+#Create the data frame to iterate through
+dir_df <- data.frame(names = dir_names, variables = dir_variables)
+
+#Initialize file extensions in same order as dir_variables based on initial script
+file_extension <- c(".bam", ".bw", ".fastq", ".html", ".fasta", ".bed", ".fastq")
+
+if (!all(unlist(lapply(dir_variables, exists)))) {
+
+  dir_list <- c()
+  for (i in 1:length(dir_df$names)){
+
+    folder_variable <- paste(data_folder, dir_df$names[i], sep = "")
+    assign(dir_df$variables[i], folder_variable)
+    dir_list <- append(dir_list, folder_variable)
+  }
+
+  print("Directory variables created.")
+
+} else {
+
+  print("All variables assigned.")
+}
+
+_folder <- "./data"
+dir_names <- stringr::str_replace(list.dirs(data_folder, recursive = FALSE), pattern = data_folder, replace = "")
+
+# TODO Dont think I need to do all this variable assignment and I aslo included some a lot of if statements to prevent rerunning some code which got pretty crazy. Just really need to run code once. 
+# Create environment directory structures for different analysis. 
+# Lots of unused code in comment as well. 
+
+#Obtain the sample name for each fastq file
+sample_name <- str_replace(basename(fastq_file_list), pattern = paste(".", tools::file_ext(fastq_file_list), sep = ""), replacement = "")
+
+#Create the dataframe that has all paths required to preprocessing and alignment.
+sample_paths_df <- mapply(function(dir_, ext_){
+  #Create the name for each file depending on the folder it will be outputted to.
+  if (grepl("processed", dir_)){
+    paste(dir_, paste("processed_", basename(sample_name), ext_, sep = ""), sep = "/")
+  } else if (!grepl("genome|fastqc", dir_)){
+    paste(dir_, paste(basename(sample_name), ext_, sep = ""), sep = "/")
+  } else {
+  }
+}, dir_list, file_extension) %>% discard(is.null) %>% data.frame(sample_names = sample_name, original_file = fastq_file_list, .)
+dim(sample_paths_df)
+#Add the variables that can be used to assign different data types
+sample_paths_df <- sample_paths_df %>% mutate(fq_var = paste(sample_names, "_fq", sep = ""),
+                                              bw_var = paste(sample_names, "_bw", sep = ""),
+                                              track_var = paste(sample_names, "_track", sep = ""))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #Load packages using through a list of strings and suppress the messages, return a TRUE if loading was succesful
 package_list <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead")
 package_was_loaded <- unlist(
@@ -113,76 +200,11 @@ if(grepl("Windows", osVersion)){
   source("../rscripts/ngs-functions.R")
 }
 
+# BASH_SECTION
+Rcript -e 'source("/home/luised94/data/rscripts/3-assign-directory-variables.r")'
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-genome_file_path <- paste(genome_directory[1], "sacCer3.fasta", sep = "/")
+genome_file_pathgg- paste(genome_directory[1], "sacCer3.fasta", sep = "/")
 sacCer3 <- readFasta(genome_file_path)
 # names(as(sacCer3, "DNAStringSet"))
 # width(sacCer3)
@@ -218,84 +240,29 @@ print(paste("Bigwig Files created. Time Elasped (in mins)", difftime(start_time,
 tq_info <- read.delim("../rscripts/fastq_info.txt", header = TRUE) %>% arrange(sname)
 }
 
-fastq_info <- bind_cols(fastq_info, sample_paths_df)
-
-reate GRanges object to read in a particular chromosome
-chrXIV.gr <- GRanges(seqnames=c(sacCer3_df$chrom[14]), ranges = IRanges(start = 100000, end = sacCer3_df$size[14]), strand = "*")
-
-#Create genome axis to display
-all_tracks <- list(GenomeAxisTrack())
-
-#Assign Tracks of interest
-#Can use index or file name to subset the dataframe Wnani,WnayV,nnNnH
-files_to_visualize <- c("WnNyV", "nnNnH","Wnani")
-subset_df <- fastq_info %>% filter(sname %in% files_to_visualize)
 
 
 
-#Assign tracks using mapply and sample dataframe. May add rm to get rid of bw_variable if it is too large
-#Does not return bw_variables
-all_tracks <-append(all_tracks, value = mapply(function(bw_con, bw_variable, track_variable, track_name){
-  assign(bw_variable,  import(con = bw_con, which = chrXIV.gr))
-  assign(track_variable, DataTrack(get(bw_variable), type = "l", name = track_name, chromosome = "chrXIV"))
-}, bw_con = subset_df$..data.bw.files, bw_variable = subset_df$bw_var, track_variable =  subset_df$track_var, track_name = subset_df$sample_names)
-)
+utputfiles=(WT-G2-ORC-rep1.fastq.gz WT-G2-ORC-rep2.fastq.gz)
+websites=(ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR034/SRR034475/SRR034475.fastq.gz ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR034/SRR034476/SRR034476.fastq.gz)
 
-Extra code and chunks to confirm how functions works ----
-# #Create the bigwig coverage files for all the bam files. Uses dataframe that holds paths to all the different files
-#This works for toy data
-# mapply(function(bam_files, bw_connection){
-#   alns <- readGAlignments(bam_files)
-#   covs <- coverage(alns)
-#   export.bw(con = bw_connection,
-#             object = covs,
-#             format = "bw")
-# }, bam_files = sample_paths_df$sorted_bam, bw_connection = sample_paths_df$..data.bw.files)
+COUNTER=0
+for file in ${outputfiles[@]};
+do
+  echo $file
+  echo $COUNTER
+  echo ${websites[COUNTER]}
+  wget --output-document=$file ${websites[COUNTER]}
+  cat $file >> nnNnH.fastq.gz
+  rm $file
+  let COUNTER++
+done
 
-#Export function from rtracklayer package overwrites by default
-# export.bw(con = sample_paths_df$..data.bw.files[1],
-#           object = RleList(cvg1),
-#           format = "bw")
-
-
-# #Establishes connection
-# BamFile(sample_paths_df$sorted_bam[1])
-# #Reads in the alignment file according to param argument, pass BamFile object.
-# scanBam(sample_paths_df$sorted_bam[1])
-
-#Confirm that levels where same for bam files and sacCer3
-# levels(aln[[1]]$rname)[!grepl("chrM", levels(aln[[1]]$rname))] == sacCer3_df$chrom
-
-
-#Reads in using Rsamtools functions a bam file by chunking through the chromosomes
-#Provide chromosome name and chromosome size
-#Can modify the ScanBamParam to read other ways
-bamReadPosAndQwidthByChromToRle <- function(chrom_name, bam_file, chromosome_size, ...)
-{
-  #Commented message used for diagnostic purposes
-  #print(paste("Scanning", chrom_name, "Length is", chromosome_size, sep = " "))
-  #Define parameters to read. See SAM manual for details. POS is first position. QWidth is length of read essentially
-  param <- ScanBamParam(
-    what = c('pos', 'qwidth'),
-    which = GRanges(chrom_name, IRanges(1, chromosome_size)),
-    flag = scanBamFlag(isUnmappedQuery = FALSE)
-  )
-  #Read in the bam file according to param
-  x <- scanBam(bam_file, ..., param = param)[[1]]
-  #Get coverage of an IRanges object constructed using  pos and width
-  coverage(IRanges(x[["pos"]], width = x[["qwidth"]]))
-}
-
-
-
-assignChrTracks <- function(genome_df, index_, feature_df, range_){
-  assign(genome_df$gr_var[index_], GRanges(seqnames=genome_df$chrom[index_], ranges = IRanges(start= 1, end = genome_df$size[index_]), strand = "*"), envir = .GlobalEnv)
-  assign(genome_df$chr_df[index_], feature_df %>% filter(Chromosome == index_) %>% data.frame(), envir = .GlobalEnv)
-  start <- get(genome_df$chr_df[index_]) %>% .$Position - range_
-  end <- get(genome_df$chr_df[index_]) %>% .$Position + range_
-  assign(genome_df$origin_gr_var[index_], GRanges(seqnames = genome_df$chrom[index_], ranges = IRanges(start = start, end = end), strand = "*"), envir = .GlobalEnv)
-  assign(genome_df$origin_track_var[index_], AnnotationTrack(get(genome_df$origin_gr_var[index_]), name=paste(sacCer3_df$chrom[index_], "Origins", sep = " ")), envir = .GlobalEnv)
-}
+# #Check that file is right size
+# ls -l --block-size=M
+#Do this after files have been renamed
+gunzip nnNnH.fastq.gz
+#cat 221024Bel_CHIP.txt | sed s/"    "/""/g | sed s/":"/""/g | sed s/"  "/" "/g | sed s/" "/"\t"/g
 
 
 
@@ -306,27 +273,4 @@ assignChrTracks <- function(genome_df, index_, feature_df, range_){
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#### BASH END
