@@ -15,7 +15,7 @@ I have separated it into dates.
 - Installed all packages in 1-package-installation.r. I am reworking this file so I will just have to remember to document installed and used pakcages.
 - Was able to replace most the initial part of the pipeline with bash instead of R. 
 - Copied rsync files from previous code collecition  because it had useful parts to extract.
-
+- Finally went through old code collection for bioinformatics analysis. 
 # TODO
 
 1. MED- See Random R questions thread to create a list of packages that have been used and document use in scripts.

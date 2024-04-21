@@ -65,25 +65,168 @@ sample_paths_df <- sample_paths_df %>% mutate(fq_var = paste(sample_names, "_fq"
 
 
 
+svg(paste("./reports/plots-files/", underscoreDate(), "_Quick_comparison_of_eaton_and_V5_at_Noc", ".svg", sep = ""))
+plotTracks(all_tracks, main = "Complete View of Chromosome 14", chromosome = "chrXIV")
+dev.off()
+
+
+reate GRanges object to read in a particular chromosome
+chrXIV.gr <- GRanges(seqnames=c(sacCer3_df$chrom[14]), ranges = IRanges(start = 100000, end = sacCer3_df$size[14]), strand = "*")
+
+#Create genome axis to display
+all_tracks <- list(GenomeAxisTrack())
+
+
+ll_tracks <-append(all_tracks, value = mapply(function(bw_con, bw_variable, track_variable, track_name){
+  assign(bw_variable,  import(con = bw_con, which = chrXIV.gr))
+  assign(track_variable, DataTrack(get(bw_variable), type = "l", name = track_name, chromosome = "chrXIV"))
+}, bw_con = subset_df$..data.bw.files, bw_variable = subset_df$bw_var, track_variable =  subset_df$track_var, track_name = subset_df$sample_names)
+)
+
+fastq_ids <- fastq_ids %>% mutate(sname = str_c(str_sub(complement,1,1), str_sub(suppressor,1,1),str_sub(cellcycle,1,1),str_sub(auxin,1,1),str_sub(antibody,1,1)))
+
+#Condition that determines if sample is
+is_input <- fastq_ids$antibody == 'input'
+
+#Conditions that determine if sample is negative control
+is_negative<- (fastq_ids$antibody == 'V5' & fastq_ids$complement == 'none') |
+  (fastq_ids$antibody == 'Myc' & fastq_ids$auxin == 'yes') |
+  (fastq_ids$antibody == 'UM174' & fastq_ids$cellcycle == 'Noc') |
+  (fastq_ids$antibody == 'UM174' & fastq_ids$complement == 'none' & fastq_ids$auxin == 'yes')
+
+#Creating a factor vector depending on the conditions.
+fastq_ids$Sample_type <-  factor(case_when(is_input ~ 'input',
+                 is_negative ~ 'negative',
+                 TRUE ~ 'experiment'))
+factor(case_when(as.numeric(rownames(fastq_ids)) <= 24 ~ 'A',
+                 as.numeric(rownames(fastq_ids)) > 24 ~ 'B'))
+
+fastq_ids <- fastq_ids %>% mutate(Pool = factor(case_when(as.numeric(rownames(fastq_ids)) <= 24 ~ 'A',
+                                          as.numeric(rownames(fastq_ids)) > 24 ~ 'B')))
+
+hawkins_timing_url <- "https://ars.els-cdn.com/content/image/1-s2.0-S2211124713005834-mmc2.xlsx"
+hawkins_timing <- paste(feature_folder, "hawkins-origins-timing.xlsx", sep = "/")
+if (!file.exists(hawkins_timing)){
+  curl_download(hawkins_timing_url,
+                hawkins_timing)
+
+  print(paste(hawkins_timing, "file downloaded"))
+} else {
+  print(paste(hawkins_timing, "file exists"))
+}
+
+#Download called peaks for ORC in nocodazole from https://pubmed.ncbi.nlm.nih.gov/20351051/
+eaton_orc_bed_url <- "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM424nnn/GSM424494/suppl/GSM424494_wt_G2_orc_chip_combined.bed.gz"
+eaton_orc_bed <- paste(feature_folder, "G2_orc_chip.bed.gz", sep = "/")
+if (!file.exists(eaton_orc_bed)){
+  curl_download(eaton_orc_bed_url,
+                eaton_orc_bed)
+  gunzip(eaton_orc_bed)
+  print(paste(eaton_orc_bed, "file downloaded and extracted"))
+} else {
+  print(paste(eaton_orc_bed, "file exists"))
+}
+
+eset all_tracks variable just in case. Add GenomeAxisTrack at top
+  all_tracks <- list(GenomeAxisTrack(name=paste("Chr ", chr_num, " Axis", sep = "")))
+
+  #Assign tracks using mapply and sample dataframe in order of subset dataframe. May add rm to get rid of bw_variable if it is too large
+  #Append to all tracks the result of mapply. Assigns bigwig variable subset by chromosome and creates track variable
+  all_tracks <-append(all_tracks, value = mapply(function(bw_con, bw_variable, track_variable, track_name){
+    # print(bw_con)
+    assign(bw_variable,  import(con = bw_con, which = get(sacCer3_df$gr_var[chr_num])))
+    assign(track_variable, DataTrack(get(bw_variable), type = "l", name = track_name, ylim = c(0, 2000)))
+  }, bw_con = subset_df$..data.bw.files, bw_variable = subset_df$bw_var, track_variable =  subset_df$track_var, track_name = subset_df$sample_names)
+  )
+
+  #Add origin track at the end so that it shows up below the tracks.
+  all_tracks <- append(all_tracks, get(sacCer3_df$origin_track_var[chr_num])
+
+
+#Define files that I want to load
+annofile_extension <- c("*.bed", "*.gff3", "*.xls", "*.tab")
+
+#Create list, find files in feature_folder that contain annotations of interest
+feature_files <- c()
+for (extension in 1:length(annofile_extension)){
+  feature_files<- c(feature_files,
+                    list.files(feature_folder, pattern = annofile_extension[extension]))
+}
 
 
 
 
 
 
+  if (grepl("xls|xlsx", tools::file_ext(filepath))){
+    assign(df_names[i], readxl::read_excel(filepath))
+    if(df_names[i] == "timing"){
+      assign(df_names[i], get(df_names[i]) %>% as.data.frame() %>% dplyr::select(1:7) %>% filter(!is.na(Chromosome)))
+    }
+
+  } else if(tools::file_ext(filepath) == "bed"){
+    assign(df_names[i], readBed(filepath))
+    print(seqlevelsStyle(eval(parse(text = df_names[i]))))
+
+  } else if(tools::file_ext(filepath) == "gff3"){
+    assign(df_names[i], toGRanges(makeTxDbFromGFF(filepath), format = 'gene'))
+    print(seqlevelsStyle(eval(parse(text = df_names[i]))))
+
+  } else if(tools::file_ext(filepath) == "tab"){
+    assign(df_names[i], read.delim(filepath, header = FALSE))
+    if(df_names[i] == "SGD_features"){
+      assign(df_names[i], get(df_names[i]) %>% as.data.frame() %>% dplyr::select(c(9,10,11,12,2,4,5)))
+    }
+  }
+}
+
+#Prepare the sacCer3 dataframe with the information to assign necessary variables for reading in track/bigwig data ----
+sacCer3_df <- sacCer3_df %>% mutate(gr_var = paste(chrom, "_gr", sep = ""),
+                                    bw_var = paste(chrom, "_bw", sep = ""),
+                                    track_var = paste(chrom, "_track", sep = ""),
+                                    origin_gr_var = paste("origin_", chrom, "_track", sep = ""),
+                                    chr_df= paste(chrom, "_df",sep = ""),
+                                    origin_track_var = paste("origin_", chrom, "_track",sep = ""))
 
 
+#Get the files with the info to repeat the plots already made.
+library(stringr)
+plot_input_files <- list.files(plot_folder, pattern = ".txt", full.names = TRUE)[grepl(file_id, list.files(plot_folder, pattern = ".txt"))]
+plot_input <- lapply(plot_input_files, function(file_names){
+  as.data.frame(read.table(file_names, header = TRUE, sep = "\t"))
+})
+plot_input <- bind_rows(plot_input)
+plot_input <- plot_input %>% distinct(plot_names, .keep_all = TRUE)
+
+#Process the set_of_file to turn into column of lists.
+set_of_files_lists <- str_split(str_replace_all(plot_input$set_of_file, pattern = "c|\\(|\\)|,", replacement = ""), pattern = " ")
+plot_input$set_of_files <- I(set_of_files_lists)
+
+plots_to_generate <- plot_input
+plots_to_generate$chromosome_for_plot <- rep(chromosome_number, length(plots_to_generate$set_of_files))
+
+fastq_ids <- read.table("../rscripts/fastq_info.txt") #or add an extra ../ depending on current working dir. Most scripts will be set relative to 221024Bel_CHIP
+knitr::kable(fastq_ids)
+#Obtain files that will be renamed
+fastq_files_to_rename <- list.files(path ='.', pattern = "*.fastq$", recursive = TRUE, full.names = TRUE)[!grepl("unmapped", list.files(path ='.', pattern = "*.fastq$", recursive = TRUE))]
+print(fastq_files_to_rename)
+#Subset the dataframe. I think it was recycling the TRUE values
+bmc_ids <- fastq_ids[!grepl("nnNnH", fastq_ids$sname),]
+prefix <- './data/fastq-files/'
+grepl()
 
 
+for (i in 1:length(fastq_files_to_rename)) {
+  correct_name <- bmc_ids$sname[as.logical(na.omit(unlist(lapply(bmc_ids$BMC_ID2, grepl, x = fastq_files_to_rename[i]))))]
 
 
-
-
-
-
-
-
-
+MAX <- -Inf
+for (track in 1:length(all_tracks)) {
+  if(class(all_tracks[[track]]) != "GenomeAxisTrack"){
+    if(max(all_tracks[track][[1]]@data) > MAX) MAX <- max(all_tracks[track][[1]]@data)
+  }
+}
+plotTracks(all_tracks, main = "Complete View of Chromosome 14", chromosome = "chrXIV", ylim = c(0, MAX * 1.20))
 
 #Load packages using through a list of strings and suppress the messages, return a TRUE if loading was succesful
 package_list <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead")
@@ -263,14 +406,5 @@ done
 #Do this after files have been renamed
 gunzip nnNnH.fastq.gz
 #cat 221024Bel_CHIP.txt | sed s/"    "/""/g | sed s/":"/""/g | sed s/"  "/" "/g | sed s/" "/"\t"/g
-
-
-
-
-
-
-
-
-
 
 #### BASH END
