@@ -343,8 +343,8 @@ if(grepl("Windows", osVersion)){
   source("../rscripts/ngs-functions.R")
 }
 
-# BASH_SECTION
-Rcript -e 'source("/home/luised94/data/rscripts/3-assign-directory-variables.r")'
+
+
 
 
 genome_file_pathgg- paste(genome_directory[1], "sacCer3.fasta", sep = "/")
@@ -382,3 +382,6 @@ print(paste("Bigwig Files created. Time Elasped (in mins)", difftime(start_time,
 # Info was read using read.delim
 tq_info <- read.delim("../rscripts/fastq_info.txt", header = TRUE) %>% arrange(sname)
 }
+
+# BASH_SECTION
+ #Rcript -e 'source("/home/luised94/data/rscripts/3-assign-directory-variables.r")'
