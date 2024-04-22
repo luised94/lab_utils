@@ -1,11 +1,72 @@
-nstall.packages(c("tidyverse", "stringr","R.utils"), lib.loc = "/home/luised94/R/x86_64-pc-linux-gnu-library/4.2")
+#Load packages using through a list of strings and suppress the messages, return a TRUE if loading was succesful
+package_list <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead", "tidyverse")
+package_was_loaded <- unlist(
+    suppressPackageStartupMessages(
+        lapply(
+            package_list, 
+	    library, 
+    	    character.only = TRUE, 
+            logical.return=TRUE, 
+	    quietly = TRUE
+    )
+  )
+)
 
-bPaths( c( "/home/luised94/R/x86_64-pc-linux-gnu-library/4.2", .libPaths() ) )
+#Determine which packages were not loaded, print all packages loaded or which packages were not loaded. 
+packages_not_loaded <- package_list[!package_was_loaded]
+if (length(packages_not_loaded) == 0) {
+    print("All packages loaded.")
+} else {
+  lapply(
+    packages_not_loaded,
+    function(x) { 
+      message <- paste(x, "Package did not install") 
+      print(message)
+    }
+  )
+}
 
-.libPaths()
+# Read in samples dataframe
+working_directory <- paste(Sys.getenv("HOME"), "data", "240304Bel", sep ="/")
+documentation_dir <- paste(working_directory, "documentation", sep ="/")
+path_to_sample_info <- list.files(documentation_dir, pattern = "table", full.names = TRUE)
+df_sample_info <- as.data.frame(read.csv(path_to_sample_info, 
+				header = TRUE)
+		  )
 
-library(tidyverse, lib.loc = "/home/luised94/R/x86_64-pc-linux-gnu-library/4.2")
-library(stringr, lib.loc = "/home/luised94/R/x86_64-pc-linux-gnu-library/4.2")
+directory_of_refgenomes <- paste(Sys.getenv("HOME"), "data", "REFGENS", sep = "/")
+# Create variables
+
+genome_file_path <- list.files(directory_of_refgenomes, pattern = "S288C_refgenome.fna", full.names = TRUE, recursive = TRUE)
+sacCer_refGenome <- readFasta(genome_file_path)
+sacCer_refGenome <- data.frame(chrom = names(as(sacCer_refGenome, "DNAStringSet")), 
+			       size = width(sacCer_refGenome)) %>% filter(chrom != "chrM")
+
+#Create GRanges object to read in a particular chromosome
+chromosome_to_plot <- 14
+chrXIV.gr <- GRanges(seqnames=c(sacCer_refGenome$chrom[chromosome_to_plot]), ranges = IRanges(start = 100000, end = sacCer_refGenome$size)[chromosome_to_plot], strand = "*")
+
+
+### TESTED SO FAR
+# Create the track object
+
+
+
+# Plotting and saving the track 
+
+MAX <- -Inf
+for (track in 1:length(all_tracks)) {
+  if(class(all_tracks[[track]]) != "GenomeAxisTrack"){
+    if(max(all_tracks[track][[1]]@data) > MAX) MAX <- max(all_tracks[track][[1]]@data)
+  }
+}
+plotTracks(all_tracks, main = "Complete View of Chromosome 14", chromosome = "chrXIV", ylim = c(0, MAX * 1.20))
+
+
+svg(paste("./reports/plots-files/", underscoreDate(), "_Quick_comparison_of_eaton_and_V5_at_Noc", ".svg", sep = ""))
+plotTracks(all_tracks, main = "Complete View of Chromosome 14", chromosome = "chrXIV")
+dev.off()
+
 
 #Create the variables that will be assign the directory locations
 #Some processing has to be done based on how they were created. Remove ./data/, -files and replace and - with _
@@ -61,18 +122,6 @@ sample_paths_df <- sample_paths_df %>% mutate(fq_var = paste(sample_names, "_fq"
                                               track_var = paste(sample_names, "_track", sep = ""))
 
 
-
-
-
-
-svg(paste("./reports/plots-files/", underscoreDate(), "_Quick_comparison_of_eaton_and_V5_at_Noc", ".svg", sep = ""))
-plotTracks(all_tracks, main = "Complete View of Chromosome 14", chromosome = "chrXIV")
-dev.off()
-
-
-reate GRanges object to read in a particular chromosome
-chrXIV.gr <- GRanges(seqnames=c(sacCer3_df$chrom[14]), ranges = IRanges(start = 100000, end = sacCer3_df$size[14]), strand = "*")
-
 #Create genome axis to display
 all_tracks <- list(GenomeAxisTrack())
 
@@ -115,18 +164,6 @@ if (!file.exists(hawkins_timing)){
   print(paste(hawkins_timing, "file exists"))
 }
 
-#Download called peaks for ORC in nocodazole from https://pubmed.ncbi.nlm.nih.gov/20351051/
-eaton_orc_bed_url <- "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM424nnn/GSM424494/suppl/GSM424494_wt_G2_orc_chip_combined.bed.gz"
-eaton_orc_bed <- paste(feature_folder, "G2_orc_chip.bed.gz", sep = "/")
-if (!file.exists(eaton_orc_bed)){
-  curl_download(eaton_orc_bed_url,
-                eaton_orc_bed)
-  gunzip(eaton_orc_bed)
-  print(paste(eaton_orc_bed, "file downloaded and extracted"))
-} else {
-  print(paste(eaton_orc_bed, "file exists"))
-}
-
 eset all_tracks variable just in case. Add GenomeAxisTrack at top
   all_tracks <- list(GenomeAxisTrack(name=paste("Chr ", chr_num, " Axis", sep = "")))
 
@@ -134,13 +171,13 @@ eset all_tracks variable just in case. Add GenomeAxisTrack at top
   #Append to all tracks the result of mapply. Assigns bigwig variable subset by chromosome and creates track variable
   all_tracks <-append(all_tracks, value = mapply(function(bw_con, bw_variable, track_variable, track_name){
     # print(bw_con)
-    assign(bw_variable,  import(con = bw_con, which = get(sacCer3_df$gr_var[chr_num])))
+    assign(bw_variable,  import(con = bw_con, which = get(sacCer_refGenome_df$gr_var[chr_num])))
     assign(track_variable, DataTrack(get(bw_variable), type = "l", name = track_name, ylim = c(0, 2000)))
   }, bw_con = subset_df$..data.bw.files, bw_variable = subset_df$bw_var, track_variable =  subset_df$track_var, track_name = subset_df$sample_names)
   )
 
   #Add origin track at the end so that it shows up below the tracks.
-  all_tracks <- append(all_tracks, get(sacCer3_df$origin_track_var[chr_num])
+  all_tracks <- append(all_tracks, get(sacCer_refGenome_df$origin_track_var[chr_num])
 
 
 #Define files that I want to load
@@ -180,8 +217,8 @@ for (extension in 1:length(annofile_extension)){
   }
 }
 
-#Prepare the sacCer3 dataframe with the information to assign necessary variables for reading in track/bigwig data ----
-sacCer3_df <- sacCer3_df %>% mutate(gr_var = paste(chrom, "_gr", sep = ""),
+#Prepare the sacCer_refGenome dataframe with the information to assign necessary variables for reading in track/bigwig data ----
+sacCer_refGenome_df <- sacCer_refGenome_df %>% mutate(gr_var = paste(chrom, "_gr", sep = ""),
                                     bw_var = paste(chrom, "_bw", sep = ""),
                                     track_var = paste(chrom, "_track", sep = ""),
                                     origin_gr_var = paste("origin_", chrom, "_track", sep = ""),
@@ -220,42 +257,11 @@ for (i in 1:length(fastq_files_to_rename)) {
   correct_name <- bmc_ids$sname[as.logical(na.omit(unlist(lapply(bmc_ids$BMC_ID2, grepl, x = fastq_files_to_rename[i]))))]
 
 
-MAX <- -Inf
-for (track in 1:length(all_tracks)) {
-  if(class(all_tracks[[track]]) != "GenomeAxisTrack"){
-    if(max(all_tracks[track][[1]]@data) > MAX) MAX <- max(all_tracks[track][[1]]@data)
-  }
-}
-plotTracks(all_tracks, main = "Complete View of Chromosome 14", chromosome = "chrXIV", ylim = c(0, MAX * 1.20))
 
-#Load packages using through a list of strings and suppress the messages, return a TRUE if loading was succesful
-package_list <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead")
-package_was_loaded <- unlist(
-    suppressPackageStartupMessages(
-        lapply(
-            package_list, 
-	    library, 
-    	    character.only = TRUE, 
-            logical.return=TRUE, 
-	    quietly = TRUE
-    )
-  )
-)
 
-#LOG
-#Determine which packages were not loaded, print all packages loaded or which packages were not loaded. 
-packages_not_loaded <- package_list[!package_was_loaded]
-if (length(packages_not_loaded) == 0) {
-    print("All packages loaded.")
-} else {
-  lapply(
-    packages_not_loaded,
-    function(x) { 
-      message <- paste(x, "Package did not install") 
-      print(message)
-    }
-  )
-}
+
+
+
 
 
 
@@ -347,12 +353,12 @@ if(grepl("Windows", osVersion)){
 
 
 
-genome_file_pathgg- paste(genome_directory[1], "sacCer3.fasta", sep = "/")
-sacCer3 <- readFasta(genome_file_path)
-# names(as(sacCer3, "DNAStringSet"))
-# width(sacCer3)
-sacCer3_df <- data.frame(chrom = names(as(sacCer3, "DNAStringSet")), size = width(sacCer3)) %>% filter(chrom != "chrM")
-rm(sacCer3)
+
+
+
+
+
+
 # TODO Go through ngs-functions to extract 
 #Output bigwig files by chunking through chromosomes ----
 #Uses mapply to go through bam files and their bw connections. Uses function bamReadPosAndQwidthByChromToRle mostly taken from the introduction to Rsamtools manual
@@ -364,9 +370,9 @@ mapply(function(bam_files, bw_connection) {
     RleList(
       mapply(
         FUN = bamReadPosAndQwidthByChromToRle,
-        chrom_name = sacCer3_df$chrom,
+        chrom_name = sacCer_refGenome_df$chrom,
         bam_file = bam_files,
-        chromosome_size = sacCer3_df$size,
+        chromosome_size = sacCer_refGenome_df$size,
         SIMPLIFY = FALSE
       )
     )
@@ -382,6 +388,35 @@ print(paste("Bigwig Files created. Time Elasped (in mins)", difftime(start_time,
 # Info was read using read.delim
 tq_info <- read.delim("../rscripts/fastq_info.txt", header = TRUE) %>% arrange(sname)
 }
+
+bamReadPosAndQwidthByChromToRle <- function(chrom_name, bam_file, chromosome_size, ...)
+{
+  #Commented message used for diagnostic purposes
+  #print(paste("Scanning", chrom_name, "Length is", chromosome_size, sep = " "))
+  #Define parameters to read. See SAM manual for details. POS is first position. QWidth is length of read essentially
+  param <- ScanBamParam(
+    what = c('pos', 'qwidth'),
+    which = GRanges(chrom_name, IRanges(1, chromosome_size)),
+    flag = scanBamFlag(isUnmappedQuery = FALSE)
+  )
+  #Read in the bam file according to param
+  x <- scanBam(bam_file, ..., param = param)[[1]]
+  #Get coverage of an IRanges object constructed using  pos and width
+  coverage(IRanges(x[["pos"]], width = x[["qwidth"]]))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # BASH_SECTION
  #Rcript -e 'source("/home/luised94/data/rscripts/3-assign-directory-variables.r")'
