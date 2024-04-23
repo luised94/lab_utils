@@ -22,8 +22,10 @@ Notes I take while developing the scripts.
 # TODO
 
 1. MED- See Random R questions thread to create a list of packages that have been used and document use in scripts.
-2. HIGH- Create genome track plotting code.
-3. MED- Create rsync tool for plots of experiments
-4. LOW- Output environment info and git info to NGS data directory. HIGH once done. 
-5. HIGH- Analyze Eaton data to plot it with my data
-6. MED- Verify indexing is approapriate for R and bash scripts. 
+2. LOW- Output environment info and git info to NGS data directory. HIGH once done. 
+3. HIGH- Analyze Eaton data to plot it with my data
+4. MED- Verify indexing is approapriate for R and bash scripts. 
+5. HIGH- Make plots prettier, normalize data, incorporate origin features
+6. HIGH- Get peaks from bigwig files, then compare between samples
+7. HIGH- Correlation matrix, heatmaps, feature correlations, 
+8. HIGH- Quality control for fastq and BAM!
