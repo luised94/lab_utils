@@ -55,8 +55,7 @@ df_sacCer_refGenome$chrom_ID <- chromosome_ID
  
 # Create list with samples to plot. 
 samples_to_plot <- c("nnAYI", "nnNYV", "WnNYV")
-df_sample_info_subset <- df_sample_info %>% filter(short_name %in% samples_to_plot) 
-					%>% arrange(antibody, ORC4_Rescue, Suppressor, Cell_Cycle, Auxin_treatment)
+df_sample_info_subset <- df_sample_info %>% filter(short_name %in% samples_to_plot) %>% arrange(antibody, ORC4_Rescue, Suppressor, Cell_Cycle, Auxin_treatment)
 
 # Define path_to_bigwig for all of the files
 #Add prefix to function, maybe I should do that to make it clear.
@@ -85,13 +84,13 @@ for (sample_index in 1:length(samples_to_plot)) {
 
 # IGNORE FOR NOW
 # TODO Figure out how to download hawkins timing data and then how to process it.  
-track_start <- 1
-track_end <- df_sacCer_refgenome$size[chromosome_to_plot]
-GRanges(seqnames = genome_df$chrom[index_], ranges = IRanges(start = , end = end), strand = "*"),
-AnnotationTrack(get(genome_df$origin_gr_var[index_]), name = "Origins"),
-
-assign(df_names[i], get(df_names[i]) %>% as.data.frame() %>% dplyr::select(1:7) %>% filter(!is.na(Chromosome)))
-feature_df %>% filter(Chromosome == index_) %>% data.frame(),
+#track_start <- 1
+#track_end <- df_sacCer_refgenome$size[chromosome_to_plot]
+#GRanges(seqnames = genome_df$chrom[index_], ranges = IRanges(start = , end = end), strand = "*"),
+#AnnotationTrack(get(genome_df$origin_gr_var[index_]), name = "Origins"),
+#
+#assign(df_names[i], get(df_names[i]) %>% as.data.frame() %>% dplyr::select(1:7) %>% filter(!is.na(Chromosome)))
+#feature_df %>% filter(Chromosome == index_) %>% data.frame(),
 
 MAX <- -Inf
 for (track in 1:length(all_tracks_to_plot)) {
@@ -102,9 +101,9 @@ for (track in 1:length(all_tracks_to_plot)) {
 
 plot_output_dir <- paste(working_directory, "plots", sep = "/")
 date_file_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
-descriptive_name <- "troubleshoot"
-svg(paste(plot_output_dir, "/", date_file_created, descriptive_name, ".svg", sep = ""))
-plotTracks(all_tracks_to_plot, main = "Complete View of Chromosome 14", chromosome = df_sacCer_refGenome$chrom_ID[chromosome_to_plot])
+descriptive_name <- "testingAxes"
+svg(paste(plot_output_dir, "/", date_file_created, "_", descriptive_name, ".svg", sep = ""))
+plotTracks(all_tracks_to_plot, main = "Complete View of Chromosome 14", chromosome = df_sacCer_refGenome$chrom_ID[chromosome_to_plot], ylim = c(0, MAX))
 dev.off()
 
 #Condition that determines if sample is

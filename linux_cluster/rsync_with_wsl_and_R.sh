@@ -31,19 +31,17 @@ wsl svn export https://github.com/CEGRcode/2021-Rossi_Nature.git/trunk/02_Refere
 wsl rsync --stats -nrv /mnt/c/Users/Luis/Projects/* '/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Code/Projects/'
 wsl rsync --stats -nrv --update /mnt/c/Users/Luis/Projects/* '/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Code/Projects/'
 
-#Just the scripts folder that I work on most 
-wsl rsync --stats -nrv --update /mnt/c/Users/Luis/Projects/working-on-a-cluster/scripts/* '/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Code/Projects/'
 
-#Rsync my Zotero folder
-wsl rsync -nrv /mnt/c/Users/Luis/Zotero/* '/mnt/c/Users/Luis/Dropbox (MIT)/Zotero/'
-wsl rsync -nrv --update /mnt/c/Users/Luis/Zotero/* '/mnt/c/Users/Luis/Dropbox (MIT)/Zotero/'
 
-#Transfering and updating to luria
-wsl rsync --stats -nv --update /mnt/c/Users/Luis/Projects/working-on-a-cluster/scripts/* luised94@luria.mit.edu:/home/luised94/data/rscripts/
-rsync --update -vr -e "ssh" luised94@luria.mit.edu:/home/luised94/data/240304Bel/plots/ /mnt/c/Users/liusm/240304Bel/plots
-#Inverted the order to sync from the cluster to the local machine
-wsl rsync --stats -nvr --update luised94@luria.mit.edu:/home/luised94/data/221024Bel_CHIP/reports/plots-files/* /mnt/c/Users/Luis/Projects/working-on-a-cluster/reports-and-figures/plots-files/
-wsl rsync --stats -nvr --update /mnt/c/Users/Luis/Projects/working-on-a-cluster/reports-and-figures/plots-files/* luised94@luria.mit.edu:/home/luised94/data/221024Bel_CHIP/reports/plots-files/
+
+
+
+
+
+
+
+
+
 
 #Count the lines that have fastq in it. 
 srun rsync -nav /net/bmc-pub17/data/bmc/public/Bell/221024Bel /home/luised94/data/221024Bel_CHIP/data/fastq-files | grep -e ".fastq"
