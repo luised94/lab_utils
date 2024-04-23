@@ -73,13 +73,13 @@ all_tracks_to_plot <- list(GenomeAxisTrack(name = paste("Chr ", chromosome_to_pl
 )
 
 
-options(ucscChromosomeNames=FALSE)
+options(ucscChromosomeNames=FALSE) # Has to be run every time if you are using chromosome ID to get tracks from the bigwig file.
 bigwig_directory <- paste(working_directory, "bigwig", sep = "/")
 for (sample_index in 1:length(samples_to_plot)) {
 	initial_matches <- list.files(bigwig_directory, pattern = as.character(df_sample_info_subset$sample_ID[sample_index]), full.names = TRUE, recursive = TRUE) 	
 	path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)][1]
 	bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
-	track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = samples_to_plot[sample_index], chromosome = "chrXIV")
+	track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = samples_to_plot[sample_index], chromosome = df_sacCer_refGenome$chrom_ID[chromosome_to_plot])
 	all_tracks_to_plot <- append(all_tracks_to_plot, track_to_plot)                                                                          
 }
 
@@ -101,10 +101,10 @@ for (track in 1:length(all_tracks_to_plot)) {
 }
 
 plot_output_dir <- paste(working_directory, "plots", sep = "/")
-date_file_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="_")  
-descriptive_name <- "V5vsNotagInChromosome14"
+date_file_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
+descriptive_name <- "troubleshoot"
 svg(paste(plot_output_dir, "/", date_file_created, descriptive_name, ".svg", sep = ""))
-plotTracks(all_tracks_to_plot, main = "Complete View of Chromosome 14", chromosome = "chrXIV", from = 0, to = MAX)
+plotTracks(all_tracks_to_plot, main = "Complete View of Chromosome 14", chromosome = df_sacCer_refGenome$chrom_ID[chromosome_to_plot])
 dev.off()
 
 #Condition that determines if sample is
