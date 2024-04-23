@@ -15,4 +15,6 @@ I have separated it into dates.
 - Finally went through old code collection for bioinformatics analysis.
 
 ## 2024 04 22
--
+- Was using assign for variable assignment in my previous code assignment, contributed to uninterpretability even though it is a way to assign variables programmatically
+- Will implement a for loop or lapply probably for the track assignment and plotting, easy to understand
+- Think I need to rerun the alignments because there may have been an ordering problem. Not sure since variable naming is done on basis of the file. 
