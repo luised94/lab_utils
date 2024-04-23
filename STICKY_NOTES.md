@@ -18,3 +18,9 @@ I have separated it into dates.
 - Was using assign for variable assignment in my previous code assignment, contributed to uninterpretability even though it is a way to assign variables programmatically
 - Will implement a for loop or lapply probably for the track assignment and plotting, easy to understand
 - Think I need to rerun the alignments because there may have been an ordering problem. Not sure since variable naming is done on basis of the file. 
+
+## 2024 04 23
+SPB comments
+Overnight, Temp, Amount of antibody, same conditions as Kate from winston lab (zotero: @miller_winston23)
+Dont think I have to repeat ORC two more times but probably will have to... 
+
