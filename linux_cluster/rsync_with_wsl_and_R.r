@@ -33,7 +33,7 @@ wsl rsync -nrv --update /mnt/c/Users/Luis/Zotero/* '/mnt/c/Users/Luis/Dropbox (M
 
 #Inverted the order to sync from the cluster to the local machine
 wsl rsync --stats -nvr --update luised94@luria.mit.edu:/home/luised94/data/R-scripts/* /mnt/c/Users/Luis/Projects/working-on-a-cluster/scripts/cluster-modified/
-
+rsync --stats --dry-run -vr luised94@luria.mt.edu:/home/luised94/data/240304Bel/plots/* '/mnt/c/Users/liusm/Dropbox (MIT)/240304Bel/plots'
 #Transfering and updating to luria
 wsl rsync --stats -nv --update /mnt/c/Users/Luis/Projects/working-on-a-cluster/scripts/* luised94@luria.mit.edu:/home/luised94/data/rscripts/
 
