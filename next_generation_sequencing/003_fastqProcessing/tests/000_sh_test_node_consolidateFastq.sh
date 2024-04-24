@@ -13,12 +13,12 @@ UNIQUE_IDS=($(printf '%s\n' "${FASTQ_PATHS[@]}" | cut -d- -f2 | uniq ))
 for UNIQUE_ID in ${UNIQUE_IDS[@]}; do 
 	OUTPUT_FILE="${OUTPUT_DIR}D24-${UNIQUE_ID}_NA_sequence.fastq"
 	echo "Processing ID: ${UNIQUE_ID}, Output: ${OUTPUT_FILE}"
-	#FILTERED_PATHS=($(printf '%s\n' "${FASTQ_PATHS[@]}" | grep "${UNIQUE_ID}")) 
-	#echo "cat "${FILTERED_PATHS[@]}" >> ${OUTPUT_FILE}"
+	FILTERED_PATHS=($(printf '%s\n' "${FASTQ_PATHS[@]}" | grep "${UNIQUE_ID}")) 
+	echo "cat "${FILTERED_PATHS[@]}" >> ${OUTPUT_FILE}"
 	echo "Loop output"
 	for FASTQ_PATH in "${FASTQ_PATHS[@]}"; do
 		if [[ $FASTQ_PATH =~ $UNIQUE_ID ]]; then 
-			cat "$FASTQ_PATH" >> "$OUTPUT_FILE"
+			echo "cat "$FASTQ_PATH" >> "$OUTPUT_FILE""
 		fi
 	done
 	
