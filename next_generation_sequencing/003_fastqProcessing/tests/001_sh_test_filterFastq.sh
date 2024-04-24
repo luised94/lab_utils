@@ -6,7 +6,7 @@
 #SBATCH --exclude=c[5-22]
 #SBATCH --mem-per-cpu=20G # amount of RAM per node#
 #SBATCH --array=1-4%16
-#USAGE: From anywhere, run 'sbatch ~/data/lab_utils/next_generation_sequencing/test_001_filterFastq.sh <dir>'
+#USAGE: From anywhere, run 'sbatch ~/lab_utils/next_generation_sequencing/test_001_filterFastq.sh <dir>/'. You must include the / for it to work...
 #SETUP
 DIR_TO_PROCESS="$1"
 
