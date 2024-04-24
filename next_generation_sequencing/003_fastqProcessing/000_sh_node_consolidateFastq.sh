@@ -15,7 +15,7 @@ for UNIQUE_ID in ${UNIQUE_IDS[@]}; do
 	echo "Processing ID: ${UNIQUE_ID}, Output: ${OUTPUT_FILE}"
 	#FILTERED_PATHS=($(printf '%s\n' "${FASTQ_PATHS[@]}" | grep "${UNIQUE_ID}")) 
 	#echo "cat "${FILTERED_PATHS[@]}" >> ${OUTPUT_FILE}"
-	echo "Loop output"
+	echo "Loop starting"
 	for FASTQ_PATH in "${FASTQ_PATHS[@]}"; do
 		if [[ $FASTQ_PATH =~ $UNIQUE_ID ]]; then 
 			cat "$FASTQ_PATH" >> "$OUTPUT_FILE"
