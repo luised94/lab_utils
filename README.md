@@ -1,6 +1,8 @@
 # lab_utils
 Code used for laboratory analysis
 
+Each directory represents a specific type of analysis, usually related to a technique or type of data. It also containts documentation and a directory of deprecated code.
+
 # NAMING CONVETION
 
 Directories - area_of_analysis/NUM_descriptiveName/script.ext
@@ -29,3 +31,5 @@ Notes I take while developing the scripts.
 6. HIGH- Get peaks from bigwig files, then compare between samples
 7. HIGH- Correlation matrix, heatmaps, feature correlations, 
 8. HIGH- Quality control for fastq and BAM!
+9. MED- Create through documentation for all repositories
+10. MED- Analyze other code in paperpile directory to redesing and incorporate into code repository
