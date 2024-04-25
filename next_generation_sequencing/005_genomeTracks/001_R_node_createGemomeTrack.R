@@ -50,6 +50,7 @@ chromosome_number <- sub(".*chromosome ", "", chromosome_names)
 df_sacCer_refGenome$chrom <- paste("chr", chromosome_number, sep = "") 
 
 chromosome_ID <- unlist(lapply(strsplit(chromosome_names, " "), '[[', 1))
+#Used to extract from Bigwig file
 df_sacCer_refGenome$chrom_ID <- chromosome_ID
 
  
@@ -65,8 +66,24 @@ options(ucscChromosomeNames=FALSE) # Has to be run every time if you are using c
 bigwig_directory <- paste(working_directory, "bigwig", sep = "/")
 
 # Create list with samples to plot. 
-experiments_to_plot <- list(c("nnAYI", "nnNYV", "WnNYV"), c("nnAYI", "nnNNA", "nnNYA"), c("WnANI", "WnAYM", "WnNYM"), c("WnANI", "nnNYV", "WnNYV", "4nNYV", "44NYV"),  c("WnANI", "nnAYM", "WnAYM", "4nAYM", "44AYM"))
-descriptive_names_for_plots <- c("controlV5", "controlAuxinTreatment", "controlMcmCellCycle", "comparingORCWT4R4PS", "comparinsMcmWT4R4PS")
+experiments_to_plot <- list(c("nnAYI", "nnNYV", "WnNYV"), 
+			    c("nnAYI", "nnNNA", "nnNYA", "nnANA", "nnAYA"), 
+			    c("WnANI", "WnAYM", "WnNYM"), 
+			    c("WnANI", "nnNYV", "WnNYV", "4nNYV", "44NYV"),  
+			    c("WnANI", "nnAYM", "WnAYM", "4nAYM", "44AYM"),
+			    c("nnAYI", "nnNNM", "nnNYM", "nnANM", "nnAYM")
+) 
+descriptive_names_for_plots <- c("controlV5", 
+ 			  	 "controlAuxinTreatment", 
+			  	 "controlMcmCellCycle", 
+			  	 "comparingORCWT4R4PS", 
+			  	 "comparingMcmWT4R4PS",
+			  	 "comparingMcmInAuxinControls")
+
+#Variables to name svg files. 
+main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot, 
+				  sep = " ")
+date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
 
 for (experiment_index in 1:length(experiments_to_plot)) {
 	all_tracks_to_plot <- list(GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = "") ) )
@@ -87,9 +104,8 @@ for (experiment_index in 1:length(experiments_to_plot)) {
 	  }
 	}
 	plot_output_dir <- paste(working_directory, "plots", sep = "/")
-	date_file_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
-	svg(paste(plot_output_dir, "/", date_file_created, "_", descriptive_names_for_plots[experiment_index], ".svg", sep = ""))
-	plotTracks(all_tracks_to_plot, main = "Complete View of Chromosome 14", chromosome = df_sacCer_refGenome$chrom_ID[chromosome_to_plot], ylim = c(0, MAX))
+	svg(paste(plot_output_dir, "/", date_plot_created, "_", descriptive_names_for_plots[experiment_index], ".svg", sep = ""))
+	plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom_ID[chromosome_to_plot], ylim = c(0, MAX))
 	dev.off()
 }
 
