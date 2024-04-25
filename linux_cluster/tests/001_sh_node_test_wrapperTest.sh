@@ -6,7 +6,7 @@
 #SBATCH --exclude=c[5-22]
 #SBATCH --mem-per-cpu=20G # amount of RAM per node#
 
-ETUP
+#SETUP
 DIR_TO_PROCESS="$1"
 
 # Define the log directory

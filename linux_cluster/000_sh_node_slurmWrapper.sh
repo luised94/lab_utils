@@ -23,6 +23,6 @@ if [ ! -f "$SCRIPT_TO_RUN" -o ! -d "$DIRECTORY_TO_PROCESS" ]; then
 fi
 
 
-
+#awk '{print substr($0, index($0, last"/")) "/"}' <<< "$TEST_DIR"
 #echo $TEST_DIR | rev | cut -d/ -f1 | rev | xargs -I {} echo {}/
-echo "sbatch --array="$array_range" "$SCRIPT_TO_RUN" "${DIRECTORY_TO_PROCESS##*/}/" "
+sbatch --array="$array_range" "$SCRIPT_TO_RUN" "${DIRECTORY_TO_PROCESS##*/}/" 
