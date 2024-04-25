@@ -6,7 +6,7 @@
 #SBATCH --exclude=c[5-22] #Required by MIT
 #SBATCH --mem-per-cpu=50G # amount of RAM per node
 #SBATCH --cpus-per-task=4
-#SBATCH --array=1-392%16
+#SBATCH --array=1-196%16
 #SBATCH --nice=10000 #Required by MIT
 #USAGE: First, determine this by running the INITIALIZE_ARRAY and multiplying by number of genomes, modify the array number. For test, leave at 1-2 to test array creation. Then, from anywhere, run 'sbatch ~/data/lab_utils/next_generation_sequencing/slurm_002_alignFastq.sh <dir>'
 #SETUP
@@ -55,9 +55,9 @@ FASTQ_INDEX=$(( ($SLURM_ARRAY_TASK_ID - 1)  % ${#FASTQ_PATHS[@]}))
 echo "Processing ${GENOME_INDEX} and ${FASTQ_INDEX}"
 
 #Get names for output
-FASTQ_ID=$(echo "${FASTQ_PATHS[$FASTQ_INDEX]}" | cut -d_ -f3 )
+FASTQ_ID=$(echo "${FASTQ_PATHS[$FASTQ_INDEX]}" | cut -d_ -f2 )
 GENOME_NAME=$( echo "${GENOME_PATHS[$GENOME_INDEX]}" | cut -d_ -f1 | rev | cut -d/ -f1 | rev )
-echo "$(basename $FASTQ_ID) | $(basename $GENOME_NAME)"
+echo "$FASTQ_ID | $GENOME_NAME"
 
 echo "Starting alignment"
 #COMMAND_TO_EXECUTE 
