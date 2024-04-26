@@ -18,11 +18,13 @@ programminglanguage: Name of programming language (e. g. R, bash, etc) This way 
 placetorun: Whether to run on node or slurm. Node just means in interactive mode (srun --pty bash). Slurm means to run with sbatch. 
 descriptiveName: camelCase, describes as concise as possible the purpose of the script
 
+# LOGGING
+Verify output with vim ~/data/<dir>/logs/*_9004526_*_1.out
+
 # STICKY_NOTES.md
 Notes I take while developing the scripts. 
 
 # TODO
-Verify slurmWrapper output with "vim ~/data/240304Bel/logs/*_9004526_*_1.out"
 
 8. HIGH- Quality control for fastq and BAM!
 5. HIGH- Make plots prettier, normalize data, incorporate origin features
