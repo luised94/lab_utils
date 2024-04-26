@@ -26,3 +26,9 @@ fi
 #awk '{print substr($0, index($0, last"/")) "/"}' <<< "$TEST_DIR"
 #echo $TEST_DIR | rev | cut -d/ -f1 | rev | xargs -I {} echo {}/
 sbatch --array="$array_range" "$SCRIPT_TO_RUN" "${DIRECTORY_TO_PROCESS##*/}/" 
+echo "JOB is ${SLURM_JOB_ID}"
+
+#slurm_files=$(find . -maxdepth 1 -type f -name "slurm*.out")
+
+
+
