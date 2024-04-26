@@ -23,6 +23,12 @@ Verify output with vim ~/data/<dir>/logs/*_9004526_*_1.out
 
 # STICKY_NOTES.md
 Notes I take while developing the scripts. 
+# COMPLETED
+1. Basic code to filter and align via sbatch using SLURM_ARRAY_TASK_ID to index arrays.
+2. Basic code to plot genomeTracks.
+3. Wrapper for sbatch scripts.
+4. Setting up R 4.2.0 on other systems.
+
 
 # TODO
 
@@ -36,3 +42,5 @@ Notes I take while developing the scripts.
 7. HIGH- Correlation matrix, heatmaps, feature correlations, 
 9. MED- Create through documentation for all repositories
 10. MED- Analyze other code in paperpile directory to redesing and incorporate into code repository
+11. LOW- Add better formatting for echo commands. 
+12. MED- Use renv to manage R packages for each module.
