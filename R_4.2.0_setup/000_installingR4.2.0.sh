@@ -10,15 +10,20 @@ R_VERSION="R-4.2.0"
 DIR_TO_INSTALL=$HOME
 curl --output "$HOME/${R_VERSION}.tar.gz" "https://cran.r-project.org/src/base/$(echo ${R_VERSION} | cut  -d. -f1)/${R_VERSION}.tar.gz"
 
+# Install Java
+sudo apt-get install default-jdk
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+#echo "export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> ~/my_config/dotfiles/bashrc
+export PATH=$JAVA_HOME/bin:$PATH
+#sudo R CMD javareconf
+
 tar -xzvf ${R_VERSION}.tar.gz
 cd ${R_VERSION}
 
-# Install Java
-# sudo apt-get install default-jdk
-# export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-echo "export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> ~/my_config/dotfiles/bashrc
-export PATH=$JAVA_HOME/bin:$PATH
-sudo R CMD javareconf
+
+./configure --enable-R-shlib --with-blas --with-lapack --without-x
+make 
+sudo make install
 
 # Install for PDF and html rendenring of manuals
 # sudo apt-get install texinfo
@@ -26,9 +31,6 @@ sudo R CMD javareconf
 
 # Install X11 headers and libs
 # sudo apt-get install libx11-dev xserver-xorg-dev xorg-dev
-./configure --enable-R-shlib --with-blas --with-lapack --without-x
-make 
-sudo make install
 
 #export PATH=/usr/local/bin:$PATH
 #echo "export PATH=/usr/local/bin:$PATH" >> ~/.bashrc
@@ -41,5 +43,9 @@ mkdir -p $HOME/R/x86_64-pc-linux-gnu-library/4.2
 # .libPaths( paste(Sys.getenv(HOME), install_directory))
 
 export R_LIBS_USER=$HOME/R/x86_64-pc-linux-gnu-library/4.2
-
-# chooseCRANmirror(19) # North Carolina
+alias R='R --no-save'
+R
+.libPaths()
+install.packages("renv") 
+#Select other mirrors (75) then choose 19 (North Carolina)
+q() # choose no 
