@@ -14,6 +14,7 @@ LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 
 # Ensure the log directory exists
 mkdir -p "$LOG_DIR"
+
 timeid=$(date "+%Y-%m-%d-%M-%S")
 # Construct the file names
 OUT_FILE="${LOG_DIR}/${timeid}_aligning_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
@@ -21,6 +22,12 @@ ERR_FILE="${LOG_DIR}/${timeid}_aligning_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${
 
 # Redirect stdout and stderr to the respective files
 exec >"$OUT_FILE" 2>"$ERR_FILE"
+
+echo "Started from $(pwd)"
+echo "START TIME: $(date "+%Y-%m-%d-%M-%S")"
+DIR_TO_PROCESS="$HOME/data/$DIR_TO_PROCESS"
+echo "Executing for $DIR_TO_PROCESS"
+REFGENOME_DIR="$HOME/data/REFGENS"
 
 #LOG
 echo "SLURM_JOB_ID=${SLURM_JOB_ID}, SLURM_ARRAY_JOB_ID=${SLURM_ARRAY_JOB_ID}, SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}"

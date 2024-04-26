@@ -1,6 +1,6 @@
 #!/bin/bash
-
-
+#USAGE: 
+#~/lab_utils/next_generation_sequencing/linux_cluster/000_sh_node_slurmWrapper.sh 1-N%16 000_scriptToRun.sh 240304Bel
 if [ $# -ne 3 ]; then
 	echo "Usage: $0 <array_number> <<script_name> <DIRECTORY_TO_PROCESS_to_process>" 
 	echo 'Array number is an integer depending on the number of array tasks to create (--array= option for SBATCH)'
