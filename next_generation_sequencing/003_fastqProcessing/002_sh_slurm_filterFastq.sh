@@ -5,7 +5,6 @@
 #SBATCH --mail-user=luised94@mit.edu  # Email to which notifications will be sent. Equivalent to the -M option in SGE.
 #SBATCH --exclude=c[5-22]
 #SBATCH --mem-per-cpu=20G # amount of RAM per node#
-#SBATCH --array=1-49%16
 #USAGE: First, determine this by running the INITIALIZE_ARRAY, modify the array number. Then, from anywhere, run 'sbatch ~/lab_utils/next_generation_sequencing/test_001_filterFastq.sh <dir>'
 #SETUP
 DIR_TO_PROCESS="$1"

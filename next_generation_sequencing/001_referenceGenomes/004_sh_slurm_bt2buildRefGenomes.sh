@@ -5,7 +5,6 @@
 #SBATCH --mail-user=luised94@mit.edu  # Email to which notifications will be sent. Equivalent to the -M option in SGE.
 #SBATCH --exclude=c[5-22]
 #SBATCH --mem-per-cpu=20G # amount of RAM per node#
-#SBATCH --array=1-4%16
 #USAGE: From anywhere, run 'sbatch ~/data/lab_utils/next_generation_sequencing/slurm_003_bt2buildRefGenomes.sh'
 #ALTERNATIVE: node_bt2build_refgenomes.sh was created as a workaround but is unnecessary now. Uses for loop for bowtie2-build. File moved to archive. 
 
