@@ -49,8 +49,12 @@ echo "OUTPUT_FILE: $output_path"
 #Confirmed fastp works from node using example file
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
-fastp -i "${fastq_path}"  -o "${output_path}" --json "${json_path%.fastq}.json" --html /dev/null --cut_window_size 4 --cut_mean_quality 20 --n_base_limit 5 --average_qual 20 --length_required 50 --qualified_quality_phred 20 --unqualified_percent_limit 50
-
+if [[ $fastq_path =~ "Eaton" ]]; then
+	echo "Processing eaton data. Filtering length is 20"
+	fastp -i "${fastq_path}"  -o "${output_path}" --json "${json_path%.fastq}.json" --html /dev/null --cut_window_size 4 --cut_mean_quality 20 --n_base_limit 5 --average_qual 20 --length_required 20 --qualified_quality_phred 20 --unqualified_percent_limit 50
+else 
+	fastp -i "${fastq_path}"  -o "${output_path}" --json "${json_path%.fastq}.json" --html /dev/null --cut_window_size 4 --cut_mean_quality 20 --n_base_limit 5 --average_qual 20 --length_required 50 --qualified_quality_phred 20 --unqualified_percent_limit 50
+fi
 #LOG
 echo "COMMAND_OUTPUT_END"
 echo "Filtering completed"

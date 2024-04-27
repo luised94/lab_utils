@@ -29,6 +29,9 @@ Notes I take while developing the scripts.
 3. Wrapper for sbatch scripts.
 4. Setting up R 4.2.0 on other systems.
 
+# WARNINGS
+1. Verify fastq files for character values - and _ . They could break the naming. If this happens, just use awk to grab the last field.
+2. For old fastq files, filtering by length is very different. Todays (2024) sequencings  are higher quality and longer. Right now, the conditional is for Eaton data, but needs to be based on average length of dataset.
 
 # TODO
 
