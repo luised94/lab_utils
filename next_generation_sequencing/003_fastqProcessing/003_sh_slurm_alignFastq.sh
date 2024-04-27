@@ -54,8 +54,9 @@ FASTQ_INDEX=$(( ($SLURM_ARRAY_TASK_ID - 1)  % ${#FASTQ_PATHS[@]}))
 echo "Processing ${GENOME_INDEX} and ${FASTQ_INDEX}"
 
 #Get names for output
-FASTQ_ID=$(echo "${FASTQ_PATHS[$FASTQ_INDEX]}" | cut -d_ -f2 )
-GENOME_NAME=$( echo "${GENOME_PATHS[$GENOME_INDEX]}" | cut -d_ -f1 | rev | cut -d/ -f1 | rev )
+FASTQ_ID=$(echo "${FASTQ_PATHS[$FASTQ_INDEX]}" | cut -d- -f2 | cut -d_ -f1 )
+GENOME_NAME=$( echo "${GENOME_PATHS[$GENOME_INDEX]}" | awk -F'/' '{print $NF}' | cut -d_ -f1 )
+#GENOME_NAME=$( echo "${GENOME_PATHS[$GENOME_INDEX]}" | cut -d_ -f1 | rev | cut -d/ -f1 | rev )
 echo "$FASTQ_ID | $GENOME_NAME"
 
 echo "Starting alignment"

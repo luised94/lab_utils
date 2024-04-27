@@ -1,3 +1,6 @@
+
+#This is only required to be run once if there are more than one fastq file per sample 
+#This alters the number of - in the string which affects downstream processing.
 # Define the directory to process
 ABSOLUTE_PATH_OF_DIR="$HOME/data/$1"
 OUTPUT_DIR="${ABSOLUTE_PATH_OF_DIR}fastq/"
