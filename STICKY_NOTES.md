@@ -28,3 +28,17 @@ Dont think I have to repeat ORC two more times but probably will have to...
 - Had some trouble with the text processing and used awk to make more robust. 
 - Could come up with script that lets me know if the assumptions I make in my script are met. On the other hand, could just use same name instead of processing.
 - Definitely thinking a little about design up front is worth it pero esto vale cuando haga otro proyecto. 
+
+## 2024 04 28
+- Creating a new branch for flow_cytomery since I am also attempting to use renv for package management.
+Step-by-step: for future reference
+'''{bash}
+git branch feature/flow_cytometry
+
+#Procede with feature development. In this case, creating the module for analysing flow_cytometry data.
+git checkout feature/flow_cytometry
+# Return to main
+git checkout main 
+
+'''
+
