@@ -7,6 +7,7 @@ mkdir -p "$OUTPUT_DIR"
 mapfile -t FASTQ_PATHS < <(find "${ABSOLUTE_PATH_OF_DIR}" -type f -name "*.fastq" ! \( -name "*unmapped*" -o -name "processed_*" \) | sort )
 
 #Could substitute cut with awk -F '-' '{print $2}'
+#TODO may have to replace this by adding basename, ##*/ or awk with $NF 
 UNIQUE_IDS=($(printf '%s\n' "${FASTQ_PATHS[@]}" | cut -d- -f2 | uniq ))
 
 #${1}_D24-${UNIQUE_ID}_NA_sequence.fastq 

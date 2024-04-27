@@ -39,8 +39,8 @@ mapfile -t fastq_paths < <(find "${DIR_TO_PROCESS}" -type f -name "*.fastq" ! \(
 
 #INPUT_OUTPUT
 fastq_path=${fastq_paths[$SLURM_ARRAY_TASK_ID-1]}
-output_path=$(echo "$fastq_path" | cut -d/ -f7 | xargs -I {} echo "${DIR_TO_PROCESS}processed-fastq/processed_{}")
-json_path=$(echo "$fastq_path" | cut -d/ -f7 | xargs -I {} echo "${DIR_TO_PROCESS}logs/processed_{}")
+output_path=$(echo "$fastq_path" | awk -F'/' '{print $NF}' | xargs -I {} echo "${DIR_TO_PROCESS}processed-fastq/processed_{}")
+json_path=$(echo "$fastq_path" |  awk -F'/' '{print $NF}' | xargs -I {} echo "${DIR_TO_PROCESS}logs/processed_{}")
 #LOG
 echo "Starting fitering"
 echo "FASTQ_FILE: $fastq_path"

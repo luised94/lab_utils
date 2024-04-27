@@ -54,7 +54,15 @@ FASTQ_INDEX=$(( ($SLURM_ARRAY_TASK_ID - 1)  % ${#FASTQ_PATHS[@]}))
 echo "Processing ${GENOME_INDEX} and ${FASTQ_INDEX}"
 
 #Get names for output
-FASTQ_ID=$(echo "${FASTQ_PATHS[$FASTQ_INDEX]}" | cut -d_ -f3 )
+#TODO cut -d- -f2 | cut -d_ -f1
+if [[ ${FASTQ_PATHS[$FASTQ_INDEX]} =~ "_" ]]; then 
+	echo -e "Filename contains '-' \n"
+fi
+if [[  ${FASTQ_PATHS[$FASTQ_INDEX]} =~ "_" ]]; then
+	echo -e "Filename contains '_' \n"
+fi
+
+FASTQ_ID=$(echo "${FASTQ_PATHS[$FASTQ_INDEX]}" | cut -d- -f2 | cut -d_ -f1 )
 GENOME_NAME=$( echo "${GENOME_PATHS[$GENOME_INDEX]}" | cut -d_ -f1 | rev | cut -d/ -f1 | rev )
 echo "$(basename $FASTQ_ID) | $(basename $GENOME_NAME)"
 
