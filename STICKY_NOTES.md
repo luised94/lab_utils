@@ -24,3 +24,7 @@ SPB comments
 Overnight, Temp, Amount of antibody, same conditions as Kate from winston lab (zotero: @miller_winston23)
 Dont think I have to repeat ORC two more times but probably will have to... 
 
+## 2024 04 27
+- Had some trouble with the text processing and used awk to make more robust. 
+- Could come up with script that lets me know if the assumptions I make in my script are met. On the other hand, could just use same name instead of processing.
+- Definitely thinking a little about design up front is worth it pero esto vale cuando haga otro proyecto. 

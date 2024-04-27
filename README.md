@@ -44,3 +44,4 @@ Notes I take while developing the scripts.
 10. MED- Analyze other code in paperpile directory to redesing and incorporate into code repository
 11. LOW- Add better formatting for echo commands. 
 12. MED- Use renv to manage R packages for each module.
+13. LOW- Create a script that consolidates logs files based on JOB_ID.
