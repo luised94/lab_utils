@@ -51,8 +51,15 @@ mapfile -t BAM_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "processed_*.fas
 echo "Starting Quality Control"
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
+#TODO
 #fastqc --outdir= ${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID]} 
-
+#awk ?
+#deeptools for bam
+#samtools flagstat
+#samtools stats
+#samtools flagstat -O tsv ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]}
+#samtools quickcheck ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} && echo 'QUICKCHECK AllOK' || echo 'QUICKCHECK FAIL'
+#samtools stats ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} > samstats.txt
 
 #LOG
 echo "COMMAND_OUTPUT_END"
