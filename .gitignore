@@ -1,4 +1,12 @@
+<<<<<<< HEAD
 sampleGridConfig.R
 slurm-*.out
 test.log
 Rplots.pdf
+=======
+**/renv.lock
+**/renv/library/
+**/renv/profiles/
+**/renv/settings.dcf
+
+>>>>>>> 2a6da7d (Managed to load flowCore, was having problems installing using BiocManager because of a BOOST library problem, installing from github worked. Creadted readPlotFCS.R as a starting point, considering copying some of the R code from next_generation and atpase code that I havent integrated)
