@@ -1,0 +1,5 @@
+**/renv.lock
+**/renv/library/
+**/renv/profiles/
+**/renv/settings.dcf
+
