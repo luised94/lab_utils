@@ -21,11 +21,13 @@ renv::init(bioconductor = "3.16")
 renv::install(c("tidyverse", "R.utils", "ggplot2", "BiocManager", "remotes","devtools"))
 
 options(repos = BiocManager::repositories())
+
 #Wasted a bunch of time trying to figure out how to install flowCore dependencies from source. Solved it by installing through github.
-devtools::install_github("RGLab/RProtoBufLib")
-devtools::install_github("RGLab/cytolib")
-devtools::install_github("RGLab/flowCore")
-renv::install("ggcyto")
+repository <- "github::"
+user <- "RGLab/"
+packages <- c("RProtoBufLib", "cytolib", "flowCore")
+packages_to_install <- paste0(repository, user, packages)
+renv::install(c(packages_to_install, "ggcyto"))
 
 library(flowCore)
 
