@@ -1,4 +1,5 @@
 library(flowCore)
+<<<<<<< HEAD
 library(tidyverse)
 library(svglite)
 library(ggplot2)
@@ -78,3 +79,31 @@ summary(fcs_data)
 ## Assuming `gs` is a GatingSet with gates applied
 #p <- ggcyto(gs, aes(x = `FL1-H`)) + geom_histogram(data = "CD3+")  # Subset to CD3+ population
 #print(p)
+=======
+library(ggcyto)
+
+# Single file
+fcs_data <- read.FCS("path_to_your_file.fcs")
+
+# Multiple files
+fcs_files <- list.files(path = "path_to_fcs_files", pattern = "\\.fcs$", full.names = TRUE)
+fcs_set <- read.flowSet(files = fcs_files)
+
+# Plotting a single parameter histogram
+p <- ggcyto(fcs_data, aes(x = `FL1-H`)) + geom_histogram(bins = 30)
+print(p)
+
+# Plotting a scatter plot of two parameters
+p <- ggcyto(fcs_data, aes(x = `FSC-A`, y = `SSC-A`)) + geom_point()
+print(p)
+
+# Using facet_wrap with a flowSet
+p <- ggcyto(fcs_set, aes(x = `FL1-H`)) + geom_histogram(bins = 30) + facet_wrap(~ name)
+print(p)
+
+# Assuming `gs` is a GatingSet with gates applied
+p <- ggcyto(gs, aes(x = `FL1-H`)) + geom_histogram(data = "CD3+")  # Subset to CD3+ population
+print(p)
+
+
+>>>>>>> 51cccf6 (Managed to load flowCore, was having problems installing using BiocManager because of a BOOST library problem, installing from github worked. Creadted readPlotFCS.R as a starting point, considering copying some of the R code from next_generation and atpase code that I havent integrated)
