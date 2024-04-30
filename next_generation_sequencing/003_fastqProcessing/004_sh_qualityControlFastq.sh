@@ -47,8 +47,9 @@ mapfile -t FASTQ_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*.fastq" ! \(
 echo "Starting Quality Control"
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
-echo "fastqc --outdir=${DIR_TO_PROCESS}fastqc/ ${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID-1]}" 
-echo "fastqc --outdir=${DIR_TO_PROCESS}fastqc/ ${PROCESSEDFQ_PATHS[$SLURM_ARRAY_TASK_ID-1]}" 
+fastqc --outdir=${DIR_TO_PROCESS}qualityControl/ ${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID-1]} 
+fastqc --outdir=${DIR_TO_PROCESS}qualityControl/ ${PROCESSEDFQ_PATHS[$SLURM_ARRAY_TASK_ID-1]} 
+
 #LOG
 echo "COMMAND_OUTPUT_END"
 echo "Aligning completed"
