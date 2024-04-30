@@ -42,19 +42,17 @@ module load fastqc/0.11.5
 #INITIALIZE_ARRAY
 mapfile -t BAM_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*.bam" )
 
-#INPUT_OUTPUT
-#fastq_path=${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID-1]}
-#output_path=$(echo "$fastq_path" | cut -d/ -f7 | xargs -I {} echo "${DIR_TO_PROCESS}processed-fastq/processed_{}")
+FILENAME=$( echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]%.bam} | awk -F'/' '{print $NF}' )
 
 #LOG
 
 echo "Starting quality control check"
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
-#fastqc 
-#samtools flagstat -O tsv ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]}
-#samtools quickcheck ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} && echo 'QUICKCHECK AllOK' || echo 'QUICKCHECK FAIL'
-#samtools stats ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} > samstats.txt
+ 
+echo "samtools flagstat -O tsv ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamFlagstat.txt"
+echo "{ samtools quickcheck ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} && echo 'QUICKCHECK\tTRUE' || echo -e 'QUICKCHECK\tFALSE' ; } > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamQuickcheck.txt "
+echo "samtools stats ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamStats.txt"
 #LOG
 echo "COMMAND_OUTPUT_END"
 echo "Quality control check completed"
