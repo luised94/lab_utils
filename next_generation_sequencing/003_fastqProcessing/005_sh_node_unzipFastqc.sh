@@ -25,5 +25,8 @@ echo "Unzipping files..."
 
 #Can run this by itself on a particular directory. Not sure why it didnt work in the script.
 find $DIRECTORY_TO_PROCESS/qualityControl -type f -name "*.zip" -exec sh -c 'unzip "{}"' \; 
+#TODO Line above doesnt run inside script. Line below could be solution but havent tested. Could try moving directory, unzipping and moving back.
+#find "$DIRECTORY_TO_PROCESS/qualityControl" -type f -name "*.zip" -exec sh -c '
+#    cd "$(dirname "{}")" && unzip -o "$(basename "{}")" || echo "Failed to unzip: {}"' \;
 
 echo "Files have been unzipped."
