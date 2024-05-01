@@ -7,9 +7,10 @@ fcs_file_paths <- list.files(path_to_fcs_files, pattern = "\\.fcs$", full.names 
 fcs_data <- read.FCS(fcs_file_paths[1])
 
 #TODO: Initialize variables. for each one, use length to assign module class. then maye use switch or some other tidyverse to replace values with variables.
-genotypes <- 
-cell_cycle <- 
-time_points <-
+#REMINDER: Calculated the types of samples that would account for my FACS samples. Seems like I had 4 genotypes, 2 carbon sources and 6 timepoints.
+genotypes <- c("ORC4", "orc4-R267A", "ORC1", "orc1-K485T")
+carbon_sources <- c("GLU", "GAL")
+time_points <- c(-120, seq(0, 150, by = 30))
 for (i in 1:length(fcs_file_paths)){
 #	print(i)
 	formatted_output <- sprintf("%s | %s | %s", i, i %% 7, i %/% 7)
