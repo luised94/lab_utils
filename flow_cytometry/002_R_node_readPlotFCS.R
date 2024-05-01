@@ -1,6 +1,7 @@
 library(flowCore)
 library(tidyverse)
 library(svglite)
+<<<<<<< HEAD
 library(ggplot2)
 
 path_to_fcs_files <- "/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Yeast Genetics/2023_10_04 Cdc6 Overexpression/CL4_Cdc6Oe_CarbonSourceShift_01"
@@ -24,57 +25,3 @@ for (i in 1:nrow(subset_df)) {
 	formatted_output <- sprintf("%s | %s ", i, basename(subset_df$filePath[i]))
 	print(formatted_output)
 }
-colnames(head(exprs(fcs_data)))
-head(exprs(fcs_data)[,11])
-head(exprs(fcs_data[,'FITC-Width']))
-#df_test <- apply(df_sample_info, 1, factor)
-#for (i in 1:ncol(df_sample_info)){
-#	levels(df_sample_info[,i]) <- as.factor(df_sample_info[,i])
-#}
-#for (i in 1:length(fcs_file_paths)){
-##	print(i)
-#	formatted_output <- sprintf("%s | %s | %s", i, i %% 7, i %/% 7)
-#	print(formatted_output)
-#}
-output_directory <- "/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Yeast Genetics/2023_10_04 Cdc6 Overexpression/"
-
-plot_output <- paste0(output_directory, "/", "plot_hist.svg")
-svglite(plot_output, width = 6, height = 4)
-hist(exprs(fcs_data[,'FITC-Width']),
-	  main = "Histogram of FITC-Width",
-	  xlab = "FITC-Width",
-	  col = "blue",
-	  border = "black")
-dev.off()
-
-plot_output <- paste0(output_directory, "/", "plot_density.svg")
-svglite(plot_output, width = 6, height = 4)
-ggplot(fcs_data, aes(x = `FITC-Width`)) +
-	geom_histogram(aes(y = after_stat(density)), binwidth = 30, colour = "black", fill = "white") +
-	geom_density(alpha = .2, fill = "#FF6666") +
-	labs(title = "Fluorescence Intensity Distribution", x = "Fluorescence Intensity", y = "Density")
-dev.off()
-
-plot_output <- paste0(output_directory, "/", "plot_count.svg")
-svglite(plot_output, width = 6, height = 4)
-ggplot(fcs_data, aes(x = `FITC-Width`)) +
-	geom_histogram(aes(y = after_stat(count)), binwidth = 30, colour = "black", fill = "white") +
-	geom_density(alpha = .2, fill = "#FF6666") +
-	labs(title = "Fluorescence Intensity Distribution", x = "Fluorescence Intensity", y = "Density")
-dev.off()
-
-summary(fcs_data)
-#JUNK
-
-## Plotting a single parameter histogram
-#p <- ggcyto(fcs_data, aes(x = `FL1-H`)) + geom_histogram(bins = 30)
-#print(p)
-## Plotting a scatter plot of two parameters
-#p <- ggcyto(fcs_data, aes(x = `FSC-A`, y = `SSC-A`)) + geom_point()
-#print(p)
-## Using facet_wrap with a flowSet
-#p <- ggcyto(fcs_set, aes(x = `FL1-H`)) + geom_histogram(bins = 30) + facet_wrap(~ name)
-#print(p)
-## Assuming `gs` is a GatingSet with gates applied
-#p <- ggcyto(gs, aes(x = `FL1-H`)) + geom_histogram(data = "CD3+")  # Subset to CD3+ population
-#print(p)
