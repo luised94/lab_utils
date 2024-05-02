@@ -3,7 +3,17 @@ library(tidyverse)
 library(svglite)
 library(ggplot2)
 
-path_to_fcs_files <- "/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Yeast Genetics/2023_10_04 Cdc6 Overexpression/CL4_Cdc6Oe_CarbonSourceShift_01"
+
+read_and_extract <- function(file_path) {
+	fcs_data <- read.FCS(file_path, transformation = FALSE)
+	data_frame <- data.frame(FITC_Width = exprs(fcs_data[,'FITC-Width']))
+	return(data_frame)
+}
+
+
+
+windows_user <- list.files("/mnt/c/Users")[grepl(Sys.info()[["user"]], list.files("/mnt/c/Users"))]
+path_to_fcs_files <- sprintf("/mnt/c/Users/%s/Dropbox (MIT)/Lab/Experiments/Yeast Genetics/2023_10_04 Cdc6 Overexpression/CL4_Cdc6Oe_CarbonSourceShift_01", windows_user)
 fcs_file_paths <- list.files(path_to_fcs_files, pattern = "\\.fcs$", full.names = TRUE)
 #fcs_data <- read.FCS(fcs_file_paths[1])
 
@@ -18,12 +28,22 @@ df_sample_info <- as.data.frame(expand.grid(genotype_Orc4 = genotypes,
 df_sample_info$filePath <- gtools::mixedsort(fcs_file_paths)#
 is_WTandGLU <- df_sample_info$genotype_Orc4 == "ORC4" & df_sample_info$carbonSources == "GLU"
 subset_df <- df_sample_info %>% filter(is_WTandGLU)
-for (i in 1:nrow(subset_df)) {
-#	flow_data <- read.FCS(df_sample_info$filePath[i])
-#	exprs(flow_data[,'FITC-Width')
-	formatted_output <- sprintf("%s | %s ", i, basename(subset_df$filePath[i]))
-	print(formatted_output)
-}
+
+
+df$fitc_data <- map(df$file_path, read_and_extract)
+combined_data <- bind_rows(df$fitc_data, .id = "sample_id")
+
+test <- map(df_sample_info$filePath, read_and_extract)
+combined_data <- bind_rows(test, .id = "sample_id")
+
+#for (i in 1:nrow(subset_df)) {
+##	flow_data <- read.FCS(df_sample_info$filePath[i])
+##	exprs(flow_data[,'FITC-Width')
+#	formatted_output <- sprintf("%s | %s ", i, basename(subset_df$filePath[i]))
+#	print(formatted_output)
+#}
+
+
 colnames(head(exprs(fcs_data)))
 head(exprs(fcs_data)[,11])
 head(exprs(fcs_data[,'FITC-Width']))
