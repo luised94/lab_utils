@@ -1,5 +1,5 @@
-
-
+#Run with source("/home/luised94/lab_utils/next_generation_sequencing/003_fastqProcessing/006_R_node_readInFastqc.R")
+setwd("/net/bmc-pub14/data/bell/users/luised94/240304Bel")
 df_sample_info <- read.delim("./documentation/sample_info_table.csv", header = TRUE, sep = ",")
 sample_ids <- df_sample_info$sample_ID
 base_dir <- "./qualityControl"
@@ -13,6 +13,8 @@ summary_file_path <- list.files(subset_qualityControl_dir, pattern = "summary", 
 data_blocks <- list()
 con <- file(fastqc_file_path, open = "r")
 counter <- 0
+
+
 while (TRUE) {
   message <- sprintf("Loop counter: %s", counter)
   print(message)
@@ -24,11 +26,11 @@ while (TRUE) {
 	print("Line is length 0, Exiting")
 	break
   }
-  counter <- counter + 1
   
   if (grepl(">>", line)) {
     block_name <- sub(">> ", "", line)
     data_chunk <- ""
+#    if (counter 
     message <- sprintf("Block name is %s", block_name)
     print(message)
     while (TRUE) {
@@ -43,6 +45,8 @@ while (TRUE) {
     }
     data_blocks[[block_name]] <- data_chunk
   }
+  
+  counter <- counter + 1
 }
 
 close(con)
