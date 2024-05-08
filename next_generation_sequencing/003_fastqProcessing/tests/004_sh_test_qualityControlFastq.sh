@@ -40,21 +40,16 @@ module load samtools/1.10
 module load fastqc/0.11.5
 
 #INITIALIZE_ARRAY
-mapfile -t BAM_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "processed_*.fastq" )
-
-#INPUT_OUTPUT
-#fastq_path=${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID-1]}
-#output_path=$(echo "$fastq_path" | cut -d/ -f7 | xargs -I {} echo "${DIR_TO_PROCESS}processed-fastq/processed_{}")
-
+mapfile -t PROCESSEDFQ_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "processed_*.fastq" )
+mapfile -t FASTQ_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*.fastq" ! \( -name "*unmapped*" -o -name "processed_*" \))
 #LOG
 
 echo "Starting Quality Control"
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
-#fastqc --outdir= ${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID]} 
-
-
+echo "fastqc --outdir=${DIR_TO_PROCESS}fastqc/ ${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID-1]}" 
+echo "fastqc --outdir=${DIR_TO_PROCESS}fastqc/ ${PROCESSEDFQ_PATHS[$SLURM_ARRAY_TASK_ID-1]}" 
 #LOG
 echo "COMMAND_OUTPUT_END"
 echo "Aligning completed"
-echo "END TIME: $(date "+%Y-%m-%d-%M-%S")"
+echo -e "END TIME: $(date "+%Y-%m-%d-%M-%S")\n"

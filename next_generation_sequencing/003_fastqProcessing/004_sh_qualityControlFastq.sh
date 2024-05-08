@@ -40,20 +40,17 @@ module load samtools/1.10
 module load fastqc/0.11.5
 
 #INITIALIZE_ARRAY
-mapfile -t BAM_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*.bam" )
-
-FILENAME=$( echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]%.bam} | awk -F'/' '{print $NF}' )
-
+mapfile -t PROCESSEDFQ_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "processed_*.fastq" )
+mapfile -t FASTQ_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*.fastq" ! \( -name "*unmapped*" -o -name "processed_*" \))
 #LOG
 
-echo "Starting quality control check"
+echo "Starting Quality Control"
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
- 
-echo "samtools flagstat -O tsv ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamFlagstat.txt"
-echo "{ samtools quickcheck ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} && echo 'QUICKCHECK\tTRUE' || echo -e 'QUICKCHECK\tFALSE' ; } > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamQuickcheck.txt "
-echo "samtools stats ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamStats.txt"
+fastqc --outdir=${DIR_TO_PROCESS}qualityControl/ ${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID-1]} 
+fastqc --outdir=${DIR_TO_PROCESS}qualityControl/ ${PROCESSEDFQ_PATHS[$SLURM_ARRAY_TASK_ID-1]} 
+
 #LOG
 echo "COMMAND_OUTPUT_END"
-echo "Quality control check completed"
-echo "END TIME: $(date "+%Y-%m-%d-%M-%S")"
+echo "Aligning completed"
+echo -e "END TIME: $(date "+%Y-%m-%d-%M-%S")\n"

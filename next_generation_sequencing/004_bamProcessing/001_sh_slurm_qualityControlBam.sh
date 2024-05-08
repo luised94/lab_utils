@@ -49,10 +49,10 @@ FILENAME=$( echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]%.bam} | awk -F'/' '{print $
 echo "Starting quality control check"
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
- 
-echo "samtools flagstat -O tsv ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamFlagstat.txt"
-echo "{ samtools quickcheck ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} && echo 'QUICKCHECK\tTRUE' || echo -e 'QUICKCHECK\tFALSE' ; } > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamQuickcheck.txt "
-echo "samtools stats ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamStats.txt"
+
+samtools flagstat -O tsv ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamFlagstat.txt
+{ samtools quickcheck ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} && echo -e 'QUICKCHECK\tTRUE' || echo -e 'QUICKCHECK\tFALSE' ; } > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamQuickcheck.txt 
+samtools stats ${BAM_PATHS[$SLURM_ARRAY_TASK_ID-1]} > ${DIR_TO_PROCESS}qualityControl/${FILENAME}_bamStats.txt
 #LOG
 echo "COMMAND_OUTPUT_END"
 echo "Quality control check completed"
