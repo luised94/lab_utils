@@ -16,8 +16,8 @@ fastqc_file_path <- list.files("./qualityControl", pattern = "fastqc_data", recu
 summary_file_path <- list.files("./qualityControl", pattern = "summary", recursive = TRUE, full.names = TRUE)	
 #head(fastqc_file_path)
 #head(summary_file_path)
-delimiters <- c(",", "\t", ";", " ")
-max_index <- 1
+#delimiters <- c(",", "\t", ";", " ")
+max_index <- length(fastqc_file_path)
 for (i in 1:max_index) {
 current_time <- get_current_datetime_string()
 	lines <- readLines(fastqc_file_path[i])
@@ -53,7 +53,7 @@ data <- read.table(text = module_lines[(header_idx+1):length(module_lines)-1],
 
 }
 
-#print(data)
+print(data)
 #message <- sprintf("#CURRENT_INDEX: %s", i)
 #print(message)
 output_file_name <- paste0(current_time, "_", "fastqc_", module_filename, ".tab")
