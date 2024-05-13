@@ -19,6 +19,7 @@ summary_file_path <- list.files("./qualityControl", pattern = "summary", recursi
 delimiters <- c(",", "\t", ";", " ")
 max_index <- 1
 for (i in 1:max_index) {
+current_time <- get_current_datetime_string()
 	lines <- readLines(fastqc_file_path[i])
 #	print(lines[1:5])
 	data_blocks <- list()
@@ -52,12 +53,13 @@ data <- read.table(text = module_lines[(header_idx+1):length(module_lines)-1],
 
 }
 
-print(data)
-message <- sprintf("#CURRENT_INDEX: %s", i)
-print(message)
-output_file_name <- paste0(get_current_datetime_string(), "_", "fastqc_", module_filename, ".tab")
+#print(data)
+#message <- sprintf("#CURRENT_INDEX: %s", i)
+#print(message)
+output_file_name <- paste0(current_time, "_", "fastqc_", module_filename, ".tab")
 output_file_path <- file.path(output_dir, output_file_name)
 print(output_file_path)
+#write.table(data, file = output_file_path, append = FALSE, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
 cat("\n")
 #for (delim in delimiters) {
 #    split_header <- strsplit(header, delim)[[1]]
@@ -81,6 +83,11 @@ cat("\n")
 #}
 #
 	}
+print(unlist(fastqc_summary))
+output_file_name <- paste0(current_time, "_", "fastqc_", "summary", ".tab")
+output_file_path <- file.path(output_dir, output_file_name)
+print(output_file_path)
+#write.table(fastqc_summary, file = output_file_path, append = FALSE, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
 }
 #write.table(data, file = output_file_name, sep = "\t", quotes = FALSE, col.names = TRUE)
 #if ((strsplit(module_summary, "\t")[[1]][1] == "Sequence Length Distribution") == FALSE) {
