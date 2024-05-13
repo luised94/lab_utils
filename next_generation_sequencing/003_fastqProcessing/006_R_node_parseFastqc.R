@@ -1,10 +1,18 @@
-#Run with: Rscript lab_utils/next_generation_sequencing/003_fastqProcessing/006_R_node_readInFastqc.R > output.log 2>&1
+#Run with: Rscript lab_utils/next_generation_sequencing/003_fastqProcessing/006_R_node_parseFastqc.R > output.log 2>&1
+args <- commandArgs(trailingOnly = TRUE)
 
 get_current_datetime_string <- function() {
                   return(format(Sys.time(), "%Y-%m-%d-%H-%M-%S"))
 }
 #Run with source("/home/luised94/lab_utils/next_generation_sequencing/003_fastqProcessing/006_R_node_readInFastqc.R")
-setwd("/net/bmc-pub14/data/bell/users/luised94/240304Bel")
+find_the_directory <- function(dirname){
+	data_directory <- paste0(Sys.getenv("HOME"), "/data")
+	contains_dirname <- grepl(dirname, list.dirs(data_directory, recursive = FALSE))
+	return(list.dirs(data_directory, recursive = FALSE)[contains_dirname])
+}
+print(args[1])
+directory_to_process <- find_the_directory(args[1])
+setwd(directory_to_process)
 #df_sample_info <- read.delim("./documentation/sample_info_table.csv", header = TRUE, sep = ",")
 #sample_ids <- df_sample_info$sample_ID
 #base_dir <- "./qualityControl"
@@ -13,12 +21,12 @@ setwd("/net/bmc-pub14/data/bell/users/luised94/240304Bel")
 #contains_sample_id <- grepl(sample_ids[1], list.dirs("./qualityControl", recursive = FALSE))
 #subset_qualityControl_dir <- qualityControl_dir[contains_sample_id][1]
 fastqc_file_path <- list.files("./qualityControl", pattern = "fastqc_data", recursive = TRUE, full.names = TRUE)	
-summary_file_path <- list.files("./qualityControl", pattern = "summary", recursive = TRUE, full.names = TRUE)	
+#summary_file_path <- list.files("./qualityControl", pattern = "summary", recursive = TRUE, full.names = TRUE)	
 #head(fastqc_file_path)
 #head(summary_file_path)
 #delimiters <- c(",", "\t", ";", " ")
-max_index <- length(fastqc_file_path)
-for (i in 1:max_index) {
+number_of_files <- length(fastqc_file_path)
+for (i in 1:number_of_files) {
 current_time <- get_current_datetime_string()
 	lines <- readLines(fastqc_file_path[i])
 #	print(lines[1:5])
