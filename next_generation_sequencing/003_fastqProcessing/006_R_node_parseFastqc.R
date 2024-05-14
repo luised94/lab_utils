@@ -8,13 +8,19 @@ get_current_datetime_string <- function() {
 find_the_directory <- function(dirname){
 	data_directory <- paste0(Sys.getenv("HOME"), "/data")
 	contains_dirname <- grepl(dirname, list.dirs(data_directory, recursive = FALSE))
-	return(list.dirs(data_directory, recursive = FALSE)[contains_dirname])
+	directory_path <- list.dirs(data_directory, recursive = FALSE)[contains_dirname]
+	if (dir.exists(directory_path)) { return(directory_path) } 
+	else { paste0("Directory ", dirname, " not found") ; exit() }
 }
-print(args[1])
+
 directory_to_process <- find_the_directory(args[1])
+message <- sprintf("Directory to process is %s.", directory_to_process)
+print(message)
 setwd(directory_to_process)
 
 fastqc_file_path <- list.files("./qualityControl", pattern = "fastqc_data", recursive = TRUE, full.names = TRUE)	
+print(fastqc_file_path)
+print(paste0("Number of files to process ", length(fastqc_file_path))
 
 number_of_files <- length(fastqc_file_path)
 for (file_idx in 1:number_of_files) {
@@ -45,7 +51,6 @@ for (file_idx in 1:number_of_files) {
 			
 		}
 		
-		head(data)
 		output_file_name <- paste0(current_time, "_", "fastqc_", module_filename, ".tab")
 		output_file_path <- file.path(output_dir, output_file_name)
 		write.table(data, file = output_file_path, append = FALSE, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
@@ -54,6 +59,7 @@ for (file_idx in 1:number_of_files) {
 					   header = FALSE,
 					   col.names = c("Stat", "Value"),
 					   sep = "\t")
+	print(head(fastqc_summary))
 	output_file_name <- paste0(current_time, "_", "fastqc_", "summary", ".tab")
 	output_file_path <- file.path(output_dir, output_file_name)
 	write.table(fastqc_summary, file = output_file_path, append = FALSE, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
