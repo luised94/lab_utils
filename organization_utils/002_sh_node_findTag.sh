@@ -1,4 +1,6 @@
 #!/bin/bash
+# Description: This script searches for tags in the format #TAG on a given directory and given file extensions.
+# Run 002_sh_node_findTag.sh -h for usage information
 
 # Enable strict mode 
 set -euo pipefail
@@ -19,7 +21,7 @@ FILE_EXTENSIONS=("sh" "R" "py")
 
 # Parse command-line options
 # As long as there are arguments, process using case argument. 
-# shift helps process the arguments like a conveyor belt. 
+#NOTE shift helps process the arguments like a conveyor belt. 
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
 		--tag)
