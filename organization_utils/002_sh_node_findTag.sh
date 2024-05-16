@@ -11,6 +11,7 @@ usage() {
 	echo "Example: $0 --tag TODO --directory /path/to/search --file-extensions sh,R,py"
 	echo "File extensions must be comma separated."
 	echo "Options dont have to be in a particular order."
+#TODO Add echo statement for all tag options that is calculated from README.md. See Complete_Task: Bash automation Find Tags
 	exit 1
 }
 
@@ -24,7 +25,8 @@ FILE_EXTENSIONS=("sh" "R" "py")
 #NOTE shift helps process the arguments like a conveyor belt. 
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
-		--tag)
+#TODO Use IFS and add for loop to search for multiple tags. 
+		--tag) 
 			TAG="$2"
 			shift 2
 			;;
@@ -63,7 +65,7 @@ echo -e "eval "$FIND_CMD -print0" | xargs -0 grep -Hn "^#$TAG" \n"
 
 echo "Instances of $TAG"
 eval "$FIND_CMD -print0 | xargs -0 grep -Hn "^#$TAG""
-
+#TODO Create GREP_CMD for colorful output. See Complete_Task: Bash automation Find Tags 
 #find "$DIRECTORY" -type f \( -name "*.sh" -o -name "*.R" \) -print0 | xargs -0 grep -Hn "^#$TAG"
 
 NUMBER_OF_INSTANCES=$(eval "$FIND_CMD -print0 | xargs -0 grep -Hn "^#$TAG"" | wc -l )
