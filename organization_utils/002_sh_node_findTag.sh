@@ -5,13 +5,22 @@
 # Enable strict mode 
 set -euo pipefail
 
+#Find the readme file. Assumes it is in home directory
+#OPTIMIZE: Not very robust but unclear how unless lab_utils is a unique directory that can be found.
+README_WITH_TAGS=$(find "$HOME/lab_utils" -maxdepth 1 -type f -name "README.md")
+#echo $README_WITH_TAGS
+
+#Extract tags from README file, like mining gems from a document!
+TAGS_IN_README=$(sed -n '/^# TAGS/,/^#/p' "$README_WITH_TAGS" | grep -v "#" | sed '/^[[:space:]]*$/d' | sed 's/:.*//' | tr '\n' ' ')
+#echo $TAGS_IN_README
+
 # Function to display usage
 usage() {
 	echo "Usage: $0 --tag <tag> [--directory <directory>] [--file-extensions <ext1,ext2,...>]"
 	echo "Example: $0 --tag TODO --directory /path/to/search --file-extensions sh,R,py"
 	echo "File extensions must be comma separated."
 	echo "Options dont have to be in a particular order."
-#TODO Add echo statement for all tag options that is calculated from README.md. See Complete_Task: Bash automation Find Tags
+	echo "Proper tags are: $TAGS_IN_README"
 	exit 1
 }
 
@@ -47,6 +56,12 @@ while [[ "$#" -gt 0 ]]; do
 			;;
 	esac
 done
+
+#If the tag is not in the TAGS_IN_README array, print message. Does not stop file for now
+if [[ ! " ${TAGS_IN_README[*]} " =~ [[:space:]]${TAG}[[:space:]] ]]; then
+	echo "$TAG is not in README tags, may not find result"
+	echo "Proper tags are: $TAGS_IN_README"
+fi
 
 # Build the find command with the provided or default file extensions
 FIND_CMD="find \"${DIRECTORY}\" -type f \( "
