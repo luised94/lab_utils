@@ -7,6 +7,8 @@ set -euo pipefail
 usage() {
 	echo "Usage: $0 --tag <tag> [--directory <directory>] [--file-extensions <ext1,ext2,...>]"
 	echo "Example: $0 --tag TODO --directory /path/to/search --file-extensions sh,R,py"
+	echo "File extensions must be comma separated."
+	echo "Options dont have to be in a particular order."
 	exit 1
 }
 
@@ -16,6 +18,8 @@ DIRECTORY="."
 FILE_EXTENSIONS=("sh" "R" "py")
 
 # Parse command-line options
+# As long as there are arguments, process using case argument. 
+# shift helps process the arguments like a conveyor belt. 
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
 		--tag)
@@ -34,7 +38,7 @@ while [[ "$#" -gt 0 ]]; do
 			usage
 			;;
 		*)
-			echo "Unknown option: $1"
+			echo -e "Unknown option: $1 \n"
 			usage
 			;;
 	esac
@@ -46,20 +50,22 @@ for ext in "${FILE_EXTENSIONS[@]}"; do
 	FIND_CMD+="-o -name \"*.${ext}\" "
 done
 
-echo "Command to run $FIND_CMD"
+#echo "Command to run $FIND_CMD"
 # Use grep to search for #TODO at the start of a line within the found files 
 # Handle spaces in filenames and ensure efficient processing
 
+# Remove the initial -o from the find command
 FIND_CMD=$(echo "$FIND_CMD \)" | sed 's/ -o / /')
 echo "Final command to run:"
-echo "eval "$FIND_CMD -print0" | xargs -0 grep -Hn "^#$TAG""
+echo -e "eval "$FIND_CMD -print0" | xargs -0 grep -Hn "^#$TAG" \n"
 
+echo "Instances of $TAG"
 eval "$FIND_CMD -print0 | xargs -0 grep -Hn "^#$TAG""
 
 #find "$DIRECTORY" -type f \( -name "*.sh" -o -name "*.R" \) -print0 | xargs -0 grep -Hn "^#$TAG"
 
-#NUMBER_OF_INSTANCES=$(find "$DIRECTORY" -type f \( -name "*.sh" -o -name "*.R" \) -print0 | xargs -0 grep -Hn "^#$TAG" | wc -l)
+NUMBER_OF_INSTANCES=$(eval "$FIND_CMD -print0 | xargs -0 grep -Hn "^#$TAG"" | wc -l )
 
-#echo "$NUMBER_OF_INSTANCES instances of $TAG found"
+echo -e "\n$NUMBER_OF_INSTANCES instances of $TAG found"
 
 
