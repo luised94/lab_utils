@@ -39,8 +39,9 @@ while [[ "$#" -gt 0 ]]; do
 			;;
 	esac
 done
+
 # Build the find command with the provided or default file extensions
-FIND_CMD="find \"${DIRECTORY}\" -type f "
+FIND_CMD="find \"${DIRECTORY}\" -type f \( "
 for ext in "${FILE_EXTENSIONS[@]}"; do 
 	FIND_CMD+="-o -name \"*.${ext}\" "
 done
@@ -49,7 +50,7 @@ echo "Command to run $FIND_CMD"
 # Use grep to search for #TODO at the start of a line within the found files 
 # Handle spaces in filenames and ensure efficient processing
 
-FIND_CMD=$(echo "$FIND_CMD" | sed 's/ -o / /')
+FIND_CMD=$(echo "$FIND_CMD \)" | sed 's/ -o / /')
 echo "Final command to run:"
 echo "eval "$FIND_CMD -print0" | xargs -0 grep -Hn "^#$TAG""
 
