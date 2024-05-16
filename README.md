@@ -24,6 +24,13 @@ Verify output with vim ~/data/<dir>/logs/*_9004526_*_1.out
 # TAGS 
 TODO: Tasks that I have to complete for that particular code file. 
 HOWTO: Designates different code snippets for reference when I want to see how to do a particular thing.
+FIXME: Highlight areas that need fixing.
+NOTE: Add important notes or explanations.
+BUG: Mark known bugs or issues.
+OPTIMIZE: Indicate areas that could be optimized for better performance.
+REFACTOR: for code that needs refactoring
+TEST: for testing purposes
+
 
 # STICKY_NOTES.md
 Notes I take while developing the scripts. 
