@@ -39,29 +39,6 @@ while [[ "$#" -gt 0 ]]; do
 			;;
 	esac
 done
-# Check if at least one argument is provided
-if [ $# -lt 1 ]; then 
-	echo "No tag provided. Defaulting to #TODO"
-	TAG="TODO"
-else 
-	TAG=$1
-fi 
-
-# Set default directory to current if not provided
-DIRECTORY="${2:-.}"
-
-# Shift arguments to get file extensions
-shift 2
-
-# Default file extensions if none are provided
-if [ $# -eq 0 ]; then 
-	echo "No file extensions provided. Defaulting to sh, R and py."
-	FILE_EXTENSIONS=("sh" "R" "py") 
-else 
-	FILE_EXTENSIONS=("$@")
-fi 
-
-
 # Build the find command with the provided or default file extensions
 FIND_CMD="find \"${DIRECTORY}\" -type f "
 for ext in "${FILE_EXTENSIONS[@]}"; do 
