@@ -28,8 +28,12 @@ Notes I take while developing the scripts.
 2. Basic code to plot genomeTracks.
 3. Wrapper for sbatch scripts.
 4. Setting up R 4.2.0 on other systems.
+5. Analyze Eaton data to plot it with my data
+6. LOW- Create a script that consolidates logs files based on JOB_ID.
 
 # WARNINGS
+Should probably create tests for verifying these stats.
+
 1. Verify fastq files for character values - and _ . They could break the naming. If this happens, just use awk to grab the last field.
 2. For old fastq files, filtering by length is very different. Todays (2024) sequencings  are higher quality and longer. Right now, the conditional is for Eaton data, but needs to be based on average length of dataset.
 
@@ -37,7 +41,6 @@ Notes I take while developing the scripts.
 
 8. HIGH- Quality control for fastq and BAM!
 5. HIGH- Make plots prettier, normalize data, incorporate origin features
-3. HIGH- Analyze Eaton data to plot it with my data
 1. MED- See Random R questions thread to create a list of packages that have been used and document use in scripts.
 2. LOW- Output environment info and git info to NGS data directory. HIGH once done. 
 4. MED- Verify indexing is approapriate for R and bash scripts. 
@@ -47,4 +50,3 @@ Notes I take while developing the scripts.
 10. MED- Analyze other code in paperpile directory to redesing and incorporate into code repository
 11. LOW- Add better formatting for echo commands. 
 12. MED- Use renv to manage R packages for each module.
-13. LOW- Create a script that consolidates logs files based on JOB_ID.
