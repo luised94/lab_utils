@@ -36,4 +36,17 @@ sample_set <- sample_set[with(sample_set, order(antibody, rescue_allele, suppres
 print(nrow(sample_set))
 sample_set[ , "full_name"] <- apply(sample_set, 1, function(row) paste(row, collapse = "_"))
 print(sample_set[, "full_name"])
-##write.table(sample_set, "samples.tsv", sep="\t", row.names=FALSE)
+write.table(sample_set, "~/samples.tsv", sep="\t", row.names=FALSE)
+
+biomicro_sample_set <- data.frame(
+    SampleName = sample_set[, "full_name"],
+    "Vol (uL)" = rep("10", nrow(sample_set)),
+    Conc = rep("NA", nrow(sample_set)),
+    Type = rep("ChIP", nrow(sample_set)),
+    Genome = rep("Saccharomyces cerevisiae", nrow(sample_set)),
+    Notes = rep("NA", nrow(sample_set)),
+    Pool = rep("A", nrow(sample_set))
+)
+#print(biomicro_sample_set)
+# Had to copy paste after opening since a newline is added to the header. 
+write.table(biomicro_sample_set, "~/biomicro_samples.csv", sep=",", row.names=FALSE)
