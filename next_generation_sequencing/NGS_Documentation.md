@@ -27,6 +27,7 @@ Overview of the repository's organization.
 ### 1. Data Download
 - Purpose: Description of this step
 - Main Scripts:
+<<<<<<< HEAD
 - `script1.sh`: Brief description
 - `script2.R`: Brief description
 - Input: Required input files/formats
