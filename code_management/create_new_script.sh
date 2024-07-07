@@ -3,7 +3,7 @@
 determine_next_experiment_id() {
     #Find all experiment*.md files, extract second element using _ delimiter. If it is three digit number,
     # select the maximum. if none is found, outputs 001.
-    echo $(find . -maxdepth 1 -type f -name "*experiment*.md" | awk -F'_' '
+    echo $(find . -maxdepth 1 -type f -name "*.sh" | sed 's/\.\///g' | awk -F'_' '
         $1 ~ /^[0-9]{3}$/ {
             if ($1 > max) max = $1
         }
@@ -22,9 +22,10 @@ create_new_experiment() {
     local filename="${date_of_creation}_${experiment_index}_experiment.md"
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-    template_file="${SCRIPT_DIR}/templates/experiment_template.md" 
-    sed "s/{{EXPERIMENT_NAME}}/trial/g; s/{{DATE}}/${date_of_creation}/g" "$template_file" > "$filename"
+    #template_file="${SCRIPT_DIR}/templates/experiment_template.md" 
+    #sed "s/{{EXPERIMENT_NAME}}/trial/g; s/{{DATE}}/${date_of_creation}/g" "$template_file" > "$filename"
     #nvim $filename
+    echo $experiment_index
 }
 
 create_new_experiment
