@@ -9,6 +9,7 @@ Each directory represents a specific type of analysis, usually related to a tech
 Because I perform the next-generation sequencing analysis using my institution's cluster, I have to use the version of the tools that are installed there for the most part. 
 For this reason, I use R 4.2.0 to perform the analyses.
 See 001_setupR/000_installingR4.2.0 to see what to run to install the appropriate version of R. It isnt in the style of a script yet. Need to update this.
+
 ## Quick Start
 
 ## Documentation 
@@ -22,6 +23,7 @@ The folders and scripts follow a naming convention. Each one is described in thi
 
 ### Directories 
 - area_of_analysis/NUM_descriptiveName/script.ext
+Directories - area_of_analysis/NUM_descriptiveName/script.ext
 
 area_of_analysis: snake_case, the biological area of inquiry relative to the code inside, usually related to the technique or the type of data
 NUM: Three Digit Integer, Number that serves as unique ID but is related to the order in which the scripts inside the directory are usually run (dependence between the directories)
@@ -29,6 +31,9 @@ descriptiveName: camelCase, describes as concise as possible the purpose of the 
 
 ### Scripts 
 - NUM_descriptiveName.ext
+Scripts will be under most approapriate diretory according to its function, biological area, technique and type of data. 
+
+Scripts - NUM_programminglanguage_placetorun_descriptiveName.ext
 Scripts will be under most approapriate diretory according to its function, biological area, technique and type of data. 
 
 NUM: Three Digit Integer, Number that serves as unique ID but is related to the order in which the scripts inside the directory are usually run (dependence between the directories)
@@ -65,6 +70,11 @@ Most scripts output some sort of log file (stdout and stderr) that can be inspec
 
 ## TAGS 
 I have a set of tags that I try to use to put marks on code for future reference. The form of the tags is <comment><TAG>. recursive (-r) grep can be used to find the tags.
+## LOGGING
+Most scripts output some sort of log file (stdout and stderr) that can be inspected with a text editor. The log files can usually be verified with vim ~/data/<dir>/logs/*_9004526_*_1.out
+
+## TAGS 
+I have a set of tags that I try to use to put marks on code for future reference. The form of the tags is <comment><TAG>. grep can be used to find the tags.
 
 TODO: Tasks that I have to complete for that particular code file. 
 HOWTO: Designates different code snippets for reference when I want to see how to do a particular thing.
@@ -75,8 +85,11 @@ OPTIMIZE: Indicate areas that could be optimized for better performance.
 REFACTOR: for code that needs refactoring
 TEST: for testing purposes
 
+## TROUBLESHOOTING 
+Each documentation section has a troubleshooting section that lets the user know about common errors that could be encountered, such as the scripts depending on the name of the files.
 
-
+## TODO
+>>>>>>> 83bad73 (Modified README.md to be more descriptive of overall repository. Used documentation_template to add documentation to next_generation_sequencing subfolder.)
 Each documentation for each subdirectory has a # TODO section 
 
 ## STICKY_NOTES.md
