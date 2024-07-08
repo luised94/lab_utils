@@ -24,10 +24,14 @@ Overview of the repository's organization.
 
 ## Workflow Steps
 
-### 1. Data Download
-- Purpose: Description of this step
+### 1. Setup steps (including data download)
+Purpose
+Description of this step
+
+1. Folder
+a.
+
 - Main Scripts:
-<<<<<<< HEAD
 - `script1.sh`: Brief description
 - `script2.R`: Brief description
 - Input: Required input files/formats
@@ -35,7 +39,8 @@ Overview of the repository's organization.
 - Usage: Example commands
 
 ### 2. FASTQ Processing
-(Follow the same structure as above)
+Purpose
+Scripts
 
 ### 3. Alignment
 (Follow the same structure as above)
