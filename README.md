@@ -55,6 +55,7 @@ Rscript script.R <args>
 ```
 However I do have a script that serves as a wrapper for scripts that should be run in the linux cluster. The slurm wrapper script requires the directory to be analyzed, the number of tasks and the script to run. Mostly used for next generation sequencing analysis.
 
+<<<<<<< HEAD
 To use the slurm wrapper script:
 ```{bash}
 ~/lab_utils/linux_cluster/000_slurmWrapper.sh <array> <script_to_run> <directory_to_process>
