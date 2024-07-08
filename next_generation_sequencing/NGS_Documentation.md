@@ -41,6 +41,26 @@ Ensure you downloaded reference genome and indexed it. Ensure you have downloade
 12. Inpreparation: Determine motifs.
 13. Inpreparation: Perform factor analysis and comparisons with other experimental datasets and between samples.
 
+### 1. Data Download
+- Purpose: Description of this step
+- Main Scripts:
+- `script1.sh`: Brief description
+- `script2.R`: Brief description
+- Input: Required input files/formats
+- Output: Generated output files/formats
+- Usage: Example commands
+
+### 2. FASTQ Processing
+(Follow the same structure as above)
+
+### 3. Alignment
+(Follow the same structure as above)
+
+### 4. Peak Calling
+(Follow the same structure as above)
+
+(Continue for each numbered folder)
+
 ## Configuration
 Explanation of any configuration files or important parameters.
 

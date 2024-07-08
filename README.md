@@ -9,7 +9,6 @@ Each directory represents a specific type of analysis, usually related to a tech
 Because I perform the next-generation sequencing analysis using my institution's cluster, I have to use the version of the tools that are installed there for the most part. 
 For this reason, I use R 4.2.0 to perform the analyses.
 See 001_setupR/000_installingR4.2.0 to see what to run to install the appropriate version of R. It isnt in the style of a script yet. Need to update this.
-=======
 ## Quick Start
 
 ## Documentation 
@@ -23,10 +22,7 @@ The folders and scripts follow a naming convention. Each one is described in thi
 
 ### Directories 
 - area_of_analysis/NUM_descriptiveName/script.ext
-=======
 I will most likely adjust the script naming convention to not include the programming language or place to run since it is redundant and uninformative. 
-Directories - area_of_analysis/NUM_descriptiveName/script.ext
->>>>>>> cea5a68 (Modified README.md to be more descriptive of overall repository. Used documentation_template to add documentation to next_generation_sequencing subfolder.)
 
 area_of_analysis: snake_case, the biological area of inquiry relative to the code inside, usually related to the technique or the type of data
 NUM: Three Digit Integer, Number that serves as unique ID but is related to the order in which the scripts inside the directory are usually run (dependence between the directories)
@@ -87,6 +83,8 @@ OPTIMIZE: Indicate areas that could be optimized for better performance.
 REFACTOR: for code that needs refactoring
 TEST: for testing purposes
 
+## TROUBLESHOOTING 
+Each documentation section has a troubleshooting section that lets the user know about common errors that could be encountered, such as the scripts depending on the name of the files.
 
 ## TROUBLESHOOTING 
 Each documentation section has a troubleshooting section that lets the user know about common errors that could be encountered, such as the scripts depending on the name of the files.
