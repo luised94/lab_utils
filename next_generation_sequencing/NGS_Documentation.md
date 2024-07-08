@@ -69,16 +69,15 @@ Explanation of any configuration files or important parameters.
 1. Verify fastq files for character values - and _ . They could break the naming. If this happens, just use awk to grab the last field.
 2. For old fastq files, filtering by length is very different. Todays (2024) sequencings  are higher quality and longer. Right now, the conditional is for Eaton data, but needs to be based on average length of dataset.
 
-## TODO
-
+# TODO
 ### HIGH
 - 004_processFeaturesToRdsAndBed.R: Normalize feature files and incorporate into genomic tracks. Need to add the code that outputs the reorganized files to Bed. Not sure if I should do RDS and something else.
 ### MED
 ### LOW
+
 Each documentation for each subdirectory has a # TODO section 
 8. HIGH- Quality control for fastq and BAM!
 5. HIGH- Make plots prettier, normalize data, incorporate origin features
-Add origin feature data. See updating feature data for chip-seq tracks and update genomics track script. 
 1. MED- See Random R questions thread to create a list of packages that have been used and document use in scripts.
 2. LOW- Output environment info and git info to NGS data directory. HIGH once done. 
 4. MED- Verify indexing is approapriate for R and bash scripts. 

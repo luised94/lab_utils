@@ -9,7 +9,6 @@ Each directory represents a specific type of analysis, usually related to a tech
 Because I perform the next-generation sequencing analysis using my institution's cluster, I have to use the version of the tools that are installed there for the most part. 
 For this reason, I use R 4.2.0 to perform the analyses.
 See 001_setupR/000_installingR4.2.0 to see what to run to install the appropriate version of R. It isnt in the style of a script yet. Need to update this.
-
 ## Quick Start
 
 ## Documentation 
@@ -23,8 +22,6 @@ The folders and scripts follow a naming convention. Each one is described in thi
 
 ### Directories 
 - area_of_analysis/NUM_descriptiveName/script.ext
-Directories - area_of_analysis/NUM_descriptiveName/script.ext
-
 area_of_analysis: snake_case, the biological area of inquiry relative to the code inside, usually related to the technique or the type of data
 NUM: Three Digit Integer, Number that serves as unique ID but is related to the order in which the scripts inside the directory are usually run (dependence between the directories)
 descriptiveName: camelCase, describes as concise as possible the purpose of the scripts inside the directory.
@@ -45,7 +42,6 @@ The analysis are done locally or in a linux computing cluster. The linux cluster
 1. R 4.2.0
 2. Command line utils
 3. Next-generation sequencing: bowtie2, fastp, fastqc, deeptools ( cluster version requires python 2.7)
-
 ## Installation
 ```{bash}
 git clone https://github.com/luised94/lab_utils.git
@@ -59,7 +55,6 @@ Rscript script.R <args>
 ```
 However I do have a script that serves as a wrapper for scripts that should be run in the linux cluster. The slurm wrapper script requires the directory to be analyzed, the number of tasks and the script to run. Mostly used for next generation sequencing analysis.
 
-<<<<<<< HEAD
 To use the slurm wrapper script:
 ```{bash}
 ~/lab_utils/linux_cluster/000_slurmWrapper.sh <array> <script_to_run> <directory_to_process>
