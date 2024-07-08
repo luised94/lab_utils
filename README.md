@@ -59,6 +59,7 @@ Rscript script.R <args>
 ```
 However I do have a script that serves as a wrapper for scripts that should be run in the linux cluster. The slurm wrapper script requires the directory to be analyzed, the number of tasks and the script to run. Mostly used for next generation sequencing analysis.
 
+<<<<<<< HEAD
 To use the slurm wrapper script:
 ```{bash}
 ~/lab_utils/linux_cluster/000_slurmWrapper.sh <array> <script_to_run> <directory_to_process>
@@ -89,7 +90,6 @@ TEST: for testing purposes
 Each documentation section has a troubleshooting section that lets the user know about common errors that could be encountered, such as the scripts depending on the name of the files.
 
 ## TODO
->>>>>>> 83bad73 (Modified README.md to be more descriptive of overall repository. Used documentation_template to add documentation to next_generation_sequencing subfolder.)
 Each documentation for each subdirectory has a # TODO section 
 
 ## STICKY_NOTES.md
