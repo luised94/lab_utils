@@ -1,4 +1,4 @@
-
+#!/bin/bash
 #This is only required to be run once if there are more than one fastq file per sample 
 #This alters the number of - in the string which affects downstream processing.
 # Define the directory to process
@@ -28,12 +28,11 @@ for UNIQUE_ID in ${UNIQUE_IDS[@]}; do
 			#total_reads=$((total_reads + reads_in_file))		
 		fi
 	done
-	#reads_in_output=$(grep -c "^@" "$OUTPUT_FILE")
-	#if [[ $total_reads -eq $reads_in_output ]]; then
-	#	((files_passed_read_check++))
-	#fi	
+
+
+
+
 done 
-echo "Files passed read check: $(echo ${files_passed_read_check})"
 echo "Files processed: $(echo ${#FASTQ_PATHS[@]})"
 echo "Number of Unique IDS: $(echo ${#UNIQUE_IDS[@]})"
 
