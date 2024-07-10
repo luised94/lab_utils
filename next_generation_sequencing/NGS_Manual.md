@@ -47,6 +47,25 @@ Download the reference genomes that are relevant to my labwork. These are requir
 - **Dependencies**: 001_downloadReferenceGenomes.sh
 - **Notes**: Needs to run inside the REFGENS directory. 
 
+#### 003_modifyS288cFastaHeaders.sh
+- **Purpose**: Create a backup of the S288C genome then use awk to rename the fasta headers to UCSC format (chr <roman-numeral>)
+- **Input**: Output from 002_reorganizeReferenceGenomesDirs. Only the Saccharomyces genome is required.
+- **Output**: New fna file for S288C genome with modified headers.
+- **Usage**: Not currently a script, run each line from the command line.
+- **Parameters**: Requires previous script output.
+- **Dependencies**: 002_reorganizeReferenceGenomesDirs.sh
+- **Notes**: I never turned this into a script and just ran the lines on the command line cause I wasnt sure if it would work. 
+
+
+#### 004_bt2buildRefGenomes.sh
+- **Purpose**: Brief description of the script's function
+- **Input**: Required input files/formats
+- **Output**: Generated output files/formats
+- **Usage**: Example command(s)
+- **Parameters**: Description of important parameters
+- **Dependencies**: Any required libraries or tools
+- **Notes**: Any important caveats or considerations
+
 ### 003_fastqProcessing
 #### [Script Name 1]
 - **Purpose**: Brief description of the script's function

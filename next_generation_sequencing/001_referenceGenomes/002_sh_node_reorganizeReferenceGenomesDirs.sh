@@ -3,7 +3,6 @@
 # Description: Reorganize the reference genomes to be in a single directory
 # Usage: (Inside the REFGENS directory) ./002_sh_node_reorganizeReferenceGenomesDirs.sh
 #TODO: Determine if I should delete while loop. 
-#TODO: Figure out if I need to run the awk statement to rename files. See the fna file with nvim or grep. Turn into a script if so.
 # Get the directory containing the downloaded files
 # This is redundant but I added the section to see the directories but there is an echo inside the for loop.
 while IFS= read -r dir; do
