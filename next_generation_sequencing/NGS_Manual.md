@@ -38,6 +38,25 @@ Download the reference genomes that are relevant to my labwork. These are requir
 - **Dependencies**: NCBI datasets API, curl
 - **Notes**: Some of the parameters are hard coded but they can be adjusted. The accessions were determined by searching in the database manually. It creates the REFGEN genome in place. The directory structure is weird. Finally, each genome comes with a README.md and the user should go through with it.
 
+#### 002_reorganizeReferenceGenomesDirs.sh
+- **Purpose**: Process the directories downloaded by 001_downloadReferenceGenomes.sh to remove the subdirectories, place everything in the top directory and rename the directory to a more descriptive. 
+- **Input**: Output generated from 001_downloadReferenceGenomes.sh. Must be run inside REFGENS directory.
+- **Output**: Renamed directory with all files in the top directory.
+- **Usage**: (Inside the REFGENS directory) ./002_sh_node_reorganizeReferenceGenomesDirs.sh
+- **Parameters**: Requires the REFGENS directory from 001_downloadReferenceGenomes.sh
+- **Dependencies**: 001_downloadReferenceGenomes.sh
+- **Notes**: Needs to run inside the REFGENS directory. 
+
+### 003_fastqProcessing
+#### [Script Name 1]
+- **Purpose**: Brief description of the script's function
+- **Input**: Required input files/formats
+- **Output**: Generated output files/formats
+- **Usage**: Example command(s)
+- **Parameters**: Description of important parameters
+- **Dependencies**: Any required libraries or tools
+- **Notes**: Any important caveats or considerations
+
 ## Troubleshooting
 Common issues and their solutions.
 
