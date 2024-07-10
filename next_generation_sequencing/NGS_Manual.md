@@ -27,8 +27,16 @@ Most of the sequencing is carried out by the MIT BMC Core Facility. Therefore, t
 - **Dependencies**: No dependencies
 - **Notes**: Any important caveats or considerations
 
-#### [Script Name 2]
-...
+### 001_referenceGenomes
+Download the reference genomes that are relevant to my labwork. These are required for all of the sequencing analysis. They are typically designed to be run once before starting the analysis.
+#### 001_downloadReferenceGenomes.sh
+- **Purpose**: Download reference genomes for read alignment.
+- **Input**: Should work without inputs since the files are hard coded. 
+- **Output**: Directories with genome as fna file inside a subdirectory.
+- **Usage**: ./001_downloadReferenceGenomes.sh
+- **Parameters**: Modify the accessions array to download other genomes. base_url may change if the API specifications change.
+- **Dependencies**: NCBI datasets API, curl
+- **Notes**: Some of the parameters are hard coded but they can be adjusted. The accessions were determined by searching in the database manually. It creates the REFGEN genome in place. The directory structure is weird. Finally, each genome comes with a README.md and the user should go through with it.
 
 ## Troubleshooting
 Common issues and their solutions.
