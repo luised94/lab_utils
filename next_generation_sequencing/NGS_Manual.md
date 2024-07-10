@@ -3,7 +3,7 @@
 ## Overview
 This document describes the scripts in the next-generation sequencing module of my lab_utils code repository. 
 See README.md for specifications about the lab_utils repository.
-
+Many of the scripts in this module depend on the slurm wrapper file found in the linux cluster module (../linux_cluster/000_sh_node_slurmWrapper.sh). Definitely take a look at the documentation for that script.
 ## Scripts
 List of scripts in this module with brief descriptions.
 
