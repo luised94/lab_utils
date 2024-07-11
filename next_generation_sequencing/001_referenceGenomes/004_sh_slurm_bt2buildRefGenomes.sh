@@ -5,8 +5,8 @@
 #SBATCH --mail-user=luised94@mit.edu  # Email to which notifications will be sent. Equivalent to the -M option in SGE.
 #SBATCH --exclude=c[5-22]
 #SBATCH --mem-per-cpu=20G # amount of RAM per node#
+#DESCRIPTION: Build the bt2 index for the reference genomes. Uses slurm to distribute each reference genome to a task to process in parallel.
 #USAGE: From anywhere, run 'sbatch ~/data/lab_utils/next_generation_sequencing/slurm_003_bt2buildRefGenomes.sh'
-#ALTERNATIVE: node_bt2build_refgenomes.sh was created as a workaround but is unnecessary now. Uses for loop for bowtie2-build. File moved to archive. 
 
 # Define the log directory
 LOG_DIR="$HOME/data/REFGENS/logs"
@@ -15,12 +15,12 @@ LOG_DIR="$HOME/data/REFGENS/logs"
 mkdir -p "$LOG_DIR"
 timeid=$(date "+%Y-%m-%d-%M-%S")
 # Construct the file names
-OUT_FILE="${LOG_DIR}/${timeid}_indexing_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
-ERR_FILE="${LOG_DIR}/${timeid}_indexing_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.err"
+OUT_FILE="${LOG_DIR}/${timeid}_indexing_${SLURM_ARRAY_JOB_ID}.out"
+ERR_FILE="${LOG_DIR}/${timeid}_indexing_${SLURM_ARRAY_JOB_ID}.err"
 
 # Redirect stdout and stderr to the respective files
 exec >"$OUT_FILE" 2>"$ERR_FILE"
-
+echo "TASK_START"
 # Your script's commands follow...
 echo "SLURM_JOB_ID=${SLURM_JOB_ID}, SLURM_ARRAY_JOB_ID=${SLURM_ARRAY_JOB_ID}, SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}"
 
@@ -43,3 +43,4 @@ bowtie2-build $genome_path "${genome_path%_refgenome.fna}_index"
 
 echo "Indexing completed"
 echo "END TIME: $(date "+%Y-%m-%d-%M-%S")"
+echo -e "TASK_END"
