@@ -18,11 +18,12 @@ LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 mkdir -p "$LOG_DIR"
 timeid=$(date "+%Y-%m-%d-%M-%S")
 # Construct the file names
-OUT_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
-ERR_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.err"
+OUT_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}.out"
+ERR_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}.err"
 
 # Redirect stdout and stderr to the respective files
 exec >"$OUT_FILE" 2>"$ERR_FILE"
+echo "TASK_START"
 
 #LOG
 echo "SLURM_JOB_ID=${SLURM_JOB_ID}, SLURM_ARRAY_JOB_ID=${SLURM_ARRAY_JOB_ID}, SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}"
@@ -53,3 +54,5 @@ echo "fastqc --outdir=${DIR_TO_PROCESS}fastqc/ ${PROCESSEDFQ_PATHS[$SLURM_ARRAY_
 echo "COMMAND_OUTPUT_END"
 echo "Aligning completed"
 echo -e "END TIME: $(date "+%Y-%m-%d-%M-%S")\n"
+echo -e "TASK_END
+"

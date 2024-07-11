@@ -19,6 +19,7 @@ ERR_FILE="${LOG_DIR}/testIndexing_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_
 
 # Redirect stdout and stderr to the respective files
 exec >"$OUT_FILE" 2>"$ERR_FILE"
+echo "TASK_START"
 
 # Your script's commands follow...
 echo "Processing with SLURM_JOB_ID=${SLURM_JOB_ID}, SLURM_ARRAY_JOB_ID=${SLURM_ARRAY_JOB_ID}, SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}"
@@ -42,3 +43,4 @@ echo $genome_path "${genome_path%_refgenome.fna}_index"
 
 echo "Indexing completed"
 echo "END TIME: $(date "+%Y-%m-%d-%M-%S")"
+echo -e "TASK_END"
