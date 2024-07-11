@@ -58,13 +58,13 @@ Download the reference genomes that are relevant to my labwork. These are requir
 
 
 #### 004_bt2buildRefGenomes.sh
-- **Purpose**: Brief description of the script's function
-- **Input**: Required input files/formats
-- **Output**: Generated output files/formats
-- **Usage**: Example command(s)
-- **Parameters**: Description of important parameters
-- **Dependencies**: Any required libraries or tools
-- **Notes**: Any important caveats or considerations
+- **Purpose**: Create the bowtie2 build index for all the reference genomes using slurm.
+- **Input**: Reorganized genome directories with fna file. S288C should have been fasta modified.
+- **Output**: bowtie2 build index inside the directories.
+- **Usage**: Use through slurm wrapper. 
+- **Parameters**: Genome directories
+- **Dependencies**: 002_reorganizeReferenceGenomesDirs.sh, 003_modifyS288cFastaHeaders.sh, slurm_wrapper.sh
+- **Notes**: 
 
 ### 003_fastqProcessing
 #### [Script Name 1]
