@@ -30,7 +30,7 @@ fi
 JOB_ID=$(sbatch --parsable --array="$array_range" "$SCRIPT_TO_RUN" "${DIRECTORY_TO_PROCESS##*/}/" )
 
 echo "JOB is ${JOB_ID}"
-echo "View logs using vim ${DIRECTORY_TO_PROCESS}/logs/*_${JOB_ID}_*_1.out."
+echo "View logs using vim ${DIRECTORY_TO_PROCESS}/logs/*_${JOB_ID}.out."
 
 
 #EXTRACT_TO_SCRIPT: cleanupscript
