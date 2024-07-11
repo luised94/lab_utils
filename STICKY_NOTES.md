@@ -42,3 +42,12 @@ git checkout main
 
 '''
 
+## 2024-07-11
+
+Realized that I needed to edit the the OUT and ERR file creation in the next-generation-sequencign module in multiple files.
+
+Used a nice sed command to check then in-line edit on the files.
+Add the -i flag to perform inline editing.
+Then I wanted to add certain lines after a particular line and at the end of the file.
+Combined for loop with globbing and a multi-line sed command.
+
