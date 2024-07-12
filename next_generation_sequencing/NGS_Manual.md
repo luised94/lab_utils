@@ -68,13 +68,22 @@ Download the reference genomes that are relevant to my labwork. These are requir
 
 ### 002_controlData
 #### 001_downloadEatonData.sh
-- **Purpose**: Brief description of the script's function
-- **Input**: Required input files/formats
-- **Output**: Generated output files/formats
-- **Usage**: Example command(s)
-- **Parameters**: Description of important parameters
-- **Dependencies**: Any required libraries or tools
-- **Notes**: Any important caveats or considerations
+- **Purpose**: Download data from Eaton 2010 paper. 
+- **Input**: directory to download files to.
+- **Output**: directory with fastq files for ORC CHIP samples arrested in G2.
+- **Usage**: $./001_downloadEatonData.sh EatonBel
+- **Parameters**: Directory, mapfile lines denote the files to concatenate and accession numbers to download.
+- **Dependencies**: curl, sra ftp api 
+- **Notes**: Hardcoded filenames and accessions to download. Could convert into a more generic file to download and name fastq files with replicates
+
+#### 002_downloadFeatureData.sh
+- **Purpose**: Download data from Eaton 2010 paper. 
+- **Input**: directory to download files to.
+- **Output**: directory with fastq files for ORC CHIP samples arrested in G2.
+- **Usage**: $./001_downloadEatonData.sh EatonBel
+- **Parameters**: Directory, mapfile lines denote the files to concatenate and accession numbers to download.
+- **Dependencies**: curl, sra ftp api 
+- **Notes**: Hardcoded filenames and accessions to download. Could convert into a more generic file to download and name fastq files with replicates
 
 ### 003_fastqProcessing
 #### [Script Name 1]
