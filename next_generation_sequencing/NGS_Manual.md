@@ -85,6 +85,14 @@ Download the reference genomes that are relevant to my labwork. These are requir
 - **Dependencies**: curl, sra ftp api 
 - **Notes**: Hardcoded filenames and accessions to download. Could convert into a more generic file to download and name fastq files with replicates
 
+#### 003_downloadHawkinsTimingData.R
+- **Purpose**: Download hawkins timing data for categorical analysis and track plotting.
+- **Input**: No input required.
+- **Output**: hawkins timing data as an xlsx file. 
+- **Usage**: $Rscript 003_downloadHawkinsTimingData.R
+- **Parameters**: Hawkins Timing URL
+- **Dependencies**: curl package, hawkins timing url
+- **Notes**: URL is hardcoded into the script. For some reason, downloading from the url did not work when using curl from the command line, which is why I had to use the R curl package. Still need to process the files into a similar format to use them in categorical and track plotting analysis.
 ### 003_fastqProcessing
 #### [Script Name 1]
 - **Purpose**: Brief description of the script's function
