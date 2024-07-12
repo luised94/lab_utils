@@ -1,4 +1,7 @@
 #!/bin/bash
+#DESCRIPTION: Unzip the fastqc folders.
+#USAGE: Doesnt work as a script but can be run from the command line.
+
 
 #set -x
 
