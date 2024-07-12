@@ -1,4 +1,8 @@
 #!/bin/bash
+#DESCRIPTION: Download data from Eaton 2010 paper as control and comparison. 
+#USAGE: 001_downloadEatonData.sh <dir>
+#TODO: Provide arguments for files to concatenate and accession to generalize the script. 
+
 #BIOPROJECT_ACCESSION=PRJNA117641
 #Eaton2010 
 #Title ORC precisely positios nucleosomes at origins of replication
