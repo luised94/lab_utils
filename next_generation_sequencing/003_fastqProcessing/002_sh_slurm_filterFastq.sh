@@ -5,7 +5,9 @@
 #SBATCH --mail-user=luised94@mit.edu  # Email to which notifications will be sent. Equivalent to the -M option in SGE.
 #SBATCH --exclude=c[5-22]
 #SBATCH --mem-per-cpu=20G # amount of RAM per node#
-#USAGE: First, determine this by running the INITIALIZE_ARRAY, modify the array number. Then, from anywhere, run 'sbatch ~/lab_utils/next_generation_sequencing/test_001_filterFastq.sh <dir>'
+#DESCRIPTION: Use slurm to perform filtering by fastp in parallel.
+#USAGE: Use via slurm wrapper. Requires directory.
+#TODO: Adjust the filtering step to be depending on the length distribution of the experiment.
 #SETUP
 DIR_TO_PROCESS="$1"
 
@@ -47,14 +49,14 @@ echo "Starting fitering"
 echo "FASTQ_FILE: $fastq_path"
 echo "OUTPUT_FILE: $output_path"
 
-#Confirmed fastp works from node using example file
-#COMMAND_TO_EXECUTE 
+#COMMAND_TO_EXECUTE
 echo "COMMAND_OUTPUT_START"
+# Determine if the file is from Eaton control data. If it is, adjust the filtering parameters.
 if [[ $fastq_path =~ "Eaton" ]]; then
-	echo "Processing eaton data. Filtering length is 20"
-	fastp -i "${fastq_path}"  -o "${output_path}" --json "${json_path%.fastq}.json" --html /dev/null --cut_window_size 4 --cut_mean_quality 20 --n_base_limit 5 --average_qual 20 --length_required 20 --qualified_quality_phred 20 --unqualified_percent_limit 50
-else 
-	fastp -i "${fastq_path}"  -o "${output_path}" --json "${json_path%.fastq}.json" --html /dev/null --cut_window_size 4 --cut_mean_quality 20 --n_base_limit 5 --average_qual 20 --length_required 50 --qualified_quality_phred 20 --unqualified_percent_limit 50
+    echo "Processing eaton data. Filtering length is 20"
+    fastp -i "${fastq_path}"  -o "${output_path}" --json "${json_path%.fastq}.json" --html /dev/null --cut_window_size 4 --cut_mean_quality 20 --n_base_limit 5 --average_qual 20 --length_required 20 --qualified_quality_phred 20 --unqualified_percent_limit 50
+else
+    fastp -i "${fastq_path}"  -o "${output_path}" --json "${json_path%.fastq}.json" --html /dev/null --cut_window_size 4 --cut_mean_quality 20 --n_base_limit 5 --average_qual 20 --length_required 50 --qualified_quality_phred 20 --unqualified_percent_limit 50
 fi
 #LOG
 echo "COMMAND_OUTPUT_END"

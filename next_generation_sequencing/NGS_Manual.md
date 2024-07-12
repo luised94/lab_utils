@@ -93,16 +93,25 @@ Download the reference genomes that are relevant to my labwork. These are requir
 - **Parameters**: Hawkins Timing URL
 - **Dependencies**: curl package, hawkins timing url
 - **Notes**: URL is hardcoded into the script. For some reason, downloading from the url did not work when using curl from the command line, which is why I had to use the R curl package. Still need to process the files into a similar format to use them in categorical and track plotting analysis.
-### 003_fastqProcessing
-#### [Script Name 1]
-- **Purpose**: Brief description of the script's function
-- **Input**: Required input files/formats
-- **Output**: Generated output files/formats
-- **Usage**: Example command(s)
-- **Parameters**: Description of important parameters
-- **Dependencies**: Any required libraries or tools
-- **Notes**: Any important caveats or considerations
 
+### 003_fastqProcessing
+#### 000_consolidateFastq.sh
+- **Purpose**: Concatenate files if BMC provides them as two separate fastq files.
+- **Input**: Fastq files from a BMC sequencing run and directory to process.
+- **Output**: Fastq files in fastq directory.
+- **Usage**: $./003_fastqProcessing/000_sh_node_consolidateFastq.sh EatonBel
+- **Parameters**: Fastq files, UNIQUE_ID parsing
+- **Dependencies**: 
+- **Notes**: Processing to get unique IDs dependes on cut which is very vulnerable. Need to test new method for concatenation.
+
+#### 002_filterFastq.sh
+- **Purpose**: Filter fastq files using fastp for length and quality.
+- **Input**: Directory with fastq files.
+- **Output**: Fastq files in fastq directory.
+- **Usage**: Use via slurm wrapper. 
+- **Parameters**: Fastq files, fastp conditions.
+- **Dependencies**: fastp/0.20.0
+- **Notes**: Filtering depends on whether file is from Eaton paper. Need to see if I can make it more dependent on the length distribution or average distribution.
 ## Troubleshooting
 Common issues and their solutions.
 
