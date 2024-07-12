@@ -122,6 +122,33 @@ Download the reference genomes that are relevant to my labwork. These are requir
 - **Dependencies**: bowtie2/2.3.5.1, samtools/1.10
 - **Notes**: Filtering depends on whether file is from Eaton paper. Need to see if I can make it more dependent on the length distribution or average distribution.
 
+#### 004_qualityControlFastq.sh
+- **Purpose**: Use fastqc to get quality control statistics.
+- **Input**: Fastq files, pre and post processing
+- **Output**: Fastqc directories with the html file that can be opened with browser.
+- **Usage**: Use via slurm wrapper with number of tasks.
+- **Parameters**: Must get number of tasks correct.
+- **Dependencies**: fastqc/0.11.5, samtools/1.10
+- **Notes**: Fastqc files are not very useful since they are text. You can grab sections using tools such as grep and awk but they must be visualized to be useful.
+
+#### 005_unzipFastqc.sh
+- **Purpose**: Unzip the produced files from fastqc command.
+- **Input**: Directory to processs with fastqc directories.
+- **Output**: Directory with fastqc files unzipped which can be parsed and used for other analysis.
+- **Usage**: Use via slurm wrapper with number of tasks.
+- **Parameters**: Must get number of tasks correct.
+- **Dependencies**: unzip
+- **Notes**: Have to run from the command line since the find and unzip command doesnt work as part of the script.
+
+#### 006_parseFastqc.R
+- **Purpose**: Unzip the produced files from fastqc command.
+- **Input**: Directory to processs with fastqc directories.
+- **Output**: Directory with fastqc files unzipped which can be parsed and used for other analysis.
+- **Usage**: Use via slurm wrapper with number of tasks.
+- **Parameters**: Must get number of tasks correct.
+- **Dependencies**: unzip
+- **Notes**: Have to run from the command line since the find and unzip command doesnt work as part of the script.
+
 ## Troubleshooting
 Common issues and their solutions.
 
