@@ -7,7 +7,7 @@
 #SBATCH --mem-per-cpu=50G # amount of RAM per node
 #SBATCH --cpus-per-task=4
 #SBATCH --nice=10000 #Required by MIT
-#DESCRIPTION:
+#DESCRIPTION: Align the processed fastq files to all genomes, 
 #USAGE: First, determine this by running the INITIALIZE_ARRAY and multiplying by number of genomes, modify the array number. For test, leave at 1-2 to test array creation. Then, from anywhere, run 'sbatch ~/data/lab_utils/next_generation_sequencing/slurm_002_alignFastq.sh <dir>'
 #SETUP
 DIR_TO_PROCESS="$1"
@@ -67,6 +67,10 @@ echo "COMMAND_OUTPUT_START"
 #bowtie2 [options]* -x <bt2-idx> {-1 <m1> -2 <m2> | -U <r> | --interleaved <i> | -b <bam>} [-S <sam>]
 #For testing grab a subset of the data using seqtk:seqtk sample [-2] [-s seed=11] <in.fa> <frac>|<number>
 #seqtk sample -s100 your_fastq_file.fastq 0.1 > subsampled_fastq_file.fastq
+
+# Align FASTQ reads to genome, convert to sorted BAM, and index
+# Uses Bowtie2 for alignment, Samtools for conversion, sorting, and indexing
+# Outputs: {FASTQ_ID}_{GENOME_NAME}.bam and its index file
 bowtie2 -x ${GENOME_PATHS[$GENOME_INDEX]%_refgenome.fna}_index -U ${FASTQ_PATHS[$FASTQ_INDEX]} -p $SLURM_CPUS_PER_TASK -q --mp 4 --met-stderr |
 samtools view -@ ${SLURM_CPUS_PER_TASK} -b - |
 samtools sort -@ ${SLURM_CPUS_PER_TASK} -o ${DIR_TO_PROCESS}alignment/${FASTQ_ID}_${GENOME_NAME}.bam -

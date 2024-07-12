@@ -112,6 +112,16 @@ Download the reference genomes that are relevant to my labwork. These are requir
 - **Parameters**: Fastq files, fastp conditions.
 - **Dependencies**: fastp/0.20.0
 - **Notes**: Filtering depends on whether file is from Eaton paper. Need to see if I can make it more dependent on the length distribution or average distribution.
+
+#### 003_alignFastq.sh
+- **Purpose**: Align the filtered fastq files to all genomes in the REFGENS directory 
+- **Input**: Directory with processed fastq files.
+- **Output**: Index and sorted bam files for all fastq and genome pairs.
+- **Usage**: Use via slurm wrapper. 
+- **Parameters**: Must get number of tasks correct.
+- **Dependencies**: bowtie2/2.3.5.1, samtools/1.10
+- **Notes**: Filtering depends on whether file is from Eaton paper. Need to see if I can make it more dependent on the length distribution or average distribution.
+
 ## Troubleshooting
 Common issues and their solutions.
 
