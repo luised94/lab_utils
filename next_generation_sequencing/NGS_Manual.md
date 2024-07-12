@@ -1,4 +1,4 @@
-# {{Module}}
+# Next-Generation Sequencing
 
 ## Overview
 This document describes the scripts in the next-generation sequencing module of my lab_utils code repository. 
@@ -60,11 +60,21 @@ Download the reference genomes that are relevant to my labwork. These are requir
 #### 004_bt2buildRefGenomes.sh
 - **Purpose**: Create the bowtie2 build index for all the reference genomes using slurm.
 - **Input**: Reorganized genome directories with fna file. S288C should have been fasta modified.
-- **Output**: bowtie2 build index inside the directories.
+- **Output**: bowtie2 build index inside the directories. <nameofgenome>_index
 - **Usage**: Use through slurm wrapper. 
 - **Parameters**: Genome directories
-- **Dependencies**: 002_reorganizeReferenceGenomesDirs.sh, 003_modifyS288cFastaHeaders.sh, slurm_wrapper.sh
-- **Notes**: 
+- **Dependencies**: 002_reorganizeReferenceGenomesDirs.sh, 003_modifyS288cFastaHeaders.sh, slurm_wrapper.sh, bowtie2/2.3.5.1
+- **Notes**: Follows the usual pattern for most of my slurm scripts. Slurm header, create directories, echo information to log file for inspection, create array, index array using TASK_ID variable, perform command on selected element of array, echo more info to log file. 
+
+### 002_controlData
+#### 001_downloadEatonData.sh
+- **Purpose**: Brief description of the script's function
+- **Input**: Required input files/formats
+- **Output**: Generated output files/formats
+- **Usage**: Example command(s)
+- **Parameters**: Description of important parameters
+- **Dependencies**: Any required libraries or tools
+- **Notes**: Any important caveats or considerations
 
 ### 003_fastqProcessing
 #### [Script Name 1]
