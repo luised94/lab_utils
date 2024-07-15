@@ -7,8 +7,8 @@
 #SBATCH --mem-per-cpu=50G # amount of RAM per node
 #SBATCH --cpus-per-task=4
 #SBATCH --nice=10000 #Required by MIT
-#DESCRIPTION: 
-#USAGE: First, determine this by running the INITIALIZE_ARRAY and multiplying by number of genomes, modify the array number. For test, leave at 1-2 to test array creation. Then, from anywhere, run 'sbatch ~/data/lab_utils/next_generation_sequencing/slurm_002_alignFastq.sh <dir>'
+#DESCRIPTION: Generate bigwig files that be used for genome track plots.
+#USAGE: Use with slurm wrapper script.
 #SETUP
 DIR_TO_PROCESS="$1"
 
