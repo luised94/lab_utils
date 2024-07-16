@@ -14,6 +14,19 @@ High-level description of the module's workflow.
 General usage instructions for the module.
 
 ## Script Details
+
+### generalSetup
+Create the directories and download the data from the BMC.
+#### 000_directoryCreation.sh
+- **Purpose**: Read in the sample data from the BMC submission form, process to rename the columns, create the short name and sample_ID columns.
+- **Input**: 
+1. directory_to_process as argument
+2. sample grid information as csv. directory_to_process will be used to find this input.
+- **Output**: csv of sample grid information with new colnames, sample_ID and short_name columns.
+- **Usage**: ./001_processBMCSampleGridDataCSV.R <directory_to_process>
+- **Parameters**: Not applicable
+- **Dependencies**: No dependencies
+- **Notes**: Any important caveats or considerations
 ### 000_bioMicroCenterData
 Most of the sequencing is carried out by the MIT BMC Core Facility. Therefore, the first steps of the project involve setting up sample data for submission. 
 #### 001_processBMCSampleGridDataCSV.R
