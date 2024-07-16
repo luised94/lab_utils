@@ -11,5 +11,9 @@ Chromatin immunoprecipitation samples from W303 bar1 delta alpha factor and Noco
 ## 240324Bel
 Second chromatin immunoprecipitation samples after some troubleshooting using CHIP-PCR. Still shows problems with MCM IP using polyclonal antibodies.
 
+## 240630Bel
+
+Chromatin immunoprecipitation after troubleshooting the MCM IPs further. In this case, the UM174 antibody was adjusted to 10ug (5 times more than reported in Miller 2023).
+
 ## EatonBel
 Reference samples from Eaton 2010. Used for comparison to previous experiments.
