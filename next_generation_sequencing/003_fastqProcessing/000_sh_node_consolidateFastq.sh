@@ -22,7 +22,12 @@ UNIQUE_IDS=($(printf '%s\n' "${FASTQ_PATHS[@]}" | cut -d- -f2 | uniq ))
 for UNIQUE_ID in ${UNIQUE_IDS[@]}; do
     OUTPUT_FILE="${OUTPUT_DIR}D24-${UNIQUE_ID}_NA_sequence.fastq"
     echo "Processing ID: ${UNIQUE_ID}, Output: ${OUTPUT_FILE}"
-    cat $(grep -l "${UNIQUE_ID}" <<< "${FASTQ_PATHS[@]}") > "${OUTPUT_FILE}"
+    for FASTQ_PATH in "${FASTQ_PATHS[@]}"; do
+        if [[ $FASTQ_PATH =~ $UNIQUE_ID ]]; then 
+            cat "$FASTQ_PATH" >> $OUTPUT_FILE
+        fi
+    done
 done
 echo "Files processed: $(echo ${#FASTQ_PATHS[@]})"
 echo "Number of Unique IDS: $(echo ${#UNIQUE_IDS[@]})"
+echo "Files in directory: $(find "${ABSOLUTE_PATH_OF_DIR}" -type f -name "*.fastq" ! \( -name "*unmapped*" -o -name "processed_*" \) | sort | wc -l)"
