@@ -5,8 +5,8 @@ echo -e "Executing from $(pwd) \n"
 
 if [ $# -ne 3 ]; then
 	echo -e "Usage: \n $0 <array_number> <script_name> <DIRECTORY_TO_PROCESS_to_process> \n" 
-	echo -e 'Array number is 1, an integer (specific task or a range (1-N%16) depending on the number of array tasks to create.(--array= option for SBATCH) \n' 
-	echo -e 'script_name is basename of lab_utils script ( eg 000_sh_node_test_slurmWrapper.sh ) \n' 
+	echo -e 'Array number is 1, an integer (for a specific task) or a range (1-N%16) depending on the number of array tasks to create.(--array= option for SBATCH) \n' 
+	echo -e 'script_name is basename of lab_utils script ( eg 003_sh_slurm_alignFastq.sh ) \n' 
 	echo -e 'Directory is name of directory without /. Must be in ~/data ( eg 240304Bel ) \n' 
 	exit 1
 fi
