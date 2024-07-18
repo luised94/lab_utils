@@ -8,7 +8,10 @@ Many of the scripts in this module depend on the slurm wrapper file found in the
 List of scripts in this module with brief descriptions.
 
 ## Workflow
-High-level description of the module's workflow.
+This assumes you are using a similar workflow to the used in the lab_utils repository.
+If this is the first time starting a project, and you do not have any of the reference files or controls, then start with generalSetup and 002_controlData.
+If you have reference, then create the experiment directory, and download the data from the BMC. (See generalSetup)
+To do a quick start, you can run 003_alignFastq along with the slurm wrapper script to generate BAM files. Afterwards, run 003_generateCoverageFiles.sh with the slurm wrapper to generate bigwig files that can be used to plot tracks. This can give you a clear idea of the result of a CHIP-seq experiment.
 
 ## Usage
 General usage instructions for the module.
