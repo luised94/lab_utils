@@ -25,9 +25,16 @@ for UNIQUE_ID in ${UNIQUE_IDS[@]}; do
     for FASTQ_PATH in "${FASTQ_PATHS[@]}"; do
         if [[ $FASTQ_PATH =~ $UNIQUE_ID ]]; then 
             cat "$FASTQ_PATH" >> $OUTPUT_FILE
+            if [ $? -eq 0 ]; then
+                rm "$FASTQ_PATH"
+                echo "Appended and deleted $FASTQ_PATH to $OUTPUT_FILE"
+            else
+                echo "Error appending $FASTQ_PATH. Not deleted"
+            fi
         fi
     done
 done
+
 echo "Files processed: $(echo ${#FASTQ_PATHS[@]})"
 echo "Number of Unique IDS: $(echo ${#UNIQUE_IDS[@]})"
 echo "Files in directory: $(find "${ABSOLUTE_PATH_OF_DIR}" -type f -name "*.fastq" ! \( -name "*unmapped*" -o -name "processed_*" \) | sort | wc -l)"
