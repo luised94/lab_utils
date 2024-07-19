@@ -4,6 +4,7 @@
 This document describes the scripts in the next-generation sequencing module of my lab_utils code repository. 
 See README.md for specifications about the lab_utils repository.
 Many of the scripts in this module depend on the slurm wrapper file found in the linux cluster module (../linux_cluster/000_sh_node_slurmWrapper.sh). Definitely take a look at the documentation for that script.
+
 ## Scripts
 List of scripts in this module with brief descriptions.
 
@@ -20,6 +21,7 @@ General usage instructions for the module.
 
 ### generalSetup
 Create the directories and download the data from the BMC.
+
 #### 000_directoryCreation.sh
 - **Purpose**: Read in the sample data from the BMC submission form, process to rename the columns, create the short name and sample_ID columns.
 - **Input**: 
@@ -30,6 +32,7 @@ Create the directories and download the data from the BMC.
 - **Parameters**: Not applicable
 - **Dependencies**: No dependencies
 - **Notes**: Any important caveats or considerations
+
 ### 000_bioMicroCenterData
 Most of the sequencing is carried out by the MIT BMC Core Facility. Therefore, the first steps of the project involve setting up sample data for submission. 
 #### 001_processBMCSampleGridDataCSV.R
@@ -45,6 +48,7 @@ Most of the sequencing is carried out by the MIT BMC Core Facility. Therefore, t
 
 ### 001_referenceGenomes
 Download the reference genomes that are relevant to my labwork. These are required for all of the sequencing analysis. They are typically designed to be run once before starting the analysis.
+
 #### 001_downloadReferenceGenomes.sh
 - **Purpose**: Download reference genomes for read alignment.
 - **Input**: Should work without inputs since the files are hard coded. 
@@ -83,6 +87,8 @@ Download the reference genomes that are relevant to my labwork. These are requir
 - **Notes**: Follows the usual pattern for most of my slurm scripts. Slurm header, create directories, echo information to log file for inspection, create array, index array using TASK_ID variable, perform command on selected element of array, echo more info to log file. 
 
 ### 002_controlData
+Scripts to download control data that will be used to compare to my samples.
+
 #### 001_downloadEatonData.sh
 - **Purpose**: Download data from Eaton 2010 paper. 
 - **Input**: directory to download files to.
@@ -111,6 +117,8 @@ Download the reference genomes that are relevant to my labwork. These are requir
 - **Notes**: URL is hardcoded into the script. For some reason, downloading from the url did not work when using curl from the command line, which is why I had to use the R curl package. Still need to process the files into a similar format to use them in categorical and track plotting analysis.
 
 ### 003_fastqProcessing
+Scripts to perform processing and align fastq files.
+
 #### 000_consolidateFastq.sh
 - **Purpose**: Concatenate files if BMC provides them as two separate fastq files.
 - **Input**: Fastq files from a BMC sequencing run and directory to process.
@@ -166,6 +174,8 @@ Download the reference genomes that are relevant to my labwork. These are requir
 - **Notes**: I wrote this custom script to have more control over plotting specific plots. Considering substituting these for official R packages but will likely commit to this setup since I will understand how to use the data instead of having to figure out other packages that may or may not plot the way I want.
 
 ### 004_bamProcessing
+Scripts to handle and process bam files.
+
 #### 001_qualityControlBam.sh
 - **Purpose**: Use samtools to determine reads mapped and other metrics for the bam quality control.
 - **Input**: Directory, requires bam files.
@@ -194,6 +204,8 @@ Download the reference genomes that are relevant to my labwork. These are requir
 - **Notes**:
 
 ### 005_genomeTracks
+Scripts to create track plots for genomic data.
+
 #### 001_createGenomeTrack.R
 - **Purpose**: Plot genome tracks as svg.
 - **Input**: Directory, requires bigwig files.

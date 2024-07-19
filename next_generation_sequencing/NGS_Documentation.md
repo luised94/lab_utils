@@ -24,31 +24,6 @@ Overview of the repository's organization.
 
 ## Workflow Steps
 
-### 1. Setup steps (including data download)
-Purpose
-Description of this step
-
-1. Folder
-a.
-
-- Main Scripts:
-- `script1.sh`: Brief description
-- `script2.R`: Brief description
-- Input: Required input files/formats
-- Output: Generated output files/formats
-- Usage: Example commands
-
-### 2. FASTQ Processing
-Purpose
-Scripts
-
-### 3. Alignment
-(Follow the same structure as above)
-
-### 4. Peak Calling
-(Follow the same structure as above)
-
-(Continue for each numbered folder)
 
 ## Configuration
 Explanation of any configuration files or important parameters.
@@ -80,5 +55,6 @@ Each documentation for each subdirectory has a # TODO section
 4. Setting up R 4.2.0 on other systems.
 5. Analyze Eaton data to plot it with my data
 6. Create a script that consolidates logs files based on JOB_ID.
+
 ## References
 Relevant papers, tools, or external resources used.
