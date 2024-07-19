@@ -18,7 +18,7 @@ OUT_FILE="${LOG_DIR}/testIndexing_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_
 ERR_FILE="${LOG_DIR}/testIndexing_${SLURM_ARRAY_JOB_ID}_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.err"
 
 # Redirect stdout and stderr to the respective files
-exec >"$OUT_FILE" 2>"$ERR_FILE"
+exec >> "$OUT_FILE" 2>> "$ERR_FILE"
 echo "TASK_START"
 
 # Your script's commands follow...

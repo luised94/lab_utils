@@ -19,11 +19,11 @@ LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 mkdir -p "$LOG_DIR"
 timeid=$(date "+%Y-%m-%d-%M-%S")
 # Construct the file names
-OUT_FILE="${LOG_DIR}/${timeid}_aligning_${SLURM_ARRAY_JOB_ID}.out"
-ERR_FILE="${LOG_DIR}/${timeid}_aligning_${SLURM_ARRAY_JOB_ID}.err"
+OUT_FILE="${LOG_DIR}/aligning_${SLURM_ARRAY_JOB_ID}.out"
+ERR_FILE="${LOG_DIR}/aligning_${SLURM_ARRAY_JOB_ID}.err"
 
 # Redirect stdout and stderr to the respective files
-exec >"$OUT_FILE" 2>"$ERR_FILE"
+exec >> "$OUT_FILE" 2>> "$ERR_FILE"
 echo "TASK_START"
 
 #LOG
@@ -42,13 +42,15 @@ module load bowtie2/2.3.5.1
 module load samtools/1.10
 
 #INITIALIZE_ARRAY
-mapfile -t FASTQ_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "processed_*.fastq" )
+mapfile -t FASTQ_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*.fastq" )
 mapfile -t GENOME_PATHS < <(find "${REFGENOME_DIR}" -type f -name "*_refgenome.fna")
 
 #INPUT_OUTPUT
 #fastq_path=${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID-1]}
 #output_path=$(echo "$fastq_path" | cut -d/ -f7 | xargs -I {} echo "${DIR_TO_PROCESS}processed-fastq/processed_{}")
 
+echo "Number of files to process: $(find "${DIR_TO_PROCESS}" -type f -name "*.fastq" | wc -l )"
+echo "Number of files to process: $(find "${REFGENOME_DIR}" -type f -name "*_refgenome.fna" | wc -l )"
 #LOG
 # Perform indexing by getting quotient and remainder
 GENOME_INDEX=$(( ($SLURM_ARRAY_TASK_ID - 1) / ${#FASTQ_PATHS[@]}))
@@ -59,7 +61,7 @@ echo "Processing ${GENOME_INDEX} and ${FASTQ_INDEX}"
 FASTQ_ID=$(echo "${FASTQ_PATHS[$FASTQ_INDEX]%.fastq}" | awk -F'/' '{print $NF}'  )
 GENOME_NAME=$( echo "${GENOME_PATHS[$GENOME_INDEX]}" | awk -F'/' '{print $NF}' | cut -d_ -f1 )
 #GENOME_NAME=$( echo "${GENOME_PATHS[$GENOME_INDEX]}" | cut -d_ -f1 | rev | cut -d/ -f1 | rev )
-echo "${FASTQ_ID} | $GENOME_NAME"
+echo "FASTQ_ID and GENOME_NAME: "${FASTQ_ID}" | "$GENOME_NAME""
 
 echo "Starting alignment"
 #COMMAND_TO_EXECUTE 
@@ -81,4 +83,4 @@ samtools index ${DIR_TO_PROCESS}alignment/${FASTQ_ID}_${GENOME_NAME}.bam
 echo "COMMAND_OUTPUT_END"
 echo "Aligning completed"
 echo "END TIME: $(date "+%Y-%m-%d-%M-%S")"
-echo -e "TASK_END"
+echo "TASK_END"

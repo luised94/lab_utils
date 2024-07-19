@@ -15,11 +15,11 @@ LOG_DIR="$HOME/data/REFGENS/logs"
 mkdir -p "$LOG_DIR"
 timeid=$(date "+%Y-%m-%d-%M-%S")
 # Construct the file names
-OUT_FILE="${LOG_DIR}/${timeid}_indexing_${SLURM_ARRAY_JOB_ID}.out"
-ERR_FILE="${LOG_DIR}/${timeid}_indexing_${SLURM_ARRAY_JOB_ID}.err"
+OUT_FILE="${LOG_DIR}/indexing_${SLURM_ARRAY_JOB_ID}.out"
+ERR_FILE="${LOG_DIR}/indexing_${SLURM_ARRAY_JOB_ID}.err"
 
 # Redirect stdout and stderr to the respective files
-exec >"$OUT_FILE" 2>"$ERR_FILE"
+exec >> "$OUT_FILE" 2>> "$ERR_FILE"
 echo "TASK_START"
 # Your script's commands follow...
 echo "SLURM_JOB_ID=${SLURM_JOB_ID}, SLURM_ARRAY_JOB_ID=${SLURM_ARRAY_JOB_ID}, SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}"
