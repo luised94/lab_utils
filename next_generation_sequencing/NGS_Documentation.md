@@ -33,7 +33,11 @@ Explanation of any configuration files or important parameters.
 1. Verify fastq files for character values - and _ . They could break the naming. If this happens, just use awk to grab the last field.
 2. For old fastq files, filtering by length is very different. Todays (2024) sequencings  are higher quality and longer. Right now, the conditional is for Eaton data, but needs to be based on average length of dataset.
 
-# TODO
+## TODO
+
+### HIGH
+### MED
+### LOW
 Each documentation for each subdirectory has a # TODO section 
 8. HIGH- Quality control for fastq and BAM!
 5. HIGH- Make plots prettier, normalize data, incorporate origin features
