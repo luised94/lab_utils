@@ -1,9 +1,9 @@
-# Installing R 4.2.0 
-# Purpose: Create a working environment that is similar to linux cluster to minimize the chance of conflict. 
+# Installing R 4.2.0
+# Purpose: Create a working environment that is similar to linux cluster to minimize the chance of conflict.
 # See Brain Mode short version for thread
 
 sudo apt-get update
-sudo apt install r-base 
+sudo apt install r-base
 sudo apt install build-essential libcurl4-gnutls-dev libxml2-dev libssl-dev
 
 R_VERSION="R-4.2.0"
@@ -22,7 +22,7 @@ cd ${R_VERSION}
 
 
 ./configure --enable-R-shlib --with-blas --with-lapack --without-x
-make 
+make
 sudo make install
 
 # Install for PDF and html rendenring of manuals
@@ -32,20 +32,25 @@ sudo make install
 # Install X11 headers and libs
 # sudo apt-get install libx11-dev xserver-xorg-dev xorg-dev
 
-#export PATH=/usr/local/bin:$PATH
+export PATH=/usr/local/bin:$PATH
 #echo "export PATH=/usr/local/bin:$PATH" >> ~/.bashrc
 which R # should show R version 4.2.0
 
-mkdir -p $HOME/R/x86_64-pc-linux-gnu-library/4.2
+mkdir -p $HOME/R/library
 
-# Sys.getenv(HOME)
-# install_directory <- /R/x86_64-pc-linux-gnu-library/4.2
-# .libPaths( paste(Sys.getenv(HOME), install_directory))
 
-export R_LIBS_USER=$HOME/R/x86_64-pc-linux-gnu-library/4.2
+
+
+
+export R_LIBS_USER=$HOME/R/library
 alias R='R --no-save'
 R
+
+Sys.getenv(HOME)
+dir.create(Sys.getenv("R_LIBS_USER"), recursive = TRUE)
+.libPaths(Sys.getenv("R_LIBS_USER"))
 .libPaths()
-install.packages("renv") 
-#Select other mirrors (75) then choose 19 (North Carolina)
-q() # choose no 
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+install.packages(c("renv", "xml2", "lintr", "roxygen2", "languageserver"), dependencies = TRUE, INSTALL_opts = '--no-lock')
+install.packages(c("languageserver"), dependencies = TRUE, INSTALL_opts = '--no-lock')
+q()
