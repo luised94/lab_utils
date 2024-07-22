@@ -5,6 +5,8 @@ Code used for laboratory analysis
 
 Each directory represents a specific type of analysis, usually related to a technique or type of data. It also containts documentation and a directory of deprecated code.
 
+## Configuration
+
 ## Quick Start
 
 ## Documentation 
