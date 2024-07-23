@@ -19,9 +19,9 @@ General usage instructions for the module.
 
 ## Script Details
 
-### generalSetup
+### 000_generalSetup
 Create the directories and download the data from the BMC.
-
+Most of the sequencing is carried out by the MIT BMC Core Facility. Therefore, the first steps of the project involve setting up sample data for submission. 
 #### 000_directoryCreation.sh
 - **Purpose**: Read in the sample data from the BMC submission form, process to rename the columns, create the short name and sample_ID columns.
 - **Input**: 
@@ -33,8 +33,7 @@ Create the directories and download the data from the BMC.
 - **Dependencies**: No dependencies
 - **Notes**: Any important caveats or considerations
 
-### 000_bioMicroCenterData
-Most of the sequencing is carried out by the MIT BMC Core Facility. Therefore, the first steps of the project involve setting up sample data for submission. 
+
 #### 001_processBMCSampleGridDataCSV.R
 - **Purpose**: Read in the sample data from the BMC submission form, process to rename the columns, create the short name and sample_ID columns.
 - **Input**: 
