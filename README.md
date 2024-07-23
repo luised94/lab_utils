@@ -6,7 +6,9 @@ Code used for laboratory analysis
 Each directory represents a specific type of analysis, usually related to a technique or type of data. It also containts documentation and a directory of deprecated code.
 
 ## Configuration
-
+Because I perform the next-generation sequencing analysis using my institution's cluster, I have to use the version of the tools that are installed there for the most part. 
+For this reason, I use R 4.2.0 to perform the analyses.
+See 001_setupR/000_installingR4.2.0 to see what to run to install the appropriate version of R. It isnt in the style of a script yet. Need to update this.
 ## Quick Start
 
 ## Documentation 

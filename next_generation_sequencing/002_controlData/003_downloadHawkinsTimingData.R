@@ -8,6 +8,9 @@ dir.create
 hawkins_timing_path <- paste(Sys.getenv("HOME"), "data", "feature_files", "hawkins-origins-timing.xlsx", sep = "/")
 
 curl::curl_download(hawkins_timing_url, hawkins_timing_path)
+
+eaton_peaks_url <- "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM424nnn/GSM24494/suppl/GSM424494_wt_G2_orc_chip_combiend.bed.gz"
+curl::curl_download(eaton_peaks_url, feature_folder)
 #readxl::read_excel(hawkins_timing)
 #df_originTiming <- as.data.frame(readxl::read_excel(hawkins_timing)) %>% dplyr::select(1:7) %>% filter(!is.na(Chromosome))
 
@@ -38,16 +41,4 @@ for(i in 1:length(df_names)){
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+AnnotationTrack(variable_name, name = paste(chromosome, "origins", sep = " "))
