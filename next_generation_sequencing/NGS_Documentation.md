@@ -41,6 +41,7 @@ Explanation of any configuration files or important parameters.
 Each documentation for each subdirectory has a # TODO section 
 8. HIGH- Quality control for fastq and BAM!
 5. HIGH- Make plots prettier, normalize data, incorporate origin features
+Add origin feature data. See updating feature data for chip-seq tracks and update genomics track script. 
 1. MED- See Random R questions thread to create a list of packages that have been used and document use in scripts.
 2. LOW- Output environment info and git info to NGS data directory. HIGH once done. 
 4. MED- Verify indexing is approapriate for R and bash scripts. 
