@@ -20,18 +20,17 @@ General usage instructions for the module.
 ## Script Details
 
 ### 000_generalSetup
-Create the directories and download the data from the BMC.
-Most of the sequencing is carried out by the MIT BMC Core Facility. Therefore, the first steps of the project involve setting up sample data for submission. 
+Create the directories, the documentation and download the data from the BMC.
+The sequencing is carried out by the MIT BMC Core Facility. Therefore, the first steps of the project involve setting up sample data for submission. 
 #### 000_directoryCreation.sh
-- **Purpose**: Read in the sample data from the BMC submission form, process to rename the columns, create the short name and sample_ID columns.
-- **Input**: 
-1. directory_to_process as argument
-2. sample grid information as csv. directory_to_process will be used to find this input.
+- **Purpose**: Create the directory structure for the directory.
+- **Input**: No input is needed. Will find all directories with Bel in name and process them
 - **Output**: csv of sample grid information with new colnames, sample_ID and short_name columns.
 - **Usage**: ./001_processBMCSampleGridDataCSV.R <directory_to_process>
 - **Parameters**: Not applicable
 - **Dependencies**: No dependencies
-- **Notes**: Any important caveats or considerations
+- **Notes**: Need to add some validation probably.
+
 
 
 #### 001_processBMCSampleGridDataCSV.R

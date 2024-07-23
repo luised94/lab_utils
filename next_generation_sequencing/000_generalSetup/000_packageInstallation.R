@@ -5,7 +5,8 @@
 #Check that library to installs is correct.
 #.libPaths()
 
+#TODO: Need to add renv for this module.
 library(BiocManager)
 bioconductor_packages_to_install <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead")
 BiocManager::install(bioconductor_packages_to_install
-		lib = library_location)
+        lib = library_location)
