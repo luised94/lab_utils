@@ -12,6 +12,7 @@ directory_to_scan <- paste(Sys.getenv("HOME"), "data", args[1], "documentation",
 
 sample_grid_data_paths <- list.files(path = directory_to_scan, pattern = "BMC")
 
+#TODO: Grabbing an additional row for some reason.
 sample_info_string_names <- read.csv(sample_grid_data_paths)[,1]
 
 sample_info_table <- as.data.frame(
@@ -23,10 +24,12 @@ sample_info_table <- as.data.frame(
 
 
 # Can determine in bash by using find ../240304Bel/ -type f -name "processed_*.fastq" | cut -d_ -f3 | cut -d- -f2 | sort | uniq
+# Determine using a find command of the appropriate fastq files and a series of cut and awk statements to isolate the unique ids and the number of files.
+#TODO: In R use, list.files and strsplit. Need to implement. 
 colnames(sample_info_table) <- c("ORC4_Rescue", "Suppressor", "Cell_Cycle", "Auxin_treatment", "antibody") 
 
 sample_info_table$sample_ID <- seq(148001, 148049, by = 1)
-
+#sample_info_table$sample_ID <- 195001:(195001+58)
 #Take the first string of the first five columns to create the short name column. Easier for filtering the columns. 
 sample_info_table$short_name <- apply(
     sample_info_table[, 1:5], 

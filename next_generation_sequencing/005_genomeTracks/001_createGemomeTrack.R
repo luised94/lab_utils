@@ -29,13 +29,25 @@ if (length(packages_not_loaded) == 0) {
 
 # 
 # Create directory variables and dataframe with sample information.
-working_directory <- paste(Sys.getenv("HOME"), "data", "240304Bel", sep ="/")
+working_directory <- paste(Sys.getenv("HOME"), "data", "240630Bel", sep ="/")
 documentation_dir <- paste(working_directory, "documentation", sep ="/")
 feature_file_directory <- paste(Sys.getenv("HOME"), "data", "feature_files", sep = "/")
 path_to_sample_info <- list.files(documentation_dir, pattern = "table", full.names = TRUE)
 df_sample_info <- as.data.frame(read.csv(path_to_sample_info, 
                 header = TRUE)
           )
+
+#Process G1 and G2 values into Alpha and Nocodazole
+df_sample_info$Cell_Cycle <- ifelse(df_sample_info$Cell_Cycle == "G1", "Alpha", 
+                             ifelse(df_sample_info$Cell_Cycle == "G2", "Nocodazole", 
+                             df_sample_info$Cell_Cycle))
+
+df_sample_info$antibody <- ifelse(df_sample_info$antibody == "174", "74", 
+                             ifelse(df_sample_info$antibody == "185", "85", 
+                             df_sample_info$antibody))
+df_sample_info$short_name <- do.call(paste0, lapply(df_sample_info[setdiff(names(df_sample_info), c("short_name", "sample_ID"))], substr, 1, 1))
+    
+
 
 directory_of_refgenomes <- paste(Sys.getenv("HOME"), "data", "REFGENS", sep = "/")
 
@@ -46,6 +58,7 @@ df_sacCer_refGenome <- data.frame(chrom = names(as(df_sacCer_refGenome, "DNAStri
                    basePairSize = width(df_sacCer_refGenome)) %>% filter(chrom != "chrM")
 
 # Process chromosome names to turn into chr<num> format and create the chromosome identifier value.
+#TODO: Dont have to do this since they were adjusted using a previous bash script. 
 parts_by_comma <- unlist(strsplit(df_sacCer_refGenome$chrom, ","))
 chromosome_names <- parts_by_comma[!grepl("complete", parts_by_comma)]
 chromosome_number <- sub(".*chromosome ", "", chromosome_names)
@@ -55,37 +68,46 @@ chromosome_ID <- unlist(lapply(strsplit(chromosome_names, " "), '[[', 1))
 #Used to extract from Bigwig file
 df_sacCer_refGenome$chrom_ID <- chromosome_ID
 
- 
-#Create GRanges object to read in a particular chromosome
-chromosome_to_plot <- 14
-genomeRange_to_get <- GRanges(seqnames=c(df_sacCer_refGenome$chrom_ID[chromosome_to_plot]), 
-        ranges = IRanges(start = 1, 
-        end = df_sacCer_refGenome$basePairSize[chromosome_to_plot]), 
-        strand = "*")
-
-
 options(ucscChromosomeNames=FALSE) # Has to be run every time if you are using chromosome ID to get tracks from the bigwig file.
 bigwig_directory <- paste(working_directory, "bigwig", sep = "/")
 
 # Create list with samples to plot. 
-experiments_to_plot <- list(c("nnAYI", "nnNYV", "WnNYV"), 
+#TODO: need to automate the creation of the experiments to plot. 
+#TODO: Need to ensure that the names I use in the columns are compatible with my short name convention for subsetting df
+experiments_to_plot <- list(c("WnAYP", "nnAYI", "nnNYV", "WnNYV"), 
                 c("nnAYI", "nnNNA", "nnNYA", "nnANA", "nnAYA"), 
-                c("WnANI", "WnAYM", "WnNYM"), 
+                c("WnAYI", "WnAY7", "WnNY7"), 
+                c("WnAYI", "WnAY8", "WnNY8"), 
                 c("WnANI", "nnNYV", "WnNYV", "4nNYV", "44NYV"),  
-                c("WnANI", "nnAYM", "WnAYM", "4nAYM", "44AYM"),
-                c("nnAYI", "nnNNM", "nnNYM", "nnANM", "nnAYM")
+                c("WnANI", "nnAY7", "WnAY7", "4nAY7", "44AY7"),
+                c("WnANI", "nnAY8", "WnAY8", "4nAY8", "44AY8"),
+                c("nnAYI", "nnNN7", "nnNY7", "nnAN7", "nnAY7"),
+                c("nnAYI", "nnNN8", "nnNY8", "nnAN8", "nnAY8")
 ) 
+
 descriptive_names_for_plots <- c("controlV5", 
                     "controlAuxinTreatment", 
                    "controlMcmCellCycle", 
+                   "controlMcmCellCycle185", 
                    "comparingORCWT4R4PS", 
-                   "comparingMcmWT4R4PS",
-                   "comparingMcmInAuxinControls"
+                   "comparingMcmWT4R4PS174",
+                   "comparingMcmWT4R4PS185",
+                   "comparingMcmInAuxinControls174",
+                   "comparingMcmInAuxinControls185"
 )
 #Create variables to name plot
 main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot, 
-                  sep = " ")
+                  sep = " "))
 date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
+
+#Create GRanges object to read in a particular chromosome
+chromosome_to_plot <- 12
+chromosome_to_plot <- 10
+chromosome_to_plot <- 14
+genomeRange_to_get <- GRanges(seqnames=c(df_sacCer_refGenome$chrom[chromosome_to_plot]), 
+        ranges = IRanges(start = 1, 
+        end = df_sacCer_refGenome$basePairSize[chromosome_to_plot]), 
+        strand = "*")
 
 for (experiment_index in 1:length(experiments_to_plot)) {
     all_tracks_to_plot <- list(GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = "") ) )
@@ -96,10 +118,11 @@ for (experiment_index in 1:length(experiments_to_plot)) {
         initial_matches <- list.files(bigwig_directory, pattern = as.character(df_sample_info_subset$sample_ID[sample_index]), full.names = TRUE, recursive = TRUE)     
         path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
         bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
-        track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = df_sample_info_subset$short_name[sample_index], chromosome = df_sacCer_refGenome$chrom_ID[chromosome_to_plot])
+        track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = df_sample_info_subset$short_name[sample_index], chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot])
         all_tracks_to_plot <- append(all_tracks_to_plot, track_to_plot)                                                                          
     }
-    # Determine the scale of the plotTracks plot by getting the max # TODO figure out if there is a way to normalize the samples 
+#TODO figure out if there is a way to normalize the samples 
+    # Determine the scale of the plotTracks plot by getting the max 
     MAX <- -Inf
     for (track in 1:length(all_tracks_to_plot)) {
       if(class(all_tracks_to_plot[[track]]) != "GenomeAxisTrack"){
@@ -108,19 +131,10 @@ for (experiment_index in 1:length(experiments_to_plot)) {
     }
     #Generate the plot
     plot_output_dir <- paste(working_directory, "plots", sep = "/")
-    svg(paste(plot_output_dir, "/", date_plot_created, "_", descriptive_names_for_plots[experiment_index], ".svg", sep = ""))
-    plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom_ID[chromosome_to_plot], ylim = c(0, MAX))
+    svg(paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", descriptive_names_for_plots[experiment_index], ".svg", sep = ""))
+    plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot], ylim = c(0, MAX))
     dev.off()
 }
-
-
-
-
-
-
-
-
-
 
 # IGNORE FOR NOW
 # TODO Figure out how to download hawkins timing data and then how to process it.  
