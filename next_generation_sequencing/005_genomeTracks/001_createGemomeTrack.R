@@ -97,18 +97,6 @@ descriptive_names_for_plots <- c("controlV5",
 )
 # Read in origin file for track.
 
-assign(df_names[i], readxl::read_excel(filepath))
-if(df_names[i] == "timing"){
-     assign(df_names[i], get(df_names[i]) %>% as.data.frame() %>% dplyr::select(1:7) %>% filter(!is.na(Chromosome)))
-} 
-origin_GRange <- GRanges(seqnames = timing$Chromosome, ranges = IRanges(start = timing$Position-100, end = timing$Position+100), strand = "*", chromosome = df_sacCer_refGenome$chrom_ID[chromosome_to_plot], timing$T1/2)
-origin_GRange[seqnames(origin_GRange) == chromosome_to_plot]
-origin_track <- AnnotationTrack(origin_GRange[seqnames(origin_GRange) == chromosome_to_plot], name = "Origins")
-seqnames(origin_track) <- df_sacCer_refGenome$chrom_ID[chromosome_to_plot]
-##### EXTRACT_TO_SNIPPET
-timing <- readxl::read_excel(list.files(feature_file_directory, pattern = "timing", full.names =TRUE)) %>% as.data.frame %>% dplyr::select(1:7) %>% filter(!is.na(Chromosome))
-assign(genome_df$origin_gr_var[index_], GRanges(seqnames = genome_df$chrom[index_], ranges = IRanges(start = start, end = end), strand = "*"), envir = .GlobalEnv)
-assign(genome_df$origin_track_var[index_], AnnotationTrack(get(genome_df$origin_gr_var[index_]), name=paste(sacCer3_df$chrom[index_], "Origins", sep = " ")), envir = .GlobalEnv)
 #Create variables to name plot
 main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot, 
                   sep = " "))
