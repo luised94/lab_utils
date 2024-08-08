@@ -2,6 +2,9 @@ rm(list = ls())
 #Add section to create date and directory for experiment, same day as request service initialization. Probably interactive.
 # To see definition of this variable, run echo $dropbox_path or see bashrc in my_config repository
 dropbox_dir <- "/mnt/c/Users/Luis/Dropbox (MIT)/"
+args <- commandArgs(trailingOnly = TRUE)
+experiment_dir <- paste(dropbox_dir, args[1], sep = "")
+print(experiment_dir)
 category_names <- c("rescue_allele", "mcm_tag", "auxin_treatment", "cell_cycle", "antibody")
 
 strain_source <- c("lemr", "oa")
@@ -11,19 +14,20 @@ mcm_tag <- c("none", "2", "7")
 auxin_treatment <- c("no", "yes")
 cell_cycle <- c("G1", "M")
 antibody <- c("Input", "ProtG", "ALFA", "HM1108", "74", "CHA", "11HA")
-
-variables_for_sample_grid <- ls()[!grepl("category_names", ls())]
+variables_to_exclude <- "category_names|experiment_dir|args|dropbox_dir|variables_to_exclude"
+print(ls()[!grepl(variables_to_exclude, ls())])
+variables_for_sample_grid <- ls()[!grepl(variables_to_exclude, ls())]
 sample_combinations <- expand.grid(lapply(variables_for_sample_grid, get))
 names(sample_combinations) <- variables_for_sample_grid
 sample_combinations <- sample_combinations[,c("strain_source", "rescue_allele", "mcm_tag", "auxin_treatment", "cell_cycle", "antibody")]
 
-print(typeof(sample_combinations$cell_cycle))
-print(sample_combinations$cell_cycle)
-print(is.factor(sample_combinations$cell_cycle))
-lapply(1:ncol(sample_combinations), function(col_number){
-    print(is.factor(sample_combinations[, col_number]))
-    print(levels(sample_combinations[, col_number]))
-})
+#print(typeof(sample_combinations$cell_cycle))
+#print(sample_combinations$cell_cycle)
+#print(is.factor(sample_combinations$cell_cycle))
+#lapply(1:ncol(sample_combinations), function(col_number){
+#    print(is.factor(sample_combinations[, col_number]))
+#    print(levels(sample_combinations[, col_number]))
+#})
 
 sample_combinations$full_name <- apply(sample_combinations, 1, paste, collapse = "_")
 sample_combinations$short_name <- apply(sample_combinations[,!grepl("full_name", colnames(sample_combinations))], 1, function(row) paste0(substr(row, 1, 1), collapse = ""))
@@ -122,7 +126,7 @@ tables_to_output <- ls()[grepl("_table", ls())]
 print(get(tables_to_output[1]))
 lapply(tables_to_output, function(output_table){
     output_file <- paste(dropbox_dir, output_table, ".tsv", sep = "")
-    write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
+    #write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
 })
 #write.table(sample_table, file = "sample_info.tsv", sep = "\t", row.names = FALSE)
 #write.table(bmc_table, file = "bmc_info.tsv", sep = "\t", row.names = FALSE)
