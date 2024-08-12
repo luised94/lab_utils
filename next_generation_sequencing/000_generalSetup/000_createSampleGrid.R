@@ -1,12 +1,13 @@
 rm(list = ls())
 #Add section to create date and directory for experiment, same day as request service initialization. Probably interactive.
 # To see definition of this variable, run echo $dropbox_path or see bashrc in my_config repository
-dropbox_dir <- "/mnt/c/Users/Luis/Dropbox (MIT)/"
+
 args <- commandArgs(trailingOnly = TRUE)
+
+dropbox_dir <- sprintf("/mnt/c/Users/%s/Dropbox (MIT)/", args[2])
 experiment_dir <- paste(dropbox_dir, args[1], sep = "")
 print(experiment_dir)
 category_names <- c("rescue_allele", "mcm_tag", "auxin_treatment", "cell_cycle", "antibody")
-
 strain_source <- c("lemr", "oa")
 rescue_allele <- c("none", "wt")
 mcm_tag <- c("none", "2", "4", "7")
@@ -14,6 +15,7 @@ mcm_tag <- c("none", "2", "7")
 auxin_treatment <- c("no", "yes")
 cell_cycle <- c("G1", "M")
 antibody <- c("Input", "ProtG", "ALFA", "HM1108", "74", "CHA", "11HA")
+
 variables_to_exclude <- "category_names|experiment_dir|args|dropbox_dir|variables_to_exclude"
 print(ls()[!grepl(variables_to_exclude, ls())])
 variables_for_sample_grid <- ls()[!grepl(variables_to_exclude, ls())]
@@ -21,6 +23,10 @@ sample_combinations <- expand.grid(lapply(variables_for_sample_grid, get))
 names(sample_combinations) <- variables_for_sample_grid
 sample_combinations <- sample_combinations[,c("strain_source", "rescue_allele", "mcm_tag", "auxin_treatment", "cell_cycle", "antibody")]
 
+subdirectories <- c("peak", "fastq", "alignment", "qualityControl", "bigwig", "plots", "logs", "documentation")
+dir.create(experiment_dir, recursive = TRUE)
+sapply(file.path(experiment_dir, subdirectories), dir.create)
+print(list.dirs(experiment_dir, recursive = FALSE))
 #print(typeof(sample_combinations$cell_cycle))
 #print(sample_combinations$cell_cycle)
 #print(is.factor(sample_combinations$cell_cycle))
@@ -28,9 +34,6 @@ sample_combinations <- sample_combinations[,c("strain_source", "rescue_allele", 
 #    print(is.factor(sample_combinations[, col_number]))
 #    print(levels(sample_combinations[, col_number]))
 #})
-
-sample_combinations$full_name <- apply(sample_combinations, 1, paste, collapse = "_")
-sample_combinations$short_name <- apply(sample_combinations[,!grepl("full_name", colnames(sample_combinations))], 1, function(row) paste0(substr(row, 1, 1), collapse = ""))
 
 is_input <- sample_combinations[, "rescue_allele"] == "none" &
             sample_combinations[, "mcm_tag"] == "none" &
@@ -112,6 +115,9 @@ sample_table <- sample_table[order(sample_table[, "antibody"]), ]
 print(sample_table)
 print(dim(sample_table))
 
+sample_table$full_name <- apply(sample_table, 1, paste, collapse = "_")
+sample_table$short_name <- apply(sample_table[,!grepl("full_name", colnames(sample_combinations))], 1, function(row) paste0(substr(row, 1, 1), collapse = ""))
+
 bmc_table <- data.frame(SampleName = sample_table$full_name,
     Vol..uL = rep(10, nrow(sample_table)),
     Conc = rep(NA, nrow(sample_table)),
@@ -125,8 +131,8 @@ tables_to_output <- ls()[grepl("_table", ls())]
 #print(tables_to_output)
 print(get(tables_to_output[1]))
 lapply(tables_to_output, function(output_table){
-    output_file <- paste(dropbox_dir, output_table, ".tsv", sep = "")
-    #write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
+    output_file <- file.path(experiment_dir, "documentation", paste(args[1], "_", output_table, ".tsv", sep = ""))
+    print(output_file)
+    #get(output_table)
+    write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
 })
-#write.table(sample_table, file = "sample_info.tsv", sep = "\t", row.names = FALSE)
-#write.table(bmc_table, file = "bmc_info.tsv", sep = "\t", row.names = FALSE)
