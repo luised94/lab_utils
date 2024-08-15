@@ -1,0 +1,10 @@
+categories <- list(
+    category_names = c("rescue_allele", "mcm_tag", "auxin_treatment", "cell_cycle", "antibody")
+    strain_source = c("lemr", "oa")
+    rescue_allele = c("none", "wt")
+    mcm_tag = c("none", "2", "4", "7")
+    mcm_tag = c("none", "2", "7")
+    auxin_treatment = c("no", "yes")
+    cell_cycle = c("G1", "M")
+    antibody = c("Input", "ProtG", "ALFA", "HM1108", "74", "CHA", "11HA")
+)
