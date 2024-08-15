@@ -1,4 +1,6 @@
 rm(list = ls())
+#Description:
+#USAGE: Use with Rscript command. 
 #Add section to create date and directory for experiment, same day as request service initialization. Probably interactive.
 # To see definition of this variable, run echo $dropbox_path or see bashrc in my_config repository
 
@@ -7,6 +9,7 @@ args <- commandArgs(trailingOnly = TRUE)
 dropbox_dir <- sprintf("/mnt/c/Users/%s/Dropbox (MIT)/", args[2])
 experiment_dir <- paste(dropbox_dir, args[1], sep = "")
 print(experiment_dir)
+
 category_names <- c("rescue_allele", "mcm_tag", "auxin_treatment", "cell_cycle", "antibody")
 strain_source <- c("lemr", "oa")
 rescue_allele <- c("none", "wt")
@@ -35,78 +38,78 @@ print(list.dirs(experiment_dir, recursive = FALSE))
 #    print(levels(sample_combinations[, col_number]))
 #})
 
-is_input <- sample_combinations[, "rescue_allele"] == "none" &
-            sample_combinations[, "mcm_tag"] == "none" &
-            sample_combinations[, "cell_cycle"] == "M" &
-            sample_combinations[, "antibody"] == "Input" &
-            ((sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "auxin_treatment"] == "no") | (sample_combinations[, "strain_source"] == "lemr"))
-
-print(sum(is_input))
-#print(sample_combinations[is_input,])
-
-
-is_protg <- sample_combinations[, "rescue_allele"] == "wt" &
-            sample_combinations[, "mcm_tag"] == "none" &
-            sample_combinations[, "cell_cycle"] == "M" &
-            sample_combinations[, "antibody"] == "ProtG" &
-            sample_combinations[, "strain_source"] == "oa" &
-            sample_combinations[, "auxin_treatment"] == "no"
-
-print(sum(is_protg))
-#print(sample_combinations[is_input,])
-#print(sample_combinations[is_input,])
-
-
-is_alfa <- sample_combinations[, "rescue_allele"] == "none" &
-            sample_combinations[, "mcm_tag"] == "none" &
-            sample_combinations[, "cell_cycle"] == "M" &
-            sample_combinations[, "antibody"] == "ALFA" &
-            ((sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "auxin_treatment"] == "no") | (sample_combinations[, "strain_source"] == "lemr"))
-
-print(sum(is_alfa))
-#print(sample_combinations[is_alfa,])
-
-
-is_1108 <- sample_combinations[, "rescue_allele"] == "none" &
-            sample_combinations[, "mcm_tag"] == "none" &
-            sample_combinations[, "cell_cycle"] == "M" &
-            sample_combinations[, "antibody"] == "HM1108" &
-            ((sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "auxin_treatment"] == "no") | (sample_combinations[, "strain_source"] == "lemr"))
-
-
-print(sum(is_1108))
-#print(sample_combinations[is_1108,])
-
-
-is_174 <- sample_combinations[, "antibody"] == "74" &
-          sample_combinations[, "auxin_treatment"] == "no" &
-          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "rescue_allele"] == "none") &
-          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "rescue_allele"] == "wt") &
-          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "mcm_tag"] == "7") &
-          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "mcm_tag"] == "2")
-print(sum(is_174))
-#print(sample_combinations[is_174,])
-
-is_cha <- sample_combinations[, "antibody"] == "CHA" &
-          sample_combinations[, "auxin_treatment"] == "no" &
-          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "rescue_allele"] == "none") &
-          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "rescue_allele"] == "wt") &
-          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "mcm_tag"] == "7") &
-          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "mcm_tag"] == "2")
-print(sum(is_cha))
-#print(sample_combinations[is_cha,])
-
-
-is_11HA <- sample_combinations[, "antibody"] == "11HA" &
-          sample_combinations[, "auxin_treatment"] == "no" &
-          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "rescue_allele"] == "none") &
-          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "rescue_allele"] == "wt") &
-          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "mcm_tag"] == "7") &
-          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "mcm_tag"] == "2") &
-          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "mcm_tag"] == "none" & sample_combinations[, "rescue_allele"] == "wt" & sample_combinations[, "cell_cycle"] == "M")
-print(sum(is_11HA))
-#print(sample_combinations[is_11HA,])
-
+#is_input <- sample_combinations[, "rescue_allele"] == "none" &
+#            sample_combinations[, "mcm_tag"] == "none" &
+#            sample_combinations[, "cell_cycle"] == "M" &
+#            sample_combinations[, "antibody"] == "Input" &
+#            ((sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "auxin_treatment"] == "no") | (sample_combinations[, "strain_source"] == "lemr"))
+#
+#print(sum(is_input))
+##print(sample_combinations[is_input,])
+#
+#
+#is_protg <- sample_combinations[, "rescue_allele"] == "wt" &
+#            sample_combinations[, "mcm_tag"] == "none" &
+#            sample_combinations[, "cell_cycle"] == "M" &
+#            sample_combinations[, "antibody"] == "ProtG" &
+#            sample_combinations[, "strain_source"] == "oa" &
+#            sample_combinations[, "auxin_treatment"] == "no"
+#
+#print(sum(is_protg))
+##print(sample_combinations[is_input,])
+##print(sample_combinations[is_input,])
+#
+#
+#is_alfa <- sample_combinations[, "rescue_allele"] == "none" &
+#            sample_combinations[, "mcm_tag"] == "none" &
+#            sample_combinations[, "cell_cycle"] == "M" &
+#            sample_combinations[, "antibody"] == "ALFA" &
+#            ((sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "auxin_treatment"] == "no") | (sample_combinations[, "strain_source"] == "lemr"))
+#
+#print(sum(is_alfa))
+##print(sample_combinations[is_alfa,])
+#
+#
+#is_1108 <- sample_combinations[, "rescue_allele"] == "none" &
+#            sample_combinations[, "mcm_tag"] == "none" &
+#            sample_combinations[, "cell_cycle"] == "M" &
+#            sample_combinations[, "antibody"] == "HM1108" &
+#            ((sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "auxin_treatment"] == "no") | (sample_combinations[, "strain_source"] == "lemr"))
+#
+#
+#print(sum(is_1108))
+##print(sample_combinations[is_1108,])
+#
+#
+#is_174 <- sample_combinations[, "antibody"] == "74" &
+#          sample_combinations[, "auxin_treatment"] == "no" &
+#          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "rescue_allele"] == "none") &
+#          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "rescue_allele"] == "wt") &
+#          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "mcm_tag"] == "7") &
+#          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "mcm_tag"] == "2")
+#print(sum(is_174))
+##print(sample_combinations[is_174,])
+#
+#is_cha <- sample_combinations[, "antibody"] == "CHA" &
+#          sample_combinations[, "auxin_treatment"] == "no" &
+#          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "rescue_allele"] == "none") &
+#          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "rescue_allele"] == "wt") &
+#          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "mcm_tag"] == "7") &
+#          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "mcm_tag"] == "2")
+#print(sum(is_cha))
+##print(sample_combinations[is_cha,])
+#
+#
+#is_11HA <- sample_combinations[, "antibody"] == "11HA" &
+#          sample_combinations[, "auxin_treatment"] == "no" &
+#          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "rescue_allele"] == "none") &
+#          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "rescue_allele"] == "wt") &
+#          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "mcm_tag"] == "7") &
+#          !(sample_combinations[, "strain_source"] == "oa" & sample_combinations[, "mcm_tag"] == "2") &
+#          !(sample_combinations[, "strain_source"] == "lemr" & sample_combinations[, "mcm_tag"] == "none" & sample_combinations[, "rescue_allele"] == "wt" & sample_combinations[, "cell_cycle"] == "M")
+#print(sum(is_11HA))
+##print(sample_combinations[is_11HA,])
+#
 subset_vectors <- ls()[grepl("is_", ls())]
 sample_table <- do.call(rbind, lapply(subset_vectors, function(subset_vector){
     sample_combinations[get(subset_vector), ]
