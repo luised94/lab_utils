@@ -11,18 +11,19 @@ README_WITH_TAGS=$(find "$HOME/lab_utils" -maxdepth 1 -type f -name "README.md")
 #echo $README_WITH_TAGS
 
 #Extract tags from README file, like mining gems from a document!
-TAGS_IN_README=$(sed -n '/^# TAGS/,/^#/p' "$README_WITH_TAGS" | grep -v "#" | sed '/^[[:space:]]*$/d' | sed 's/:.*//' | tr '\n' ' ')
+TAGS_IN_README=$(sed -n '/^## TAGS/,/^#/p' "$README_WITH_TAGS" | grep -v "#" | grep ":" | sed '/^[[:space:]]*$/d' | sed 's/:.*//' | tr '\n' ' ')
 #echo $TAGS_IN_README
 
 # Function to display usage
 usage() {
-	echo "Usage: $0 --tag <tag> [--directory <directory>] [--file-extensions <ext1,ext2,...>]"
-	echo "Example: $0 --tag TODO --directory /path/to/search --file-extensions sh,R,py"
+	echo -e "Usage: $0 --tag <tag> [--directory <directory>] [--file-extensions <ext1,ext2,...>]\n"
+	echo -e "Example: $0 --tag TODO --directory /path/to/search --file-extensions sh,R,py\n"
 	echo "File extensions must be comma separated."
-	echo "Options dont have to be in a particular order."
-	echo "Proper tags are: $TAGS_IN_README"
+	echo -e "Options dont have to be in a particular order.\n"
+	echo -e "Proper tags are: $TAGS_IN_README"
 	exit 1
 }
+
 
 # Set default values
 TAG="TODO"
