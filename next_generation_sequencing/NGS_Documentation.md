@@ -36,6 +36,8 @@ Explanation of any configuration files or important parameters.
 ## TODO
 
 ### HIGH
+- Normalize feature files and incorporate into genomic tracks. 
+
 ### MED
 ### LOW
 Each documentation for each subdirectory has a # TODO section 
