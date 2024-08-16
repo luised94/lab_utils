@@ -2,6 +2,25 @@
 #USAGE: This is the template for other experiments. Source the sampleGridConfig.R file in the script createSampleGrid.R, not the template file.
 # This shows an example setup for BMC CHIP-seq experiment 240808Bel.
 # @todo: Consider adding a comprehensive list or an alternative file with all of the variables that is generated programatically.
+
+# @function: Grab the directory of the createSampleGrid script that runs this file. These two files are meant to be in the same directory. Not very flexible. The files accounts for running from interactive repl when testing or from Rscript via cli.
+get_script_dir <- function() {
+  if (!is.null(sys.frames()[[1]]$ofile)) {
+    # 'source'd via R console
+    script_dir <- dirname(normalizePath(sys.frames()[[1]]$ofile))
+  } else {
+    # Rscript
+    cmdArgs <- commandArgs(trailingOnly = FALSE)
+    needle <- "--file="
+    match <- grep(needle, cmdArgs)
+    if (length(match) > 0) {
+      script_dir <- dirname(normalizePath(sub(needle, "", cmdArgs[match])))
+    } else {
+      stop("Cannot determine script directory")
+    }
+  }
+  return(script_dir)
+}
 # Create a list with the different categories and variables in the experiment.
 categories <- list(
     strain_source = c("lemr", "oa"),
@@ -15,6 +34,8 @@ categories <- list(
 #Define the indexes for filtering all of the combinations of the variables.
 # Pick one of the variables and define how it is related to the other variables using conditional expressions. For example, for all of the antibodies, define the other conditions it is used with.
 filter_samples <- function(combinations){
+    #is_not <- with(combinations,
+    #)
     is_input <- with(combinations,
         rescue_allele == "none" &
         mcm_tag == "none" &
@@ -80,4 +101,6 @@ filter_samples <- function(combinations){
 
 sample_grid <- filter_samples(expand.grid(categories))
 print(dim(sample_grid))
+print(table(sample_grid$antibody))
 print(head(sample_grid))
+print(get_script_dir())
