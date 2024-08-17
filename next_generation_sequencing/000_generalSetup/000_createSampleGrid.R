@@ -4,6 +4,26 @@ rm(list = ls())
 #Add section to create date and directory for experiment, same day as request service initialization. Probably interactive.
 # To see definition of this variable, run echo $dropbox_path or see bashrc in my_config repository
 
+# @function: Grab the directory of the createSampleGrid script that runs this file. These two files are meant to be in the same directory. Not very flexible. The files accounts for running from interactive repl when testing or from Rscript via cli.
+get_script_dir <- function() {
+  if (!is.null(sys.frames()[[1]]$ofile)) {
+    # 'source'd via R console
+    script_dir <- dirname(normalizePath(sys.frames()[[1]]$ofile))
+  } else {
+    # Rscript
+    cmdArgs <- commandArgs(trailingOnly = FALSE)
+    needle <- "--file="
+    match <- grep(needle, cmdArgs)
+    if (length(match) > 0) {
+      script_dir <- dirname(normalizePath(sub(needle, "", cmdArgs[match])))
+    } else {
+      stop("Cannot determine script directory")
+    }
+  }
+  return(script_dir)
+}
+
+# @function: Given a directory_path and subdirectories, create the directory path along with the subdirectories.
 create_experiment_dir <- function(directory_path, subdirectories){
     dir.create(directory_path, recursive = TRUE)
     sapply(file.path(directory_path, subdirectories), dir.create)
