@@ -99,8 +99,23 @@ filter_samples <- function(combinations){
     return(combinations[is_input | is_protg | is_alfa | is_1108 | is_174 | is_cha | is_11HA , ])
 }
 
-sample_grid <- filter_samples(expand.grid(categories))
-print(dim(sample_grid))
-print(table(sample_grid$antibody))
-print(head(sample_grid))
+sample_table <- filter_samples(expand.grid(categories))
+print(dim(sample_table))
+print(table(sample_table$antibody))
+print(head(sample_table))
 print(get_script_dir())
+
+sample_table$full_name <- apply(sample_table, 1, paste, collapse = "_")
+sample_table$short_name <- apply(sample_table[,!grepl("full_name", colnames(sample_table))], 1, function(row) paste0(substr(row, 1, 1), collapse = ""))
+
+
+bmc_table <- data.frame(SampleName = sample_table$full_name,
+    Vol..uL = 10,
+    Conc = NA,
+    Type = "ChIP",
+    Genome = "Saccharomyces cerevisiae",
+    Notes = "none",
+    Pool = "A"
+)
+print(head(bmc_table))
+print(ls())
