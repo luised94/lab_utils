@@ -101,3 +101,4 @@ bmc_table <- data.frame(SampleName = sample_table$full_name,
 )
 print(head(bmc_table))
 print(ls())
+print("sampleGridConfig section complete")
