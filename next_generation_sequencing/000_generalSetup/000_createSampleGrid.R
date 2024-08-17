@@ -38,13 +38,16 @@ print(experiment_dir)
 
 subdirectories <- c("peak", "fastq", "alignment", "qualityControl", "bigwig", "plots", "logs", "documentation")
 #create_experiment_dir(experiment_dir, subdirectories)
-source(file.path(get_script_dir(), "sampleGridConfig.R"))
-print(file.path(get_script_dir(), "sampleGridConfig.R"))
+sample_grid_config_filepath <- file.path(get_script_dir(), "sampleGridConfig.R")
+source(sample_grid_config_filepath)
+print(sample_grid_config_filepath)
 
-print(file.path(experiment_dir, "documentation", "sampleGridConfig.R"))
-config_file_output_path <- file.copy(file.path(experiment_dir, "documentation", paste(args[1], "_", )))
+config_file_output_path <- file.path(experiment_dir, "documentation", paste(args[1], "_", "sampleGridConfig.R", sep = ""))
+print(config_file_output_path)
+#file.copy(from = sample_grid_config_filepath, to = config_file_out_path) 
+
 tables_to_output <- ls()[grepl("_table", ls())]
-print(get(tables_to_output[1]))
+print(head(get(tables_to_output[1])))
 lapply(tables_to_output, function(output_table){
     output_file <- file.path(experiment_dir, "documentation", paste(args[1], "_", output_table, ".tsv", sep = ""))
     print(output_file)
