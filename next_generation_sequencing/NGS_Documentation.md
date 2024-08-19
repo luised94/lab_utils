@@ -37,7 +37,7 @@ Explanation of any configuration files or important parameters.
 
 ### HIGH
 - Normalize feature files and incorporate into genomic tracks. 
-
+- Update the rsync of bmc data. (see Task_Work: Update Rsync from BMC)
 ### MED
 ### LOW
 Each documentation for each subdirectory has a # TODO section 
