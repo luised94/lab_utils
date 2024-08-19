@@ -83,6 +83,8 @@ filter_samples <- function(combinations){
 }
 
 sample_table <- filter_samples(expand.grid(categories))
+
+sample_table <- sample_table[with(sample_table, order(antibody, strain_source)), ]
 print(dim(sample_table))
 print(table(sample_table$antibody))
 print(head(sample_table))
