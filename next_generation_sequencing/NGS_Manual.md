@@ -10,8 +10,8 @@ List of scripts in this module with brief descriptions.
 
 ## Workflow
 This assumes you are using a similar workflow to the used in the lab_utils repository.
-If this is the first time starting a project, and you do not have any of the reference files or controls, then start with generalSetup and 002_controlData.
-If you have reference, then create the experiment directory, and download the data from the BMC. (See generalSetup)
+If this is the first time starting a project, and you do not have any of the reference files or controls, then start with 000_generalSetup and 002_controlData.
+If you have reference and feature files required for your analysis, then start with 000_generalSetup, and download the data from the BMC. (See generalSetup)
 To do a quick start, you can run 003_alignFastq along with the slurm wrapper script to generate BAM files. Afterwards, run 003_generateCoverageFiles.sh with the slurm wrapper to generate bigwig files that can be used to plot tracks. This can give you a clear idea of the result of a CHIP-seq experiment.
 
 ## Usage
@@ -22,28 +22,29 @@ General usage instructions for the module.
 ### 000_generalSetup
 Create the directories, the documentation and download the data from the BMC.
 The sequencing is carried out by the MIT BMC Core Facility. Therefore, the first steps of the project involve setting up sample data for submission. 
-#### 000_directoryCreation.sh
-- **Purpose**: Create the directory structure for the directory.
-- **Input**: No input is needed. Will find all directories with Bel in name and process them
-- **Output**: csv of sample grid information with new colnames, sample_ID and short_name columns.
-- **Usage**: ./001_processBMCSampleGridDataCSV.R <directory_to_process>
+
+#### sampleGridConfigTemplate.R / sampleGridConfig.R
+- **Purpose**: Defines the categories and variables present in an experiment. Expands the grid and then subsets via filter_samples function. After subsetting, construct the final table with full and short names as well as the table with information necessary for BMC sample submission.
+- **Input**: No argument necessary. Modify the sampleGridConfig.R file instead of the template.
+- **Output**: Creates the sample_table and bmc_table variables required for 000_createSampleGrid.R
+- **Usage**: Rscript sampleGridConfigTemplate.R
 - **Parameters**: Not applicable
 - **Dependencies**: No dependencies
-- **Notes**: Need to add some validation probably.
+- **Notes**: Contains the logic required for all experiments submitted to BMC. Modify this file to update the overall logic and copy to a sampleGridConfig.R file that will contain modification to categories and filtering conditions. In the sampleGridConfig file, update the categories variable and the filter_samples function.
 
-
-
-#### 001_processBMCSampleGridDataCSV.R
-- **Purpose**: Read in the sample data from the BMC submission form, process to rename the columns, create the short name and sample_ID columns.
+#### 000_createSampleGrid.R
+- **Purpose**: For a directory, creates the ngs experiment directory structure, sources the sampleGridConfig file in the same directory, constructs the bmc table, writes bmc table and config file to the documentation folder.
 - **Input**: 
-1. directory_to_process as argument
-2. sample grid information as csv. directory_to_process will be used to find this input.
-- **Output**: csv of sample grid information with new colnames, sample_ID and short_name columns.
-- **Usage**: ./001_processBMCSampleGridDataCSV.R <directory_to_process>
+1. directory name: Date BMC accepts requests. (e.g. 240808Bel)
+2. windows username: Username of computer. Determined in bashrc of my_config repository. Provide as "${windows_user}"
+3. sampleGridConfig.R file: sampleGridConfig should be in the same directory. Modify the categories and filter_sample function appropriately. 
+- **Output**: tsv with sample information, tsv of sample info required for BMC sample submission, sampleGridConfig.R with the information used to create the tsvs.
+- **Usage**: Rscript 000_createSampleGrid.R "240808Bel" "${windows_user}"
 - **Parameters**: Not applicable
 - **Dependencies**: No dependencies
-- **Notes**: Any important caveats or considerations
+- **Notes**: Always modify the sampleGridConfig.R category list and filter_samples function for each experiment. 
 
+#### 
 ### 001_referenceGenomes
 Download the reference genomes that are relevant to my labwork. These are required for all of the sequencing analysis. They are typically designed to be run once before starting the analysis.
 
