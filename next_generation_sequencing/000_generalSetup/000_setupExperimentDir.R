@@ -57,7 +57,9 @@ lapply(tables_to_output, function(output_table){
 })
 
 # Rsync to the server
-# Ask the user if they are connected to luria cluster
-# If so, then copy the created directory to the data folder.
 # Suggest alternative or run a particular command. 
+cat("Ensure you are connected to the luria mit network.")
+cat("Run the following command to rsync the created directory.")
+server_path <- "luised94@luria.mit.edu:~/data/"
+cat(sprintf("scp -r %s %s", experiment_dir, server_path))
 print("Script complete.")
