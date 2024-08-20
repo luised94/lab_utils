@@ -2,7 +2,9 @@
 #USAGE: This is the template for other experiments. Source the sampleGridConfig.R file in the script createSampleGrid.R, not the template file.
 # This shows an example setup for BMC CHIP-seq experiment 240808Bel.
 # @todo: Consider adding a comprehensive list or an alternative file with all of the variables that is generated programatically.
-
+experiment_name <- "240808Bel"
+cat(sprintf("Categories and filter_samples configured for %s", experiment_name))
+cat("Ensure you update them approapriately.")
 
 # Create a list with the different categories and variables in the experiment.
 categories <- list(
