@@ -34,17 +34,19 @@ args <- commandArgs(trailingOnly = TRUE)
 
 dropbox_dir <- sprintf("/mnt/c/Users/%s/Dropbox (MIT)/", args[2])
 experiment_dir <- paste(dropbox_dir, args[1], sep = "")
+print("Experiment directory to be created:")
 print(experiment_dir)
 
 subdirectories <- c("peak", "fastq", "alignment", "qualityControl", "bigwig", "plots", "logs", "documentation")
-#create_experiment_dir(experiment_dir, subdirectories)
+create_experiment_dir(experiment_dir, subdirectories)
 sample_grid_config_filepath <- file.path(get_script_dir(), "sampleGridConfig.R")
 source(sample_grid_config_filepath)
+print("Config file run and to be copied:")
 print(sample_grid_config_filepath)
 
 config_file_output_path <- file.path(experiment_dir, "documentation", paste(args[1], "_", "sampleGridConfig.R", sep = ""))
 print(config_file_output_path)
-#file.copy(from = sample_grid_config_filepath, to = config_file_out_path) 
+file.copy(from = sample_grid_config_filepath, to = config_file_output_path) 
 
 tables_to_output <- ls()[grepl("_table", ls())]
 print(head(get(tables_to_output[1])))
@@ -52,5 +54,6 @@ lapply(tables_to_output, function(output_table){
     output_file <- file.path(experiment_dir, "documentation", paste(args[1], "_", output_table, ".tsv", sep = ""))
     print(output_file)
     #get(output_table)
-#    write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
+    write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
 })
+print("Script complete.")
