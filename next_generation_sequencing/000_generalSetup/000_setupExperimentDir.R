@@ -36,7 +36,6 @@ dropbox_dir <- sprintf("/mnt/c/Users/%s/Dropbox (MIT)/", args[2])
 experiment_dir <- paste(dropbox_dir, args[1], sep = "")
 print("Experiment directory to be created:")
 print(experiment_dir)
-
 subdirectories <- c("peak", "fastq", "alignment", "qualityControl", "bigwig", "plots", "logs", "documentation")
 create_experiment_dir(experiment_dir, subdirectories)
 sample_grid_config_filepath <- file.path(get_script_dir(), "sampleGridConfig.R")
@@ -56,4 +55,9 @@ lapply(tables_to_output, function(output_table){
     #get(output_table)
     write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
 })
+
+# Rsync to the server
+# Ask the user if they are connected to luria cluster
+# If so, then copy the created directory to the data folder.
+# Suggest alternative or run a particular command. 
 print("Script complete.")
