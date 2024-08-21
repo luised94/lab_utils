@@ -2,9 +2,10 @@
 #USAGE: This is the template for other experiments. Source the sampleGridConfig.R file in the script createSampleGrid.R, not the template file.
 # This shows an example setup for BMC CHIP-seq experiment 240808Bel.
 # @todo: Consider adding a comprehensive list or an alternative file with all of the variables that is generated programatically.
-experiment_name <- "240808Bel"
-cat(sprintf("Categories and filter_samples configured for %s", experiment_name))
-cat("Ensure you update them approapriately.")
+# To update efficiently use di<character> and yi<character> on the current_experiment, categories and filter_samples variables and function. Update order statement appropriately.
+cat("Starting sample grid config.\n")
+current_experiment <- "240808Bel"
+cat(sprintf("Categories and filter_samples will be configured for %s", current_experiment), "\n")
 
 # Create a list with the different categories and variables in the experiment.
 categories <- list(
@@ -23,10 +24,13 @@ filter_samples <- function(combinations){
     #)
     is_input <- with(combinations,
         rescue_allele == "none" &
-        mcm_tag == "none" &
         cell_cycle == "M" &
         antibody == "Input" &
-        ((strain_source == "oa" & auxin_treatment == "no") | strain_source == "lemr")
+        ((strain_source == "oa" & auxin_treatment == "no") | (strain_source == "lemr" & auxin_treatment == "no")) &
+        !( strain_source == "lemr" & mcm_tag == "7" ) &
+        !( strain_source == "lemr" & mcm_tag == "2" ) &
+        !( strain_source == "oa" & mcm_tag == "2" ) &
+        !( strain_source == "oa" & rescue_allele == "wt" )
     )
 
     is_protg <- with(combinations,
@@ -87,8 +91,11 @@ filter_samples <- function(combinations){
 sample_table <- filter_samples(expand.grid(categories))
 
 sample_table <- sample_table[with(sample_table, order(antibody, strain_source)), ]
-print(dim(sample_table))
+cat("Dimensions of sample_table: \n")
+dim(sample_table)
+cat("Breakdown by antibody")
 print(table(sample_table$antibody))
+cat("First elements of sample_table:\n")
 print(head(sample_table))
 
 sample_table$full_name <- apply(sample_table, 1, paste, collapse = "_")
@@ -103,6 +110,6 @@ bmc_table <- data.frame(SampleName = sample_table$full_name,
     Notes = "none",
     Pool = "A"
 )
-print(head(bmc_table))
-print(ls())
+#print(head(bmc_table))
+#print(ls())
 print("sampleGridConfig section complete")
