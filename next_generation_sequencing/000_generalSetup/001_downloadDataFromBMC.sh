@@ -6,12 +6,13 @@ validate_input() {
     echo "Executing validate_input"
     if [ $# -ne 2 ]; then 
         echo "Usage: $0 <bmc_server> <experiment_directory>"
-        echo "Example: $0 bmc_pub17 240808Bel"
+        echo "Example: $0 bmc-pub17 240808Bel"
         exit 1
     fi
 }
 
 download_files() {
+    echo "Executing download_files"
     local bmc_server=$1
     local bell_lab_directory=$2
     local target_dir="$HOME/data/${bell_lab_directory}/fastq/"
@@ -25,9 +26,10 @@ download_files() {
 }
 
 organize_files() {
+    local bell_lab_directory=$1
     echo "Executing organize_files"
     local target_dir="$HOME/data/${bell_lab_directory}/fastq/"
-
+    echo "${target_dir}"
     if [ ! -d "$target_dir" ]; then
         echo "$target_dir"
         echo "Target directory doesnt exist."
@@ -35,6 +37,7 @@ organize_files() {
         exit 1
     fi
     cd "$target_dir" || exit 1
+    echo "Shifted to $target_dir"
     find . -type f -name "*.fastq" -exec mv {} . \;
 }
 
@@ -47,7 +50,7 @@ safe_remove_dirs() {
         echo "$dirs_to_remove"
         read -p "DELETE these directories? (y/n) " -n 1 -r 
         echo
-        if [[ $REPLY =~ ^[YY]$ ]]; then
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
             local staging_dir="tmp/staging_deleter_$$"
             mkdir -p "$staging_dir"
             echo "Moving directories to staging area"
@@ -95,12 +98,14 @@ cleanup() {
 }
 
 main() {
-    validate_params "$@"
+    echo "Executing main"
+    validate_input "$@"
     local bmc_server=$1
     local bell_lab_directory=$2
     download_files "$bmc_server" "$bell_lab_directory"
-    organize_files
+    organize_files "$bell_lab_directory"
     cleanup
+    echo "Main complete."
 }
 
 main "$@"
