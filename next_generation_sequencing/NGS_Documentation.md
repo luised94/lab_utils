@@ -36,8 +36,7 @@ Explanation of any configuration files or important parameters.
 ## TODO
 
 ### HIGH
-- Normalize feature files and incorporate into genomic tracks. 
-- Update the rsync of bmc data. (see Task_Work: Update Rsync from BMC)
+- 004_processFeaturesToRdsAndBed.R: Normalize feature files and incorporate into genomic tracks. Need to add the code that outputs the reorganized files to Bed. Not sure if I should do RDS and something else.
 ### MED
 ### LOW
 Each documentation for each subdirectory has a # TODO section 
@@ -62,7 +61,7 @@ Add origin feature data. See updating feature data for chip-seq tracks and updat
 4. Setting up R 4.2.0 on other systems.
 5. Analyze Eaton data to plot it with my data
 6. Create a script that consolidates logs files based on JOB_ID.
-
+7. Updated scripts in 000_generalSetup with a config file setup and output scp command.
 ## References
 Relevant papers, tools, or external resources used.
 

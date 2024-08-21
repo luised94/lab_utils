@@ -9,6 +9,8 @@
 #SBATCH --nice=10000 #Required by MIT
 #DESCRIPTION: Align the processed fastq files to all genomes, 
 #USAGE: Use via slurm wrapper script. Determine number of tasks by multiplying the number of fastq files to the number of genomes you want to align. (# of genomes times # fastq files)
+#USAGE: ./003_alignFastq.sh "240808Bel"
+#NOTE: Wont work unless you run via sbatch command in linux cluster. Requires --array option to set array range properly.
 #SETUP
 DIR_TO_PROCESS="$1"
 
