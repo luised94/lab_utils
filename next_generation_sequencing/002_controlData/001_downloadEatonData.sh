@@ -1,6 +1,7 @@
 #!/bin/bash
 #DESCRIPTION: Download data from Eaton 2010 paper as control and comparison. 
 #USAGE: 001_downloadEatonData.sh <dir>
+#NOTE: Only meant to be run once to download control data from Eaton 2010 paper.
 #TODO: Provide arguments for files to concatenate and accession to generalize the script. 
 
 #BIOPROJECT_ACCESSION=PRJNA117641
