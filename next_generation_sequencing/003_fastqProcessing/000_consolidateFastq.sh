@@ -1,8 +1,10 @@
 #!/bin/bash
 #DESCRIPTION: Consolidate multiple fastq files into one per sample.
 #USAGE: ./000_consolidateFastq.sh <experiment_name>
+#NOTE: Run inside a node. srun --pty bash
 
-set -euo pipefail
+#set -euo pipefail
+set -eo pipefail
 EXPERIMENT_DIR=""
 OUTPUT_DIR=""
 FASTQ_PATHS=()
@@ -17,11 +19,16 @@ print_usage() {
 }
 
 validate_input(){
-    local experiment_name=$1
+    local experiment_name="$1"
     echo "Starting input validation"
     if [ $# -ne 1 ]; then
         echo "Error: Experiment name is required." >&2
         print_usage
+    fi
+    if [[ "$1" == */ ]]; then
+        echo "Error: Please provide the experiment name without a trailing slash." >&2
+        echo "Example: 'test' instead of 'test/'" >&2
+        exit 1
     fi
     EXPERIMENT_DIR="$HOME/data/$1"
     if [ ! -d "$EXPERIMENT_DIR" ]; then
@@ -46,26 +53,25 @@ get_fastq_files() {
 
 get_unique_ids() {
     echo "Extracting unique IDs."
-    UNIQUE_IDS=($(printf '%s\n' "${FASTQ_PATHS[@]}" | awk -F'-' '{print $2}' | sort -u))
-    #UNIQUE_IDS=($(printf '%s\n' "${FASTQ_PATHS[@]}" | awk -F'[_-]' '{print $2}' | sort -u))
+    UNIQUE_IDS=($(printf '%s\n' "${FASTQ_PATHS[@]}" | awk -F'[_-]' '{print $3}' | sort -u))
     echo "Found ${#UNIQUE_IDS[@]} unique IDs."
 }
 
 process_single_id() {
     local unique_id=$1
-    local output_file="${EXPERIMENT_DIR}D24-${unique_id}_NA_sequence.fastq"
+    local output_file="${EXPERIMENT_DIR}/D24-${unique_id}_NA_sequence.fastq"
     echo "Processing ID: ${unique_id}, Output: ${output_file}"
     for fastq_path in "${FASTQ_PATHS[@]}"; do 
-        echo "Appending $fastq_path"
-        #if [[ $fastq_path =~ $unique_id ]]; then
-        #    if cat "${fastq_path}" >> "$output_file"; then
-        #        rm "$fastq_path"
-        #        echo "Appended and deleted $fastq_path"
-        #    else 
-        #        echo "Error appending $fastq_path. Not deleted." >&2
-        #        return 1
-        #    fi
-        #fi
+        if [[ $fastq_path =~ $unique_id ]]; then
+            echo "Would append and delete $fastq_path to $output_file"
+            if cat "${fastq_path}" >> "$output_file"; then
+                rm "$fastq_path"
+                echo "Appended and deleted $fastq_path"
+            else 
+                echo "Error appending $fastq_path. Not deleted." >&2
+                return 1
+            fi
+        fi
     done
 }
 
@@ -88,6 +94,7 @@ main() {
     get_unique_ids
     process_fastq_files
     print_summary
+    echo "Unique ID extracted by awk: ${UNIQUE_IDS[1]}"
 }
 
 main "$@"
