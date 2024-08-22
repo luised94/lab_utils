@@ -10,14 +10,17 @@ OUTPUT_DIR=""
 FASTQ_PATHS=()
 UNIQUE_IDS=()
 
+#Useful error message.
 print_usage() {
     echo "Printing usage statement:"
     echo "$0 consolidates fastq files for a given experiment."
     echo "Usage: $0 <experiment_name>"
     echo "Example: $0 \"240808Bel\""
+    echo "Dont include trailing slash."
     exit 1
 }
 
+#Check that one argument was provided with no trailing slash and see that the argument is a directory.
 validate_input(){
     local experiment_name="$1"
     echo "Starting input validation"
@@ -38,6 +41,7 @@ validate_input(){
     echo "Input validation complete."
 }
 
+#Create output_dir variable.
 setup_directories() {
     echo "Setting up directories."
     OUTPUT_DIR="${EXPERIMENT_DIR}/fastq/"
@@ -45,25 +49,29 @@ setup_directories() {
     echo "Directories set up."
 }
 
+#Find fastq files to create array. Do not include files with processed or unmapped strings in their name.
 get_fastq_files() {
     echo "Gettitng fastq files."
     mapfile -t FASTQ_PATHS < <(find "$EXPERIMENT_DIR" -type f -name "*.fastq" ! \( -name "*unmapped*" -o -name "processed_*" \) | sort )
     echo "Found ${#FASTQ_PATHS[@]} fastq files."
 }
 
+#Use awk to extract unique IDs from the fastq array.
 get_unique_ids() {
     echo "Extracting unique IDs."
+    #See lmarena thread awkForUniqueIDs to update the awk script.
     UNIQUE_IDS=($(printf '%s\n' "${FASTQ_PATHS[@]}" | awk -F'[_-]' '{print $3}' | sort -u))
     echo "Found ${#UNIQUE_IDS[@]} unique IDs."
 }
 
+#Create output file. Then for fastq file, determine if it has the unique ID and cat to the output file.
 process_single_id() {
     local unique_id=$1
-    local output_file="${EXPERIMENT_DIR}/D24-${unique_id}_NA_sequence.fastq"
+    local output_file="${OUTPUT_DIR}D24-${unique_id}_NA_sequence.fastq"
     echo "Processing ID: ${unique_id}, Output: ${output_file}"
     for fastq_path in "${FASTQ_PATHS[@]}"; do 
         if [[ $fastq_path =~ $unique_id ]]; then
-            echo "Would append and delete $fastq_path to $output_file"
+            echo "Append and delete $fastq_path to $output_file"
             if cat "${fastq_path}" >> "$output_file"; then
                 rm "$fastq_path"
                 echo "Appended and deleted $fastq_path"
@@ -75,17 +83,22 @@ process_single_id() {
     done
 }
 
+#For each unique ID extracted by awk, process the id. See above.
 process_fastq_files() {
-    echo "Processing fastq files."
+    echo "Processing fastq files by unique ids."
     for unique_id in "${UNIQUE_IDS[@]}"; do
         process_single_id "$unique_id"
     done
-    echo "All fastq files processed."
+    echo "All unique_ids processed."
 }
+
+#Output numbers that will let me know that processing went well.
+# @todo: Check documentation folder to output the lines in the tsv file. That will let me confirm that everything went well.
 print_summary() {
     echo "Files processed: ${#FASTQ_PATHS[@]}"
     echo "Number of Unique IDs: ${#UNIQUE_IDS[@]}"
     echo "Files in directory: $( find "$EXPERIMENT_DIR" -type f -name "*.fastq" ! \( -name "*unmapped*" -o -name "processed_*" \) | sort | wc -l )"
+    #echo "Number of samples in experiment: $(wc -l < "${EXPERIMENT_DIR}/documentation/${1}_bmc_table.tsv")"
 }
 main() {
     validate_input "$@"
@@ -94,39 +107,9 @@ main() {
     get_unique_ids
     process_fastq_files
     print_summary
-    echo "Unique ID extracted by awk: ${UNIQUE_IDS[1]}"
+    echo "Number of lines in experiment: $( wc -l < ${EXPERIMENT_DIR}/documentation/${1}_bmc_table.tsv)"
+    echo "Substract one to account to account for header."
+    #echo "Unique ID extracted by awk: ${UNIQUE_IDS[1]}"
 }
 
 main "$@"
-
-#ABSOLUTE_PATH_OF_DIR="$HOME/data/$1"
-#OUTPUT_DIR="${ABSOLUTE_PATH_OF_DIR}fastq/"
-#mkdir -p "$OUTPUT_DIR"
-#
-## INITIALIZE_ARRAY
-#mapfile -t FASTQ_PATHS < <(find "${ABSOLUTE_PATH_OF_DIR}" -type f -name "*.fastq" ! \( -name "*unmapped*" -o -name "processed_*" \) | sort )
-#
-##Could substitute cut with awk -F '-' '{print $2}'
-#UNIQUE_IDS=($(printf '%s\n' "${FASTQ_PATHS[@]}" | cut -d- -f2 | uniq ))
-#
-## Concatenate FASTQ files for each unique ID, filtering paths containing the ID
-## and writing to output files named D24-{UNIQUE_ID}_NA_sequence.fastq
-#for UNIQUE_ID in ${UNIQUE_IDS[@]}; do
-#    OUTPUT_FILE="${OUTPUT_DIR}D24-${UNIQUE_ID}_NA_sequence.fastq"
-#    echo "Processing ID: ${UNIQUE_ID}, Output: ${OUTPUT_FILE}"
-#    for FASTQ_PATH in "${FASTQ_PATHS[@]}"; do
-#        if [[ $FASTQ_PATH =~ $UNIQUE_ID ]]; then 
-#            cat "$FASTQ_PATH" >> $OUTPUT_FILE
-#            if [ $? -eq 0 ]; then
-#                rm "$FASTQ_PATH"
-#                echo "Appended and deleted $FASTQ_PATH to $OUTPUT_FILE"
-#            else
-#                echo "Error appending $FASTQ_PATH. Not deleted"
-#            fi
-#        fi
-#    done
-#done
-#
-#echo "Files processed: $(echo ${#FASTQ_PATHS[@]})"
-#echo "Number of Unique IDS: $(echo ${#UNIQUE_IDS[@]})"
-#echo "Files in directory: $(find "${ABSOLUTE_PATH_OF_DIR}" -type f -name "*.fastq" ! \( -name "*unmapped*" -o -name "processed_*" \) | sort | wc -l)"
