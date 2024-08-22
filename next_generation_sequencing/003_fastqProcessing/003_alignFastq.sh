@@ -7,15 +7,62 @@
 #SBATCH --mem-per-cpu=50G # amount of RAM per node
 #SBATCH --cpus-per-task=4
 #SBATCH --nice=10000 #Required by MIT
-#DESCRIPTION: Align the processed fastq files to all genomes, 
-#USAGE: Use via slurm wrapper script. Determine number of tasks by multiplying the number of fastq files to the number of genomes you want to align. (# of genomes times # fastq files)
-#USAGE: ./003_alignFastq.sh "240808Bel"
-#NOTE: Wont work unless you run via sbatch command in linux cluster. Requires --array option to set array range properly.
+#DESCRIPTION: Align fastq files to multiple genomes using Bowtie2 and Samtools via Slurm Sbatch command.
+#USAGE: sbatch --array=1-N 003_alignFastq.sh "240808Bel"
+# where N is (number of genomes) * (number of fastq files)
+#OR 
+#USE VIA 000_slurmWrapper.sh 
+#000_slurmWrapper.sh 1-N%16 scriptToRun.sh "240808Bel"
+
+set -e 
+#set -u
+
+#Global variables
+REFGENOME_DIR="$HOME/data/REFGENS"
+EXPERIMENT_DIR=""
+LOG_DIR=""
+LOG_FILE=""
+
+validate_input() {
+    if [[ $# -ne 1 || "$1" == */ ]]; then
+    echo "Usage: sbatch --array=<array-range> $0 <experiment_name>" >&2
+        echo "Error: Invalid input. Please provide a single argument without a trailing slash. >&2
+        echo "Example: sbatch --array=1-20%16 $0 240808Bel"
+        exit 1
+    fi
+    
+    EXPERIMENT_DIR="$HOME/data/$1"
+    LOG_DIR="$HOME/data/$EXPERIMENT_DIR/logs"
+
+}
+setup_logging() {
+    mkdir -p "$LOG_DIR"
+    local timeid=$(date "+%Y%m%d_%H%M%S")
+
+    LOG_FILE="${LOG_DIR}/aligning_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}_${timeid}.log"
+
+    # Redirect stdout and stderr to a temporary file
+    exec 3>&1 4>&2
+    exec 1>"$LOG_FILE" 2>&1
+}
+
+log_message() {
+    local timestamp=$(date "+%Y-%m-%d_%H:%M:%S")
+    echo "[$timestamp] $1"
+}
+
+load_modules() {
+    log_message "Loading required modules"
+    module purge
+    module load gnu/5.4.0 bowtie2/2.3.5.1 samtools/1.10
+}
+
+initialize_arrays() {
+    mapfile -t FASTQ_PATHS < <(find "$EXPERIMENT_DIR
 #SETUP
 DIR_TO_PROCESS="$1"
 
 # Define the log directory
-LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 
 # Ensure the log directory exists
 mkdir -p "$LOG_DIR"
@@ -35,13 +82,7 @@ echo "Started from $(pwd)"
 echo "START TIME: $(date "+%Y-%m-%d-%M-%S")"
 DIR_TO_PROCESS="$HOME/data/$DIR_TO_PROCESS"
 echo "Executing for $DIR_TO_PROCESS"
-REFGENOME_DIR="$HOME/data/REFGENS"
 
-#MODULE_LOAD
-module purge
-module load gnu/5.4.0
-module load bowtie2/2.3.5.1
-module load samtools/1.10
 
 #INITIALIZE_ARRAY
 mapfile -t FASTQ_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*.fastq" )
