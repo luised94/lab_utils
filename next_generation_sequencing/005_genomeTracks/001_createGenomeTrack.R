@@ -73,29 +73,39 @@ bigwig_directory <- paste(working_directory, "bigwig", sep = "/")
 # Create list with samples to plot. 
 #TODO: need to automate the creation of the experiments to plot. 
 #TODO: Need to ensure that the names I use in the columns are compatible with my short name convention for subsetting df
+
 experiments_to_plot <- list(
     c("lnnnMI", "onnnMA", "lnnnMA", "lnnyMA"),
-    c("lnnnMI", "onnnMH", "lnnnMH", "lnnyMH"), 
-    c("lnnnMI", "lwnnG7", "lwnnM7"),
-    c("onnnMI", "onnnG7", "on7nG7", "onnnM7", "on7nM7"), 
-    c("onnnMI", "onnnG1", "on7nG1", "onnnM1", "on7nM1"), 
-    c("onnnMI", "onnnGC", "on7nGC", "onnnMC", "on7nMC"), 
-    c("lnnnMI", "lwnnG1", "lw2nG1", "lw2nM1"), 
-    c("lnnnMI", "lwnnGC", "lw2nGC", "lw2nMC"), 
-    c("lnnnMI", "lwnnG7", "lw2nG7", "lw2nM7")
-) 
+    c("onnnMI", "onnnG7", "on7nG7", "onnnM7", "on7nM7")
+)
 
 descriptive_names_for_plots <- c(
     "AlFA_comparison",
-    "ORC_comparison", 
-    "Cell_Cycle_MCMpoly",
-    "MCM7tag_MCMpoly", 
-    "MCM7tag_HA11", 
-    "MCM7tag_HAC", 
-    "MCM2tag_HA11", 
-    "MCM2tag_HAC", 
-    "MCM2tag_MCMpoly"
+    "MCM7_MCMpoly"
 )
+#experiments_to_plot <- list(
+#    c("lnnnMI", "onnnMA", "lnnnMA", "lnnyMA"),
+#    c("lnnnMI", "onnnMH", "lnnnMH", "lnnyMH"), 
+#    c("lnnnMI", "lwnnG7", "lwnnM7"),
+#    c("onnnMI", "onnnG7", "on7nG7", "onnnM7", "on7nM7"), 
+#    c("onnnMI", "onnnG1", "on7nG1", "onnnM1", "on7nM1"), 
+#    c("onnnMI", "onnnGC", "on7nGC", "onnnMC", "on7nMC"), 
+#    c("lnnnMI", "lwnnG1", "lw2nG1", "lw2nM1"), 
+#    c("lnnnMI", "lwnnGC", "lw2nGC", "lw2nMC"), 
+#    c("lnnnMI", "lwnnG7", "lw2nG7", "lw2nM7")
+#) 
+
+#descriptive_names_for_plots <- c(
+#    "AlFA_comparison",
+#    "ORC_comparison", 
+#    "Cell_Cycle_MCMpoly",
+#    "MCM7tag_MCMpoly", 
+#    "MCM7tag_HA11", 
+#    "MCM7tag_HAC", 
+#    "MCM2tag_HA11", 
+#    "MCM2tag_HAC", 
+#    "MCM2tag_MCMpoly"
+#)
 
 #Create GRanges object to read in a particular chromosome
 #chromosome_to_plot <- 12
@@ -149,22 +159,38 @@ for (experiment_index in 1:length(experiments_to_plot)) {
     }
 #TODO figure out if there is a way to normalize the samples 
 #    # Determine the scale of the plotTracks plot by getting the max 
-    MAX <- -Inf
-    for (track in 1:length(all_tracks_to_plot)) {
-        print("Name of track")
-        print(names(all_tracks_to_plot[[track]]))
-      if(class(all_tracks_to_plot[[track]]) != "GenomeAxisTrack"){
-        if(max(all_tracks_to_plot[track][[1]]@data) > MAX) MAX <- max(all_tracks_to_plot[track][[1]]@data)
-      }
+#    MAX <- -Inf
+#    for (track in 1:length(all_tracks_to_plot)) {
+#        print("Name of track")
+#        print(names(all_tracks_to_plot[[track]]))
+#      if(class(all_tracks_to_plot[[track]]) != "GenomeAxisTrack"){
+#        if(max(all_tracks_to_plot[track][[1]]@data) > MAX) MAX <- max(all_tracks_to_plot[track][[1]]@data)
+#      }
+#    }
+    #Generate the plot
+#    svg(paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", descriptive_names_for_plots[experiment_index], ".svg", sep = ""))
+#    plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot], ylim = c(0, MAX))
+#    dev.off()
+}
+for (sample_index in 1:nrow(df_sample_info)) {
+    all_tracks_to_plot <- list(GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = "") ) )
+    sample_ID_pattern <- df_sample_info$sample_ID[sample_index]
+    initial_matches <- list.files(bigwig_directory, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)     
+    print(initial_matches[1])
+    path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
+    print("Name of the bigwig path")
+    print(path_to_bigwig)
+    if (length(path_to_bigwig) > 0){
+        bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
+        sample_short_name <- df_sample_info$short_name[sample_index]
+        track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot])
+        all_tracks_to_plot <- append(all_tracks_to_plot, track_to_plot)                                                                          
     }
     #Generate the plot
-    svg(paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", descriptive_names_for_plots[experiment_index], ".svg", sep = ""))
-    plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot], ylim = c(0, MAX))
-    dev.off()
-}
+    print("Name of the plot to be generated")
+    print(paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", df_sample_info$short_name[sample_index], ".svg", sep = ""))
+    #svg(paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", df_sample_info$short_name[sample_short_name], ".svg", sep = ""))
+    #plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot], ylim = c(0, 100000))
+    #dev.off()
 
-#TODO: Include system scp command to output to dropbox plots directory based on directory and windows_user variable. Need to use input validation for this.
-#Example: 
-#output_to <- sprintf("/mnt/c/Users/%s/Dropbox (MIT)/%s/plots", windows_username, working_directory) windows_username would be defined by a function return after validating number of arguments and that directory exists. 
-#scp -r luised94@luria.mit.edu:~/data/240808Bel/plots "/mnt/c/Users/Luis/Dropbox (MIT)/240808Bel/"
-#system(sprintf("scp -r %s %s", plot_output_dir, output_to))
+}
