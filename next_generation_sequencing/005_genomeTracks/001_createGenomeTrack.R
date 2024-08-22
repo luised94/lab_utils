@@ -58,14 +58,14 @@ df_sacCer_refGenome <- data.frame(chrom = names(as(df_sacCer_refGenome, "DNAStri
 
 # Process chromosome names to turn into chr<num> format and create the chromosome identifier value.
 #TODO: Dont have to do this since they were adjusted using a previous bash script. 
-parts_by_comma <- unlist(strsplit(df_sacCer_refGenome$chrom, ","))
-chromosome_names <- parts_by_comma[!grepl("complete", parts_by_comma)]
-chromosome_number <- sub(".*chromosome ", "", chromosome_names)
-df_sacCer_refGenome$chrom <- paste("chr", chromosome_number, sep = "") 
-#TODO: Output this processed genome. So I can easily read it again.
-chromosome_ID <- unlist(lapply(strsplit(chromosome_names, " "), '[[', 1))
-#Used to extract from Bigwig file
-df_sacCer_refGenome$chrom_ID <- chromosome_ID
+#parts_by_comma <- unlist(strsplit(df_sacCer_refGenome$chrom, ","))
+#chromosome_names <- parts_by_comma[!grepl("complete", parts_by_comma)]
+#chromosome_number <- sub(".*chromosome ", "", chromosome_names)
+#df_sacCer_refGenome$chrom <- paste("chr", chromosome_number, sep = "") 
+##TODO: Output this processed genome. So I can easily read it again.
+#chromosome_ID <- unlist(lapply(strsplit(chromosome_names, " "), '[[', 1))
+##Used to extract from Bigwig file
+#df_sacCer_refGenome$chrom_ID <- chromosome_ID
 
 options(ucscChromosomeNames=FALSE) # Has to be run every time if you are using chromosome ID to get tracks from the bigwig file.
 bigwig_directory <- paste(working_directory, "bigwig", sep = "/")
@@ -74,7 +74,7 @@ bigwig_directory <- paste(working_directory, "bigwig", sep = "/")
 #TODO: need to automate the creation of the experiments to plot. 
 #TODO: Need to ensure that the names I use in the columns are compatible with my short name convention for subsetting df
 experiments_to_plot <- list(
-    c("lnnnMI", "onnnMA", "lnnnMA", "lnnyMA"), 
+    c("lnnnMI", "onnnMA", "lnnnMA", "lnnyMA"),
     c("lnnnMI", "onnnMH", "lnnnMH", "lnnyMH"), 
     c("lnnnMI", "lwnnG7", "lwnnM7"),
     c("onnnMI", "onnnG7", "on7nG7", "onnnM7", "on7nM7"), 
@@ -82,13 +82,13 @@ experiments_to_plot <- list(
     c("onnnMI", "onnnGC", "on7nGC", "onnnMC", "on7nMC"), 
     c("lnnnMI", "lwnnG1", "lw2nG1", "lw2nM1"), 
     c("lnnnMI", "lwnnGC", "lw2nGC", "lw2nMC"), 
-    c("lnnnMI", "lwnnG7", "lw2nG7", "lw2nM7"), 
+    c("lnnnMI", "lwnnG7", "lw2nG7", "lw2nM7")
 ) 
 
 descriptive_names_for_plots <- c(
-    "AlFA_comparison", 
+    "AlFA_comparison",
     "ORC_comparison", 
-    "Cell_Cycle_MCMpoly", 
+    "Cell_Cycle_MCMpoly",
     "MCM7tag_MCMpoly", 
     "MCM7tag_HA11", 
     "MCM7tag_HAC", 
@@ -96,8 +96,6 @@ descriptive_names_for_plots <- c(
     "MCM2tag_HAC", 
     "MCM2tag_MCMpoly"
 )
-# Read in origin file for track.
-
 
 #Create GRanges object to read in a particular chromosome
 #chromosome_to_plot <- 12
@@ -120,18 +118,41 @@ for (experiment_index in 1:length(experiments_to_plot)) {
     #TODO: Need some way to aggregate the column names I use from the sampleConfig.R files to keep track of variables I use to keep consistent experiment to experiment.
     #Files are already ordered from the sampleGridConfig.R file. No need to arrange.
     df_sample_info_subset <- df_sample_info %>% filter(short_name %in% unlist(experiments_to_plot[experiment_index])) #%>% arrange(antibody, rescue_allele, mcm_tag, cell_cycle, auxin_treatment)
+    #print("Head output of subset dataframe")
+    #print(head(df_sample_info_subset))
     #Create all of the tracks and append them to the all_tracks_to_plot variable
     for (sample_index in 1:nrow(df_sample_info_subset)) {
-        initial_matches <- list.files(bigwig_directory, pattern = as.character(df_sample_info_subset$sample_ID[sample_index]), full.names = TRUE, recursive = TRUE)     
+        #cat(sprintf("Sample index: %s", sample_index), "\n")
+    #    cat(sprintf("Sample ID: %s", as.character(df_sample_info_subset$sample_ID[sample_index])), "\n")
+        #cat(sprintf("Sample name: %s", as.character(df_sample_info_subset$short_name[sample_index])), "\n")
+        #initial_matches <- list.files(bigwig_directory, pattern = as.character(df_sample_info_subset$sample_ID[sample_index]), full.names = TRUE, recursive = TRUE)     
+        #path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
+        #bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
+        #track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = df_sample_info_subset$short_name[sample_index], chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot])
+        #all_tracks_to_plot <- append(all_tracks_to_plot, track_to_plot)                                                                          
+        #cat("Using sample index to subset")
+        #cat(sprintf("Bigwig file to access: %s", path_to_bigwig), "\n")
+
+        sample_ID_pattern <- df_sample_info_subset$sample_ID[df_sample_info_subset$short_name == unlist(experiments_to_plot[experiment_index])[sample_index]]
+        initial_matches <- list.files(bigwig_directory, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)     
         path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
         bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
-        track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = df_sample_info_subset$short_name[sample_index], chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot])
+        sample_short_name <- df_sample_info_subset$short_name[df_sample_info_subset$short_name == unlist(experiments_to_plot[experiment_index])[sample_index]]
+        track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot])
         all_tracks_to_plot <- append(all_tracks_to_plot, track_to_plot)                                                                          
+
+        cat(sprintf("Experiment_to_plot sample: %s", unlist(experiments_to_plot[experiment_index])[sample_index]), "\n")
+        cat(sprintf("Sample Short_name: %s", sample_short_name), "\n")
+        cat(sprintf("Sample ID_pattern: %s", sample_ID_pattern), "\n")
+        cat("Using experiments_to_plot subset","\n")
+        cat(sprintf("Bigwig file to access: %s", path_to_bigwig), "\n")
     }
 #TODO figure out if there is a way to normalize the samples 
-    # Determine the scale of the plotTracks plot by getting the max 
+#    # Determine the scale of the plotTracks plot by getting the max 
     MAX <- -Inf
     for (track in 1:length(all_tracks_to_plot)) {
+        print("Name of track")
+        print(names(all_tracks_to_plot[[track]]))
       if(class(all_tracks_to_plot[[track]]) != "GenomeAxisTrack"){
         if(max(all_tracks_to_plot[track][[1]]@data) > MAX) MAX <- max(all_tracks_to_plot[track][[1]]@data)
       }
