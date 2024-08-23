@@ -34,7 +34,7 @@ documentation_dir <- paste(working_directory, "documentation", sep ="/")
 feature_file_directory <- paste(Sys.getenv("HOME"), "data", "feature_files", sep = "/")
 path_to_sample_info <- list.files(documentation_dir, pattern = "sample_table", full.names = TRUE)
 df_sample_info <- as.data.frame(read.delim(path_to_sample_info, header = TRUE))
-df_sample_info$sample_ID <- as.character(13119:13151)
+df_sample_info$sample_ID <- as.character(13119:(13119+nrow(df_sample_info)-1))
 #TODO: Define the comparisons and plots to be generated in my sampleConfig.R template. 
 #TODO: Find the best way to have the same levels and factors when I read in the sampleGridConfig.R file. This is defined by the categories list variable. Can grab that during 002_loadSampleGrid and use it to equalize. 
 #TODO: Use 002_loadSampleGrid to open the sample_table given a directory. Use conditional statement to determine the ID. Could potentially use system function to call find and print with awk statement. R would require list.files(), strsplit, and grabbing regular expression for 5 digits.
@@ -133,7 +133,7 @@ for (experiment_index in 1:length(experiments_to_plot)) {
     #Create all of the tracks and append them to the all_tracks_to_plot variable
     for (sample_index in 1:nrow(df_sample_info_subset)) {
         #cat(sprintf("Sample index: %s", sample_index), "\n")
-    #    cat(sprintf("Sample ID: %s", as.character(df_sample_info_subset$sample_ID[sample_index])), "\n")
+        #cat(sprintf("Sample ID: %s", as.character(df_sample_info_subset$sample_ID[sample_index])), "\n")
         #cat(sprintf("Sample name: %s", as.character(df_sample_info_subset$short_name[sample_index])), "\n")
         #initial_matches <- list.files(bigwig_directory, pattern = as.character(df_sample_info_subset$sample_ID[sample_index]), full.names = TRUE, recursive = TRUE)     
         #path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
@@ -158,25 +158,27 @@ for (experiment_index in 1:length(experiments_to_plot)) {
         cat(sprintf("Bigwig file to access: %s", path_to_bigwig), "\n")
     }
 #TODO figure out if there is a way to normalize the samples 
-#    # Determine the scale of the plotTracks plot by getting the max 
-#    MAX <- -Inf
-#    for (track in 1:length(all_tracks_to_plot)) {
-#        print("Name of track")
-#        print(names(all_tracks_to_plot[[track]]))
-#      if(class(all_tracks_to_plot[[track]]) != "GenomeAxisTrack"){
-#        if(max(all_tracks_to_plot[track][[1]]@data) > MAX) MAX <- max(all_tracks_to_plot[track][[1]]@data)
-#      }
-#    }
-    #Generate the plot
-#    svg(paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", descriptive_names_for_plots[experiment_index], ".svg", sep = ""))
-#    plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot], ylim = c(0, MAX))
-#    dev.off()
+    # Determine the scale of the plotTracks plot by getting the max 
+    MAX <- -Inf
+    for (track in 1:length(all_tracks_to_plot)) {
+        print("Name of track")
+        print(names(all_tracks_to_plot[[track]]))
+      if(class(all_tracks_to_plot[[track]]) != "GenomeAxisTrack"){
+        if(max(all_tracks_to_plot[track][[1]]@data) > MAX) MAX <- max(all_tracks_to_plot[track][[1]]@data)
+      }
+    }
+   #Generate the plot
+    output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", descriptive_names_for_plots[experiment_index], ".svg", sep = "")
+    print("Output plot name: ")
+    print(output_plot_name)
+    #svg(output_plot_name)
+    #plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot], ylim = c(0, MAX))
+    #dev.off()
 }
 for (sample_index in 1:nrow(df_sample_info)) {
     all_tracks_to_plot <- list(GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = "") ) )
     sample_ID_pattern <- df_sample_info$sample_ID[sample_index]
     initial_matches <- list.files(bigwig_directory, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)     
-    print(initial_matches[1])
     path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
     print("Name of the bigwig path")
     print(path_to_bigwig)
@@ -185,12 +187,16 @@ for (sample_index in 1:nrow(df_sample_info)) {
         sample_short_name <- df_sample_info$short_name[sample_index]
         track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot])
         all_tracks_to_plot <- append(all_tracks_to_plot, track_to_plot)                                                                          
+
+        #Generate the plot
+        print("Name of the plot to be generated")
+        output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", df_sample_info$short_name[sample_index], ".svg", sep = "")
+        print(output_plot_name)
+        svg(output_plot_name)
+        plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot], ylim = c(0, 100000))
+        dev.off()
     }
-    #Generate the plot
-    print("Name of the plot to be generated")
-    print(paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", df_sample_info$short_name[sample_index], ".svg", sep = ""))
-    #svg(paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", df_sample_info$short_name[sample_short_name], ".svg", sep = ""))
-    #plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot], ylim = c(0, 100000))
-    #dev.off()
 
 }
+print(utils::head(df_sample_info, 15)) 
+print(utils::tail(df_sample_info, 15)) 
