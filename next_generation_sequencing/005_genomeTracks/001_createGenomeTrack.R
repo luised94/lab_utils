@@ -38,15 +38,6 @@ df_sample_info$sample_ID <- as.character(13119:(13119+nrow(df_sample_info)-1))
 #TODO: Define the comparisons and plots to be generated in my sampleConfig.R template. 
 #TODO: Find the best way to have the same levels and factors when I read in the sampleGridConfig.R file. This is defined by the categories list variable. Can grab that during 002_loadSampleGrid and use it to equalize. 
 #TODO: Use 002_loadSampleGrid to open the sample_table given a directory. Use conditional statement to determine the ID. Could potentially use system function to call find and print with awk statement. R would require list.files(), strsplit, and grabbing regular expression for 5 digits.
-#Process G1 and G2 values into Alpha and Nocodazole
-#df_sample_info$Cell_Cycle <- ifelse(df_sample_info$Cell_Cycle == "G1", "Alpha", 
-#                             ifelse(df_sample_info$Cell_Cycle == "G2", "Nocodazole", 
-#                             df_sample_info$Cell_Cycle))
-#
-#df_sample_info$antibody <- ifelse(df_sample_info$antibody == "174", "74", 
-#                             ifelse(df_sample_info$antibody == "185", "85", 
-#                             df_sample_info$antibody))
-#df_sample_info$short_name <- do.call(paste0, lapply(df_sample_info[setdiff(names(df_sample_info), c("short_name", "sample_ID"))], substr, 1, 1))
 
 directory_of_refgenomes <- paste(Sys.getenv("HOME"), "data", "REFGENS", sep = "/")
 
@@ -68,6 +59,7 @@ df_sacCer_refGenome <- data.frame(chrom = names(as(df_sacCer_refGenome, "DNAStri
 #df_sacCer_refGenome$chrom_ID <- chromosome_ID
 
 options(ucscChromosomeNames=FALSE) # Has to be run every time if you are using chromosome ID to get tracks from the bigwig file.
+#TODO: Need to make sure the chromosome IDs are formatted properly.
 bigwig_directory <- paste(working_directory, "bigwig", sep = "/")
 
 # Create list with samples to plot. 
@@ -83,6 +75,7 @@ descriptive_names_for_plots <- c(
     "AlFA_comparison",
     "MCM7_MCMpoly"
 )
+#TODO: Need to implement in sampleGrid and experiment design.
 #experiments_to_plot <- list(
 #    c("lnnnMI", "onnnMA", "lnnnMA", "lnnyMA"),
 #    c("lnnnMI", "onnnMH", "lnnnMH", "lnnyMH"), 
@@ -108,9 +101,7 @@ descriptive_names_for_plots <- c(
 #)
 
 #Create GRanges object to read in a particular chromosome
-#chromosome_to_plot <- 12
 chromosome_to_plot <- 10
-#chromosome_to_plot <- 14
 genomeRange_to_get <- GRanges(seqnames=c(df_sacCer_refGenome$chrom[chromosome_to_plot]), 
         ranges = IRanges(start = 1, 
         end = df_sacCer_refGenome$basePairSize[chromosome_to_plot]), 
@@ -132,17 +123,6 @@ for (experiment_index in 1:length(experiments_to_plot)) {
     #print(head(df_sample_info_subset))
     #Create all of the tracks and append them to the all_tracks_to_plot variable
     for (sample_index in 1:nrow(df_sample_info_subset)) {
-        #cat(sprintf("Sample index: %s", sample_index), "\n")
-        #cat(sprintf("Sample ID: %s", as.character(df_sample_info_subset$sample_ID[sample_index])), "\n")
-        #cat(sprintf("Sample name: %s", as.character(df_sample_info_subset$short_name[sample_index])), "\n")
-        #initial_matches <- list.files(bigwig_directory, pattern = as.character(df_sample_info_subset$sample_ID[sample_index]), full.names = TRUE, recursive = TRUE)     
-        #path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
-        #bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
-        #track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = df_sample_info_subset$short_name[sample_index], chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot])
-        #all_tracks_to_plot <- append(all_tracks_to_plot, track_to_plot)                                                                          
-        #cat("Using sample index to subset")
-        #cat(sprintf("Bigwig file to access: %s", path_to_bigwig), "\n")
-
         sample_ID_pattern <- df_sample_info_subset$sample_ID[df_sample_info_subset$short_name == unlist(experiments_to_plot[experiment_index])[sample_index]]
         initial_matches <- list.files(bigwig_directory, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)     
         path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
