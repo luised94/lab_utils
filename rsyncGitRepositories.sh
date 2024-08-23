@@ -1,6 +1,7 @@
 #!/bin/bash
-if [ $# -gt 2 ]; then
-  echo "Usage: $0 [<source_directory>] [<destination_directory>]"
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 [<windows_user>]"
+  echo "Example: $0 Luis"
   exit 1
 fi
 # Set default values for source and destination directories
@@ -23,4 +24,25 @@ fi
 printf "Source directory: %s\n" "$SOURCE_DIR"
 printf "Destination directory: %s\n" "$DEST_DIR"
 
+find "$SOURCE_DIR" -maxdepth 1 -type d -print0 | while IFS= read -r -d $'\0' dir; do
 
+  # Check if the directory is a Git repository
+  if [ -d "$dir/.git" -a "$dir" != "$HOME/.nvm" ]; then
+    repo_name=$(basename "$dir")
+    destination_repo_path="$destination_dir/$repo_name"
+
+    printf "Found Git repository: %s\n" "$dir"
+    printf "Syncing to: %s\n" "$destination_repo_path"
+
+    # Rsync the Git repository, excluding the .git directory
+    #rsync -anv --delete --exclude=.git/ "$dir" "$destination_repo_path/"
+
+    if [ $? -eq 0 ]; then
+      printf "Successfully synced %s.\n" "$repo_name"
+    else
+      printf "Error syncing %s. Please check the logs.\n" "$repo_name"
+    fi
+
+  fi
+
+done
