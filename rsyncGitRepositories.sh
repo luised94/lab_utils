@@ -1,12 +1,10 @@
 #!/bin/bash
-if [ $# -ne 1 ]; then
-  echo "Usage: $0 [<windows_user>]"
-  echo "Example: $0 Luis"
-  exit 1
-fi
+#if [ $# -ne 1 ]; then
+echo "Usage: $0 [<windows_user>]"
+#fi
 # Set default values for source and destination directories
 SOURCE_DIR="$HOME"
-DEST_DIR="/mnt/c/Users/${1}/Dropbox (MIT)/"
+DEST_DIR="/mnt/c/Users/${WINDOWS_USER}/Dropbox (MIT)/"
 
 # Check if the source and destination directories exist
 if [ ! -d "$SOURCE_DIR" ]; then

@@ -45,14 +45,22 @@ create_experiment_dir <- function(directory_path, subdirectories){
 validate_input <- function() {
     cat("Running input validation.", "\n")
     args <- commandArgs(trailingOnly = TRUE)
-    if (length(args) < 2) {
-        cat("This script requires two arguments.", "\n")
-        cat("Usage: ", "Rscript ", "000_setupExperimentDir.R", "<username>", "<experiment_name>", "\n",
-            "Example: ", "Rscript ", "000_setupExperimentDir.R", "${windows_user}", "240808Bel", "\n")
+    if (length(args) != 1) {
+        cat("This script requires one argument.", "\n")
+        cat("Confirm WINDOWS_USER defined in bashrc.", "\n")
+        cat("Usage: ", "Rscript ", "000_setupExperimentDir.R", "<experiment_name>", "\n",
+            "Example: ", "Rscript ", "000_setupExperimentDir.R", "240808Bel", "\n")
         q(status = 1)
     }
-    username <- args[1]
-    experiment_name <- args[2]
+    if (Sys.getenv("WINDOWS_USER") != "") {
+        cat("Assigning username variable: ", Sys.getenv("WINDOWS_USER"), "\n")
+        username <- Sys.getenv("WINDOWS_USER")
+    } else {
+        cat("WINDOWS_USER not defined or exported from bash", "\n")
+        cat("Consult bashrc in my_config repository", "\n")
+        q(status = 1)
+    }
+    experiment_name <- args[1]
     return(
         list(
             username = username,
