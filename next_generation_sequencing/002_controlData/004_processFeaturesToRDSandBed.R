@@ -22,8 +22,8 @@ main <- function(input_dir) {
         grange_data <- convert_to_granges(processed_data)        
         output_processed_data(grange_data, file_basename, feature_file_dir)
     }
-
-    print(warnings())
+    cat("Transfer the files to dropbox for inspection\n")
+    cat("scp -r user@server:from_dir to_dir\n")
 }
 
 validate_input <- function(input_dir) {
@@ -107,6 +107,11 @@ output_processed_data <- function(data, file_name, output_dir) {
     cat(sprintf("Saved to: %s\n", rds_output_file))
 }
 
+verify_output <- function(output_dir, pattern_in_file) {
+    files_to_verify <- list.files(output_dir, pattern = pattern_in_file)
+    cat(sprintf("Number of files to verify: %s\n", length(files_to_verify))
+
+}
 main()
 #for (file_path in feature_files) {
 #    file_extension <- tools::file_ext(file_path)
