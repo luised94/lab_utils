@@ -22,6 +22,8 @@ main <- function(input_dir) {
         grange_data <- convert_to_granges(processed_data)        
         output_processed_data(grange_data, file_basename, feature_file_dir)
     }
+    pattern_to_find <- "\\.rds$|\\_converted.bed$"
+    verify_output(feature_file_dir, pattern_in_file = pattern_to_find)
     cat("Transfer the files to dropbox for inspection\n")
     cat("scp -r user@server:from_dir to_dir\n")
 }
@@ -108,10 +110,44 @@ output_processed_data <- function(data, file_name, output_dir) {
 }
 
 verify_output <- function(output_dir, pattern_in_file) {
+    cat("Verifying generated output\n")
     files_to_verify <- list.files(output_dir, pattern = pattern_in_file)
     cat(sprintf("Number of files to verify: %s\n", length(files_to_verify))
+    file_readers <- list(
+            bed = rtracklayer::import,
+            rds = readRDS
+    )
 
+    file_converter <- list(
+            bed = function(file_path) import(file_path, format = "BED"),
+            rds = function(file_path) makeGRangesFromDataFrame(file_path, keep.extra.columns = TRUE),
+    )
+
+    #for (file_path in output_files) {
+
+    #        file_extension <- tools::file_ext(file_path)
+    #        tryCatch({
+    #            data <- file_readers[[file_extension]](file_path)
+    #            cat(sprintf("Successfully read: %s\n", basename(file_path)))
+    #            if (is(data, "GRanges")) {
+    #                cat(sprintf("File %s is a valid GRanges object\n", basename(file_path)))
+    #                cat("Sample data:\n")
+    #                print(head(data))
+    #            } else {
+    #                cat(sprintf("Warning: File %s is not a GRanges object\n", basename(file_path)))
+    #                data <- file_converter[[file_extension]](data)
+    #                if(is(data, "GRanges")) {
+    #                    cat(sprintf("File %s is a valid GRanges object\n", basename(file_path)))
+    #                    print(head(data))
+    #                }
+    #            }
+    #        }, error = function(e) {
+    #            cat(sprintf("Error reading file %s: %s\n", basename(file_path), e$message))
+    #        })
+    #        cat("\n")
+    #    }
 }
+
 main()
 #for (file_path in feature_files) {
 #    file_extension <- tools::file_ext(file_path)
