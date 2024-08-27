@@ -1,0 +1,49 @@
+
+--------------------------------------------------------------------------------------------------- /opt/ohpc/pub/moduledeps/gnu-mvapich2 ---------------------------------------------------------------------------------------------------
+   adios/1.10.0    fftw/3.3.4      imb/4.1       mumps/5.0.2     netcdf-cxx/4.2.1        petsc/3.7.0     scalapack/2.0.2    scipy/0.18.0    sionlib/1.7.0       tau/2.26
+   boost/1.61.0    hypre/2.10.1    mpiP/3.4.1    netcdf/4.4.1    netcdf-fortran/4.4.4    phdf5/1.8.17    scalasca/2.3.1     scorep/3.0      superlu_dist/4.2    trilinos/12.6.4
+
+------------------------------------------------------------------------------------------------------- /opt/ohpc/pub/moduledeps/gnu --------------------------------------------------------------------------------------------------------
+   R_base/3.3.1    gsl/2.2.1    hdf5/1.8.17    metis/5.1.0    mpich/3.2    mvapich2/2.2 ([1;33mL[0m)    numpy/1.11.1    ocr/1.0.1    openblas/0.2.19    openmpi/1.10.4    pdtoolkit/3.22    r/3.3.1    superlu/5.2.1
+
+--------------------------------------------------------------------------------------------------------- /opt/ohpc/pub/modulefiles ---------------------------------------------------------------------------------------------------------
+   EasyBuild/2.9.0    autotools ([1;33mL[0m)    clustershell/1.7.2    gnu/5.4.0 ([1;33mL[0m)    ohpc ([1;33mL[0m)    papi/5.4.3    prun/1.1 ([1;33mL[0m)    valgrind/3.11.0
+
+-------------------------------------------------------------------------------------------------------- /home/software/modulefiles ---------------------------------------------------------------------------------------------------------
+   CITE-seq-Count/1.4.4            bowtie2/2.3.0                cellranger-dna/1.1.0 (D)    gdc-client/1.3.0              ki-bmc/pipeline_1.0.1        picard/2.18.26      (D)    salmon/0.12.0             spaceranger/2.1.1
+   ImageJ/4.0.5                    bowtie2/2.3.2                changeo/0.4.6               geomxngs/2.0.0                ki-bmc/pipeline_1.0.2 (D)    pindel/0.2.5b9             salmon/0.14.2             spaceranger/3.0.0       (D)
+   QuPath/0.1.2                    bowtie2/2.3.5.1       (D)    circexplorer2/2.3.5         gmap/20170317                 ki-bmc/pipeline_1.6          pinfish/0.1.0              salmon/1.0.0              sra/2.8.2-1
+   RepeatMasker/4.0.7              breseq/0.30.1                clustalw/2.1                go/1.11.1                     ki-bmc/pipeline_1.7          plastid/0.4.8              salmon/1.1.0              sra/2.10.0
+   SURVIVOR/20170628               breseq/0.30.2                cmake/3.13.3                go/1.13.4                     ki-bmc/pipeline_1.8          poa/1.0.0                  salmon/1.2.1              sra/2.10.7              (D)
+   TandemRepeatsFinder/4.09        breseq/0.33.1                cmake/3.20.0         (D)    go/1.19.4              (D)    last/658                     presto/0.5.6               salmon/1.3.0              srapy/0.1.17
+   atac-seq/20180921               breseq/0.38.1         (D)    crb-blast/0.6.9             gsea/4.0.1                    lumpy/0.2.13                 presto/0.5.13       (D)    salmon/1.6.0              star/2.5.3a
+   bamtools/2.4.1                  bustools/0.1                 crispor/4.7                 guppy/4.4.1                   mashmap/2.0                  prop/1.0c                  salmon/1.10.0      (D)    star/2.7.1a
+   bamtools/2.5.1           (D)    bwa/0.7.12                   ctk/1.0.3                   guppy/6.4.6            (D)    matlab/2016b                 python/2.7.13              sambamba/0.6.6            star/2.7.9a             (D)
+   bartender/1.1                   bwa/0.7.16a                  cufflinks/2.2.1             hdf5/1.10.4            (D)    meme/4.11.3                  python3/3.6.4              samblaster/0.2.14         subread/1.6.2
+   bases2fastq/1.4.0               bwa/0.7.17            (D)    cutadapt/1.16               hisat2/2.2.0                  meme/5.0.4                   qiime/qiime2-2021.2        samtools/0.1.19           svtyper/0.1.4
+   bases2fastq/1.6.0               canu/1.8                     dammit/0.3.2                hmmcopy/0.1.1                 meme/5.3.3            (D)    qiime/1.9.1         (D)    samtools/1.3              tcltk/8.6.9
+   bases2fastq/1.7.0        (D)    cd-hit/4.7                   deeptools/3.0.1             hmmer/3.1b2                   miniasm/0.3                  r/3.3.3                    samtools/1.5              tmux/2.7
+   bcftools/1.5                    cellprofiler/3.0.0           delly/0.7.7                 homer/4.10                    miniconda2/v4                r/3.4.0                    samtools/1.10      (D)    tophat/2.1.1
+   bcftools/1.9                    cellprofiler/3.1.5    (D)    delly/0.7.9          (D)    igblast/1.14.0                miniconda3/v4                r/3.4.3                    seqtk/1.3                 transdecoder/2.0.1
+   bcftools/1.10.2          (D)    cellranger/2.0.2             dropest/0.8.5               igvtools/2.3.98               minimap2/2.15                r/3.5.1                    seurat/4.2.1              trinityrnaseq/r20140717
+   bcl2fastq/2.15.0                cellranger/3.0.1             dropseq/1.12                ilastik/1.3.0                 minimap2/2.17                r/3.6.0             (D)    shera/20120323            trinityrnaseq/2.4.0
+   bcl2fastq/2.18.0                cellranger/3.1.0             dropseq/2.1.0        (D)    infernal/1.1.2                minimap2/2.24         (D)    r/4.0.4                    signalp/5.0               trinityrnaseq/2.8.5     (D)
+   bcl2fastq/2.19.1                cellranger/4.0.0             edena/3.131028              interproscan/5.24-63.0        misopy/0.5.3                 r/4.2.0                    singlesplice/1.0.0        ucsc-tools/20170321
+   bcl2fastq/2.20.0         (D)    cellranger/5.0.0             emboss/6.6.0                interproscan/5.52-86.0 (D)    muscle/3.8.31                racon/1.3.1                singularity/3.0.0         usearch/10.0.240
+   bedops/2.4.35                   cellranger/6.0.1             fastp/0.20.0                jags/4.3.0                    mutsig2cv/3.11               racon/1.4.13        (D)    singularity/3.5.0  (D)    vcftools/0.1.13
+   bedtools/2.25.0                 cellranger/7.0.0             fastqc/0.11.4               java/11.0.12                  nanoplot/1.10.1              rattle/1.0                 singularity/3.10.4        velvet/1.2.10
+   bedtools/2.26.0                 cellranger/7.0.1      (D)    fastqc/0.11.5        (D)    jellyfish/2.2.10              nanopolish/0.10.2            rigerj/2.0.0               sklearn/0.16.1            viennarna/2.3.5
+   bedtools/2.29.2          (D)    cellranger-arc/1.0.0         fastxtoolkit/0.0.13         juicer/1.6                    netNglyc/1.0                 rmats/4.1.0                smrtlink/9.0.0            weblogo/2.8.2
+   biopython/1.68                  cellranger-arc/2.0.0  (D)    gatk/3.7                    juicer/2.0             (D)    netOglyc/3.1d                rmblast/2.6.0              smrttools/11.1.0
+   blast/2.6.0                     cellranger-atac/1.1.0        gatk/4.0.1.1                julia/1.5.3                   olb/1.9.4                    rsem/1.3.0                 snpeff/4.3k
+   bowtie/1.2                      cellranger-atac/1.2.0        gatk/4.0.12.0               kallisto/0.43.1               pear/0.9.10                  rsem/1.3.1          (D)    spaceranger/1.0.0
+   bowtie/1.2.3             (D)    cellranger-atac/2.0.0 (D)    gatk/4.1.2.0                kallisto/0.45.0        (D)    perl/5.24.1                  salmon/0.9.1               spaceranger/1.2.1
+   bowtie2/2.2.6                   cellranger-dna/1.0.0         gatk/4.2.6.1         (D)    ki-bmc/pipeline_1.0.0         picard/2.9.0                 salmon/0.11.3              spaceranger/1.3.0
+
+  Where:
+   [1;33mL[0m:  Module is loaded
+   D:  Default Module
+
+Use "module spider" to find all possible modules.
+Use "module keyword key1 key2 ..." to search for all possible modules matching any of the "keys".
+
