@@ -39,9 +39,9 @@ validate_input <- function(input_dir) {
 
 get_file_list <- function(input_dir, pattern_to_exclude = "sample-key.tab|\\.rds$|\\_converted.bed$") {
     cat("Getting file list...\n")
-    all_files <- list.files(path = input_dir)
+    all_files <- list.files(path = input_dir, full.names = TRUE)
     file_to_exclude <- grepl(pattern_to_exclude, all_files)
-    files <- list.files(path = input_dir, full.names = TRUE)[!file_to_exclude]
+    files <- all_files[!file_to_exclude]
     cat(sprintf("Number of files to process: %s\n", length(files)))
     return(files)
 }
@@ -93,12 +93,13 @@ convert_to_granges <- function(data, file_basename) {
             metadata_dataframe <- data.frame(data[, !(colnames(data) %in% columns_to_exclude)])
             colnames(metadata_dataframe) <- gsub(" |\\.", "_", colnames(metadata_dataframe))
             data <- GRanges(seqnames = data$`Nucleosome ID`, ranges = IRanges(start = data$`Nucleosome dyad`, end = data$`Nucleosome dyad`), strand = "*", chromosome = data$Chromosome, metadata_dataframe)
+            cat("Finished processing Nucleosome xlsx into grange.\n")
             print(head(data))
             return(data)
         } else if (grepl("hawkins", file_basename)) {
             cat("Processing hawkins timing xlsx file\n")
             name_of_origins <- paste0(data$Chromosome, "_", data$Position)
-            columns_to_exclude <- c()
+            columns_to_exclude <- c("Chromsome", "Position")
             metadata_dataframe <- data.frame(data[, !(colnames(data) %in% columns_to_exclude)])
             colnames(metadata_dataframe) <- gsub(" |\\.", "_", colnames(metadata_dataframe))
             data <- GRanges(seqnames = name_of_origins, ranges = IRanges(start = data$Position-100,end = data$Position+100), strand = "*", chromosome = data$Chromosome, metadata_dataframe)
@@ -113,17 +114,16 @@ convert_to_granges <- function(data, file_basename) {
             colnames(metadata_dataframe) <- gsub(" |\\.", "_", colnames(metadata_dataframe))
             data$strand <- ifelse(data$strand == "W", "+", ifelse(data$strand == "C", "-", ifelse(data$strand, "*")))
             data <- GRanges(seqnames = data$chrom, ranges = IRanges(start = data$TATA_coor, end = data$TATA_coor), strand = data$strand, chromosome = data$chrom, metadata_dataframe)
-            cat("Finished processign Rhee data file into grange")
+            cat("Finished processing Rhee data file into grange")
             print(head(data))
             return(data)
         } else if (grepl("SGD", file_basename)) {
             data <- data[!apply(data, 1, function(row) all(is.na(row))), ]
-            columns_to_exclude <- c("chrom", "TATA_coor", "strand", colnames(data)[grepl("color =class;", colnames(data))])
+            columns_to_exclude <- c("V9", "V10", "V11", "V4")
             metadata_dataframe <- data.frame(data[, !(colnames(data) %in% columns_to_exclude)])
             colnames(metadata_dataframe) <- gsub(" |\\.", "_", colnames(metadata_dataframe))
-            data$strand <- ifelse(data$strand == "W", "+", ifelse(data$strand == "C", "-", ifelse(data$strand, "*")))
-            data <- GRanges(seqnames = data$chrom, ranges = IRanges(start = data$TATA_coor, end = data$TATA_coor), strand = data$strand, chromosome = data$chrom, metadata_dataframe)
-            cat("Finished processign Rhee data file into grange")
+            data <- GRanges(seqnames = data$V4, ranges = IRanges(start = data$V10, end = data$V11), strand = data$V12, chromosome = data$V9, metadata_dataframe)
+            cat("Finished processing SGD data file into grange")
             print(head(data))
             return(data)
         } else {
