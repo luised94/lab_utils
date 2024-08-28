@@ -11,10 +11,11 @@ suppressPackageStartupMessages({
 })
 
 main <- function(input_dir) {
+    cat("Entering main function. All libraries loaded.\n")
     feature_file_dir <- paste0(Sys.getenv("HOME"), "/data/feature_files")
     validate_input(feature_file_dir)
-    files_to_convert <- get_file_list(feature_file_dir, pattern_to_exclude = "sample-key.tab|\\.rds$|\\_converted.bed$")
-    cat(sprintf("Number of files to convert: %s", length(files_to_convert)), "\n")
+    pattern_to_exclude  <- "sample-key.tab|\\.rds$|\\_converted.bed$"
+    files_to_convert <- get_file_list(feature_file_dir, pattern_to_exclude = pattern_to_exclude)
     for (file_path in files_to_convert) {
         file_basename <- basename(file_path)
         data <- read_file(file_path)
@@ -29,9 +30,9 @@ main <- function(input_dir) {
 }
 
 validate_input <- function(input_dir) {
-    cat("Ensuring directory exists", "\n")
+    cat(sprintf("Ensuring %s directory exists\n", input_dir))
     if (!dir.exists(input_dir)) {
-        cat(sprintf("Directory %s does not exist.", input_dir))
+        cat(sprintf("Directory %s does not exist.\n", input_dir))
         stop()
     }
 }
@@ -41,6 +42,7 @@ get_file_list <- function(input_dir, pattern_to_exclude = "sample-key.tab|\\.rds
     all_files <- list.files(path = input_dir)
     file_to_exclude <- grepl(pattern_to_exclude, all_files)
     files <- list.files(path = input_dir, full.names = TRUE)[!file_to_exclude]
+    cat(sprintf("Number of files to process: %s\n", length(files)))
     return(files)
 }
 
@@ -52,20 +54,19 @@ read_file <- function(file_path) {
         xlsx = readxl::read_excel,
         bed = rtracklayer::import.bed,
         gff3 = function(file_path) import(file_path, format = 'gff3'),
-        tab = read.delim,
+        tab = function(file_path) read.delim(file_path, header = FALSE, sep = "\t"),
         rds = readRDS
     )
 
     if (!(file_extension %in% names(file_readers))) {
         stop(sprintf("Unsupported file type: %s", file_extension))
     }
-
-    return(file_readers[[file_extension]](file_path))
+    data <- file_readers[[file_extension]](file_path)
+    return(data)
 }
 
 process_data <- function(data, file_name) {
     cat(sprintf("Processing data for: %s\n", file_name))
-
     if(grepl("timing", file_name)) {
         data <- data %>%
                 as.data.frame() %>%
@@ -76,6 +77,7 @@ process_data <- function(data, file_name) {
         data <- data %>%
                 as.data.frame() %>%
                 dplyr::select(c(9:12, 2, 4, 5))
+        print(head(data))
         return(data)
     } else {
         return(data)
@@ -89,14 +91,19 @@ convert_to_granges <- function(data, file_basename) {
             cat("Processing Nucleosome calls xlsx file\n")
             columns_to_exclude <- c("Nucleosome ID", "Nucleosome dyad", "Chromosome")
             metadata_dataframe <- data.frame(data[, !(colnames(data) %in% columns_to_exclude)])
-            data <- GRanges(seqnames = data$`Nucleosome ID`, ranges = IRanges(start = data$`Nucleosome dyad`, end = data$`Nucleosome dyad`), strand = "*", chromosome = data$Chromosome, metadata_dataframe))
+            colnames(metadata_dataframe) <- gsub(" |\\.", "_", colnames(metadata_dataframe))
+            data <- GRanges(seqnames = data$`Nucleosome ID`, ranges = IRanges(start = data$`Nucleosome dyad`, end = data$`Nucleosome dyad`), strand = "*", chromosome = data$Chromosome, metadata_dataframe)
+            print(head(data))
             return(data)
         } else if (grepl("hawkins", file_basename)) {
             cat("Processing hawkins timing xlsx file\n")
             name_of_origins <- paste0(data$Chromosome, "_", data$Position)
             columns_to_exclude <- c()
             metadata_dataframe <- data.frame(data[, !(colnames(data) %in% columns_to_exclude)])
+            colnames(metadata_dataframe) <- gsub(" |\\.", "_", colnames(metadata_dataframe))
             data <- GRanges(seqnames = name_of_origins, ranges = IRanges(start = data$Position-100,end = data$Position+100), strand = "*", chromosome = data$Chromosome, metadata_dataframe)
+            cat("Finished processing hawkins xlsx into grange.\n")
+            print(head(data))
             return(data)
         } else if (grepl("Rhee", file_basename)) {
             cat("Processing Rhee transcription data file\n")
@@ -106,16 +113,31 @@ convert_to_granges <- function(data, file_basename) {
             colnames(metadata_dataframe) <- gsub(" |\\.", "_", colnames(metadata_dataframe))
             data$strand <- ifelse(data$strand == "W", "+", ifelse(data$strand == "C", "-", ifelse(data$strand, "*")))
             data <- GRanges(seqnames = data$chrom, ranges = IRanges(start = data$TATA_coor, end = data$TATA_coor), strand = data$strand, chromosome = data$chrom, metadata_dataframe)
+            cat("Finished processign Rhee data file into grange")
+            print(head(data))
+            return(data)
+        } else if (grepl("SGD", file_basename)) {
+            data <- data[!apply(data, 1, function(row) all(is.na(row))), ]
+            columns_to_exclude <- c("chrom", "TATA_coor", "strand", colnames(data)[grepl("color =class;", colnames(data))])
+            metadata_dataframe <- data.frame(data[, !(colnames(data) %in% columns_to_exclude)])
+            colnames(metadata_dataframe) <- gsub(" |\\.", "_", colnames(metadata_dataframe))
+            data$strand <- ifelse(data$strand == "W", "+", ifelse(data$strand == "C", "-", ifelse(data$strand, "*")))
+            data <- GRanges(seqnames = data$chrom, ranges = IRanges(start = data$TATA_coor, end = data$TATA_coor), strand = data$strand, chromosome = data$chrom, metadata_dataframe)
+            cat("Finished processign Rhee data file into grange")
+            print(head(data))
             return(data)
         } else {
             tryCatch({
                 as(data, "GRanges")
             }, error = function(e) {
                 warning("Could not convert to GRanges. Returning as-is.")
+                print(head(data))
                 return(data)
             })
+            print(head(data))
        }
     } else {
+        print(head(data))
         return(data)
     }
 }
@@ -124,13 +146,13 @@ output_processed_data <- function(data, file_name, output_dir) {
     cat(sprintf("Saving output for: %s to %s\n", file_name, output_dir))
     rds_output_file <- file.path(output_dir,
         paste0(tools::file_path_sans_ext(basename(file_name)), ".rds"))
-    saveRDS(data, file = rds_output_file)
+   # saveRDS(data, file = rds_output_file)
     bed_output_file <- file.path(output_dir,
         paste0(tools::file_path_sans_ext(basename(file_name)), "_converted.bed"))
-    tryCatch(
-        rtracklayer::export.bed(data, con = bed_output_file),
-        error = function(e) stop(paste("Error exporting BED file:", e$message))
-    )
+    #tryCatch(
+    #    rtracklayer::export.bed(data, con = bed_output_file),
+    #    error = function(e) stop(paste("Error exporting BED file:", e$message))
+    #)
     cat(sprintf("Saved to: %s\n", bed_output_file))
     cat(sprintf("Saved to: %s\n", rds_output_file))
 }
@@ -147,8 +169,11 @@ verify_output <- function(output_dir, pattern_in_file = "_converted\\.bed") {
     #file_converter <- list(
     #        rds = function(file_path) makeGRangesFromDataFrame(file_path, keep.extra.columns = TRUE)
     #)
-
-    for (file_path in output_files) {
+    if (length(files_to_verify) == 0) {
+        cat("No files to verify")
+        return(0)
+    }
+    for (file_path in files_to_verify) {
          data <- rtracklayer::import.bed(file_path)
          cat(sprintf("Successfully read: %s\n", basename(file_path)))
         if (is(data, "GRanges")) {
@@ -161,6 +186,8 @@ verify_output <- function(output_dir, pattern_in_file = "_converted\\.bed") {
         }
     }
 }
+
+main()
     #        file_extension <- tools::file_ext(file_path)
     #        tryCatch({
     #            data <- file_readers[[file_extension]](file_path)
@@ -182,9 +209,6 @@ verify_output <- function(output_dir, pattern_in_file = "_converted\\.bed") {
     #        })
     #        cat("\n")
 
-
-
-main()
 #for (file_path in feature_files) {
 #    file_extension <- tools::file_ext(file_path)
 #
