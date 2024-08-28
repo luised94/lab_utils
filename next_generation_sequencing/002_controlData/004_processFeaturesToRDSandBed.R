@@ -13,17 +13,17 @@ suppressPackageStartupMessages({
 main <- function(input_dir) {
     feature_file_dir <- paste0(Sys.getenv("HOME"), "/data/feature_files")
     validate_input(feature_file_dir)
-    files_to_convert <- get_file_list(feature_file_dir)
+    files_to_convert <- get_file_list(feature_file_dir, pattern_to_exclude = "sample-key.tab|\\.rds$|\\_converted.bed$")
     cat(sprintf("Number of files to convert: %s", length(files_to_convert)), "\n")
     for (file_path in files_to_convert) {
         file_basename <- basename(file_path)
         data <- read_file(file_path)
         processed_data <- process_data(data, file_basename)
-        grange_data <- convert_to_granges(processed_data, file_basename)        
+        grange_data <- convert_to_granges(processed_data, file_basename)
         output_processed_data(grange_data, file_basename, feature_file_dir)
     }
     pattern_to_verify <- "\\.rds$|\\_converted.bed$"
-    verify_output(feature_file_dir, pattern_in_file = pattern_to_find)
+    verify_output(feature_file_dir, pattern_in_file = pattern_to_verify)
     cat("Transfer the files to dropbox for inspection\n")
     cat("scp -r user@server:from_dir to_dir\n")
 }
@@ -90,6 +90,7 @@ convert_to_granges <- function(data, file_basename) {
             columns_to_exclude <- c("Nucleosome ID", "Nucleosome dyad", "Chromosome")
             metadata_dataframe <- data.frame(data[, !(colnames(data) %in% columns_to_exclude)])
             data <- GRanges(seqnames = data$`Nucleosome ID`, ranges = IRanges(start = data$`Nucleosome dyad`, end = data$`Nucleosome dyad`), strand = "*", chromosome = data$Chromosome, metadata_dataframe))
+            return(data)
         } else if (grepl("hawkins", file_basename)) {
             cat("Processing hawkins timing xlsx file\n")
             name_of_origins <- paste0(data$Chromosome, "_", data$Position)
@@ -113,7 +114,7 @@ convert_to_granges <- function(data, file_basename) {
                 warning("Could not convert to GRanges. Returning as-is.")
                 return(data)
             })
-       } 
+       }
     } else {
         return(data)
     }
@@ -134,21 +135,32 @@ output_processed_data <- function(data, file_name, output_dir) {
     cat(sprintf("Saved to: %s\n", rds_output_file))
 }
 
-verify_output <- function(output_dir, pattern_in_file) {
+verify_output <- function(output_dir, pattern_in_file = "_converted\\.bed") {
     cat("Verifying generated output\n")
     files_to_verify <- list.files(output_dir, pattern = pattern_in_file)
     cat(sprintf("Number of files to verify: %s\n", length(files_to_verify)))
-    file_readers <- list(
-            bed = rtracklayer::import,
-            rds = readRDS
-    )
+    #file_readers <- list(
+    #        bed = rtracklayer::import,
+    #        rds = readRDS
+    #)
 
-    file_converter <- list(
-            rds = function(file_path) makeGRangesFromDataFrame(file_path, keep.extra.columns = TRUE)
-    )
+    #file_converter <- list(
+    #        rds = function(file_path) makeGRangesFromDataFrame(file_path, keep.extra.columns = TRUE)
+    #)
 
-    #for (file_path in output_files) {
-
+    for (file_path in output_files) {
+         data <- rtracklayer::import.bed(file_path)
+         cat(sprintf("Successfully read: %s\n", basename(file_path)))
+        if (is(data, "GRanges")) {
+            cat(sprintf("File %s is a valid GRanges object\n", basename(file_path)))
+            cat("Sample data:\n")
+            print(head(data))
+        } else {
+            cat(sprintf("Warning: File %s is not a GRanges object\n", basename(file_path)))
+            print(head(data))
+        }
+    }
+}
     #        file_extension <- tools::file_ext(file_path)
     #        tryCatch({
     #            data <- file_readers[[file_extension]](file_path)
@@ -169,8 +181,8 @@ verify_output <- function(output_dir, pattern_in_file) {
     #            cat(sprintf("Error reading file %s: %s\n", basename(file_path), e$message))
     #        })
     #        cat("\n")
-    #    }
-}
+
+
 
 main()
 #for (file_path in feature_files) {
