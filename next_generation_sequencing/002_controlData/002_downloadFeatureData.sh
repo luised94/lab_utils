@@ -29,6 +29,7 @@ main() {
     echo "Rossi 2021 data download complete."
 }
 
+# If user provides the -h or --help option, display the usage function output.
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     if [[ "$1" == "-h" || "$1" == "--help" ]]; then
         usage
