@@ -34,7 +34,7 @@ main <- function() {
         ),
 
         eaton_peaks = list(
-            url = "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM424nnn/GSM24494/suppl/GSM424494_wt_G2_orc_chip_combined.bed.gz",
+            url = "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM424nnn/GSM424494/suppl/GSM424494_wt_G2_orc_chip_combined.bed.gz",
             path = file.path(base_dir, "eaton_peaks.bed.gz")
         ),
 
@@ -49,7 +49,7 @@ main <- function() {
         ),
 
         eaton_acs = list(
-            url = "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM424nnn/GSM24494/suppl/GSM424494_acs_locations.bed.gz",
+            url = "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM424nnn/GSM424494/suppl/GSM424494_acs_locations.bed.gz",
             path = file.path(base_dir, "eaton_acs.bed.gz")
         )
     )
@@ -69,6 +69,6 @@ main <- function() {
 }
 
 # Run the main function
-#if (!interactive()) {
-#    main()
-#}
+if (!interactive()) {
+    main()
+}
