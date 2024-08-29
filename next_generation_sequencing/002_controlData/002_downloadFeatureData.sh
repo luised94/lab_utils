@@ -1,13 +1,38 @@
 #!/bin/bash
 #DESCRIPTION: Download feature data from Rossi 2021 paper that will be used to categorical analysis and plot tracking.
 #USAGE: $./002_sh_downloadFeatureData.sh
-download_dir=$HOME/data/features_files
-mkdir -p $download_dir
-git clone --depth=1 https://github.com/CEGRcode/2021-Rossi_Nature.git "$download_dir"
-#wget -O "$download_dir"/02_References_and_Features_Files/hawkins-origin-timing.xlsx "https://ars.eln-cdn.com/content/image/1-s2.0-S2211124713005834-mmc2.xlsx"
-#"https://www.cell.com/cms/10.1016/j.cellrep.2013.10.014/attachment/a16ab8a7-4e28-4ca6-aafe-e8857b760c80/mmc2.xlsx 
-#"https://ars.eln-cdn.com/content/image/1-s2.0-S2211124713005834-mmc2.xlsx" 
-#mv "$download_dir/CEGRcode/2021-Rossi_Nature/02_References_and_Features_Files" "$download_dir"
-#curl --output $HOME/data/playground/test.xlsx "https://ars.eln-cdn.com/content/image/1-s2.0-S2211124713005834-mmc2.xlsx"
 
+usage() {
+    echo "Usage: $0 [download_dir]"
+    echo "Downloads Rossi 2021 data from GitHub."
+    echo "If download_dir is not specified, defaults to $HOME/data/feature_files"
+}
 
+main() {
+    local download_dir="${1:-$HOME/data/feature_files}"
+    
+    echo "Starting Rossi 2021 data download..."
+    
+    if [ ! -d "$download_dir" ]; then
+        echo "Creating directory: $download_dir"
+        mkdir -p "$download_dir"
+    fi
+    
+    echo "Cloning Rossi 2021 repository..."
+    if git clone --depth=1 https://github.com/CEGRcode/2021-Rossi_Nature.git "$download_dir/rossi_2021"; then
+        echo "Successfully cloned Rossi 2021 data to $download_dir/rossi_2021"
+    else
+        echo "Error: Failed to clone Rossi 2021 repository" >&2
+        exit 1
+    fi
+    
+    echo "Rossi 2021 data download complete."
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+        usage
+        exit 0
+    fi
+    main "$@"
+fi
