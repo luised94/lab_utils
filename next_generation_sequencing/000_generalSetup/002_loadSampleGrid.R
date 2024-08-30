@@ -22,17 +22,16 @@ validate_input <- function(args) {
 }
 
 table_has_ID_column <- function(sample_table){
-    #if(!("sample_ID" %in% colnames(sample_table)){
-    #    cat("No sample_ID column found.\n")
-    #    cat("Determining sample_IDs from fastq files\n")
-    #    sample_table <- determine_sample_id(directory_path)
-    #    cat("Determine sample_ID for experiment, overwrote sample_table and returning sample_table\n")
-    #    return(sample_table)
-    #} else {
-    #    cat("Table has sample_ID column. Returning as-is.")
-    #    return(sample_table)
-    #}
+    if(!("sample_ID" %in% colnames(sample_table)){
+        cat("No sample_ID column found.\n")
+        cat("Must determine sample_IDs from fastq files\n")
+        return(FALSE)
+    } else {
+        cat("Table has sample_ID column.\n")
+        return(TRUE)
+    }
 }
+
 determine_sample_id <- function(directory_path) {
     fastq_directory_path <- file.path(directory_path, "fastq")
     fastq_file_paths <- list.files(fastq_directory_path, pattern = "\\.fastq", full.names = TRUE)
@@ -40,6 +39,10 @@ determine_sample_id <- function(directory_path) {
         cat(sprintf("No fastq files found in %s\n", documentation_dir_path))
         cat("Consult 000_setupExperimentDir to create sample_table.tsv for the project\n")
         q(status = 1)
+    } else {
+        cat(sprintf("Found %s files in %s.\n", length(fastq_file_paths), fastq_directory_path))
+    }
+
 }
 load_sample_table <- function(directory_path) {
     cat("Loading sample_table from", directory_path, "\n")
@@ -67,6 +70,13 @@ main <- function() {
     args <- commandArgs(trailingOnly = TRUE)
     directory_path <- validate_input(args)
     sample_table <- load_sample_table(directory_path)
+    if(table_has_ID_column){
+        return(sample_table)
+    } else {
+        determine_sample_ID(directory_path)
+        sample_table <- load_sample_table(directory_path)
+        return(sample_table)
+    }
 
     #return(sample_table)
 }
@@ -74,16 +84,6 @@ main <- function() {
 if(!interactive()){
     main()
 }
-#args <- commandArgs(trailingOnly = TRUE)
-#
-#directory_to_scan <- paste(Sys.getenv("HOME"), "data", args[1], "documentation", sep = "/")
-#
-##directory_to_scan <- paste(Sys.getenv("HOME"), "data", "240304Bel", "documentation", sep = "/")
-#
-#sample_table_path <- list.files(path = directory_to_scan, pattern = "sample_table")
-#
-#sample_table <- read.table(file = sample_table_path, header = TRUE, sep = "\t")
-#
 #if (!("sample_ID" %in% colnames(sample_table))) {
 #    #Determine the sample ID from fastq files
 #    fastq_files <- basename(list.files(directory_to_scan, recursive = TRUE, pattern = "\\.fastq$"))
