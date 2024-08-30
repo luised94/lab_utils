@@ -43,17 +43,28 @@ determine_sample_id <- function(directory_path) {
         cat(sprintf("Found %s files in %s.\n", length(fastq_file_paths), fastq_directory_path))
     }
     fastq_file_names <- basename(fastq_file_paths)
-    ID_regex <- ".*D24-(\\d{6}).*"
-    sample_IDs <- unique(sub(ID_regex, "\\1", fastq_file_names))
-    if(length(sample_IDs) == 0) {
-        cat(sprintf("No sample_IDs identified.\n"))
+    ID_regex <- "\\d{5,6}"
+    strsplit(fastq_file_names, "_|-")
+    sample_IDs <- lapply(fastq_split, function(fastq_split_string_list) {
+        for(split_string in fastq_split_string_list) {
+            if(grepl(ID_regex, split_string)) {
+                return(split_string)
+            }
+        }
+    })
+    if(!all(unlist(lapply(sample_IDs, length)) == 1)) {
+        cat("At least one of the files did not extract exactly one sample ID.\n")
+        cat("Files with problems:\n")
+        print(fastq_file_names[unlist(lapply(sample_IDs, length)) != 1])
+        cat("Verify sample names. Redownload from BMC if necessary.\n")
         cat(sprintf("Regex pattern used %s:\n", ID_regex))
         stop()
     } else {
+        sample_IDs <- unlist(sample_IDs)
         cat(sprintf("Found %s sample_IDs.\n", length(sample_IDs)))
         cat(sprintf("First sample_ID: %s\n",sample_IDs[1]))
         cat(sprintf("Last sample_ID: %s\n", sample_IDs[length(sample_IDs)]))
-        cat("Returning sample_ID array.")
+        cat("Returning sample_ID array.\n")
         return(sample_IDs)
     }
 }
