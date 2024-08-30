@@ -16,13 +16,13 @@ validate_input <- function(args) {
     if(!dir.exists(directory_path)) {
         stop("Directory does not exist:", directory_path)
     } else {
-        cat(sprintf("Using directory %s\n:", directory_path))
+        cat(sprintf("Using directory %s:\n", directory_path))
     }
     return(directory_path)
 }
 
 table_has_ID_column <- function(sample_table){
-    if(!("sample_ID" %in% colnames(sample_table)){
+    if(!("sample_ID" %in% colnames(sample_table))){
         cat("No sample_ID column found.\n")
         cat("Must determine sample_IDs from fastq files\n")
         return(FALSE)
@@ -34,16 +34,32 @@ table_has_ID_column <- function(sample_table){
 
 determine_sample_id <- function(directory_path) {
     fastq_directory_path <- file.path(directory_path, "fastq")
-    fastq_file_paths <- list.files(fastq_directory_path, pattern = "\\.fastq", full.names = TRUE)
-    if(length(fastq_file_paths == 0)) {
-        cat(sprintf("No fastq files found in %s\n", documentation_dir_path))
-        cat("Consult 000_setupExperimentDir to create sample_table.tsv for the project\n")
-        q(status = 1)
+    fastq_file_paths <- list.files(fastq_directory_path, pattern = "*.fastq", full.names = TRUE)
+    if(length(fastq_file_paths) == 0) {
+        cat(sprintf("No fastq files found in %s\n", fastq_directory_path))
+        cat("Consult 000_setupExperimentDir to create sample_table.tsv for the project and download files from BMC\n")
+        stop()
     } else {
         cat(sprintf("Found %s files in %s.\n", length(fastq_file_paths), fastq_directory_path))
     }
-
+    fastq_file_names <- basename(fastq_file_paths)
+    ID_regex <- ".*D24-(\\d{6}).*"
+    sample_IDs <- unique(sub(ID_regex, "\\1", fastq_file_names))
+    if(length(sample_IDs) == 0) {
+        cat(sprintf("No sample_IDs identified.\n"))
+        cat(sprintf("Regex pattern used %s:\n", ID_regex))
+        stop()
+    } else {
+        cat(sprintf("Found %s sample_IDs.\n", length(sample_IDs)))
+        cat(sprintf("First sample_ID: %s\n",sample_IDs[1]))
+        cat(sprintf("Last sample_ID: %s\n", sample_IDs[length(sample_IDs)]))
+        cat("Returning sample_ID array.")
+        return(sample_IDs)
+    }
 }
+#modify_and_output_table <- function(sample_table, sample_ID_array) {
+#
+#}
 load_sample_table <- function(directory_path) {
     cat("Loading sample_table from", directory_path, "\n")
     documentation_dir_path <- file.path(directory_path, "documentation")
@@ -51,13 +67,13 @@ load_sample_table <- function(directory_path) {
     if(length(sample_table_path) == 0){
         cat(sprintf("No files with pattern sample_table found in %s\n", documentation_dir_path))
         cat("Consult 000_setupExperimentDir to create sample_table.tsv for the project\n")
-        q(status = 1)
+        stop()
     } else if(length(sample_table_path) > 1){
         cat(sprintf("Multiple files with pattern sample_table found in %s\n", documentation_dir_path))
         cat(sprintf("Files found in %s\n", documentation_dir_path))
         print(sample_table)
         cat("Consult 000_setupExperimentDir and ensure no duplicates are present for the project\n")
-        q(status = 1)
+        stop()
     }
     sample_table <- read.delim(sample_table_path, header = TRUE, sep ="\t")
     cat(sprintf("Reading %s\n", sample_table_path))
@@ -70,10 +86,11 @@ main <- function() {
     args <- commandArgs(trailingOnly = TRUE)
     directory_path <- validate_input(args)
     sample_table <- load_sample_table(directory_path)
-    if(table_has_ID_column){
+    if(table_has_ID_column(sample_table)){
         return(sample_table)
     } else {
-        determine_sample_ID(directory_path)
+        sample_IDs <- determine_sample_id(directory_path)
+        modify_and_output_table(directory_paths, sample_IDs)
         sample_table <- load_sample_table(directory_path)
         return(sample_table)
     }
@@ -86,9 +103,6 @@ if(!interactive()){
 }
 #if (!("sample_ID" %in% colnames(sample_table))) {
 #    #Determine the sample ID from fastq files
-#    fastq_files <- basename(list.files(directory_to_scan, recursive = TRUE, pattern = "\\.fastq$"))
-#    sample_IDs <- unique(sub(".*D24-(\\d{6}).*", "\\1", fastq_files))
-#    sample_IDs <- sample_IDs[!(grepl("unmapped", sample_IDs))]
 #
 #    if (length(sample_IDs) == nrow(sample_table)){
 #        sample_table$sample_ID <- sample_IDs
