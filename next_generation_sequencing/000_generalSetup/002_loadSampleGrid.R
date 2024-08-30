@@ -21,9 +21,26 @@ validate_input <- function(args) {
     return(directory_path)
 }
 
-#determine_sample_id <- function(directory_path) {
-#    fastq
-#}
+table_has_ID_column <- function(sample_table){
+    #if(!("sample_ID" %in% colnames(sample_table)){
+    #    cat("No sample_ID column found.\n")
+    #    cat("Determining sample_IDs from fastq files\n")
+    #    sample_table <- determine_sample_id(directory_path)
+    #    cat("Determine sample_ID for experiment, overwrote sample_table and returning sample_table\n")
+    #    return(sample_table)
+    #} else {
+    #    cat("Table has sample_ID column. Returning as-is.")
+    #    return(sample_table)
+    #}
+}
+determine_sample_id <- function(directory_path) {
+    fastq_directory_path <- file.path(directory_path, "fastq")
+    fastq_file_paths <- list.files(fastq_directory_path, pattern = "\\.fastq", full.names = TRUE)
+    if(length(fastq_file_paths == 0)) {
+        cat(sprintf("No fastq files found in %s\n", documentation_dir_path))
+        cat("Consult 000_setupExperimentDir to create sample_table.tsv for the project\n")
+        q(status = 1)
+}
 load_sample_table <- function(directory_path) {
     cat("Loading sample_table from", directory_path, "\n")
     documentation_dir_path <- file.path(directory_path, "documentation")
@@ -43,17 +60,9 @@ load_sample_table <- function(directory_path) {
     cat(sprintf("Reading %s\n", sample_table_path))
     cat("Head of sample_table\n")
     print(head(sample_table))
-    #if(!("sample_ID" %in% colnames(sample_table)){
-    #    cat("No sample_ID column found.\n")
-    #    cat("Determining sample_IDs from fastq files\n")
-    #    sample_table <- determine_sample_id(directory_path)
-    #    cat("Determine sample_ID for experiment, overwrote sample_table and returning sample_table\n")
-    #    return(sample_table)
-    #} else {
-    #    cat("Table has sample_ID column. Returning as-is.")
-    #    return(sample_table)
-    #}
+    return(sample_table)
 }
+
 main <- function() {
     args <- commandArgs(trailingOnly = TRUE)
     directory_path <- validate_input(args)
