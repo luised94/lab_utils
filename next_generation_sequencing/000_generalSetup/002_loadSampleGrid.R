@@ -68,9 +68,26 @@ determine_sample_id <- function(directory_path) {
         return(sample_IDs)
     }
 }
-#modify_and_output_table <- function(sample_table, sample_ID_array) {
-#
-#}
+
+modify_and_output_table <- function(sample_table, sample_ID_array, output_file_path) {
+    if(nrow(sample_table) != length(sample_ID_array)) {
+        cat("Number of rows is different from length of sample_ID_array.\n")
+        cat("Verify fastq file names to ensure proper number is being extracted.\n")
+        cat(sprintf("Number of rows: %s\n", nrow(sample_table)))
+        cat(sprintf("Length of array: %s\n", length(sample_ID_array)))
+        stop()
+    } else if ("sample_ID" %in% colnames(sample_table)) {
+        cat("sample_ID already part of the sample table.\n")
+        print(colnames(sample_table))
+        stop()
+    } else {
+        sample_table$sample_ID <- sample_ID_array
+        print(head(sample_table))
+        write.table(sample_table, output_file_path, append = FALSE, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
+        cat("Output modified sample table with sample ID column.\n")
+    }
+}
+
 load_sample_table <- function(directory_path) {
     cat("Loading sample_table from", directory_path, "\n")
     documentation_dir_path <- file.path(directory_path, "documentation")
@@ -100,19 +117,18 @@ main <- function() {
     if(table_has_ID_column(sample_table)){
         return(sample_table)
     } else {
+        documentation_dir_path <- file.path(directory_path, "documentation")
+        output_file_path <- list.files(documentation_dir_path, pattern = "sample_table", full.names = TRUE)
         sample_IDs <- determine_sample_id(directory_path)
-        modify_and_output_table(directory_paths, sample_IDs)
+        modify_and_output_table(sample_table, sample_IDs, output_file_path)
         sample_table <- load_sample_table(directory_path)
         return(sample_table)
     }
-
-    #return(sample_table)
 }
 
 if(!interactive()){
     main()
 }
-#if (!("sample_ID" %in% colnames(sample_table))) {
 #    #Determine the sample ID from fastq files
 #
 #    if (length(sample_IDs) == nrow(sample_table)){
