@@ -51,3 +51,8 @@ Add the -i flag to perform inline editing.
 Then I wanted to add certain lines after a particular line and at the end of the file.
 Combined for loop with globbing and a multi-line sed command.
 
+## 20240826
+Have a decent set of features that I can use to compare to my data. Also have a good amount of reference to use for further comparisons and factor analysis.
+Need to update the genome track plotting script and create all of the downstream analysis.
+Still need to do quality control. 
+Must work faster.
