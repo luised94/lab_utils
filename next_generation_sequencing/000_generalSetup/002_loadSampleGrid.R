@@ -44,8 +44,8 @@ determine_sample_id <- function(directory_path) {
     }
     fastq_file_names <- basename(fastq_file_paths)
     ID_regex <- "\\d{5,6}"
-    strsplit(fastq_file_names, "_|-")
-    sample_IDs <- lapply(fastq_split, function(fastq_split_string_list) {
+    fastq_split_string_list <- strsplit(fastq_file_names, "_|-")
+    sample_IDs <- lapply(fastq_split_string_list, function(fastq_split_string_list) {
         for(split_string in fastq_split_string_list) {
             if(grepl(ID_regex, split_string)) {
                 return(split_string)
