@@ -1,5 +1,7 @@
 #DESCRIPTION: Convert features files from Rossi 2021, Hawkins 2014, and Eaton 2010 to a bed and rds format for plotting tracks and factor analysis.
 #USAGE: Rscript ./004_processFeaturesToRdsAndBed.R 
+# @TODO: Still need to update the file processing. 
+# @TODO: Update 002_downloadFeatureData.sh for Rossi2021 repository then adjust this script to ensure that I can load everything as Grange object.
 # Load libraries
 suppressPackageStartupMessages({
     library(tidyverse)
@@ -188,80 +190,6 @@ verify_output <- function(output_dir, pattern_in_file = "_converted\\.bed") {
 }
 
 main()
-    #        file_extension <- tools::file_ext(file_path)
-    #        tryCatch({
-    #            data <- file_readers[[file_extension]](file_path)
-    #            cat(sprintf("Successfully read: %s\n", basename(file_path)))
-    #            if (is(data, "GRanges")) {
-    #                cat(sprintf("File %s is a valid GRanges object\n", basename(file_path)))
-    #                cat("Sample data:\n")
-    #                print(head(data))
-    #            } else {
-    #                cat(sprintf("Warning: File %s is not a GRanges object\n", basename(file_path)))
-    #                data <- file_converter[[file_extension]](data)
-    #                if(is(data, "GRanges")) {
-    #                    cat(sprintf("File %s is a valid GRanges object\n", basename(file_path)))
-    #                    print(head(data))
-    #                }
-    #            }
-    #        }, error = function(e) {
-    #            cat(sprintf("Error reading file %s: %s\n", basename(file_path), e$message))
-    #        })
-    #        cat("\n")
-
-#for (file_path in feature_files) {
-#    file_extension <- tools::file_ext(file_path)
-#
-#    if(!(file_ext %in% names(file_readers))) {
-#        stop(paste("Unsupported file type:", file_ext))
-#    }
-#
-#    data <- file_readers[[file_extension]](file_path)
-#
-#    if (grepl("timing", basename(file_path)) {
-#        data <- data %>% 
-#            as.data.frame() %>% 
-#            dplyr::select(1:7) %>% 
-#            filter(!is.na(Chromosome))
-#    } else if (grepl("SGD_features", basename(file_path)) {
-#        data <- data %>% 
-#            as.data.frame() %>% 
-#            dplyr::select(c(9:12,2,4,5))
-#    }
-#
-#    if (!is(data, "GRanges")) {
-#        data <- try(as(data, "GRanges"), silent = TRUE)
-#        if (inherits(data, "try-error")) {
-#            warning(paste("Could not convert", basename(file_path), "to Granges. Returning as-is."))
-#        }
-#    }
-#
-#}
-##
-#df_names <- c("ChExMix","MEME","XUTs","CUTs","ORF","Nucleosome", "timing", "Rhee" , "SGD_features", "SUTs", "G2_orc")
-#
-#for(i in 1:length(df_names)){
-#  print(feature_files[grepl(df_names[i], feature_files)])
-#  filepath <- file.path(feature_folder, feature_files[grepl(df_names[i], feature_files)])
-#  if (grepl("xls|xlsx", tools::file_ext(filepath))){
-#    assign(df_names[i], readxl::read_excel(filepath))
-#    if(df_names[i] == "timing"){
-#      assign(df_names[i], get(df_names[i]) %>% as.data.frame() %>% dplyr::select(1:7) %>% filter(!is.na(Chromosome)))
-#    }
-#  } else if(tools::file_ext(filepath) == "bed"){
-#    assign(df_names[i], readBed(filepath))
-#    print(seqlevelsStyle(eval(parse(text = df_names[i]))))
-#  } else if(tools::file_ext(filepath) == "gff3"){
-#    assign(df_names[i], toGRanges(makeTxDbFromGFF(filepath), format = 'gene'))
-#    print(seqlevelsStyle(eval(parse(text = df_names[i]))))
-#  } else if(tools::file_ext(filepath) == "tab"){
-#    assign(df_names[i], read.delim(filepath, header = FALSE))
-#    if(df_names[i] == "SGD_features"){
-#      assign(df_names[i], get(df_names[i]) %>% as.data.frame() %>% dplyr::select(c(9,10,11,12,2,4,5)))
-#    }
-#  }
-#}
-#
 #AnnotationTrack(variable_name, name = paste(chromosome, "origins", sep = " "))
 #assign(df_names[i], readxl::read_excel(filepath))
 #if(df_names[i] == "timing"){
