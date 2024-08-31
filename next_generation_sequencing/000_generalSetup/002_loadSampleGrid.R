@@ -129,13 +129,3 @@ main <- function() {
 if(!interactive()){
     main()
 }
-#    #Determine the sample ID from fastq files
-#
-#    if (length(sample_IDs) == nrow(sample_table)){
-#        sample_table$sample_ID <- sample_IDs
-#        write.table(sample_table, file = sample_table_path, row.names = FALSE, col.names = TRUE, sep = "\t")
-#    } else {
-#        cat("Sample IDs determined: ", length(sample_IDs), "\n", "Rows in sample table: ", nrow(sample_table))
-#        stop("Sample ID do not have the same length as the number of samples in sample_table.tsv")
-#    }
-#}
