@@ -1,6 +1,6 @@
 #!/bin/bash
 #if [ $# -ne 1 ]; then
-echo "Usage: $0 [<windows_user>]"
+echo "Usage: $0 "
 #fi
 # Set default values for source and destination directories
 SOURCE_DIR="$HOME"
@@ -25,14 +25,14 @@ printf "Destination directory: %s\n" "$DEST_DIR"
 find "$SOURCE_DIR" -maxdepth 1 -type d -print0 | while IFS= read -r -d $'\0' dir; do
 
   # Check if the directory is a Git repository
-  if [ -d "$dir/.git" -a "$dir" != "$HOME/.nvm" ]; then
+  if [ -d "$dir/.git" -a "$dir" != "$HOME/.nvm" -a "$dir" != "$HOME/cytolib"]; then
     repo_name=$(basename "$dir")
 
     printf "Found Git repository: %s\n" "$dir"
     printf "Syncing to: %s\n" "$DEST_DIR"
 
     # Rsync the Git repository, excluding the .git directory
-    rsync -av --delete --exclude=.git/ "$dir" "$DEST_DIR"
+    #rsync -av --delete --exclude=.git/ "$dir" "$DEST_DIR"
 
     if [ $? -eq 0 ]; then
       printf "Successfully synced %s.\n" "$repo_name"
