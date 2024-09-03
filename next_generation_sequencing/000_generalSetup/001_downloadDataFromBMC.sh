@@ -9,6 +9,17 @@ validate_input() {
         echo "Example: $0 bmc-pub17 240808Bel"
         exit 1
     fi
+        
+    local bell_lab_directory=$2
+    echo "Executing organize_files"
+    local target_dir="$HOME/data/${bell_lab_directory}/fastq/"
+    if [ ! -d "$target_dir" ]; then
+        echo "$target_dir"
+        echo "Target directory doesnt exist."
+        echo "Run 000_setupExperimentDir.R"
+        exit 1
+    fi
+    
 }
 
 download_files() {
@@ -30,12 +41,6 @@ organize_files() {
     echo "Executing organize_files"
     local target_dir="$HOME/data/${bell_lab_directory}/fastq/"
     echo "${target_dir}"
-    if [ ! -d "$target_dir" ]; then
-        echo "$target_dir"
-        echo "Target directory doesnt exist."
-        echo "Run 000"
-        exit 1
-    fi
     cd "$target_dir" || exit 1
     echo "Shifted to $target_dir"
     find . -type f -name "*.fastq" -exec mv {} . \;
@@ -106,7 +111,7 @@ main() {
     organize_files "$bell_lab_directory"
     cleanup
     echo "Main complete."
+    echo "Verify downloading files with find ${bell_lab_directory}/fastq -type f -name "*.fastq" | wc -l"
 }
 
 main "$@"
-
