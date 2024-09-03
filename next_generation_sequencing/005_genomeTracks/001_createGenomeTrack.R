@@ -4,9 +4,10 @@
 ##TODO: Find the best way to have the same levels and factors when I read in the sampleGridConfig.R file. This is defined by the categories list variable. Can grab that during 002_loadSampleGrid and use it to equalize. 
 ##TODO: Use 002_loadSampleGrid to open the sample_table given a directory. Use conditional statement to determine the ID. Could potentially use system function to call find and print with awk statement. R would require list.files(), strsplit, and grabbing regular expression for 5 digits.
 #Load packages using through a list of strings and suppress the messages, return a TRUE if loading was succesful
+##TODO: Need to make sure the chromosome IDs are formatted properly.
+##TODO: need to automate the creation of the experiments to plot. 
+##TODO: Need to ensure that the names I use in the columns are compatible with my short name convention for subsetting df
 main <- function() {
-
-#package_list <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead", "tidyverse")
     suppressPackageStartupMessage({
         library(QuasR)
         library(GenomicAlignments)
@@ -16,10 +17,17 @@ main <- function() {
         library(tidyverse)
     })
     args <- commandArgs(trailingOnly = TRUE)
-    validate_input(args)
-#load_sample_table <- function(directory_path) {
-#    cat("Loading sample_table from", directory_path, "\n")
-#    documentation_dir_path <- file.path(directory_path, "documentation")
+    directory_path <- validate_input(args)
+    sample_table <- load_sample_table(directory_path)
+    refGenome <- load_reference_genome()
+    # Has to be run every time if you are using chromosome ID to get tracks from the bigwig file.
+    #options(ucscChromosomeNames=FALSE)
+}
+#validate_input(args) {
+#}
+#load_sample_table <- function(directory_name) {
+#    cat("Loading sample_table from", directory_name, "\n")
+#    documentation_dir_path <- file.path(directory_name, "documentation")
 #    sample_table_path <- list.files(documentation_dir_path, pattern = "sample_table", full.names = TRUE)
 #    if(length(sample_table_path) == 0){
 #        cat(sprintf("No files with pattern sample_table found in %s\n", documentation_dir_path))
@@ -33,62 +41,42 @@ main <- function() {
 #        stop()
 #    }
 #    sample_table <- read.delim(sample_table_path, header = TRUE, sep ="\t")
+#    if (!("sample_ID" %in% colnames(sample_table)) {
+#           cat("Sample table does not contain the sample_ID column.\n")
+#           cat("sample_ID column is required for analysis.\n")
+#           cat("See 000_setupExperimentDir.R and 002_verifySampleGrid.R.\n")
+#           stop()
+#    }
 #    cat(sprintf("Reading %s\n", sample_table_path))
 #    cat("Head of sample_table\n")
 #    print(head(sample_table))
 #    return(sample_table)
 #}
-#package_was_loaded <- unlist(
-#    suppressPackageStartupMessages(
-#        lapply(
-#            package_list, 
-#        library, 
-#            character.only = TRUE, 
-#            logical.return=TRUE, 
-#        quietly = TRUE
-#    )
-#  )
-#)
-#
-##Determine which packages were not loaded, print all packages loaded or which packages were not loaded. 
-#packages_not_loaded <- package_list[!package_was_loaded]
-#if (length(packages_not_loaded) == 0) {
-#    print("All packages loaded.")
-#} else {
-#  lapply(
-#    packages_not_loaded,
-#    function(x) { 
-#      message <- paste(x, "Package did not install") 
-#      print(message)
-#    }
-#  )
+#load_reference_genome(genome_dir = "REFGENS, genome_pattern = "S288C_refgenome.fna") {
+#   directory_of_refgenomes <- file.path(Sys.getenv("HOME"), "data", genome_dir)
+#   if(!dir.exists(directory_of_refgenomes)) {
+#       stop("Directory with reference genomes doesnt exist.\n")
+#   }
+#   genome_file_path <- list.files(directory_of_refgenomes, pattern = genome_pattern, full.names = TRUE)
+#   if(!file.exists(genome_file_path)) {
+#       stop("Reference genome doesnt exist.\n")
+#   }
+#   refGenome <- readFasta(genome_file_path)
+#   refGenome <- data.frame(chrom = names(as(df_sacCer_refGenome, "DNAStringSet")), 
+#                   basePairSize = width(df_sacCer_refGenome)) %>% filter(chrom != "chrM")
+#   return(refGenome)    
 #}
 #
-## 
-## Create directory variables and dataframe with sample information.
-#working_directory <- paste(Sys.getenv("HOME"), "data", "240808Bel", sep ="/")
-#documentation_dir <- paste(working_directory, "documentation", sep ="/")
-#feature_file_directory <- paste(Sys.getenv("HOME"), "data", "feature_files", sep = "/")
-#path_to_sample_info <- list.files(documentation_dir, pattern = "sample_table", full.names = TRUE)
-#df_sample_info <- as.data.frame(read.delim(path_to_sample_info, header = TRUE))
-#df_sample_info$sample_ID <- as.character(13119:(13119+nrow(df_sample_info)-1))
-#
-#directory_of_refgenomes <- paste(Sys.getenv("HOME"), "data", "REFGENS", sep = "/")
-#
-## Read in S. cerevisiae S288C reference genome and process into dataframe.
-#genome_file_path <- list.files(directory_of_refgenomes, pattern = "S288C_refgenome.fna", full.names = TRUE, recursive = TRUE)
-#df_sacCer_refGenome <- readFasta(genome_file_path)
-#df_sacCer_refGenome <- data.frame(chrom = names(as(df_sacCer_refGenome, "DNAStringSet")), 
-#                   basePairSize = width(df_sacCer_refGenome)) %>% filter(chrom != "chrM")
-#
-#options(ucscChromosomeNames=FALSE) # Has to be run every time if you are using chromosome ID to get tracks from the bigwig file.
-##TODO: Need to make sure the chromosome IDs are formatted properly.
-#bigwig_directory <- paste(working_directory, "bigwig", sep = "/")
-#
+#create_chromosome_GRange <- function(refGenome, chromosome_to_plot){
+##Create GRanges object to read in a particular chromosome
+#chromosome_to_plot <- 10
+#genomeRange_to_get <- GRanges(seqnames=c(df_sacCer_refGenome$chrom[chromosome_to_plot]), 
+#        ranges = IRanges(start = 1, 
+#        end = df_sacCer_refGenome$basePairSize[chromosome_to_plot]), 
+#        strand = "*")
+#}
+#load_feature_file_GRange <- function(chromosome_to_plot, feature_file_pattern = "eaton_acs")
 ## Create list with samples to plot. 
-##TODO: need to automate the creation of the experiments to plot. 
-##TODO: Need to ensure that the names I use in the columns are compatible with my short name convention for subsetting df
-#
 #experiments_to_plot <- list(
 #    c("lnnnMI", "onnnMA", "lnnnMA", "lnnyMA"),
 #    c("onnnMI", "onnnG7", "on7nG7", "onnnM7", "on7nM7")
@@ -123,18 +111,13 @@ main <- function() {
 ##    "MCM2tag_MCMpoly"
 ##)
 #
-##Create GRanges object to read in a particular chromosome
-#chromosome_to_plot <- 10
-#genomeRange_to_get <- GRanges(seqnames=c(df_sacCer_refGenome$chrom[chromosome_to_plot]), 
-#        ranges = IRanges(start = 1, 
-#        end = df_sacCer_refGenome$basePairSize[chromosome_to_plot]), 
-#        strand = "*")
 #
 ##Create variables to name plot
 #main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot, 
 #                  sep = " "))
 #date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
 #
+#bigwig_directory <- paste(working_directory, "bigwig", sep = "/")
 #plot_output_dir <- paste(working_directory, "plots", sep = "/")
 #for (experiment_index in 1:length(experiments_to_plot)) {
 #    all_tracks_to_plot <- list(GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = "") ) )

@@ -31,7 +31,7 @@ Ensure you downloaded reference genome and indexed it. Ensure you have downloade
 2. Run 000_setupExperimentDir.R with proper categories, filter function, order, control experiments. (Directory name will be the day the BMC accepts request.)
 3. Run 001_downloadBMCData.sh using the bmc server and directory. (See BMC email for instructions.)
 4. Run 000_consolidateFastq.sh to consolidate fastq files into a single file. (Makes the files very large.)
-5. Run 002_loadSampleGrid.R to ensure the sample table is properly loaded and the sample_ID column is added. (Requires consolidated fastq files to obtain sample IDs.)
+5. Run 003_updateSampleGrid.R to ensure the sample table is properly loaded and the sample_ID column is added. (Requires consolidated fastq files to obtain sample IDs.)
 6. In preparation: Run qualityControl scripts to ensure the fastq files are consistent and high quality. Use 002_filterFastq.sh for any preprocessing such as trimming and removing low quality reads.
 7. Align fastq files to reference genome with slurmWrapper.sh and 003_alignFastq.sh.
 8. In preparation: Run quality control on bam mapping files.
