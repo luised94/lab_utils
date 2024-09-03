@@ -5,6 +5,7 @@
 validate_input() {
     echo "Executing validate_input"
     if [ $# -ne 2 ]; then 
+        echo "Description: Use srun rsync command to download fastq files and remove unneeded directories and files."
         echo "Usage: $0 <bmc_server> <experiment_directory>"
         echo "Example: $0 bmc-pub17 240808Bel"
         exit 1
@@ -20,6 +21,14 @@ validate_input() {
         exit 1
     fi
     
+    local bmc_server=$1
+    local bmc_dir="/net/${bmc_server}/data/bmc/public/Bell/${bell_lab_directory}/"
+    if [ ! -d "$bmc_dir" ]; then
+        echo "$bmc_dir"
+        echo "Source directory doesnt exist."
+        echo "Check bmc email to determine Data Ready ${bell_lab_directory} to verify bmc server."
+        exit 1
+    fi
 }
 
 download_files() {
@@ -27,8 +36,8 @@ download_files() {
     local bmc_server=$1
     local bell_lab_directory=$2
     local target_dir="$HOME/data/${bell_lab_directory}/fastq/"
-
-    rsync_command="srun rsync -av --include '*/' --include '*.fastq' --exclude '*' /net/${bmc_server}/data/bmc/public/Bell/${bell_lab_directory}/ ${target_dir}"
+    local bmc_dir="/net/${bmc_server}/data/bmc/public/Bell/${bell_lab_directory}/"
+    rsync_command="srun rsync -av --include '*/' --include '*.fastq' --exclude '*' $bmc_dir ${target_dir}"
     echo "Executing: ${rsync_command}"
     if ! eval ${rsync_command}; then 
         echo "Rysnc failed. Check your parameters or connection"
@@ -36,7 +45,7 @@ download_files() {
     fi
 }
 
-organize_files() {
+move_fastq_files() {
     local bell_lab_directory=$1
     echo "Executing organize_files"
     local target_dir="$HOME/data/${bell_lab_directory}/fastq/"
@@ -108,10 +117,10 @@ main() {
     local bmc_server=$1
     local bell_lab_directory=$2
     download_files "$bmc_server" "$bell_lab_directory"
-    organize_files "$bell_lab_directory"
+    move_fastq_files "$bell_lab_directory"
     cleanup
     echo "Main complete."
-    echo "Verify downloading files with find ${bell_lab_directory}/fastq -type f -name "*.fastq" | wc -l"
+    echo "Verify downloading files with find $HOME/data/${bell_lab_directory}/fastq -type f -name "*.fastq" | wc -l"
 }
 
 main "$@"
