@@ -8,7 +8,8 @@
 ##TODO: need to automate the creation of the experiments to plot. 
 ##TODO: Need to ensure that the names I use in the columns are compatible with my short name convention for subsetting df
 main <- function() {
-    suppressPackageStartupMessage({
+    #Load packages
+    suppressPackageStartupMessages({
         library(QuasR)
         library(GenomicAlignments)
         library(Gviz)
@@ -16,8 +17,10 @@ main <- function() {
         library(ShortRead)
         library(tidyverse)
     })
+    #Validate the arguments
     args <- commandArgs(trailingOnly = TRUE)
     directory_path <- validate_input(args)
+    #Load the sample table.
     sample_table <- load_sample_table(directory_path)
     refGenome <- load_reference_genome()
     # Has to be run every time if you are using chromosome ID to get tracks from the bigwig file.
@@ -62,12 +65,18 @@ main <- function() {
 #       stop("Reference genome doesnt exist.\n")
 #   }
 #   refGenome <- readFasta(genome_file_path)
-#   refGenome <- data.frame(chrom = names(as(df_sacCer_refGenome, "DNAStringSet")), 
-#                   basePairSize = width(df_sacCer_refGenome)) %>% filter(chrom != "chrM")
+#   refGenome <- data.frame(chrom = names(as(refGenome, "DNAStringSet")), 
+#                   basePairSize = width(refGenome)) %>% filter(chrom != "chrM")
 #   return(refGenome)    
 #}
 #
+#load_feature_file <- function(chromosome_to_plot, feature_file_name = "240830_eaton_peaks.bed", chromosome_grange) {
 #create_chromosome_GRange <- function(refGenome, chromosome_to_plot){
+#refGenome <- readFasta(genome_file_path)
+#refGenome <- data.frame(chrom = names(as(refGenome, "DNAStringSet")), basePairSize = width(refGenome)) %>% filter(chrom != "chrM")
+#genomeRange_to_get <- GRanges(seqnames=10,ranges = IRanges(start = 1,end = refGenome$basePairSize[10]),strand = "*")
+#origin_grange <- import.bed("240830_eaton_peaks.bed", which = genomeRange_to_get)
+#origin_track <- AnnotationTrack(origin_grange, name = "Origin Peaks (Eaton et al 2010)")
 ##Create GRanges object to read in a particular chromosome
 #chromosome_to_plot <- 10
 #genomeRange_to_get <- GRanges(seqnames=c(df_sacCer_refGenome$chrom[chromosome_to_plot]), 
