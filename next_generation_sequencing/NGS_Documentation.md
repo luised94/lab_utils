@@ -33,7 +33,7 @@ Ensure you downloaded reference genome and indexed it. Ensure you have downloade
 4. Run 000_consolidateFastq.sh to consolidate fastq files into a single file. (Makes the files very large.)
 5. Run 002_loadSampleGrid.R to ensure the sample table is properly loaded and the sample_ID column is added. (Requires consolidated fastq files to obtain sample IDs.)
 6. In preparation: Run qualityControl scripts to ensure the fastq files are consistent and high quality. Use 002_filterFastq.sh for any preprocessing such as trimming and removing low quality reads.
-7. Align fastq files to reference genome with 003_alignFastq.sh
+7. Align fastq files to reference genome with slurmWrapper.sh and 003_alignFastq.sh.
 8. In preparation: Run quality control on bam mapping files.
 9. Generate bigwig files for all downstream analysis.
 10. Plot genomic tracks.
