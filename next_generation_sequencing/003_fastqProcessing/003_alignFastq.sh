@@ -12,56 +12,58 @@
 # where N is (number of genomes) * (number of fastq files)
 #OR 
 #USE VIA 000_slurmWrapper.sh 
-#000_slurmWrapper.sh 1-N%16 scriptToRun.sh "240808Bel"
+#000_slurmWrapper.sh 1-N%16 003_alignFastq.sh "240808Bel"
 
 set -e 
 #set -u
 
 #Global variables
-REFGENOME_DIR="$HOME/data/REFGENS"
-EXPERIMENT_DIR=""
-LOG_DIR=""
-LOG_FILE=""
+#REFGENOME_DIR="$HOME/data/REFGENS"
+#EXPERIMENT_DIR=""
+#LOG_DIR=""
+#LOG_FILE=""
 
-validate_input() {
-    if [[ $# -ne 1 || "$1" == */ ]]; then
-    echo "Usage: sbatch --array=<array-range> $0 <experiment_name>" >&2
-        echo "Error: Invalid input. Please provide a single argument without a trailing slash. >&2
-        echo "Example: sbatch --array=1-20%16 $0 240808Bel"
-        exit 1
-    fi
-    
-    EXPERIMENT_DIR="$HOME/data/$1"
-    LOG_DIR="$HOME/data/$EXPERIMENT_DIR/logs"
-
-}
-setup_logging() {
-    mkdir -p "$LOG_DIR"
-    local timeid=$(date "+%Y%m%d_%H%M%S")
-
-    LOG_FILE="${LOG_DIR}/aligning_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}_${timeid}.log"
-
-    # Redirect stdout and stderr to a temporary file
-    exec 3>&1 4>&2
-    exec 1>"$LOG_FILE" 2>&1
-}
-
-log_message() {
-    local timestamp=$(date "+%Y-%m-%d_%H:%M:%S")
-    echo "[$timestamp] $1"
-}
-
-load_modules() {
-    log_message "Loading required modules"
-    module purge
-    module load gnu/5.4.0 bowtie2/2.3.5.1 samtools/1.10
-}
-
-initialize_arrays() {
-    mapfile -t FASTQ_PATHS < <(find "$EXPERIMENT_DIR
+#validate_input() {
+#    if [[ $# -ne 1 || "$1" == */ ]]; then
+#    echo "Usage: sbatch --array=<array-range> $0 <experiment_name>" >&2
+#        echo "Error: Invalid input. Please provide a single argument without a trailing slash. >&2
+#        echo "Example: sbatch --array=1-20%16 $0 240808Bel"
+#        exit 1
+#    fi
+#    
+#    EXPERIMENT_DIR="$HOME/data/$1"
+#    LOG_DIR="$HOME/data/$EXPERIMENT_DIR/logs"
+#
+#}
+#setup_logging() {
+#    mkdir -p "$LOG_DIR"
+#    local timeid=$(date "+%Y%m%d_%H%M%S")
+#
+#    LOG_FILE="${LOG_DIR}/aligning_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}_${timeid}.log"
+#
+#    # Redirect stdout and stderr to a temporary file
+#    exec 3>&1 4>&2
+#    exec 1>"$LOG_FILE" 2>&1
+#}
+#
+#log_message() {
+#    local timestamp=$(date "+%Y-%m-%d_%H:%M:%S")
+#    echo "[$timestamp] $1"
+#}
+#
+#load_modules() {
+#    log_message "Loading required modules"
+#    module purge
+#    module load gnu/5.4.0 bowtie2/2.3.5.1 samtools/1.10
+#}
+#
+#initialize_arrays() {
+#    mapfile -t FASTQ_PATHS < <(find "$EXPERIMENT_DIR
 #SETUP
 DIR_TO_PROCESS="$1"
 
+REFGENOME_DIR="$HOME/data/REFGENS"
+LOG_DIR="$HOME/data/${DIR_TO_PROCESS}/logs"
 # Define the log directory
 
 # Ensure the log directory exists
@@ -112,6 +114,9 @@ echo "COMMAND_OUTPUT_START"
 #bowtie2 [options]* -x <bt2-idx> {-1 <m1> -2 <m2> | -U <r> | --interleaved <i> | -b <bam>} [-S <sam>]
 #For testing grab a subset of the data using seqtk:seqtk sample [-2] [-s seed=11] <in.fa> <frac>|<number>
 #seqtk sample -s100 your_fastq_file.fastq 0.1 > subsampled_fastq_file.fastq
+
+module purge
+module load gnu/5.4.0 bowtie2/2.3.5.1 samtools/1.10
 
 # Align FASTQ reads to genome, convert to sorted BAM, and index
 # Uses Bowtie2 for alignment, Samtools for conversion, sorting, and indexing

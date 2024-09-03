@@ -15,12 +15,13 @@ array_range="$1"
 SCRIPT_TO_RUN=$(find $HOME/lab_utils -type f -name "$2")
 DIRECTORY_TO_PROCESS="$(find -H $HOME/data -maxdepth 1 -type d -name "$3")"
 
-echo "Will process $DIRECTORY_TO_PROCESS "
-echo -e "Will run $SCRIPT_TO_RUN \n"
+echo -e "Will process ${DIRECTORY_TO_PROCESS}\n"
+echo -e "Will run ${SCRIPT_TO_RUN} \n"
 
 # Check if script and DIRECTORY_TO_PROCESS exist
 if [ ! -f "$SCRIPT_TO_RUN" -o ! -d "$DIRECTORY_TO_PROCESS" ]; then
-  echo "Error: Script or DIRECTORY_TO_PROCESS not found!"
+  echo -e "Error: Script or DIRECTORY_TO_PROCESS not found!\n"
+  echo -e "Echo statement above without a noun shows which one is missing.\n"
   exit 1
 fi
 
@@ -31,6 +32,7 @@ JOB_ID=$(sbatch --parsable --array="$array_range" "$SCRIPT_TO_RUN" "${DIRECTORY_
 
 echo "JOB is ${JOB_ID}"
 echo "View logs using vim ${DIRECTORY_TO_PROCESS}/logs/*_${JOB_ID}.out."
+echo "View standard error using vim ${DIRECTORY_TO_PROCESS}/logs/*_${JOB_ID}.err."
 
 
 #EXTRACT_TO_SCRIPT: cleanupscript
