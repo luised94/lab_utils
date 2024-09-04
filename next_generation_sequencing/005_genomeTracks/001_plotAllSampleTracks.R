@@ -36,6 +36,9 @@ main <- function() {
     eaton_track <- load_control_track_data(eaton_path = "EatonBel", genomeRange_to_get = genomeRange_to_get)
     #Load the sample table.
     sample_table <- load_sample_table(directory_path)
+    main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot, 
+                  sep = " "))
+    date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
 
     #Plot all tracks from the sample_table using the origin track for annotation and the eaton track to create an overlayed track
     plotAllSamples(sample_table, annotationtrack = origin_track, overlaytrack = eaton_track)
@@ -57,26 +60,6 @@ validate_input(args) {
         stop()
     }
     return(directory_path)
-}
-load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna") {
-    cat("Loading reference genome\n")
-    directory_of_refgenomes <- file.path(Sys.getenv("HOME"), "data", genome_dir)
-    if(!dir.exists(directory_of_refgenomes)) {
-        stop("Directory with reference genomes doesnt exist.\n")
-    }
-    genome_file_path <- list.files(directory_of_refgenomes, pattern = genome_pattern, full.names = TRUE, recursive = TRUE)
-    if (length(genome_file_path) > 1) {
-        cat(sprintf("More than one file matched genome pattern %s", genome_pattern))
-        print(genome_file_path)
-        stop()
-    }
-    if(!file.exists(genome_file_path)) {
-        stop("Reference genome doesnt exist.\n")
-    }
-    refGenome <- readFasta(genome_file_path)
-    refGenome <- data.frame(chrom = names(as(refGenome, "DNAStringSet")), 
-                    basePairSize = width(refGenome)) %>% filter(chrom != "chrM")
-    return(refGenome)
 }
 
 load_sample_table <- function(directory_name) {
@@ -107,24 +90,57 @@ load_sample_table <- function(directory_name) {
     return(sample_table)
 }
 
-load_feature_file <- function(chromosome_to_plot, feature_file_name = "240830_eaton_peaks.bed", chromosome_grange) {
-create_chromosome_GRange <- function(refGenome, chromosome_to_plot){
-refGenome <- readFasta(genome_file_path)
-refGenome <- data.frame(chrom = names(as(refGenome, "DNAStringSet")), basePairSize = width(refGenome)) %>% filter(chrom != "chrM")
-genomeRange_to_get <- GRanges(seqnames=10,ranges = IRanges(start = 1,end = refGenome$basePairSize[10]),strand = "*")
-origin_grange <- import.bed("240830_eaton_peaks.bed", which = genomeRange_to_get)
-origin_track <- AnnotationTrack(origin_grange, name = "Origin Peaks (Eaton et al 2010)")
-#Create GRanges object to read in a particular chromosome
-chromosome_to_plot <- 10
-genomeRange_to_get <- GRanges(seqnames=c(df_sacCer_refGenome$chrom[chromosome_to_plot]), 
-        ranges = IRanges(start = 1, 
-        end = df_sacCer_refGenome$basePairSize[chromosome_to_plot]), 
-        strand = "*")
+load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna") {
+    cat("Loading reference genome\n")
+    directory_of_refgenomes <- file.path(Sys.getenv("HOME"), "data", genome_dir)
+    if(!dir.exists(directory_of_refgenomes)) {
+        stop("Directory with reference genomes doesnt exist.\n")
+    }
+    genome_file_path <- list.files(directory_of_refgenomes, pattern = genome_pattern, full.names = TRUE, recursive = TRUE)
+    if (length(genome_file_path) > 1) {
+        cat(sprintf("More than one file matched genome pattern %s", genome_pattern))
+        print(genome_file_path)
+        stop()
+    }
+    if(!file.exists(genome_file_path)) {
+        stop("Reference genome doesnt exist.\n")
+    }
+    refGenome <- readFasta(genome_file_path)
+    refGenome <- data.frame(chrom = names(as(refGenome, "DNAStringSet")), 
+                    basePairSize = width(refGenome)) %>% filter(chrom != "chrM")
+    return(refGenome)
 }
-load_feature_file_GRange <- function(chromosome_to_plot, feature_file_pattern = "eaton_acs")
-main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot, 
-                  sep = " "))
-date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
+
+#Create GRanges object to read in a particular chromosome
+create_chromosome_GRange <- function(refGenome, chromosome_to_plot = 10) {
+    cat("Creating chromosome GRange for loading feature, samples, etc\n")
+    genomeRange_to_get <- GRanges(seqnames = refGenome$chrom[chromosome_to_plot],
+                                  ranges = IRanges(start = 1, 
+                                                   end = refGenome$basePairSize[chromosome_to_plot]),
+                                  strand = "*")
+    return(genomeRange_to_get)
+}
+
+
+load_feature_file_GRange <- function(chromosome_to_plot = 10, feature_file_pattern = "eaton_peaks", genomeRange_to_get)
+    cat(sprintf("Loading %s feature file.\n", feature_file_pattern))
+    feature_file_dir <- file.path(Sys.getenv("HOME"), "data", "feature_files")
+    if(!dir.exists(feature_file_dir)) {
+        cat(sprintf("Directory %s does not exist.\n", feature_file_dir))
+        stop()
+    }
+    feature_file_path <- list.files(feature_file_dir, pattern = feature_file_pattern, full.names = TRUE, recursive = TRUE)
+    if(length(feature_file_path) != 1) {
+        cat(sprintf("Error finding feature file. A single file wasn't identified."))
+        print(feature_file_path)
+        stop()
+    }
+    seqnames(genomeRange_to_get) <- chromosome_to_plot
+    feature_grange <- import.bed(feature_file_path, which = genomeRange_to_get)
+    annotation_track <- AnnotationTrack(origin_grange, name = "Origin Peaks (Eaton2010)")
+    return(annotation_track)
+}
+
 bigwig_directory <- paste(working_directory, "bigwig", sep = "/")
 for (sample_index in 1:nrow(df_sample_info)) {
     all_tracks_to_plot <- list(GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = "") ) )
