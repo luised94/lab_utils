@@ -61,7 +61,7 @@ validate_input  <- function(args) {
 
 load_sample_table <- function(directory_name) {
     cat("Loading sample_table from", directory_name, "\n")
-    documentation_dir_path <- file.path(directory_name, "documentation")
+    documentation_dir_path <- file.path(Sys.getenv("HOME"), "data", directory_name, "documentation")
     sample_table_path <- list.files(documentation_dir_path, pattern = "sample_table", full.names = TRUE)
     if(length(sample_table_path) == 0){
         cat(sprintf("No files with pattern sample_table found in %s\n", documentation_dir_path))
@@ -168,16 +168,20 @@ plot_all_sample_tracks <- function(sample_table, directory_name, chromosome_to_p
         chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
         if (length(path_to_bigwig) > 0){
             bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
+            cat("Bigwig plot output\n")
+            head(bigwig_to_plot)
             sample_short_name <- sample_table$short_name[sample_index]
             track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, chromosome = chromosome_to_plot)
             overlay <- OverlayTrack(trackList = list(control_track, track_to_plot))
+            cat("Overlay object\n")
+            head(overlay)
             #Generate the plot
             print("Name of the plot to be generated")
             output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_WithEaton", ".svg", sep = "")
             print(output_plot_name)
-            svg(output_plot_name)
-            plotTracks(list(gtrack, overlay), main = main_title_of_plot_track, chromosome = chromosome_as_chr_roman, ylim = c(0, 100000))
-            dev.off()
+#            svg(output_plot_name)
+#            plotTracks(list(gtrack, overlay), main = main_title_of_plot_track, chromosome = chromosome_as_chr_roman, ylim = c(0, 100000))
+#            dev.off()
         }
     }
 
