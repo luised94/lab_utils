@@ -170,28 +170,3 @@ main <- function() {
 #    #plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot], ylim = c(0, MAX))
 #    #dev.off()
 #}
-#for (sample_index in 1:nrow(df_sample_info)) {
-#    all_tracks_to_plot <- list(GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = "") ) )
-#    sample_ID_pattern <- df_sample_info$sample_ID[sample_index]
-#    initial_matches <- list.files(bigwig_directory, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)     
-#    path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
-#    print("Name of the bigwig path")
-#    print(path_to_bigwig)
-#    if (length(path_to_bigwig) > 0){
-#        bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
-#        sample_short_name <- df_sample_info$short_name[sample_index]
-#        track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot])
-#        all_tracks_to_plot <- append(all_tracks_to_plot, track_to_plot)                                                                          
-#
-#        #Generate the plot
-#        print("Name of the plot to be generated")
-#        output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", df_sample_info$short_name[sample_index], ".svg", sep = "")
-#        print(output_plot_name)
-#        svg(output_plot_name)
-#        plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot], ylim = c(0, 100000))
-#        dev.off()
-#    }
-#
-#}
-#print(utils::head(df_sample_info, 15)) 
-#print(utils::tail(df_sample_info, 15)) 
