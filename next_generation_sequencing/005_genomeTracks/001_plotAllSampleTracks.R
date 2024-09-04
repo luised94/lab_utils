@@ -22,29 +22,30 @@ main <- function() {
     args <- commandArgs(trailingOnly = TRUE)
     directory_path <- validate_input(args)
     sample_table <- load_sample_table(directory_path)
-
+    chromosome_to_plot = 10
     options(ucscChromosomeNames=FALSE)
     refGenome <- load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna")
 
-    genomeRange_to_get <- create_chromosome_GRange(refGenome = refGenome, chromosome_to_plot = 10)
+    genomeRange_to_get <- create_chromosome_GRange(refGenome = refGenome, chromosome_to_plot = chromosome_to_plot)
 
-    origin_track <- load_feature_file_GRange(chromosome_to_plot = 10, feature_file_pattern = "eaton_peaks",
+    feature_file_pattern = "eaton_peaks"
+    origin_track <- load_feature_file_GRange(chromosome_to_plot = chromosome_to_plot, feature_file_pattern = feature_file_pattern,
                                              genomeRange_to_get = genomeRange_to_get)
 
-    control_track <- load_control_track_data(control_dir = "EatonBel", chromosome_to_plot = 10,
+    control_dir <- "EatonBel"
+    control_track <- load_control_track_data(control_dir = control_dir, chromosome_to_plot = chromosome_to_plot,
                                              genomeRange_to_get = genomeRange_to_get)
 
     plot_all_sample_tracks(sample_table = sample_table,
                            directory_name = directory_path,
-                           chromosome_to_plot = 10, 
+                           chromosome_to_plot = chromosome_to_plot, 
                            genomeRange_to_get = genomeRange_to_get, 
                            control_track = control_track, 
                            annotation_track = origin_track)
 
-
 }
 
-validate_input  <- function(args) {
+validate_input <- function(args) {
     if (length(args) != 1) {
         cat("Error: Invalid number of arguments.\n")
         cat("Usage: Rscript 001_plotAllSampleTracks.R <directory_path>\n")
@@ -105,6 +106,8 @@ load_reference_genome <- function(genome_dir = "REFGENS", genome_pattern = "S288
     refGenome <- readFasta(genome_file_path)
     refGenome <- data.frame(chrom = names(as(refGenome, "DNAStringSet")), 
                     basePairSize = width(refGenome)) %>% filter(chrom != "chrM")
+    cat("Head of refGenome.\n")
+    print(head(refGenome))
     return(refGenome)
 }
 
@@ -115,10 +118,12 @@ create_chromosome_GRange <- function(refGenome, chromosome_to_plot = 10) {
                                   ranges = IRanges(start = 1, 
                                                    end = refGenome$basePairSize[chromosome_to_plot]),
                                   strand = "*")
+    cat("Head of Genome Range for loading other files.\n")
+    print(head(genomeRange_to_get))
     return(genomeRange_to_get)
 }
 
-load_feature_file_GRange <- function(chromosome_to_plot = 10, feature_file_pattern = "eaton_peaks", genomeRange_to_get)
+load_feature_file_GRange <- function(chromosome_to_plot = 10, feature_file_pattern = "eaton_peaks", genomeRange_to_get) {
     cat(sprintf("Loading %s feature file.\n", feature_file_pattern))
     feature_file_dir <- file.path(Sys.getenv("HOME"), "data", "feature_files")
     if(!dir.exists(feature_file_dir)) {
@@ -131,6 +136,8 @@ load_feature_file_GRange <- function(chromosome_to_plot = 10, feature_file_patte
         print(feature_file_path)
         stop()
     }
+    cat("Seq levels of feature file.\n")
+    print(seqlevels(import.bed(feature_file_path)))
     seqnames(genomeRange_to_get) <- chromosome_to_plot
     feature_grange <- import.bed(feature_file_path, which = genomeRange_to_get)
 
@@ -154,7 +161,7 @@ load_control_track_data <- function(control_dir = "EatonBel", chromosome_to_plot
 }
 
 plot_all_sample_tracks <- function(sample_table, directory_name, chromosome_to_plot = 10, genomeRange_to_get, control_track, annotation_track) {
-    main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot), sep " ")
+    main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot), sep = " ")
     date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
     cat("Plotting all sample tracks.\n")
     plot_output_dir <- file.path(Sys.getenv("HOME"), "data", directory_name, "plots")
