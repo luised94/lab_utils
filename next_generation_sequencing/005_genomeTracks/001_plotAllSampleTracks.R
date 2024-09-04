@@ -189,4 +189,13 @@ plot_all_sample_tracks <- function(sample_table, directory_name, chromosome_to_p
 
 if(!interactive()){
     main()
+} else {
+    suppressPackageStartupMessages({
+        library(QuasR)
+        library(GenomicAlignments)
+        library(Gviz)
+        library(rtracklayer)
+        library(ShortRead)
+        library(tidyverse)
+    })
 }
