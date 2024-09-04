@@ -19,35 +19,32 @@ main <- function() {
         library(ShortRead)
         library(tidyverse)
     })
-    #Validate the arguments
     args <- commandArgs(trailingOnly = TRUE)
     directory_path <- validate_input(args)
-
-    #Load the reference genome and proces into dataframe with chromosome and size columns.
-    refGenome <- load_reference_genome()
-
-    #Create the grange object to load grange from bigwig files for features, eaton control, and sample
-    genomeRange_to_get <- create_chromosome_GRange(referenceGenome = refGenome, chromosome_to_plot = 10)
-
-    #Load the origin AnnotationTrack from eaton acs using genomeRange_to_get
-    origin_track <- load_origin_annotation_track(feature_file_path = "240830Bel_eaton_peaks.bed", genomeRange_to_get = genomeRange_to_get)
-
-    #Load the eaton track data to overlay with sample data.
-    eaton_track <- load_control_track_data(eaton_path = "EatonBel", genomeRange_to_get = genomeRange_to_get)
-    #Load the sample table.
     sample_table <- load_sample_table(directory_path)
-    main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot, 
-                  sep = " "))
-    date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
 
-    #Plot all tracks from the sample_table using the origin track for annotation and the eaton track to create an overlayed track
-    plotAllSamples(sample_table, annotationtrack = origin_track, overlaytrack = eaton_track)
+    options(ucscChromosomeNames=FALSE)
+    refGenome <- load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna")
 
-    # Has to be run every time if you are using chromosome ID to get tracks from the bigwig file.
-    #options(ucscChromosomeNames=FALSE)
+    genomeRange_to_get <- create_chromosome_GRange(refGenome = refGenome, chromosome_to_plot = 10)
+
+    origin_track <- load_feature_file_GRange(chromosome_to_plot = 10, feature_file_pattern = "eaton_peaks",
+                                             genomeRange_to_get = genomeRange_to_get)
+
+    control_track <- load_control_track_data(control_dir = "EatonBel", chromosome_to_plot = 10,
+                                             genomeRange_to_get = genomeRange_to_get)
+
+    plot_all_sample_tracks(sample_table = sample_table,
+                           directory_name = directory_path,
+                           chromosome_to_plot = 10, 
+                           genomeRange_to_get = genomeRange_to_get, 
+                           control_track = control_track, 
+                           annotation_track = origin_track)
+
+
 }
 
-validate_input(args) {
+validate_input  <- function(args) {
     if (length(args) != 1) {
         cat("Error: Invalid number of arguments.\n")
         cat("Usage: Rscript 001_plotAllSampleTracks.R <directory_path>\n")
@@ -73,12 +70,12 @@ load_sample_table <- function(directory_name) {
     } else if(length(sample_table_path) > 1){
         cat(sprintf("Multiple files with pattern sample_table found in %s\n", documentation_dir_path))
         cat(sprintf("Files found in %s\n", documentation_dir_path))
-        print(sample_table)
+        print(sample_table_path)
         cat("Consult 000_setupExperimentDir and ensure no duplicates are present for the project\n")
         stop()
     }
     sample_table <- read.delim(sample_table_path, header = TRUE, sep ="\t")
-    if (!("sample_ID" %in% colnames(sample_table)) {
+    if (!("sample_ID" %in% colnames(sample_table))) {
            cat("Sample table does not contain the sample_ID column.\n")
            cat("sample_ID column is required for analysis.\n")
            cat("See 000_setupExperimentDir.R and 003_updateSampleGrid.R.\n")
@@ -90,7 +87,7 @@ load_sample_table <- function(directory_name) {
     return(sample_table)
 }
 
-load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna") {
+load_reference_genome <- function(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna") {
     cat("Loading reference genome\n")
     directory_of_refgenomes <- file.path(Sys.getenv("HOME"), "data", genome_dir)
     if(!dir.exists(directory_of_refgenomes)) {
@@ -121,7 +118,6 @@ create_chromosome_GRange <- function(refGenome, chromosome_to_plot = 10) {
     return(genomeRange_to_get)
 }
 
-
 load_feature_file_GRange <- function(chromosome_to_plot = 10, feature_file_pattern = "eaton_peaks", genomeRange_to_get)
     cat(sprintf("Loading %s feature file.\n", feature_file_pattern))
     feature_file_dir <- file.path(Sys.getenv("HOME"), "data", "feature_files")
@@ -137,31 +133,56 @@ load_feature_file_GRange <- function(chromosome_to_plot = 10, feature_file_patte
     }
     seqnames(genomeRange_to_get) <- chromosome_to_plot
     feature_grange <- import.bed(feature_file_path, which = genomeRange_to_get)
-    annotation_track <- AnnotationTrack(origin_grange, name = "Origin Peaks (Eaton2010)")
+
+    seqnames(feature_grange) <- paste("chr", as.roman(chromosome_to_plot), sep = "")
+    annotation_track <- AnnotationTrack(feature_grange, name = "Origin Peaks (Eaton2010)")
+
     return(annotation_track)
 }
 
-bigwig_directory <- paste(working_directory, "bigwig", sep = "/")
-for (sample_index in 1:nrow(df_sample_info)) {
-    all_tracks_to_plot <- list(GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = "") ) )
-    sample_ID_pattern <- df_sample_info$sample_ID[sample_index]
-    initial_matches <- list.files(bigwig_directory, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)     
-    path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
-    print("Name of the bigwig path")
-    print(path_to_bigwig)
-    if (length(path_to_bigwig) > 0){
-        bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
-        sample_short_name <- df_sample_info$short_name[sample_index]
-        track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot])
-        all_tracks_to_plot <- append(all_tracks_to_plot, track_to_plot)                                                                          
+load_control_track_data <- function(control_dir = "EatonBel", chromosome_to_plot = 10, genomeRange_to_get) {
+    cat("Loading control track data from", control_dir, "\n")
+    bigwig_dir_path <- file.path(control_dir, "bigwig")
+    bigwig_file_path <- list.files(bigwig_dir_path, pattern = "S288C", full.names = TRUE, recursive = TRUE)
+    if(!file.exists(bigwig_file_path)) {
+        cat(sprintf("File %s doesnt exist.\n", bigwig_file_path))
+        stop()
+    }
+    control_grange <- import.bed(bigwig_file_path, which = genomeRange_to_get)
+    control_track <- DataTrack(control_grange, name = "Eaton 2010")
+    return(control_track)
+}
 
-        #Generate the plot
-        print("Name of the plot to be generated")
-        output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", df_sample_info$short_name[sample_index], ".svg", sep = "")
-        print(output_plot_name)
-        svg(output_plot_name)
-        plotTracks(all_tracks_to_plot, main = main_title_of_plot_track, chromosome = df_sacCer_refGenome$chrom[chromosome_to_plot], ylim = c(0, 100000))
-        dev.off()
+plot_all_sample_tracks <- function(sample_table, directory_name, chromosome_to_plot = 10, genomeRange_to_get, control_track, annotation_track) {
+    main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot), sep " ")
+    date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
+    cat("Plotting all sample tracks.\n")
+    plot_output_dir <- file.path(Sys.getenv("HOME"), "data", directory_name, "plots")
+    for (sample_index in 1:nrow(sample_table)) {
+        gtrack <- GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = ""))
+        sample_ID_pattern <- sample_table$sample_ID[sample_index]
+        initial_matches <- list.files(bigwig_directory, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)
+        path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
+        print("Name of the bigwig path")
+        print(path_to_bigwig)
+        chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
+        if (length(path_to_bigwig) > 0){
+            bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
+            sample_short_name <- sample_table$short_name[sample_index]
+            track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, chromosome = chromosome_to_plot)
+            overlay <- OverlayTrack(trackList = list(control_track, track_to_plot))
+            #Generate the plot
+            print("Name of the plot to be generated")
+            output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_WithEaton", ".svg", sep = "")
+            print(output_plot_name)
+            svg(output_plot_name)
+            plotTracks(list(gtrack, overlay), main = main_title_of_plot_track, chromosome = chromosome_as_chr_roman, ylim = c(0, 100000))
+            dev.off()
+        }
     }
 
+}
+
+if(!interactive()){
+    main()
 }
