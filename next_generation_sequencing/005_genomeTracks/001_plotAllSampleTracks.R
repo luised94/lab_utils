@@ -149,7 +149,7 @@ load_feature_file_GRange <- function(chromosome_to_plot = 10, feature_file_patte
 
 load_control_track_data <- function(control_dir = "EatonBel", chromosome_to_plot = 10, genomeRange_to_get) {
     cat("Loading control track data from", control_dir, "\n")
-    bigwig_dir_path <- file.path(control_dir, "bigwig")
+    bigwig_dir_path <- file.path(Sys.getenv("HOME"), "data", control_dir, "bigwig")
     bigwig_file_path <- list.files(bigwig_dir_path, pattern = "S288C", full.names = TRUE, recursive = TRUE)
     if(!file.exists(bigwig_file_path)) {
         cat(sprintf("File %s doesnt exist.\n", bigwig_file_path))
