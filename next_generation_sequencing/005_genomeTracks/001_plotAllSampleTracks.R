@@ -62,7 +62,7 @@ validate_input <- function(args) {
 
 load_sample_table <- function(directory_name) {
     cat("Loading sample_table from", directory_name, "\n")
-    documentation_dir_path <- file.path(Sys.getenv("HOME"), "data", directory_name, "documentation")
+    documentation_dir_path <- file.path(directory_name, "documentation")
     sample_table_path <- list.files(documentation_dir_path, pattern = "sample_table", full.names = TRUE)
     if(length(sample_table_path) == 0){
         cat(sprintf("No files with pattern sample_table found in %s\n", documentation_dir_path))
@@ -136,14 +136,18 @@ load_feature_file_GRange <- function(chromosome_to_plot = 10, feature_file_patte
         print(feature_file_path)
         stop()
     }
-    cat("Seq levels of feature file.\n")
-    print(seqlevels(import.bed(feature_file_path)))
-    seqnames(genomeRange_to_get) <- chromosome_to_plot
-    feature_grange <- import.bed(feature_file_path, which = genomeRange_to_get)
+    cat("Seq levels of feature file and style.\n")
+    #seqlevels(genomeRange_to_get) <- as.character(as.numeric(roman2int(mapSeqlevels(as.character(seqnames(genomeRange_to_get)), style = "NCBI"))))
+    feature_grange <- import.bed(feature_file_path)
+    print(seqlevels(feature_grange))
+    print(seqlevelsStyle(feature_grange))
+    #seqnames(genomeRange_to_get) <- chromosome_to_plot
+    #feature_grange <- import.bed(feature_file_path, which = genomeRange_to_get)
 
-    seqnames(feature_grange) <- paste("chr", as.roman(chromosome_to_plot), sep = "")
+    #seqnames(feature_grange) <- paste("chr", as.roman(chromosome_to_plot), sep = "")
     annotation_track <- AnnotationTrack(feature_grange, name = "Origin Peaks (Eaton2010)")
-
+    cat("Annotation Track for feature file.\n")
+    print(head(annotation_track))
     return(annotation_track)
 }
 
@@ -155,7 +159,11 @@ load_control_track_data <- function(control_dir = "EatonBel", chromosome_to_plot
         cat(sprintf("File %s doesnt exist.\n", bigwig_file_path))
         stop()
     }
-    control_grange <- import.bed(bigwig_file_path, which = genomeRange_to_get)
+    #control_grange <- import.bed(bigwig_file_path, which = genomeRange_to_get)
+    control_grange <- import(bigwig_file_path, which = genomeRange_to_get)
+    cat("Levels and Style of control_grange")
+    print(seqlevels(control_grange))
+    print(seqlevelsStyle(control_grange))
     control_track <- DataTrack(control_grange, name = "Eaton 2010")
     return(control_track)
 }
@@ -204,5 +212,27 @@ if(!interactive()){
         library(rtracklayer)
         library(ShortRead)
         library(tidyverse)
+        library(gtools)
     })
+    directory_path <- "240819Bel"
+    cat("Logic of main function\n")
+    main_function_logic <- main
+    list_of_functions_and_variables <- ls()
+    directory_path <- validate_input(directory_path)
+    chromosome_to_plot = 10
+    #chromosome_to_plot = c(10, paste0("chr", as.roman(10)))
+    sample_table <- load_sample_table(directory_path)
+    refGenome <- load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna")
+    genomeRange_to_get <- create_chromosome_GRange(refGenome = refGenome, chromosome_to_plot = chromosome_to_plot)
+    feature_file_pattern = "eaton_peaks"
+    origin_track <- load_feature_file_GRange(chromosome_to_plot = chromosome_to_plot, feature_file_pattern = feature_file_pattern,genomeRange_to_get = genomeRange_to_get)
+    #seqlevelsStyle, genomeStyles, extractSeqlevels, mapSeqlevels
+    control_dir <- "EatonBel"
+    control_track <- load_control_track_data(control_dir = control_dir, chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get)
+
+    print(seqlevels(genomeRange_to_get))
+    print(as.character(as.numeric(roman2int(mapSeqlevels(as.character(seqnames(genomeRange_to_get)), style = "NCBI")))))
+    seqlevels(genomeRange_to_get) <- as.character(as.numeric(roman2int(mapSeqlevels(as.character(seqnames(genomeRange_to_get)), style = "NCBI"))))
+    print(seqlevels(genomeRange_to_get))
+    #plot_all_sample_tracks(sample_table = sample_table,directory_name = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = origin_track)
 }
