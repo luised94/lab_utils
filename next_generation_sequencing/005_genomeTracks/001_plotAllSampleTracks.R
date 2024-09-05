@@ -26,7 +26,7 @@ main <- function() {
     options(ucscChromosomeNames=FALSE)
     refGenome <- load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna")
 
-    genomeRange_to_get <- create_chromosome_GRange(refGenome = refGenome, chromosome_to_plot = chromosome_to_plot)
+    genomeRange_to_get <- create_chromosome_GRange(refGenome = refGenome)
 
     feature_file_pattern = "eaton_peaks"
     feature_grange <- load_feature_file_GRange(chromosome_to_plot = chromosome_to_plot, feature_file_pattern = feature_file_pattern,
@@ -112,11 +112,11 @@ load_reference_genome <- function(genome_dir = "REFGENS", genome_pattern = "S288
 }
 
 #Create GRanges object to read in a particular chromosome
-create_chromosome_GRange <- function(refGenome, chromosome_to_plot = 10) {
+create_chromosome_GRange <- function(refGenome) {
     cat("Creating chromosome GRange for loading feature, samples, etc\n")
-    genomeRange_to_get <- GRanges(seqnames = refGenome$chrom[chromosome_to_plot],
+    genomeRange_to_get <- GRanges(seqnames = refGenome$chrom,
                                   ranges = IRanges(start = 1, 
-                                                   end = refGenome$basePairSize[chromosome_to_plot]),
+                                                   end = refGenome$basePairSize),
                                   strand = "*")
     cat("Head of Genome Range for loading other files.\n")
     print(head(genomeRange_to_get))
@@ -180,14 +180,11 @@ load_feature_file_GRange <- function(chromosome_to_plot = 10, feature_file_patte
     adjusted_genomeRange <- genomeRange_to_get
     new_seqlevels <- normalize_chr_names(seqlevels(genomeRange_to_get), feature_style)
     seqlevels(adjusted_genomeRange) <- new_seqlevels
-    seqnames(adjusted_genomeRange) <- new_seqlevels[match(as.character(seqnames(adjusted_genomeRange)), seqlevels(genomeRange_to_get))]
 
     feature_grange_subset <- subsetByOverlaps(feature_grange, adjusted_genomeRange)
 
     new_seqlevels <- normalize_chr_names(seqlevels(feature_grange_subset), genome_style)
     seqlevels(feature_grange_subset) <- new_seqlevels
-    seqnames(feature_grange_subset) <- new_seqlevels[match(as.character(seqnames(feature_grange_subset)), seqlevels(feature_grange))]
-
 
   }
   return(feature_grange_subset)
@@ -201,20 +198,23 @@ load_control_grange_data <- function(control_dir = "EatonBel", chromosome_to_plo
         cat(sprintf("File %s doesnt exist.\n", bigwig_file_path))
         stop()
     }
-    #control_grange <- import.bed(bigwig_file_path, which = genomeRange_to_get)
+    control_style <- determine_chr_style(seqlevels(import(bigwig_file_path)))
+    chromosome_to_subset <- normalize_chr_names(chromosome_to_plot, control_style)
+    subset_genome_range <- genomeRange_to_get[seqnames(genomeRange_to_get) == chromosome_to_subset]
     control_grange <- import(bigwig_file_path, which = genomeRange_to_get)
     return(control_grange)
 }
 
-plot_all_sample_tracks <- function(sample_table, directory_name, chromosome_to_plot = 10, genomeRange_to_get, control_track, annotation_track) {
+plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_plot = 10, genomeRange_to_get, control_track, annotation_track) {
     main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot), sep = " ")
     date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
     cat("Plotting all sample tracks.\n")
-    plot_output_dir <- file.path(Sys.getenv("HOME"), "data", directory_name, "plots")
+    plot_output_dir <- file.path(directory_path, "plots")
+    bigwig_dir <- file.path(directory_path, "bigwig")
     for (sample_index in 1:nrow(sample_table)) {
         gtrack <- GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = ""))
         sample_ID_pattern <- sample_table$sample_ID[sample_index]
-        initial_matches <- list.files(bigwig_directory, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)
+        initial_matches <- list.files(bigwig_dir, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)
         path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
         print("Name of the bigwig path")
         print(path_to_bigwig)
@@ -227,14 +227,14 @@ plot_all_sample_tracks <- function(sample_table, directory_name, chromosome_to_p
             track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, chromosome = chromosome_to_plot)
             overlay <- OverlayTrack(trackList = list(control_track, track_to_plot))
             cat("Overlay object\n")
-            head(overlay)
+            print(overlay)
             #Generate the plot
             print("Name of the plot to be generated")
             output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_WithEaton", ".svg", sep = "")
             print(output_plot_name)
-#            svg(output_plot_name)
-#            plotTracks(list(gtrack, overlay), main = main_title_of_plot_track, chromosome = chromosome_as_chr_roman, ylim = c(0, 100000))
-#            dev.off()
+            svg(output_plot_name)
+            plotTracks(list(gtrack, overlay, annotation_track), main = main_title_of_plot_track, chromosome = chromosome_as_chr_roman, ylim = c(0, 100000))
+            dev.off()
         }
     }
 
@@ -266,17 +266,17 @@ if(!interactive()){
     cat("Main function: loading reference genome\n")
     refGenome <- load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna")
     cat("Main function: Creating genomeRange_to_get\n")
-    genomeRange_to_get <- create_chromosome_GRange(refGenome = refGenome, chromosome_to_plot = chromosome_to_plot)
+    genomeRange_to_get <- create_chromosome_GRange(refGenome = refGenome)
     feature_file_pattern = "eaton_peaks"
     cat("Main function: load feature grange\n")
     feature_grange <- load_feature_file_GRange(chromosome_to_plot = chromosome_to_plot, feature_file_pattern = feature_file_pattern,genomeRange_to_get = genomeRange_to_get)
-    #feature_track <- AnnotationTrack(feature_grange, name = paste("Origin Peaks","Eaton 2010", sep = ""))
+    feature_track <- AnnotationTrack(feature_grange, name = paste("Origin Peaks","Eaton 2010", sep = ""))
   
     #seqlevelsStyle, genomeStyles, extractSeqlevels, mapSeqlevels
     control_dir <- "EatonBel"
     cat("Main function: loading control grange\n")
     control_grange <- load_control_grange_data(control_dir = control_dir, chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get)
     
-    #control_track <- DataTrack(control_grange, name = "Eaton 2010")
-    #plot_all_sample_tracks(sample_table = sample_table,directory_name = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = origin_track)
+    control_track <- DataTrack(control_grange, name = "Eaton 2010")
+    plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = feature_track)
 }
