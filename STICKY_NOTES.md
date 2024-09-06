@@ -56,3 +56,9 @@ Have a decent set of features that I can use to compare to my data. Also have a 
 Need to update the genome track plotting script and create all of the downstream analysis.
 Still need to do quality control. 
 Must work faster.
+
+## 2024-09-06
+Need to update the Gviz usage to ggplot2.
+Considering using tidyverse and other packages for more readable and manageable code base.
+Implement experiment definition in sampleConfig.R
+Implement peak calling, motif analysis and comparisons and analysis.
