@@ -7,6 +7,12 @@
 
 #TODO: Need to add renv for this module.
 library(BiocManager)
-bioconductor_packages_to_install <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead")
+bioconductor_packages_for_fastq <- c()
+bioconductor_packages_to_install_tracks <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead")
 BiocManager::install(bioconductor_packages_to_install
         lib = library_location)
+bioconductor_packages_to_install_peaks <- c()
+bioconductor_packages_to_install_motifs <- c()
+bioconductor_packages_to_install_visualization <- c()
+bioconductor_packages_to_install_statistics <- c()
+bioconductor_packages_to_install_reproducibility <- c()
