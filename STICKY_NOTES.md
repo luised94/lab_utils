@@ -62,3 +62,9 @@ Need to update the Gviz usage to ggplot2.
 Considering using tidyverse and other packages for more readable and manageable code base.
 Implement experiment definition in sampleConfig.R
 Implement peak calling, motif analysis and comparisons and analysis.
+
+## 2024-09-08
+Output plots with tracks overlayed but with colors and different comparisons.
+Update sampleConfig to ConfigAndExpr and main/function
+Implement peak calling, motif analysis and comparisons and analysis.
+Update track plotting to ggplot2.
