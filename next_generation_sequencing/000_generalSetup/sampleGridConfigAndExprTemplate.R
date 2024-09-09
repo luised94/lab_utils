@@ -119,16 +119,19 @@ add_sample_names_to_table <- function(ordered_samples_table) {
 add_comparisons <- function(ordered_samples_table) {
     cat("Adding columns with comparison values\n")
     df <- ordered_samples_table
+    comparisons <- list(
 
-    df$comp_cellCycle <- with(df, 
+    comp_cellCycle = with(df, 
     )
 
-    df$comp_cellCycle <- with(df, 
+
     )
 
-    df$comp_cellCycle <- with(df, 
-    )
+    for(comp_name in names(comparisons)) {
+        df[[comp_name]] <- comparisons[[comp_name]]
 
+    }
+    return(df)
 }
 
 create_bmc_table <- function(named_samples_table) {
