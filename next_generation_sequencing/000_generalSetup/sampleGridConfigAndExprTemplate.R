@@ -146,17 +146,23 @@ add_comparisons <- function(ordered_samples_table) {
         df[[comp_name]] <- comparisons[[comp_name]]
 
     }
-    #grepl("^comp_", colnames(df))
-    #for() {
-
-    #}
     return(df)
 }
 
 add_attributes <- function(table_with_comparisons, control_factors) {
     cat("Adding attributes to column names\n")
     df <- table_with_comparisons
+    control_columns <- unlist(unname(control_factors))
+    at_least_one_not_in_df_column <- !all(control_columns %in% colnames(df))
+    if(at_least_one_not_in_df_column){
+        control_column_not_in_df <- which(!(control_columns %in% colnames(df)))
+        cat("Columns not in the sample table\n")
+        print(control_columns[control_column_not_in_df])
+        stop("Verify the columns in categories and control_factors list to ensure you are assigning correctly")
+    }
+
     for (factor in names(control_factors)) {
+        cat(sprintf("Assign column to %s\n", factor))
         new_column_name <- paste0("__cf_", factor)
 
         df[[new_column_name]] <- paste(control_factors[[factor]], collapse = ",")
@@ -220,7 +226,7 @@ determine_matching_control <- function(sample_row, sample_table, factors_to_matc
         all(row == comparison_row)
     })
     is_input <- df$antibody == "Input"
-    index <- as.numeric(unname(which(is_input & same_factors)))
+    index <- as.numeric(unname(which(is_input & rows_with_same_factors)))
     return(index)
 }
 
@@ -252,16 +258,11 @@ if(!interactive()) {
     named_samples$experiment_id <- current_experiment
     table_with_comparisons <- add_comparisons(named_samples)
     # Define the columns that determine the control columns.
-    #control_factors <- list(
-    #    primary = c("strain_source", "background"),
-    #    secondary = "genotype"
-    #  )
     control_factors <- list(
         genotype = c("strain_source", "rescue_allele", "mcm_tag")
       )
     complete_table <- add_attributes(table_with_comparisons, control_factors)
     #print_summary(complete_table, bmc_table)
-    print(head(complete_table))
     print("Processing complete table after adding attributes as columns")
     complete_table <- process_control_factors(complete_table)
     print("Determining processing to find control")
