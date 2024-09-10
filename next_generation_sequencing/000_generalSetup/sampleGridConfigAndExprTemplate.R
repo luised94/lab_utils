@@ -10,7 +10,8 @@ main <- function() {
     named_samples <- add_sample_names_to_table(ordered_samples)
     named_samples$experiment_id <- current_experiment
     bmc_table <- create_bmc_table(named_samples)
-    print_summary(named_samples, bmc_table)
+    complete_table <- add_comparisons(named_samples)
+    print_summary(complete_table, bmc_table)
 
 }
 
@@ -120,20 +121,49 @@ add_comparisons <- function(ordered_samples_table) {
     cat("Adding columns with comparison values\n")
     df <- ordered_samples_table
     comparisons <- list(
+        #Effect of MCM: Input, G1 and M phase for 174
+        comp_cellCycle = with(df,
+                strain_source == "lemr" & antibody == "74"
+        ),
 
-    comp_cellCycle = with(df, 
-    )
+        #Effect of Alfa: Input, no auxin, yes auxin
+        comp_alfa = with(df,
+                antibody == "ALFA"
+        ),
 
+        #Effect of CHA in cell cycle: Input, G1 and M phase for CHA
+        comp_HaCoa = with(df,
+                strain_source == "oa" & antibody == "CHA"
+        ),
 
+        #Effect of CHA in cell cycle: Input, G1 and M phase for CHA
+        comp_11HAoa = with(df,
+                strain_source == "oa" & antibody == "11HA"
+        )
     )
 
     for(comp_name in names(comparisons)) {
         df[[comp_name]] <- comparisons[[comp_name]]
 
     }
+    #grepl("^comp_", colnames(df))
+    #for() {
+
+    #}
     return(df)
 }
 
+add_attributes <- function(table_with_comparisons, control_factors) {
+    cat("Adding attributes to column names\n")
+    df <- table_with_comparisons
+    for (factor in names(control_factors)) {
+        new_column_name <- paste0("__cf_", factor)
+
+        df[[new_column_name]] <- paste(control_factors[[factor]], collapse = ",")
+    }
+    return(df)
+
+}
 create_bmc_table <- function(named_samples_table) {
     cat("Making bmc_table from sample table\n")
     bmc_table <- data.frame(SampleName = named_samples_table$full_name,
@@ -161,20 +191,89 @@ print_summary <- function(sample_table, bmc_table) {
     print(head(bmc_table))
 }
 
+process_control_factors <- function(sample_table) {
+    cat("Process control factors from __cf_ columns\n")
+    df <- sample_table
+    cf_cols <- grep("^__cf_", names(df), value = TRUE)
+    control_factors <- lapply(df[cf_cols], function(x) strsplit(x[1], ",")[[1]])
+    names(control_factors) <- sub("^__cf_", "", cf_cols)
+    df[cf_cols] <- NULL
+    attr(df, "control_factors") <- control_factors
+    return(df)
+}
+
+get_factors_to_match <- function(sample_table) {
+    cat("Grabbing attributes from sample table\n")
+    df <- sample_table
+    control_factors <- attr(df, "control_factors")
+    if (is.null(control_factors)) {
+        stop("No control factors defined in sample data.")
+    }
+    all_factors <- unlist(control_factors)
+    return(intersect(all_factors, colnames(df)))
+}
+
+determine_matching_control <- function(sample_row, sample_table, factors_to_match) {
+    df <- sample_table
+    comparison_row <- sample_row[factors_to_match]
+    rows_with_same_factors <- apply(df[, factors_to_match], 1, function(row) {
+        all(row == comparison_row)
+    })
+    is_input <- df$antibody == "Input"
+    index <- as.numeric(unname(which(is_input & same_factors)))
+    return(index)
+}
+
+select_control_index <- function(control_indices, max_controls = 1) {
+  if (length(control_indices) == 0) {
+    stop("No matching control found")
+  }
+  if (length(control_indices) > max_controls) {
+    warning(paste("Multiple matching controls found, using first", max_controls))
+    control_indices[1:max_controls]
+  } else {
+    control_indices
+  }
+}
+
 if(!interactive()) {
     main()
 } else {
-
-    args <- "testBel"
+    # Set the args for the directory
+    args <- "240808Bel"
     current_experiment <- validate_input(args)
     print(current_experiment)
+    # Define the define_categories list
     all_categories_list <- define_categories()
+    # Define the samples that should be retained.
     ordered_samples <- generate_filtered_samples(all_categories_list)
     named_samples <- add_sample_names_to_table(ordered_samples)
     bmc_table <- create_bmc_table(named_samples)
     named_samples$experiment_id <- current_experiment
-    print_summary(named_samples, bmc_table)
-    #complete_table <- add_comparisons(named_samples)
+    table_with_comparisons <- add_comparisons(named_samples)
+    # Define the columns that determine the control columns.
+    #control_factors <- list(
+    #    primary = c("strain_source", "background"),
+    #    secondary = "genotype"
+    #  )
+    control_factors <- list(
+        genotype = c("strain_source", "rescue_allele", "mcm_tag")
+      )
+    complete_table <- add_attributes(table_with_comparisons, control_factors)
     #print_summary(complete_table, bmc_table)
+    print(head(complete_table))
+    print("Processing complete table after adding attributes as columns")
+    complete_table <- process_control_factors(complete_table)
+    print("Determining processing to find control")
+    factors_to_match <- get_factors_to_match(complete_table)
+
+    sample_row <- complete_table[16, ]
+    control_index <- determine_matching_control(sample_row = sample_row, complete_table, factors_to_match)
+    control_index <- select_control_index(control_index)
+    # This will give you a logical vector indicating which rows match
+
+    print("Indexing complete table")
+    print(complete_table[control_index, ])
+
     cat("Loaded all functions and testing variables.\n")
 }
