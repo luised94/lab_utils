@@ -11,6 +11,28 @@ main <- function() {
     named_samples$experiment_id <- current_experiment
     bmc_table <- create_bmc_table(named_samples)
     complete_table <- add_comparisons(named_samples)
+
+    # Define the columns that determine the control columns.
+    control_factors <- list(
+        genotype = c("strain_source", "rescue_allele", "mcm_tag")
+      )
+    complete_table <- add_attributes(table_with_comparisons, control_factors)
+
+    # Rest of the scripts tests the functions to reread the table after processing.
+    print("Processing complete table after adding attributes as columns")
+    complete_table <- process_control_factors(complete_table)
+    print("Determining processing to find control")
+    factors_to_match <- get_factors_to_match(complete_table)
+
+    sample_row <- complete_table[16, ]
+    control_index <- determine_matching_control(sample_row = sample_row, complete_table, factors_to_match)
+    control_index <- select_control_index(control_index)
+    # This will give you a logical vector indicating which rows match
+
+    print("Indexing complete table")
+    print(complete_table[control_index, ])
+
+    cat("Loaded all functions and testing variables.\n")
     print_summary(complete_table, bmc_table)
 
 }
