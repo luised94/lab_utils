@@ -201,6 +201,10 @@ process_control_factors <- function(sample_table) {
     cat("Process control factors from __cf_ columns\n")
     df <- sample_table
     cf_cols <- grep("^__cf_", names(df), value = TRUE)
+    if(length(cf_cols) == 0) {
+        cat("No columns containing __cf_ tag found in sample table")
+        stop("Verify sample table was produced with updated sampleGridConfig.")
+    }
     control_factors <- lapply(df[cf_cols], function(x) strsplit(x[1], ",")[[1]])
     names(control_factors) <- sub("^__cf_", "", cf_cols)
     df[cf_cols] <- NULL
@@ -220,6 +224,7 @@ get_factors_to_match <- function(sample_table) {
 }
 
 determine_matching_control <- function(sample_row, sample_table, factors_to_match) {
+    cat("Determining control row for sample row.\n")
     df <- sample_table
     comparison_row <- sample_row[factors_to_match]
     rows_with_same_factors <- apply(df[, factors_to_match], 1, function(row) {
@@ -231,15 +236,16 @@ determine_matching_control <- function(sample_row, sample_table, factors_to_matc
 }
 
 select_control_index <- function(control_indices, max_controls = 1) {
-  if (length(control_indices) == 0) {
+    cat("Processing control index to ensure one is used.\n")
+    if (length(control_indices) == 0) {
     stop("No matching control found")
-  }
-  if (length(control_indices) > max_controls) {
+    }
+    if (length(control_indices) > max_controls) {
     warning(paste("Multiple matching controls found, using first", max_controls))
     control_indices[1:max_controls]
-  } else {
+    } else {
     control_indices
-  }
+    }
 }
 
 if(!interactive()) {
@@ -262,7 +268,9 @@ if(!interactive()) {
         genotype = c("strain_source", "rescue_allele", "mcm_tag")
       )
     complete_table <- add_attributes(table_with_comparisons, control_factors)
-    #print_summary(complete_table, bmc_table)
+
+    # Rest of the scripts tests the functions to reread the table after processing.
+
     print("Processing complete table after adding attributes as columns")
     complete_table <- process_control_factors(complete_table)
     print("Determining processing to find control")
@@ -276,5 +284,6 @@ if(!interactive()) {
     print("Indexing complete table")
     print(complete_table[control_index, ])
 
+    print_summary(complete_table, bmc_table)
     cat("Loaded all functions and testing variables.\n")
 }
