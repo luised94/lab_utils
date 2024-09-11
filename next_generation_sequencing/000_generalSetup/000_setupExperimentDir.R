@@ -41,7 +41,7 @@ create_experiment_dir <- function(directory_path, subdirectories){
 
 }
 
-# @function: Determine if two arguments were provided.
+# @function: Determine if arguments were provided.
 validate_input <- function() {
     cat("Running input validation.", "\n")
     args <- commandArgs(trailingOnly = TRUE)
@@ -50,7 +50,7 @@ validate_input <- function() {
         cat("Confirm WINDOWS_USER defined in bashrc.", "\n")
         cat("Usage: ", "Rscript ", "000_setupExperimentDir.R", "<experiment_name>", "\n",
             "Example: ", "Rscript ", "000_setupExperimentDir.R", "240808Bel", "\n")
-        q(status = 1)
+        stop("Provide one argument corresponding to experiment ID from BMC.")
     }
     if (Sys.getenv("WINDOWS_USER") != "") {
         cat("Assigning username variable: ", Sys.getenv("WINDOWS_USER"), "\n")
@@ -58,7 +58,7 @@ validate_input <- function() {
     } else {
         cat("WINDOWS_USER not defined or exported from bash", "\n")
         cat("Consult bashrc in my_config repository", "\n")
-        q(status = 1)
+        stop()
     }
     experiment_name <- args[1]
     return(
@@ -77,12 +77,8 @@ dropbox_dir <- sprintf("/mnt/c/Users/%s/Dropbox (MIT)/", username)
 experiment_dir <- paste(dropbox_dir, experiment_name, sep = "")
 cat("Experiment directory to be created: ", experiment_dir, "\n")
 
-subdirectories <- c("peak", "fastq", "alignment", "qualityControl", "bigwig", "plots", "logs", "documentation")
-create_experiment_dir(experiment_dir, subdirectories)
-
 sample_grid_config_filepath <- file.path(get_script_dir(), "sampleGridConfig.R")
 source(sample_grid_config_filepath)
-
 if (experiment_name != current_experiment) {
     cat("Experiment provided and experiment in sampleGridConfig.R are not the same.\n")
     cat(sprintf("Experiment in sampleGridConfig.R: %s", current_experiment), "\n")
@@ -92,10 +88,13 @@ if (experiment_name != current_experiment) {
     cat("Verified that experiment argument and in config file are the same.\n")
 }
 
+subdirectories <- c("peak", "fastq", "alignment", "qualityControl", "bigwig", "plots", "logs", "documentation")
+create_experiment_dir(experiment_dir, subdirectories)
+
 cat("Config file run and to be copied: ", sample_grid_config_filepath, "\n")
 
 config_file_output_path <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", "sampleGridConfig.R", sep = ""))
-cat("Outputting file to: ", config_file_output_path)
+cat("Outputting file to:\n", config_file_output_path)
 file.copy(from = sample_grid_config_filepath, to = config_file_output_path) 
 
 tables_to_output <- ls()[grepl("_table", ls())]
@@ -106,7 +105,7 @@ invisible(lapply(tables_to_output, function(output_table){
     output_file <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", output_table, ".tsv", sep = ""))
     print(output_file)
     #get(output_table)
-    write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
+    #write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
 }))
 
 # Rsync to the server
@@ -116,5 +115,5 @@ cat("Run the following command to rsync the created directory.\n")
 server_path <- "luised94@luria.mit.edu:~/data/"
 cat("scp -r from_dir user@server:to_dir\n")
 cat(sprintf("scp -r \"%s\" \"%s\"", experiment_dir, server_path), "\n")
-cat("After running the scp command, login to cluster and \n download the data from BMC (see 001_downloadDataFromBMC.sh )")
+cat("After running the scp command, login to cluster and \n download the data from BMC (see 001_downloadDataFromBMC.sh )\n")
 print("Script complete.")
