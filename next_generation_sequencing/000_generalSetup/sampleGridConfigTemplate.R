@@ -1,8 +1,11 @@
 # Description: Configures and generates a sample table with experiments.
 # Usage: Rscript sampleGridConfigAndExprTemplate.R <experiment_id>
 
-main <- function() {
-    args <- commandArgs(trailingOnly = TRUE)
+current_experiment <- "240808Bel"
+main <- function(experiment_in_config_file) {
+    #args <- commandArgs(trailingOnly = TRUE)
+    args <- current_experiment
+    cat("Processing sampleGridConfig.R file\n")
     current_experiment <- validate_input(args)
     print(current_experiment)
     all_categories_list <- define_categories()
@@ -17,6 +20,11 @@ main <- function() {
         genotype = c("strain_source", "rescue_allele", "mcm_tag")
       )
     complete_table <- add_attributes(table_with_comparisons, control_factors)
+
+    return(list(
+        complete_table = complete_table,
+        bmc_table = bmc_table
+    ))
 
     # Rest of the scripts tests the functions to reread the table after processing.
     print("Processing complete table after adding attributes as columns")
@@ -192,6 +200,7 @@ add_attributes <- function(table_with_comparisons, control_factors) {
     return(df)
 
 }
+
 create_bmc_table <- function(named_samples_table) {
     cat("Making bmc_table from sample table\n")
     bmc_table <- data.frame(SampleName = named_samples_table$full_name,
@@ -204,6 +213,7 @@ create_bmc_table <- function(named_samples_table) {
     )
     return(bmc_table)
 }
+
 print_summary <- function(sample_table, bmc_table) {
     cat("Printing results...\n")
     cat("Dimensions of sample_table:\n")
@@ -271,7 +281,7 @@ select_control_index <- function(control_indices, max_controls = 1) {
 }
 
 if(!interactive()) {
-    main()
+    sample_config_output <- main(current_experiment)
 } else {
     # Set the args for the directory
     args <- "240808Bel"
