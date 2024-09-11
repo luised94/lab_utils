@@ -7,8 +7,8 @@
 validate_input <- function(args) {
     if(length(args) != 1){
         cat("No argument provided. One argument is required.\n")
-        cat("Usage: Rscript 002_loadSampleGrid.R <directory>\n")
-        cat("Example: Rscript 002_loadSampleGrid.R 240630Bel\n")
+        cat("Usage: Rscript 003_updateSampleGrid.R <directory>\n")
+        cat("Example: Rscript 003_updateSampleGrid.R 240630Bel\n")
         stop()
     } 
     experiment_name <- args[1]
@@ -118,8 +118,8 @@ main <- function() {
         cat("Sample table has sample ID column")
         return(sample_table)
     } else {
-        cat("Sample table doesnt have sample ID column.")
-        cat("Determine sample IDs and overwrite sample table.")
+        cat("Sample table doesnt have sample ID column.\n")
+        cat("Determine sample IDs and overwrite sample table.\n")
         documentation_dir_path <- file.path(directory_path, "documentation")
         output_file_path <- list.files(documentation_dir_path, pattern = "sample_table", full.names = TRUE)
         sample_IDs <- determine_sample_id(directory_path)
