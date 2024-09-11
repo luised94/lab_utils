@@ -21,6 +21,7 @@ main <- function() {
     })
     args <- commandArgs(trailingOnly = TRUE)
     directory_path <- validate_input(args)
+    #Add process_control_factors, get_factors_to_match
     sample_table <- load_sample_table(directory_path)
     chromosome_to_plot = 10
     options(ucscChromosomeNames=FALSE)
@@ -35,6 +36,11 @@ main <- function() {
     control_dir <- "EatonBel"
     control_track <- load_control_grange_data(control_dir = control_dir, chromosome_to_plot = chromosome_to_plot,
                                              genomeRange_to_get = genomeRange_to_get)
+
+    # Convert to input, add determine_matching_control, select_control_index
+    #control_dir <- "EatonBel"
+    #control_track <- load_control_grange_data(control_dir = control_dir, chromosome_to_plot = chromosome_to_plot,
+                #                             genomeRange_to_get = genomeRange_to_get)
 
     plot_all_sample_tracks(sample_table = sample_table,
                            directory_name = directory_path,
@@ -58,6 +64,57 @@ validate_input <- function(args) {
         stop()
     }
     return(directory_path)
+}
+
+process_control_factors <- function(sample_table) {
+    cat("Process control factors from __cf_ columns\n")
+    df <- sample_table
+    cf_cols <- grep("^__cf_", names(df), value = TRUE)
+    if(length(cf_cols) == 0) {
+        cat("No columns containing __cf_ tag found in sample table")
+        stop("Verify sample table was produced with updated sampleGridConfig.")
+    }
+    control_factors <- lapply(df[cf_cols], function(x) strsplit(x[1], ",")[[1]])
+    names(control_factors) <- sub("^__cf_", "", cf_cols)
+    df[cf_cols] <- NULL
+    attr(df, "control_factors") <- control_factors
+    return(df)
+}
+
+get_factors_to_match <- function(sample_table) {
+    cat("Grabbing attributes from sample table\n")
+    df <- sample_table
+    control_factors <- attr(df, "control_factors")
+    if (is.null(control_factors)) {
+        stop("No control factors defined in sample data.")
+    }
+    all_factors <- unlist(control_factors)
+    return(intersect(all_factors, colnames(df)))
+}
+
+determine_matching_control <- function(sample_row, sample_table, factors_to_match) {
+    cat("Determining control row for sample row.\n")
+    df <- sample_table
+    comparison_row <- sample_row[factors_to_match]
+    rows_with_same_factors <- apply(df[, factors_to_match], 1, function(row) {
+        all(row == comparison_row)
+    })
+    is_input <- df$antibody == "Input"
+    index <- as.numeric(unname(which(is_input & rows_with_same_factors)))
+    return(index)
+}
+
+select_control_index <- function(control_indices, max_controls = 1) {
+    cat("Processing control index to ensure one is used.\n")
+    if (length(control_indices) == 0) {
+    stop("No matching control found")
+    }
+    if (length(control_indices) > max_controls) {
+    warning(paste("Multiple matching controls found, using first", max_controls))
+    control_indices[1:max_controls]
+    } else {
+    control_indices
+    }
 }
 
 load_sample_table <- function(directory_name) {
@@ -262,7 +319,6 @@ if(!interactive()){
     chromosome_to_plot = 10
     #chromosome_to_plot = c(10, paste0("chr", as.roman(10)))
     cat("Main function: loading sample table\n")
-    sample_table <- load_sample_table(directory_path)
     sample_table <- load_sample_table(directory_path)
     cat("Main function: loading reference genome\n")
     refGenome <- load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna")
