@@ -22,7 +22,7 @@ main <- function(experiment_in_config_file) {
     complete_table <- add_attributes(table_with_comparisons, control_factors)
 
     return(list(
-        complete_table = complete_table,
+        sample_table = complete_table,
         bmc_table = bmc_table
     ))
 

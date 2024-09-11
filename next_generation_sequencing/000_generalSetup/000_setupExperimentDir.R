@@ -69,6 +69,7 @@ validate_input <- function() {
     )
 
 }
+
 validated_args <- validate_input()
 username <- validated_args$username
 experiment_name <- validated_args$experiment_name
@@ -95,7 +96,7 @@ cat("Config file run and to be copied: ", sample_grid_config_filepath, "\n")
 
 config_file_output_path <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", "sampleGridConfig.R", sep = ""))
 cat("Outputting file to:", config_file_output_path,"\n" )
-#file.copy(from = sample_grid_config_filepath, to = config_file_output_path) 
+file.copy(from = sample_grid_config_filepath, to = config_file_output_path) 
 print("Files currently loaded")
 #print(ls())
 #tables_to_output <- ls()[grepl("_table", ls())]
@@ -107,9 +108,10 @@ print("Files currently loaded")
 #sample_config_output
 invisible(lapply(names(sample_config_output), function(output_table_name){
     print(head(sample_config_output[[output_table_name]]))
+    output_table <- sample_config_output[[output_table_name]]
     output_file <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", output_table_name, ".tsv", sep = ""))
     print(output_file)
-    write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
+    write.table(output_table, file = output_file, sep = "\t", row.names = FALSE)
 }))
 
 # Rsync to the server
