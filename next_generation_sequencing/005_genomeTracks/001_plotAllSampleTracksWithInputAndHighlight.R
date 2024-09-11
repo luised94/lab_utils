@@ -69,24 +69,24 @@ validate_input <- function(args) {
 process_control_factors <- function(sample_table) {
     cat("Process control factors from __cf_ columns\n")
     df <- sample_table
-    cf_cols <- grep("^__cf_", names(df), value = TRUE)
+    cf_cols <- grep("X__cf_", names(df), value = TRUE)
     if(length(cf_cols) == 0) {
         cat("No columns containing __cf_ tag found in sample table")
         stop("Verify sample table was produced with updated sampleGridConfig.")
     }
     control_factors <- lapply(df[cf_cols], function(x) strsplit(x[1], ",")[[1]])
-    names(control_factors) <- sub("^__cf_", "", cf_cols)
+    names(control_factors) <- sub("X__cf_", "", cf_cols)
     df[cf_cols] <- NULL
     attr(df, "control_factors") <- control_factors
     return(df)
 }
 
-get_factors_to_match <- function(sample_table) {
+get_factors_to_match <- function(sample_table, factors_to_get = "control_factors") {
     cat("Grabbing attributes from sample table\n")
     df <- sample_table
-    control_factors <- attr(df, "control_factors")
+    control_factors <- attr(df, factors_to_get)
     if (is.null(control_factors)) {
-        stop("No control factors defined in sample data.")
+        stop("No control factors defined in sample data.\nVerify 003_updateSampleGrid.R")
     }
     all_factors <- unlist(control_factors)
     return(intersect(all_factors, colnames(df)))
@@ -132,6 +132,7 @@ load_sample_table <- function(directory_name) {
         cat("Consult 000_setupExperimentDir and ensure no duplicates are present for the project\n")
         stop()
     }
+    cat(sprintf("Reading %s\n", sample_table_path))
     sample_table <- read.delim(sample_table_path, header = TRUE, sep ="\t")
     if (!("sample_ID" %in% colnames(sample_table))) {
            cat("Sample table does not contain the sample_ID column.\n")
@@ -139,7 +140,7 @@ load_sample_table <- function(directory_name) {
            cat("See 000_setupExperimentDir.R and 003_updateSampleGrid.R.\n")
            stop()
     }
-    cat(sprintf("Reading %s\n", sample_table_path))
+    sample_table <- process_control_factors(sample_table)
     cat("Head of sample_table\n")
     print(head(sample_table))
     return(sample_table)
@@ -322,6 +323,7 @@ if(!interactive()){
     #chromosome_to_plot = c(10, paste0("chr", as.roman(10)))
     cat("Main function: loading sample table\n")
     sample_table <- load_sample_table(directory_path)
+    print(attr(sample_table, "control_factors"))
     cat("Main function: loading reference genome\n")
     refGenome <- load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna")
     cat("Main function: Creating genomeRange_to_get\n")
