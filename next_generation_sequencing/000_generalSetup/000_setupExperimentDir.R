@@ -94,18 +94,22 @@ create_experiment_dir(experiment_dir, subdirectories)
 cat("Config file run and to be copied: ", sample_grid_config_filepath, "\n")
 
 config_file_output_path <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", "sampleGridConfig.R", sep = ""))
-cat("Outputting file to:\n", config_file_output_path)
-file.copy(from = sample_grid_config_filepath, to = config_file_output_path) 
-
-tables_to_output <- ls()[grepl("_table", ls())]
-cat("First elements of bmc_table. Printed for confirmation.\n")
-print(head(get(tables_to_output[1])))
-cat("Output files to be written as tsv: \n")
-invisible(lapply(tables_to_output, function(output_table){
-    output_file <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", output_table, ".tsv", sep = ""))
+cat("Outputting file to:", config_file_output_path,"\n" )
+#file.copy(from = sample_grid_config_filepath, to = config_file_output_path) 
+print("Files currently loaded")
+#print(ls())
+#tables_to_output <- ls()[grepl("_table", ls())]
+#cat("All tables to output\n")
+#print(tables_to_output)
+#cat("First elements of bmc_table. Printed for confirmation.\n")
+#print(head(get(tables_to_output[1])))
+#cat("Output files to be written as tsv: \n")
+#sample_config_output
+invisible(lapply(names(sample_config_output), function(output_table_name){
+    print(head(sample_config_output[[output_table_name]]))
+    output_file <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", output_table_name, ".tsv", sep = ""))
     print(output_file)
-    #get(output_table)
-    #write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
+    write.table(get(output_table), file = output_file, sep = "\t", row.names = FALSE)
 }))
 
 # Rsync to the server
