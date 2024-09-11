@@ -98,14 +98,6 @@ config_file_output_path <- file.path(experiment_dir, "documentation", paste(expe
 cat("Outputting file to:", config_file_output_path,"\n" )
 file.copy(from = sample_grid_config_filepath, to = config_file_output_path) 
 print("Files currently loaded")
-#print(ls())
-#tables_to_output <- ls()[grepl("_table", ls())]
-#cat("All tables to output\n")
-#print(tables_to_output)
-#cat("First elements of bmc_table. Printed for confirmation.\n")
-#print(head(get(tables_to_output[1])))
-#cat("Output files to be written as tsv: \n")
-#sample_config_output
 invisible(lapply(names(sample_config_output), function(output_table_name){
     print(head(sample_config_output[[output_table_name]]))
     output_table <- sample_config_output[[output_table_name]]
