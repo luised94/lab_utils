@@ -277,9 +277,9 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     plot_output_dir <- file.path(directory_path, "plots")
     bigwig_dir <- file.path(directory_path, "bigwig")
     cat("Plotting all sample tracks.\n")
+    gtrack <- GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = ""))
     for (sample_index in 1:nrow(sample_table)) {
         cat("===============\n")
-        gtrack <- GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = ""))
         sample_ID_pattern <- sample_table$sample_ID[sample_index]
         initial_matches <- list.files(bigwig_dir, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)
         path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
@@ -292,11 +292,6 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             print(initial_matches)
         }
         if (length(path_to_bigwig) > 0){
-            bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
-            cat("Bigwig plot output\n")
-            head(bigwig_to_plot)
-            sample_short_name <- sample_table$short_name[sample_index]
-            track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, chromosome = chromosome_to_plot)
             control_index <- determine_matching_control(sample_row = sample_table[sample_index, ], sample_table, factors_to_match = factors_to_match)
             if(length(control_index) == 0) {
                 cat("No control index found\n")
@@ -304,13 +299,14 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                 print(sample_table[sample_index, ])
             }
             control_index <- select_control_index(control_indices = control_index, max_controls = 1)
-            
             control_ID_pattern <- sample_table$sample_ID[control_index]
+            control_sample_name <-sample_table$short_name[control_index] 
             control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
             control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
             if(length(control_path_to_bigwig) == 0){
                 cat("Appropriate control bigwig not found. Setting to first sample.\n")
                 control_ID_pattern <- sample_table$sample_ID[1]
+                control_sample_name <-sample_table$short_name[1] 
                 control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
                 control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
             }
@@ -318,6 +314,14 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             print(control_ID_pattern)
             print("Name of the control bigwig path")
             print(control_path_to_bigwig)
+            bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
+            cat("Bigwig plot output\n")
+            head(bigwig_to_plot)
+            sample_short_name <- sample_table$short_name[sample_index]
+            track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, chromosome = chromosome_to_plot)
+            sample_control_bigwig_to_plot <- import(con = control_path_to_bigwig, which = genomeRange_to_get)
+            sample_control_track_to_plot <- DataTrack(sample_control_bigwig_to_plot, type = "l", name = control_sample_name, chromosome = chromosome_to_plot)
+            all_tracks <- list(sample_control_track_to_plot, track_to_plot, control_track)
             #overlay <- OverlayTrack(trackList = list(control_track, track_to_plot))
             #cat("Overlay object\n")
             #print(overlay)
@@ -327,7 +331,7 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             print(output_plot_name)
             cat("===============\n")
             #svg(output_plot_name)
-            #plotTracks(list(gtrack, overlay, annotation_track), main = main_title_of_plot_track, chromosome = chromosome_as_chr_roman, ylim = c(0, 100000))
+            #plotTracks(list(gtrack, all_tracks, annotation_track), main = main_title_of_plot_track, chromosome = chromosome_as_chr_roman, ylim = c(0, 100000))
             #dev.off()
         }
     }
