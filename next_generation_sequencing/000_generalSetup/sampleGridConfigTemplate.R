@@ -1,6 +1,7 @@
 # Description: Configures and generates a sample table with experiments.
 # Usage: Rscript sampleGridConfigAndExprTemplate.R <experiment_id>
 
+#@update
 current_experiment <- "240808Bel"
 main <- function(experiment_in_config_file) {
     #args <- commandArgs(trailingOnly = TRUE)
@@ -16,6 +17,7 @@ main <- function(experiment_in_config_file) {
     complete_table <- add_comparisons(named_samples)
 
     # Define the columns that determine the control columns.
+    #@update
     control_factors <- list(
         genotype = c("strain_source", "rescue_allele", "mcm_tag")
       )
@@ -57,6 +59,7 @@ validate_input <- function(args) {
 # Define categories
 define_categories <- function() {
     cat("Defining categories...\n")
+    #@update
     all_categories_list <- list(
         strain_source = c("lemr", "oa"),
         rescue_allele = c("none", "wt"),
@@ -69,6 +72,7 @@ define_categories <- function() {
 }
 
 filter_samples <- function(combinations_grid){
+    #@update
     is_input <- with(combinations_grid,
         rescue_allele == "none" &
         cell_cycle == "M" &
@@ -126,6 +130,7 @@ filter_samples <- function(combinations_grid){
         !(strain_source == "oa" & mcm_tag == "2") &
         !(strain_source == "lemr" & mcm_tag == "none" & rescue_allele == "wt" & cell_cycle == "M")
     )
+    #@update
     return(combinations_grid[is_input | is_protg | is_alfa | is_1108 | is_174 | is_cha | is_11HA , ])
 }
 
@@ -148,6 +153,7 @@ add_sample_names_to_table <- function(ordered_samples_table) {
 }
 
 add_comparisons <- function(ordered_samples_table) {
+    #@update
     cat("Adding columns with comparison values\n")
     df <- ordered_samples_table
     comparisons <- list(
