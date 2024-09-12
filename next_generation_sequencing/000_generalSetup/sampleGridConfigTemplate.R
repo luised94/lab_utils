@@ -14,7 +14,7 @@ main <- function(experiment_in_config_file) {
     named_samples <- add_sample_names_to_table(ordered_samples)
     named_samples$experiment_id <- current_experiment
     bmc_table <- create_bmc_table(named_samples)
-    complete_table <- add_comparisons(named_samples)
+    table_with_comparisons <- add_comparisons(named_samples)
 
     # Define the columns that determine the control columns.
     #@update
@@ -23,28 +23,27 @@ main <- function(experiment_in_config_file) {
       )
     complete_table <- add_attributes(table_with_comparisons, control_factors)
 
-    return(list(
-        sample_table = complete_table,
-        bmc_table = bmc_table
-    ))
 
     # Rest of the scripts tests the functions to reread the table after processing.
     print("Processing complete table after adding attributes as columns")
-    complete_table <- process_control_factors(complete_table)
+    reread_table <- process_control_factors(complete_table)
     print("Determining processing to find control")
-    factors_to_match <- get_factors_to_match(complete_table)
+    factors_to_match <- get_factors_to_match(reread_table)
 
-    sample_row <- complete_table[16, ]
-    control_index <- determine_matching_control(sample_row = sample_row, complete_table, factors_to_match)
+    sample_row <- reread_table[16, ]
+    control_index <- determine_matching_control(sample_row = sample_row, reread_table, factors_to_match)
     control_index <- select_control_index(control_index)
     # This will give you a logical vector indicating which rows match
 
     print("Indexing complete table")
-    print(complete_table[control_index, ])
-
+    print(reread_table[control_index, ])
+    print(attr(reread_table, "control_factors"))
     cat("Loaded all functions and testing variables.\n")
     print_summary(complete_table, bmc_table)
-
+    return(list(
+        sample_table = complete_table,
+        bmc_table = bmc_table
+    ))
 }
 
 validate_input <- function(args) {
@@ -138,6 +137,7 @@ generate_filtered_samples <- function(categories_list) {
     cat("Generating and filtering samples\n")
     combinations <- expand.grid(categories_list)
     filtered_samples <- filter_samples(combinations)
+    #@update
     reorder_index <- with(filtered_samples, order(antibody, strain_source, rescue_allele, mcm_tag, auxin_treatment, cell_cycle))
     ordered_samples <- filtered_samples[reorder_index, ]
     return(ordered_samples)
@@ -288,6 +288,7 @@ select_control_index <- function(control_indices, max_controls = 1) {
 
 if(!interactive()) {
     sample_config_output <- main(current_experiment)
+    print(sample_config_output$sample_table)
 } else {
     # Set the args for the directory
     args <- "240808Bel"
