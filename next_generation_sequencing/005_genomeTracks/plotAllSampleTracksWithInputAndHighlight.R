@@ -322,75 +322,52 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                 sample_control_bigwig_to_plot <- import(con = control_path_to_bigwig, which = genomeRange_to_get)
                 sample_control_track_to_plot <- DataTrack(sample_control_bigwig_to_plot, type = "l", name = control_sample_name, col = "#377EB8", chromosome = chromosome_to_plot)
                 all_tracks <- list(gtrack, sample_control_track_to_plot, track_to_plot, control_track, annotation_track)
-                output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndEaton", ".svg", sep = "")
-                print("Name of the plot to be generated")
-                print(output_plot_name)
-                #svg(output_plot_name)
-                #plotTracks(all_tracks, main = main_title_of_plot_track, chromosome = chromosome_as_chr_roman, ylim = c(0, 100000))
-                #dev.off()
-                output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndHighlights", ".svg", sep = "")
-                print("Verifying GdObject")
-                for (i in seq_along(all_tracks)) {
-                  if (!inherits(all_tracks[[i]], "GdObject")) {
-                      cat("Track", i, "is not a valid Gviz track object\n")
-                          print(class(all_tracks[[i]]))
-                    } else {
-                        cat("Track", i, "inherits GdObject\n")
-                        print(class(all_tracks[[i]]))
-                        }
-                }
+                #for (i in seq_along(all_tracks)) {
+                #  if (!inherits(all_tracks[[i]], "GdObject")) {
+                #      cat("Track", i, "is not a valid Gviz track object\n")
+                #          print(class(all_tracks[[i]]))
+                #    } else {
+                #        cat("Track", i, "inherits GdObject\n")
+                #        print(class(all_tracks[[i]]))
+                #        }
+                #}
+                #print(lapply(all_tracks, class))
+                #print(class(all_tracks))
                 cat("===============\n")
-                #tryCatch({
                 sample_style <- determine_chr_style(seqlevels(track_to_plot))
                 chromosome_to_subset <- normalize_chr_names(chromosome_to_plot, sample_style)
                 subset_highlight_gr <- highlight_gr[seqnames(highlight_gr) == chromosome_to_subset]
                 print("Subset highlight_gr")
-                cat("===============\n")
-                print(start(subset_highlight_gr))
-                cat("===============\n")
-                print(end(subset_highlight_gr))
-                cat("===============\n")
-                print(as.character(seqnames(subset_highlight_gr)))
-                cat("===============\n")
-                highlight_track <- HighlightTrack(tracklist = all_tracks,
-                                        start = start(subset_highlight_gr),
-                                        end = end(subset_highlight_gr),
-                                        chromosome = as.character(seqnames(subset_highlight_gr)),
-                                        fill = c("#FFE3E6", "#E6FFE3"),
-                                        col = c("#FF0000", "#00FF00"),
-                                        alpha = 0.3)
-                #        }, error = function(e) {
-                #                cat("Error creating HighlightTrack:", conditionMessage(e), "\n")
-                #                })
-                #tryCatch({
                 print("Name of the plot to be generated")
                 output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndHighlights", ".svg", sep = "")
                 print(output_plot_name)
-                svg(output_plot_name)
-                plotTracks(highlight_track, 
-                #plotTracks(all_tracks, 
+               # plotTracks(trackList = all_tracks,
+               #                  main = main_title_of_plot_track,
+               #                             chromosome = chromosome_as_chr_roman,
+               #                                        ylim = c(0, 100000))
+                cat("===============\n")
+                browser()
+                highlight_track <- HighlightTrack(trackList = all_tracks,
+                                        start = start(subset_highlight_gr),
+                                        end = end(subset_highlight_gr),
+                                        chromosome = seqnames(subset_highlight_gr)
+                                        )
+                                        #fill = "#FFE3E6",
+                                        #col = "#FF0000",
+                                        #alpha = 0.3)
+                cat("===============\n")
+                cat("===============\n")
+                cat("===============\n")
+                cat("===============\n")
+                #svg(output_plot_name)
+                plotTracks(trackList = highlight_track,
                             main = main_title_of_plot_track,
-                            chromosome = chromosome_as_chr_roman,
+                            chromosome = as.character(unique(seqnames(subset_highlight_gr))),
                             ylim = c(0, 100000))
-                dev.off()
-               #         }, error = function(e) {
-               #             cat("Error creating plotTracks:", conditionMessage(e), "\n")
-               #             })
+                #dev.off()
               }
         }
     }
-    #cat("===============\n")
-    #print(str(highlight_gr))
-    #cat("===============\n")
-    #print(start(highlight_gr))
-    #cat("===============\n")
-    #print(end(highlight_gr))
-    #cat("===============\n")
-    #print(as.character(seqnames(highlight_gr)))
-    #cat("===============\n")
-    #print(str(highlight_track))
-    #cat("===============\n")
-    #print(range(highlight_track))
     cat("Reached end of for loop\n")
     cat("Finished plotting samples\n")
 
