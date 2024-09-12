@@ -330,29 +330,38 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             #dev.off()
             cat("===============\n")
             output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndHighlights", ".svg", sep = "")
-            #highlight_track <- HighlightTrack(tracklist = all_tracks, start = start(highlight_gr), end = end(highlight_gr), chromosome = as.character(seqnames(highlight_gr)),
-            #fill = c("#FFE3E6", "#E6FFE3"), col =c("#FF0000", "#00FF00"), inBackground = TRUE,alpha = 0.3)
-            #plotTracks(list(gtrack, highlight_track, annotation_track), main = main_title_of_plot_track, chromosome = chromosome_as_chr_roman, ylim = c(0, 100000))
+            tryCatch({
+            highlight_track <- HighlightTrack(tracklist = all_tracks,
+                                    start = start(highlight_gr),
+                                    end = end(highlight_gr),
+                                    chromosome = as.character(seqnames(highlight_gr)),
+                                    fill = "#FFE3E6",
+                                    col ="#FF0000",
+                                    inBackground = TRUE,
+                                    alpha = 0.3)
+                    }, error = function(e) {
+                            cat("Error creating HighlightTrack:", conditionMessage(e), "\n")
+                            })
+            tryCatch({
+            plotTracks(highlight_track, 
+                        main = main_title_of_plot_track,
+                        chromosome = chromosome_as_chr_roman,
+                        ylim = c(0, 100000))
+                    }, error = function(e) {
+                        cat("Error creating plotTracks:", conditionMessage(e), "\n")
+                        })
             #overlay <- OverlayTrack(trackList = list(control_track, track_to_plot))
             #cat("Overlay object\n")
             #print(overlay)
             #Generate the plot
         }
     }
-    #print(str(genomeRange_to_get))
-    #print(str(highlight_gr))
-    #print(str(sample_control_track_to_plot))
-    #print(str(track_to_plot))
-    #print(str(control_track))
-    #print(str(highlight_track))
-    #print(seqnames(sample_control_track_to_plot))
-    #print(seqnames(track_to_plot))
-    #print(seqnames(control_track))
-    #print(seqnames(highlight_track))
-    #print(range(sample_control_track_to_plot))
-    #print(range(track_to_plot))
-    #print(range(control_track))
-    #print(range(highlight_track))
+    print(str(highlight_gr))
+    print(start(highlight_gr))
+    print(end(highlight_gr))
+    print(as.character(seqnames(highlight_gr)))
+    print(str(highlight_track))
+    print(range(highlight_track))
     cat("Reached end of for loop\n")
     cat("Finished plotting samples\n")
 
