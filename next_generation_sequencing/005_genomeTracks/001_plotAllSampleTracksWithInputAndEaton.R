@@ -339,6 +339,7 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
 }
 if(!interactive()){
     main()
+    cat("rsync -nav username@domain:~/data/<dir>/plots/* /local/dir/<dir>/plots/\n")
 } else {
     suppressPackageStartupMessages({
         library(QuasR)
