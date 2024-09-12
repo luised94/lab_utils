@@ -268,7 +268,7 @@ load_control_grange_data <- function(control_dir, file_identifier, chromosome_to
     return(control_grange)
 }
 
-plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_plot = 10, genomeRange_to_get, control_track, annotation_track) {
+plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_plot = 10, genomeRange_to_get, control_track, annotation_track, highlight_gr) {
     main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot), sep = " ")
     date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
     factors_to_match <- get_factors_to_match(sample_table)
@@ -322,6 +322,7 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             sample_control_bigwig_to_plot <- import(con = control_path_to_bigwig, which = genomeRange_to_get)
             sample_control_track_to_plot <- DataTrack(sample_control_bigwig_to_plot, type = "l", name = control_sample_name, chromosome = chromosome_to_plot)
             all_tracks <- list(sample_control_track_to_plot, track_to_plot, control_track)
+            highlight_track <- HighlightTrack(tracklist = all_tracks, start = start(highlight_gr), end = end(highlight_gr), chromosome = as.character(seqnames(highlight_gr)))
             #overlay <- OverlayTrack(trackList = list(control_track, track_to_plot))
             #cat("Overlay object\n")
             #print(overlay)
@@ -381,5 +382,5 @@ if(!interactive()){
     control_track <- DataTrack(control_grange, name = "Eaton 2010")
     print(head(control_grange))
     # Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
-    plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = feature_track)
+    plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = feature_track, highlight_gr = feature_grange)
 }
