@@ -68,3 +68,7 @@ Output plots with tracks overlayed but with colors and different comparisons.
 Update sampleConfig to ConfigAndExpr and main/function
 Implement peak calling, motif analysis and comparisons and analysis.
 Update track plotting to ggplot2.
+
+## 2024-09-11
+try lapply with all_tracks to highlight track and plot to see if any or all of the tracks trigger the error.
+start new thread to get fresh help.
