@@ -278,7 +278,6 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     cat("Plotting all sample tracks.\n")
     gtrack <- GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = ""))
     for (sample_index in 1:nrow(sample_table)) {
-        if(sample_index == 1){
             cat("===============\n")
             sample_ID_pattern <- sample_table$sample_ID[sample_index]
             initial_matches <- list.files(bigwig_dir, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)
@@ -325,79 +324,22 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                 output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndEaton", ".svg", sep = "")
                 print("Name of the plot to be generated")
                 print(output_plot_name)
-                #svg(output_plot_name)
-                #plotTracks(all_tracks, main = main_title_of_plot_track, chromosome = chromosome_as_chr_roman, ylim = c(0, 100000))
-                #dev.off()
-                output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndHighlights", ".svg", sep = "")
-                print("Verifying GdObject")
-                for (i in seq_along(all_tracks)) {
-                  if (!inherits(all_tracks[[i]], "GdObject")) {
-                      cat("Track", i, "is not a valid Gviz track object\n")
-                          print(class(all_tracks[[i]]))
-                    } else {
-                        cat("Track", i, "inherits GdObject\n")
-                        print(class(all_tracks[[i]]))
-                        }
-                }
-                cat("===============\n")
-                #tryCatch({
-                sample_style <- determine_chr_style(seqlevels(track_to_plot))
-                chromosome_to_subset <- normalize_chr_names(chromosome_to_plot, sample_style)
-                subset_highlight_gr <- highlight_gr[seqnames(highlight_gr) == chromosome_to_subset]
-                print("Subset highlight_gr")
-                cat("===============\n")
-                print(start(subset_highlight_gr))
-                cat("===============\n")
-                print(end(subset_highlight_gr))
-                cat("===============\n")
-                print(as.character(seqnames(subset_highlight_gr)))
-                cat("===============\n")
-                highlight_track <- HighlightTrack(tracklist = all_tracks,
-                                        start = start(subset_highlight_gr),
-                                        end = end(subset_highlight_gr),
-                                        chromosome = as.character(seqnames(subset_highlight_gr)),
-                                        fill = c("#FFE3E6", "#E6FFE3"),
-                                        col = c("#FF0000", "#00FF00"),
-                                        alpha = 0.3)
-                #        }, error = function(e) {
-                #                cat("Error creating HighlightTrack:", conditionMessage(e), "\n")
-                #                })
-                #tryCatch({
-                print("Name of the plot to be generated")
-                output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndHighlights", ".svg", sep = "")
-                print(output_plot_name)
                 svg(output_plot_name)
-                plotTracks(highlight_track, 
-                #plotTracks(all_tracks, 
+                plotTracks(all_tracks, 
                             main = main_title_of_plot_track,
                             chromosome = chromosome_as_chr_roman,
                             ylim = c(0, 100000))
                 dev.off()
-               #         }, error = function(e) {
-               #             cat("Error creating plotTracks:", conditionMessage(e), "\n")
-               #             })
-              }
-        }
+                cat("===============\n")
+        
     }
-    #cat("===============\n")
-    #print(str(highlight_gr))
-    #cat("===============\n")
-    #print(start(highlight_gr))
-    #cat("===============\n")
-    #print(end(highlight_gr))
-    #cat("===============\n")
-    #print(as.character(seqnames(highlight_gr)))
-    #cat("===============\n")
-    #print(str(highlight_track))
-    #cat("===============\n")
-    #print(range(highlight_track))
     cat("Reached end of for loop\n")
     cat("Finished plotting samples\n")
-
+    }
 }
-
 if(!interactive()){
     main()
+    cat("rsync -nav username@domain:~/data/<dir>/plots/* /local/dir/<dir>/plots/\n")
 } else {
     suppressPackageStartupMessages({
         library(QuasR)
@@ -408,6 +350,7 @@ if(!interactive()){
         library(tidyverse)
         library(gtools)
     })
+    #@update
     directory_path <- "240808Bel"
     cat("Logic of main function\n")
     main_function_logic <- main
