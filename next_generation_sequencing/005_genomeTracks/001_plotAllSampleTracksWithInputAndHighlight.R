@@ -318,11 +318,12 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             cat("Bigwig plot output\n")
             head(bigwig_to_plot)
             sample_short_name <- sample_table$short_name[sample_index]
-            track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, chromosome = chromosome_to_plot)
+            track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_to_plot)
             sample_control_bigwig_to_plot <- import(con = control_path_to_bigwig, which = genomeRange_to_get)
-            sample_control_track_to_plot <- DataTrack(sample_control_bigwig_to_plot, type = "l", name = control_sample_name, chromosome = chromosome_to_plot)
+            sample_control_track_to_plot <- DataTrack(sample_control_bigwig_to_plot, type = "l", name = control_sample_name, col = "#377EB8", chromosome = chromosome_to_plot)
             all_tracks <- list(sample_control_track_to_plot, track_to_plot, control_track)
-            highlight_track <- HighlightTrack(tracklist = all_tracks, start = start(highlight_gr), end = end(highlight_gr), chromosome = as.character(seqnames(highlight_gr)))
+            highlight_track <- HighlightTrack(tracklist = all_tracks, start = start(highlight_gr), end = end(highlight_gr), chromosome = as.character(seqnames(highlight_gr)),
+            fill = c("#FFE3E6", "#E6FFE3"), col =c("#FF0000", "#00FF00"), inBackground = TRUE,alpha = 0.3)
             #overlay <- OverlayTrack(trackList = list(control_track, track_to_plot))
             #cat("Overlay object\n")
             #print(overlay)
@@ -379,7 +380,7 @@ if(!interactive()){
     file_identifier <- "nnNnH"
     cat("Main function: loading control grange\n")
     control_grange <- load_control_grange_data(control_dir = control_dir, file_identifier = file_identifier, chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get)
-    control_track <- DataTrack(control_grange, name = "Eaton 2010")
+    control_track <- DataTrack(control_grange, name = "Eaton 2010", col = "#377EB8")
     print(head(control_grange))
     # Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
     plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = feature_track, highlight_gr = feature_grange)
