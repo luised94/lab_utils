@@ -342,25 +342,19 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             }
 
         }
-    output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", col, ".svg", sep = "")
+    output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_as_chr_roman, "_", col, ".svg", sep = "")
     print("Name of the plot to be generated")
     print(output_plot_name)
     cat(sprintf("End of for loop for %s ====\n", col))
+    #svg(output_plot_name)
+    plotTracks(all_tracks, 
+                main = main_title_of_plot_track,
+                chromosome = chromosome_as_chr_roman,
+                ylim = c(0, 100000))
+    #dev.off()
     }
-    cat("===============\n")
+    cat("All comparisons plotted ===============\n")
 }
-    #            svg(output_plot_name)
-    #            plotTracks(all_tracks, 
-    #                        main = main_title_of_plot_track,
-    #                        chromosome = chromosome_as_chr_roman,
-    #                        ylim = c(0, 100000))
-    #            dev.off()
-    #            cat("===============\n")
-    #    
-    #}
-    #cat("Reached end of for loop\n")
-    #cat("Finished plotting samples\n")
-    #}
 
 if(!interactive()){
     main()
