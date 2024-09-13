@@ -288,6 +288,7 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
         cat("===============\n")
         comparison_samples <- sample_table[sample_table[[col]],]
         all_tracks <- list()
+        all_tracks <- append(all_tracks, gtrack)
         for (sample_index in 1:nrow(comparison_samples)) {
             sample_ID_pattern <- comparison_samples$sample_ID[sample_index]
             initial_matches <- list.files(bigwig_dir, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)
@@ -326,22 +327,23 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                     print("Name of the control bigwig path")
                     print(control_path_to_bigwig)
                     control_bigwig_to_plot <- import(con = control_path_to_bigwig, which = subset_gr)
-                    control_track_to_plot <- DataTrack(control_bigwig_to_plot, type = "l", name = "Input", col = "#E41A1C", chromosome = chromosome_as_chr_roman)
+                    control_track_to_plot <- DataTrack(control_bigwig_to_plot, type = "l", name = "Input", col = "#fd0036", chromosome = chromosome_as_chr_roman)
                     sample_short_name <- comparison_samples$short_name[sample_index]
                     bigwig_to_plot <- import(con = path_to_bigwig, which = subset_gr)
-                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_as_chr_roman)
+                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#fd0036", chromosome = chromosome_as_chr_roman)
                     print(track_to_plot)
-                    all_tracks <- append(all_tracks, track_to_plot)
                     all_tracks <- append(all_tracks, control_track_to_plot)
+                    all_tracks <- append(all_tracks, track_to_plot)
                 } else {
                     sample_short_name <- comparison_samples$short_name[sample_index]
                     bigwig_to_plot <- import(con = path_to_bigwig, which = subset_gr)
-                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_as_chr_roman)
+                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#fd0036", chromosome = chromosome_as_chr_roman)
                     all_tracks <- append(all_tracks, track_to_plot)
                 }
             }
 
         }
+    all_tracks <- append(all_tracks, annotation_track)
     output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_as_chr_roman, "_", col, ".svg", sep = "")
     print("Name of the plot to be generated")
     print(output_plot_name)
@@ -398,4 +400,5 @@ if(!interactive()){
     # Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
     plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = feature_track, highlight_gr = feature_grange)
     cat("Script end=====\n")
+    cat("rsync -nav username@domain:~/data/<dir>/plots/* /local/dir/<dir>/plots/\n")
 }
