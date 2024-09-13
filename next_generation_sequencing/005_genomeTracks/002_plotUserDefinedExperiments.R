@@ -286,44 +286,52 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
         cat("===============\n")
         comparison_samples <- sample_table[sample_table[[col]],]
         #print(comparison_samples$sample_ID)
+        all_tracks <- list()
+        chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
         for (sample_index in 1:nrow(comparison_samples)) {
             sample_ID_pattern <- comparison_samples$sample_ID[sample_index]
             initial_matches <- list.files(bigwig_dir, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)
             path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
             print(path_to_bigwig)
+            if (sample_index == 1) { 
+                cat("===============\n")
+                cat("First sample being processed. Setting the control sample based on it.\n")
+                if (length(path_to_bigwig) == 0){
+                    cat(sprintf("No bigwig found for sample_ID: %s\n", sample_ID_pattern))
+                    cat("Results of initial matches\n")
+                    print(initial_matches)
+                } else if (length(path_to_bigwig) == 1){
+                    control_index <- determine_matching_control(sample_row = comparison_samples[sample_index, ], sample_table, factors_to_match = factors_to_match)
+                    if(length(control_index) == 0) {
+                        cat("No control index found\n")
+                        cat(sprintf("Sample row: %s\n", comparison_samples[sample_index, ]))
+                        control_ID_pattern <- sample_table$sample_ID[1]
+                        control_sample_name <-sample_table$short_name[1] 
+                        control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
+                        control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
+                    } else {
+                       #control_index <- select_control_index(control_indices = control_index, max_controls = 1)
+                        control_ID_pattern <- sample_table$sample_ID[control_index]
+                        control_sample_name <-sample_table$short_name[control_index] 
+                        control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
+                        control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
+                    }
+                    if(length(control_path_to_bigwig) == 0){
+                        cat("Appropriate control bigwig and index one failed. Setting to second sample.\n")
+                        control_ID_pattern <- sample_table$sample_ID[2]
+                        control_sample_name <-sample_table$short_name[2] 
+                        control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
+                        control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
+                    }
+                    cat("===============\n")
+                    print("Name of the control bigwig path")
+                    print(control_path_to_bigwig)
+                }
         }
         cat("===============\n")
     }
-    #        print("Name of the bigwig path")
-    #        print(path_to_bigwig)
-    #        chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
-    #        if (length(path_to_bigwig) == 0){
-    #            cat(sprintf("No bigwig found for sample_ID: %s\n", sample_ID_pattern))
-    #            cat("Results of initial matches\n")
-    #            print(initial_matches)
-    #        }
-    #        if (length(path_to_bigwig) > 0){
-    #            control_index <- determine_matching_control(sample_row = sample_table[sample_index, ], sample_table, factors_to_match = factors_to_match)
-    #            if(length(control_index) == 0) {
-    #                cat("No control index found\n")
-    #                cat("Printing sample row\n")
-    #                print(sample_table[sample_index, ])
-    #            }
-    #            control_index <- select_control_index(control_indices = control_index, max_controls = 1)
-    #            control_ID_pattern <- sample_table$sample_ID[control_index]
-    #            control_sample_name <-sample_table$short_name[control_index] 
-    #            control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-    #            control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
-    #            if(length(control_path_to_bigwig) == 0){
-    #                cat("Appropriate control bigwig not found. Setting to first sample.\n")
-    #                control_ID_pattern <- sample_table$sample_ID[1]
-    #                control_sample_name <-sample_table$short_name[1] 
-    #                control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-    #                control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
-    #            }
-    #            print("Control ID pattern")
-    #            print(control_ID_pattern)
-    #            print("Name of the control bigwig path")
+    }
+}
     #            print(control_path_to_bigwig)
     #            bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
     #            cat("Bigwig plot output\n")
@@ -348,7 +356,7 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     #cat("Reached end of for loop\n")
     #cat("Finished plotting samples\n")
     #}
-}
+
 if(!interactive()){
     main()
     cat("rsync -nav username@domain:~/data/<dir>/plots/* /local/dir/<dir>/plots/\n")
