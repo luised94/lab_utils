@@ -266,9 +266,59 @@ load_control_grange_data <- function(control_dir, file_identifier, chromosome_to
     control_grange <- import(bigwig_file_path, which = genomeRange_to_get)
     return(control_grange)
 }
-
+unique_labeling <- function(table, categories_for_label) {
+    # Input validation
+    if (!is.data.frame(table)) {
+        stop("Input 'table' must be a data frame")
+    }
+    if (!is.character(categories_for_label) || length(categories_for_label) == 0) {
+        stop("Input 'categories_for_label' must be a non-empty character vector")
+    }
+    
+    # Ensure antibody category is always included
+    if (!"antibody" %in% categories_for_label) {
+    categories_for_label <- c("antibody", categories_for_label)
+    }
+    
+    print(paste("Categories for label:", paste(categories_for_label, collapse = ", ")))
+    
+    # Check if all categories exist in the table
+    missing_categories <- setdiff(categories_for_label, colnames(table))
+    if (length(missing_categories) > 0) {
+        stop(paste("The following categories are missing from the table:", 
+        paste(missing_categories, collapse = ", ")))
+    }
+    
+    # Identify unique values for each category
+    unique_values <- lapply(table[categories_for_label], unique)
+    print("Unique values for each category:")
+    print(unique_values)
+    
+    # Function to construct label for a single sample
+    construct_label <- function(sample) {
+    differing_categories <- sapply(categories_for_label, function(cat) {
+        if (length(unique_values[[cat]]) > 1 || cat == "antibody") {
+            return(sample[cat])
+            #return(paste(cat, sample[cat], sep = ": "))
+        } else {
+            return(NULL)
+        }
+    })
+        differing_categories <- differing_categories[!sapply(differing_categories, is.null)]
+        return(paste(differing_categories, collapse = "_"))
+    }
+    
+    # Apply the construct_label function to each sample (row)
+    labels <- apply(table, 1, construct_label)
+    
+    print("Constructed labels:")
+    print(labels)
+    
+    return(unlist(labels))
+}
 plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_plot = 10, genomeRange_to_get, control_track, annotation_track, highlight_gr) {
     main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot), sep = " ")
+    categories_for_label <- c("strain_source", "rescue_allele", "mcm_tag", "antibody", "timepoint_after_release")
     date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
     factors_to_match <- get_factors_to_match(sample_table)
     cat("Factors in attributes of sample_table\n")
@@ -288,6 +338,8 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
         cat(sprintf("Column to plot: %s\n", col))
         cat("===============\n")
         comparison_samples <- sample_table[sample_table[[col]],]
+        labels <- unique_labeling(comparison_samples, categories_for_label)
+        print(labels)
         all_tracks <- list()
         all_tracks <- append(all_tracks, gtrack)
         for (sample_index in 1:nrow(comparison_samples)) {
@@ -331,14 +383,14 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                     control_track_to_plot <- DataTrack(control_bigwig_to_plot, type = "l", name = "Input", col = "#fd0036", chromosome = chromosome_as_chr_roman)
                     sample_short_name <- comparison_samples$short_name[sample_index]
                     bigwig_to_plot <- import(con = path_to_bigwig, which = subset_gr)
-                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#fd0036", chromosome = chromosome_as_chr_roman)
+                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = labels[sample_index], col = "#fd0036", chromosome = chromosome_as_chr_roman)
                     print(track_to_plot)
                     all_tracks <- append(all_tracks, control_track_to_plot)
                     all_tracks <- append(all_tracks, track_to_plot)
                 } else {
                     sample_short_name <- comparison_samples$short_name[sample_index]
                     bigwig_to_plot <- import(con = path_to_bigwig, which = subset_gr)
-                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#fd0036", chromosome = chromosome_as_chr_roman)
+                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = labels[sample_index], col = "#fd0036", chromosome = chromosome_as_chr_roman)
                     all_tracks <- append(all_tracks, track_to_plot)
                 }
             }
