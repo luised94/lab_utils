@@ -281,13 +281,14 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     column_names <- colnames(sample_table)
     is_comparison_column <- grepl("^comp_", colnames(sample_table))
     comparison_columns <- column_names[is_comparison_column]
+    chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
+    subset_gr <- genomeRange_to_get[seqnames(genomeRange_to_get) == chromosome_as_chr_roman]
     for (col in comparison_columns) {
         cat(sprintf("Column to plot: %s\n", col))
         cat("===============\n")
         comparison_samples <- sample_table[sample_table[[col]],]
         #print(comparison_samples$sample_ID)
         all_tracks <- list()
-        chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
         for (sample_index in 1:nrow(comparison_samples)) {
             sample_ID_pattern <- comparison_samples$sample_ID[sample_index]
             initial_matches <- list.files(bigwig_dir, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)
@@ -326,12 +327,12 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                     print("Name of the control bigwig path")
                     print(control_path_to_bigwig)
                     sample_short_name <- comparison_samples$short_name[sample_index]
-                    bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
+                    bigwig_to_plot <- import(con = path_to_bigwig, which = subset_gr)
                     track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_to_plot)
-                    print(head(track_to_plot))
+                    print(track_to_plot)
                 } else {
                     sample_short_name <- comparison_samples$short_name[sample_index]
-                    bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
+                    bigwig_to_plot <- import(con = path_to_bigwig, which = subset_gr)
                     track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_to_plot)
 
                 }
@@ -339,8 +340,6 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                 cat("===============\n")
         }
     }
-    print(seqnames(genomeRange_to_get))
-    print(length(genomeRange_to_get))
     cat("===============\n")
 }
 
@@ -404,4 +403,9 @@ if(!interactive()){
     control_track <- DataTrack(control_grange, type = "l",  name = "Eaton 2010", col = "#377EB8")
     # Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
     plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = feature_track, highlight_gr = feature_grange)
+    #print(genomeRange_to_get)
+    #chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
+    #subset_gr <- genomeRange_to_get[seqnames(genomeRange_to_get) == chromosome_as_chr_roman]
+    #print(subset_gr)
+    cat("Script end=====\n")
 }
