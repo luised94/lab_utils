@@ -348,12 +348,12 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     print("Name of the plot to be generated")
     print(output_plot_name)
     cat(sprintf("End of for loop for %s ====\n", col))
-    #svg(output_plot_name)
+    svg(output_plot_name)
     plotTracks(all_tracks, 
                 main = main_title_of_plot_track,
                 chromosome = chromosome_as_chr_roman,
                 ylim = c(0, 100000))
-    #dev.off()
+    dev.off()
     }
     cat("All comparisons plotted ===============\n")
 }
