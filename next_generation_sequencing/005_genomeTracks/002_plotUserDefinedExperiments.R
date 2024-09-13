@@ -293,14 +293,14 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             initial_matches <- list.files(bigwig_dir, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)
             path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
             print(path_to_bigwig)
-            if (sample_index == 1) { 
-                cat("===============\n")
-                cat("First sample being processed. Setting the control sample based on it.\n")
-                if (length(path_to_bigwig) == 0){
-                    cat(sprintf("No bigwig found for sample_ID: %s\n", sample_ID_pattern))
-                    cat("Results of initial matches\n")
-                    print(initial_matches)
-                } else if (length(path_to_bigwig) == 1){
+            if (length(path_to_bigwig) == 0){
+                cat(sprintf("No bigwig found for sample_ID: %s\n", sample_ID_pattern))
+                cat("Results of initial matches\n")
+                print(initial_matches)
+            } else if (length(path_to_bigwig) == 1){
+                if (sample_index == 1) {
+                    cat("===============\n")
+                    cat("First sample being processed. Setting the control sample based on it.\n")
                     control_index <- determine_matching_control(sample_row = comparison_samples[sample_index, ], sample_table, factors_to_match = factors_to_match)
                     if(length(control_index) == 0) {
                         cat("No control index found\n")
@@ -323,21 +323,27 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                         control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
                         control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
                     }
-                    cat("===============\n")
                     print("Name of the control bigwig path")
                     print(control_path_to_bigwig)
+                    sample_short_name <- comparison_samples$short_name[sample_index]
+                    bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
+                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_to_plot)
+                    print(head(track_to_plot))
+                } else {
+                    sample_short_name <- comparison_samples$short_name[sample_index]
+                    bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
+                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_to_plot)
+
                 }
+            }
+                cat("===============\n")
         }
-        cat("===============\n")
     }
-    }
+    print(seqnames(genomeRange_to_get))
+    print(length(genomeRange_to_get))
+    cat("===============\n")
 }
-    #            print(control_path_to_bigwig)
-    #            bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
-    #            cat("Bigwig plot output\n")
-    #            head(bigwig_to_plot)
-    #            sample_short_name <- sample_table$short_name[sample_index]
-    #            track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_to_plot)
+
     #            sample_control_bigwig_to_plot <- import(con = control_path_to_bigwig, which = genomeRange_to_get)
     #            sample_control_track_to_plot <- DataTrack(sample_control_bigwig_to_plot, type = "l", name = control_sample_name, col = "#377EB8", chromosome = chromosome_to_plot)
     #            all_tracks <- list(gtrack, sample_control_track_to_plot, track_to_plot, control_track, annotation_track)
