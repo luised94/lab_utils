@@ -284,6 +284,7 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
     subset_gr <- genomeRange_to_get[seqnames(genomeRange_to_get) == chromosome_as_chr_roman]
     for (col in comparison_columns) {
+        if (col == "comp_timecourse1108") {
         cat(sprintf("Column to plot: %s\n", col))
         cat("===============\n")
         comparison_samples <- sample_table[sample_table[[col]],]
@@ -342,20 +343,24 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                 }
             }
 
-        }
+        } 
     all_tracks <- append(all_tracks, annotation_track)
     output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_as_chr_roman, "_", col, ".svg", sep = "")
     print("Name of the plot to be generated")
     print(output_plot_name)
     cat(sprintf("End of for loop for %s ====\n", col))
-    svg(output_plot_name)
+    #svg(output_plot_name)
     plotTracks(all_tracks, 
                 main = main_title_of_plot_track,
                 chromosome = chromosome_as_chr_roman,
                 ylim = c(0, 100000))
-    dev.off()
+    #dev.off()
+    
+    } else {
+        cat(sprintf("Testing. Only plotting %s\n", col))
     }
     cat("All comparisons plotted ===============\n")
+}
 }
 
 if(!interactive()){
