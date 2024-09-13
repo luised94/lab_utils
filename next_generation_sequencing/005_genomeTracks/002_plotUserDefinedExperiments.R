@@ -287,7 +287,6 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
         cat(sprintf("Column to plot: %s\n", col))
         cat("===============\n")
         comparison_samples <- sample_table[sample_table[[col]],]
-        #print(comparison_samples$sample_ID)
         all_tracks <- list()
         for (sample_index in 1:nrow(comparison_samples)) {
             sample_ID_pattern <- comparison_samples$sample_ID[sample_index]
@@ -326,29 +325,30 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                     }
                     print("Name of the control bigwig path")
                     print(control_path_to_bigwig)
+                    control_bigwig_to_plot <- import(con = control_path_to_bigwig, which = subset_gr)
+                    control_track_to_plot <- DataTrack(control_bigwig_to_plot, type = "l", name = "Input", col = "#E41A1C", chromosome = chromosome_as_chr_roman)
                     sample_short_name <- comparison_samples$short_name[sample_index]
                     bigwig_to_plot <- import(con = path_to_bigwig, which = subset_gr)
-                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_to_plot)
+                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_as_chr_roman)
                     print(track_to_plot)
+                    all_tracks <- append(all_tracks, track_to_plot)
+                    all_tracks <- append(all_tracks, control_track_to_plot)
                 } else {
                     sample_short_name <- comparison_samples$short_name[sample_index]
                     bigwig_to_plot <- import(con = path_to_bigwig, which = subset_gr)
-                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_to_plot)
-
+                    track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_as_chr_roman)
+                    all_tracks <- append(all_tracks, track_to_plot)
                 }
             }
-                cat("===============\n")
+
         }
+    output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", col, ".svg", sep = "")
+    print("Name of the plot to be generated")
+    print(output_plot_name)
+    cat(sprintf("End of for loop for %s ====\n", col))
     }
     cat("===============\n")
 }
-
-    #            sample_control_bigwig_to_plot <- import(con = control_path_to_bigwig, which = genomeRange_to_get)
-    #            sample_control_track_to_plot <- DataTrack(sample_control_bigwig_to_plot, type = "l", name = control_sample_name, col = "#377EB8", chromosome = chromosome_to_plot)
-    #            all_tracks <- list(gtrack, sample_control_track_to_plot, track_to_plot, control_track, annotation_track)
-    #            output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndEaton", ".svg", sep = "")
-    #            print("Name of the plot to be generated")
-    #            print(output_plot_name)
     #            svg(output_plot_name)
     #            plotTracks(all_tracks, 
     #                        main = main_title_of_plot_track,
@@ -403,9 +403,5 @@ if(!interactive()){
     control_track <- DataTrack(control_grange, type = "l",  name = "Eaton 2010", col = "#377EB8")
     # Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
     plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = feature_track, highlight_gr = feature_grange)
-    #print(genomeRange_to_get)
-    #chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
-    #subset_gr <- genomeRange_to_get[seqnames(genomeRange_to_get) == chromosome_as_chr_roman]
-    #print(subset_gr)
     cat("Script end=====\n")
 }
