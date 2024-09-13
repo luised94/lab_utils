@@ -266,6 +266,60 @@ load_control_grange_data <- function(control_dir, file_identifier, chromosome_to
     control_grange <- import(bigwig_file_path, which = genomeRange_to_get)
     return(control_grange)
 }
+minimum_self_contained_example <- function() {
+# Load required libraries
+library(Gviz)
+library(GenomicRanges)
+library(rtracklayer)
+
+# Set up example data
+chr <- "chr1"
+start <- 1000
+end <- 5000
+
+# Create a GRanges object for highlights
+highlights <- GRanges(seqnames = chr, 
+ranges = IRanges(start = c(1500, 3000), 
+end = c(2000, 3500)))
+
+# Create dummy data for DataTracks
+data1 <- runif(end - start + 1, min = 0, max = 100)
+data2 <- rnorm(end - start + 1, mean = 50, sd = 10)
+data3 <- rpois(end - start + 1, lambda = 5)
+
+# Create DataTracks
+dataTrack1 <- DataTrack(start = start:end, end = start:end, data = data1, chromosome = chr, genome = "hg19", name = "Track 1")
+dataTrack2 <- DataTrack(start = start:end, end = start:end, data = data2, chromosome = chr, genome = "hg19", name = "Track 2")
+dataTrack3 <- DataTrack(start = start:end, end = start:end, data = data3, chromosome = chr, genome = "hg19", name = "Track 3")
+
+# Create a dummy annotation track
+annotationData <- GRanges(seqnames = chr,
+ranges = IRanges(start = c(1200, 2500, 3800),
+end = c(1800, 3000, 4200)),
+strand = c("+", "-", "+"),
+feature = c("Gene A", "Gene B", "Gene C"))
+annotationTrack <- AnnotationTrack(start = start(annotationData),
+end = end(annotationData),
+chromosome = as.character(seqnames(annotationData)),
+strand = strand(annotationData),
+feature = as.character(annotationData$feature),
+name = "Genes")
+
+# Create axis track
+axisTrack <- GenomeAxisTrack()
+
+# Create highlight track encompassing all other tracks
+highlightTrack <- HighlightTrack(trackList = list(axisTrack, dataTrack1, dataTrack2, dataTrack3, annotationTrack),
+start = start(highlights),
+end = end(highlights),
+chromosome = as.character(seqnames(highlights)))
+
+# Plot the tracks
+plotTracks(highlightTrack, 
+from = start, 
+to = end, 
+chromosome = chr)
+}
 
 plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_plot = 10, genomeRange_to_get, control_track, annotation_track, highlight_gr) {
     main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot), sep = " ")
@@ -276,7 +330,8 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     plot_output_dir <- file.path(directory_path, "plots")
     bigwig_dir <- file.path(directory_path, "bigwig")
     cat("Plotting all sample tracks.\n")
-    gtrack <- GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = ""))
+    chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
+    gtrack <- GenomeAxisTrack(name = chromosome_as_chr_roman)
     for (sample_index in 1:nrow(sample_table)) {
         if(sample_index == 1){
             cat("===============\n")
@@ -285,7 +340,6 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
             print("Name of the bigwig path")
             print(path_to_bigwig)
-            chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
             if (length(path_to_bigwig) == 0){
                 cat(sprintf("No bigwig found for sample_ID: %s\n", sample_ID_pattern))
                 cat("Results of initial matches\n")
@@ -318,79 +372,44 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                 cat("Bigwig plot output\n")
                 head(bigwig_to_plot)
                 sample_short_name <- sample_table$short_name[sample_index]
-                track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_to_plot)
+                track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_as_chr_roman)
                 sample_control_bigwig_to_plot <- import(con = control_path_to_bigwig, which = genomeRange_to_get)
-                sample_control_track_to_plot <- DataTrack(sample_control_bigwig_to_plot, type = "l", name = control_sample_name, col = "#377EB8", chromosome = chromosome_to_plot)
+                sample_control_track_to_plot <- DataTrack(sample_control_bigwig_to_plot, type = "l", name = control_sample_name, col = "#377EB8", chromosome = chromosome_as_chr_roman)
                 all_tracks <- list(gtrack, sample_control_track_to_plot, track_to_plot, control_track, annotation_track)
-                output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndEaton", ".svg", sep = "")
-                print("Name of the plot to be generated")
-                print(output_plot_name)
-                #svg(output_plot_name)
-                #plotTracks(all_tracks, main = main_title_of_plot_track, chromosome = chromosome_as_chr_roman, ylim = c(0, 100000))
-                #dev.off()
-                output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndHighlights", ".svg", sep = "")
-                print("Verifying GdObject")
-                for (i in seq_along(all_tracks)) {
-                  if (!inherits(all_tracks[[i]], "GdObject")) {
-                      cat("Track", i, "is not a valid Gviz track object\n")
-                          print(class(all_tracks[[i]]))
-                    } else {
-                        cat("Track", i, "inherits GdObject\n")
-                        print(class(all_tracks[[i]]))
-                        }
-                }
                 cat("===============\n")
-                #tryCatch({
                 sample_style <- determine_chr_style(seqlevels(track_to_plot))
                 chromosome_to_subset <- normalize_chr_names(chromosome_to_plot, sample_style)
                 subset_highlight_gr <- highlight_gr[seqnames(highlight_gr) == chromosome_to_subset]
                 print("Subset highlight_gr")
-                cat("===============\n")
-                print(start(subset_highlight_gr))
-                cat("===============\n")
-                print(end(subset_highlight_gr))
-                cat("===============\n")
-                print(as.character(seqnames(subset_highlight_gr)))
-                cat("===============\n")
-                highlight_track <- HighlightTrack(tracklist = all_tracks,
-                                        start = start(subset_highlight_gr),
-                                        end = end(subset_highlight_gr),
-                                        chromosome = as.character(seqnames(subset_highlight_gr)),
-                                        fill = c("#FFE3E6", "#E6FFE3"),
-                                        col = c("#FF0000", "#00FF00"),
-                                        alpha = 0.3)
-                #        }, error = function(e) {
-                #                cat("Error creating HighlightTrack:", conditionMessage(e), "\n")
-                #                })
-                #tryCatch({
                 print("Name of the plot to be generated")
                 output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndHighlights", ".svg", sep = "")
                 print(output_plot_name)
-                svg(output_plot_name)
-                plotTracks(highlight_track, 
-                #plotTracks(all_tracks, 
-                            main = main_title_of_plot_track,
-                            chromosome = chromosome_as_chr_roman,
-                            ylim = c(0, 100000))
-                dev.off()
-               #         }, error = function(e) {
-               #             cat("Error creating plotTracks:", conditionMessage(e), "\n")
-               #             })
+                #plotTracks(trackList = all_tracks,
+                #    main = main_title_of_plot_track,
+                #    chromosome = chromosome_as_chr_roman,
+                #    ylim = c(0, 100000))
+                cat("===============\n")
+                highlight_track <- HighlightTrack(trackList = all_tracks,
+                                        start = start(subset_highlight_gr),
+                                        end = end(subset_highlight_gr),
+                                        chromosome = seqnames(subset_highlight_gr)
+                                        )
+                                        #fill = "#FFE3E6",
+                                        #col = "#FF0000",
+                                        #alpha = 0.3)
+                cat("===============\n")
+                cat("===============\n")
+                cat("===============\n")
+                cat("===============\n")
+                #svg(output_plot_name)
+                #plotTracks(trackList = highlight_track,
+                #            main = main_title_of_plot_track,
+                #            chromosome = chromosome_as_chr_roman,
+                #            ylim = c(0, 100000))
+                #dev.off()
               }
         }
     }
-    #cat("===============\n")
-    #print(str(highlight_gr))
-    #cat("===============\n")
-    #print(start(highlight_gr))
-    #cat("===============\n")
-    #print(end(highlight_gr))
-    #cat("===============\n")
-    #print(as.character(seqnames(highlight_gr)))
-    #cat("===============\n")
-    #print(str(highlight_track))
-    #cat("===============\n")
-    #print(range(highlight_track))
     cat("Reached end of for loop\n")
     cat("Finished plotting samples\n")
 
@@ -437,5 +456,6 @@ if(!interactive()){
     control_track <- DataTrack(control_grange, type = "l",  name = "Eaton 2010", col = "#377EB8")
     print(head(control_grange))
     # Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
-    plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = feature_track, highlight_gr = feature_grange)
+#    plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = feature_track, highlight_gr = feature_grange)
+    minimum_self_contained_example()
 }
