@@ -72,3 +72,8 @@ Update track plotting to ggplot2.
 ## 2024-09-11
 try lapply with all_tracks to highlight track and plot to see if any or all of the tracks trigger the error.
 start new thread to get fresh help.
+
+## 2024-09-12
+Need to the unique labeling scheme for the comparison tracks. Task_Work_R_020: Update genomicTracks and implementation of unique name labeling
+Think I can fix highlighting by making sure I use the right chromosome name.
+Update the color probably.
