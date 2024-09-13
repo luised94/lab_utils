@@ -22,8 +22,6 @@ The folders and scripts follow a naming convention. Each one is described in thi
 
 ### Directories 
 - area_of_analysis/NUM_descriptiveName/script.ext
-I will most likely adjust the script naming convention to not include the programming language or place to run since it is redundant and uninformative. 
-
 area_of_analysis: snake_case, the biological area of inquiry relative to the code inside, usually related to the technique or the type of data
 NUM: Three Digit Integer, Number that serves as unique ID but is related to the order in which the scripts inside the directory are usually run (dependence between the directories)
 descriptiveName: camelCase, describes as concise as possible the purpose of the scripts inside the directory.
@@ -33,7 +31,6 @@ descriptiveName: camelCase, describes as concise as possible the purpose of the 
 Scripts will be under most approapriate diretory according to its function, biological area, technique and type of data. 
 
 Scripts - NUM_programminglanguage_placetorun_descriptiveName.ext
-Scripts will be under most approapriate diretory according to its function, biological area, technique and type of data. 
 
 NUM: Three Digit Integer, Number that serves as unique ID but is related to the order in which the scripts inside the directory are usually run (dependence between the directories)
 descriptiveName: camelCase, describes as concise as possible the purpose of the script
@@ -82,9 +79,6 @@ BUG: Mark known bugs or issues.
 OPTIMIZE: Indicate areas that could be optimized for better performance.
 REFACTOR: for code that needs refactoring
 TEST: for testing purposes
-
-## TROUBLESHOOTING 
-Each documentation section has a troubleshooting section that lets the user know about common errors that could be encountered, such as the scripts depending on the name of the files.
 
 ## TROUBLESHOOTING 
 Each documentation section has a troubleshooting section that lets the user know about common errors that could be encountered, such as the scripts depending on the name of the files.
