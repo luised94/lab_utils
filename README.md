@@ -22,6 +22,7 @@ The folders and scripts follow a naming convention. Each one is described in thi
 
 ### Directories 
 - area_of_analysis/NUM_descriptiveName/script.ext
+I will most likely adjust the script naming convention to not include the programming language or place to run since it is redundant and uninformative. 
 
 area_of_analysis: snake_case, the biological area of inquiry relative to the code inside, usually related to the technique or the type of data
 NUM: Three Digit Integer, Number that serves as unique ID but is related to the order in which the scripts inside the directory are usually run (dependence between the directories)
@@ -29,6 +30,9 @@ descriptiveName: camelCase, describes as concise as possible the purpose of the 
 
 ### Scripts 
 - NUM_descriptiveName.ext
+Scripts will be under most approapriate diretory according to its function, biological area, technique and type of data. 
+
+Scripts - NUM_programminglanguage_placetorun_descriptiveName.ext
 Scripts will be under most approapriate diretory according to its function, biological area, technique and type of data. 
 
 NUM: Three Digit Integer, Number that serves as unique ID but is related to the order in which the scripts inside the directory are usually run (dependence between the directories)
@@ -40,7 +44,6 @@ The analysis are done locally or in a linux computing cluster. The linux cluster
 1. R 4.2.0
 2. Command line utils
 3. Next-generation sequencing: bowtie2, fastp, fastqc, deeptools ( cluster version requires python 2.7)
-
 ## Installation
 ```{bash}
 git clone https://github.com/luised94/lab_utils.git
@@ -65,6 +68,11 @@ Most scripts output some sort of log file (stdout and stderr) that can be inspec
 
 ## TAGS 
 I have a set of tags that I try to use to put marks on code for future reference. The form of the tags is <comment><TAG>. recursive (-r) grep can be used to find the tags.
+## LOGGING
+Most scripts output some sort of log file (stdout and stderr) that can be inspected with a text editor. The log files can usually be verified with vim ~/data/<dir>/logs/*_9004526_*_1.out
+
+## TAGS 
+I have a set of tags that I try to use to put marks on code for future reference. The form of the tags is <comment><TAG>. grep can be used to find the tags.
 
 TODO: Tasks that I have to complete for that particular code file. 
 HOWTO: Designates different code snippets for reference when I want to see how to do a particular thing.
@@ -75,8 +83,13 @@ OPTIMIZE: Indicate areas that could be optimized for better performance.
 REFACTOR: for code that needs refactoring
 TEST: for testing purposes
 
+## TROUBLESHOOTING 
+Each documentation section has a troubleshooting section that lets the user know about common errors that could be encountered, such as the scripts depending on the name of the files.
 
+## TROUBLESHOOTING 
+Each documentation section has a troubleshooting section that lets the user know about common errors that could be encountered, such as the scripts depending on the name of the files.
 
+## TODO
 Each documentation for each subdirectory has a # TODO section 
 
 ## STICKY_NOTES.md
