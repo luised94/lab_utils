@@ -317,7 +317,7 @@ unique_labeling <- function(table, categories_for_label) {
     return(unlist(labels))
 }
 plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_plot = 10, genomeRange_to_get, control_track, annotation_track, highlight_gr) {
-    main_title_of_plot_track <- paste("Complete View of Chrom", as.character(chromosome_to_plot), sep = " ")
+    main_title_of_plot <- paste("Complete View of Chrom", as.character(chromosome_to_plot), sep = "")
     categories_for_label <- c("strain_source", "rescue_allele", "mcm_tag", "antibody", "timepoint_after_release")
     date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
     factors_to_match <- get_factors_to_match(sample_table)
@@ -334,7 +334,9 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
     subset_gr <- genomeRange_to_get[seqnames(genomeRange_to_get) == chromosome_as_chr_roman]
     for (col in comparison_columns) {
-        if (col == "comp_timecourse1108") {
+        #if (col == "comp_timecourse1108") {
+        comparison_title <- sub("comp_", "", col)
+        comp_title <- paste(main_title_of_plot, "\n", comparison_title, sep = "")
         cat(sprintf("Column to plot: %s\n", col))
         cat("===============\n")
         comparison_samples <- sample_table[sample_table[[col]],]
@@ -401,16 +403,16 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     print("Name of the plot to be generated")
     print(output_plot_name)
     cat(sprintf("End of for loop for %s ====\n", col))
-    #svg(output_plot_name)
+#    svg(output_plot_name)
     plotTracks(all_tracks, 
-                main = main_title_of_plot_track,
+                main = comp_title,
                 chromosome = chromosome_as_chr_roman,
                 ylim = c(0, 100000))
-    #dev.off()
+#    dev.off()
     
-    } else {
-        cat(sprintf("Testing. Only plotting %s\n", col))
-    }
+   # } else {
+   #     cat(sprintf("Testing. Only plotting %s\n", col))
+   # }
     cat("All comparisons plotted ===============\n")
 }
 }
