@@ -1,4 +1,3 @@
-
 #DESCRIPTION: 
 #USAGE:
 #TODO: Need some way to aggregate the column names I use from the sampleConfig.R files to keep track of variables I use to keep consistent experiment to experiment.
@@ -278,65 +277,77 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     bigwig_dir <- file.path(directory_path, "bigwig")
     cat("Plotting all sample tracks.\n")
     gtrack <- GenomeAxisTrack(name = paste("Chr ", chromosome_to_plot, " Axis", sep = ""))
-    for (sample_index in 1:nrow(sample_table)) {
-            cat("===============\n")
-            sample_ID_pattern <- sample_table$sample_ID[sample_index]
+    cat("===============\n")
+    column_names <- colnames(sample_table)
+    is_comparison_column <- grepl("^comp_", colnames(sample_table))
+    comparison_columns <- column_names[is_comparison_column]
+    for (col in comparison_columns) {
+        cat(sprintf("Column to plot: %s\n", col))
+        cat("===============\n")
+        comparison_samples <- sample_table[sample_table[[col]],]
+        #print(comparison_samples$sample_ID)
+        for (sample_index in 1:nrow(comparison_samples)) {
+            sample_ID_pattern <- comparison_samples$sample_ID[sample_index]
             initial_matches <- list.files(bigwig_dir, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)
             path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
-            print("Name of the bigwig path")
             print(path_to_bigwig)
-            chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
-            if (length(path_to_bigwig) == 0){
-                cat(sprintf("No bigwig found for sample_ID: %s\n", sample_ID_pattern))
-                cat("Results of initial matches\n")
-                print(initial_matches)
-            }
-            if (length(path_to_bigwig) > 0){
-                control_index <- determine_matching_control(sample_row = sample_table[sample_index, ], sample_table, factors_to_match = factors_to_match)
-                if(length(control_index) == 0) {
-                    cat("No control index found\n")
-                    cat("Printing sample row\n")
-                    print(sample_table[sample_index, ])
-                }
-                control_index <- select_control_index(control_indices = control_index, max_controls = 1)
-                control_ID_pattern <- sample_table$sample_ID[control_index]
-                control_sample_name <-sample_table$short_name[control_index] 
-                control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-                control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
-                if(length(control_path_to_bigwig) == 0){
-                    cat("Appropriate control bigwig not found. Setting to first sample.\n")
-                    control_ID_pattern <- sample_table$sample_ID[1]
-                    control_sample_name <-sample_table$short_name[1] 
-                    control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-                    control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
-                }
-                print("Control ID pattern")
-                print(control_ID_pattern)
-                print("Name of the control bigwig path")
-                print(control_path_to_bigwig)
-                bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
-                cat("Bigwig plot output\n")
-                head(bigwig_to_plot)
-                sample_short_name <- sample_table$short_name[sample_index]
-                track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_to_plot)
-                sample_control_bigwig_to_plot <- import(con = control_path_to_bigwig, which = genomeRange_to_get)
-                sample_control_track_to_plot <- DataTrack(sample_control_bigwig_to_plot, type = "l", name = control_sample_name, col = "#377EB8", chromosome = chromosome_to_plot)
-                all_tracks <- list(gtrack, sample_control_track_to_plot, track_to_plot, control_track, annotation_track)
-                output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndEaton", ".svg", sep = "")
-                print("Name of the plot to be generated")
-                print(output_plot_name)
-                svg(output_plot_name)
-                plotTracks(all_tracks, 
-                            main = main_title_of_plot_track,
-                            chromosome = chromosome_as_chr_roman,
-                            ylim = c(0, 100000))
-                dev.off()
-                cat("===============\n")
-        
+        }
+        cat("===============\n")
     }
-    cat("Reached end of for loop\n")
-    cat("Finished plotting samples\n")
-    }
+    #        print("Name of the bigwig path")
+    #        print(path_to_bigwig)
+    #        chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
+    #        if (length(path_to_bigwig) == 0){
+    #            cat(sprintf("No bigwig found for sample_ID: %s\n", sample_ID_pattern))
+    #            cat("Results of initial matches\n")
+    #            print(initial_matches)
+    #        }
+    #        if (length(path_to_bigwig) > 0){
+    #            control_index <- determine_matching_control(sample_row = sample_table[sample_index, ], sample_table, factors_to_match = factors_to_match)
+    #            if(length(control_index) == 0) {
+    #                cat("No control index found\n")
+    #                cat("Printing sample row\n")
+    #                print(sample_table[sample_index, ])
+    #            }
+    #            control_index <- select_control_index(control_indices = control_index, max_controls = 1)
+    #            control_ID_pattern <- sample_table$sample_ID[control_index]
+    #            control_sample_name <-sample_table$short_name[control_index] 
+    #            control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
+    #            control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
+    #            if(length(control_path_to_bigwig) == 0){
+    #                cat("Appropriate control bigwig not found. Setting to first sample.\n")
+    #                control_ID_pattern <- sample_table$sample_ID[1]
+    #                control_sample_name <-sample_table$short_name[1] 
+    #                control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
+    #                control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
+    #            }
+    #            print("Control ID pattern")
+    #            print(control_ID_pattern)
+    #            print("Name of the control bigwig path")
+    #            print(control_path_to_bigwig)
+    #            bigwig_to_plot <- import(con = path_to_bigwig, which = genomeRange_to_get)
+    #            cat("Bigwig plot output\n")
+    #            head(bigwig_to_plot)
+    #            sample_short_name <- sample_table$short_name[sample_index]
+    #            track_to_plot <- DataTrack(bigwig_to_plot, type = "l", name = sample_short_name, col = "#E41A1C", chromosome = chromosome_to_plot)
+    #            sample_control_bigwig_to_plot <- import(con = control_path_to_bigwig, which = genomeRange_to_get)
+    #            sample_control_track_to_plot <- DataTrack(sample_control_bigwig_to_plot, type = "l", name = control_sample_name, col = "#377EB8", chromosome = chromosome_to_plot)
+    #            all_tracks <- list(gtrack, sample_control_track_to_plot, track_to_plot, control_track, annotation_track)
+    #            output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_to_plot, "_", sample_short_name, "_", "WithInputAndEaton", ".svg", sep = "")
+    #            print("Name of the plot to be generated")
+    #            print(output_plot_name)
+    #            svg(output_plot_name)
+    #            plotTracks(all_tracks, 
+    #                        main = main_title_of_plot_track,
+    #                        chromosome = chromosome_as_chr_roman,
+    #                        ylim = c(0, 100000))
+    #            dev.off()
+    #            cat("===============\n")
+    #    
+    #}
+    #cat("Reached end of for loop\n")
+    #cat("Finished plotting samples\n")
+    #}
 }
 if(!interactive()){
     main()
@@ -352,7 +363,7 @@ if(!interactive()){
         library(gtools)
     })
     #@update
-    directory_path <- "240808Bel"
+    directory_path <- "240819Bel"
     cat("Logic of main function\n")
     main_function_logic <- main
     list_of_functions_and_variables <- ls()
@@ -362,7 +373,6 @@ if(!interactive()){
     #chromosome_to_plot = c(10, paste0("chr", as.roman(10)))
     cat("Main function: loading sample table\n")
     sample_table <- load_sample_table(directory_path)
-    print(attr(sample_table, "control_factors"))
     cat("Main function: loading reference genome\n")
     refGenome <- load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna")
     cat("Main function: Creating genomeRange_to_get\n")
@@ -372,14 +382,12 @@ if(!interactive()){
     cat("Main function: load feature grange\n")
     feature_grange <- load_feature_file_GRange(chromosome_to_plot = chromosome_to_plot, feature_file_pattern = feature_file_pattern,genomeRange_to_get = genomeRange_to_get)
     feature_track <- AnnotationTrack(feature_grange, name = paste("Origin Peaks","Eaton 2010", sep = ""))
-    print(head(feature_grange))
     # Load the Eaton Bel Track data as second comparison. 
     cat("Main function: loading control grange\n")
     control_dir <- "EatonBel"
     file_identifier <- "nnNnH"
     control_grange <- load_control_grange_data(control_dir = control_dir, file_identifier = file_identifier, chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get)
     control_track <- DataTrack(control_grange, type = "l",  name = "Eaton 2010", col = "#377EB8")
-    print(head(control_grange))
     # Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
     plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = feature_track, highlight_gr = feature_grange)
 }
