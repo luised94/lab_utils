@@ -31,7 +31,6 @@ descriptiveName: camelCase, describes as concise as possible the purpose of the 
 Scripts will be under most approapriate diretory according to its function, biological area, technique and type of data. 
 
 Scripts - NUM_programminglanguage_placetorun_descriptiveName.ext
-Scripts will be under most approapriate diretory according to its function, biological area, technique and type of data. 
 
 NUM: Three Digit Integer, Number that serves as unique ID but is related to the order in which the scripts inside the directory are usually run (dependence between the directories)
 descriptiveName: camelCase, describes as concise as possible the purpose of the script
@@ -55,7 +54,6 @@ Rscript script.R <args>
 ```
 However I do have a script that serves as a wrapper for scripts that should be run in the linux cluster. The slurm wrapper script requires the directory to be analyzed, the number of tasks and the script to run. Mostly used for next generation sequencing analysis.
 
-<<<<<<< HEAD
 To use the slurm wrapper script:
 ```{bash}
 ~/lab_utils/linux_cluster/000_slurmWrapper.sh <array> <script_to_run> <directory_to_process>
