@@ -77,3 +77,10 @@ start new thread to get fresh help.
 Need to the unique labeling scheme for the comparison tracks. Task_Work_R_020: Update genomicTracks and implementation of unique name labeling
 Think I can fix highlighting by making sure I use the right chromosome name.
 Update the color probably.
+
+## 2024-09-16
+Updating the reference genome downloads file to use datasets.
+The datasets command does not download the feature files for the W303 genome.
+Wget triggers robots.txt.
+Need to rework the indexing and the alignments but approach should be more robust.
+See threads for potential solutions: 20240916_Task_Work_Bash_TBD: Update reference genome downloading using datasets cli. Revisit
