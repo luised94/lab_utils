@@ -2,15 +2,24 @@
 # Usage: Rscript sampleGridConfigAndExprTemplate.R <experiment_id>
 
 #@update
+# Directory and expected number of samples
 current_experiment <- "240808Bel"
-main <- function(experiment_in_config_file) {
-    #args <- commandArgs(trailingOnly = TRUE)
-    args <- current_experiment
+expected_number_of_samples <- 33
+args <- c(current_experiment, expected_number_of_samples)
+main <- function(args) {
     cat("Processing sampleGridConfig.R file\n")
-    current_experiment <- validate_input(args)
+    validated_args <- validate_input(args)
+    current_experiment <- validated_args$current_experiment
     #print(current_experiment)
     all_categories_list <- define_categories()
     ordered_samples <- generate_filtered_samples(all_categories_list)
+    if (nrow(ordered_samples) != validated_args$expected_number_of_samples) {
+        cat("Breakdown by antibody\n")
+        print(table(ordered_samples$antibody))
+        cat(sprintf("Number of samples after filtering: %s\n", nrow(ordered_samples)))
+        cat(sprintf("Number of samples expected: %s\n", validated_args$expected_number_of_samples))
+        stop("Number of rows does not match expected_number_of_samples.")
+    }
     named_samples <- add_sample_names_to_table(ordered_samples)
     named_samples$experiment_id <- current_experiment
     bmc_table <- create_bmc_table(named_samples)
@@ -22,8 +31,6 @@ main <- function(experiment_in_config_file) {
         genotype = c("strain_source", "rescue_allele", "mcm_tag")
       )
     complete_table <- add_attributes(table_with_comparisons, control_factors)
-
-
     # Rest of the scripts tests the functions to reread the table after processing.
     #print("Processing complete table after adding attributes as columns")
     reread_table <- process_control_factors(complete_table)
@@ -47,12 +54,20 @@ main <- function(experiment_in_config_file) {
 }
 
 validate_input <- function(args) {
-    if(length(args) != 1){
-        cat("Error: Script requires at least one argument.\n")
-        cat("Usage: Rscript sampleGridConfigAndExprTemplate.R <experiment_id>\n")
+    if(length(args) != 2){
+        cat("Error: Script requires two arguments.\n")
+        cat("Usage: Rscript sampleGridConfigAndExprTemplate.R <experiment_id> <expected_number_of_samples>\n")
+        stop()
+    } else if (is.numeric(args[2])) {
+        cat("Error: Second argument must be a number larger than zero.\n")
+        cat("Usage: Rscript sampleGridConfigAndExprTemplate.R <experiment_id> <expected_number_of_samples>\n")
         stop()
     }
-    return(args[1])
+    validated_args <- list(
+        current_experiment = args[1],
+        expected_number_of_samples = args[2]
+    )
+    return(validated_args)
 }
 
 # Define categories
@@ -178,6 +193,7 @@ add_comparisons <- function(ordered_samples_table) {
         )
     )
 
+    # For all comparisons, create column with that name and TRUE/FALSE values for rows.
     for(comp_name in names(comparisons)) {
         df[[comp_name]] <- comparisons[[comp_name]]
 
@@ -194,7 +210,7 @@ add_attributes <- function(table_with_comparisons, control_factors) {
         control_column_not_in_df <- which(!(control_columns %in% colnames(df)))
         #cat("Columns not in the sample table\n")
         #print(control_columns[control_column_not_in_df])
-        stop("Verify the columns in categories and control_factors list to ensure you are assigning correctly")
+        stop("Verify the columns in categories and control_factors list to ensure you are assigning correctly\n")
     }
 
     for (factor in names(control_factors)) {
@@ -286,18 +302,26 @@ select_control_index <- function(control_indices, max_controls = 1) {
 }
 
 if(!interactive()) {
-    sample_config_output <- main(current_experiment)
+    sample_config_output <- main(args)
     #print(sample_config_output$sample_table)
     print_summary(sample_config_output$sample_table, sample_config_output$bmc_table)
+    cat("Script run through command line.\n")
+    cat("Open in text editor and modify @update tag sections then run 000_setupExperimentDir.R.\n")
 } else {
-    # Set the args for the directory
-    args <- "240808Bel"
-    current_experiment <- validate_input(args)
+    validated_args <- validate_input(args)
+    current_experiment <- validated_args$current_experiment
     print(current_experiment)
     # Define the define_categories list
     all_categories_list <- define_categories()
     # Define the samples that should be retained.
     ordered_samples <- generate_filtered_samples(all_categories_list)
+    if (nrow(ordered_samples) != validated_args$expected_number_of_samples){
+        cat("Breakdown by antibody\n")
+        print(table(ordered_samples$antibody))
+        cat(sprintf("Number of samples after filtering: %s\n", nrow(ordered_samples)))
+        cat(sprintf("Number of samples expected: %s\n", validated_args$expected_number_of_samples))
+        stop("Number of rows filtered does not match expected number of samples.")
+    }
     named_samples <- add_sample_names_to_table(ordered_samples)
     bmc_table <- create_bmc_table(named_samples)
     named_samples$experiment_id <- current_experiment
@@ -322,10 +346,13 @@ if(!interactive()) {
     #control_index <- select_control_index(control_index)
     # This will give you a logical vector indicating which rows match
 
-    print("Indexing complete table")
+    #print("Indexing complete table")
     #print(complete_table[control_index, ])
 
     print_summary(complete_table, bmc_table)
     cat("Loaded all functions and testing variables.\n")
     ordered_samples <- generate_filtered_samples(all_categories_list)
+
+    cat("Script sourced from repl.\n")
+    cat("Open in text editor and modify @update tag sections then run 000_setupExperimentDir.R.\n")
 }
