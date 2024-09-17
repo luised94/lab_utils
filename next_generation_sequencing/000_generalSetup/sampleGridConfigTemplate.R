@@ -8,7 +8,7 @@ main <- function(experiment_in_config_file) {
     args <- current_experiment
     cat("Processing sampleGridConfig.R file\n")
     current_experiment <- validate_input(args)
-    print(current_experiment)
+    #print(current_experiment)
     all_categories_list <- define_categories()
     ordered_samples <- generate_filtered_samples(all_categories_list)
     named_samples <- add_sample_names_to_table(ordered_samples)
@@ -25,9 +25,9 @@ main <- function(experiment_in_config_file) {
 
 
     # Rest of the scripts tests the functions to reread the table after processing.
-    print("Processing complete table after adding attributes as columns")
+    #print("Processing complete table after adding attributes as columns")
     reread_table <- process_control_factors(complete_table)
-    print("Determining processing to find control")
+    #print("Determining processing to find control")
     factors_to_match <- get_factors_to_match(reread_table)
 
     sample_row <- reread_table[16, ]
@@ -35,9 +35,9 @@ main <- function(experiment_in_config_file) {
     control_index <- select_control_index(control_index)
     # This will give you a logical vector indicating which rows match
 
-    print("Indexing complete table")
-    print(reread_table[control_index, ])
-    print(attr(reread_table, "control_factors"))
+    #print("Indexing complete table")
+    #print(reread_table[control_index, ])
+    #print(attr(reread_table, "control_factors"))
     cat("Loaded all functions and testing variables.\n")
     print_summary(complete_table, bmc_table)
     return(list(
@@ -71,67 +71,66 @@ define_categories <- function() {
 }
 
 filter_samples <- function(combinations_grid){
-    #not_in_experiment <- with(combinations_grid)
     #@update
-    is_input <- with(combinations_grid,
-        rescue_allele == "none" &
-        cell_cycle == "M" &
-        antibody == "Input" &
-        ((strain_source == "oa" & auxin_treatment == "no") | (strain_source == "lemr" & auxin_treatment == "no")) &
-        !( strain_source == "lemr" & mcm_tag == "7" ) &
-        !( strain_source == "lemr" & mcm_tag == "2" ) &
-        !( strain_source == "oa" & mcm_tag == "2" ) &
-        !( strain_source == "oa" & rescue_allele == "wt" )
+    # Define impossible combinations 
+    impossible_combinations <- with(combinations_grid,
+        ( strain_source == "lemr" & mcm_tag == "7" ) |
+        ( strain_source == "lemr" & mcm_tag == "2" ) |
+        ( strain_source == "oa" & mcm_tag == "2" ) |
+        ( strain_source == "oa" & rescue_allele == "wt" )
     )
-    is_protg <- with(combinations_grid,
-            rescue_allele == "wt" &
-            mcm_tag == "none" &
+
+    valid_combinations <- combinations_grid[!impossible_combinations, ]
+
+    #@update
+    conditions <- list(
+        is_input = with(valid_combinations,
+            rescue_allele == "none" &
             cell_cycle == "M" &
-            antibody == "ProtG" &
-            strain_source == "oa" &
-            auxin_treatment == "no"
-    )
-    is_alfa <- with(combinations_grid,
-        rescue_allele == "none" &
-        mcm_tag == "none" &
-        cell_cycle == "M" &
-        antibody == "ALFA" &
-        (( strain_source == "oa" & auxin_treatment == "no") | ( strain_source == "lemr"))
-    )
-    is_1108 <-  with(combinations_grid,
+            antibody == "Input" &
+            ((strain_source == "oa" & auxin_treatment == "no") |
+            (strain_source == "lemr" & auxin_treatment == "no"))
+        ),
+        is_protg = with(valid_combinations,
+                rescue_allele == "wt" &
+                mcm_tag == "none" &
+                cell_cycle == "M" &
+                antibody == "ProtG" &
+                strain_source == "lemr" &
+                auxin_treatment == "no"
+        ),
+        is_alfa = with(valid_combinations,
             rescue_allele == "none" &
             mcm_tag == "none" &
             cell_cycle == "M" &
-            antibody == "HM1108" &
-           (( strain_source == "oa" &  auxin_treatment == "no") | strain_source == "lemr")
+            antibody == "ALFA" &
+            (( strain_source == "oa" & auxin_treatment == "no") | ( strain_source == "lemr"))
+        ),
+        is_1108 =  with(valid_combinations,
+                rescue_allele == "none" &
+                mcm_tag == "none" &
+                cell_cycle == "M" &
+                antibody == "HM1108" &
+               (( strain_source == "oa" &  auxin_treatment == "no") | strain_source == "lemr")
+        ),
+        is_174 = with(valid_combinations,
+            antibody == "74" &
+            auxin_treatment == "no"
+        ),
+        is_cha = with(valid_combinations,
+            antibody == "CHA" &
+            auxin_treatment == "no"
+         ),
+        is_11HA = with(valid_combinations,
+            antibody == "11HA" &
+            auxin_treatment == "no" &
+            !(strain_source == "lemr" & mcm_tag == "none" & rescue_allele == "wt" & cell_cycle == "M")
+        )
     )
-    is_174 <- with(combinations_grid,
-        antibody == "74" &
-        auxin_treatment == "no" &
-        !( strain_source == "lemr" &  rescue_allele == "none") &
-        !( strain_source == "oa" &  rescue_allele == "wt") &
-        !( strain_source == "lemr" &  mcm_tag == "7") &
-        !( strain_source == "oa" &  mcm_tag == "2")
-    )
-    is_cha <- with(combinations_grid,
-        antibody == "CHA" &
-        auxin_treatment == "no" &
-        !(strain_source == "lemr" & rescue_allele == "none") &
-        !(strain_source == "oa" & rescue_allele == "wt") &
-        !(strain_source == "lemr" & mcm_tag == "7") &
-        !(strain_source == "oa" & mcm_tag == "2")
-     )
-    is_11HA <- with(combinations_grid,
-        antibody == "11HA" &
-        auxin_treatment == "no" &
-        !(strain_source == "lemr" & rescue_allele == "none") &
-        !(strain_source == "oa" & rescue_allele == "wt") &
-        !(strain_source == "lemr" & mcm_tag == "7") &
-        !(strain_source == "oa" & mcm_tag == "2") &
-        !(strain_source == "lemr" & mcm_tag == "none" & rescue_allele == "wt" & cell_cycle == "M")
-    )
+    # Combine all conditions and apply final filter
+    experimental_conditions <- Reduce('|', conditions)
     #@update
-    return(combinations_grid[is_input | is_protg | is_alfa | is_1108 | is_174 | is_cha | is_11HA , ])
+    return(valid_combinations[experimental_conditions, ])
 }
 
 generate_filtered_samples <- function(categories_list) {
@@ -193,13 +192,13 @@ add_attributes <- function(table_with_comparisons, control_factors) {
     at_least_one_not_in_df_column <- !all(control_columns %in% colnames(df))
     if(at_least_one_not_in_df_column){
         control_column_not_in_df <- which(!(control_columns %in% colnames(df)))
-        cat("Columns not in the sample table\n")
-        print(control_columns[control_column_not_in_df])
+        #cat("Columns not in the sample table\n")
+        #print(control_columns[control_column_not_in_df])
         stop("Verify the columns in categories and control_factors list to ensure you are assigning correctly")
     }
 
     for (factor in names(control_factors)) {
-        cat(sprintf("Assign column to %s\n", factor))
+        #cat(sprintf("Assign column to %s\n", factor))
         new_column_name <- paste0("__cf_", factor)
 
         df[[new_column_name]] <- paste(control_factors[[factor]], collapse = ",")
@@ -233,7 +232,6 @@ print_summary <- function(sample_table, bmc_table) {
     print(dim(bmc_table))
     cat("Breakdown by antibody:\n")
     print(table(sample_table$antibody))
-    cat("Ensure all elements are ordered according to sample submission.\n")
 }
 
 process_control_factors <- function(sample_table) {
@@ -289,7 +287,8 @@ select_control_index <- function(control_indices, max_controls = 1) {
 
 if(!interactive()) {
     sample_config_output <- main(current_experiment)
-    print(sample_config_output$sample_table)
+    #print(sample_config_output$sample_table)
+    print_summary(sample_config_output$sample_table, sample_config_output$bmc_table)
 } else {
     # Set the args for the directory
     args <- "240808Bel"
@@ -310,22 +309,23 @@ if(!interactive()) {
     # Attributes will be assign to a column that will process into attributes when the
     # tsv is read back in.
     complete_table <- add_attributes(table_with_comparisons, control_factors)
-    print(head(complete_table))
+    #print(head(complete_table))
     # Rest of the scripts tests the functions to reread the table after processing.
 
-    print("Processing complete table after adding attributes as columns")
+    #print("Processing complete table after adding attributes as columns")
     complete_table <- process_control_factors(complete_table)
-    print("Determining processing to find control")
+    #print("Determining processing to find control")
     factors_to_match <- get_factors_to_match(complete_table)
 
-    sample_row <- complete_table[8, ]
-    control_index <- determine_matching_control(sample_row = sample_row, complete_table, factors_to_match)
-    control_index <- select_control_index(control_index)
+    #sample_row <- complete_table[8, ]
+    #control_index <- determine_matching_control(sample_row = sample_row, complete_table, factors_to_match)
+    #control_index <- select_control_index(control_index)
     # This will give you a logical vector indicating which rows match
 
     print("Indexing complete table")
-    print(complete_table[control_index, ])
+    #print(complete_table[control_index, ])
 
     print_summary(complete_table, bmc_table)
     cat("Loaded all functions and testing variables.\n")
+    ordered_samples <- generate_filtered_samples(all_categories_list)
 }
