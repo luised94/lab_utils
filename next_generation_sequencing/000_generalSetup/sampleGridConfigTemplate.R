@@ -215,7 +215,7 @@ add_attributes <- function(table_with_comparisons, control_factors) {
 
     for (factor in names(control_factors)) {
         #cat(sprintf("Assign column to %s\n", factor))
-        new_column_name <- paste0("__cf_", factor)
+        new_column_name <- paste0("X__cf_", factor)
 
         df[[new_column_name]] <- paste(control_factors[[factor]], collapse = ",")
     }
