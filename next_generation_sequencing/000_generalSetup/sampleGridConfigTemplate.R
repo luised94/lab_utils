@@ -71,6 +71,7 @@ define_categories <- function() {
 }
 
 filter_samples <- function(combinations_grid){
+    #not_in_experiment <- with(combinations_grid)
     #@update
     is_input <- with(combinations_grid,
         rescue_allele == "none" &
@@ -222,17 +223,17 @@ create_bmc_table <- function(named_samples_table) {
 
 print_summary <- function(sample_table, bmc_table) {
     cat("Printing results...\n")
+    cat("Elements of sample_table:\n")
+    print(sample_table)
+    cat("First elements of BMC table:\n")
+    print(head(bmc_table))
     cat("Dimensions of sample_table:\n")
     print(dim(sample_table))
     cat("Dimensions of bmc_table:\n")
     print(dim(bmc_table))
     cat("Breakdown by antibody:\n")
     print(table(sample_table$antibody))
-    cat("Elements of sample_table:\n")
-    print(sample_table)
     cat("Ensure all elements are ordered according to sample submission.\n")
-    cat("First elements of BMC table:\n")
-    print(head(bmc_table))
 }
 
 process_control_factors <- function(sample_table) {
