@@ -14,7 +14,7 @@ main <- function() {
     cat("Experiment directory to be created: ", experiment_dir, "\n")
 
     sample_grid_config_filepath <- file.path(get_script_dir(), "sampleGridConfig.R")
-    source(sample_grid_config_filepath)
+    source(sample_grid_config_filepath) # Initializes sample_config_output
 
     if (experiment_name != current_experiment) {
         cat("Experiment provided and experiment in sampleGridConfig.R are not the same.\n")
@@ -34,13 +34,15 @@ main <- function() {
     file.copy(from = sample_grid_config_filepath, to = config_file_output_path) 
     print("Files currently loaded")
 
-    invisible(lapply(names(sample_config_output), function(output_table_name){
-        print(head(sample_config_output[[output_table_name]]))
-        output_table <- sample_config_output[[output_table_name]]
-        output_file <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", output_table_name, ".tsv", sep = ""))
-        print(output_file)
-        write.table(output_table, file = output_file, sep = "\t", row.names = FALSE)
-    }))
+
+    output_tables_in_list(sample_config_output)
+    #invisible(lapply(names(sample_config_output), function(output_table_name){
+    #    print(head(sample_config_output[[output_table_name]]))
+    #    output_table <- sample_config_output[[output_table_name]]
+    #    output_file <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", output_table_name, ".tsv", sep = ""))
+    #    print(output_file)
+    #    write.table(output_table, file = output_file, sep = "\t", row.names = FALSE)
+    #}))
 
     # Rsync to the server
     # Suggest alternative or run a particular command. 
@@ -95,7 +97,7 @@ create_experiment_dir <- function(directory_path, subdirectories){
         } else {
             cat(sprintf("Directory %s already exists.", path_to_create))
         }
-    }
+    })
     #print(list.dirs(directory_path, recursive = FALSE))
 
 }
@@ -126,24 +128,17 @@ validate_input <- function() {
             experiment_name = experiment_name
         )
     )
-
 }
 
-invisible(lapply(names(sample_config_output), function(output_table_name){
-    print(head(sample_config_output[[output_table_name]]))
-    output_table <- sample_config_output[[output_table_name]]
-    output_file <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", output_table_name, ".tsv", sep = ""))
-    print(output_file)
-    write.table(output_table, file = output_file, sep = "\t", row.names = FALSE)
-}))
 output_tables_in_list <- function(list_of_tables, OUTPUT_TABLE = FALSE){
         if (typeof(list_of_tables) == "list"){
             stop("Argument must be a list.")
         }
         names_of_tables <- names(list_of_tables)
-        #print(head(sample_config_output[[output_table_name]]))
         for (name_of_table in names_of_tables){
             output_table <- sample_config_output[[name_of_table]]
+            cat("============\n")
+            print(head(output_table))
             output_file_path <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", output_table_name, ".tsv", sep = ""))
             print(output_file_path)
             if(OUTPUT_TABLE) {
@@ -152,7 +147,8 @@ output_tables_in_list <- function(list_of_tables, OUTPUT_TABLE = FALSE){
                 cat("Skip writing table. MODIFY OUTPUT_TABLE value to output.\n")
             }
         }
-    }
+}
+
 if(!interactive()) {
     main()
 }
