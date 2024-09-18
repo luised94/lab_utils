@@ -40,7 +40,7 @@ main <- function() {
     #print("Files currently loaded")
 
 
-    output_tables_in_list(sample_config_output, OUTPUT_TABLE = OUTPUT_TO_FILE )
+    output_tables_in_list(experiment_directory = experiment_dir, sample_config_output, OUTPUT_TABLE = OUTPUT_TO_FILE )
     #invisible(lapply(names(sample_config_output), function(output_table_name){
     #    print(head(sample_config_output[[output_table_name]]))
     #    output_table <- sample_config_output[[output_table_name]]
@@ -94,13 +94,13 @@ create_experiment_dir <- function(directory_path, subdirectories){
     if (!dir.exists(directory_path)) {
         dir.create(directory_path, recursive = TRUE)
     } else {
-        cat(sprintf("Directory %s already exists.", directory_path))
+        cat(sprintf("Directory %s already exists.\n", directory_path))
     }
     sapply(file.path(directory_path, subdirectories), function(path_to_create) {
         if (!dir.exists(path_to_create)) {
             dir.create(path_to_create)
         } else {
-            cat(sprintf("Directory %s already exists.", path_to_create))
+            cat(sprintf("Directory %s already exists.\n", path_to_create))
         }
     })
     #print(list.dirs(directory_path, recursive = FALSE))
@@ -135,8 +135,9 @@ validate_input <- function() {
     )
 }
 
-output_tables_in_list <- function(list_of_tables, OUTPUT_TABLE = FALSE){
-        if (typeof(list_of_tables) == "list"){
+output_tables_in_list <- function(experiment_directory, list_of_tables, OUTPUT_TABLE = FALSE){
+        experiment_name <- basename(experiment_directory)
+        if (!(typeof(list_of_tables) == "list")){
             stop("Argument must be a list.")
         }
         names_of_tables <- names(list_of_tables)
@@ -144,7 +145,7 @@ output_tables_in_list <- function(list_of_tables, OUTPUT_TABLE = FALSE){
             output_table <- sample_config_output[[name_of_table]]
             cat("============\n")
             print(head(output_table))
-            output_file_path <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", output_table_name, ".tsv", sep = ""))
+            output_file_path <- file.path(experiment_directory, "documentation", paste(experiment_name, "_", name_of_table, ".tsv", sep = ""))
             cat(sprintf("Outputting to %s: \n", output_file_path))
             if(OUTPUT_TABLE) {
                 write.table(output_table, file = output_file_path, sep = "\t", row.names = FALSE)
