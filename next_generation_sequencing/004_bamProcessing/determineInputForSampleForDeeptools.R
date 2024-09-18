@@ -189,8 +189,13 @@ unique_labeling <- function(table, categories_for_label) {
 #determineInput <-  function(sample_row){}
 determine_input_for_all_samples <- function(sample_table, directory_path){
     bigwig_directory <- file.path(directory_path, "bigwig")
-    for (sample in sample_table) {
-        print(sample) 
+    factors_to_match <- get_factors_to_match(sample_table)
+    print(factors_to_match)
+    for (sample_index in 1:nrow(sample_table)) {
+        cat("==========\n")
+        control_index <- determine_matching_control(sample_table[sample_index,], sample_table, factors_to_match)
+        print(control_index)
+        #print(sample_index) 
     }
 }
 
