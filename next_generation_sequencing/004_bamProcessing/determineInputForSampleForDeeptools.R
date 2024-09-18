@@ -187,15 +187,33 @@ unique_labeling <- function(table, categories_for_label) {
     return(unlist(labels))
 }
 #determineInput <-  function(sample_row){}
-determine_input_for_all_samples <- function(sample_table, directory_path){
+#TODO: Must pass sample index to the function after I figure out logic
+#TODO: Determine best way to return the two files.
+#TODO: Add check to make sure alignment for input and sample exists.
+determine_input_for_all_samples <- function(sample_table, directory_path, reference_genome_pattern = "S288C"){
     bigwig_directory <- file.path(directory_path, "bigwig")
+    bam_directory <- file.path(directory_path, "alignment")
     factors_to_match <- get_factors_to_match(sample_table)
     print(factors_to_match)
+    #control_index <- determine_matching_control(sample_table[sample_index,], sample_table, factors_to_match)
     for (sample_index in 1:nrow(sample_table)) {
         cat("==========\n")
         control_index <- determine_matching_control(sample_table[sample_index,], sample_table, factors_to_match)
-        print(control_index)
+        control_index <- select_control_index(control_index)
+        #print(control_index)
         #print(sample_index) 
+        control_pattern <- paste0(".*", as.character(sample_table$sample_ID[control_index]), ".*\\.bam$")
+        all_bam_files_for_control <- list.files(bam_directory, pattern = control_pattern, full.names = TRUE)
+        is_S288C_bam_file_for_control <- grepl(reference_genome_pattern, all_bam_files_for_control)
+        S288C_bam_file_for_control <- all_bam_files_for_control[is_S288C_bam_file_for_control]
+
+        sample_pattern <- paste0(".*", as.character(sample_table$sample_ID[sample_index]), ".*\\.bam$")
+        all_bam_files_for_sample <- list.files(bam_directory, pattern = sample_pattern, full.names = TRUE)
+        is_S288C_bam_file_for_sample <- grepl(reference_genome_pattern, all_bam_files_for_sample)
+        S288C_bam_file_for_sample <- all_bam_files_for_sample[is_S288C_bam_file_for_sample]
+
+
+        cat(sprintf("Control file: %s \n Sample file: %s \n", S288C_bam_file_for_control, S288C_bam_file_for_sample))
     }
 }
 
