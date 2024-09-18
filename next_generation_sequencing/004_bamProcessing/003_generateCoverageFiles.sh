@@ -42,6 +42,7 @@ module load python/2.7.13
 module load deeptools 
 
 #INITIALIZE_ARRAY
+#Update to only include S288C.
 mapfile -t BAM_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*.bam" )
 
 echo "NUMBEROFFILESPROCESSED: $(find "${DIR_TO_PROCESS}" -type f -name "*.bam" | wc -l ) "
