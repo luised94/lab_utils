@@ -1,4 +1,4 @@
-*sampleGridConfig.R
+*/sampleGridConfig.R
 slurm-*.out
 test.log
 Rplots.pdf
