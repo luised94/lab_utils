@@ -37,7 +37,7 @@ main <- function(args) {
     #print("Determining processing to find control")
     factors_to_match <- get_factors_to_match(reread_table)
 
-    sample_row <- reread_table[16, ]
+    sample_row <- reread_table[8, ]
     control_index <- determine_matching_control(sample_row = sample_row, reread_table, factors_to_match)
     control_index <- select_control_index(control_index)
     # This will give you a logical vector indicating which rows match
@@ -253,13 +253,13 @@ print_summary <- function(sample_table, bmc_table) {
 process_control_factors <- function(sample_table) {
     cat("Process control factors from __cf_ columns\n")
     df <- sample_table
-    cf_cols <- grep("^__cf_", names(df), value = TRUE)
+    cf_cols <- grep("^X__cf_", names(df), value = TRUE)
     if(length(cf_cols) == 0) {
-        cat("No columns containing __cf_ tag found in sample table")
+        cat("No columns containing X__cf_ tag found in sample table")
         stop("Verify sample table was produced with updated sampleGridConfig.")
     }
     control_factors <- lapply(df[cf_cols], function(x) strsplit(x[1], ",")[[1]])
-    names(control_factors) <- sub("^__cf_", "", cf_cols)
+    names(control_factors) <- sub("^X__cf_", "", cf_cols)
     df[cf_cols] <- NULL
     attr(df, "control_factors") <- control_factors
     return(df)
