@@ -4,6 +4,7 @@
 # To see definition of this variable, run echo $dropbox_path or see bashrc in my_config repository
 
 cat("Starting experiment setup\n")
+OUTPUT_TO_FILE <- FALSE
 main <- function() {
     validated_args <- validate_input()
     username <- validated_args$username
@@ -14,7 +15,7 @@ main <- function() {
     cat("Experiment directory to be created: ", experiment_dir, "\n")
 
     sample_grid_config_filepath <- file.path(get_script_dir(), "sampleGridConfig.R")
-    source(sample_grid_config_filepath) # Initializes sample_config_output
+    source(sample_grid_config_filepath) # Initializes sample_config_output and current_experiment
 
     if (experiment_name != current_experiment) {
         cat("Experiment provided and experiment in sampleGridConfig.R are not the same.\n")
@@ -31,11 +32,15 @@ main <- function() {
     cat("Config file run and to be copied: ", sample_grid_config_filepath, "\n")
     config_file_output_path <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", "sampleGridConfig.R", sep = ""))
     cat("Outputting file to:", config_file_output_path,"\n" )
-    file.copy(from = sample_grid_config_filepath, to = config_file_output_path) 
-    print("Files currently loaded")
+    if (OUTPUT_TO_FILE){
+        file.copy(from = sample_grid_config_filepath, to = config_file_output_path) 
+    } else {
+        cat(sprintf("Skip writing %s to file. Modify OUTPUT_TO_FILE value.\n", sample_grid_config_filepath))
+    }
+    #print("Files currently loaded")
 
 
-    output_tables_in_list(sample_config_output)
+    output_tables_in_list(sample_config_output, OUTPUT_TABLE = OUTPUT_TO_FILE )
     #invisible(lapply(names(sample_config_output), function(output_table_name){
     #    print(head(sample_config_output[[output_table_name]]))
     #    output_table <- sample_config_output[[output_table_name]]
@@ -140,7 +145,7 @@ output_tables_in_list <- function(list_of_tables, OUTPUT_TABLE = FALSE){
             cat("============\n")
             print(head(output_table))
             output_file_path <- file.path(experiment_dir, "documentation", paste(experiment_name, "_", output_table_name, ".tsv", sep = ""))
-            print(output_file_path)
+            cat(sprintf("Outputting to %s: \n", output_file_path))
             if(OUTPUT_TABLE) {
                 write.table(output_table, file = output_file_path, sep = "\t", row.names = FALSE)
             } else {
