@@ -10,6 +10,7 @@ main <- function() {
         library(rtracklayer)
         library(ShortRead)
         library(tidyverse)
+        library(Rsamtools)
     })
     args <- commandArgs(trailingOnly = TRUE)
     directory_path <- validate_input(args)
@@ -136,56 +137,56 @@ load_sample_table <- function(directory_name) {
     return(sample_table)
 }
 
-unique_labeling <- function(table, categories_for_label) {
-    # Input validation
-    if (!is.data.frame(table)) {
-        stop("Input 'table' must be a data frame")
-    }
-    if (!is.character(categories_for_label) || length(categories_for_label) == 0) {
-        stop("Input 'categories_for_label' must be a non-empty character vector")
-    }
-    
-    # Ensure antibody category is always included
-    if (!"antibody" %in% categories_for_label) {
-    categories_for_label <- c("antibody", categories_for_label)
-    }
-    
-    print(paste("Categories for label:", paste(categories_for_label, collapse = ", ")))
-    
-    # Check if all categories exist in the table
-    missing_categories <- setdiff(categories_for_label, colnames(table))
-    if (length(missing_categories) > 0) {
-        stop(paste("The following categories are missing from the table:", 
-        paste(missing_categories, collapse = ", ")))
-    }
-    
-    # Identify unique values for each category
-    unique_values <- lapply(table[categories_for_label], unique)
-    print("Unique values for each category:")
-    print(unique_values)
-    
-    # Function to construct label for a single sample
-    construct_label <- function(sample) {
-    differing_categories <- sapply(categories_for_label, function(cat) {
-        if (length(unique_values[[cat]]) > 1 || cat == "antibody") {
-            return(sample[cat])
-            #return(paste(cat, sample[cat], sep = ": "))
-        } else {
-            return(NULL)
-        }
-    })
-        differing_categories <- differing_categories[!sapply(differing_categories, is.null)]
-        return(paste(differing_categories, collapse = "_"))
-    }
-    
-    # Apply the construct_label function to each sample (row)
-    labels <- apply(table, 1, construct_label)
-    
-    print("Constructed labels:")
-    print(labels)
-    
-    return(unlist(labels))
-}
+#unique_labeling <- function(table, categories_for_label) {
+#    # Input validation
+#    if (!is.data.frame(table)) {
+#        stop("Input 'table' must be a data frame")
+#    }
+#    if (!is.character(categories_for_label) || length(categories_for_label) == 0) {
+#        stop("Input 'categories_for_label' must be a non-empty character vector")
+#    }
+#    
+#    # Ensure antibody category is always included
+#    if (!"antibody" %in% categories_for_label) {
+#    categories_for_label <- c("antibody", categories_for_label)
+#    }
+#    
+#    print(paste("Categories for label:", paste(categories_for_label, collapse = ", ")))
+#    
+#    # Check if all categories exist in the table
+#    missing_categories <- setdiff(categories_for_label, colnames(table))
+#    if (length(missing_categories) > 0) {
+#        stop(paste("The following categories are missing from the table:", 
+#        paste(missing_categories, collapse = ", ")))
+#    }
+#    
+#    # Identify unique values for each category
+#    unique_values <- lapply(table[categories_for_label], unique)
+#    print("Unique values for each category:")
+#    print(unique_values)
+#    
+#    # Function to construct label for a single sample
+#    construct_label <- function(sample) {
+#    differing_categories <- sapply(categories_for_label, function(cat) {
+#        if (length(unique_values[[cat]]) > 1 || cat == "antibody") {
+#            return(sample[cat])
+#            #return(paste(cat, sample[cat], sep = ": "))
+#        } else {
+#            return(NULL)
+#        }
+#    })
+#        differing_categories <- differing_categories[!sapply(differing_categories, is.null)]
+#        return(paste(differing_categories, collapse = "_"))
+#    }
+#    
+#    # Apply the construct_label function to each sample (row)
+#    labels <- apply(table, 1, construct_label)
+#    
+#    print("Constructed labels:")
+#    print(labels)
+#    
+#    return(unlist(labels))
+#}
 #determineInput <-  function(sample_row){}
 #TODO: Must pass sample index to the function after I figure out logic
 #TODO: Determine best way to return the two files.
@@ -211,9 +212,17 @@ determine_input_for_all_samples <- function(sample_table, directory_path, refere
         all_bam_files_for_sample <- list.files(bam_directory, pattern = sample_pattern, full.names = TRUE)
         is_S288C_bam_file_for_sample <- grepl(reference_genome_pattern, all_bam_files_for_sample)
         S288C_bam_file_for_sample <- all_bam_files_for_sample[is_S288C_bam_file_for_sample]
-
-
-        cat(sprintf("Control file: %s \n Sample file: %s \n", S288C_bam_file_for_control, S288C_bam_file_for_sample))
+        #ensure_control_bam_exists
+        #ensure_sample_bam_exists
+        if(!file.exists(S288C_bam_file_for_sample)){
+            cat("Sample file does not exist. \n")
+            cat(sprintf("Sample_ID: %s. \n", sample_table$sample_ID[sample_index]))
+            cat(sprintf("Short Name: %s. \n", sample_table$short_name[sample_index]))
+            sample_file_exists <- FALSE
+        } else {
+            sample_file_exists <- TRUE
+        }
+        cat(sprintf("Control file: %s\nSample file: %s\nFile exists: %s\n", S288C_bam_file_for_control, S288C_bam_file_for_sample, sample_file_exists))
     }
 }
 
