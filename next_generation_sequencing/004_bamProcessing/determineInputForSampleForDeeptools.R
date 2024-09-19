@@ -93,7 +93,7 @@ determine_matching_control <- function(sample_row, sample_table, factors_to_matc
     return(index)
 }
 
-select_control_index <- function(control_indices, max_controls = 1) {
+select_control_index <- function(control_indices, sample_table, bam_directory, reference_genome_pattern = "S288C", max_controls = 1) {
     cat("Processing control index to ensure one is used.\n")
     if (length(control_indices) == 0) {
         warning("No matching control found")
@@ -101,11 +101,17 @@ select_control_index <- function(control_indices, max_controls = 1) {
         control_indices <- 1
     }
     if (length(control_indices) > max_controls) {
-    warning(paste("Multiple matching controls found, using first", max_controls))
-    control_indices[1:max_controls]
-    } else if (length(control_indices) == 1){
-        return(control_indices)
-    }
+        warning(paste("Multiple matching controls found, using first", max_controls))
+        control_indices <- control_indices[1:max_controls]
+    }  
+    control_pattern <- paste0(".*", as.character(sample_table$sample_ID[control_indices]), ".*\\.bam$")
+    all_bam_files_for_control <- list.files(bam_directory, pattern = control_pattern, full.names = TRUE)
+    is_S288C_bam_file_for_control <- grepl(reference_genome_pattern, all_bam_files_for_control)
+    S288C_bam_file_for_control <- all_bam_files_for_control[is_S288C_bam_file_for_control]
+    #if (!file.exists(S288C_bam_file_for_control)) {
+    #    input_samples <- sample_table
+    #}
+    return(control_indices)
 }
 
 load_sample_table <- function(directory_name) {
@@ -200,7 +206,7 @@ determine_input_for_all_samples <- function(sample_table, directory_path, refere
     for (sample_index in 1:nrow(sample_table)) {
         cat("==========\n")
         control_index <- determine_matching_control(sample_table[sample_index,], sample_table, factors_to_match)
-        control_index <- select_control_index(control_index)
+        control_index <- select_control_index(control_index, sample_table = sample_table, bam_directory = bam_directory)
         #print(control_index)
         #print(sample_index) 
         control_pattern <- paste0(".*", as.character(sample_table$sample_ID[control_index]), ".*\\.bam$")
@@ -223,6 +229,9 @@ determine_input_for_all_samples <- function(sample_table, directory_path, refere
             sample_file_exists <- TRUE
         }
         cat(sprintf("Control file: %s\nSample file: %s\nFile exists: %s\n", S288C_bam_file_for_control, S288C_bam_file_for_sample, sample_file_exists))
+        #if(sample_file_exists & control_index > 0) {
+        #    return(cat(S288C_bam_file_for_sample, "\n", S288C_bam_file_for_sample))
+        #}
     }
 }
 
