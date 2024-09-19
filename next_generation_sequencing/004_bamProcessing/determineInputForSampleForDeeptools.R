@@ -108,10 +108,22 @@ select_control_index <- function(control_indices, sample_table, bam_directory, r
     all_bam_files_for_control <- list.files(bam_directory, pattern = control_pattern, full.names = TRUE)
     is_S288C_bam_file_for_control <- grepl(reference_genome_pattern, all_bam_files_for_control)
     S288C_bam_file_for_control <- all_bam_files_for_control[is_S288C_bam_file_for_control]
-    #if (!file.exists(S288C_bam_file_for_control)) {
-    #    input_samples <- sample_table
-    #}
-    return(control_indices)
+    if (!file.exists(S288C_bam_file_for_control)) {
+        cat(sprintf("File %s does not exist.\nDetermining first input sample available.", S288C_bam_file_for_control))
+        input_samples <- sample_table[sample_table$antibody == "Input", ]
+        for (sample_index in 1:nrow(input_samples)){
+            control_pattern <- paste0(".*", as.character(sample_table$sample_ID[sample_index]), ".*\\.bam$")
+            all_bam_files_for_control <- list.files(bam_directory, pattern = control_pattern, full.names = TRUE)
+            is_S288C_bam_file_for_control <- grepl(reference_genome_pattern, all_bam_files_for_control)
+            S288C_bam_file_for_control <- all_bam_files_for_control[is_S288C_bam_file_for_control]
+            # Return the index for the first input sample that has bam file.
+            if(file.exists(S288C_bam_file_for_control)){
+                return(sample_index)
+            }
+        }
+    } else {
+        return(control_indices)
+    }
 }
 
 load_sample_table <- function(directory_name) {
