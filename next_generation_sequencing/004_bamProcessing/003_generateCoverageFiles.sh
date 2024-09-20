@@ -11,6 +11,7 @@
 #USAGE: Use with slurm wrapper script.
 #SETUP
 DIR_TO_PROCESS="$1"
+timeid=$2
 
 # Define the log directory
 LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
@@ -19,11 +20,11 @@ LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 mkdir -p "$LOG_DIR"
 timeid=$(date "+%Y-%m-%d-%M-%S")
 # Construct the file names
-OUT_FILE="${LOG_DIR}/qualityControl_${SLURM_ARRAY_JOB_ID}.out"
-ERR_FILE="${LOG_DIR}/qualityControl_${SLURM_ARRAY_JOB_ID}.err"
+OUT_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
+ERR_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
 
 # Redirect stdout and stderr to the respective files
-exec >> "$OUT_FILE" 2>> "$ERR_FILE"
+exec > "$OUT_FILE" 2> "$ERR_FILE"
 echo "TASK_START"
 
 #LOG
@@ -56,7 +57,7 @@ echo "Starting coverage output"
 
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
-OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"$(echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]%.bam}.bw | awk -F'/' '{print $NF}' )"
+OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]%.bam}.bw | awk -F'/' '{print $NF}' )"
 
 bamCoverage -b ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} -o ${OUTPUT_FILE} --binSize 10 --normalizeUsing RPKM
 
