@@ -16,7 +16,10 @@ main <- function() {
     directory_path <- validate_input(args)
     #Add process_control_factors, get_factors_to_match
     sample_table <- load_sample_table(directory_path)
-    determine_input_for_all_samples(sample_table, directory_path)
+    sample_and_input <- determine_input_for_all_samples(sample_table, directory_path)
+    system("deeptools --version")
+                        
+    return(sample_and_input)
     #determineInput
     #chromosome_to_plot = 10
     #options(ucscChromosomeNames=FALSE)
@@ -42,25 +45,25 @@ main <- function() {
 
 validate_input <- function(args) {
     if (length(args) != 1) {
-        cat("Error: Invalid number of arguments.\n")
-        cat("Usage: Rscript 001_plotAllSampleTracks.R <directory_path>\n")
-        cat("Example: Rscript 001_plotAllSampleTracks.R 240819Bel\n")
+        cat("Error: Invalid number of arguments.\n", file = stderr())
+        cat("Usage: Rscript 001_plotAllSampleTracks.R <directory_path>\n", file = stderr())
+        cat("Example: Rscript 001_plotAllSampleTracks.R 240819Bel\n", file = stderr())
         stop()
     }
     directory_path <- file.path(Sys.getenv("HOME"), "data", args[1])
     if(!dir.exists(directory_path)) {
-        cat(sprintf("Error: Directory %s does not exist.\n", directory_path))
+        cat(sprintf("Error: Directory %s does not exist.\n", directory_path), file = stderr())
         stop()
     }
     return(directory_path)
 }
 
 process_control_factors <- function(sample_table) {
-    cat("Process control factors from __cf_ columns\n")
+    cat("Process control factors from __cf_ columns\n", file = stderr())
     df <- sample_table
     cf_cols <- grep("X__cf_", names(df), value = TRUE)
     if(length(cf_cols) == 0) {
-        cat("No columns containing __cf_ tag found in sample table")
+        cat("No columns containing __cf_ tag found in sample table", file = stderr())
         stop("Verify sample table was produced with updated sampleGridConfig.")
     }
     control_factors <- lapply(df[cf_cols], function(x) strsplit(x[1], ",")[[1]])
@@ -71,7 +74,7 @@ process_control_factors <- function(sample_table) {
 }
 
 get_factors_to_match <- function(sample_table, attribute_to_get = "control_factors") {
-    cat("Grabbing attributes from sample table\n")
+    cat("Grabbing attributes from sample table\n", file = stderr())
     df <- sample_table
     control_factors <- attr(df, attribute_to_get)
     if (is.null(control_factors)) {
@@ -82,7 +85,7 @@ get_factors_to_match <- function(sample_table, attribute_to_get = "control_facto
 }
 
 determine_matching_control <- function(sample_row, sample_table, factors_to_match) {
-    cat("Determining control row for sample row.\n")
+    cat("Determining control row for sample row.\n", file = stderr())
     df <- sample_table
     comparison_row <- sample_row[factors_to_match]
     rows_with_same_factors <- apply(df[, factors_to_match], 1, function(row) {
@@ -94,10 +97,10 @@ determine_matching_control <- function(sample_row, sample_table, factors_to_matc
 }
 
 select_control_index <- function(control_indices, sample_table, bam_directory, reference_genome_pattern = "S288C", max_controls = 1) {
-    cat("Processing control index to ensure one is used.\n")
+    cat("Processing control index to ensure one is used.\n", file = stderr())
     if (length(control_indices) == 0) {
         warning("No matching control found")
-        cat("Setting control_index to 1\n")
+        cat("Setting control_index to 1\n", file = stderr())
         control_indices <- 1
     }
     if (length(control_indices) > max_controls) {
@@ -109,7 +112,7 @@ select_control_index <- function(control_indices, sample_table, bam_directory, r
     is_S288C_bam_file_for_control <- grepl(reference_genome_pattern, all_bam_files_for_control)
     S288C_bam_file_for_control <- all_bam_files_for_control[is_S288C_bam_file_for_control]
     if (!file.exists(S288C_bam_file_for_control)) {
-        cat(sprintf("File %s does not exist.\nDetermining first input sample available.", S288C_bam_file_for_control))
+        cat(sprintf("File %s does not exist.\nDetermining first input sample available.", S288C_bam_file_for_control), file = stderr())
         input_samples <- sample_table[sample_table$antibody == "Input", ]
         for (sample_index in 1:nrow(input_samples)){
             control_pattern <- paste0(".*", as.character(sample_table$sample_ID[sample_index]), ".*\\.bam$")
@@ -127,31 +130,31 @@ select_control_index <- function(control_indices, sample_table, bam_directory, r
 }
 
 load_sample_table <- function(directory_name) {
-    cat("Loading sample_table from", directory_name, "\n")
+    cat("Loading sample_table from", directory_name, "\n", file = stderr())
     documentation_dir_path <- file.path(directory_name, "documentation")
     sample_table_path <- list.files(documentation_dir_path, pattern = "sample_table", full.names = TRUE)
     if(length(sample_table_path) == 0){
-        cat(sprintf("No files with pattern sample_table found in %s\n", documentation_dir_path))
-        cat("Consult 000_setupExperimentDir to create sample_table.tsv for the project\n")
+        cat(sprintf("No files with pattern sample_table found in %s\n", documentation_dir_path), file = stderr())
+        cat("Consult 000_setupExperimentDir to create sample_table.tsv for the project\n", file = stderr())
         stop()
     } else if(length(sample_table_path) > 1){
-        cat(sprintf("Multiple files with pattern sample_table found in %s\n", documentation_dir_path))
-        cat(sprintf("Files found in %s\n", documentation_dir_path))
-        print(sample_table_path)
-        cat("Consult 000_setupExperimentDir and ensure no duplicates are present for the project\n")
+        cat(sprintf("Multiple files with pattern sample_table found in %s\n", documentation_dir_path), file = stderr())
+        cat(sprintf("Files found in %s\n", documentation_dir_path), file = stderr())
+        cat(sample_table_path, file = stderr())
+        cat("Consult 000_setupExperimentDir and ensure no duplicates are present for the project\n", file = stderr())
         stop()
     }
-    cat(sprintf("Reading %s\n", sample_table_path))
+    cat(sprintf("Reading %s\n", sample_table_path), file = stderr())
     sample_table <- read.delim(sample_table_path, header = TRUE, sep ="\t")
     if (!("sample_ID" %in% colnames(sample_table))) {
-           cat("Sample table does not contain the sample_ID column.\n")
-           cat("sample_ID column is required for analysis.\n")
-           cat("See 000_setupExperimentDir.R and 003_updateSampleGrid.R.\n")
+           cat("Sample table does not contain the sample_ID column.\n", file = stderr())
+           cat("sample_ID column is required for analysis.\n", file = stderr())
+           cat("See 000_setupExperimentDir.R and 003_updateSampleGrid.R.\n", file = stderr())
            stop()
     }
     sample_table <- process_control_factors(sample_table)
-    cat("Head of sample_table\n")
-    print(head(sample_table))
+    cat("Head of sample_table\n", file = stderr())
+    #print(head(sample_table))
     return(sample_table)
 }
 
@@ -213,10 +216,10 @@ determine_input_for_all_samples <- function(sample_table, directory_path, refere
     bigwig_directory <- file.path(directory_path, "bigwig")
     bam_directory <- file.path(directory_path, "alignment")
     factors_to_match <- get_factors_to_match(sample_table)
-    print(factors_to_match)
+    #print(factors_to_match)
     #control_index <- determine_matching_control(sample_table[sample_index,], sample_table, factors_to_match)
     for (sample_index in 1:nrow(sample_table)) {
-        cat("==========\n")
+        cat("==========\n", file = stderr())
         control_index <- determine_matching_control(sample_table[sample_index,], sample_table, factors_to_match)
         control_index <- select_control_index(control_index, sample_table = sample_table, bam_directory = bam_directory)
         #print(control_index)
@@ -233,17 +236,20 @@ determine_input_for_all_samples <- function(sample_table, directory_path, refere
         #ensure_control_bam_exists
         #ensure_sample_bam_exists
         if(!file.exists(S288C_bam_file_for_sample)){
-            cat("Sample file does not exist. \n")
-            cat(sprintf("Sample_ID: %s. \n", sample_table$sample_ID[sample_index]))
-            cat(sprintf("Short Name: %s. \n", sample_table$short_name[sample_index]))
+            cat("Sample file does not exist. \n", file = stderr())
+            cat(sprintf("Sample_ID: %s. \n", sample_table$sample_ID[sample_index]), file = stderr())
+            cat(sprintf("Short Name: %s. \n", sample_table$short_name[sample_index]), file = stderr())
             sample_file_exists <- FALSE
         } else {
             sample_file_exists <- TRUE
         }
-        cat(sprintf("Control file: %s\nSample file: %s\nFile exists: %s\n", S288C_bam_file_for_control, S288C_bam_file_for_sample, sample_file_exists))
-        #if(sample_file_exists & control_index > 0) {
-        #    return(cat(S288C_bam_file_for_sample, "\n", S288C_bam_file_for_sample))
-        #}
+        cat(sprintf("Control file: %s\nSample file: %s\nFile exists: %s\n", S288C_bam_file_for_control, S288C_bam_file_for_sample, sample_file_exists), file = stderr())
+        if(sample_file_exists & control_index > 0) {
+            #cat(S288C_bam_file_for_sample, "\n", S288C_bam_file_for_sample)
+            return(cat(S288C_bam_file_for_sample, S288C_bam_file_for_sample, sep = "\n"))
+        } else {
+            cat(sprintf("Sample %s:\n", sample_table$short_name[sample_index]), file = stderr())
+        }
     }
 }
 
@@ -268,6 +274,6 @@ if(!interactive()){
     directory_path <- validate_input(directory_path)
     cat("Main function: loading sample table\n")
     sample_table <- load_sample_table(directory_path)
-    print(directory_path)
+    #print(directory_path)
     determine_input_for_all_samples(sample_table, directory_path)
 }
