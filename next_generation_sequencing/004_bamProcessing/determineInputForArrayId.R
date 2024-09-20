@@ -140,8 +140,8 @@ load_sample_table <- function(directory_name) {
            stop()
     }
     sample_table <- process_control_factors(sample_table)
-    cat("Head of sample_table\n", file = stderr())
-    cat(head(sample_table), file = stderr())
+    #cat("Head of sample_table\n", file = stderr())
+    #cat(head(sample_table), file = stderr())
     return(sample_table)
 }
 
@@ -173,10 +173,13 @@ determine_input_for_sample<- function(sample_table, directory_path, slurm_array_
     if(sample_file_exists & control_index > 0) {
         cat("==========\n", file = stderr())
         cat("Returning files\n", file = stderr())
-        cat(S288C_bam_file_for_sample, S288C_bam_file_for_sample, sep = "\n")
-        return(cat(S288C_bam_file_for_sample, S288C_bam_file_for_sample, sep = "\n"))
+        cat(S288C_bam_file_for_sample, S288C_bam_file_for_control, sep = "\n", file = stderr())
+        cat("==========\n", file = stderr())
+        #return(c(S288C_bam_file_for_sample, S288C_bam_file_for_control))
+        #This outputs an extra NULL value at then due to how cat works. Must be processed out using GREP, SED, etc.
+        return(cat(S288C_bam_file_for_sample, S288C_bam_file_for_control, sep = "\n"))
     } else {
-        cat(sprintf("Sample %s:\n", sample_table$short_name[slurm_array_task_id]), file = stderr())
+        cat(sprintf("Sample %s does not exists or control input files dont exists.\n", sample_table$short_name[slurm_array_task_id]), file = stderr())
     }
 }
 
