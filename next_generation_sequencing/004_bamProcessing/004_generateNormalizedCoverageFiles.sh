@@ -17,9 +17,10 @@ LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 
 # Ensure the log directory exists
 mkdir -p "$LOG_DIR"
-timeid=$(date "+%Y-%m-%d-%M-%S")
+timeid=$(date "+%Y%m%d%M%S")
+timeid=$2
 # Construct the file names
-OUT_FILE="${LOG_DIR}/qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
+OUT_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
 ERR_FILE="${LOG_DIR}/qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.err"
 
 # Redirect stdout and stderr to the respective files
@@ -44,18 +45,15 @@ module load deeptools
 #INITIALIZE_ARRAY
 #Update to only include S288C.
 
-echo "NUMBEROFFILESPROCESSED: $(find "${DIR_TO_PROCESS}" -type f -name "*.bam" | wc -l ) "
+#echo "NUMBEROFFILESPROCESSED: $(find "${DIR_TO_PROCESS}" -type f -name "*.bam" | wc -l ) "
 #INPUT_OUTPUT
-
 #LOG
-
 echo "Starting coverage output"
-
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
 # R cat command used to return the input and sample paths also returns a NULL. Grep filters it out.
+# Returns two paths, first path is the path to sample bam file. Second path is the path to its respective or backup input file.
 readarray -t sample_paths < <(Rscript determineInputForSampleForDeeptools.R ${DIR_TO_PROCESS} ${SLURM_ARRAY_TASK_ID} | grep -v '^NULL$')
-OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"$(echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]%.bam}.bw | awk -F'/' '{print $NF}' )"
 
 # Check if the sample_paths array is non-empty
 if [ ${#sample_paths[@]} -eq 0 ]; then
@@ -70,10 +68,11 @@ for sample in "${sample_paths[@]}"; do
         exit 1
     fi
 done
+echo "All samples are valid."
 
 SAMPLE=${sample_paths[0]}
 INPUT=${sample_paths[1]}
-echo "All samples are valid."
+OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${SAMPLE%.bam}.bw | awk -F'/' '{print $NF}' )_$(echo ${INPUT%.bam}.bw | awk -F'/' '{print $NF}' )_log2ratio.bw"
 
 bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
     -o ${OUTPUT_FILE} \

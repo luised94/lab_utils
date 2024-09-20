@@ -26,10 +26,11 @@ if [ ! -f "$SCRIPT_TO_RUN" -o ! -d "$DIRECTORY_TO_PROCESS" ]; then
 fi
 
 
+timeid=$(date +%Y%m%d%M%S)
 #awk '{print substr($0, index($0, last"/")) "/"}' <<< "$TEST_DIR"
 #echo $TEST_DIR | rev | cut -d/ -f1 | rev | xargs -I {} echo {}/
-JOB_ID=$(sbatch --parsable --array="$array_range" "$SCRIPT_TO_RUN" "${DIRECTORY_TO_PROCESS##*/}/" )
-
+JOB_ID=$(sbatch --parsable --array="$array_range" "$SCRIPT_TO_RUN" "${DIRECTORY_TO_PROCESS##*/}/" "${timeid}")
+echo "Time is ${timeid}"
 echo "JOB is ${JOB_ID}"
 echo "View logs using vim ${DIRECTORY_TO_PROCESS}/logs/*_${JOB_ID}.out."
 echo "View standard error using vim ${DIRECTORY_TO_PROCESS}/logs/*_${JOB_ID}.err."
