@@ -19,11 +19,11 @@ LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 mkdir -p "$LOG_DIR"
 timeid=$(date "+%Y-%m-%d-%M-%S")
 # Construct the file names
-OUT_FILE="${LOG_DIR}/qualityControl_${SLURM_ARRAY_JOB_ID}.out"
-ERR_FILE="${LOG_DIR}/qualityControl_${SLURM_ARRAY_JOB_ID}.err"
+OUT_FILE="${LOG_DIR}/qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
+ERR_FILE="${LOG_DIR}/qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.err"
 
 # Redirect stdout and stderr to the respective files
-exec >> "$OUT_FILE" 2>> "$ERR_FILE"
+exec > "$OUT_FILE" 2> "$ERR_FILE"
 echo "TASK_START"
 
 #LOG
@@ -43,12 +43,9 @@ module load deeptools
 
 #INITIALIZE_ARRAY
 #Update to only include S288C.
-mapfile -t BAM_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*.bam" )
 
 echo "NUMBEROFFILESPROCESSED: $(find "${DIR_TO_PROCESS}" -type f -name "*.bam" | wc -l ) "
 #INPUT_OUTPUT
-#fastq_path=${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID-1]}
-#output_path=$(echo "$fastq_path" | cut -d/ -f7 | xargs -I {} echo "${DIR_TO_PROCESS}processed-fastq/processed_{}")
 
 #LOG
 
@@ -56,9 +53,24 @@ echo "Starting coverage output"
 
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
+readarray -t samples < <(Rscript determineInputForSampleForDeeptools.R ${DIR_TO_PROCESS} ${SLURM_ARRAY_TASK_ID})
 OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"$(echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]%.bam}.bw | awk -F'/' '{print $NF}' )"
 
-bamCoverage -b ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} -o ${OUTPUT_FILE} --binSize 10 --normalizeUsing RPKM
+bamCoverage -b1 ${SAMPLE} -b2 ${INPUT} \
+    -o ${OUTPUT_FILE} \
+    --binSize 10 \
+    --normalizeUsing CPM \
+    --scaleFactorsMethod SES \
+    --effectiveGenomeSize 12157105 \
+    --ignoreDuplicates \
+    --minMappingQuality 30 \
+    --operation log2 \
+    --pseudocount 1 \
+    --ignoreForNormalization chrXII
+#--numberOfProcessors max/2
+
+#--blackListFileName yeast_blacklist.bed \
+#--extendReads 150 \
 
 #LOG
 echo "COMMAND_OUTPUT_END"
