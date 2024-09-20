@@ -11,6 +11,7 @@
 #USAGE: Use with slurm wrapper script.
 #SETUP
 DIR_TO_PROCESS="$1"
+timeid=$2
 
 # Define the log directory
 LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
@@ -21,7 +22,7 @@ timeid=$(date "+%Y%m%d%M%S")
 timeid=$2
 # Construct the file names
 OUT_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
-ERR_FILE="${LOG_DIR}/qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.err"
+ERR_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.err"
 
 # Redirect stdout and stderr to the respective files
 exec > "$OUT_FILE" 2> "$ERR_FILE"

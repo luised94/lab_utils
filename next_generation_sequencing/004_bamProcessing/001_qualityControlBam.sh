@@ -11,7 +11,7 @@
 #USAGE: Use via slurm wrapper. $./001_sh_slurm_qualityControlBam.sh <directory>
 #SETUP
 DIR_TO_PROCESS="$1"
-
+timeid=$2
 # Define the log directory
 LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 
