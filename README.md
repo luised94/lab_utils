@@ -40,7 +40,11 @@ The analysis are done locally or in a linux computing cluster. The linux cluster
 
 1. R 4.2.0
 2. Command line utils
-3. Next-generation sequencing: bowtie2, fastp, fastqc, deeptools ( cluster version requires python 2.7)
+3. bowtie2
+4. fastp 
+5. fastqc 
+6. deeptools ( cluster version requires python 2.7)
+7. gatk
 ## Installation
 ```{bash}
 git clone https://github.com/luised94/lab_utils.git

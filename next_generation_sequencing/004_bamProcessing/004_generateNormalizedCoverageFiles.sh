@@ -75,7 +75,7 @@ SAMPLE=${sample_paths[0]}
 INPUT=${sample_paths[1]}
 echo "All samples are valid."
 
-bamCoverage -b1 ${SAMPLE} -b2 ${INPUT} \
+bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
     -o ${OUTPUT_FILE} \
     --binSize 10 \
     --normalizeUsing CPM \
@@ -86,7 +86,8 @@ bamCoverage -b1 ${SAMPLE} -b2 ${INPUT} \
     --operation log2 \
     --pseudocount 1 \
     --ignoreForNormalization chrXII
-#--numberOfProcessors max/2
+    --numberOfProcessors max/2 
+#${SLURM_CPUS_PER_TASK}
 #--blackListFileName yeast_blacklist.bed \
 #--extendReads 150 \
 
