@@ -34,6 +34,8 @@ echo "Time is ${timeid}"
 echo "JOB is ${JOB_ID}"
 echo "View logs using vim ${DIRECTORY_TO_PROCESS}/logs/*_${JOB_ID}.out."
 echo "View standard error using vim ${DIRECTORY_TO_PROCESS}/logs/*_${JOB_ID}.err."
+echo "To find log files created on the same day: use find ${DIRECTORY_TO_PROCESS}/logs -type f -daystart -ctime 0 -name "*.out" -exec vim {} +"
+echo "To find log files created by timeid: use find ${DIRECTORY_TO_PROCESS}/logs -type f -name "${timeid}*.out" -exec vim {} +"
 
 
 #EXTRACT_TO_SCRIPT: cleanupscript
