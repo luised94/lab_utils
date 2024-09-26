@@ -17,7 +17,7 @@ main <- function() {
     directory_path <- argument_list$directory_path
     slurm_array_task_id <- argument_list$slurm_array_task_id
     #Add process_control_factors, get_factors_to_match
-    sample_table <- load_sample_table(argument_list$directory_path)
+    sample_table <- load_sample_table(directory_path)
     sample_and_input <- determine_input_for_sample(sample_table, directory_path, slurm_array_task_id)
     return(sample_and_input)
 }
