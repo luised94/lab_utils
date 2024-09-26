@@ -18,8 +18,6 @@ LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 
 # Ensure the log directory exists
 mkdir -p "$LOG_DIR"
-timeid=$(date "+%Y%m%d%M%S")
-timeid=$2
 # Construct the file names
 OUT_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
 ERR_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.err"
@@ -35,7 +33,6 @@ echo "Started from $(pwd)"
 echo "START TIME: $(date "+%Y-%m-%d-%M-%S")"
 DIR_TO_PROCESS="$HOME/data/$DIR_TO_PROCESS"
 echo "Executing for $DIR_TO_PROCESS"
-REFGENOME_DIR="$HOME/data/REFGENS"
 
 #MODULE_LOAD
 module purge
@@ -43,14 +40,8 @@ module load gnu/5.4.0
 module load python/2.7.13
 module load deeptools 
 
-#INITIALIZE_ARRAY
-#Update to only include S288C.
-
-#echo "NUMBEROFFILESPROCESSED: $(find "${DIR_TO_PROCESS}" -type f -name "*.bam" | wc -l ) "
 #INPUT_OUTPUT
-#LOG
 echo "Starting coverage output"
-#COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
 # R cat command used to return the input and sample paths also returns a NULL. Grep filters it out.
 # Returns two paths, first path is the path to sample bam file. Second path is the path to its respective or backup input file.
@@ -73,6 +64,8 @@ echo "All samples are valid."
 
 SAMPLE=${sample_paths[0]}
 INPUT=${sample_paths[1]}
+echo "Sample path: ${SAMPLE}"
+echo "Input path: ${INPUT}"
 OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${SAMPLE%.bam}.bw | awk -F'/' '{print $NF}' )_$(echo ${INPUT%.bam}.bw | awk -F'/' '{print $NF}' )_log2ratio.bw"
 
 bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
@@ -86,12 +79,11 @@ bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
     --operation log2 \
     --pseudocount 1 \
     --ignoreForNormalization chrXII
-    --numberOfProcessors max/2 
+    --numberOfProcessors ${SLURM_CPUS_PER_TASK}/2 
 #${SLURM_CPUS_PER_TASK}
 #--blackListFileName yeast_blacklist.bed \
 #--extendReads 150 \
 
-#LOG
 echo "COMMAND_OUTPUT_END"
 echo "Quality control check completed"
 echo "END TIME: $(date "+%Y-%m-%d-%M-%S")"
