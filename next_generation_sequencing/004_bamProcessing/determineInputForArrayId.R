@@ -29,6 +29,8 @@ validate_input <- function(args) {
         cat("Example: Rscript 001_plotAllSampleTracks.R 240819Bel 1\n", file = stderr())
         stop()
     }
+    # Must add verification of args[1] to ensure that it isnt provided as absolute path or with trailing slash
+    # However, script 004_generateNormalizedCoverageFiles.sh takes care of the proper format using basename.
     directory_path <- file.path(Sys.getenv("HOME"), "data", args[1])
     if(!dir.exists(directory_path)) {
         cat(sprintf("Error: Directory %s does not exist.\n", directory_path), file = stderr())
