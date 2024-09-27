@@ -84,3 +84,7 @@ The datasets command does not download the feature files for the W303 genome.
 Wget triggers robots.txt.
 Need to rework the indexing and the alignments but approach should be more robust.
 See threads for potential solutions: 20240916_Task_Work_Bash_TBD: Update reference genome downloading using datasets cli. Revisit
+
+## 2024-09-27
+Have to update the generation of bigwig files to be only for S288C genome.
+Need to see the plots for the generated bigwig files.
