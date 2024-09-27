@@ -9,6 +9,8 @@
 ##TODO: Need to make sure the chromosome IDs are formatted properly.
 ##TODO: need to automate the creation of the experiments to plot. 
 ##TODO: Need to ensure that the names I use in the columns are compatible with my short name convention for subsetting df
+
+rm(list = ls())
 main <- function() {
     #Load packages
     suppressPackageStartupMessages({
@@ -21,7 +23,6 @@ main <- function() {
     })
     args <- commandArgs(trailingOnly = TRUE)
     directory_path <- validate_input(args)
-    #Add process_control_factors, get_factors_to_match
     sample_table <- load_sample_table(directory_path)
     chromosome_to_plot = 10
     options(ucscChromosomeNames=FALSE)
@@ -33,14 +34,7 @@ main <- function() {
     #feature_grange <- load_feature_file_GRange(chromosome_to_plot = chromosome_to_plot, feature_file_pattern = feature_file_pattern,
     #                                         genomeRange_to_get = genomeRange_to_get)
 
-    #control_dir <- "EatonBel"
-    #control_track <- load_control_grange_data(control_dir = control_dir, chromosome_to_plot = chromosome_to_plot,
-    #                                         genomeRange_to_get = genomeRange_to_get)
 
-    # Convert to input, add determine_matching_control, select_control_index
-    #control_dir <- "EatonBel"
-    #control_track <- load_control_grange_data(control_dir = control_dir, chromosome_to_plot = chromosome_to_plot,
-                #                             genomeRange_to_get = genomeRange_to_get)
 
     #plot_all_sample_tracks(sample_table = sample_table,
     #                       directory_name = directory_path,
@@ -316,7 +310,7 @@ unique_labeling <- function(table, categories_for_label) {
     
     return(unlist(labels))
 }
-plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_plot = 10, genomeRange_to_get, control_track, annotation_track, highlight_gr) {
+plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_plot = 10, genomeRange_to_get, annotation_track, highlight_gr) {
     main_title_of_plot <- paste("Complete View of Chrom", as.character(chromosome_to_plot), sep = "")
     categories_for_label <- c("strain_source", "rescue_allele", "mcm_tag", "antibody", "timepoint_after_release")
     date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
@@ -432,32 +426,26 @@ if(!interactive()){
     })
     #@update
     directory_path <- "240819Bel"
-    cat("Logic of main function\n")
-    main_function_logic <- main
+    #cat("Logic of main function\n")
+    #main_function_logic <- main
     list_of_functions_and_variables <- ls()
-    cat("Main function: Validating directory\n")
+    #cat("Main function: Validating directory\n")
     directory_path <- validate_input(directory_path)
     chromosome_to_plot = 10
     #chromosome_to_plot = c(10, paste0("chr", as.roman(10)))
     cat("Main function: loading sample table\n")
     sample_table <- load_sample_table(directory_path)
-    cat("Main function: loading reference genome\n")
+    #cat("Main function: loading reference genome\n")
     refGenome <- load_reference_genome(genome_dir = "REFGENS", genome_pattern = "S288C_refgenome.fna")
-    cat("Main function: Creating genomeRange_to_get\n")
+    #cat("Main function: Creating genomeRange_to_get\n")
     genomeRange_to_get <- create_chromosome_GRange(refGenome = refGenome)
-    # Load peaks feature file for highlight track and annotation. 
+    ## Load peaks feature file for highlight track and annotation. 
     feature_file_pattern = "eaton_peaks"
-    cat("Main function: load feature grange\n")
+    #cat("Main function: load feature grange\n")
     feature_grange <- load_feature_file_GRange(chromosome_to_plot = chromosome_to_plot, feature_file_pattern = feature_file_pattern,genomeRange_to_get = genomeRange_to_get)
     feature_track <- AnnotationTrack(feature_grange, name = paste("Origin Peaks","Eaton 2010", sep = ""))
-    # Load the Eaton Bel Track data as second comparison. 
-    cat("Main function: loading control grange\n")
-    control_dir <- "EatonBel"
-    file_identifier <- "nnNnH"
-    control_grange <- load_control_grange_data(control_dir = control_dir, file_identifier = file_identifier, chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get)
-    control_track <- DataTrack(control_grange, type = "l",  name = "Eaton 2010", col = "#377EB8")
-    # Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
-    plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get,control_track = control_track,annotation_track = feature_track, highlight_gr = feature_grange)
-    cat("Script end=====\n")
-    cat("rsync -nav username@domain:~/data/<dir>/plots/* /local/dir/<dir>/plots/\n")
+    ## Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
+    #plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get, annotation_track = feature_track, highlight_gr = feature_grange)
+    #cat("Script end=====\n")
+    #cat("rsync -nav username@domain:~/data/<dir>/plots/* /local/dir/<dir>/plots/\n")
 }
