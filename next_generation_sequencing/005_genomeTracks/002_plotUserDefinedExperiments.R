@@ -244,22 +244,7 @@ load_feature_file_GRange <- function(chromosome_to_plot = 10, feature_file_patte
   return(feature_grange_subset)
 }
 
-load_control_grange_data <- function(control_dir, file_identifier, chromosome_to_plot = 10, genomeRange_to_get) {
-    cat("Loading control track data from", control_dir, "\n")
-    bigwig_dir_path <- file.path(Sys.getenv("HOME"), "data", control_dir, "bigwig")
-    bigwig_file_paths <- list.files(bigwig_dir_path, pattern = file_identifier, full.names = TRUE, recursive = TRUE) 
-    S288C_bigwigs <- grepl("S288C", bigwig_file_paths)
-    bigwig_file_path <- bigwig_file_paths[S288C_bigwigs]
-    if(!file.exists(bigwig_file_path)) {
-        cat(sprintf("File %s doesnt exist.\n", bigwig_file_path))
-        stop()
-    }
-    control_style <- determine_chr_style(seqlevels(import(bigwig_file_path)))
-    chromosome_to_subset <- normalize_chr_names(chromosome_to_plot, control_style)
-    subset_genome_range <- genomeRange_to_get[seqnames(genomeRange_to_get) == chromosome_to_subset]
-    control_grange <- import(bigwig_file_path, which = genomeRange_to_get)
-    return(control_grange)
-}
+
 unique_labeling <- function(table, categories_for_label) {
     # Input validation
     if (!is.data.frame(table)) {
@@ -310,7 +295,7 @@ unique_labeling <- function(table, categories_for_label) {
     
     return(unlist(labels))
 }
-plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_plot = 10, genomeRange_to_get, annotation_track, highlight_gr) {
+plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_plot = 10, genomeRange_to_get, annotation_track, highlight_gr, pattern_for_bigwig = "S288C_log2ratio") {
     main_title_of_plot <- paste("Complete View of Chrom", as.character(chromosome_to_plot), sep = "")
     categories_for_label <- c("strain_source", "rescue_allele", "mcm_tag", "antibody", "timepoint_after_release")
     date_plot_created <- stringr::str_replace_all(Sys.time(), pattern = ":| |-", replacement="")  
@@ -341,7 +326,7 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
         for (sample_index in 1:nrow(comparison_samples)) {
             sample_ID_pattern <- comparison_samples$sample_ID[sample_index]
             initial_matches <- list.files(bigwig_dir, pattern = as.character(sample_ID_pattern), full.names = TRUE, recursive = TRUE)
-            path_to_bigwig <- initial_matches[grepl("S288C", initial_matches)]
+            path_to_bigwig <- initial_matches[grepl(pattern_for_bigwig, initial_matches)]
             print(path_to_bigwig)
             if (length(path_to_bigwig) == 0){
                 cat(sprintf("No bigwig found for sample_ID: %s\n", sample_ID_pattern))
@@ -358,20 +343,20 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                         control_ID_pattern <- sample_table$sample_ID[1]
                         control_sample_name <-sample_table$short_name[1] 
                         control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-                        control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
+                        control_path_to_bigwig <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
                     } else {
                        #control_index <- select_control_index(control_indices = control_index, max_controls = 1)
                         control_ID_pattern <- sample_table$sample_ID[control_index]
                         control_sample_name <-sample_table$short_name[control_index] 
                         control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-                        control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
+                        control_path_to_bigwig <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
                     }
                     if(length(control_path_to_bigwig) == 0){
                         cat("Appropriate control bigwig and index one failed. Setting to second sample.\n")
                         control_ID_pattern <- sample_table$sample_ID[2]
                         control_sample_name <-sample_table$short_name[2] 
                         control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-                        control_path_to_bigwig <- control_initial_matches[grepl("S288C", control_initial_matches)]
+                        control_path_to_bigwig <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
                     }
                     print("Name of the control bigwig path")
                     print(control_path_to_bigwig)
@@ -397,12 +382,12 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     print("Name of the plot to be generated")
     print(output_plot_name)
     cat(sprintf("End of for loop for %s ====\n", col))
-    svg(output_plot_name)
+    #svg(output_plot_name)
     plotTracks(all_tracks, 
                 main = comp_title,
                 chromosome = chromosome_as_chr_roman,
                 ylim = c(0, 100000))
-    dev.off()
+    #dev.off()
     
    # } else {
    #     cat(sprintf("Testing. Only plotting %s\n", col))
@@ -445,7 +430,7 @@ if(!interactive()){
     feature_grange <- load_feature_file_GRange(chromosome_to_plot = chromosome_to_plot, feature_file_pattern = feature_file_pattern,genomeRange_to_get = genomeRange_to_get)
     feature_track <- AnnotationTrack(feature_grange, name = paste("Origin Peaks","Eaton 2010", sep = ""))
     ## Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
-    #plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get, annotation_track = feature_track, highlight_gr = feature_grange)
+    plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get, annotation_track = feature_track, highlight_gr = feature_grange, pattern_for_bigwigs = "S288C_log2ratio")
     #cat("Script end=====\n")
     #cat("rsync -nav username@domain:~/data/<dir>/plots/* /local/dir/<dir>/plots/\n")
 }
