@@ -67,7 +67,8 @@ SAMPLE=${sample_paths[0]}
 INPUT=${sample_paths[1]}
 echo "Sample path: ${SAMPLE}"
 echo "Input path: ${INPUT}"
-OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${SAMPLE%.bam}.bw | awk -F'/' '{print $NF}' )_$(echo ${INPUT%.bam}.bw | awk -F'/' '{print $NF}' )_log2ratio.bw"
+# Add awk statement to process sample and input names. 
+OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${SAMPLE%.bam} | awk -F'/' '{print $NF}' | awk -F'_' '{print $1}' )_$(echo ${INPUT%.bam} | awk -F'/' '{print $NF}' | awk -F'_' '{print $1}')_S288C_log2ratio.bw"
 
 bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
     -o ${OUTPUT_FILE} \
