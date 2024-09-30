@@ -343,20 +343,26 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                         control_ID_pattern <- sample_table$sample_ID[1]
                         control_sample_name <-sample_table$short_name[1] 
                         control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-                        control_path_to_bigwig <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
+                        log2ratio_paths <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
+                        is_input_path <- lapply(strsplit(log2ratio_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
+                        control_path_to_bigwig <- log2ratio_paths[is_input_path]
                     } else {
                        #control_index <- select_control_index(control_indices = control_index, max_controls = 1)
                         control_ID_pattern <- sample_table$sample_ID[control_index]
                         control_sample_name <-sample_table$short_name[control_index] 
                         control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-                        control_path_to_bigwig <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
+                        log2ratio_paths <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
+                        is_input_path <- lapply(strsplit(log2ratio_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
+                        control_path_to_bigwig <- log2ratio_paths[is_input_path]
                     }
                     if(length(control_path_to_bigwig) == 0){
                         cat("Appropriate control bigwig and index one failed. Setting to second sample.\n")
                         control_ID_pattern <- sample_table$sample_ID[2]
                         control_sample_name <-sample_table$short_name[2] 
                         control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-                        control_path_to_bigwig <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
+                        log2ratio_paths <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
+                        is_input_path <- lapply(strsplit(log2ratio_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
+                        control_path_to_bigwig <- log2ratio_paths[is_input_path]
                     }
                     print("Name of the control bigwig path")
                     print(control_path_to_bigwig)
@@ -377,16 +383,17 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             }
 
         } 
+    strsplit(path_to_bigwig, "_")
     all_tracks <- append(all_tracks, annotation_track)
-    output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_as_chr_roman, "_", col, ".svg", sep = "")
+    output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_as_chr_roman, "_", gsub("_", "", pattern_for_bigwig),"_", gsub("_", "", col), ".svg", sep = "")
     print("Name of the plot to be generated")
     print(output_plot_name)
     cat(sprintf("End of for loop for %s ====\n", col))
     #svg(output_plot_name)
-    plotTracks(all_tracks, 
-                main = comp_title,
-                chromosome = chromosome_as_chr_roman,
-                ylim = c(0, 100000))
+    #plotTracks(all_tracks, 
+    #            main = comp_title,
+    #            chromosome = chromosome_as_chr_roman,
+    #            ylim = c(0, 100000))
     #dev.off()
     
    # } else {
@@ -430,7 +437,7 @@ if(!interactive()){
     feature_grange <- load_feature_file_GRange(chromosome_to_plot = chromosome_to_plot, feature_file_pattern = feature_file_pattern,genomeRange_to_get = genomeRange_to_get)
     feature_track <- AnnotationTrack(feature_grange, name = paste("Origin Peaks","Eaton 2010", sep = ""))
     ## Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
-    plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get, annotation_track = feature_track, highlight_gr = feature_grange, pattern_for_bigwigs = "S288C_log2ratio")
+    plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get, annotation_track = feature_track, highlight_gr = feature_grange, pattern_for_bigwig = "S288C_log2ratio")
     #cat("Script end=====\n")
     #cat("rsync -nav username@domain:~/data/<dir>/plots/* /local/dir/<dir>/plots/\n")
 }
