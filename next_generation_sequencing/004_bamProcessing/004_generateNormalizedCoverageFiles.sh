@@ -74,14 +74,26 @@ bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
     -o ${OUTPUT_FILE} \
     --binSize 10 \
     --normalizeUsing CPM \
-    --scaleFactorsMethod SES \
+    --scaleFactorsMethod readCount \
     --effectiveGenomeSize 12157105 \
     --ignoreDuplicates \
     --minMappingQuality 30 \
-    --operation log2 \
-    --pseudocount 1 \
-    --ignoreForNormalization chrXII
+    --operation ratio \
+    --ratio log \
+    --ignoreForNormalization chrXII \
     --numberOfProcessors ${SLURM_CPUS_PER_TASK}/2 
+#bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
+#    -o ${OUTPUT_FILE} \
+#    --binSize 10 \
+#    --normalizeUsing CPM \
+#    --scaleFactorsMethod SES \
+#    --effectiveGenomeSize 12157105 \
+#    --ignoreDuplicates \
+#    --minMappingQuality 30 \
+#    --operation log2 \
+#    --pseudocount 1 \
+#    --ignoreForNormalization chrXII
+#    --numberOfProcessors ${SLURM_CPUS_PER_TASK}/2 
 #${SLURM_CPUS_PER_TASK}
 #--blackListFileName yeast_blacklist.bed \
 #--extendReads 150 \

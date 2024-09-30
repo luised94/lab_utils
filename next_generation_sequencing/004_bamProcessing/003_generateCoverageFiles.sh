@@ -57,9 +57,13 @@ echo "Starting coverage output"
 
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
-OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]%.bam}.bw | awk -F'/' '{print $NF}' )"
+OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]%.bam}_indivNorm.bw | awk -F'/' '{print $NF}' )"
 
-bamCoverage -b ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} -o ${OUTPUT_FILE} --binSize 10 --normalizeUsing RPKM
+bamCoverage -b ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} -o ${OUTPUT_FILE} \
+    --binSize 10 \
+    --normalizeUsing CPM \
+    --ignoreDuplicates \
+    --minMappingQuality 30
 
 #LOG
 echo "COMMAND_OUTPUT_END"
