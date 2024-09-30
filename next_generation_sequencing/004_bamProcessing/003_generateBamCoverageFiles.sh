@@ -18,7 +18,6 @@ LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 
 # Ensure the log directory exists
 mkdir -p "$LOG_DIR"
-timeid=$(date "+%Y-%m-%d-%M-%S")
 # Construct the file names
 OUT_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
 ERR_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
@@ -56,7 +55,10 @@ echo "Starting coverage output"
 
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
+echo "Processing ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]}"
 OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]%.bam}_indivNorm.bw | awk -F'/' '{print $NF}' )"
+
+echo "Processing ${OUTPUT_FILE}"
 
 bamCoverage -b ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} -o ${OUTPUT_FILE} \
     --binSize 10 \
