@@ -383,17 +383,17 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             }
 
         } 
-    strsplit(path_to_bigwig, "_")
+    sample_timeid <- basename(strsplit(path_to_bigwig, "_")[[1]])[1]
     all_tracks <- append(all_tracks, annotation_track)
-    output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", chromosome_as_chr_roman, "_", gsub("_", "", pattern_for_bigwig),"_", gsub("_", "", col), ".svg", sep = "")
+    output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", sample_timeid, "_", chromosome_as_chr_roman, "_", gsub("_", "", pattern_for_bigwig),"_", gsub("_", "", col), ".svg", sep = "")
     print("Name of the plot to be generated")
     print(output_plot_name)
     cat(sprintf("End of for loop for %s ====\n", col))
     #svg(output_plot_name)
-    #plotTracks(all_tracks, 
-    #            main = comp_title,
-    #            chromosome = chromosome_as_chr_roman,
-    #            ylim = c(0, 100000))
+    plotTracks(all_tracks, 
+                main = comp_title,
+                chromosome = chromosome_as_chr_roman)
+                #ylim = c(0, 100000))
     #dev.off()
     
    # } else {
