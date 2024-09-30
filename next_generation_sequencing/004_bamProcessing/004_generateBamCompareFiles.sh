@@ -69,6 +69,7 @@ echo "Sample path: ${SAMPLE}"
 echo "Input path: ${INPUT}"
 # Add awk statement to process sample and input names. 
 OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${SAMPLE%.bam} | awk -F'/' '{print $NF}' | awk -F'_' '{print $1}' )_$(echo ${INPUT%.bam} | awk -F'/' '{print $NF}' | awk -F'_' '{print $1}')_bamcomp.bw"
+echo "Output file: ${OUTPUT_FILE}"
 
 bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
     -o ${OUTPUT_FILE} \
