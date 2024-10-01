@@ -70,7 +70,8 @@ echo "Input path: ${INPUT}"
 # Add awk statement to process sample and input names. 
 OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${SAMPLE%.bam} | awk -F'/' '{print $NF}' | awk -F'_' '{print $1}' )_$(echo ${INPUT%.bam} | awk -F'/' '{print $NF}' | awk -F'_' '{print $1}')_bamcomp.bw"
 echo "Output file: ${OUTPUT_FILE}"
-
+HALF_CPU=$((SLURM_CPUS_PER_TASK/2))
+echo "Using ${HALF_CPU} CPUS"
 bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
     -o ${OUTPUT_FILE} \
     --binSize 10 \
@@ -80,9 +81,8 @@ bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
     --ignoreDuplicates \
     --minMappingQuality 30 \
     --operation ratio \
-    --ratio log \
     --ignoreForNormalization chrXII \
-    --numberOfProcessors ${SLURM_CPUS_PER_TASK}/2 
+    --numberOfProcessors ${HALF_CPU}
 #bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
 #    -o ${OUTPUT_FILE} \
 #    --binSize 10 \
