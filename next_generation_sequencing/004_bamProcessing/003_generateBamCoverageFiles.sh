@@ -42,29 +42,26 @@ module load python/2.7.13
 module load deeptools 
 
 #INITIALIZE_ARRAY
-mapfile -t BAM_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*S288C.bam" )
+mapfile -t BAM_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*S288C.bam" | sort )
 
 echo "NUMBEROFFILESPROCESSED: $(find "${DIR_TO_PROCESS}" -type f -name "*S288C.bam" | wc -l ) "
 #INPUT_OUTPUT
-#fastq_path=${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID-1]}
-#output_path=$(echo "$fastq_path" | cut -d/ -f7 | xargs -I {} echo "${DIR_TO_PROCESS}processed-fastq/processed_{}")
-
 #LOG
-
 echo "Starting coverage output"
 
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
-echo "Processing ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]}"
-OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]%.bam}_indivNorm.bw | awk -F'/' '{print $NF}' )"
+TASK_INDEX=$((SLURM_ARRAY_TASK_ID-1))
+echo "Processing ${BAM_PATHS[$TASK_INDEX]}"
+OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${BAM_PATHS[$TASK_INDEX]%.bam}_indivNorm.bw | awk -F'/' '{print $NF}' )"
 
 echo "Processing ${OUTPUT_FILE}"
 
-bamCoverage -b ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} -o ${OUTPUT_FILE} \
+bamCoverage -b ${BAM_PATHS[$TASK_INDEX]} -o ${OUTPUT_FILE} \
     --binSize 10 \
     --normalizeUsing CPM \
     --ignoreDuplicates \
-    --minMappingQuality 30
+    --minMappingQuality 20
 
 #LOG
 echo "COMMAND_OUTPUT_END"

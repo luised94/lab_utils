@@ -79,7 +79,7 @@ bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
     --scaleFactorsMethod readCount \
     --effectiveGenomeSize 12157105 \
     --ignoreDuplicates \
-    --minMappingQuality 30 \
+    --minMappingQuality 20 \
     --operation ratio \
     --ignoreForNormalization chrXII \
     --numberOfProcessors ${HALF_CPU}
