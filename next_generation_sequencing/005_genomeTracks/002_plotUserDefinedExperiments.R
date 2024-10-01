@@ -1,13 +1,8 @@
 #DESCRIPTION: 
 #USAGE:
 #TODO: Need some way to aggregate the column names I use from the sampleConfig.R files to keep track of variables I use to keep consistent experiment to experiment.
-#TODO figure out if there is a way to normalize the samples 
-##TODO: Define the comparisons and plots to be generated in my sampleConfig.R template. 
 ##TODO: Find the best way to have the same levels and factors when I read in the sampleGridConfig.R file. This is defined by the categories list variable. Can grab that during 002_loadSampleGrid and use it to equalize. 
-##TODO: Use 002_loadSampleGrid to open the sample_table given a directory. Use conditional statement to determine the ID. Could potentially use system function to call find and print with awk statement. R would require list.files(), strsplit, and grabbing regular expression for 5 digits.
 #Load packages using through a list of strings and suppress the messages, return a TRUE if loading was succesful
-##TODO: Need to make sure the chromosome IDs are formatted properly.
-##TODO: need to automate the creation of the experiments to plot. 
 ##TODO: Need to ensure that the names I use in the columns are compatible with my short name convention for subsetting df
 
 rm(list = ls())
@@ -313,7 +308,7 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
     subset_gr <- genomeRange_to_get[seqnames(genomeRange_to_get) == chromosome_as_chr_roman]
     for (col in comparison_columns) {
-        #if (col == "comp_timecourse1108") {
+        if (col == "comp_timecourse1108") {
         comparison_title <- sub("comp_", "", col)
         comp_title <- paste(main_title_of_plot, "\n", comparison_title, sep = "")
         cat(sprintf("Column to plot: %s\n", col))
@@ -343,26 +338,37 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                         control_ID_pattern <- sample_table$sample_ID[1]
                         control_sample_name <-sample_table$short_name[1] 
                         control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-                        log2ratio_paths <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
-                        is_input_path <- lapply(strsplit(log2ratio_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
-                        control_path_to_bigwig <- log2ratio_paths[is_input_path]
+                        if (pattern_for_bigwig == "_bamcomp.bw"){
+                            is_input_path <- lapply(strsplit(pattern_subset_bigwig_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
+                            control_path_to_bigwig <- pattern_subset_bigwig_paths[is_input_path]
+                        } else {
+                            control_path_to_bigwig <- pattern_subset_bigwig_paths
+                        }
                     } else {
                        #control_index <- select_control_index(control_indices = control_index, max_controls = 1)
                         control_ID_pattern <- sample_table$sample_ID[control_index]
                         control_sample_name <-sample_table$short_name[control_index] 
                         control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-                        log2ratio_paths <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
-                        is_input_path <- lapply(strsplit(log2ratio_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
-                        control_path_to_bigwig <- log2ratio_paths[is_input_path]
+                        pattern_subset_bigwig_paths <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
+                        if (pattern_for_bigwig == "_bamcomp.bw"){
+                            is_input_path <- lapply(strsplit(pattern_subset_bigwig_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
+                            control_path_to_bigwig <- pattern_subset_bigwig_paths[is_input_path]
+                        } else {
+                            control_path_to_bigwig <- pattern_subset_bigwig_paths
+                        }
                     }
                     if(length(control_path_to_bigwig) == 0){
                         cat("Appropriate control bigwig and index one failed. Setting to second sample.\n")
                         control_ID_pattern <- sample_table$sample_ID[2]
                         control_sample_name <-sample_table$short_name[2] 
                         control_initial_matches <- list.files(bigwig_dir, pattern = as.character(control_ID_pattern), full.names = TRUE, recursive = TRUE)
-                        log2ratio_paths <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
-                        is_input_path <- lapply(strsplit(log2ratio_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
-                        control_path_to_bigwig <- log2ratio_paths[is_input_path]
+                        pattern_subset_bigwig_paths <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
+                        if (pattern_for_bigwig == "_bamcomp.bw"){
+                            is_input_path <- lapply(strsplit(pattern_subset_bigwig_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
+                            control_path_to_bigwig <- pattern_subset_bigwig_paths[is_input_path]
+                        } else {
+                            control_path_to_bigwig <- pattern_subset_bigwig_paths
+                        }
                     }
                     print("Name of the control bigwig path")
                     print(control_path_to_bigwig)
@@ -381,11 +387,14 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                     all_tracks <- append(all_tracks, track_to_plot)
                 }
             }
+            # Add attempt to further subset using timeid if there are more than one match.
 
-        } 
+    }
+    pattern_for_bigwig_name_sans_underscore <- gsub("_|\\.bw", "", pattern_for_bigwig)
+    comparison_name_sans_underscore <- gsub("_", "", col)
     sample_timeid <- basename(strsplit(path_to_bigwig, "_")[[1]])[1]
     all_tracks <- append(all_tracks, annotation_track)
-    output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", sample_timeid, "_", chromosome_as_chr_roman, "_", gsub("_", "", pattern_for_bigwig),"_", gsub("_", "", col), ".svg", sep = "")
+    output_plot_name <- paste(plot_output_dir, "/", date_plot_created, "_", sample_timeid, "_", chromosome_as_chr_roman, "_", pattern_for_bigwig_name_sans_underscore,"_", comparison_name_sans_underscore, "_", ".svg", sep = "")
     print("Name of the plot to be generated")
     print(output_plot_name)
     cat(sprintf("End of for loop for %s ====\n", col))
@@ -396,9 +405,9 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                 #ylim = c(0, 100000))
     #dev.off()
     
-   # } else {
-   #     cat(sprintf("Testing. Only plotting %s\n", col))
-   # }
+    } else {
+        cat(sprintf("Testing. Only plotting %s\n", col))
+    }
     cat("All comparisons plotted ===============\n")
 }
 }
@@ -437,7 +446,9 @@ if(!interactive()){
     feature_grange <- load_feature_file_GRange(chromosome_to_plot = chromosome_to_plot, feature_file_pattern = feature_file_pattern,genomeRange_to_get = genomeRange_to_get)
     feature_track <- AnnotationTrack(feature_grange, name = paste("Origin Peaks","Eaton 2010", sep = ""))
     ## Plot samples, determine the input control for each sample. No need to modify the files provided then. Just the logic.
-    plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get, annotation_track = feature_track, highlight_gr = feature_grange, pattern_for_bigwig = "S288C_log2ratio")
+    #pattern_for_bigwig <- "_indivNorm.bw"
+    pattern_for_bigwig <- "_bamcomp.bw"
+    plot_all_sample_tracks(sample_table = sample_table,directory_path = directory_path,chromosome_to_plot = chromosome_to_plot,genomeRange_to_get = genomeRange_to_get, annotation_track = feature_track, highlight_gr = feature_grange, pattern_for_bigwig = pattern_for_bigwig)
     #cat("Script end=====\n")
     #cat("rsync -nav username@domain:~/data/<dir>/plots/* /local/dir/<dir>/plots/\n")
 }
