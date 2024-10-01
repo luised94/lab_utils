@@ -72,6 +72,7 @@ OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${SAMPLE%.bam} | awk -F'/'
 echo "Output file: ${OUTPUT_FILE}"
 HALF_CPU=$((SLURM_CPUS_PER_TASK/2))
 echo "Using ${HALF_CPU} CPUS"
+START_TIME=$(date +%s)
 bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
     -o ${OUTPUT_FILE} \
     --binSize 10 \
@@ -83,6 +84,7 @@ bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
     --operation ratio \
     --ignoreForNormalization chrXII \
     --numberOfProcessors ${HALF_CPU}
+END_TIME=$(date +%s)
 #bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
 #    -o ${OUTPUT_FILE} \
 #    --binSize 10 \
@@ -98,8 +100,8 @@ bamCompare -b1 ${SAMPLE} -b2 ${INPUT} \
 #${SLURM_CPUS_PER_TASK}
 #--blackListFileName yeast_blacklist.bed \
 #--extendReads 150 \
-
+DURATION=$((END_TIME - START_TIME))
 echo "COMMAND_OUTPUT_END"
-echo "Quality control check completed"
+echo "bamCompare Command took $DURATION seconds to execute"
 echo "END TIME: $(date "+%Y-%m-%d-%M-%S")"
 echo "TASK_END"
