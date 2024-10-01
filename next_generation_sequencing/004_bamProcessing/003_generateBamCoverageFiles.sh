@@ -53,7 +53,7 @@ echo "Starting coverage output"
 echo "COMMAND_OUTPUT_START"
 TASK_INDEX=$((SLURM_ARRAY_TASK_ID-1))
 echo "Processing ${BAM_PATHS[$TASK_INDEX]}"
-OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${BAM_PATHS[$TASK_INDEX]%.bam}_indivNorm.bw | awk -F'/' '{print $NF}' )"
+OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${BAM_PATHS[$TASK_INDEX]%.bam}_indivNorm.bw | awk -F'/' '{print $NF}' | awk -F'_' '{print $1}' )"
 
 echo "Processing ${OUTPUT_FILE}"
 
