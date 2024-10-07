@@ -13,13 +13,7 @@ main <- function(args) {
     #print(current_experiment)
     all_categories_list <- define_categories()
     ordered_samples <- generate_filtered_samples(all_categories_list)
-    if (nrow(ordered_samples) != validated_args$expected_number_of_samples) {
-        cat("Breakdown by antibody\n")
-        print(table(ordered_samples$antibody))
-        cat(sprintf("Number of samples after filtering: %s\n", nrow(ordered_samples)))
-        cat(sprintf("Number of samples expected: %s\n", validated_args$expected_number_of_samples))
-        stop("Number of rows does not match expected_number_of_samples.")
-    }
+    verify_number_of_samples(ordered_samples, validated_args$expected_number_of_samples)
     named_samples <- add_sample_names_to_table(ordered_samples)
     named_samples$experiment_id <- current_experiment
     bmc_table <- create_bmc_table(named_samples)
@@ -301,6 +295,18 @@ select_control_index <- function(control_indices, max_controls = 1) {
     }
 }
 
+verify_number_of_samples <- function(ordered_samples, expected_number_of_samples) {
+    if (nrow(ordered_samples) != expected_number_of_samples){
+        cat("Breakdown by antibody\n")
+        print(table(ordered_samples$antibody))
+        cat("All samples\n")
+        print(ordered_samples)
+        cat(sprintf("Number of samples after filtering: %s\n", nrow(ordered_samples)))
+        cat(sprintf("Number of samples expected: %s\n", expected_number_of_samples))
+        stop("Number of rows filtered does not match expected number of samples.")
+    }
+}
+
 if(!interactive()) {
     sample_config_output <- main(args)
     #print(sample_config_output$sample_table)
@@ -315,13 +321,7 @@ if(!interactive()) {
     all_categories_list <- define_categories()
     # Define the samples that should be retained.
     ordered_samples <- generate_filtered_samples(all_categories_list)
-    if (nrow(ordered_samples) != validated_args$expected_number_of_samples){
-        cat("Breakdown by antibody\n")
-        print(table(ordered_samples$antibody))
-        cat(sprintf("Number of samples after filtering: %s\n", nrow(ordered_samples)))
-        cat(sprintf("Number of samples expected: %s\n", validated_args$expected_number_of_samples))
-        stop("Number of rows filtered does not match expected number of samples.")
-    }
+    verify_number_of_samples(ordered_samples, validated_args$expected_number_of_samples)
     named_samples <- add_sample_names_to_table(ordered_samples)
     bmc_table <- create_bmc_table(named_samples)
     named_samples$experiment_id <- current_experiment
