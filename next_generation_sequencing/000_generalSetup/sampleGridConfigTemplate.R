@@ -221,10 +221,10 @@ create_bmc_table <- function(named_samples_table) {
     cat("Making bmc_table from sample table\n")
     bmc_table <- data.frame(SampleName = named_samples_table$full_name,
        Vol..uL = 10,
-       Conc = NA,
+       Conc = 0,
        Type = "ChIP",
        Genome = "Saccharomyces cerevisiae",
-       Notes = "none",
+       Notes = ifelse(named_samples_table$antibody == "Input", "Run on fragment analyzer.", "Run on femto pulse."),
        Pool = "A"
     )
     return(bmc_table)
