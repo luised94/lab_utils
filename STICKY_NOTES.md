@@ -93,3 +93,7 @@ Readjust the entire organization into functions.
 See results using: find /home/luised94/data/240819Bel/logs -type f -name 202409270456*.out -exec vim {} +
 Run 002_plotUserDefinedExperiments.R after bigwig files are generated.
 
+## 2024-10-01
+Create a comprehensive set of bigwig files by modifying the bamCompare and bamCoverage files to see the best way to visualize. 
+Need to start working of peak calling.
+Need to potentially add timeid or use distinct tags.
