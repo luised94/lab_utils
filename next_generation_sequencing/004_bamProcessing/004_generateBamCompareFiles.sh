@@ -103,5 +103,6 @@ END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
 echo "COMMAND_OUTPUT_END"
 echo "bamCompare Command took $DURATION seconds to execute"
+echo "Quality control check completed"
 echo "END TIME: $(date "+%Y-%m-%d-%M-%S")"
 echo "TASK_END"

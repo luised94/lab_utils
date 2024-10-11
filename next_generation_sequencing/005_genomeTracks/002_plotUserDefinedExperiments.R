@@ -308,6 +308,7 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
     chromosome_as_chr_roman <- paste("chr", as.roman(chromosome_to_plot), sep = "")
     subset_gr <- genomeRange_to_get[seqnames(genomeRange_to_get) == chromosome_as_chr_roman]
     for (col in comparison_columns) {
+        #Need to modify this since it depends on the names I assign to the comparisons
         if (col == "comp_timecourse1108") {
         comparison_title <- sub("comp_", "", col)
         comp_title <- paste(main_title_of_plot, "\n", comparison_title, sep = "")
@@ -344,6 +345,9 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                         } else {
                             control_path_to_bigwig <- pattern_subset_bigwig_paths
                         }
+                        log2ratio_paths <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
+                        is_input_path <- lapply(strsplit(log2ratio_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
+                        control_path_to_bigwig <- log2ratio_paths[is_input_path]
                     } else {
                        #control_index <- select_control_index(control_indices = control_index, max_controls = 1)
                         control_ID_pattern <- sample_table$sample_ID[control_index]
@@ -356,6 +360,9 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                         } else {
                             control_path_to_bigwig <- pattern_subset_bigwig_paths
                         }
+                        log2ratio_paths <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
+                        is_input_path <- lapply(strsplit(log2ratio_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
+                        control_path_to_bigwig <- log2ratio_paths[is_input_path]
                     }
                     if(length(control_path_to_bigwig) == 0){
                         cat("Appropriate control bigwig and index one failed. Setting to second sample.\n")
@@ -369,6 +376,9 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                         } else {
                             control_path_to_bigwig <- pattern_subset_bigwig_paths
                         }
+                        log2ratio_paths <- control_initial_matches[grepl(pattern_for_bigwig, control_initial_matches)]
+                        is_input_path <- lapply(strsplit(log2ratio_paths, "_"), function(x) length(grep(as.character(control_ID_pattern), x))) > 1
+                        control_path_to_bigwig <- log2ratio_paths[is_input_path]
                     }
                     print("Name of the control bigwig path")
                     print(control_path_to_bigwig)
@@ -389,7 +399,6 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
             }
             # Add attempt to further subset using timeid if there are more than one match.
 
-    }
     pattern_for_bigwig_name_sans_underscore <- gsub("_|\\.bw", "", pattern_for_bigwig)
     comparison_name_sans_underscore <- gsub("_", "", col)
     sample_timeid <- basename(strsplit(path_to_bigwig, "_")[[1]])[1]
@@ -405,6 +414,7 @@ plot_all_sample_tracks <- function(sample_table, directory_path, chromosome_to_p
                 #ylim = c(0, 100000))
     #dev.off()
     
+}
     } else {
         cat(sprintf("Testing. Only plotting %s\n", col))
     }

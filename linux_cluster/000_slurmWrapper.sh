@@ -38,7 +38,6 @@ echo "To find log files created on the same day: use find ${DIRECTORY_TO_PROCESS
 echo "To find log files created by timeid: use find ${DIRECTORY_TO_PROCESS}/logs -type f -name "${timeid}*.out" -exec vim {} +"
 echo "To see size of files by timeid: use find ${DIRECTORY_TO_PROCESS}/ -type f -name "${timeid}*" -exec ls lh {} +. Ensure you add proper extension to name argument."
 
-
 #EXTRACT_TO_SCRIPT: cleanupscript
 #sbatch --dependency=afterany:$SLURM_JOB_ID cleanup_script.sh
 #slurm_files=$(find . -maxdepth 1 -type f -name "slurm*.out")
