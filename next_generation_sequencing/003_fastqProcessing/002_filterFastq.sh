@@ -10,7 +10,7 @@
 #TODO: Adjust the filtering step to be depending on the length distribution of the experiment.
 #SETUP
 DIR_TO_PROCESS="$1"
-
+timeid=$2
 # Define the log directory
 LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 

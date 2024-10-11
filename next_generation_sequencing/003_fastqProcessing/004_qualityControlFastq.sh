@@ -11,6 +11,7 @@
 #USAGE: Use with slurm wrapper specifying the number of tasks. 
 #SETUP
 DIR_TO_PROCESS="$1"
+timeid=$2
 
 # Define the log directory
 LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"

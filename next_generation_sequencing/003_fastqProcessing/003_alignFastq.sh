@@ -61,6 +61,7 @@ set -e
 #    mapfile -t FASTQ_PATHS < <(find "$EXPERIMENT_DIR
 #SETUP
 DIR_TO_PROCESS="$1"
+timeid=$2
 
 REFGENOME_DIR="$HOME/data/REFGENS"
 LOG_DIR="$HOME/data/${DIR_TO_PROCESS}/logs"

@@ -11,19 +11,19 @@
 #USAGE: Use with slurm wrapper script.
 #SETUP
 DIR_TO_PROCESS="$1"
+timeid=$2
 
 # Define the log directory
 LOG_DIR="$HOME/data/$DIR_TO_PROCESS/logs"
 
 # Ensure the log directory exists
 mkdir -p "$LOG_DIR"
-timeid=$(date "+%Y-%m-%d-%M-%S")
 # Construct the file names
-OUT_FILE="${LOG_DIR}/qualityControl_${SLURM_ARRAY_JOB_ID}.out"
-ERR_FILE="${LOG_DIR}/qualityControl_${SLURM_ARRAY_JOB_ID}.err"
+OUT_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
+ERR_FILE="${LOG_DIR}/${timeid}_qualityControl_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out"
 
 # Redirect stdout and stderr to the respective files
-exec >> "$OUT_FILE" 2>> "$ERR_FILE"
+exec > "$OUT_FILE" 2> "$ERR_FILE"
 echo "TASK_START"
 
 #LOG
@@ -42,22 +42,26 @@ module load python/2.7.13
 module load deeptools 
 
 #INITIALIZE_ARRAY
-mapfile -t BAM_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*.bam" )
+mapfile -t BAM_PATHS < <(find "${DIR_TO_PROCESS}" -type f -name "*S288C.bam" | sort )
 
-echo "NUMBEROFFILESPROCESSED: $(find "${DIR_TO_PROCESS}" -type f -name "*.bam" | wc -l ) "
+echo "NUMBEROFFILESPROCESSED: $(find "${DIR_TO_PROCESS}" -type f -name "*S288C.bam" | wc -l ) "
 #INPUT_OUTPUT
-#fastq_path=${FASTQ_PATHS[$SLURM_ARRAY_TASK_ID-1]}
-#output_path=$(echo "$fastq_path" | cut -d/ -f7 | xargs -I {} echo "${DIR_TO_PROCESS}processed-fastq/processed_{}")
-
 #LOG
-
 echo "Starting coverage output"
 
 #COMMAND_TO_EXECUTE 
 echo "COMMAND_OUTPUT_START"
-OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"$(echo ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]%.bam}.bw | awk -F'/' '{print $NF}' )"
+TASK_INDEX=$((SLURM_ARRAY_TASK_ID-1))
+echo "Processing ${BAM_PATHS[$TASK_INDEX]}"
+OUTPUT_FILE=${DIR_TO_PROCESS}bigwig/"${timeid}_$(echo ${BAM_PATHS[$TASK_INDEX]%.bam}_indivNorm.bw | awk -F'/' '{print $NF}' )"
 
-bamCoverage -b ${BAM_PATHS[$SLURM_ARRAY_TASK_ID]} -o ${OUTPUT_FILE} --binSize 10 --normalizeUsing RPKM
+echo "Processing ${OUTPUT_FILE}"
+
+bamCoverage -b ${BAM_PATHS[$TASK_INDEX]} -o ${OUTPUT_FILE} \
+    --binSize 10 \
+    --normalizeUsing CPM \
+    --ignoreDuplicates \
+    --minMappingQuality 20
 
 #LOG
 echo "COMMAND_OUTPUT_END"

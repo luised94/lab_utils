@@ -84,3 +84,16 @@ The datasets command does not download the feature files for the W303 genome.
 Wget triggers robots.txt.
 Need to rework the indexing and the alignments but approach should be more robust.
 See threads for potential solutions: 20240916_Task_Work_Bash_TBD: Update reference genome downloading using datasets cli. Revisit
+
+## 2024-09-27
+Have to update the generation of bigwig files to be only for S288C genome.
+Need to see the plots for the generated bigwig files.
+Need to adjust the pattern searching in 002_plotUserDefinedExperiments.R and other plotting functions. Will have to deal with this for other files such as fastqs and bam, etc.
+Readjust the entire organization into functions.
+See results using: find /home/luised94/data/240819Bel/logs -type f -name 202409270456*.out -exec vim {} +
+Run 002_plotUserDefinedExperiments.R after bigwig files are generated.
+
+## 2024-10-01
+Create a comprehensive set of bigwig files by modifying the bamCompare and bamCoverage files to see the best way to visualize. 
+Need to start working of peak calling.
+Need to potentially add timeid or use distinct tags.
