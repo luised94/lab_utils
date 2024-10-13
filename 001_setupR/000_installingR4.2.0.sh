@@ -1,56 +1,42 @@
-# Installing R 4.2.0
-# Purpose: Create a working environment that is similar to linux cluster to minimize the chance of conflict.
-# See Brain Mode short version for thread
-
+# Update and install necessary dependencies
 sudo apt-get update
-sudo apt install r-base
-sudo apt install build-essential libcurl4-gnutls-dev libxml2-dev libssl-dev
+sudo apt-get install -y build-essential libcurl4-gnutls-dev libxml2-dev libssl-dev
+sudo apt-get install -y libx11-dev libxt-dev libpng-dev libjpeg-dev libcairo2-dev libxext-dev libxrender-dev libxmu-dev libxmuu-dev x11-apps xauth
+sudo apt-get install -y default-jdk
 
+# Install LaTeX and related packages
+sudo apt-get install -y texlive texlive-fonts-extra texlive-latex-extra texinfo
+sudo apt-get install -y texlive-science texlive-extra-utils texlive-bibtex-extra
+sudo apt-get install -y texlive-fonts-recommended texlive-plain-generic
+sudo apt-get install -y texlive-fonts-extra
+
+# Set up environment variables
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export PATH=$JAVA_HOME/bin:$PATH
+
+# Download and extract R source
 R_VERSION="R-4.2.0"
 DIR_TO_INSTALL=$HOME
 curl --output "$HOME/${R_VERSION}.tar.gz" "https://cran.r-project.org/src/base/$(echo ${R_VERSION} | cut  -d. -f1)/${R_VERSION}.tar.gz"
-
-# Install Java
-sudo apt-get install default-jdk
-export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-#echo "export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> ~/my_config/dotfiles/bashrc
-export PATH=$JAVA_HOME/bin:$PATH
-#sudo R CMD javareconf
-
 tar -xzvf ${R_VERSION}.tar.gz
 cd ${R_VERSION}
 
-
-./configure --enable-R-shlib --with-blas --with-lapack --without-x
+# Configure and compile R with X11 and Cairo support
+./configure --enable-R-shlib --with-blas --with-lapack --with-cairo --with-x
 make
 sudo make install
 
-# Install for PDF and html rendenring of manuals
-# sudo apt-get install texinfo
-# sudo apt-get install texlive texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra
-
-# Install X11 headers and libs
-# sudo apt-get install libx11-dev xserver-xorg-dev xorg-dev
-
+# Set up environment
 export PATH=/usr/local/bin:$PATH
-#echo "export PATH=/usr/local/bin:$PATH" >> ~/.bashrc
-which R # should show R version 4.2.0
-
 mkdir -p $HOME/R/library
-
-
-
-
-
 export R_LIBS_USER=$HOME/R/library
 alias R='R --no-save'
-R
 
-Sys.getenv(HOME)
+# Start R and install packages
+R --vanilla << EOF
 dir.create(Sys.getenv("R_LIBS_USER"), recursive = TRUE)
 .libPaths(Sys.getenv("R_LIBS_USER"))
-.libPaths()
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 install.packages(c("renv", "xml2", "lintr", "roxygen2", "languageserver"), dependencies = TRUE, INSTALL_opts = '--no-lock')
-install.packages(c("languageserver"), dependencies = TRUE, INSTALL_opts = '--no-lock')
 q()
+EOF
