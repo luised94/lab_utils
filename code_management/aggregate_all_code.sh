@@ -17,6 +17,11 @@ verbose_echo() {
     fi
 }
 
+# Function to escape XML special characters
+escape_xml() {
+    sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e "s/'/\&apos;/g" -e 's/"/\&quot;/g'
+}
+
 # Parse command line arguments
 while getopts "q" opt; do
     case $opt in
@@ -70,8 +75,15 @@ process_files() {
             echo "  <name>$file_name</name>"
             echo "  <path>$file_path</path>"
             echo "  <type>$mime_type</type>"
+            #echo "  <content>"
             echo "  <content><![CDATA["
-            cat "$file" || echo "Error: Unable to read $file"
+            #cat "$file" || echo "Error: Unable to read $file"
+            #echo "</content>"
+            if [ -r "$file" ]; then
+                cat "$file" | escape_xml
+            else
+                echo "Error: Unable to read $file" | escape_xml
+            fi
             echo "]]></content>"
             echo "</file>"
         } >> "$REPO_FILE"
