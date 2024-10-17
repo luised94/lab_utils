@@ -5,7 +5,7 @@ library(ggplot2)
 library(ggridges)
 
 path_to_fcs_files <- "/mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/Yeast Genetics/2023_10_04 Cdc6 Overexpression/CL4_Cdc6Oe_CarbonSourceShift_01"
-=======
+#=======
 
 #' Extract FITC Width Data from an FCS File
 #'
@@ -68,9 +68,7 @@ df_sample_info <- as.data.frame(expand.grid(genotype_Orc4 = genotypes,
 df_sample_info$filePath <- gtools::mixedsort(fcs_file_paths)#
 is_WTandGLU <- df_sample_info$genotype_Orc4 == "ORC4" & df_sample_info$carbonSources == "GLU"
 subset_df <- df_sample_info %>% filter(is_WTandGLU)
-<<<<<<< HEAD
 for (i in 1:nrow(subset_df)) {
-=======
 
 #Check the first six to ensure creation went well. 
 for (i in 1:6) {
