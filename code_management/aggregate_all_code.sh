@@ -20,7 +20,8 @@ verbose_echo() {
 
 # Function to escape XML special characters
 escape_xml() {
-    sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e "s/'/\&apos;/g" -e 's/"/\&quot;/g'
+    # tr -d works but alternative is to add -e 's/\x13//g' to the sed command.
+    tr -d '\023' | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e "s/'/\&apos;/g" -e 's/"/\&quot;/g'
 }
 
 # Parse command line arguments
