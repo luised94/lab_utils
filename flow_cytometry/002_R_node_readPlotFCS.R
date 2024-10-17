@@ -53,7 +53,6 @@ get_current_datetime_string <- function() {
 
 windows_user <- list.files("/mnt/c/Users")[grepl(Sys.info()[["user"]], list.files("/mnt/c/Users"), ignore.case = TRUE)]
 path_to_fcs_files <- sprintf("/mnt/c/Users/%s/Dropbox (MIT)/Lab/Experiments/Yeast Genetics/2023_10_04 Cdc6 Overexpression/CL4_Cdc6Oe_CarbonSourceShift_01", windows_user)
->>>>>>> 00b7ee3 (Added Roxygen2-type documentation to functions, created get_datetime and extract_fitc with more descriptive name and error handling, created the different sections to plot in three different ways, first one works but needs adjustment to color gradient. Second way isnt working, will try ggridges for now and maybe see if I can do it with just ggplot2. Finally need to troubleshoot the third way but it looked good and adjusted xlim(), need to use better color gradient)
 fcs_file_paths <- list.files(path_to_fcs_files, pattern = "\\.fcs$", full.names = TRUE)
 #fcs_data <- read.FCS(fcs_file_paths[1])
 
