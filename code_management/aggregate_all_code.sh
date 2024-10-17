@@ -1,4 +1,5 @@
 #!/bin/bash
+# Validate with xmlvalidation.com
 
 set -euo pipefail
 
