@@ -3,7 +3,6 @@ sampleGridConfig.R
 slurm-*.out
 test.log
 Rplots.pdf
-**/renv.lock
 **/renv/library/
 **/renv/profiles/
 **/renv/settings.dcf
