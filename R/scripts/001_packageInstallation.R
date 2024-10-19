@@ -11,8 +11,7 @@ install.packeges(c("tidyverse", "R.utils", "ggplot2", "BiocManager", "renv"),
 
 library(BiocManager)
 bioconductor_packages_to_install <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead")
-BiocManager::install(bioconductor_packages_to_install
-        lib = library_location)
+BiocManager::install(bioconductor_packages_to_install, lib = library_location)
 #Renv has to be installed overall before it can be used to install 
 #install.packeges("renv")
 renv::init(bioconductor = "3.16")

@@ -97,3 +97,8 @@ Run 002_plotUserDefinedExperiments.R after bigwig files are generated.
 Create a comprehensive set of bigwig files by modifying the bamCompare and bamCoverage files to see the best way to visualize. 
 Need to start working of peak calling.
 Need to potentially add timeid or use distinct tags.
+
+## 2024-10-18 
+I think I should implement logging and then perform the reorganization into functions and scripts with updated logging.
+Not super sure about the tests for each function or file but I guess that means I dont understand it enough.
+Maybe quick runs using repl to get it to usable spot and then systematic test construction.
