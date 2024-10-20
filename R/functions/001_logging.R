@@ -58,10 +58,10 @@ init_logging <- function(log_file = NULL) {
     dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
     log_file <- file.path(log_dir, paste0(format(Sys.Date(), "%Y-%m-%d"), "_", script_name, ".log"))
   }
-
+  
   log_system_info(log_file)
   log_git_info(log_file)
-
+  
   return(log_file)
 }
 
@@ -98,9 +98,9 @@ log_git_info <- function(log_file) {
 log_message <- function(level, message, log_file) {
   timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
   log_entry <- sprintf("[%s] [%s] %s", timestamp, level, message)
-
+  
   cat(log_entry, "\n")
-
+  
   if (!is.null(log_file)) {
     write(log_entry, file = log_file, append = TRUE)
   }
