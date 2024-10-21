@@ -1,5 +1,5 @@
-
 source("~/lab_utils/R/functions/001_logging.R")
+
 sort_columns <- function(df, column_sort_order) {
     if(!setequal(column_sort_order, colnames(df))) {
         log_error("Column must be sorted using all columns to ensure proper error.")
@@ -11,15 +11,15 @@ sort_columns <- function(df, column_sort_order) {
     df[do.call(order, sort_criteria), ]
 }
 
-add_sample_names_to_table <- function(ordered_samples_table) {
-     cat("Adding names to sample table\n")
+add_sample_names_to_table <- function(df) {
      ordered_samples_table$full_name <- apply(ordered_samples_table, 1, paste, collapse = "_")
      colnames_sans_fullname <- !grepl("full_name", colnames(ordered_samples_table))
      ordered_samples_table_sans_fullname <- ordered_samples_table[, colnames_sans_fullname]
      ordered_samples_table$short_name <- apply(ordered_samples_table_sans_fullname, 1, function(row) paste0(substr(row, 1, 1), collapse = ""))
      return(ordered_samples_table)
  }
-add_comparisons <- function(ordered_samples_table) {
+
+add_comparisons <- function(df) {
     #@update
     cat("Adding columns with comparison values\n")
     df <- ordered_samples_table
