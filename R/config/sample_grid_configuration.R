@@ -50,7 +50,12 @@ experiment_conditions <- list(
 # Apply experiment conditions
 configuration_settings$combinations_grid <- subset(configuration_settings$combinations_grid, subset = Reduce(`|`, lapply(experiment_conditions, eval, envir = configuration_settings$combinations_grid)))
 
-if(!nrow(configuration_settings$combinations_grid) == configuration_settings$expected_number_of_samples)
+if(!nrow(configuration_settings$combinations_grid) == configuration_settings$expected_number_of_samples) {
+    log_error("Combinations grid does not contain the expected_number_of_samples.")
+    print(configuration_settings$combinations_grid)
+    stop("Update the impossible_settings and experiment_conditions variable.")
+}
+
 # Define control factors
 configuration_settings$control_factors <- list(
     genotype = c("strain_source", "rescue_allele", "mcm_tag")
@@ -60,8 +65,6 @@ configuration_settings$control_factors <- list(
 column_sort_order <- c("antibody", "strain_source","rescue_allele","mcm_tag","auxin_treatment","cell_cycle")
 
 configuration_settings$combinations_grid <- sort_columns(configuration_settings$combinations_grid, column_sort_order)
-
-
 
 # Print results
 print(configuration_settings$combinations_grid)
