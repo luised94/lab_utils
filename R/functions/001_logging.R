@@ -95,7 +95,7 @@ log_git_info <- function(log_file) {
 #' @param message The message to log
 #' @param log_file Path to the log file
 #' @return None
-log_message <- function(level, message, log_file) {
+log_message <- function(level, message, log_file = NULL) {
   timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
   log_entry <- sprintf("[%s] [%s] %s", timestamp, level, message)
   
@@ -111,7 +111,7 @@ log_message <- function(level, message, log_file) {
 #' @param message The message to log
 #' @param log_file Path to the log file
 #' @return None
-log_info <- function(message, log_file) {
+log_info <- function(message, log_file = NULL) {
   log_message("INFO", message, log_file)
 }
 
@@ -120,7 +120,7 @@ log_info <- function(message, log_file) {
 #' @param message The message to log
 #' @param log_file Path to the log file
 #' @return None
-log_warning <- function(message, log_file) {
+log_warning <- function(message, log_file = NULL) {
   log_message("WARNING", message, log_file)
 }
 
@@ -129,6 +129,6 @@ log_warning <- function(message, log_file) {
 #' @param message The message to log
 #' @param log_file Path to the log file
 #' @return None
-log_error <- function(message, log_file) {
+log_error <- function(message, log_file = NULL) {
   log_message("ERROR", message, log_file)
 }
