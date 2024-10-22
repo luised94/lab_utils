@@ -1261,24 +1261,6 @@
       ],
       "Hash": "d91263322a58af798f6cf3b13fd56dde"
     },
-    "cytolib": {
-      "Package": "cytolib",
-      "Version": "2.15.3",
-      "Source": "GitHub",
-      "RemoteType": "github",
-      "RemoteHost": "api.github.com",
-      "RemoteUsername": "RGLab",
-      "RemoteRepo": "cytolib",
-      "RemoteRef": "devel",
-      "RemoteSha": "4f42d8550fe80c52dbc08b45c7c454feee036a33",
-      "Requirements": [
-        "BH",
-        "R",
-        "RProtoBufLib",
-        "Rhdf5lib"
-      ],
-      "Hash": "89ffed7ed266474ffe5978d1a1fdba53"
-    },
     "data.table": {
       "Package": "data.table",
       "Version": "1.16.2",
