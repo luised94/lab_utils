@@ -679,12 +679,6 @@
       ],
       "Hash": "ddbdf53d15b47be4407ede6914f56fbb"
     },
-    "RProtoBufLib": {
-      "Package": "RProtoBufLib",
-      "Version": "2.10.0",
-      "Source": "Bioconductor",
-      "Hash": "ca19cbc551035456706c729216ef94c6"
-    },
     "RSQLite": {
       "Package": "RSQLite",
       "Version": "2.3.7",
@@ -733,15 +727,6 @@
         "utils"
       ],
       "Hash": "4ac8e423216b8b70cb9653d1b3f71eb9"
-    },
-    "Rhdf5lib": {
-      "Package": "Rhdf5lib",
-      "Version": "1.20.0",
-      "Source": "Bioconductor",
-      "Requirements": [
-        "R"
-      ],
-      "Hash": "66fbe0c49a27fe0a17182554f14f7fbc"
     },
     "Rhtslib": {
       "Package": "Rhtslib",
@@ -915,6 +900,16 @@
         "sys"
       ],
       "Hash": "c39f4155b3ceb1a9a2799d700fbd4b6a"
+    },
+    "assertthat": {
+      "Package": "assertthat",
+      "Version": "0.2.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "tools"
+      ],
+      "Hash": "50c838a310445e954bc13f26f26a6ecf"
     },
     "backports": {
       "Package": "backports",
