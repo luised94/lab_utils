@@ -1,4 +1,5 @@
 source("~/lab_utils/R/functions/001_logging.R")
+library(assertthat)
 
 sort_columns <- function(df, column_sort_order) {
     if(!setequal(column_sort_order, colnames(df))) {
@@ -19,6 +20,19 @@ add_sample_names_to_table <- function(df) {
      return(ordered_samples_table)
  }
 
+verify_expected_number_of_samples <- function(df, expected_number_of_samples) {
+    assert_that(is.numeric(expected_number_of_samples), "expected_number_of_samples must be a numeric.")
+    if(!nrow(df) == expected_number_of_samples) {
+        log_error("Combinations grid does not contain the expected_number_of_samples.")
+        log_info("Elements of sample_table:\n")
+        print(df)
+        log_info("Dimensions of sample_table:\n")
+        print(dim(df))
+        log_info("Breakdown by antibody:\n")
+        print(table(df$antibody))
+        stop("Update the impossible_settings and experiment_conditions variable.\nEnsure that it matches configuration_settings$expected_number_of_samples.")
+    }
+}
 add_comparisons <- function(df) {
     #@update
     cat("Adding columns with comparison values\n")
