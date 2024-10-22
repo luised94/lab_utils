@@ -6,46 +6,7 @@
 #' @date 2024-10-18
 
 library(tools)
-
-#' @title Get script name
-#' @description Extract the full path of the current script
-#' @return Character string of the script path
-get_script_name <- function() {
-  cmdArgs <- commandArgs(trailingOnly = FALSE)
-  needle <- "--file="
-  match <- grep(needle, cmdArgs)
-  if (length(match) > 0) {
-    return(normalizePath(sub(needle, "", cmdArgs[match])))
-  } else if (!is.null(sys.frames()[[1]]$ofile)) {
-    return(normalizePath(sys.frames()[[1]]$ofile))
-  } else {
-    return("interactive")
-  }
-}
-
-#' @title Get script directory
-#' @description Extract the directory of the current script
-#' @return Character string of the script directory
-get_script_dir <- function() {
-  script_path <- get_script_name()
-  if (script_path != "interactive") {
-    return(dirname(script_path))
-  } else {
-    return(getwd())
-  }
-}
-
-#' @title Get script basename
-#' @description Extract the basename of the current script without extension
-#' @return Character string of the script basename
-get_script_basename <- function() {
-  script_path <- get_script_name()
-  if (script_path != "interactive") {
-    return(tools::file_path_sans_ext(basename(script_path)))
-  } else {
-    return("interactive")
-  }
-}
+source("~/lab_utils/R/init.R")
 
 #' @title Initialize logging
 #' @description Set up logging for a script
