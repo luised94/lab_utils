@@ -1,5 +1,4 @@
 source("~/lab_utils/R/functions/001_logging.R")
-source("~/lab_utils/R/init.R")
 library(assertthat)
 
 sort_columns <- function(df, column_sort_order) {

@@ -52,8 +52,27 @@ configuration_settings$combinations_grid <- subset(configuration_settings$combin
 
 verify_expected_number_of_samples(configuration_settings$combinations_grid, configuration_settings$expected_number_of_samples)
 
+# Define the order for sorting the columns. Must include all columns.
+column_sort_order <- c("antibody", "strain_source","rescue_allele","mcm_tag","auxin_treatment","cell_cycle")
 
+configuration_settings$combinations_grid <- sort_columns(configuration_settings$combinations_grid, column_sort_order)
 
+configuration_settings$experimental_comparisons <- list(
+        #Effect of MCM: Input, G1 and M phase for 174
+        comp_cellCycle = quote(strain_source == "lemr" & antibody == "74"),
+
+        #Effect of Alfa: Input, no auxin, yes auxin
+        comp_alfa = quote(antibody == "ALFA"),
+
+        #Effect of CHA in cell cycle: Input, G1 and M phase for CHA
+        comp_HaCoa = quote(strain_source == "oa" & antibody == "CHA"),
+
+        #Effect of CHA in cell cycle: Input, G1 and M phase for CHA
+        comp_11HAoa = quote(strain_source == "oa" & antibody == "11HA")
+)
+
+configuration_settings$combinations_grid <- add_comparisons(configuration_settings$combinations_grid,
+    configurations_settings$experimental_comparisons)
 
 
 # Define control factors
@@ -61,10 +80,8 @@ configuration_settings$control_factors <- list(
     genotype = c("strain_source", "rescue_allele", "mcm_tag")
 )
 
-# Define the order for sorting the columns. Must include all columns.
-column_sort_order <- c("antibody", "strain_source","rescue_allele","mcm_tag","auxin_treatment","cell_cycle")
-
-configuration_settings$combinations_grid <- sort_columns(configuration_settings$combinations_grid, column_sort_order)
+configuration_settings$combinations_grid <- add_attributes(configuration_settings$combinations_grid,
+    configuration_settings$control_factors)
 
 # Print results
 print(configuration_settings$combinations_grid)
