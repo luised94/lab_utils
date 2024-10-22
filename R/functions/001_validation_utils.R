@@ -78,9 +78,9 @@ add_attributes <- function(df, control_factors) {
     return(df)
 
 }
-create_bmc_table <- function(named_samples_table) {
-    cat("Making bmc_table from sample table\n")
-    bmc_table <- data.frame(SampleName = named_samples_table$full_name,
+create_bmc_table <- function(df) {
+    log_info("Making bmc_table from sample table\n")
+    bmc_table <- data.frame(SampleName = df$full_name,
        Vol..uL = 10,
        Conc = 0,
        Type = "ChIP",
