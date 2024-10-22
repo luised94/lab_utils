@@ -1541,30 +1541,6 @@
       ],
       "Hash": "192053c276525c8495ccfd523aa8f2d1"
     },
-    "flowCore": {
-      "Package": "flowCore",
-      "Version": "2.10.0",
-      "Source": "Bioconductor",
-      "Requirements": [
-        "BH",
-        "Biobase",
-        "BiocGenerics",
-        "R",
-        "RProtoBufLib",
-        "Rcpp",
-        "S4Vectors",
-        "cpp11",
-        "cytolib",
-        "grDevices",
-        "graphics",
-        "matrixStats",
-        "methods",
-        "stats",
-        "stats4",
-        "utils"
-      ],
-      "Hash": "79dd7c4900b104466d67832507320c4e"
-    },
     "fontawesome": {
       "Package": "fontawesome",
       "Version": "0.5.2",
