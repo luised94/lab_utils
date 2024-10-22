@@ -48,6 +48,46 @@ add_comparisons <- function(df, comparison_list) {
         stop("Input 'comparison_list' must be a non-empty list", call. = FALSE)
     }
 
+
+    ## Check if all comparison expressions are valid
+    #invalid_comps <- sapply(comparison_list, function(comp) !is.language(comp))
+    #if (any(invalid_comps)) {
+    #    stop("Invalid comparison expressions: ", 
+    #         paste(names(comparison_list)[invalid_comps], collapse = ", "), 
+    #         call. = FALSE)
+    #}
+    #                                                                                                       
+    ## Get all unique column names referenced in comparisons
+    #all_cols <- unique(unlist(lapply(comparison_list, all.vars)))
+    #missing_cols <- setdiff(all_cols, names(df))
+    #if (length(missing_cols) > 0) {
+    #    stop("Columns referenced in comparisons but not in dataframe: ", 
+    #         paste(missing_cols, collapse = ", "), 
+    #         call. = FALSE)
+    #}
+    #                                                                                                       
+    ## Performance optimization: pre-allocate result list
+    #results <- vector("list", length(comparison_list))
+    #names(results) <- names(comparison_list)
+    #                                                                                                       
+    ## Evaluate comparisons
+    #for (comp_name in names(comparison_list)) {
+    #    tryCatch({
+    #        log_info(paste("Evaluating comparison:", comp_name))
+    #        results[[comp_name]] <- eval(comparison_list[[comp_name]], df)
+    #        if (!is.logical(results[[comp_name]])) {
+    #            stop("Comparison result must be logical", call. = FALSE)
+    #        }
+    #        if (length(results[[comp_name]]) != nrow(df)) {
+    #            stop("Comparison result length does not match number of rows in dataframe", call. = FALSE)
+    #        }
+    #    }, error = function(e) {
+    #        stop(paste("Error in comparison", comp_name, ":", e$message), call. = FALSE)
+    #    })
+    #}
+    #                                                                                                       
+    ## Add results to dataframe
+    #df[names(results)] <- results
     # For all comparisons, create column with that name and TRUE/FALSE values for rows.
     for(comp_name in names(comparison_list)) {
         df[[comp_name]] <- eval(comparison_list[[comp_name]], df)
