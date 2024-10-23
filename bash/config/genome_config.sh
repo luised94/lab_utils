@@ -30,5 +30,24 @@ declare -A NCBI_CONFIG=(
         "GCF_000005845.2"  # E. coli
         "GCA_002163515.1"  # S cerevisaie W303
     )
-    ["GENOME_PATTERNS"]="GCF*.fna GCA*.fna"
+    ["GENOME_PATTERNS"]=("GCF*.fna" "GCA*.fna")
+)
+
+# Add to existing genome configurations
+declare -A GENOME_NAMING=(
+    ["CDS_FILE"]="cds.fna"
+    ["REFGENOME_SUFFIX"]="_refgenome.fna"
+    ["ORIGINAL_CDS"]="cds_from_genomic.fna"
+    ["GENOMIC_PATTERN"]="*_genomic.fna"
+)
+
+declare -A GENOME_PATHS=(
+    ["NCBI_DATA"]="ncbi_dataset/data"
+    ["ASSEMBLY_REPORT"]="assembly_data_report.jsonl"
+)
+
+declare -A CHROMOSOME_NAMING=(
+    ["PATTERN_OLD"]="chromosome"
+    ["PATTERN_NEW"]="chr"
+    ["SEPARATOR"]=","
 )
