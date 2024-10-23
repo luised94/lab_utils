@@ -40,3 +40,22 @@ declare -A MODULES=(
     ["SAMTOOLS"]="samtools/1.10"
     ["FASTQC"]="fastqc/0.11.5"
 )
+
+# Add to existing SLURM configurations
+declare -A SLURM_WRAPPER=(
+    ["MAX_ARRAY_SIZE"]=16
+    ["DEFAULT_ARRAY_FORMAT"]="1-%d%%16"
+    ["SCRIPT_BASE_DIR"]="$HOME/lab_utils"
+    ["DATA_BASE_DIR"]="$HOME/data"
+)
+
+declare -A LOG_PATTERNS=(
+    ["OUTPUT"]="*.out"
+    ["ERROR"]="*.err"
+    ["SLURM"]="slurm-*.out"
+)
+
+declare -A TIME_FORMATS=(
+    ["JOB_ID"]="%Y%m%d%M%S"
+    ["LOG_SEARCH"]="%Y-%m-%d"
+)
