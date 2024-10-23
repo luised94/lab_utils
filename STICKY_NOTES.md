@@ -109,3 +109,5 @@ If there is confusion about this because it requires, two things then it is like
 Will mark scripts files at the top to denote that I moved the functions to their respective files. 
 Hmm. It seems that separation of concerns also applies to testing.
 Will further distinguish operations on filetype. For example, if file is tsv, fastq etc will be in tsv_operations, fastq_operations etc.
+Need to break up functions in my config into functions and scripts and configuration.
+May move xml creator into my config.
