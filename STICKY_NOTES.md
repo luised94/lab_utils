@@ -108,3 +108,4 @@ Debating about where load and output type functions. I think load should go in f
 If there is confusion about this because it requires, two things then it is likely that we should refactor it.
 Will mark scripts files at the top to denote that I moved the functions to their respective files. 
 Hmm. It seems that separation of concerns also applies to testing.
+Will further distinguish operations on filetype. For example, if file is tsv, fastq etc will be in tsv_operations, fastq_operations etc.
