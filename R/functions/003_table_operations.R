@@ -119,6 +119,7 @@ add_attributes <- function(df, control_factors) {
     return(df)
 
 }
+
 create_bmc_table <- function(named_samples_table) {
     cat("Making bmc_table from sample table\n")
     bmc_table <- data.frame(SampleName = named_samples_table$full_name,
@@ -132,3 +133,31 @@ create_bmc_table <- function(named_samples_table) {
     return(bmc_table)
 }
 
+table_has_ID_column <- function(sample_table){
+    if(!("sample_ID" %in% colnames(sample_table))){
+        cat("No sample_ID column found.\n")
+        cat("Must determine sample_IDs from fastq files\n")
+        return(FALSE)
+    } else {
+        cat("Table has sample_ID column.\n")
+        return(TRUE)
+    }
+}
+modify_and_output_table <- function(sample_table, sample_ID_array, output_file_path) {
+    if(nrow(sample_table) != length(sample_ID_array)) {
+        cat("Number of rows is different from length of sample_ID_array.\n")
+        cat("Verify fastq file names to ensure proper number is being extracted.\n")
+        cat(sprintf("Number of rows: %s\n", nrow(sample_table)))
+        cat(sprintf("Length of array: %s\n", length(sample_ID_array)))
+        stop()
+    } else if ("sample_ID" %in% colnames(sample_table)) {
+        cat("sample_ID already part of the sample table.\n")
+        print(colnames(sample_table))
+        stop()
+    } else {
+        sample_table$sample_ID <- sample_ID_array
+        print(head(sample_table))
+        write.table(sample_table, output_file_path, append = FALSE, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
+        cat("Output modified sample table with sample ID column.\n")
+    }
+}

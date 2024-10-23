@@ -102,3 +102,9 @@ Need to potentially add timeid or use distinct tags.
 I think I should implement logging and then perform the reorganization into functions and scripts with updated logging.
 Not super sure about the tests for each function or file but I guess that means I dont understand it enough.
 Maybe quick runs using repl to get it to usable spot and then systematic test construction.
+
+## 2024-10-23
+Debating about where load and output type functions. I think load should go in file operations whole modify and output should go in table operations (or anything else that is being outputted.). This references the object that is being acted on. You load the file. You output the table.
+If there is confusion about this because it requires, two things then it is likely that we should refactor it.
+Will mark scripts files at the top to denote that I moved the functions to their respective files. 
+Hmm. It seems that separation of concerns also applies to testing.
