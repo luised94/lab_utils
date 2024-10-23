@@ -24,7 +24,7 @@ EOF
 
     # Default configuration
     local default_exclude_dirs=(".git" "node_modules" "build" "dist" "renv" ".venv")
-    local default_exclude_files=("*.md" ".renv.lock" "*.log" "*.tmp" "*.bak" "*.swp" ".gitignore" ".Rprofile")
+    local default_exclude_files=("*.md" "*.txt" "*init.sh" "*renv.lock" "*.log" "*.tmp" "*.bak" "*.swp" "*.gitignore" "*.Rprofile")
     local additional_exclude_dirs=()
     local additional_exclude_files=()
     local verbose=0
