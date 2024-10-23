@@ -1,4 +1,5 @@
 #!/bin/bash
+# functions moved
 
 #SBATCH parameters from SLURM_CONFIG
 
