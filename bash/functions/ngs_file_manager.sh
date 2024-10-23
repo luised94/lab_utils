@@ -101,3 +101,20 @@ function analyze_file_distribution() {
         sort | uniq -c | 
         sort -nr
 }
+
+# Add to existing file management functions
+function find_fastq_files() {
+    local base_dir="$1"
+    local exclude_pattern="${QC_CONFIG[EXCLUDE_PATTERNS]}"
+    
+    log_info "Finding FASTQ files in: $base_dir"
+    find "$base_dir" -type f -name "*.fastq" ! \( -name "*unmapped*" -o -name "processed_*" \)
+}
+
+function find_processed_fastq() {
+    local base_dir="$1"
+    local pattern="${QC_CONFIG[PROCESSED_PATTERN]}"
+    
+    log_info "Finding processed FASTQ files in: $base_dir"
+    find "$base_dir" -type f -name "$pattern"
+}
