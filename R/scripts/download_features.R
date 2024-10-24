@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+# functions moved
 
 source("../functions/data_downloader.R")
 source("../functions/feature_processor.R")

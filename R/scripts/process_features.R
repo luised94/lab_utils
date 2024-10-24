@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+# functions moved
 
 source("../functions/feature_processor.R")
 source("../functions/data_converter.R")

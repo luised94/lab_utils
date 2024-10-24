@@ -113,3 +113,6 @@ Need to break up functions in my config into functions and scripts and configura
 May move xml creator into my config.
 Didnt include the uninstallR script in the reorganization even tho I processed it to see. Not quite sure if I need it.
 Reorganized till determineInputForArrayId.R
+
+## 2024-10-24
+Retain the FCS files but deal with them in the future.
