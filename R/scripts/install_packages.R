@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+# functions moved
 
 source("../functions/package_installer.R")
 source("../functions/environment_manager.R")
