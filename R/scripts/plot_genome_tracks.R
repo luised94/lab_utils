@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+# functions moved
 
 source("../functions/track_manager.R")
 source("../functions/bigwig_processor.R")

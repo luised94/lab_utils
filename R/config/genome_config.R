@@ -50,3 +50,33 @@ CONFIG <- list(
         TRUNCATE_SUFFIX = "..."
     )
 )
+#' Merge with existing configurations
+CONFIG <- list(
+    GENOME = list(
+        DEFAULT_STRAND = "*",
+        DEFAULT_CHROMOSOME = "chr1",
+        STYLES = list(
+            UCSC = "UCSC",
+            ENSEMBL = "ENSEMBL"
+        )
+    ),
+    
+    VISUALIZATION = list(
+        TRACKS = list(
+            COLORS = c(
+                PRIMARY = "#1f77b4",
+                SECONDARY = "#ff7f0e",
+                HIGHLIGHT = "#2ca02c"
+            ),
+            TYPES = list(
+                DATA = "l",
+                ANNOTATION = "gene"
+            )
+        ),
+        DEFAULTS = list(
+            GENOME = "hg19",
+            MIN_HEIGHT = 0,
+            MAX_HEIGHT = 100
+        )
+    )
+)

@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+# functions moved
 
 source("../functions/package_manager.R")
 source("../functions/data_preparer.R")

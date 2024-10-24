@@ -58,3 +58,36 @@ CONFIG <- list(
         REMOTE_DOMAIN = "domain"
     )
 )
+#' Add to existing visualization configurations
+CONFIG <- list(
+    VISUALIZATION = list(
+        COLORS = list(
+            SAMPLE = "#E41A1C",
+            CONTROL = "#377EB8",
+            HIGHLIGHT = list(
+                FILL = "#FFE3E6",
+                BORDER = "#FF0000",
+                ALPHA = 0.3
+            )
+        ),
+        TRACK_TYPES = list(
+            LINE = "l",
+            HIGHLIGHT = "highlight"
+        ),
+        LIMITS = list(
+            Y_MIN = 0,
+            Y_MAX = 100000
+        ),
+        OUTPUT = list(
+            FORMAT = "svg",
+            DATE_FORMAT = "%Y%m%d%H%M%S"
+        )
+    ),
+    
+    PATHS = list(
+        SUBDIRS = list(
+            PLOTS = "plots",
+            BIGWIG = "bigwig"
+        )
+    )
+)

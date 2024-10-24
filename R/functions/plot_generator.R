@@ -41,4 +41,43 @@ create_output_filename <- function(base_dir,
         )
     )
 }
+#' Plot Generation Functions
+generate_sample_plot <- function(tracks,
+                               chromosome,
+                               title,
+                               output_file = NULL,
+                               config = CONFIG$VISUALIZATION) {
+    log_info("Generating plot:", title)
+    
+    if (!is.null(output_file)) {
+        svg(output_file)
+        on.exit(dev.off())
+    }
+    
+    plotTracks(
+        tracks,
+        main = title,
+        chromosome = chromosome,
+        ylim = c(config$LIMITS$Y_MIN, config$LIMITS$Y_MAX)
+    )
+}
 
+generate_output_filename <- function(base_dir,
+                                   sample_name,
+                                   chromosome,
+                                   config = CONFIG$VISUALIZATION) {
+    log_info("Generating output filename")
+    
+    date_str <- format(Sys.time(), config$OUTPUT$DATE_FORMAT)
+    
+    file.path(
+        base_dir,
+        sprintf(
+            "%s_%s_%s_WithInputAndHighlights.%s",
+            date_str,
+            chromosome,
+            sample_name,
+            config$OUTPUT$FORMAT
+        )
+    )
+}
