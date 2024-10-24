@@ -27,3 +27,27 @@ CONFIG <- list(
         QC_SUBDIR = "qualityControl"
     )
 )
+#' Add to existing QC configurations
+CONFIG <- list(
+    BAM_QC = list(
+        PATTERNS = list(
+            FLAGSTAT = "bamFlagstat",
+            SAMPLE_INFO = "sample_info"
+        ),
+        
+        METRICS = list(
+            TOTAL_READS = "total.*reads",
+            MAPPED_READS = "^mapped$"
+        ),
+        
+        OUTPUT = list(
+            DATE_FORMAT = "%Y-%m-%d-%H-%M-%S",
+            SEPARATOR = "\t"
+        )
+    ),
+    
+    PATHS = list(
+        QC_DIR = "qualityControl",
+        DOC_DIR = "documentation"
+    )
+)

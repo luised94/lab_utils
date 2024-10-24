@@ -131,3 +131,60 @@ process_single_file <- function(file_path) {
     
     granges
 }
+#' Feature Data Processing Functions
+process_downloaded_file <- function(file_path,
+                                  source_name,
+                                  type) {
+    log_info("Processing file:", basename(file_path))
+    
+    # Read file
+    data <- read_feature_file(file_path)
+    
+    # Process based on type
+    processed <- switch(type,
+        "features" = process_sgd_features(data),
+        "acs" = process_eaton_acs(data, file_path),
+        process_generic_features(data)
+    )
+    
+    validate_processed_data(processed, type)
+}
+
+process_sgd_features <- function(data) {
+    log_info("Processing SGD features")
+    
+    if (ncol(data) != length(CONFIG$SGD_COLUMNS)) {
+        log_error("Invalid column count in SGD features")
+        return(NULL)
+    }
+    
+    names(data) <- CONFIG$SGD_COLUMNS
+    data
+}
+
+process_eaton_acs <- function(data, file_path) {
+    log_info("Processing Eaton ACS data")
+    
+    # Fix coordinates
+    fixed <- fix_coordinates(data)
+    
+    # Save fixed version if needed
+    if (has_invalid_coordinates(data)) {
+        save_fixed_coordinates(fixed, file_path)
+    }
+    
+    fixed
+}
+
+fix_coordinates <- function(data) {
+    log_info("Fixing coordinates")
+    
+    data %>%
+        mutate(
+            width = end - start,
+            temp = ifelse(start > end, start, end),
+            start = ifelse(start > end, end, start),
+            end = temp
+        ) %>%
+        select(-temp, -width)
+}
