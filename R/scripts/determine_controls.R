@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+# functions moved
 
 source("../functions/file_validator.R")
 source("../functions/control_manager.R")

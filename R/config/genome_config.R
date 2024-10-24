@@ -80,3 +80,29 @@ CONFIG <- list(
         )
     )
 )
+#' Add to existing genome configurations
+CONFIG <- list(
+    CHROMOSOMES = list(
+        SPECIAL = c("X", "Y", "MT", "M"),
+        PREFIX = "chr",
+        DEFAULT = list(
+            NAME = "chrX",
+            START = 1,
+            END = 170000,
+            STRAND = "*"
+        )
+    ),
+    
+    NAMING = list(
+        PATTERNS = list(
+            ROMAN = "^[IVXLCDM]+$",
+            NUMERIC = "^\\d+$",
+            PREFIX = "^chr"
+        ),
+        STYLES = list(
+            UCSC = "UCSC",     # chrI, chrII, etc.
+            ENSEMBL = "ENSEMBL", # 1, 2, etc.
+            NCBI = "NCBI"      # I, II, etc.
+        )
+    )
+)
