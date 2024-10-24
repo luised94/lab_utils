@@ -1,6 +1,6 @@
 # Description: Configures and generates a sample table with experiments.
 # Usage: Rscript sampleGridConfigAndExprTemplate.R <experiment_id>
-
+# functions moved
 source("~/lab_utils/R/functions/001_logging.R")
 source("~/lab_utils/R/functions/002_table_operations.R")
 source("~/lab_utils/R/config/sample_grid_configuration.R")

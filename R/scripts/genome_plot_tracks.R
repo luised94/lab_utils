@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+# functions moved
 
 source("../functions/utils.R")
 source("../functions/sample_processor.R")
