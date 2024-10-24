@@ -1,4 +1,5 @@
 #!/bin/bash
+# functions moved
 
 source "../functions/slurm_output_manager.sh"
 
