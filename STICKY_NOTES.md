@@ -112,3 +112,4 @@ Will further distinguish operations on filetype. For example, if file is tsv, fa
 Need to break up functions in my config into functions and scripts and configuration.
 May move xml creator into my config.
 Didnt include the uninstallR script in the reorganization even tho I processed it to see. Not quite sure if I need it.
+
