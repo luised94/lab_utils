@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+# functions moved
 
 source("../functions/sample_matcher.R")
 source("../functions/bam_finder.R")

@@ -22,3 +22,30 @@ load_scripts("R/functions")
 
 # Log that initialization is complete
 log_info("Initialization complete. All utility functions and scripts loaded.")
+#!/usr/bin/env Rscript
+
+source("config/package_config.R")
+source("functions/package_manager.R")
+source("functions/environment_validator.R")
+
+#' Main initialization function
+main <- function() {
+    log_info("Starting environment setup")
+    
+    tryCatch({
+        # Initialize environment
+        initialize_environment()
+        
+        # Validate setup
+        validate_environment()
+        
+        log_info("Environment setup completed successfully")
+    }, error = function(e) {
+        log_error("Environment setup failed:", e$message)
+        quit(status = 1)
+    })
+}
+
+if (!interactive()) {
+    main()
+}
