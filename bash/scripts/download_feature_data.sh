@@ -1,4 +1,5 @@
 #!/bin/bash
+# functions moved
 
 set -euo pipefail
 
