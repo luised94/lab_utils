@@ -76,3 +76,58 @@ normalize_feature_range <- function(feature_grange,
     
     return(feature_subset)
 }
+#' Feature File Processing Functions
+process_feature_files <- function(input_dir = CONFIG$FEATURES$PATHS$BASE_DIR) {
+    log_info("Processing feature files")
+    
+    # Validate directory
+    validate_directory(input_dir)
+    
+    # Get file list
+    files <- get_feature_files(input_dir)
+    
+    if (length(files) == 0) {
+        log_warning("No files to process")
+        return(NULL)
+    }
+    
+    # Process each file
+    results <- process_files(files)
+    
+    # Verify outputs
+    verify_outputs(input_dir)
+    
+    results
+}
+
+process_files <- function(files) {
+    log_info("Processing", length(files), "files")
+    
+    lapply(files, function(file) {
+        tryCatch({
+            process_single_file(file)
+        }, error = function(e) {
+            log_error("Failed to process:", basename(file))
+            log_error("Error:", e$message)
+            NULL
+        })
+    })
+}
+
+process_single_file <- function(file_path) {
+    log_info("Processing file:", basename(file_path))
+    
+    # Read data
+    data <- read_feature_file(file_path)
+    
+    # Process data
+    processed <- process_feature_data(data, basename(file_path))
+    
+    # Convert to GRanges
+    granges <- convert_to_granges(processed, basename(file_path))
+    
+    # Output results
+    output_results(granges, file_path)
+    
+    granges
+}
