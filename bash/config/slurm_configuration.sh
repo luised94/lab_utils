@@ -59,3 +59,22 @@ declare -A TIME_FORMATS=(
     ["JOB_ID"]="%Y%m%d%M%S"
     ["LOG_SEARCH"]="%Y-%m-%d"
 )
+
+# Add to existing SLURM configurations
+declare -A ALIGNMENT_CONFIG=(
+    ["BOWTIE_PARAMS"]="-q --mp 4 --met-stderr"
+    ["THREADS_PER_TASK"]=4
+    ["MEMORY_PER_CPU"]="50G"
+)
+
+declare -A MODULE_REQUIREMENTS=(
+    ["GNU"]="gnu/5.4.0"
+    ["BOWTIE2"]="bowtie2/2.3.5.1"
+    ["SAMTOOLS"]="samtools/1.10"
+)
+
+declare -A FILE_PATTERNS=(
+    ["FASTQ"]="*.fastq"
+    ["GENOME"]="*_refgenome.fna"
+    ["INDEX_SUFFIX"]="_index"
+)

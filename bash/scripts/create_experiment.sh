@@ -1,4 +1,5 @@
 #!/bin/bash
+# functions moved
 
 source "../functions/experiment_functions.sh"
 
