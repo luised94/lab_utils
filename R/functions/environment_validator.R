@@ -48,3 +48,48 @@ log_session_info <- function() {
     log_info("Session Information:")
     print(sessionInfo())
 }
+#' Environment Validation Functions
+validate_environment <- function() {
+    log_info("Validating environment")
+    
+    # Check required environment variables
+    check_environment_variables()
+    
+    # Get user information
+    user_info <- get_user_info()
+    
+    # Validate paths
+    validate_paths(user_info)
+    
+    user_info
+}
+
+check_environment_variables <- function() {
+    missing_vars <- setdiff(
+        CONFIG$ENVIRONMENT$REQUIRED_VARS,
+        names(Sys.getenv())
+    )
+    
+    if (length(missing_vars) > 0) {
+        log_error("Missing environment variables:", 
+                 paste(missing_vars, collapse = ", "))
+        log_error("Check bashrc configuration")
+        stop("Environment not properly configured")
+    }
+}
+
+get_user_info <- function() {
+    username <- Sys.getenv("WINDOWS_USER")
+    
+    if (username == "") {
+        log_error("WINDOWS_USER not defined")
+        stop("Invalid environment configuration")
+    }
+    
+    log_info("Using username:", username)
+    
+    list(
+        username = username,
+        home = Sys.getenv("HOME")
+    )
+}

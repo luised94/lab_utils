@@ -1,51 +1,41 @@
-# R/init.R
-
-# Load all utility functions
-source("R/functions/validation_utils.R")
-# source other utility files here
-
-# Function to load all scripts in a directory
-load_scripts <- function(dir_path) {
-    scripts <- list.files(dir_path, pattern = "\\.R$", full.names = TRUE)
-    for (script in scripts) {
-        source(script)
-    }
-}
-
-# Load all function scripts
-load_scripts("R/functions")
-
-## Load all analysis scripts
-#load_scripts("R/analysis")
-
-# Any other initialization code can go here
-
-# Log that initialization is complete
-log_info("Initialization complete. All utility functions and scripts loaded.")
 #!/usr/bin/env Rscript
 
-source("config/package_config.R")
-source("functions/package_manager.R")
-source("functions/environment_validator.R")
-
-#' Main initialization function
-main <- function() {
-    log_info("Starting environment setup")
+#' Project Initialization
+initialize_project <- function() {
+    # Setup error handling
+    options(error = function() {
+        cat("Error occurred in initialization\n")
+        if (interactive()) recover()
+    })
     
     tryCatch({
-        # Initialize environment
-        initialize_environment()
+        # Load basic configuration
+        source("config/init_config.R")
         
-        # Validate setup
-        validate_environment()
+        # Check environment
+        check_environment()
         
-        log_info("Environment setup completed successfully")
+        # Load priority scripts first
+        load_priority_scripts()
+        
+        # Load remaining function scripts
+        load_directory_scripts(CONFIG$PATHS$FUNCTIONS)
+        
+        # Load script directories
+        for (dir in c(CONFIG$PATHS$SCRIPTS, CONFIG$PATHS$CONFIG)) {
+            load_directory_scripts(dir)
+        }
+        
+        log_info("Project initialization completed successfully")
+        
     }, error = function(e) {
-        log_error("Environment setup failed:", e$message)
-        quit(status = 1)
+        cat("Critical initialization error:", e$message, "\n")
+        if (interactive()) {
+            recover()
+        } else {
+            quit(status = 1)
+        }
     })
 }
 
-if (!interactive()) {
-    main()
-}
+initialize_project()
