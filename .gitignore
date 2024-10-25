@@ -1,5 +1,5 @@
 */sampleGridConfig.R
-treestructure.txt
+treestructure*.txt
 sampleGridConfig.R
 slurm-*.out
 test.log
