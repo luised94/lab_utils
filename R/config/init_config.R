@@ -1,3 +1,4 @@
+
 #' Initialization Configuration
 CONFIG <- list(
     INITIALIZATION = list(
