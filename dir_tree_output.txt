@@ -1,0 +1,100 @@
+.
++- data
+|  +- REFGENS
+|  |  +- SaccharomycescerevisiaeS288C
+|  |  +- Escherichiacolistr.K-12substr.MG1655
+|  |  +- Homosapiens
+|  |  +- SaccharomycescerevisiaeW303
+|  |  +- logs
+|  +- 240304Bel
+|  |  +- peak
+|  |  +- alignment
+|  |  +- plots
+|  |  +- logs
+|  |  +- qualityControl
+|  |  +- documentation
+|  |  +- bigwig
+|  |  +- fastq
+|  |  +- processedFastq
+|  +- playground
+|  +- code_snippets
+|  +- EatonBel
+|  |  +- peak
+|  |  +- alignment
+|  |  +- qualityControl
+|  |  +- bigwig
+|  |  +- plots
+|  |  +- logs
+|  |  +- documentation
+|  |  +- fastq
+|  |  +- processedFastq
+|  +- feature_files
+|  +- 221024Bel
+|  |  +- data
+|  |  +- scripts
+|  |  +- reports
+|  |  +- logs
+|  |  +- peak
+|  |  +- alignment
+|  |  +- fastqc
+|  |  +- bw
+|  |  +- plots
+|  |  +- qualityControl
+|  |  +- bigwig
+|  |  +- documentation
+|  |  +- processedFastq
+|  |  +- fastq
+|  +- 240630Bel
+|  |  +- peak
+|  |  +- alignment
+|  |  +- qualityControl
+|  |  +- processedFastq
+|  |  +- bigwig
+|  |  +- plots
+|  |  +- logs
+|  |  +- documentation
+|  |  +- fastq
+|  +- 240808Bel
+|  |  +- alignment
+|  |  +- bigwig
+|  |  +- documentation
+|  |  +- fastq
+|  |  +- logs
+|  |  +- peak
+|  |  +- plots
+|  |  +- qualityControl
+|  +- 240819Bel
+|  |  +- alignment
+|  |  +- bigwig
+|  |  +- documentation
+|  |  +- fastq
+|  |  +- logs
+|  |  +- peak
+|  |  +- plots
+|  |  +- qualityControl
++- R
++- slurm_dir
++- lab_utils
+|  +- R
+|  |  +- config
+|  |  +- functions
+|  |  +- scripts
+|  |  +- tests
+|  +- bash
+|  |  +- config
+|  |  +- functions
+|  |  +- scripts
+|  +- docs
+|  +- renv
++- my_config
+|  +- dotfiles
+|  +- nvim
+|  |  +- lua
+|  +- bash
+|  |  +- config
+|  |  +- functions
+|  |  +- scripts
+|  +- scripts
+|  +- zotero
+|  |  +- console_js
+|  |  +- plugin_actions_and_tag_js
