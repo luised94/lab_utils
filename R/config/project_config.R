@@ -25,7 +25,38 @@ PROJECT_CONFIG <- list(
             "environment_utils.R",
             "validation_utils.R"
         )
-    )
+    ),
+    FILE_TYPES = list(
+            NGS = list(
+                EXTENSIONS = c(
+                    BAM = "\\.bam$",
+                    FASTQ = "\\.(fastq|fq)(\\.gz)?$",
+                    BIGWIG = "\\.bw$",
+                    BED = "\\.bed$",
+                    NARROWPEAK = "\\.narrowPeak$",
+                    MOTIF = "\\.(meme|pwm|jaspar)$"
+                ),
+                REQUIRED_INDEX = c(
+                    BAM = "\\.bai$",
+                    BIGWIG = "\\.bw\\.tbi$"
+                )
+            )
+    ),
+    VALIDATION = list(
+         LIMITS = list(
+                CHROMOSOME = c(min = 1, max = 16),
+                READ_LENGTH = c(min = 20, max = 150),
+                PEAK_SCORE = c(min = 0, max = 1000)
+            ),
+            REQUIRED_DIRS = c(
+                "peak",
+                "alignment",
+                "plots",
+                "documentation",
+                "fastq",
+                "processedFastq"
+            )
+        )
 )
 
 
