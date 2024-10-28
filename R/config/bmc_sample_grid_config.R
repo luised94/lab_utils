@@ -1,4 +1,6 @@
 #!/usr/bin/env Rscript
+# TODO: Do we need to validate the experiment_id format?
+# TODO: Should we add validation for category value uniqueness?
 # R/config/experiment_config.R
 
 #' Experiment Configuration
