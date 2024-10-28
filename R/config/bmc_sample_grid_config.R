@@ -55,6 +55,71 @@ EXPERIMENT_CONFIG <- list(
     )
 )
 
+#' Validate Category Types
+#' @param categories List Category definitions
+#' @return Logical TRUE if valid
+validate_category_types <- function(categories) {
+    invalid_cats <- Filter(
+        function(x) !is.character(x),
+        categories
+    )
+    
+    if (length(invalid_cats) > 0) {
+        stop(sprintf(
+            "Categories must be character vectors: %s",
+            paste(names(invalid_cats), collapse = ", ")
+        ))
+    }
+    invisible(TRUE)
+}
+
+#' Validate Column References
+#' @param config List Experiment configuration
+#' @return Logical TRUE if valid
+validate_column_references <- function(config) {
+    valid_cols <- names(config$CATEGORIES)
+    
+    # Check comparison groups
+    for (comp_name in names(config$COMPARISONS)) {
+        comp_expr <- as.character(config$COMPARISONS[[comp_name]])
+        for (col in valid_cols) {
+            if (grepl(col, comp_expr) && !(col %in% valid_cols)) {
+                stop(sprintf(
+                    "Invalid column reference in comparison '%s': %s",
+                    comp_name, col
+                ))
+            }
+        }
+    }
+    
+    # Check control factors
+    invalid_controls <- setdiff(
+        unlist(config$CONTROL_FACTORS),
+        valid_cols
+    )
+    if (length(invalid_controls) > 0) {
+        stop(sprintf(
+            "Invalid control factors: %s",
+            paste(invalid_controls, collapse = ", ")
+        ))
+    }
+    
+    # Check experimental conditions
+    for (cond_name in names(config$EXPERIMENTAL_CONDITIONS)) {
+        cond_expr <- as.character(config$EXPERIMENTAL_CONDITIONS[[cond_name]])
+        for (col in valid_cols) {
+            if (grepl(col, cond_expr) && !(col %in% valid_cols)) {
+                stop(sprintf(
+                    "Invalid column reference in condition '%s': %s",
+                    cond_name, col
+                ))
+            }
+        }
+    }
+    
+    invisible(TRUE)
+}
+
 #' Generate Experiment Sample Grid
 #' @param project_config List Project configuration
 #' @param experiment_config List Experiment configuration
@@ -76,6 +141,10 @@ generate_experiment_grid <- function(
     }
     
     tryCatch({
+        # Validate configuration
+        validate_category_types(experiment_config$CATEGORIES)
+        validate_column_references(experiment_config)
+
         if (!identical(
             sort(names(experiment_config$CATEGORIES)),
             sort(experiment_config$COLUMN_ORDER)
