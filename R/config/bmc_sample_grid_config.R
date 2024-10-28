@@ -61,19 +61,9 @@ EXPERIMENT_CONFIG <- list(
 #' @param init_logging Logical Whether to initialize logging
 #' @return data.frame Filtered experiment grid
 generate_experiment_grid <- function(
-    project_config = NULL,
     experiment_config = EXPERIMENT_CONFIG,
     init_logging = TRUE
 ) {
-    # Handle project configuration
-    if (is.null(project_config)) {
-        if (!exists("PROJECT_CONFIG", envir = .GlobalEnv)) {
-            warning("PROJECT_CONFIG not found. Some features may be limited.")
-        } else {
-            project_config <- PROJECT_CONFIG
-        }
-    }
-    
     # Initialize logging if requested
     if (init_logging) {
         if (file.exists("~/lab_utils/R/functions/logging_utils.R")) {
@@ -86,6 +76,13 @@ generate_experiment_grid <- function(
     }
     
     tryCatch({
+        if (!identical(
+            sort(names(experiment_config$CATEGORIES)),
+            sort(experiment_config$COLUMN_ORDER)
+        )) {
+            stop("Column order must include all category columns")
+        }
+
         # Generate combinations
         grid <- do.call(expand.grid, experiment_config$CATEGORIES)
         
