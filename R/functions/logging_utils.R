@@ -7,10 +7,12 @@
 #' Initialize logging system
 #' @param config List Project configuration
 #' @param script_name Character Name of the calling script
+#' @param append Logical Whether to append to existing log
 #' @return Character Path to log file
 initialize_logging <- function(
     config = PROJECT_CONFIG,
-    script_name = NULL
+    script_name = NULL,
+    append = TRUE
 ) {
     tryCatch({
         # Setup central log directory
@@ -31,15 +33,37 @@ initialize_logging <- function(
             )
         )
         
-        # Initialize log file with headers
-        log_system_info(log_file)
-        log_git_info(log_file)
+        # Check if log exists and handle appropriately
+        if (file.exists(log_file)) {
+            if (append) {
+                log_info(sprintf("Continuing log in existing file: %s", log_file))
+            } else {
+                log_warning(sprintf("Overwriting existing log file: %s", log_file))
+                file.remove(log_file)
+            }
+        } else {
+            # Initialize new log file with headers
+            log_system_info(log_file)
+            log_git_info(log_file)
+        }
         
         return(log_file)
     }, error = function(e) {
         stop(sprintf("Failed to initialize logging: %s", e$message))
     })
 }
+
+#' Check Log Status
+#' @param log_file Character Path to log file
+#' @return List Log status information
+check_log_status <- function(log_file) {
+    list(
+        exists = file.exists(log_file),
+        size = if (file.exists(log_file)) file.info(log_file)$size else 0,
+        last_modified = if (file.exists(log_file)) 
+            format(file.info(log_file)$mtime, "%Y-%m-%d %H:%M:%S") else NA
+    )
+
 
 #' Log System Information
 #' @param log_file Character Path to log file
