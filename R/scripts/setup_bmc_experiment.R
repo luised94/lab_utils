@@ -1,44 +1,123 @@
 #!/usr/bin/env Rscript
+# R/scripts/setup_bmc_experiment.R
 
-source("../functions/environment_validator.R")
-source("../functions/experiment_setup.R")
+#' Setup BMC Sequencing Experiment
+#' @description Initialize experiment directory structure and configuration
+#' @export
 
-#' Main experiment setup function
-main <- function() {
-    log_info("Starting experiment setup")
+#' Initialize Experiment
+#' @param experiment_id Character Experiment identifier
+#' @param config_path Character Path to project configuration
+#' @return List Experiment directories and status
+initialize_bmc_experiment <- function(
+    experiment_id,
+    config_path = "~/lab_utils/R/config/project_config.R"
+) {
+    tryCatch({
+        # Load configurations
+        source(config_path)
+        source("~/lab_utils/R/config/bmc_sample_grid_config.R")
+        
+        # Initialize logging
+        log_file <- initialize_logging(
+            script_name = sprintf("setup_experiment_%s", experiment_id)
+        )
+        log_info("Initializing experiment setup", log_file)
+        
+        # Validate experiment ID format
+        if (!grepl("^\\d{6}Bel$", experiment_id)) {
+            stop("Invalid experiment ID format. Expected: YYMMDD'Bel'")
+        }
+        
+        # Setup directory structure
+        experiment_dirs <- create_experiment_directories(
+            experiment_id = experiment_id,
+            required_dirs = PROJECT_CONFIG$VALIDATION$REQUIRED_DIRS,
+            base_path = "~/data"
+        )
+        
+        # Generate and validate sample grid
+        sample_grid <- generate_experiment_grid(
+            experiment_config = EXPERIMENT_CONFIG
+        )
+        
+        # Save configurations
+        save_experiment_files(
+            experiment_id = experiment_id,
+            dirs = experiment_dirs,
+            sample_grid = sample_grid
+        )
+        
+        log_info("Experiment setup completed successfully", log_file)
+        invisible(experiment_dirs)
+        
+    }, error = function(e) {
+        log_error(sprintf("Experiment setup failed: %s", e$message))
+        stop(e)
+    })
+}
+
+#' Create Experiment Directories
+#' @param experiment_id Character Experiment identifier
+#' @param required_dirs Character vector Required directories
+#' @param base_path Character Base path for experiment
+#' @return List Directory paths
+create_experiment_directories <- function(
+    experiment_id,
+    required_dirs,
+    base_path
+) {
+    experiment_path <- file.path(base_path, experiment_id)
     
-    # Get command line arguments
-    args <- commandArgs(trailingOnly = TRUE)
-    
-    if (length(args) != 1) {
-        log_error("Invalid number of arguments")
-        show_usage()
-        stop("Invalid input")
+    # Create main directory
+    if (!dir.exists(experiment_path)) {
+        dir.create(experiment_path, recursive = TRUE)
     }
     
-    # Validate environment
-    user_info <- validate_environment()
+    # Create subdirectories
+    for (dir_name in required_dirs) {
+        dir_path <- file.path(experiment_path, dir_name)
+        if (!dir.exists(dir_path)) {
+            dir.create(dir_path, recursive = TRUE)
+        }
+    }
     
-    # Setup experiment
-    setup_experiment(args[1], user_info)
-    
-    # Output sync command
-    output_sync_command()
-    
-    log_info("Experiment setup completed")
+    list(
+        root = experiment_path,
+        documentation = file.path(experiment_path, "documentation"),
+        logs = file.path(experiment_path, "logs")
+    )
 }
 
-show_usage <- function() {
-    cat("Usage: Rscript setup_experiment.R <experiment_name>\n")
-    cat("Example: Rscript setup_experiment.R 240808Bel\n")
-    cat("\nNote: Ensure WINDOWS_USER is defined in bashrc\n")
+#' Save Experiment Files
+#' @param experiment_id Character Experiment identifier
+#' @param dirs List Directory paths
+#' @param sample_grid data.frame Experiment sample grid
+#' @return None
+save_experiment_files <- function(
+    experiment_id,
+    dirs,
+    sample_grid
+) {
+    # Save sample grid
+    write.csv(
+        sample_grid,
+        file = file.path(dirs$documentation, "sample_grid.csv"),
+        row.names = FALSE
+    )
+    
+    # Copy configuration
+    file.copy(
+        from = "~/lab_utils/R/config/bmc_sample_grid_config.R",
+        to = file.path(dirs$documentation, "experiment_config.R")
+    )
 }
 
-output_sync_command <- function() {
-    log_info("To sync files:")
-    log_info("Use: scp command (see documentation)")
-}
-
+# Execute if run as script
 if (!interactive()) {
-    main()
+    args <- commandArgs(trailingOnly = TRUE)
+    if (length(args) != 1) {
+        stop("Usage: Rscript setup_bmc_experiment.R <experiment_id>")
+    }
+    initialize_bmc_experiment(args[1])
 }
