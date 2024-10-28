@@ -1,19 +1,34 @@
-# init_config.R
-CONFIG <- list(
+#!/usr/bin/env Rscript
+
+#' Project Configuration Definition
+#' @export PROJECT_CONFIG
+PROJECT_CONFIG <- list(
+    SYSTEM = list(
+        VERSION = "1.0.0",
+        R_MIN_VERSION = "4.2.0",
+        PLATFORM = .Platform$OS.type
+    ),
+    
     PATHS = list(
-        BASE = Sys.getenv("R_PROJECT_ROOT", "R"),
+        ROOT = normalizePath("~/lab_utils"),
+        R_BASE = file.path(normalizePath("~/lab_utils"), "R"),
         FUNCTIONS = "functions",
         SCRIPTS = "scripts",
         CONFIG = "config",
         TEMPLATES = "templates",
+        DATA = "data",
         LOGS = "logs"
     ),
     
-    LOAD_ORDER = list(
-        PRIORITY = c(
+    LOAD_SEQUENCE = list(
+        CRITICAL = c(
             "logging_utils.R",
             "environment_utils.R",
             "validation_utils.R"
+        ),
+        STANDARD = c(
+            "analysis_utils.R",
+            "visualization_utils.R"
         )
     ),
     
@@ -25,14 +40,11 @@ CONFIG <- list(
     ENVIRONMENT = list(
         REQUIRED_VARS = c(
             "HOME",
-            "R_LIBS_USER",
-            "R_PROJECT_ROOT"
+            "R_LIBS_USER"
+        ),
+        RENV_SETTINGS = list(
+            AUTO_ACTIVATE = TRUE,
+            SNAPSHOT_INTERVAL = 86400  # 24 hours
         )
-    ),
-    
-    CLUSTER = list(
-        ENABLED = as.logical(Sys.getenv("R_CLUSTER_MODE", "FALSE")),
-        MOUNT_POINT = Sys.getenv("R_CLUSTER_MOUNT", "/cluster/data")
     )
 )
-cat(CONFIG$PATHS$BASE)
