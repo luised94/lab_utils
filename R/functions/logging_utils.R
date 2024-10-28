@@ -75,7 +75,8 @@ log_system_info <- function(log_file) {
         message = paste(
             "System Info:",
             "R", R.version.string,
-            "on", paste(Sys.info()[c("sysname", "release")], collapse = " ")
+            "on", paste(Sys.info()[c("sysname", "release")], collapse = " "),
+            "Platform:", sessionInfo()$platform, collapse = " ")
         ),
         log_file = log_file
     )

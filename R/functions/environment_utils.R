@@ -78,15 +78,6 @@ check_environment_variables <- function(
     invisible(TRUE)
 }
 
-#' Log System Information
-#' @return None
-log_system_info <- function() {
-    info <- sessionInfo()
-    log_info(sprintf("R Version: %s", info$R.version$version.string))
-    log_info(sprintf("Platform: %s", info$platform))
-    log_info(sprintf("Working Directory: %s", getwd()))
-}
-
 #' Setup Project Paths
 #' @param config List Configuration settings
 #' @return List Path information
