@@ -63,6 +63,7 @@ check_log_status <- function(log_file) {
         last_modified = if (file.exists(log_file)) 
             format(file.info(log_file)$mtime, "%Y-%m-%d %H:%M:%S") else NA
     )
+}
 
 
 #' Log System Information

@@ -121,14 +121,3 @@ setup_renv_environment <- function(project_root, settings) {
   message("renv setup complete.")
   invisible(TRUE)
 }
-
-
-
-
-
-
-
-
-
-
-
