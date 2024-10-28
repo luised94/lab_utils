@@ -87,11 +87,7 @@ initialize_project_main <- function(
         # Load core utilities in order
         load_core_utilities(
             base_path = config$PATHS$R_BASE,
-            script_list = c(
-                "logging_utils.R",
-                "environment_utils.R",
-                "validation_utils.R"
-            ),
+            script_list = config$LOAD_SEQUENCE$CRITICAL,
             verbose = verbose
         )
         
