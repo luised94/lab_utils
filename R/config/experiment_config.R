@@ -13,7 +13,6 @@ CONFIG <- list(
             "qualityControl",
             "bigwig",
             "plots",
-            "logs",
             "documentation"
         ),
         
