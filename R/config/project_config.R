@@ -15,9 +15,8 @@ PROJECT_CONFIG <- list(
         FUNCTIONS = "functions",
         SCRIPTS = "scripts",
         CONFIG = "config",
-        TEMPLATES = "templates",
-        DATA = "data",
-        LOGS = "logs"
+        DATA = normalizePath("~/data"),
+        LOGS = normalizePath("~/logs")
     ),
     
     LOAD_SEQUENCE = list(
@@ -25,26 +24,21 @@ PROJECT_CONFIG <- list(
             "logging_utils.R",
             "environment_utils.R",
             "validation_utils.R"
-        ),
-        STANDARD = c(
-            "analysis_utils.R",
-            "visualization_utils.R"
-        )
-    ),
-    
-    PATTERNS = list(
-        R_FILES = "\\.R$",
-        EXCLUDE = c("^\\.", "^_", "test_", "example_")
-    ),
-    
-    ENVIRONMENT = list(
-        REQUIRED_VARS = c(
-            "HOME",
-            "R_LIBS_USER"
-        ),
-        RENV_SETTINGS = list(
-            AUTO_ACTIVATE = TRUE,
-            SNAPSHOT_INTERVAL = 86400  # 24 hours
         )
     )
 )
+
+
+#    PATTERNS = list(
+#        R_FILES = "\\.R$",
+#        EXCLUDE = c("^\\.", "^_", "test_", "example_")
+#    ),
+#
+#    ENVIRONMENT = list(
+#        REQUIRED_VARS = c(
+#            "HOME",
+#            "R_LIBS_USER"
+#        ),
+#        RENV_SETTINGS = list(
+#            AUTO_ACTIVATE = TRUE,
+#            SNAPSHOT_INTERVAL = 86400  # 24 hours
