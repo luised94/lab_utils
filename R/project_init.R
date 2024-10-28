@@ -1,4 +1,25 @@
 #!/usr/bin/env Rscript
+# R/project_init.R
+
+#' Project Initialization System
+#' @description Initialize project environment and dependencies
+#' @export
+
+#' Load Project Configuration
+#' @param config_path Character Path to configuration file
+#' @return List Configuration object
+load_project_config <- function(
+    config_path = "~/lab_utils/R/config/project_config.R"
+) {
+    if (!file.exists(config_path)) {
+        stop("Configuration file not found: ", config_path)
+    }
+    source(config_path)
+    if (!exists("PROJECT_CONFIG")) {
+        stop("PROJECT_CONFIG not defined in configuration file")
+    }
+    invisible(PROJECT_CONFIG)
+}
 
 #' Check R Version Compatibility
 #' @param R_system_version package_version Current R version
@@ -18,18 +39,7 @@ check_r_version <- function(
     invisible(TRUE)
 }
 
-#' Load Project Configuration
-#' @param config_path Character Path to configuration file
-#' @return List Configuration object
-load_project_config <- function(config_path) {
-    if (!file.exists(config_path)) {
-        stop("Configuration file not found: ", config_path)
-    }
-    source(config_path)
-    return(PROJECT_CONFIG)
-}
-
-#' Load Core Utility Functions
+#' Load Core Utilities
 #' @param base_path Character Base path for utilities
 #' @param script_list Character vector List of scripts to load
 #' @param verbose Logical Enable detailed logging
@@ -60,28 +70,39 @@ initialize_project_main <- function(
     verbose = TRUE
 ) {
     tryCatch({
-        # Create logs directory if it doesn't exist
-        if (!dir.exists("~/logs")) {
-            dir.create("~/logs", recursive = TRUE)
-        }
-        
-        # Load configuration
+        # Load configuration first
         config <- load_project_config(config_path)
         
-        # Validate R version
+        # Check R version
         check_r_version(
             R_system_version = getRversion(),
             R_project_version = package_version(config$SYSTEM$R_MIN_VERSION)
         )
         
-        # Load core utilities
+        # Ensure log directory exists
+        if (!dir.exists("~/logs")) {
+            dir.create("~/logs", recursive = TRUE)
+        }
+        
+        # Load core utilities in order
         load_core_utilities(
             base_path = config$PATHS$R_BASE,
-            script_list = config$LOAD_SEQUENCE$CRITICAL,
+            script_list = c(
+                "logging_utils.R",
+                "environment_utils.R",
+                "validation_utils.R"
+            ),
             verbose = verbose
         )
         
-        message("Project initialization completed successfully")
+        # Initialize logging
+        log_file <- initialize_logging(script_name = "project_init")
+        log_info("Project initialization started", log_file)
+        
+        # Log system information
+        log_system_info(log_file)
+        
+        log_info("Project initialization completed successfully", log_file)
         invisible(TRUE)
         
     }, error = function(e) {
@@ -94,30 +115,5 @@ initialize_project_main <- function(
     })
 }
 
+# Execute if run as script
 if (!interactive()) initialize_project_main()
-
-
-#
-#' Initialize renv Environment
-#' @param project_root Character. Project root directory
-#' @param settings List. renv configuration settings
-#' @return Logical. TRUE if initialization successful
-setup_renv_environment <- function(project_root, settings) {
-  if (!requireNamespace("renv", quietly = TRUE)) {
-    message("Installing renv package...")
-    install.packages("renv")
-  }
-  
-  renv_lockfile <- file.path(project_root, "renv.lock")
-  
-  if (file.exists(renv_lockfile)) {
-    message("Activating existing renv environment...")
-    renv::activate(project = project_root)
-  } else {
-    message("Initializing new renv environment...")
-    renv::init(project = project_root, force = settings$AUTO_ACTIVATE)
-  }
-  
-  message("renv setup complete.")
-  invisible(TRUE)
-}
