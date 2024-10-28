@@ -55,68 +55,77 @@ EXPERIMENT_CONFIG <- list(
     )
 )
 
-#' Validate Category Types
-#' @param categories List Category definitions
-#' @return Logical TRUE if valid
-validate_category_types <- function(categories) {
-    invalid_cats <- Filter(
-        function(x) !is.character(x),
-        categories
-    )
-    
-    if (length(invalid_cats) > 0) {
-        stop(sprintf(
-            "Categories must be character vectors: %s",
-            paste(names(invalid_cats), collapse = ", ")
-        ))
+
+#' Validate Category Values
+validate_experiment_categories <- function(experiment_config) {
+    for (category_name in names(experiment_config$CATEGORIES)) {
+        values <- experiment_config$CATEGORIES[[category_name]]
+        if (!is.character(values)) {
+            stop(sprintf(
+                "Category '%s' values must be character vectors, got %s",
+                category_name, class(values)
+            ))
+        }
     }
     invisible(TRUE)
 }
 
 #' Validate Column References
-#' @param config List Experiment configuration
-#' @return Logical TRUE if valid
-validate_column_references <- function(config) {
-    valid_cols <- names(config$CATEGORIES)
+validate_experiment_column_references <- function(experiment_config) {
+    # Get valid column names
+    valid_columns <- names(experiment_config$CATEGORIES)
     
     # Check comparison groups
-    for (comp_name in names(config$COMPARISONS)) {
-        comp_expr <- as.character(config$COMPARISONS[[comp_name]])
-        for (col in valid_cols) {
-            if (grepl(col, comp_expr) && !(col %in% valid_cols)) {
-                stop(sprintf(
-                    "Invalid column reference in comparison '%s': %s",
-                    comp_name, col
-                ))
-            }
+    for (comp_name in names(experiment_config$COMPARISONS)) {
+        comp_expr <- experiment_config$COMPARISONS[[comp_name]]
+        comp_vars <- all.vars(comp_expr)
+        invalid_cols <- setdiff(comp_vars, valid_columns)
+        if (length(invalid_cols) > 0) {
+            stop(sprintf(
+                "Invalid columns in comparison '%s': %s",
+                comp_name, paste(invalid_cols, collapse = ", ")
+            ))
         }
     }
     
     # Check control factors
-    invalid_controls <- setdiff(
-        unlist(config$CONTROL_FACTORS),
-        valid_cols
-    )
-    if (length(invalid_controls) > 0) {
-        stop(sprintf(
-            "Invalid control factors: %s",
-            paste(invalid_controls, collapse = ", ")
-        ))
-    }
-    
-    # Check experimental conditions
-    for (cond_name in names(config$EXPERIMENTAL_CONDITIONS)) {
-        cond_expr <- as.character(config$EXPERIMENTAL_CONDITIONS[[cond_name]])
-        for (col in valid_cols) {
-            if (grepl(col, cond_expr) && !(col %in% valid_cols)) {
-                stop(sprintf(
-                    "Invalid column reference in condition '%s': %s",
-                    cond_name, col
-                ))
-            }
+    for (factor_name in names(experiment_config$CONTROL_FACTORS)) {
+        invalid_cols <- setdiff(
+            experiment_config$CONTROL_FACTORS[[factor_name]],
+            valid_columns
+        )
+        if (length(invalid_cols) > 0) {
+            stop(sprintf(
+                "Invalid columns in control factor '%s': %s",
+                factor_name, paste(invalid_cols, collapse = ", ")
+            ))
         }
     }
     
+    # Check experimental conditions
+    for (cond_name in names(experiment_config$EXPERIMENTAL_CONDITIONS)) {
+        cond_expr <- experiment_config$EXPERIMENTAL_CONDITIONS[[cond_name]]
+        cond_vars <- all.vars(cond_expr)
+        invalid_cols <- setdiff(cond_vars, valid_columns)
+        if (length(invalid_cols) > 0) {
+            stop(sprintf(
+                "Invalid columns in condition '%s': %s",
+                cond_name, paste(invalid_cols, collapse = ", ")
+            ))
+        }
+    }
+    
+    invisible(TRUE)
+}
+
+#' Validate Column Order
+validate_experiment_column_order <- function(experiment_config) {
+    if (!identical(
+        sort(names(experiment_config$CATEGORIES)),
+        sort(experiment_config$COLUMN_ORDER)
+    )) {
+        stop("Column order must include all category columns")
+    }
     invisible(TRUE)
 }
 
@@ -141,16 +150,10 @@ generate_experiment_grid <- function(
     }
     
     tryCatch({
-        # Validate configuration
-        validate_category_types(experiment_config$CATEGORIES)
-        validate_column_references(experiment_config)
-
-        if (!identical(
-            sort(names(experiment_config$CATEGORIES)),
-            sort(experiment_config$COLUMN_ORDER)
-        )) {
-            stop("Column order must include all category columns")
-        }
+        # Run validations
+        validate_experiment_categories(experiment_config)
+        validate_experiment_column_references(experiment_config)
+        validate_experiment_column_order(experiment_config)
 
         # Generate combinations
         grid <- do.call(expand.grid, experiment_config$CATEGORIES)
