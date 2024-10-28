@@ -55,51 +55,82 @@ EXPERIMENT_CONFIG <- list(
     )
 )
 
-#' Generate Experiment Grid
-#' @param config List Experiment configuration
+#' Generate Experiment Sample Grid
+#' @param project_config List Project configuration
+#' @param experiment_config List Experiment configuration
+#' @param init_logging Logical Whether to initialize logging
 #' @return data.frame Filtered experiment grid
 generate_experiment_grid <- function(
-    project_config = PROJECT_CONFIG
-    experimet_config = EXPERIMENT_CONFIG
+    project_config = NULL,
+    experiment_config = EXPERIMENT_CONFIG,
+    init_logging = TRUE
 ) {
-    # Check project configuration
-    if (!exists("PROJECT_CONFIG")) {
-        stop("Project configuration not loaded")
+    # Handle project configuration
+    if (is.null(project_config)) {
+        if (!exists("PROJECT_CONFIG", envir = .GlobalEnv)) {
+            warning("PROJECT_CONFIG not found. Some features may be limited.")
+        } else {
+            project_config <- PROJECT_CONFIG
+        }
     }
     
-    # Generate combinations
-    grid <- do.call(expand.grid, config$CATEGORIES)
-    
-    # Filter invalid combinations
-    invalid_idx <- Reduce(
-        `|`, 
-        lapply(config$INVALID_COMBINATIONS, eval, envir = grid)
-    )
-    grid <- subset(grid, !invalid_idx)
-    
-    # Apply experimental conditions
-    valid_idx <- Reduce(
-        `|`, 
-        lapply(config$EXPERIMENTAL_CONDITIONS, eval, envir = grid)
-    )
-    grid <- subset(grid, valid_idx)
-    
-    # Verify sample count
-    n_samples <- nrow(grid)
-    if (n_samples != config$METADATA$EXPECTED_SAMPLES) {
-        log_warning(sprintf(
-            "Expected %d samples, got %d", 
-            config$METADATA$EXPECTED_SAMPLES, 
-            n_samples
-        ))
+    # Initialize logging if requested
+    if (init_logging) {
+        if (file.exists("~/lab_utils/R/functions/logging_utils.R")) {
+            source("~/lab_utils/R/functions/logging_utils.R")
+            log_file <- initialize_logging(script_name = "experiment_grid")
+            log_info("Starting experiment grid generation", log_file)
+        } else {
+            warning("logging_utils.R not found. Proceeding without logging.")
+        }
     }
     
-    # Sort columns
-    grid <- grid[, config$COLUMN_ORDER]
-    
-    # Add attributes
-    attr(grid, "control_factors") <- config$CONTROL_FACTORS
-    attr(grid, "experiment_id") <- config$METADATA$EXPERIMENT_ID
-    
-    return(grid)
+    tryCatch({
+        # Generate combinations
+        grid <- do.call(expand.grid, experiment_config$CATEGORIES)
+        
+        # Filter invalid combinations
+        invalid_idx <- Reduce(
+            `|`, 
+            lapply(experiment_config$INVALID_COMBINATIONS, eval, envir = grid)
+        )
+        grid <- subset(grid, !invalid_idx)
+        
+        # Apply experimental conditions
+        valid_idx <- Reduce(
+            `|`, 
+            lapply(experiment_config$EXPERIMENTAL_CONDITIONS, eval, envir = grid)
+        )
+        grid <- subset(grid, valid_idx)
+        
+        # Verify sample count
+        n_samples <- nrow(grid)
+        if (n_samples != experiment_config$METADATA$EXPECTED_SAMPLES) {
+            warning(sprintf(
+                "Expected %d samples, got %d", 
+                experiment_config$METADATA$EXPECTED_SAMPLES, 
+                n_samples
+            ))
+        }
+        
+        # Sort columns
+        grid <- grid[, experiment_config$COLUMN_ORDER]
+        
+        # Add attributes
+        attr(grid, "control_factors") <- experiment_config$CONTROL_FACTORS
+        attr(grid, "experiment_id") <- experiment_config$METADATA$EXPERIMENT_ID
+        
+        if (init_logging) {
+            log_info(sprintf("Generated grid with %d samples", nrow(grid)))
+        }
+        
+        return(grid)
+        
+    }, error = function(e) {
+        msg <- sprintf("Failed to generate experiment grid: %s", e$message)
+        if (init_logging) {
+            log_error(msg)
+        }
+        stop(msg)
+    })
 }
