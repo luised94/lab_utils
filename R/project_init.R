@@ -103,14 +103,32 @@ if (!interactive()) initialize_project_main()
 #' @param settings List. renv configuration settings
 #' @return Logical. TRUE if initialization successful
 setup_renv_environment <- function(project_root, settings) {
-    if (!requireNamespace("renv", quietly = TRUE)) {
-        install.packages("renv")
-    }
-
-    renv::init(
-        project = project_root,
-        force = settings$AUTO_ACTIVATE
-    )
-    invisible(TRUE)
+  if (!requireNamespace("renv", quietly = TRUE)) {
+    message("Installing renv package...")
+    install.packages("renv")
+  }
+  
+  renv_lockfile <- file.path(project_root, "renv.lock")
+  
+  if (file.exists(renv_lockfile)) {
+    message("Activating existing renv environment...")
+    renv::activate(project = project_root)
+  } else {
+    message("Initializing new renv environment...")
+    renv::init(project = project_root, force = settings$AUTO_ACTIVATE)
+  }
+  
+  message("renv setup complete.")
+  invisible(TRUE)
 }
+
+
+
+
+
+
+
+
+
+
 
