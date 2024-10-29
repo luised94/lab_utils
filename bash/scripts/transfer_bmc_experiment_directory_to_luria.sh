@@ -90,7 +90,7 @@ verify_transfer() {
 }
 
 # Main function
-main() {
+transfer_bmc_experiment_dir_to_luria_main() {
     if [ $# -ne 1 ]; then
         log_message "ERROR" "Usage: $0 <experiment_directory>"
         exit 1
@@ -112,4 +112,4 @@ main() {
 }
 
 # Execute main function
-main "$@"
+transfer_bmc_experiment_dir_to_luria_main "$@"
