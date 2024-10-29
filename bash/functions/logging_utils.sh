@@ -61,7 +61,7 @@ initialize_logging() {
     
     # Generate log file path
     log_file="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
-    
+    echo "[DEBUG] Log file when it is created: ${log_file}" 
     # Ensure log file is writable
     touch "$log_file" 2>/dev/null || {
         echo "ERROR: Cannot create/write to log file: $log_file"
@@ -120,13 +120,11 @@ log_message() {
 #' @return None
 log_system_info() {
     local log_file="$1"
-    
     log_message "INFO" "System Information:" "$log_file"
     log_message "INFO" "  Bash: $BASH_VERSION" "$log_file"
     log_message "INFO" "  Host: $(hostname)" "$log_file"
     log_message "INFO" "  User: $USER" "$log_file"
     log_message "INFO" "  PWD:  $PWD" "$log_file"
-    return 0
 }
 
 #' Log Git Information
@@ -139,10 +137,8 @@ log_git_info() {
         log_message "INFO" "Git Information:" "$log_file"
         log_message "INFO" "  Branch: $(git rev-parse --abbrev-ref HEAD)" "$log_file"
         log_message "INFO" "  Commit: $(git rev-parse HEAD)" "$log_file"
-        return 0
     else
         log_message "WARNING" "Not in a git repository" "$log_file"
-        return 1
     fi
 }
 
