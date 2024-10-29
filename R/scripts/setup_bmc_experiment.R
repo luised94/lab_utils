@@ -11,6 +11,11 @@ setup_bmc_experiment <- function(
     initialization_script_path = "~/lab_utils/R/project_init.R"
 ) {
     tryCatch({
+        # Validate experiment ID format
+        if (!grepl("^\\d{6}Bel$", experiment_id)) {
+            stop("Invalid experiment ID format. Expected: YYMMDD'Bel'")
+        }
+
         # Initialize project
         # Load project_config.R and logging_utils.R
         source(initialization_script_path)
