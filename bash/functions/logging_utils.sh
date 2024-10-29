@@ -93,6 +93,7 @@ log_message() {
     local level="$1"
     local message="$2"
     local log_file="$3"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     
     # Validate log level
     if [[ ! " ${PROJECT_CONFIG[LOG_LEVELS]} " =~ " ${level} " ]]; then

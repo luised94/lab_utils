@@ -5,6 +5,7 @@
 source "$HOME/lab_utils/bash/config/project_config.sh"
 source "$HOME/lab_utils/bash/functions/logging_utils.sh"
 source "$HOME/lab_utils/bash/functions/bmc_fastq_file_manager.sh"
+
 #' Verify Host Environment
 #' @return Integer 0 if valid host, 1 otherwise
 verify_host() {
@@ -32,7 +33,7 @@ download_bmc_data_main() {
     # Validate arguments
     if [[ $# -ne 2 ]]; then
         show_usage
-        log_error "Invalid number of arguments" "$log_file"
+        log_error "Invalid number of arguments"
         return 1
     fi
 
