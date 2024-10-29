@@ -1,115 +1,124 @@
 #!/bin/bash
-# bash/scripts/transfer_bmc_data.sh
+# bash/scripts/transfer_bmc_experiment_to_luria.sh
 
-# Configuration
-REMOTE_HOST="luria.mit.edu"
-REMOTE_USER="luised94"
-REMOTE_PATH="~/data"
-LOG_DIR="$HOME/logs"
+# Source dependencies
+source "$HOME/lab_utils/bash/config/project_config.sh"
+source "$HOME/lab_utils/bash/functions/logging_utils.sh"
 
-# Ensure log directory exists
-mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/transfer_$(date +%Y%m%d_%H%M%S).log"
-
-# Logging function
-log_message() {
-    local level="$1"
-    local message="$2"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message" | tee -a "$LOG_FILE"
-}
-
-# Check network connectivity
+#' Check Network Connectivity
+#' @param remote_host Character Remote host address
+#' @return Integer 0 if successful, 1 otherwise
 check_connection() {
-    if ! ping -c 1 "$REMOTE_HOST" &> /dev/null; then
-        log_message "ERROR" "Cannot connect to $REMOTE_HOST"
-        log_message "INFO" "Please ensure:"
-        log_message "INFO" "1. VPN is connected"
-        log_message "INFO" "2. You can connect via: ssh -A -Y $REMOTE_USER@$REMOTE_HOST"
+    local remote_host="$1"
+    
+    if ! ping -c 1 "$remote_host" &> /dev/null; then
+        log_error "Cannot connect to $remote_host"
+        log_info "Please ensure:"
+        log_info "1. VPN is connected"
+        log_info "2. You can connect via: ssh -A -Y ${PROJECT_CONFIG[REMOTE_USER]}@$remote_host"
         return 1
     fi
     return 0
 }
 
-# Validate local directory
+#' Validate Local Directory Structure
+#' @param dir Character Directory to validate
+#' @return Integer 0 if valid, 1 otherwise
 validate_directory() {
     local dir="$1"
-    if [ ! -d "$dir" ]; then
-        log_message "ERROR" "Directory not found: $dir"
-        return 1
-    }
     
-    # Check for required subdirectories
-    for subdir in "documentation" "fastq" "logs"; do
+    if [ ! -d "$dir" ]; then
+        log_error "Directory not found: $dir"
+        return 1
+    fi
+    
+    # Check required subdirectories
+    for subdir in "${PROJECT_CONFIG[REQUIRED_DIRS]}"; do
         if [ ! -d "$dir/$subdir" ]; then
-            log_message "ERROR" "Required subdirectory missing: $subdir"
+            log_error "Required subdirectory missing: $subdir"
             return 1
         fi
     done
     return 0
 }
 
-# Transfer data
+#' Transfer Data to Remote Host
+#' @param source_dir Character Source directory
+#' @param log_file Character Log file path
+#' @return Integer 0 if successful, 1 otherwise
 transfer_data() {
     local source_dir="$1"
+    local log_file="$2"
     local experiment_id=$(basename "$source_dir")
     
-    log_message "INFO" "Starting transfer of $experiment_id"
+    log_info "Starting transfer of $experiment_id" "$log_file"
     
     rsync -avzP --stats \
         "$source_dir/" \
-        "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/$experiment_id/" \
-        2>&1 | tee -a "$LOG_FILE"
+        "${PROJECT_CONFIG[REMOTE_USER]}@${PROJECT_CONFIG[REMOTE_HOST]}:${PROJECT_CONFIG[REMOTE_PATH]}/$experiment_id/" \
+        2>&1 | tee -a "$log_file"
     
     if [ ${PIPESTATUS[0]} -eq 0 ]; then
-        log_message "INFO" "Transfer completed successfully"
+        log_info "Transfer completed successfully" "$log_file"
         return 0
     else
-        log_message "ERROR" "Transfer failed"
+        log_error "Transfer failed" "$log_file"
         return 1
     fi
 }
 
-# Verify transfer
+#' Verify Transfer Completion
+#' @param source_dir Character Source directory
+#' @param log_file Character Log file path
+#' @return Integer 0 if verified, 1 otherwise
 verify_transfer() {
     local source_dir="$1"
+    local log_file="$2"
     local experiment_id=$(basename "$source_dir")
     
-    log_message "INFO" "Verifying transfer"
+    log_info "Verifying transfer" "$log_file"
     
-    # Compare file counts
     local local_count=$(find "$source_dir" -type f | wc -l)
-    local remote_count=$(ssh "$REMOTE_USER@$REMOTE_HOST" "find $REMOTE_PATH/$experiment_id -type f | wc -l")
+    local remote_count=$(ssh "${PROJECT_CONFIG[REMOTE_USER]}@${PROJECT_CONFIG[REMOTE_HOST]}" \
+        "find ${PROJECT_CONFIG[REMOTE_PATH]}/$experiment_id -type f | wc -l")
     
     if [ "$local_count" -eq "$remote_count" ]; then
-        log_message "INFO" "Verification successful: $local_count files transferred"
+        log_info "Verification successful: $local_count files transferred" "$log_file"
         return 0
     else
-        log_message "ERROR" "Verification failed: Local=$local_count Remote=$remote_count"
+        log_error "Verification failed: Local=$local_count Remote=$remote_count" "$log_file"
         return 1
     fi
 }
 
-# Main function
-transfer_bmc_experiment_dir_to_luria_main() {
+#' Main Function
+#' @param args Array Script arguments
+#' @return None
+transfer_bmc_experiment_to_luria_main() {
+    # Initialize logging
+    local log_file=$(initialize_logging "transfer_bmc_experiment")
+    
     if [ $# -ne 1 ]; then
-        log_message "ERROR" "Usage: $0 <experiment_directory>"
+        log_error "Usage: $0 <experiment_directory>" "$log_file"
         exit 1
     fi
     
     local source_dir="$1"
     
     # Run checks
-    check_connection || exit 1
+    check_connection "${PROJECT_CONFIG[REMOTE_HOST]}" || exit 1
     validate_directory "$source_dir" || exit 1
     
     # Transfer and verify
-    transfer_data "$source_dir" || exit 1
-    verify_transfer "$source_dir" || exit 1
+    transfer_data "$source_dir" "$log_file" || exit 1
+    verify_transfer "$source_dir" "$log_file" || exit 1
     
-    log_message "INFO" "Next steps:"
-    log_message "INFO" "1. Login to cluster: ssh -A -Y $REMOTE_USER@$REMOTE_HOST"
-    log_message "INFO" "2. Run: bash ~/lab_utils/bash/scripts/download_bmc_data.sh"
+    log_info "Next steps:" "$log_file"
+    log_info "1. Login to cluster: ssh -A -Y ${PROJECT_CONFIG[REMOTE_USER]}@${PROJECT_CONFIG[REMOTE_HOST]}" "$log_file"
+    log_info "2. Run: bash ~/lab_utils/bash/scripts/download_bmc_data.sh" "$log_file"
 }
 
-# Execute main function
-transfer_bmc_experiment_dir_to_luria_main "$@"
+# Execute if run as script
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    transfer_bmc_experiment_to_luria_main "$@"
+fi
