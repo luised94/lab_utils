@@ -118,4 +118,6 @@ Reorganized till determineInputForArrayId.R
 Retain the FCS files but deal with them in the future.
 
 ## 2024-10-28
-
+Currently have setup_bmc_experiment.R following a similar protocol to before. Initialize the samples in bmc_sample_grid_config.R. No longer output with comp_ columns. Instead they are found in the experiment config.
+See 002__20241025_Task_Personal/Work_R/bash/Spaces/labutils_XXX: Using perplexity spaces to effectively update my configuration. Revisit. __project. 
+Search for current repository state one.
