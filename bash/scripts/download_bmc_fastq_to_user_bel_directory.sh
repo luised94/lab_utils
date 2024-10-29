@@ -43,6 +43,14 @@ download_bmc_data_main() {
         # Initialize logging with error checking
     local log_file
     log_file="$(initialize_logging "download_bmc_fastq_data")"
+    echo "DEBUG: log_file content:" >&2
+    echo "$log_file" | cat -A >&2
+
+    if [[ ! "$log_file" =~ ^/home/luised94/logs/.*\.log$ ]]; then
+        echo "ERROR: Invalid log file path: $log_file" >&2
+        return 1
+    fi
+
     if [[ -z "$log_file" ]]; then
         echo "ERROR: Failed to initialize logging"
         return 1

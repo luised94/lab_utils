@@ -48,11 +48,11 @@ initialize_logging() {
     local log_dir="${2:-${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}}"
     local log_file
     
-    # Debug output
-    echo "DEBUG: Initializing logging with:"
-    echo "  script_name: $script_name"
-    echo "  log_dir: $log_dir"
     
+    echo "DEBUG: Initializing logging with:" >&2
+    echo "  script_name: $script_name" >&2
+    echo "  log_dir: $log_dir" >&2
+
     # Ensure log directory exists with verbose error checking
     if ! mkdir -p "$log_dir/$(date +%Y-%m)"; then
         echo "ERROR: Failed to create log directory: $log_dir/$(date +%Y-%m)"
@@ -111,7 +111,7 @@ log_message() {
     if [[ -n "$log_file" ]] && [[ -w "$log_file" ]]; then
         echo "$log_entry" >> "$log_file"
     elif [[ -n "$log_file" ]]; then
-        echo "WARNING: Cannot write to log file: $log_file"
+        echo "WARNING: Cannot write to log file: ${log_file}"
     fi
 }
 
