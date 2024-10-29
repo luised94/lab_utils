@@ -1,5 +1,6 @@
 #!/bin/bash
 # bash/scripts/transfer_bmc_experiment_to_luria.sh
+# Requires password twice, for the transfer and verification.
 
 # Source dependencies
 source "$HOME/lab_utils/bash/functions/logging_utils.sh"
