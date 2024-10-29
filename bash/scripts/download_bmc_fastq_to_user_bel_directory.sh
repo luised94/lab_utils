@@ -40,11 +40,11 @@ download_bmc_data_main() {
     # Initialize logging with error checking
     local log_file
     log_file="$(initialize_logging "download_bmc_fastq_data")"
-    if [[ -z "$log_file" ]]
+    if [[ -z "$log_file" ]]; then
         echo "ERROR: Failed to initialize logging"
         return 1
     fi
-    
+
     # Verify log file exists and is writable
     if [[ ! -w "$log_file" ]]; then
         echo "ERROR: Log file not writable: $log_file"
@@ -53,9 +53,9 @@ download_bmc_data_main() {
 
     local bmc_server="$1"
     local experiment_id="$2"
-    
+
     log_info "Starting BMC data download for experiment: $experiment_id" "$log_file"
-    
+
     log_trace "001: Made it here."
     echo "$log_file"
     # Validate paths
@@ -63,23 +63,23 @@ download_bmc_data_main() {
     if ! paths=$(validate_bmc_paths "$bmc_server" "$experiment_id" "$log_file"); then
         return 1
     fi
-    
+
     log_trace "002: After validate_bmc_paths"
     # Download data
     if ! download_from_bmc "$paths" "$log_file"; then
         return 1
     fi
-    
+
     # Organize files
     if ! organize_fastq_files "${paths#*:}" "$log_file"; then
         return 1
     fi
-    
+
     # Cleanup
     if ! cleanup_downloaded_data "${paths#*:}" "$log_file"; then
         return 1
     fi
-    
+
     log_info "Download process completed successfully" "$log_file"
     return 0
 }
@@ -97,42 +97,42 @@ validate_bmc_paths() {
     local bmc_server="$1"
     local experiment_id="$2"
     local log_file="$3"
-    
+
     echo "=== Debug Information ==="
     echo "Arguments:"
     echo "  bmc_server: $bmc_server"
     echo "  experiment_id: $experiment_id"
     echo "  log_file: $log_file"
-    
+
     echo "Configuration:"
     echo "  BMC_BASE_PATH: ${PROJECT_CONFIG[BMC_BASE_PATH]}"
     echo "  REMOTE_PATH: ${PROJECT_CONFIG[REMOTE_PATH]}"
     echo "  BMC_FASTQ_DIR: ${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
-    
+
     # Format BMC path
     local bmc_path
     printf -v bmc_path "${PROJECT_CONFIG[BMC_BASE_PATH]}" "$bmc_server" "$experiment_id"
     echo "Constructed paths:"
     echo "  BMC path: $bmc_path"
-    
+
     local local_path="${PROJECT_CONFIG[REMOTE_PATH]}/$experiment_id/${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
     echo "  Local path: $local_path"
-    
+
     # Directory checks
     echo "Directory status:"
     echo "  BMC path exists: $([[ -d "$bmc_path" ]] && echo "yes" || echo "no")"
     echo "  Local path exists: $([[ -d "$local_path" ]] && echo "yes" || echo "no")"
-    
+
     if [[ ! -d "$bmc_path" ]]; then
         log_error "BMC directory not found: $bmc_path" "$log_file"
         return 1
     fi
-    
+
     if [[ ! -d "$local_path" ]]; then
         log_error "Local directory not found: $local_path" "$log_file"
         return 1
     fi
-    
+
     echo "$bmc_path:$local_path"
 }
 
@@ -143,12 +143,12 @@ validate_bmc_paths() {
 download_from_bmc() {
     local paths="$1"
     local log_file="$2"
-    
+
     local bmc_path=${paths%:*}
     local local_path=${paths#*:}
-    
+
     log_info "Starting download from: $bmc_path" "$log_file"
-    
+
     if ! srun rsync ${PROJECT_CONFIG[RSYNC_OPTIONS]} \
                     ${PROJECT_CONFIG[RSYNC_INCLUDES]} \
                     ${PROJECT_CONFIG[RSYNC_EXCLUDES]} \
@@ -156,7 +156,7 @@ download_from_bmc() {
         log_error "Download failed" "$log_file"
         return 1
     fi
-    
+
     return 0
 }
 
