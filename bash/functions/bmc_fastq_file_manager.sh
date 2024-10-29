@@ -59,7 +59,7 @@ safe_remove() {
     if [[ -z "$items" ]]; then
         log_info "No ${type}s found matching: $pattern" "$log_file"
         return 0
-    }
+    fi
     
     # Log items to be removed
     log_warning "Found ${type}s to remove:" "$log_file"
