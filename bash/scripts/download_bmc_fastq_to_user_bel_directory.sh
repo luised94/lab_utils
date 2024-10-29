@@ -30,7 +30,9 @@ download_bmc_data_main() {
     fi
 
     local log_file
+    log_info "001 before logging initialize_logging"
     log_file=$(initialize_logging "download_bmc_fastq_data")
+    log_info "002 after logging initialize_logging"
     # Validate arguments
     if [[ $# -ne 2 ]]; then
         show_usage
