@@ -74,16 +74,40 @@ download_bmc_data_main() {
 #' @param experiment_id Character Experiment identifier
 #' @param log_file Character Log file path
 #' @return String Combined paths or 1 if validation fails
+
+#!/bin/bash
+# Temporary debug version of validate_bmc_paths
+
 validate_bmc_paths() {
     local bmc_server="$1"
     local experiment_id="$2"
     local log_file="$3"
     
-    # Format BMC path
-    local bmc_path=$(printf "${PROJECT_CONFIG[BMC_BASE_PATH]}" "$bmc_server" "$experiment_id")
-    local local_path="${PROJECT_CONFIG[REMOTE_PATH]}/$experiment_id/${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
+    echo "=== Debug Information ==="
+    echo "Arguments:"
+    echo "  bmc_server: $bmc_server"
+    echo "  experiment_id: $experiment_id"
+    echo "  log_file: $log_file"
     
-    # Validate paths
+    echo "Configuration:"
+    echo "  BMC_BASE_PATH: ${PROJECT_CONFIG[BMC_BASE_PATH]}"
+    echo "  REMOTE_PATH: ${PROJECT_CONFIG[REMOTE_PATH]}"
+    echo "  BMC_FASTQ_DIR: ${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
+    
+    # Format BMC path
+    local bmc_path
+    printf -v bmc_path "${PROJECT_CONFIG[BMC_BASE_PATH]}" "$bmc_server" "$experiment_id"
+    echo "Constructed paths:"
+    echo "  BMC path: $bmc_path"
+    
+    local local_path="${PROJECT_CONFIG[REMOTE_PATH]}/$experiment_id/${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
+    echo "  Local path: $local_path"
+    
+    # Directory checks
+    echo "Directory status:"
+    echo "  BMC path exists: $([[ -d "$bmc_path" ]] && echo "yes" || echo "no")"
+    echo "  Local path exists: $([[ -d "$local_path" ]] && echo "yes" || echo "no")"
+    
     if [[ ! -d "$bmc_path" ]]; then
         log_error "BMC directory not found: $bmc_path" "$log_file"
         return 1
