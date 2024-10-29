@@ -40,15 +40,14 @@ download_bmc_data_main() {
     local bmc_server="$1"
     local experiment_id="$2"
 
-    log_info "Starting BMC data download for experiment: $experiment_id" "$log_file"
-
-    # Initialize logging with error checking
+        # Initialize logging with error checking
     local log_file
     log_file="$(initialize_logging "download_bmc_fastq_data")"
     if [[ -z "$log_file" ]]; then
         echo "ERROR: Failed to initialize logging"
         return 1
     fi
+    log_info "Starting BMC data download for experiment: $experiment_id" "$log_file"
     echo "$log_file"
     echo "See line right above."
 
