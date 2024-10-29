@@ -6,4 +6,6 @@ declare -A PROJECT_CONFIG=(
     [REMOTE_USER]="luised94"
     [REMOTE_PATH]="~/data"
     [REQUIRED_DIRS]="documentation fastq logs"
+    [DEFAULT_LOG_ROOT]="$HOME/logs"
+    [LOG_LEVELS]="TRACE DEBUG INFO WARNING ERROR FATAL"
 )

@@ -40,7 +40,7 @@ LOG_LEVELS=("TRACE" "DEBUG" "INFO" "WARNING" "ERROR" "FATAL")
 #' @return String Path to log file
 initialize_logging() {
     local script_name="${1:-$(basename "${BASH_SOURCE[1]}" .sh)}"
-    local log_dir="${2:-$DEFAULT_LOG_ROOT}"
+    local log_dir="${2:-${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}}"
     
     # Ensure log directory exists
     mkdir -p "$log_dir/$(date +%Y-%m)"
@@ -94,7 +94,7 @@ log_message() {
     local log_file="$3"
     
     # Validate log level
-    if [[ ! " ${LOG_LEVELS[@]} " =~ " ${level} " ]]; then
+    if [[ ! " ${PROJECT_CONFIG[LOG_LEVELS[@]]} " =~ " ${level} " ]]; then
         echo "Invalid log level: $level" >&2
         return 1
     fi
@@ -113,6 +113,6 @@ log_message() {
 }
 
 #' Convenience Logging Functions
-for level in "${LOG_LEVELS[@]}"; do
+for level in "${PROJECT_CONFIG[LOG_LEVELS[@]]}"; do
     eval "log_${level,,}() { log_message \"$level\" \"\$1\" \"\$2\"; }"
 done
