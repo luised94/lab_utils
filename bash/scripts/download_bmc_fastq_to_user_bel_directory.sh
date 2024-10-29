@@ -16,8 +16,7 @@ download_bmc_data_main() {
     if [[ $# -ne 2 ]]; then
         show_usage
         return 1
-    }
-    
+    fi
     local bmc_server="$1"
     local experiment_id="$2"
     
@@ -30,17 +29,17 @@ download_bmc_data_main() {
     # Download data
     if ! download_from_bmc "$paths" "$log_file"; then
         return 1
-    }
+    fi
     
     # Organize files
     if ! organize_fastq_files "${paths#*:}" "$log_file"; then
         return 1
-    }
+    fi
     
     # Cleanup
     if ! cleanup_downloaded_data "${paths#*:}" "$log_file"; then
         return 1
-    }
+    fi
     
     log_info "Download process completed successfully" "$log_file"
     return 0
@@ -64,12 +63,12 @@ validate_bmc_paths() {
     if [[ ! -d "$bmc_path" ]]; then
         log_error "BMC directory not found: $bmc_path" "$log_file"
         return 1
-    }
+    fi
     
     if [[ ! -d "$local_path" ]]; then
         log_error "Local directory not found: $local_path" "$log_file"
         return 1
-    }
+    fi
     
     echo "$bmc_path:$local_path"
 }
@@ -93,7 +92,7 @@ download_from_bmc() {
                     "$bmc_path/" "$local_path/"; then
         log_error "Download failed" "$log_file"
         return 1
-    }
+    fi
     
     return 0
 }
