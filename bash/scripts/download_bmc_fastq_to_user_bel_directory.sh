@@ -10,7 +10,8 @@ source "$HOME/lab_utils/bash/functions/logging_utils.sh"
 #' @param experiment_id Character Experiment identifier
 #' @return Integer 0 if successful, 1 otherwise
 download_bmc_data_main() {
-    local log_file=$(initialize_logging "download_bmc_data")
+    local log_file
+    initialize_logging "download_bmc_data" "${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}" log_file
     
     # Validate arguments
     if [[ $# -ne 2 ]]; then
