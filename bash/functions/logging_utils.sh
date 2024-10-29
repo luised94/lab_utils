@@ -38,20 +38,23 @@ get_script_basename() {
 #' @param log_dir Character Optional custom log directory
 #' @return String Path to log file
 initialize_logging() {
-    local script_name="${1:-$(basename "${BASH_SOURCE[1]}" .sh)}"
+    local script_name="${1:-$(basename "${BASH_SOURCE[1]}" )}"
     local log_dir="${2:-${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}}"
+    local -n return_var=$3
+    log_info "Logging initialized"
+    log_trace "001: ${BASH_SOURCE[1]}"
+    log_trace "002: ${BASH_SOURCE}"
+    log_trace "003: $0" 
     
     # Ensure log directory exists
     mkdir -p "$log_dir/$(date +%Y-%m)"
     
     # Generate log file path
-    local log_file="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
-    
+    return_var="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
     # Initialize log file with headers
-    log_system_info "$log_file"
-    log_git_info "$log_file"
+    log_system_info "$return_var"
+    log_git_info "$return_var"
     
-    echo "$log_file"
 }
 
 #' Log System Information

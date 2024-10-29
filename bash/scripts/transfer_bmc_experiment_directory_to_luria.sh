@@ -95,7 +95,9 @@ verify_transfer() {
 #' @return None
 transfer_bmc_experiment_to_luria_main() {
     # Initialize logging
-    local log_file=$(initialize_logging "transfer_bmc_experiment")
+    local log_file
+    initialize_logging "transfer_bmc_experiment" "${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}" log_file
+    log_trace "XXX: ${log_file}"
     
     if [ $# -ne 1 ]; then
         log_error "Usage: $0 <experiment_directory>" "$log_file"
