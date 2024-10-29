@@ -5,11 +5,30 @@
 source "$HOME/lab_utils/bash/config/project_config.sh"
 source "$HOME/lab_utils/bash/functions/logging_utils.sh"
 
+#' Verify Host Environment
+#' @return Integer 0 if valid host, 1 otherwise
+verify_host() {
+    local current_host=$(hostname)
+    if [[ "$current_host" != "luria" ]]; then
+        echo "ERROR: This script must be run on luria.mit.edu"
+        echo "Current host: $current_host"
+        echo "Please transfer data to luria first and run this script there."
+        return 1
+    fi
+    return 0
+}
+
 #' Download BMC Data Main Function
 #' @param bmc_server Character BMC server name
 #' @param experiment_id Character Experiment identifier
 #' @return Integer 0 if successful, 1 otherwise
 download_bmc_data_main() {
+
+    # Verify host first
+    if ! verify_host; then
+        return 1
+    fi
+
     local log_file
     initialize_logging "download_bmc_data" "${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}" log_file
     
@@ -18,8 +37,11 @@ download_bmc_data_main() {
         show_usage
         return 1
     fi
+
     local bmc_server="$1"
     local experiment_id="$2"
+    
+    log_info "Starting BMC data download for experiment: $experiment_id" "$log_file"
     
     # Validate paths
     local paths
