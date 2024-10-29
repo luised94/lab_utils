@@ -7,12 +7,14 @@
 #' @return List Experiment setup results
 setup_bmc_experiment <- function(
     experiment_id,
-    config_path = "~/lab_utils/R/config/project_config.R"
+    bmc_sample_grid_config_path = "~/lab_utils/R/config/bmc_sample_grid_config.R",
+    initialization_script_path = "~/lab_utils/R/project_init.R"
 ) {
     tryCatch({
         # Initialize project
-        source(config_path)
-        source("~/lab_utils/R/config/bmc_sample_grid_config.R")
+        # Load project_config.R and logging_utils.R
+        source(initialization_script_path)
+        source(bmc_sample_grid_config_path)
         
         # Setup logging
         log_file <- initialize_logging(
@@ -20,7 +22,10 @@ setup_bmc_experiment <- function(
         )
         
         # Generate and process sample grid
-        sample_grid <- generate_experiment_grid()
+        sample_grid <- generate_experiment_grid(
+            experiment_config = EXPERIMENT_CONFIG,
+            init_logging = TRUE
+        )
         processed_grid <- process_sample_grid(
             grid = sample_grid,
             experiment_id = experiment_id,
