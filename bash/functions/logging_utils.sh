@@ -31,101 +31,88 @@ get_script_basename() {
   echo "$(basename "$(get_script_name)" .sh)"
 }
 
-# Function: init_logging
-# Purpose: Set up logging for a script
-# Parameters:
-#   $1 - Log file path (optional)
-# Return: Log file path
-init_logging() {
-  local log_file="$1"
-  if [[ -z "$log_file" ]]; then
-    local script_name="$(get_script_basename)"
-    local log_dir="$(get_script_dir)/logs/$(date +%Y-%m)"
-    mkdir -p "$log_dir"
-    log_file="${log_dir}/$(date +%Y-%m-%d)_${script_name}.log"
-  fi
-  
-  log_system_info "$log_file"
-  log_git_info "$log_file"
-  
-  echo "$log_file"
+DEFAULT_LOG_ROOT="$HOME/logs"
+LOG_LEVELS=("TRACE" "DEBUG" "INFO" "WARNING" "ERROR" "FATAL")
+
+#' Initialize Logging System
+#' @param script_name Character Name of the calling script
+#' @param log_dir Character Optional custom log directory
+#' @return String Path to log file
+initialize_logging() {
+    local script_name="${1:-$(basename "${BASH_SOURCE[1]}" .sh)}"
+    local log_dir="${2:-$DEFAULT_LOG_ROOT}"
+    
+    # Ensure log directory exists
+    mkdir -p "$log_dir/$(date +%Y-%m)"
+    
+    # Generate log file path
+    local log_file="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
+    
+    # Initialize log file with headers
+    log_system_info "$log_file"
+    log_git_info "$log_file"
+    
+    echo "$log_file"
 }
 
-# Function: log_system_info
-# Purpose: Log Bash version and system information
-# Parameters:
-#   $1 - Log file path
-# Return: None
+#' Log System Information
+#' @param log_file Character Path to log file
+#' @return None
 log_system_info() {
-  local log_file="$1"
-  log_message "INFO" "Bash version: ${BASH_VERSION}" "$log_file"
-  log_message "INFO" "System: $(uname -a)" "$log_file"
+    local log_file="$1"
+    
+    log_message "INFO" "System Information:" "$log_file"
+    log_message "INFO" "  Bash: $BASH_VERSION" "$log_file"
+    log_message "INFO" "  Host: $(hostname)" "$log_file"
+    log_message "INFO" "  User: $USER" "$log_file"
+    log_message "INFO" "  PWD:  $PWD" "$log_file"
 }
 
-# Function: log_git_info
-# Purpose: Log git branch and commit hash
-# Parameters:
-#   $1 - Log file path
-# Return: None
+#' Log Git Information
+#' @param log_file Character Path to log file
+#' @return None
 log_git_info() {
-  local log_file="$1"
-  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    local git_branch=$(git rev-parse --abbrev-ref HEAD)
-    local git_hash=$(git rev-parse HEAD)
-    log_message "INFO" "Git branch: ${git_branch}" "$log_file"
-    log_message "INFO" "Git commit: ${git_hash}" "$log_file"
-  else
-    log_message "WARNING" "Not in a git repository" "$log_file"
-  fi
+    local log_file="$1"
+    
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        log_message "INFO" "Git Information:" "$log_file"
+        log_message "INFO" "  Branch: $(git rev-parse --abbrev-ref HEAD)" "$log_file"
+        log_message "INFO" "  Commit: $(git rev-parse HEAD)" "$log_file"
+    else
+        log_message "WARNING" "Not in a git repository" "$log_file"
+    fi
 }
 
-# Function: log_message
-# Purpose: Log a message with timestamp and level
-# Parameters:
-#   $1 - Log level
-#   $2 - Message to log
-#   $3 - Log file path
-# Return: None
+#' Log Message
+#' @param level Character Log level
+#' @param message Character Message to log
+#' @param log_file Character Path to log file
+#' @return None
 log_message() {
-  local level="$1"
-  local message="$2"
-  local log_file="$3"
-  local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-  local log_entry="[${timestamp}] [${level}] ${message}"
-  
-  echo "${log_entry}"
-  
-  if [[ -n "${log_file}" ]]; then
-    echo "${log_entry}" >> "${log_file}"
-  fi
+    local level="$1"
+    local message="$2"
+    local log_file="$3"
+    
+    # Validate log level
+    if [[ ! " ${LOG_LEVELS[@]} " =~ " ${level} " ]]; then
+        echo "Invalid log level: $level" >&2
+        return 1
+    }
+    
+    # Format message
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local log_entry="[${timestamp}] [${level}] ${message}"
+    
+    # Output to console
+    echo "$log_entry"
+    
+    # Write to log file if provided
+    if [[ -n "$log_file" ]]; then
+        echo "$log_entry" >> "$log_file"
+    fi
 }
 
-# Function: log_info
-# Purpose: Log a message at the INFO level
-# Parameters:
-#   $1 - Message to log
-#   $2 - Log file path
-# Return: None
-log_info() {
-  log_message "INFO" "$1" "$2"
-}
-
-# Function: log_warning
-# Purpose: Log a message at the WARNING level
-# Parameters:
-#   $1 - Message to log
-#   $2 - Log file path
-# Return: None
-log_warning() {
-  log_message "WARNING" "$1" "$2"
-}
-
-# Function: log_error
-# Purpose: Log a message at the ERROR level
-# Parameters:
-#   $1 - Message to log
-#   $2 - Log file path
-# Return: None
-log_error() {
-  log_message "ERROR" "$1" "$2"
-}
+#' Convenience Logging Functions
+for level in "${LOG_LEVELS[@]}"; do
+    eval "log_${level,,}() { log_message \"$level\" \"\$1\" \"\$2\"; }"
+done
