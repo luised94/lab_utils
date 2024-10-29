@@ -142,3 +142,44 @@ save_experiment_files <- function(
         quote = FALSE
     )
 }
+
+#' Create Experiment Directories
+#' @param experiment_id Character Experiment identifier
+#' @param required_dirs Character vector Required directories
+#' @param base_path Character Base path for experiment
+#' @return List Directory paths
+create_experiment_directories <- function(
+    experiment_id,
+    required_dirs,
+    base_path
+) {
+    experiment_path <- file.path(base_path, experiment_id)
+    
+    # Create main directory
+    if (!dir.exists(experiment_path)) {
+        dir.create(experiment_path, recursive = TRUE)
+    }
+    
+    # Create subdirectories
+    for (dir_name in required_dirs) {
+        dir_path <- file.path(experiment_path, dir_name)
+        if (!dir.exists(dir_path)) {
+            dir.create(dir_path, recursive = TRUE)
+        }
+    }
+    
+    list(
+        root = experiment_path,
+        documentation = file.path(experiment_path, "documentation"),
+        logs = file.path(experiment_path, "logs")
+    )
+}
+
+# Execute if run as script
+if (!interactive()) {
+    args <- commandArgs(trailingOnly = TRUE)
+    if (length(args) != 1) {
+        stop("Usage: Rscript setup_bmc_experiment.R <experiment_id>")
+    }
+    initialize_bmc_experiment(args[1])
+}
