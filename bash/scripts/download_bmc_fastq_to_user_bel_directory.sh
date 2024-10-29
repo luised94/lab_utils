@@ -107,34 +107,46 @@ validate_bmc_paths() {
     local bmc_server="$1"
     local experiment_id="$2"
     local log_file="$3"
+    # Debug header
+    {
+        echo "=== Path Validation Debug Information ==="
+        echo "----------------------------------------"
+        echo "Input Arguments:"
+        echo "  BMC Server:     $bmc_server"
+        echo "  Experiment ID:  $experiment_id"
+        echo "  Log File:       $log_file"
+        echo ""
+        echo "Configuration Values:"
+        echo "  BMC_BASE_PATH:  ${PROJECT_CONFIG[BMC_BASE_PATH]}"
+        echo "  REMOTE_PATH:    ${PROJECT_CONFIG[REMOTE_PATH]}"
+        echo "  BMC_FASTQ_DIR:  ${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
+        echo "----------------------------------------"
+    } >&2
 
-    echo "=== Debug Information ==="
-    echo "Arguments:"
-    echo "  bmc_server: $bmc_server"
-    echo "  experiment_id: $experiment_id"
-    echo "  log_file: $log_file"
-
-    echo "Configuration:"
-    echo "  BMC_BASE_PATH: ${PROJECT_CONFIG[BMC_BASE_PATH]}"
-    echo "  REMOTE_PATH: ${PROJECT_CONFIG[REMOTE_PATH]}"
-    echo "  BMC_FASTQ_DIR: ${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
-
-    # Format BMC path
+    # Construct paths
     local bmc_path
-    printf -v bmc_path "${PROJECT_CONFIG[BMC_BASE_PATH]}" "$bmc_server" "$experiment_id"
-    echo "Constructed paths:"
-    echo "  BMC path: $bmc_path"
+    if ! printf -v bmc_path "${PROJECT_CONFIG[BMC_BASE_PATH]}" "$bmc_server" "$experiment_id"; then
+        log_error "Failed to construct BMC path" "$log_file"
+        return 1
+    fi
 
     local local_path="${PROJECT_CONFIG[REMOTE_PATH]}/$experiment_id/${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
-    echo "  Local path: $local_path"
 
-    # Directory checks
-    echo "Directory status:"
-    echo "  BMC path exists: $([[ -d "$bmc_path" ]] && echo "yes" || echo "no")"
-    echo "  Local path exists: $([[ -d "$local_path" ]] && echo "yes" || echo "no")"
+    # Debug path information
+    {
+        echo "Constructed Paths:"
+        echo "  BMC Path:       $bmc_path"
+        echo "  Local Path:     $local_path"
+        echo ""
+        echo "Directory Status:"
+        echo "  BMC Path:       $([[ -d "$bmc_path" ]] && echo "EXISTS" || echo "NOT FOUND")"
+        echo "  Local Path:     $([[ -d "$local_path" ]] && echo "EXISTS" || echo "NOT FOUND")"
+        echo "----------------------------------------"
+    } >&2
 
+    # Validate directories
     if [[ ! -d "$bmc_path" ]]; then
-        log_error "BMC directory not found: $bmc_path" "$log_file"
+        log_error "BMC directory not found: $bmc_path" "$log_file" 
         return 1
     fi
 
@@ -142,8 +154,9 @@ validate_bmc_paths() {
         log_error "Local directory not found: $local_path" "$log_file"
         return 1
     fi
-
-    echo "$bmc_path:$local_path"
+    echo -n "$bmc_path:$local_path"
+    exit 1
+    echo -n "$bmc_path:$local_path"
 }
 
 #' Download Data from BMC
