@@ -49,7 +49,7 @@ download_bmc_data_main() {
     fi
     log_info "Starting BMC data download for experiment: $experiment_id" "$log_file"
     echo "$log_file"
-    echo "See line right above."
+    echo "[DEBUG]See line right above."
 
     # Verify log file exists and is writable
     if [[ ! -w "$log_file" ]]; then
