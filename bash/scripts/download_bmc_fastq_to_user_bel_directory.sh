@@ -49,6 +49,7 @@ download_bmc_data_main() {
         return 1
     fi
     
+    log_trace "001: After validate_bmc_paths"
     # Download data
     if ! download_from_bmc "$paths" "$log_file"; then
         return 1
