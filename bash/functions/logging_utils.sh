@@ -97,7 +97,7 @@ log_message() {
     if [[ ! " ${LOG_LEVELS[@]} " =~ " ${level} " ]]; then
         echo "Invalid log level: $level" >&2
         return 1
-    }
+    fi
     
     # Format message
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
