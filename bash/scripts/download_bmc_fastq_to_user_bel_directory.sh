@@ -59,9 +59,9 @@ download_bmc_data_main() {
     echo "$log_file"
     echo "[DEBUG]See line right above."
 
-    # Verify log file exists and is writable
-    if [[ ! -w "$log_file" ]]; then
-        echo "ERROR: Log file not writable: $log_file"
+    # Ensure log file is writable
+    if ! touch "$log_file" 2>/dev/null; then
+        echo "ERROR: Unable to create or write to log file: $log_file. Check permissions or quotas."
         return 1
     fi
 
