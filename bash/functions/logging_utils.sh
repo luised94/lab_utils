@@ -61,10 +61,10 @@ initialize_logging() {
     
     # Generate log file path
     log_file="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
-    echo "[DEBUG] Log file when it is created: ${log_file}" 
+    echo "[DEBUG] Log file when it is created: ${log_file}" >&2
     # Ensure log file is writable
     touch "$log_file" 2>/dev/null || {
-        echo "ERROR: Cannot create/write to log file: $log_file"
+        echo "ERROR: Cannot create/write to log file: $log_file" >&2
         return 1
     }
     
@@ -78,8 +78,8 @@ initialize_logging() {
     fi
     
     # Initialize log file with headers (only once)
-    log_system_info "$log_file"
-    log_git_info "$log_file"
+    log_system_info "$log_file" >&2
+    log_git_info "$log_file" >&2
     
     echo -n "$log_file"
 }
