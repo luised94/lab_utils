@@ -29,14 +29,25 @@ download_bmc_data_main() {
         return 1
     fi
 
-    local log_file
-    log_file=$(initialize_logging "download_bmc_fastq_data")
-    log_info "See ${log_file} for any errors."
     # Validate arguments
     if [[ $# -ne 2 ]]; then
         show_usage
+        log_error "Invalid number of arguments" "$log_file"
         return 1
     fi
+
+    # Initialize logging with error checking
+    local log_file
+    if ! log_file=$(initialize_logging "download_bmc_fastq_data"); then
+        echo "ERROR: Failed to initialize logging"
+        return 1
+    fi
+    
+    # Verify log file exists and is writable
+    if [[ ! -w "$log_file" ]]; then
+        echo "ERROR: Log file not writable: $log_file"
+        return 1
+    }
 
     local bmc_server="$1"
     local experiment_id="$2"

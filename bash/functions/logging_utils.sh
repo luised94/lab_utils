@@ -38,59 +38,50 @@ get_script_basename() {
 #' @param script_name Character Name of the calling script
 #' @param log_dir Character Optional log directory
 #' @return String Path to log file
+
+#' Initialize Logging
+#' @param script_name Character Name of the calling script
+#' @param log_dir Character Optional log directory
+#' @return String Path to log file
 initialize_logging() {
     local script_name="${1:-$(basename "${BASH_SOURCE[1]}" )}"
     local log_dir="${2:-${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}}"
     local log_file
     
-    # Ensure log directory exists
-    mkdir -p "$log_dir/$(date +%Y-%m)"
+    # Debug output
+    echo "DEBUG: Initializing logging with:"
+    echo "  script_name: $script_name"
+    echo "  log_dir: $log_dir"
+    
+    # Ensure log directory exists with verbose error checking
+    if ! mkdir -p "$log_dir/$(date +%Y-%m)"; then
+        echo "ERROR: Failed to create log directory: $log_dir/$(date +%Y-%m)"
+        return 1
+    fi
     
     # Generate log file path
     log_file="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
     
+    # Ensure log file is writable
+    touch "$log_file" 2>/dev/null || {
+        echo "ERROR: Cannot create/write to log file: $log_file"
+        return 1
+    }
+    
     # Add run separator and count runs
     if [[ -f "$log_file" ]]; then
-        local run_count=$(grep -c "=== New Run ===" "$log_file")
+        local run_count=$(grep -c "=== New Run ===" "$log_file" || echo "0")
         run_count=$((run_count + 1))
         echo -e "\n=== New Run === (#$run_count) === $(date +'%Y-%m-%d %H:%M:%S') ===\n" >> "$log_file"
     else
         echo "=== New Run === (#1) === $(date +'%Y-%m-%d %H:%M:%S') ===" > "$log_file"
     fi
     
-    # Initialize log file with headers
+    # Initialize log file with headers (only once)
     log_system_info "$log_file"
     log_git_info "$log_file"
     
     echo "$log_file"
-}
-
-#' Log System Information
-#' @param log_file Character Path to log file
-#' @return None
-log_system_info() {
-    local log_file="$1"
-    
-    log_message "INFO" "System Information:" "$log_file"
-    log_message "INFO" "  Bash: $BASH_VERSION" "$log_file"
-    log_message "INFO" "  Host: $(hostname)" "$log_file"
-    log_message "INFO" "  User: $USER" "$log_file"
-    log_message "INFO" "  PWD:  $PWD" "$log_file"
-}
-
-#' Log Git Information
-#' @param log_file Character Path to log file
-#' @return None
-log_git_info() {
-    local log_file="$1"
-    
-    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        log_message "INFO" "Git Information:" "$log_file"
-        log_message "INFO" "  Branch: $(git rev-parse --abbrev-ref HEAD)" "$log_file"
-        log_message "INFO" "  Commit: $(git rev-parse HEAD)" "$log_file"
-    else
-        log_message "WARNING" "Not in a git repository" "$log_file"
-    fi
 }
 
 #' Log Message
@@ -110,15 +101,47 @@ log_message() {
     fi
     
     # Format message
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local log_entry="[${timestamp}] [${level}] ${message}"
     
     # Output to console
     echo "$log_entry"
     
-    # Write to log file if provided
-    if [[ -n "$log_file" ]]; then
+    # Write to log file if provided and writable
+    if [[ -n "$log_file" ]] && [[ -w "$log_file" ]]; then
         echo "$log_entry" >> "$log_file"
+    elif [[ -n "$log_file" ]]; then
+        echo "WARNING: Cannot write to log file: $log_file"
+    fi
+}
+
+#' Log System Information
+#' @param log_file Character Path to log file
+#' @return None
+log_system_info() {
+    local log_file="$1"
+    
+    log_message "INFO" "System Information:" "$log_file"
+    log_message "INFO" "  Bash: $BASH_VERSION" "$log_file"
+    log_message "INFO" "  Host: $(hostname)" "$log_file"
+    log_message "INFO" "  User: $USER" "$log_file"
+    log_message "INFO" "  PWD:  $PWD" "$log_file"
+    return 0
+}
+
+#' Log Git Information
+#' @param log_file Character Path to log file
+#' @return None
+log_git_info() {
+    local log_file="$1"
+    
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        log_message "INFO" "Git Information:" "$log_file"
+        log_message "INFO" "  Branch: $(git rev-parse --abbrev-ref HEAD)" "$log_file"
+        log_message "INFO" "  Commit: $(git rev-parse HEAD)" "$log_file"
+        return 0
+    else
+        log_message "WARNING" "Not in a git repository" "$log_file"
+        return 1
     fi
 }
 
