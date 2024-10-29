@@ -25,6 +25,10 @@ declare -A PROJECT_CONFIG=(
     [CLEANUP_FILES]="*unmapped*.fastq"
     
     # File patterns
-    [FASTQ_PATTERN]="*.fastq.gz"
+    [FASTQ_PATTERN]="*.fastq"
     [SAMPLE_PATTERN]="[0-9]{6}Bel"
+
+    # Safety settings
+    [REQUIRE_CONFIRMATION]="true"
+    [STAGING_DIR_PREFIX]="bmc_staging"
 )

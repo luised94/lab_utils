@@ -4,7 +4,7 @@
 # Source dependencies
 source "$HOME/lab_utils/bash/config/project_config.sh"
 source "$HOME/lab_utils/bash/functions/logging_utils.sh"
-
+source "$HOME/lab_utils/bash/functions/bmc_fastq_file_manager.sh"
 #' Verify Host Environment
 #' @return Integer 0 if valid host, 1 otherwise
 verify_host() {
@@ -30,8 +30,7 @@ download_bmc_data_main() {
     fi
 
     local log_file
-    initialize_logging "download_bmc_data" "${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}" log_file
-    
+    log_file=$(initialize_logging "download_bmc_fastq_data")
     # Validate arguments
     if [[ $# -ne 2 ]]; then
         show_usage
