@@ -47,7 +47,7 @@ download_bmc_data_main() {
     if [[ ! -w "$log_file" ]]; then
         echo "ERROR: Log file not writable: $log_file"
         return 1
-    }
+    fi
 
     local bmc_server="$1"
     local experiment_id="$2"
