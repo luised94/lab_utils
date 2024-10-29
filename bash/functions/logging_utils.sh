@@ -112,6 +112,6 @@ log_message() {
 }
 
 #' Convenience Logging Functions
-for level in "${PROJECT_CONFIG[LOG_LEVELS]}"; do
+for level in ${PROJECT_CONFIG[LOG_LEVELS]}; do
     eval "log_${level,,}() { log_message \"$level\" \"\$1\" \"\$2\"; }"
 done
