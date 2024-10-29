@@ -43,13 +43,15 @@ download_bmc_data_main() {
     
     log_info "Starting BMC data download for experiment: $experiment_id" "$log_file"
     
+    log_trace "001: Made it here."
+    echo "$log_file"
     # Validate paths
     local paths
     if ! paths=$(validate_bmc_paths "$bmc_server" "$experiment_id" "$log_file"); then
         return 1
     fi
     
-    log_trace "001: After validate_bmc_paths"
+    log_trace "002: After validate_bmc_paths"
     # Download data
     if ! download_from_bmc "$paths" "$log_file"; then
         return 1
