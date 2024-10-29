@@ -119,14 +119,14 @@ save_experiment_files <- function(
     # Save sample grid
     write.csv(
         sample_grid,
-        file = file.path(dirs$documentation, "sample_grid.csv"),
+        file = file.path(dirs$documentation, paste0(experiment_id,"_", "sample_grid.csv")),
         row.names = FALSE
     )
     
     # Save BMC table
     write.table(
         bmc_table,
-        file = file.path(dirs$documentation, "bmc_table.tsv"),
+        file = file.path(dirs$documentation, paste0(experiment_id,"_", "bmc_table.tsv")),
         sep = "\t",
         row.names = FALSE,
         quote = FALSE
