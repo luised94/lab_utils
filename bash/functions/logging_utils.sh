@@ -54,18 +54,15 @@ initialize_logging() {
         # Count existing runs
         local run_count=$(grep -c "=== New Run ===" "$return_var")
         run_count=$((run_count + 1))
-        
         # Add separator with run count
         echo -e "\n=== New Run === (#$run_count) === $(date +'%Y-%m-%d %H:%M:%S') ===\n" >> "$return_var"
     else
         # First run - create file and add initial header
         echo "=== New Run === (#1) === $(date +'%Y-%m-%d %H:%M:%S') ===" > "$return_var"
     fi
-    
     # Initialize log file with headers
     log_system_info "$return_var"
     log_git_info "$return_var"
-    
 }
 
 #' Log System Information

@@ -25,14 +25,16 @@ check_connection() {
 #' @return Integer 0 if valid, 1 otherwise
 validate_directory() {
     local dir="$1"
+    local log_file="$2"
     
     if [ ! -d "$dir" ]; then
-        log_error "Directory not found: $dir"
+        log_error "Directory not found: $dir" "${log_file}"
+        log_info "Provide full path." "${log_file}"
         return 1
     fi
     
     # Check required subdirectories
-    for subdir in "${PROJECT_CONFIG[REQUIRED_DIRS]}"; do
+    for subdir in ${PROJECT_CONFIG[REQUIRED_DIRS]}; do
         if [ ! -d "$dir/$subdir" ]; then
             log_error "Required subdirectory missing: $subdir"
             return 1
@@ -107,7 +109,7 @@ transfer_bmc_experiment_to_luria_main() {
     
     # Run checks
     check_connection "${PROJECT_CONFIG[REMOTE_HOST]}" || exit 1
-    validate_directory "$source_dir" || exit 1
+    validate_directory "$source_dir" "$log_file" || exit 1
     
     # Transfer and verify
     transfer_data "$source_dir" "$log_file" || exit 1
