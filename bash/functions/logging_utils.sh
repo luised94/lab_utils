@@ -147,5 +147,6 @@ log_git_info() {
 
 #' Convenience Logging Functions
 for level in ${PROJECT_CONFIG[LOG_LEVELS]}; do
-    eval "log_${level,,}() { log_message \"$level\" \"\$1\" \"\$2\"; }"
+    level_lower=$(echo "$level" | tr '[:upper:]' '[:lower:]')
+    eval "log_${level_lower}() { log_message \"$level\" \"\$1\" \"\$2\"; }"
 done
