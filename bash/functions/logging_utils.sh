@@ -33,36 +33,36 @@ get_script_basename() {
   echo "$(basename "$(get_script_name)" .sh)"
 }
 
-#' Initialize Logging System
+
+#' Initialize Logging
 #' @param script_name Character Name of the calling script
-#' @param log_dir Character Optional custom log directory
+#' @param log_dir Character Optional log directory
 #' @return String Path to log file
 initialize_logging() {
     local script_name="${1:-$(basename "${BASH_SOURCE[1]}" )}"
     local log_dir="${2:-${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}}"
-    local -n return_var=$3
-    log_info "Logging initialized"
+    local log_file
     
     # Ensure log directory exists
     mkdir -p "$log_dir/$(date +%Y-%m)"
     
     # Generate log file path
-    return_var="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
-    #
+    log_file="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
+    
     # Add run separator and count runs
-    if [[ -f "$return_var" ]]; then
-        # Count existing runs
-        local run_count=$(grep -c "=== New Run ===" "$return_var")
+    if [[ -f "$log_file" ]]; then
+        local run_count=$(grep -c "=== New Run ===" "$log_file")
         run_count=$((run_count + 1))
-        # Add separator with run count
-        echo -e "\n=== New Run === (#$run_count) === $(date +'%Y-%m-%d %H:%M:%S') ===\n" >> "$return_var"
+        echo -e "\n=== New Run === (#$run_count) === $(date +'%Y-%m-%d %H:%M:%S') ===\n" >> "$log_file"
     else
-        # First run - create file and add initial header
-        echo "=== New Run === (#1) === $(date +'%Y-%m-%d %H:%M:%S') ===" > "$return_var"
+        echo "=== New Run === (#1) === $(date +'%Y-%m-%d %H:%M:%S') ===" > "$log_file"
     fi
+    
     # Initialize log file with headers
-    log_system_info "$return_var"
-    log_git_info "$return_var"
+    log_system_info "$log_file"
+    log_git_info "$log_file"
+    
+    echo "$log_file"
 }
 
 #' Log System Information
