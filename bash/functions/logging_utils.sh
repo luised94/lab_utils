@@ -81,7 +81,7 @@ initialize_logging() {
     log_system_info "$log_file"
     log_git_info "$log_file"
     
-    echo "$log_file"
+    echo -n "$log_file"
 }
 
 #' Log Message

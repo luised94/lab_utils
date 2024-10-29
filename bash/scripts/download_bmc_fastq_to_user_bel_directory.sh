@@ -39,7 +39,8 @@ download_bmc_data_main() {
 
     # Initialize logging with error checking
     local log_file
-    if ! log_file=$(initialize_logging "download_bmc_fastq_data"); then
+    log_file="$(initialize_logging "download_bmc_fastq_data")"
+    if [[ -z "$log_file" ]]
         echo "ERROR: Failed to initialize logging"
         return 1
     fi
