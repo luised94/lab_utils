@@ -2,7 +2,6 @@
 # bash/scripts/transfer_bmc_experiment_to_luria.sh
 
 # Source dependencies
-source "$HOME/lab_utils/bash/config/project_config.sh"
 source "$HOME/lab_utils/bash/functions/logging_utils.sh"
 
 #' Check Network Connectivity

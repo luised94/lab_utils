@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Load required settings for logging_utils
+source "$HOME/lab_utils/bash/config/project_config.sh"
+
 # Advanced Logging Functions for Bash Scripts
 #
 # Script: 002_logging_functions.sh
@@ -30,9 +33,6 @@ get_script_dir() {
 get_script_basename() {
   echo "$(basename "$(get_script_name)" .sh)"
 }
-
-DEFAULT_LOG_ROOT="$HOME/logs"
-LOG_LEVELS=("TRACE" "DEBUG" "INFO" "WARNING" "ERROR" "FATAL")
 
 #' Initialize Logging System
 #' @param script_name Character Name of the calling script
