@@ -47,11 +47,6 @@ initialize_logging() {
     local script_name="${1:-$(basename "${BASH_SOURCE[1]}" )}"
     local log_dir="${2:-${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}}"
     local log_file
-    
-    
-    echo "DEBUG: Initializing logging with:" >&2
-    echo "  script_name: $script_name" >&2
-    echo "  log_dir: $log_dir" >&2
 
     # Ensure log directory exists with verbose error checking
     if ! mkdir -p "$log_dir/$(date +%Y-%m)"; then
@@ -61,7 +56,6 @@ initialize_logging() {
     
     # Generate log file path
     log_file="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
-    echo "[DEBUG] Log file when it is created: ${log_file}" >&2
     # Ensure log file is writable
     touch "$log_file" 2>/dev/null || {
         echo "ERROR: Cannot create/write to log file: $log_file" >&2

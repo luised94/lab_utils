@@ -43,21 +43,12 @@ download_bmc_data_main() {
     # Initialize logging with error checking
     local log_file
     log_file="$(initialize_logging "download_bmc_fastq_data")"
-    #echo "DEBUG: log_file content:" >&2
-    #echo "$log_file" | cat -A >&2
-
-    #if [[ ! "$log_file" =~ ^/home/luised94/logs/.*\.log$ ]]; then
-    #    echo "ERROR: Invalid log file path: $log_file" >&2
-    #    return 1
-    #fi
 
     if [[ -z "$log_file" ]]; then
         echo "ERROR: Failed to initialize logging"
         return 1
     fi
     log_info "Starting BMC data download for experiment: $experiment_id" "$log_file"
-    echo "$log_file"
-    echo "[DEBUG]See line right above."
 
     # Ensure log file is writable
     if ! touch "$log_file" 2>/dev/null; then
@@ -66,7 +57,6 @@ download_bmc_data_main() {
     fi
 
 
-    log_trace "001: Made it here."
     echo "$log_file"
     # Validate paths
     local paths
@@ -74,7 +64,6 @@ download_bmc_data_main() {
         return 1
     fi
 
-    log_trace "002: After validate_bmc_paths"
     # Download data
     if ! download_from_bmc "$paths" "$log_file"; then
         return 1
@@ -107,21 +96,6 @@ validate_bmc_paths() {
     local bmc_server="$1"
     local experiment_id="$2"
     local log_file="$3"
-    # Debug header
-    {
-        echo "=== Path Validation Debug Information ==="
-        echo "----------------------------------------"
-        echo "Input Arguments:"
-        echo "  BMC Server:     $bmc_server"
-        echo "  Experiment ID:  $experiment_id"
-        echo "  Log File:       $log_file"
-        echo ""
-        echo "Configuration Values:"
-        echo "  BMC_BASE_PATH:  ${PROJECT_CONFIG[BMC_BASE_PATH]}"
-        echo "  REMOTE_PATH:    ${PROJECT_CONFIG[REMOTE_PATH]}"
-        echo "  BMC_FASTQ_DIR:  ${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
-        echo "----------------------------------------"
-    } >&2
 
     # Construct paths
     local bmc_path
@@ -155,8 +129,6 @@ validate_bmc_paths() {
         return 1
     fi
     echo -n "$bmc_path:$local_path"
-    exit 1
-    echo -n "$bmc_path:$local_path"
 }
 
 #' Download Data from BMC
@@ -170,6 +142,15 @@ download_from_bmc() {
     local bmc_path=${paths%:*}
     local local_path=${paths#*:}
 
+    {
+        echo "Received and processed paths."
+        echo "  BMC Path:       $bmc_path"
+        echo "  Local Path:     $local_path"
+        echo "Directory Status:"
+        echo "  BMC Path:       $([[ -d "$bmc_path" ]] && echo "EXISTS" || echo "NOT FOUND")"
+        echo "  Local Path:     $([[ -d "$local_path" ]] && echo "EXISTS" || echo "NOT FOUND")"
+        echo "----------------------------------------"
+    } >&2
     log_info "Starting download from: $bmc_path" "$log_file"
 
     if ! srun rsync ${PROJECT_CONFIG[RSYNC_OPTIONS]} \
