@@ -15,7 +15,7 @@ validate_fastq_input() {
         echo "$experiment_id"
         echo "$log_file"
     } >&2
-    log_info "Validating input for experiment: $experiment_id" "$log_file"
+    log_info "Validating input for experiment: $experiment_id" "$log_file" >&2
     
     # Validate experiment ID format
     if [[ ! "$experiment_id" =~ ^[0-9]{6}Bel$ ]]; then
@@ -29,7 +29,7 @@ validate_fastq_input() {
         return 1
     fi
     
-    echo "$experiment_dir"
+    echo -n "$experiment_dir"
 }
 
 #' Setup FASTQ Processing Directories
@@ -66,7 +66,7 @@ find_fastq_files() {
     local experiment_dir="$1"
     local log_file="$2"
     
-    log_info "Searching for FASTQ files in: $experiment_dir/${PROJECT_CONFIG[FASTQ_DIR]}" "$log_file"
+    log_info "Searching for FASTQ files in: $experiment_dir/${PROJECT_CONFIG[FASTQ_DIR]}" "$log_file" >&2
     
     # Validate directory exists
     if [[ ! -d "$experiment_dir/${PROJECT_CONFIG[FASTQ_DIR]}" ]]; then
@@ -95,7 +95,7 @@ find_fastq_files() {
         return 0
     fi
     
-    echo "$find_output"
+    echo -n "$find_output"
 }
 
 #' Process FASTQ Files
@@ -118,7 +118,7 @@ process_fastq_files() {
     mapfile -t fastq_files < <(find_fastq_files "$experiment_dir" "$log_file")
     
     local initial_count=${#fastq_files[@]}
-    log_info "Found $initial_count FASTQ files to process" "$log_file"
+    log_info "Found $initial_count FASTQ files to process" "$log_file" >&2
 
     local debug_file=${fastq_files[1]}
     local debug_basename=$(basename debug_file)
