@@ -45,7 +45,7 @@ setup_fastq_directories() {
     echo "$experiment_dir"
     echo "$log_file"
 } >&2
-    local output_dir="$experiment_dir/${PROJECT_CONFIG[PROCESSED_FASTQ_DIR]}"
+    local output_dir="${experiment_dir}/fastq"
     log_info "Setting up output directory: $output_dir" "$log_file"
     
     mkdir -p "$output_dir" || {
