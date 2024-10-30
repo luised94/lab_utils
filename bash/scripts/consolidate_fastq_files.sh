@@ -8,6 +8,7 @@ source "$HOME/lab_utils/bash/functions/fastq_consolidator_processor.sh"
 #' @param experiment_id Character Experiment identifier
 #' @return Integer 0 if successful
 consolidate_fastq_files_main() {
+    local experiment_id="$1"
     if [[ $# -ne 1 ]]; then
         show_usage
         return 1
@@ -17,7 +18,6 @@ consolidate_fastq_files_main() {
     local log_file
     log_file=$(initialize_logging "consolidate_fastq")
     
-    local experiment_id="$1"
     local experiment_dir
     
     # Validate input
