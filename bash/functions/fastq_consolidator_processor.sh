@@ -23,7 +23,7 @@ validate_fastq_input() {
         return 1
     fi
     
-    local experiment_dir="${PROJECT_CONFIG[REMOTE_PATH]}/$experiment_id"
+    local experiment_dir="$HOME/data/$experiment_id"
     if [[ ! -d "$experiment_dir" ]]; then
         log_error "Experiment directory not found: $experiment_dir" "$log_file"
         return 1
