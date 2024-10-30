@@ -125,11 +125,34 @@ consolidate_fastq_files_by_id() {
         log_info "Extract id: $id"
         local output_file="$output_dir/${id}${PROJECT_CONFIG[FASTQ_SUFFIX]}"
         log_info "Processing: $basename -> $(basename "$output_file")" "$log_file"
+
+        # Skip if already processed and original exists
+        if [[ -f "$output_file" && -f "$file" ]]; then
+            log_info "Skipping already processed file: $basename" "$log_file"
+            continue
+        fi
         
-        if ! cat "$file" >> "$output_file"; then
+        # Use temporary file for safety
+        local temp_output="${output_file}.tmp"
+        if ! cat "$file" >> "$temp_output"; then
             log_error "Failed to process file: $file" "$log_file"
+            rm -f "$temp_output"  # Clean up temp file
             return 1
         fi
+        
+        # Move temp file to final location
+        if ! mv "$temp_output" "$output_file"; then
+            log_error "Failed to finalize output file: $output_file" "$log_file"
+            return 1
+        fi
+        
+        # Only remove original after successful processing
+        if ! rm "$file"; then
+            log_error "Failed to remove original file: $file" "$log_file"
+            return 1
+        fi
+    
+        log_info "Successfully processed and removed: $basename" "$log_file"
     done
     
     return 0
