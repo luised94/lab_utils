@@ -70,7 +70,8 @@ initialize_logging() {
     
     # Add run separator and count runs
     if [[ -f "$log_file" ]]; then
-        local run_count=$(grep -c "=== New Run ===" "$log_file" || echo "0")
+        run_count=$(grep -c "=== New Run ===" "$log_file" 2>/dev/null)
+        run_count=${run_count:-0}  # If run_count is empty or not set, use 0
         run_count=$((run_count + 1))
         echo -e "\n=== New Run === (#$run_count) === $(date +'%Y-%m-%d %H:%M:%S') ===\n" >> "$log_file"
     else
