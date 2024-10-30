@@ -122,3 +122,9 @@ Currently have setup_bmc_experiment.R following a similar protocol to before. In
 See 002__20241025_Task_Personal/Work_R/bash/Spaces/labutils_XXX: Using perplexity spaces to effectively update my configuration. Revisit. __project. 
 Search for current repository state one.
 Have to add print statements for efficient debugging when of the bmc_sample_grid_config.
+
+## 2024-10-29
+Currently setup till transfer of fastq to bmc.
+Mostly just run setup_bmc_experiment then transfer_bmc_experiment_directory_to_luria.
+Havent granted authority to run as script. Run from repl but most source logging_utils.R and project_init.R, and project_config.R
+Adjust bmc_sample_grid_config to setup the particular bmc experiment.

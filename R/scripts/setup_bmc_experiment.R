@@ -1,5 +1,7 @@
 #!/usr/bin/env Rscript
 # R/scripts/setup_bmc_experiment.R
+# If running from R repl, source all files manually.
+# logging_utils.R, project_init.R, project_config.R
 
 #' Setup BMC Experiment
 #' @param experiment_id Character Experiment identifier
@@ -18,9 +20,14 @@ setup_bmc_experiment <- function(
 
         # Initialize project
         # Load project_config.R and logging_utils.R
-        source(initialization_script_path)
         source(bmc_sample_grid_config_path)
-        
+        source(initialization_script_path)
+
+        # Validate experiment ID format
+        if (experiment_id != EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID) {
+            log_error("Experiment ID provided is different from EXPERIMENT_ID in bmc_sample_grid_config.R")
+            stop(sprintf("experiment_id:%s\nEXPERIMENT_ID:%s", experiment_id, EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID))
+        }
         # Setup logging
         log_file <- initialize_logging(
             script_name = sprintf("setup_experiment_%s", experiment_id)
@@ -181,5 +188,5 @@ if (!interactive()) {
     if (length(args) != 1) {
         stop("Usage: Rscript setup_bmc_experiment.R <experiment_id>")
     }
-    initialize_bmc_experiment(args[1])
+    setup_bmc_experiment(experiment_id = args[1])
 }
