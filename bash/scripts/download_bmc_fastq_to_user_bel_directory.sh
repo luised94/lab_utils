@@ -106,17 +106,6 @@ validate_bmc_paths() {
 
     local local_path="${PROJECT_CONFIG[REMOTE_PATH]}/$experiment_id/${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
 
-    # Debug path information
-    {
-        echo "Constructed Paths:"
-        echo "  BMC Path:       $bmc_path"
-        echo "  Local Path:     $local_path"
-        echo ""
-        echo "Directory Status:"
-        echo "  BMC Path:       $([[ -d "$bmc_path" ]] && echo "EXISTS" || echo "NOT FOUND")"
-        echo "  Local Path:     $([[ -d "$local_path" ]] && echo "EXISTS" || echo "NOT FOUND")"
-        echo "----------------------------------------"
-    } >&2
 
     # Validate directories
     if [[ ! -d "$bmc_path" ]]; then
@@ -153,6 +142,14 @@ download_from_bmc() {
     } >&2
     log_info "Starting download from: $bmc_path" "$log_file"
 
+    {
+        echo "Verify Project configuration:"
+        echo "${PROJECT_CONFIG[RSYNC_OPTIONS]}"
+        echo "${PROJECT_CONFIG[RSYNC_INCLUDES]}"
+        echo "${PROJECT_CONFIG[RSYNC_EXCLUDES]}"
+        echo "----------------------------------------"
+    } >&2
+    exit 1
     if ! srun rsync ${PROJECT_CONFIG[RSYNC_OPTIONS]} \
                     ${PROJECT_CONFIG[RSYNC_INCLUDES]} \
                     ${PROJECT_CONFIG[RSYNC_EXCLUDES]} \
