@@ -134,3 +134,5 @@ Then run  download_bmc_fastq_... .
 Remove and clean the directories 241007Bel and 241010Bel before redownloading.
 Update run_alignment.
 Clean up, then test slurm_wrapper with run_alignment.
+Need to determine how to have log_file be empty to not mess up logging. Should be detected in the if statement at the bottom of log_message.
+After testing download_bmc_fastq_to_user_bel_directory.sh, have to remove files referenced in current version: bmc_fastq_file_manager.sh,
