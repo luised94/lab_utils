@@ -88,66 +88,6 @@ download_bmc_data_main() {
     return 0
 }
 
-#' Validate BMC Paths
-#' @param bmc_server Character BMC server name
-#' @param experiment_id Character Experiment identifier
-#' @param log_file Character Log file path
-#' @return String Combined paths or 1 if validation fails
-
-#!/bin/bash
-# Temporary debug version of validate_bmc_paths
-
-validate_bmc_paths() {
-    local bmc_server="$1"
-    local experiment_id="$2"
-    local log_file="$3"
-
-    # Construct paths
-    local bmc_path
-    if ! printf -v bmc_path "${PROJECT_CONFIG[BMC_BASE_PATH]}" "$bmc_server" "$experiment_id"; then
-        log_error "Failed to construct BMC path" "$log_file"
-        return 1
-    fi
-
-    local local_path="$HOME/data/$experiment_id/${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
-
-
-    # Validate directories
-    if [[ ! -d "$bmc_path" ]]; then
-        log_error "BMC directory not found: $bmc_path" "$log_file" 
-        return 1
-    fi
-
-    if [[ ! -d "$local_path" ]]; then
-        log_error "Local directory not found: $local_path" "$log_file"
-        return 1
-    fi
-    echo -n "$bmc_path:$local_path"
-}
-
-#' Download Data from BMC
-#' @param paths String Combined source:destination paths
-#' @param log_file Character Log file path
-#' @return Integer 0 if successful, 1 otherwise
-download_from_bmc() {
-    local paths="$1"
-    local log_file="$2"
-
-    local bmc_path=${paths%:*}
-    local local_path=${paths#*:}
-
-    log_info "Starting download from: $bmc_path" "$log_file"
-    if ! srun rsync ${PROJECT_CONFIG[RSYNC_OPTIONS]} \
-                    ${PROJECT_CONFIG[RSYNC_INCLUDES]} \
-                    ${PROJECT_CONFIG[RSYNC_EXCLUDES]} \
-                    "$bmc_path/" "$local_path/"; then
-        log_error "Download failed" "$log_file"
-        return 1
-    fi
-
-    return 0
-}
-
 # Show usage information
 show_usage() {
     cat << EOF

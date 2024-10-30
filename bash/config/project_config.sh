@@ -11,14 +11,6 @@ declare -A PROJECT_CONFIG=(
 
 
 
-    # RSYNC settings
-    [RSYNC_OPTIONS]="-av --progress"
-    [RSYNC_INCLUDES]="--include '*/' --include '*.fastq'"
-    [RSYNC_EXCLUDES]="--exclude '*'"
-
-    # Cleanup patterns
-    [CLEANUP_DIRS]="*D24* infosite*"
-    [CLEANUP_FILES]="*unmapped*.fastq"
 
     # File patterns
     [FASTQ_PATTERN]="*.fastq"

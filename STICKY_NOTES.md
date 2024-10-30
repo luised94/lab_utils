@@ -136,3 +136,5 @@ Update run_alignment.
 Clean up, then test slurm_wrapper with run_alignment.
 Need to determine how to have log_file be empty to not mess up logging. Should be detected in the if statement at the bottom of log_message.
 After testing download_bmc_fastq_to_user_bel_directory.sh, have to remove files referenced in current version: bmc_fastq_file_manager.sh,
+Need to update BMC_CONFIG and its occurrences and calling of PROJECT_CONFIG.
+I dont think verify_filesystem_path will work expected_fs is not equal to real_path.
