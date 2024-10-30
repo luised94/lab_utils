@@ -129,3 +129,8 @@ Mostly just run setup_bmc_experiment then transfer_bmc_experiment_directory_to_l
 Havent granted authority to run as script. Run from repl but most source logging_utils.R and project_init.R, and project_config.R
 Adjust bmc_sample_grid_config to setup the particular bmc experiment.
 Then run  download_bmc_fastq_... .
+
+## 2024-10-30
+Remove and clean the directories 241007Bel and 241010Bel before redownloading.
+Update run_alignment.
+Clean up, then test slurm_wrapper with run_alignment.
