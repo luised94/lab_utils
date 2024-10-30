@@ -98,21 +98,15 @@ process_fastq_files() {
     local experiment_dir="$1"
     local output_dir="$2"
     local log_file="$3"
-{
-    echo "DEBUG:"
-    echo "$experiment_dir"
-    echo "$log_file"
-    echo "$output_dir"
-} >&2
-    
+
     local -a fastq_files
     mapfile -t fastq_files < <(find_fastq_files "$experiment_dir" "$log_file")
-    
+
     local initial_count=${#fastq_files[@]}
     log_info "Found $initial_count FASTQ files to process" "$log_file"
 
     local debug_file=${fastq_files[1]}
-    local debug_basename=$(basename debug_file)
+    local debug_basename=$(basename $debug_file)
     local debug_id=$(echo "$debug_basename" | grep -oP "${PROJECT_CONFIG[BMC_FASTQ_ID_PATTERN]}\K[^_]*")
     local debug_output_file="$output_dir/${id}${PROJECT_CONFIG[FASTQ_SUFFIX]}"
 {
