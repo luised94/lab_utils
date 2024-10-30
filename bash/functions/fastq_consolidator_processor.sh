@@ -126,12 +126,6 @@ consolidate_fastq_files_by_id() {
         local output_file="$output_dir/${id}${PROJECT_CONFIG[FASTQ_SUFFIX]}"
         log_info "Processing: $basename -> $(basename "$output_file")" "$log_file"
 
-        # Skip if already processed and original exists
-        if [[ -f "$output_file" && -f "$file" ]]; then
-            log_info "Skipping already processed file: $basename" "$log_file"
-            continue
-        fi
-        
         # Use temporary file for safety
         local temp_output="${output_file}.tmp"
         if ! cat "$file" >> "$temp_output"; then
