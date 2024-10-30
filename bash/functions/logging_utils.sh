@@ -73,8 +73,8 @@ initialize_logging() {
     fi
     
     # Initialize log file with headers (only once)
-    log_system_info "$log_file" >&2
-    log_git_info "$log_file" >&2
+    log_system_info "$log_file"
+    log_git_info "$log_file"
     
     echo -n "$log_file"
 }
@@ -100,7 +100,7 @@ log_message() {
     local log_entry="[${timestamp}] [${level}] ${message}"
     
     # Output to console
-    echo "$log_entry"
+    echo "$log_entry" >&2 
     
     # Write to log file if provided and writable
     if [[ -n "$log_file" ]] && [[ -w "$log_file" ]]; then

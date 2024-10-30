@@ -17,7 +17,6 @@ consolidate_fastq_files_main() {
     # Initialize logging
     local log_file
     log_file=$(initialize_logging "consolidate_fastq")
-    log_trace "$log_file"
     
     local experiment_dir
     
@@ -26,13 +25,11 @@ consolidate_fastq_files_main() {
         return 1
     fi
     
-    log_trace "$experiment_dir"
     # Setup directories
     local output_dir
     if ! output_dir=$(setup_fastq_directories "$experiment_dir" "$log_file"); then
         return 1
     fi
-    log_trace "$output_dir"
     
     # Process files
     if ! process_fastq_files "$experiment_dir" "$output_dir" "$log_file"; then
