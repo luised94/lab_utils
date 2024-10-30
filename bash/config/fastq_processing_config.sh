@@ -21,7 +21,7 @@ declare -A FASTP_PARAMS=(
 
 declare -A FILE_PATTERNS=(
     ["INPUT"]="*.fastq"
-    ["EXCLUDE_PATTERNS"]=("*unmapped*" "processed_*")
+    ["EXCLUDE_PATTERNS"]="*unmapped* processed_*"
     ["OUTPUT_PREFIX"]="processed_"
 )
 

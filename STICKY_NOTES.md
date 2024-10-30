@@ -128,3 +128,4 @@ Currently setup till transfer of fastq to bmc.
 Mostly just run setup_bmc_experiment then transfer_bmc_experiment_directory_to_luria.
 Havent granted authority to run as script. Run from repl but most source logging_utils.R and project_init.R, and project_config.R
 Adjust bmc_sample_grid_config to setup the particular bmc experiment.
+Then run  download_bmc_fastq_... .
