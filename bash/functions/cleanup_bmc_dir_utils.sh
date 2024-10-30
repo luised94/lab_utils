@@ -96,4 +96,3 @@ cleanup_downloaded_data() {
     log_info "Cleanup process completed" "$log_file"
     return 0
 }
-}
