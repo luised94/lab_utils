@@ -1,6 +1,7 @@
 #!/bin/bash
 # bash/scripts/transfer_bmc_experiment_to_luria.sh
 # Requires password twice, for the transfer and verification.
+# Run after setup_bmc_experiment.R
 
 # Source dependencies
 source "$HOME/lab_utils/bash/functions/logging_utils.sh"
@@ -54,6 +55,14 @@ transfer_data() {
     local experiment_id=$(basename "$source_dir")
     
     log_info "Starting transfer of $experiment_id" "$log_file"
+    {
+        echo "$source_dir"
+        echo "$log_file"
+        echo "$experiment_id"
+        echo "${PROJECT_CONFIG[REMOTE_USER]}"
+        echo "${PROJECT_CONFIG[REMOTE_HOST]}"
+        echo "${PROJECT_CONFIG[REMOTE_PATH]}"
+    } >&2 
     
     rsync -avzP --stats \
         "$source_dir/" \
@@ -99,7 +108,7 @@ verify_transfer() {
 transfer_bmc_experiment_to_luria_main() {
     # Initialize logging
     local log_file
-    initialize_logging "transfer_bmc_experiment" "${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}" log_file
+    log_file="$(initialize_logging "transfer_bmc_experiment")"
     
     if [ $# -ne 1 ]; then
         log_error "Usage: $0 <experiment_directory>" "$log_file"
