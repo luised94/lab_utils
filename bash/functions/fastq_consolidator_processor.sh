@@ -46,14 +46,15 @@ setup_fastq_directories() {
     echo "$log_file"
 } >&2
     local output_dir="${experiment_dir}/fastq"
-    log_info "Setting up output directory: $output_dir" "$log_file"
+    log_trace "$output_dir" >&2
+    log_info "Setting up output directory: $output_dir" "$log_file" >&2
     
     mkdir -p "$output_dir" || {
         log_error "Failed to create output directory: $output_dir" "$log_file"
         return 1
     }
     
-    echo "$output_dir"
+    echo -n "$output_dir"
 }
 
 #' Find FASTQ Files
