@@ -107,7 +107,7 @@ process_fastq_files() {
 
     local debug_file=${fastq_files[1]}
     local debug_basename=$(basename $debug_file)
-    local debug_id=$(echo "$debug_basename" | grep -oP "${PROJECT_CONFIG[BMC_FASTQ_ID_PATTERN]}\K[^_]*")
+    local debug_id=$(printf '%s\n' ${debug_basename} | awk -F"${PROJECT_CONFIG[BMC_FASTQ_ID_PATTERN]}" '{print $3}' | sort -u
     local debug_output_file="$output_dir/${id}${PROJECT_CONFIG[FASTQ_SUFFIX]}"
 {
     echo "DEBUG: In  process_fastq_files"
