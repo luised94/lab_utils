@@ -105,30 +105,31 @@ process_fastq_files() {
     local initial_count=${#fastq_files[@]}
     log_info "Found $initial_count FASTQ files to process" "$log_file"
 
-    local debug_file=${fastq_files[1]}
-    local debug_basename=$(basename $debug_file)
-    local debug_id=$(printf '%s\n' ${debug_basename} | awk -F"${PROJECT_CONFIG[BMC_FASTQ_ID_PATTERN]}" '{print $3}' | sort -u
-    local debug_output_file="$output_dir/${id}${PROJECT_CONFIG[FASTQ_SUFFIX]}"
-{
-    echo "DEBUG: In  process_fastq_files"
-    echo "$debug_file"
-    echo "$debug_basename"
-    echo "$debug_id"
-    echo "$debug_output_file"
-} >&2
-exit 1
-    # Process files
     for file in "${fastq_files[@]}"; do
         local basename=$(basename "$file")
-        local id=$(echo "$basename" | grep -oP "${PROJECT_CONFIG[BMC_FASTQ_ID_PATTERN]}\K[^_]*")
-        local output_file="$output_dir/${id}${PROJECT_CONFIG[FASTQ_SUFFIX]}"
-        
-        log_info "Processing: $basename -> $(basename "$output_file")" "$log_file"
-        
-        if ! cat "$file" >> "$output_file"; then
-            log_error "Failed to process file: $file" "$log_file"
+        # Split by both - and _ and look for 5-6 digit pattern
+        local id=""
+        local parts
+        IFS='_-' read -ra parts <<< "$basename"
+        for part in "${parts[@]}"; do
+            if [[ $part =~ ^[0-9]{5,6}$ ]]; then
+                id="$part"
+                break
+            fi
+        done
+
+        if [[ -z "$id" ]]; then
+            log_error "Could not extract ID from filename: $basename" "$log_file"
             return 1
         fi
+        log_info "Extract id: $id"
+        local output_file="$output_dir/${id}${PROJECT_CONFIG[FASTQ_SUFFIX]}"
+        log_info "Processing: $basename -> $(basename "$output_file")" "$log_file"
+        
+        #if ! cat "$file" >> "$output_file"; then
+        #    log_error "Failed to process file: $file" "$log_file"
+        #    return 1
+        #fi
     done
     
     return 0

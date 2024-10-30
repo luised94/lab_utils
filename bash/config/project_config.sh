@@ -44,7 +44,8 @@ declare -A PROJECT_CONFIG=(
 
     # FASTQ Processing
     [FASTQ_PATTERN]="*.fastq"
-    [BMC_FASTQ_ID_PATTERN]='[_-]'
+    [BMC_FASTQ_ID_PATTERN]="[-_]"  # Pattern for splitting
+    [BMC_ID_REGEX]="[0-9]{5,6}"    # Pattern for matching ID
     [FASTQ_EXCLUDE]="*unmapped* processed_*"
     [FASTQ_PREFIX]="processed_"
     [FASTQ_SUFFIX]=".fastq"
