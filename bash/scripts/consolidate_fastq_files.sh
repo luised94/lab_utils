@@ -32,7 +32,7 @@ consolidate_fastq_files_main() {
     fi
     
     # Process files
-    if ! process_fastq_files "$experiment_dir" "$output_dir" "$log_file"; then
+    if ! consolidate_fastq_files_by_id "$experiment_dir" "$output_dir" "$log_file"; then
         return 1
     fi
     

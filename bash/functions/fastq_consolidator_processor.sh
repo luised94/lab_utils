@@ -94,7 +94,7 @@ find_fastq_files() {
 #' @param output_dir Character Output directory
 #' @param log_file Character Log file path
 #' @return Integer 0 if successful
-process_fastq_files() {
+consolidate_fastq_files_by_id() {
     local experiment_dir="$1"
     local output_dir="$2"
     local log_file="$3"
@@ -126,10 +126,10 @@ process_fastq_files() {
         local output_file="$output_dir/${id}${PROJECT_CONFIG[FASTQ_SUFFIX]}"
         log_info "Processing: $basename -> $(basename "$output_file")" "$log_file"
         
-        #if ! cat "$file" >> "$output_file"; then
-        #    log_error "Failed to process file: $file" "$log_file"
-        #    return 1
-        #fi
+        if ! cat "$file" >> "$output_file"; then
+            log_error "Failed to process file: $file" "$log_file"
+            return 1
+        fi
     done
     
     return 0
