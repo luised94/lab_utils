@@ -12,7 +12,7 @@ consolidate_fastq_files_main() {
     if [[ $# -ne 1 ]]; then
         show_usage
         return 1
-    }
+    fi
     
     # Initialize logging
     local log_file
