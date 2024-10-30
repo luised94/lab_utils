@@ -55,14 +55,6 @@ transfer_data() {
     local experiment_id=$(basename "$source_dir")
     
     log_info "Starting transfer of $experiment_id" "$log_file"
-    {
-        echo "$source_dir"
-        echo "$log_file"
-        echo "$experiment_id"
-        echo "${PROJECT_CONFIG[REMOTE_USER]}"
-        echo "${PROJECT_CONFIG[REMOTE_HOST]}"
-        echo "${PROJECT_CONFIG[REMOTE_PATH]}"
-    } >&2 
     
     rsync -avzP --stats \
         "$source_dir/" \

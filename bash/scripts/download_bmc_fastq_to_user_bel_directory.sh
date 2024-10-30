@@ -104,7 +104,7 @@ validate_bmc_paths() {
         return 1
     fi
 
-    local local_path="${PROJECT_CONFIG[REMOTE_PATH]}/$experiment_id/${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
+    local local_path="$HOME/data/$experiment_id/${PROJECT_CONFIG[BMC_FASTQ_DIR]}"
 
 
     # Validate directories
