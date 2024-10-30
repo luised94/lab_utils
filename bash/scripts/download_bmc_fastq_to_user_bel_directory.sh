@@ -3,8 +3,13 @@
 
 # Source dependencies
 source "$HOME/lab_utils/bash/config/project_config.sh"
+source "$HOME/lab_utils/bash/config/bmc_config.sh"
+source "$HOME/lab_utils/bash/functions/filesystem_utils.sh"
 source "$HOME/lab_utils/bash/functions/logging_utils.sh"
 source "$HOME/lab_utils/bash/functions/bmc_fastq_file_manager.sh"
+source "$HOME/lab_utils/bash/functions/cleanup_bmc_dir_utils.sh"
+source "$HOME/lab_utils/bash/functions/download_fastq_bmc_utils.sh"
+
 
 #' Verify Host Environment
 #' @return Integer 0 if valid host, 1 otherwise
