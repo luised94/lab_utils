@@ -10,10 +10,6 @@ declare -A PROJECT_CONFIG=(
     [LOG_LEVELS]="TRACE DEBUG INFO WARNING ERROR FATAL"
 
 
-    # BMC-specific settings
-    [BMC_BASE_PATH]="/net/%s/data/bmc/public/Bell/%s"
-    [BMC_FASTQ_DIR]="fastq"
-    [BMC_DEFAULT_SERVER]="bmc-pub17"
 
     # RSYNC settings
     [RSYNC_OPTIONS]="-av --progress"
