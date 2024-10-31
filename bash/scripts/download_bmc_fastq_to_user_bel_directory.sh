@@ -75,7 +75,7 @@ download_bmc_data_main() {
     fi
 
     # Organize files
-    if ! organize_fastq_files "${paths#*:}" "$log_file"; then
+    if ! move_fastq_files_to_current_directory "${paths#*:}" "$log_file"; then
         return 1
     fi
 
