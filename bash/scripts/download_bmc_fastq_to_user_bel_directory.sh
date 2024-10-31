@@ -79,7 +79,7 @@ download_bmc_data_main() {
     fi
 
     # Cleanup
-    if ! cleanup_downloaded_data "${paths#*:}" "$log_file"; then
+    if ! clean_experiment_data "${paths#*:}" "$log_file"; then
         return 1
     fi
 

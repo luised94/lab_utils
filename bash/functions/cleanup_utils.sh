@@ -59,11 +59,11 @@ remove_files_safely() {
     return 0
 }
 
-cleanup_downloaded_data() {
+clean_experiment_data() {
     local target_dir="$1"
     local log_file="$2"
     
-    verify_filesystem_path "$target_dir" "/net/bmc-pub14/data" "$log_file" || return 1
+    verify_filesystem_path "$target_dir" "${BMC_CONFIG[TARGET_FS]}" "$log_file" || return 1
     
     log_info "Starting cleanup process in: $target_dir" "$log_file"
     
