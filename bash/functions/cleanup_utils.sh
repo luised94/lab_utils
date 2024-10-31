@@ -1,7 +1,7 @@
 #!/bin/bash
 source "$HOME/lab_utils/bash/functions/filesystem_utils.sh"
 
-safe_remove() {
+remove_files_safely() {
     local type="$1"
     local pattern="$2"
     local log_file="$3"
@@ -79,13 +79,13 @@ cleanup_downloaded_data() {
     # Process directory patterns
     IFS=' ' read -r -a dir_patterns <<< "${PROJECT_CONFIG[CLEANUP_DIRS]}"
     for pattern in "${dir_patterns[@]}"; do
-        safe_remove "dir" "$pattern" "$log_file"
+        remove_files_safely "dir" "$pattern" "$log_file"
     done
     
     # Process file patterns
     IFS=' ' read -r -a file_patterns <<< "${PROJECT_CONFIG[CLEANUP_FILES]}"
     for pattern in "${file_patterns[@]}"; do
-        safe_remove "file" "$pattern" "$log_file"
+        remove_files_safely "file" "$pattern" "$log_file"
     done
     
     # Return to original directory
