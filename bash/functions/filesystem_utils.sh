@@ -7,14 +7,12 @@ check_filesystem_space() {
     local log_file="$2"
     local min_space=${3:-${BMC_CONFIG[MIN_SPACE_GB]}}
     
-    local real_path=$(readlink -f "$path")
-    local available_gb=$(df -P "$real_path" | awk 'NR==2 {print $4/1024/1024}')
+    local available_gb=$(df -P "$path" | awk 'NR==2 {print $4/1024/1024}')
     
-    log_info "Filesystem check for: $path" "$log_file"
     log_info "  Available space: ${available_gb}GB" "$log_file"
     
     if (( $(echo "$available_gb < $min_space" | bc -l) )); then
-        log_error "Insufficient space" "$log_file"
+        log_error "Insufficient space, need ${min_space}GB, have ${available_gb}GB" "$log_file"
         return 1
     fi
     return 0

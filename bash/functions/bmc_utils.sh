@@ -13,7 +13,6 @@ verify_host() {
     return 0
 }
 
-
 validate_bmc_paths() {
     local bmc_server="$1"
     local experiment_id="$2"
@@ -46,7 +45,6 @@ validate_bmc_paths() {
     
     echo -n "$bmc_path:$local_path"
 }
-
 
 download_from_bmc() {
     local paths="$1"
