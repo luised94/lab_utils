@@ -1,5 +1,6 @@
 #!/bin/bash
 source "$HOME/lab_utils/bash/functions/filesystem_utils.sh"
+source "$HOME/lab_utils/bash/functions/logging_utils.sh"
 
 #' Verify Host Environment
 #' @return Integer 0 if valid host, 1 otherwise
@@ -14,9 +15,8 @@ verify_host() {
 }
 
 validate_bmc_paths() {
-    local bmc_server="$1"
-    local experiment_id="$2"
-    local log_file="$3"
+    local experiment_id="$1"
+    local log_file="$2"
 
     # Construct paths using exact locations
     local bmc_path="${BMC_CONFIG[SOURCE_FS]}/$experiment_id"

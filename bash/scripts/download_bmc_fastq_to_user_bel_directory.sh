@@ -10,7 +10,6 @@ source "$HOME/lab_utils/bash/functions/bmc_utils.sh"
 source "$HOME/lab_utils/bash/functions/fastq_utils.sh"
 
 #' Download BMC Data Main Function
-#' @param bmc_server Character BMC server name
 #' @param experiment_id Character Experiment identifier
 #' @return Integer 0 if successful, 1 otherwise
 download_bmc_data_main() {
@@ -27,8 +26,7 @@ download_bmc_data_main() {
         return 1
     fi
 
-    local bmc_server="$1"
-    local experiment_id="$2"
+    local experiment_id="$1"
 
     # Initialize logging with error checking
     local log_file
@@ -49,7 +47,7 @@ download_bmc_data_main() {
     echo "$log_file"
     # Validate paths
     local paths
-    if ! paths=$(validate_bmc_paths "$bmc_server" "$experiment_id" "$log_file"); then
+    if ! paths=$(validate_bmc_paths "$experiment_id" "$log_file"); then
         return 1
     fi
 
@@ -75,14 +73,14 @@ download_bmc_data_main() {
 # Show usage information
 show_usage() {
     cat << EOF
-Usage: $(basename "$0") <bmc_server> <experiment_id>
+Usage: $(basename "$0") <experiment_id>
 
 Arguments:
-    bmc_server    BMC server name (e.g., ${PROJECT_CONFIG[BMC_DEFAULT_SERVER]})
+    BMC server name (e.g., ${BMC_CONFIG[BMC_DEFAULT_SERVER]})
     experiment_id Experiment identifier (format: YYMMDD'Bel')
 
 Example:
-    $(basename "$0") ${PROJECT_CONFIG[BMC_DEFAULT_SERVER]} 240808Bel
+$(basename "$0") ${BMC_CONFIG[BMC_DEFAULT_SERVER]} 240808Bel
 EOF
 }
 
