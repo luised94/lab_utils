@@ -13,21 +13,40 @@ verify_host() {
     return 0
 }
 
+
 validate_bmc_paths() {
     local bmc_server="$1"
     local experiment_id="$2"
     local log_file="$3"
 
+    # Construct paths using exact locations
     local bmc_path="${BMC_CONFIG[SOURCE_FS]}/$experiment_id"
-    local local_path="$HOME/data/$experiment_id/fastq"
+    local local_path="${BMC_CONFIG[TARGET_FS]}/$experiment_id/fastq"
     
-    # Add filesystem checks
-    verify_filesystem_path "$bmc_path" "/net/bmc-pub17" "$log_file" || return 1
-    check_filesystem_space "$local_path" "$log_file" || return 1
+    log_debug "Validating paths:" "$log_file"
+    log_debug "  BMC path: $bmc_path" "$log_file"
+    log_debug "  Local path: $local_path" "$log_file"
     
-    mkdir -p "$local_path"
+    # Check source exists
+    if [[ ! -d "$bmc_path" ]]; then
+        log_error "BMC directory not found: $bmc_path" "$log_file"
+        return 1
+    fi
+    
+    # Check space on target filesystem
+    if ! check_filesystem_space "$local_path" "$log_file"; then
+        return 1
+    fi
+    
+    # Create directory
+    if ! mkdir -p "$local_path"; then
+        log_error "Failed to create directory: $local_path" "$log_file"
+        return 1
+    fi
+    
     echo -n "$bmc_path:$local_path"
 }
+
 
 download_from_bmc() {
     local paths="$1"

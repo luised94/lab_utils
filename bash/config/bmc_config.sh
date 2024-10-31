@@ -1,7 +1,8 @@
 #!/bin/bash
 declare -A BMC_CONFIG=(
     [SOURCE_FS]="/net/bmc-pub17/data/bmc/public/Bell"
-    [TARGET_FS]="/net/bmc-pub14/data"
+    [TARGET_FS]="/net/bmc-pub14/data/bell/users/luised94"  # More specific
+    [RSYNC_OPTIONS]="-av"
     [MIN_SPACE_GB]=50
 )
 ## RSYNC settings
