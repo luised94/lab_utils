@@ -20,7 +20,7 @@ download_bmc_data_main() {
     fi
 
     # Validate arguments
-    if [[ $# -ne 2 ]]; then
+    if [[ $# -ne 1 ]]; then
         show_usage
         log_error "Invalid number of arguments"
         return 1
