@@ -6,23 +6,22 @@ source "$HOME/lab_utils/bash/config/project_config.sh"
 source "$HOME/lab_utils/bash/config/bmc_config.sh"
 source "$HOME/lab_utils/bash/functions/filesystem_utils.sh"
 source "$HOME/lab_utils/bash/functions/logging_utils.sh"
-source "$HOME/lab_utils/bash/functions/bmc_fastq_file_manager.sh"
-source "$HOME/lab_utils/bash/functions/cleanup_bmc_dir_utils.sh"
-source "$HOME/lab_utils/bash/functions/download_fastq_bmc_utils.sh"
+source "$HOME/lab_utils/bash/functions/bmc_utils.sh"
+source "$HOME/lab_utils/bash/functions/fastq_utils.sh"
 
 
-#' Verify Host Environment
-#' @return Integer 0 if valid host, 1 otherwise
-verify_host() {
-    local current_host=$(hostname)
-    if [[ "$current_host" != "luria" ]]; then
-        echo "ERROR: This script must be run on luria.mit.edu"
-        echo "Current host: $current_host"
-        echo "Please transfer data to luria first and run this script there."
-        return 1
-    fi
-    return 0
-}
+
+
+
+
+
+
+
+
+
+
+
+
 
 #' Download BMC Data Main Function
 #' @param bmc_server Character BMC server name

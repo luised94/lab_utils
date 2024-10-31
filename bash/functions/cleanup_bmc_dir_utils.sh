@@ -2,22 +2,26 @@
 source "$HOME/lab_utils/bash/functions/filesystem_utils.sh"
 
 safe_remove() {
-    # Keep original implementation but add filesystem checks
     local type="$1"
     local pattern="$2"
     local log_file="$3"
     
+    # Verify filesystem first
     local real_path=$(readlink -f .)
-    verify_filesystem_path "$real_path" "/net/bmc-pub14/data" "$log_file" || return 1
+    verify_filesystem_path "$real_path" "${BMC_CONFIG[TARGET_FS]}" "$log_file" || return 1
     
     log_info "Searching for ${type}s matching: $pattern" "$log_file"
     
-    # Find matching items
+    # Find and sort items by size
     local items
     if [[ "$type" == "dir" ]]; then
-        items=$(find . -type d -name "$pattern")
+        items=$(find . -type d -name "$pattern" -exec du -s {} \; | \
+                sort -rn | \
+                awk '{printf "%s\t%.2fGB\n", $2, $1/1024/1024}')
     else
-        items=$(ls $pattern 2>/dev/null)
+        items=$(find . -type f -name "$pattern" -exec du -s {} \; | \
+                sort -rn | \
+                awk '{printf "%s\t%.2fGB\n", $2, $1/1024/1024}')
     fi
     
     # Check if items found
@@ -30,8 +34,8 @@ safe_remove() {
     log_warning "Found ${type}s to remove:" "$log_file"
     echo "$items" | tee -a "$log_file"
     
-    # Interactive confirmation
-    if [[ -t 0 ]]; then  # Check if running interactively
+    # Interactive confirmation if running interactively
+    if [[ -t 0 ]]; then
         read -p "DELETE these ${type}s? (y/n) " -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -40,24 +44,18 @@ safe_remove() {
         fi
     fi
     
-    # Create staging directory
-    mkdir -p "$staging_dir" || {
-        log_error "Failed to create staging directory" "$log_file"
-        return 1
-    }
-    
-    # Move and remove items
-    echo "$items" | while read item; do
+    # Remove items with size logging
+    echo "$items" | while IFS=$'\t' read -r item size; do
         if [[ -n "$item" ]]; then
-            mv "$item" "$staging_dir/" || {
-                log_warning "Failed to move: $item" "$log_file"
-            }
+            log_info "Removing: $item (Size: $size)" "$log_file"
+            if rm -rf "$item"; then
+                log_info "Successfully removed: $item" "$log_file"
+            else
+                log_error "Failed to remove: $item" "$log_file"
+            fi
         fi
     done
     
-    # Remove staging directory
-    rm -rf "$staging_dir"
-    log_info "Cleanup completed successfully" "$log_file"
     return 0
 }
 

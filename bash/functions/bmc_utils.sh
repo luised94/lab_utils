@@ -1,6 +1,28 @@
 #!/bin/bash
 source "$HOME/lab_utils/bash/functions/filesystem_utils.sh"
 
+#' Verify Host Environment
+#' @return Integer 0 if valid host, 1 otherwise
+verify_host() {
+    local log_file="$1"
+    local current_host=$(hostname)
+    if [[ "$current_host" != "luria" ]]; then
+        log_error "This script must be run on luria.mit.edu" "$log_file"
+        log_error "Current host: $current_host" "$log_file"
+        return 1
+    fi
+    return 0
+}
+
+
+
+
+
+
+
+
+
+
 validate_bmc_paths() {
     local bmc_server="$1"
     local experiment_id="$2"
