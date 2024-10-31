@@ -9,20 +9,6 @@ source "$HOME/lab_utils/bash/functions/logging_utils.sh"
 source "$HOME/lab_utils/bash/functions/bmc_utils.sh"
 source "$HOME/lab_utils/bash/functions/fastq_utils.sh"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #' Download BMC Data Main Function
 #' @param bmc_server Character BMC server name
 #' @param experiment_id Character Experiment identifier
@@ -59,7 +45,6 @@ download_bmc_data_main() {
         echo "ERROR: Unable to create or write to log file: $log_file. Check permissions or quotas."
         return 1
     fi
-
 
     echo "$log_file"
     # Validate paths
