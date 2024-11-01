@@ -29,9 +29,10 @@ acquire_lock <- function(
 #' Release File Lock
 #' @param file_path Character Path to file
 #' @return Logical TRUE if successful
-#' @export
 release_lock <- function(file_path) {
     lock_file <- paste0(file_path, ".lock")
-    unlink(lock_file)
+    if (file.exists(lock_file)) {
+        unlink(lock_file)
+    }
     return(!file.exists(lock_file))
 }
