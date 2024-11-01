@@ -110,7 +110,7 @@ format_run_entry() {
 
 initialize_logging() {
     local script_name="${1:-$(basename "${BASH_SOURCE[1]}" )}"
-    local log_dir="${2:-${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}}"
+    local log_dir="${2:-${LOGGING_CONFIG[DEFAULT_LOG_ROOT]}}"
     local log_file
     
     # Setup log file
