@@ -32,7 +32,7 @@ validate_lock_path() {
     if [[ ! -w "$parent_dir" ]]; then
         echo "Parent directory not writable: $parent_dir" >&2
         return 1
-    }
+    fi
     
     return 0
 }
