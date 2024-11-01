@@ -65,42 +65,44 @@ write_log_atomic() {
 #' @param script_name Character Name of the calling script
 #' @param log_dir Character Optional log directory
 #' @return String Path to log file
+
 initialize_logging() {
     local script_name="${1:-$(basename "${BASH_SOURCE[1]}" )}"
-    local log_dir="${2:-${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}}"
+    local log_dir="${2:-${LOGGING_CONFIG[DEFAULT_LOG_ROOT]}}"
     local log_file
-
-    # Ensure log directory exists with verbose error checking
-    if ! mkdir -p "$log_dir/$(date +%Y-%m)"; then
-        echo "ERROR: Failed to create log directory: $log_dir/$(date +%Y-%m)"
-        return 1
-    fi
     
-    # Generate log file path
-    log_file="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
-    # Ensure log file is writable
-    touch "$log_file" 2>/dev/null || {
-        echo "ERROR: Cannot create/write to log file: $log_file" >&2
+    # Create log directory
+    if ! mkdir -p "$log_dir/$(date +%Y-%m)"; then
+        echo "ERROR: Failed to create log directory" >&2
         return 1
     }
     
-    # Add run separator and count runs
+    # Set log file path
+    log_file="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
+    
+    # Initialize with atomic write
+    local init_entry
     if [[ -f "$log_file" ]]; then
+        local run_count
         run_count=$(grep -c "=== New Run ===" "$log_file" 2>/dev/null)
-        run_count=${run_count:-0}  # If run_count is empty or not set, use 0
+        run_count=${run_count:-0}
         run_count=$((run_count + 1))
-        echo -e "\n=== New Run === (#$run_count) === $(date +'%Y-%m-%d %H:%M:%S') ===\n" >> "$log_file"
+        init_entry="\n=== New Run === (#$run_count) === $(date +'%Y-%m-%d %H:%M:%S') ===\n"
     else
-        echo "=== New Run === (#1) === $(date +'%Y-%m-%d %H:%M:%S') ===" > "$log_file"
+        init_entry="=== New Run === (#1) === $(date +'%Y-%m-%d %H:%M:%S') ==="
     fi
     
-    # Initialize log file with headers (only once)
+    if ! write_log_atomic "$init_entry" "$log_file"; then
+        echo "ERROR: Failed to initialize log file" >&2
+        return 1
+    }
+    
+    # Write headers atomically
     log_system_info "$log_file"
     log_git_info "$log_file"
     
     echo -n "$log_file"
 }
-
 
 #' Enhanced Log Message
 #' @param level Character Log level
@@ -114,24 +116,19 @@ log_message() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local task_id="${SLURM_ARRAY_TASK_ID:-standalone}"
     local job_id="${SLURM_JOB_ID:-local}"
-    
     # Validate level
-    if [[ ! " ${PROJECT_CONFIG[LOG_LEVELS]} " =~ " ${level} " ]]; then
+    if [[ ! " ${LOGGING_CONFIG[LOG_LEVELS]} " =~ " ${level} " ]]; then
         echo "Invalid log level: $level" >&2
         return 1
     }
-    
     # Truncate long messages
     if [[ ${#message} -gt ${LOGGING_CONFIG[MAX_MESSAGE_LENGTH]} ]]; then
         message="${message:0:${LOGGING_CONFIG[MAX_MESSAGE_LENGTH]}}..."
     fi
-    
     # Format entry
     local log_entry="[${timestamp}] [${level}] [Job:${job_id}] [Task:${task_id}] ${message}"
-    
     # Console output
     echo "$log_entry" >&2
-    
     # File output with atomic writes
     if [[ -n "$log_file" ]]; then
         write_log_atomic "$log_entry" "$log_file"
@@ -198,7 +195,7 @@ log_git_info() {
 }
 
 #' Convenience Logging Functions
-for level in ${PROJECT_CONFIG[LOG_LEVELS]}; do
+for level in ${LOGGING_CONFIG[LOG_LEVELS]}; do
     level_lower=$(echo "$level" | tr '[:upper:]' '[:lower:]')
     eval "log_${level_lower}() { log_message \"$level\" \"\$1\" \"\$2\"; }"
 done
