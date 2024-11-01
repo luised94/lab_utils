@@ -15,12 +15,22 @@ declare -A LOGGING_CONFIG=(
     [LOG_LEVELS]="TRACE DEBUG INFO WARNING ERROR FATAL"
 )
 
-
-# Critical path protection
 declare -rA PROTECTED_PATHS=(
-    ["/bin"]=1
-    ["/etc"]=1
-    ["/dev"]=1
-    ["/home"]=1
-    ["$HOME"]=1
+    # System directories
+    ["^/s?bin(/.*)?$"]=1              # Matches /bin, /sbin and subdirs
+    ["^/usr/s?bin(/.*)?$"]=1          # Matches /usr/bin, /usr/sbin and subdirs
+    ["^/etc(/.*)?$"]=1                # /etc and all subdirs
+    ["^/dev(/.*)?$"]=1                # /dev and all subdirs
+    ["^/proc(/.*)?$"]=1               # /proc and all subdirs
+    ["^/sys(/.*)?$"]=1                # /sys and all subdirs
+    
+    # User spaces
+    ["^/home$"]=1                     # Just /home
+    ["^/root(/.*)?$"]=1               # root's home
+    ["^${HOME}$"]=1                   # User's home exact match
+    
+    # System locations
+    ["^/usr/lib(/.*)?$"]=1            # System libraries
+    ["^/var/run(/.*)?$"]=1            # Runtime files
+    ["^/boot(/.*)?$"]=1               # Boot files
 )

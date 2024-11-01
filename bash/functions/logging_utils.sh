@@ -43,9 +43,13 @@ get_script_basename() {
 write_log_atomic() {
     local entry="$1"
     local log_file="$2"
-    local lock_file="${log_file}.lock"
+    local lock_name="log_$(basename "$log_file")"
+    local lock_file="${LOGGING_CONFIG[LOCK_BASE_DIR]}/${lock_name}.lock"
     local retry_count=0
-    
+
+    # Ensure lock directory exists
+    mkdir -p "${LOGGING_CONFIG[LOCK_BASE_DIR]}" 2>/dev/null
+
     while [[ $retry_count -lt ${LOGGING_CONFIG[LOCK_RETRY]} ]]; do
         if acquire_lock "$lock_file"; then
             echo "$entry" >> "$log_file"
