@@ -2,6 +2,8 @@
 
 # Load required settings for logging_utils
 source "$HOME/lab_utils/bash/config/project_config.sh"
+source "$HOME/lab_utils/bash/config/logging_config.sh"
+source "$HOME/lab_utils/bash/functions/lock_utils.sh"
 # Advanced Logging Functions for Bash Scripts
 #
 # Script: 002_logging_functions.sh
@@ -9,11 +11,11 @@ source "$HOME/lab_utils/bash/config/project_config.sh"
 # Author: Your Name
 # Date: 2024-10-18
 
-# Function: get_script_name
+# Function: extract_script_path
 # Purpose: Extract the full path of the current script
 # Parameters: None
 # Return: Script path
-get_script_name() {
+extract_script_path() {
   echo "$(readlink -f "${BASH_SOURCE[0]}")"
 }
 
@@ -34,10 +36,30 @@ get_script_basename() {
 }
 
 
-#' Initialize Logging
-#' @param script_name Character Name of the calling script
-#' @param log_dir Character Optional log directory
-#' @return String Path to log file
+#' Write Log Entry Atomically
+#' @param entry Character Log entry
+#' @param log_file Character Log file path
+#' @return Integer 0 if successful
+write_log_atomic() {
+    local entry="$1"
+    local log_file="$2"
+    local lock_file="${log_file}.lock"
+    local retry_count=0
+    
+    while [[ $retry_count -lt ${LOGGING_CONFIG[LOCK_RETRY]} ]]; do
+        if acquire_lock "$lock_file"; then
+            echo "$entry" >> "$log_file"
+            local status=$?
+            release_lock "$lock_file"
+            return $status
+        fi
+        ((retry_count++))
+        sleep 1
+    done
+    
+    echo "ERROR: Failed to acquire log lock after ${LOGGING_CONFIG[LOCK_RETRY]} attempts" >&2
+    return 1
+}
 
 #' Initialize Logging
 #' @param script_name Character Name of the calling script
@@ -79,36 +101,74 @@ initialize_logging() {
     echo -n "$log_file"
 }
 
-#' Log Message
+
+#' Enhanced Log Message
 #' @param level Character Log level
 #' @param message Character Message to log
-#' @param log_file Character Path to log file
-#' @return None
+#' @param log_file Character Log file path
+#' @return Integer 0 if successful
 log_message() {
     local level="$1"
     local message="$2"
     local log_file="$3"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local task_id="${SLURM_ARRAY_TASK_ID:-standalone}"
+    local job_id="${SLURM_JOB_ID:-local}"
     
-    # Validate log level
+    # Validate level
     if [[ ! " ${PROJECT_CONFIG[LOG_LEVELS]} " =~ " ${level} " ]]; then
         echo "Invalid log level: $level" >&2
         return 1
+    }
+    
+    # Truncate long messages
+    if [[ ${#message} -gt ${LOGGING_CONFIG[MAX_MESSAGE_LENGTH]} ]]; then
+        message="${message:0:${LOGGING_CONFIG[MAX_MESSAGE_LENGTH]}}..."
     fi
     
-    # Format message
-    local log_entry="[${timestamp}] [${level}] ${message}"
+    # Format entry
+    local log_entry="[${timestamp}] [${level}] [Job:${job_id}] [Task:${task_id}] ${message}"
     
-    # Output to console
-    echo "$log_entry" >&2 
+    # Console output
+    echo "$log_entry" >&2
     
-    # Write to log file if provided and writable
-    if [[ -n "$log_file" ]] && [[ -w "$log_file" ]]; then
-        echo "$log_entry" >> "$log_file"
-    elif [[ -n "$log_file" ]]; then
-        echo "WARNING: Cannot write to log file: ${log_file}"
+    # File output with atomic writes
+    if [[ -n "$log_file" ]]; then
+        write_log_atomic "$log_entry" "$log_file"
+        return $?
     fi
+    
+    return 0
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #' Log System Information
 #' @param log_file Character Path to log file
