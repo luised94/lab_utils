@@ -37,26 +37,50 @@ validate_lock_path() {
     return 0
 }
 
-# Modified acquire_lock to use shared validation
+
+#' Enhanced Lock Acquisition with Deadlock Prevention
 acquire_lock() {
     local lock_file="$1"
-    local timeout="${2:-${LOGGING_CONFIG[LOCK_TIMEOUT]}}"
+    local timeout="${2:-${CORE_CONFIG[LOCK_TIMEOUT]}}"
+    local start_time=$(date +%s)
     
-    if ! validate_lock_path "$lock_file"; then
-        echo "ERROR: Invalid or protected lock path: $lock_file" >&2
-        return 1
-    fi
+    # Ensure clean state
+    cleanup_stale_locks
     
-    local wait_time=0
-    while [[ $wait_time -lt $timeout ]]; do
+    while true; do
+        # Check timeout
+        if (( $(date +%s) - start_time >= timeout )); then
+            echo "ERROR: Lock acquisition timeout: $lock_file" >&2
+            return 1
+        }
+        
+        # Try to acquire lock
         if mkdir "$lock_file" 2>/dev/null; then
+            # Record lock metadata
             echo $$ > "$lock_file/pid"
+            date +%s > "$lock_file/timestamp"
+            echo "${BASH_SOURCE[1]}" > "$lock_file/source"
             return 0
         fi
-        sleep 1
-        ((wait_time++))
+        
+        # Check for stale lock
+        if is_lock_stale "$lock_file"; then
+            cleanup_lock "$lock_file"
+            continue
+        fi
+        
+        sleep 0.1
     done
-    return 1
+}
+
+#' Cleanup Stale Locks
+cleanup_stale_locks() {
+    local lock_dir="${CORE_CONFIG[LOCK_BASE_DIR]}"
+    local max_age=3600  # 1 hour
+    
+    find "$lock_dir" -type d -name "*.lock" | while read -r lock; do
+        is_lock_stale "$lock" && cleanup_lock "$lock"
+    done
 }
 
 # Enhanced release_lock with shared validation
