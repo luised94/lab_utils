@@ -15,7 +15,7 @@ move_fastq_files_to_current_directory() {
         return 1
     }
     # Move files to root of target directory
-    find . -type f -name "${PROJECT_CONFIG[FASTQ_PATTERN]}" -exec mv {} . \; || {
+    find . -type f -name "*.fastq" -exec mv {} . \; || {
         log_error "Failed to move FASTQ files" "$log_file"
         cd "$current_dir"
         return 1
