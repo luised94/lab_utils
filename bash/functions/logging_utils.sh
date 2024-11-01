@@ -129,7 +129,8 @@ initialize_logging() {
     local entry
     entry=$(format_run_entry "$run_count")
     write_log_atomic "$entry" "$log_file"
-    
+    log_system_info "$log_file"
+    log_git_info "$log_file"
     echo -n "$log_file"
 }
 
