@@ -5,7 +5,7 @@ declare -A LOGGING_CONFIG=(
     [RUN_SEPARATOR]="=== New Run ==="
     [TIMESTAMP_FORMAT]="%Y-%m-%d %H:%M:%S"
     [ENTRY_FORMAT]="\n%s (#%d) === %s ===\n"
-    [FIRST_RUN_FORMAT]="%s (#1) === %s ==="
+    [FIRST_RUN_FORMAT]="%s (#1) === %s ===\n"
     [BUFFER_SIZE]="4096"         # Write buffer size
     [LOCK_BASE_DIR]="/tmp/lab_utils_locks"
     [LOCK_TIMEOUT]=10
