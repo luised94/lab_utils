@@ -57,19 +57,25 @@ submit_slurm_job_main() {
     return 0
 }
 
+
 show_usage() {
     cat << EOF
 Usage: $(basename "$0") <array_range> <script_name> <directory>
 
 Arguments:
-    array_range    SLURM array specification (must include %16)
+    array_range    SLURM array specification:
+                   - Single task: "1"
+                   - Multiple tasks: "1,2,5"
+                   - Range: "1-10" (automatically adds %16)
     script_name    Script to execute
     directory      Experiment directory name
 
 Examples:
-    $(basename "$0") "1-10%16" "align_fastq.sh" "240304Bel"
+    $(basename "$0") "1-10" "align_fastq.sh" "240304Bel"
     $(basename "$0") "1" "align_fastq.sh" "240304Bel"
-    $(basename "$0") "1,2,5%16" "align_fastq.sh" "240304Bel"
+    $(basename "$0") "1,2,5" "align_fastq.sh" "240304Bel"
+
+Note: submit_slurm_job automatically applies %16 limit to ranges
 EOF
 }
 
