@@ -22,13 +22,10 @@ validate_bmc_paths() {
     local bmc_path="${BMC_CONFIG[SOURCE_FS]}/$experiment_id"
     local local_path="${BMC_CONFIG[TARGET_FS]}/$experiment_id/fastq"
     
-    log_debug "Validating paths:" "$log_file"
-    log_debug "  BMC path: $bmc_path" "$log_file"
-    log_debug "  Local path: $local_path" "$log_file"
-    
     # Check source exists
     if [[ ! -d "$bmc_path" ]]; then
         log_error "BMC directory not found: $bmc_path" "$log_file"
+        log_error "Please verify the experiment ID and try again" "$log_file"
         return 1
     fi
     

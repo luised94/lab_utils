@@ -45,18 +45,21 @@ download_bmc_data_main() {
         return 1
     fi
 
+    local bmc_path=${paths%:*}
+    local local_path=${paths#*:}
+
     # Download data
     if ! download_from_bmc "$paths" "$log_file"; then
         return 1
     fi
 
     # Organize files
-    if ! move_fastq_files_to_current_directory "${paths#*:}" "$log_file"; then
+    if ! move_fastq_files_to_current_directory "${local_path}" "$log_file"; then
         return 1
     fi
 
     # Cleanup
-    if ! clean_experiment_directory "${paths#*:}" "$log_file"; then
+    if ! clean_experiment_directory "${local_path}" "$log_file"; then
         return 1
     fi
 
@@ -72,11 +75,12 @@ Usage: $(basename "$0") <experiment_id>
 
 Arguments:
     experiment_id    Experiment identifier (format: YYMMDD'Bel')
-                    Example: 241010Bel
 
-Source path: ${BMC_CONFIG[SOURCE_FS]}/<experiment_id>
-Target path: ${BMC_CONFIG[TARGET_FS]}/<experiment_id>
+Example:
+    $(basename "$0") 241010Bel
 
+Note: Data will be downloaded from ${BMC_CONFIG[SOURCE_FS]}
+      to ${BMC_CONFIG[TARGET_FS]}/experiment_id
 EOF
 }
 
