@@ -9,7 +9,7 @@ function find_reference_genomes() {
     if [ ! -d "$base_dir" ]; then
         log_error "Reference genome directory not found: $base_dir"
         return 1
-    }
+    fi
     
     find "$base_dir" -type f -name "$pattern"
 }
@@ -21,7 +21,7 @@ function build_genome_index() {
     if [ ! -f "$genome_path" ]; then
         log_error "Genome file not found: $genome_path"
         return 1
-    }
+    fi
     
     local index_base="${genome_path%_refgenome.fna}${index_suffix}"
     
@@ -31,7 +31,7 @@ function build_genome_index() {
     if ! bowtie2-build "$genome_path" "$index_base"; then
         log_error "Index building failed for: $genome_path"
         return 1
-    }
+    fi
     
     log_info "Successfully built index for: $genome_path"
     return 0

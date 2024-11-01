@@ -20,7 +20,7 @@ function check_disk_space() {
     if (( available_space < min_space )); then
         log_error "Insufficient disk space. Available: ${available_space}GB, Required: ${min_space}GB"
         return 1
-    }
+    if
     return 0
 }
 
@@ -31,17 +31,17 @@ function validate_directories() {
     if [[ ! -d "$search_dir" ]]; then
         log_error "Search directory does not exist: $search_dir"
         return 1
-    }
+    fi
     
     if [[ ! -d "$target_dir" ]]; then
         log_info "Creating target directory: $target_dir"
         mkdir -p "$target_dir"
-    }
+    fi
     
     if [[ ! -w "$target_dir" ]]; then
         log_error "Target directory not writable: $target_dir"
         return 1
-    }
+    fi
 }
 
 function move_ngs_files() {

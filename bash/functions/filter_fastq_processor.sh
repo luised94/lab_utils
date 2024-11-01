@@ -75,7 +75,7 @@ function process_fastq_file() {
     if ! eval "$cmd"; then
         log_error "Processing failed for: $input_file"
         return 1
-    }
+    fi
     
     log_info "Successfully processed: $input_file"
     return 0

@@ -10,12 +10,12 @@ function validate_directory() {
     if [ ! -d "$dir" ]; then
         log_error "Directory not found: $dir"
         return 1
-    }
+    fi
     
     if [ ! -r "$dir" ]; then
         log_error "Directory not readable: $dir"
         return 1
-    }
+    fi
     
     return 0
 }
@@ -42,12 +42,12 @@ function validate_function_file() {
     if [ ! -f "$file" ]; then
         log_error "File not found: $file"
         return 1
-    }
+    fi
     
     if [ ! -r "$file" ]; then
         log_error "File not readable: $file"
         return 1
-    }
+    fi
     
     # Optional: Add syntax check
     if command -v bash > /dev/null; then
@@ -68,7 +68,7 @@ function load_function_file() {
     if ! source "$file" 2>/dev/null; then
         log_error "Failed to source: $file"
         return 1
-    }
+    fi
     
     return 0
 }

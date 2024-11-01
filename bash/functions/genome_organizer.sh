@@ -8,7 +8,7 @@ function extract_organism_name() {
     if [ ! -f "$report_file" ]; then
         log_error "Assembly report not found: $report_file"
         return 1
-    }
+    fi
     
     log_info "Extracting organism name from: $report_file"
     
@@ -19,7 +19,7 @@ function extract_organism_name() {
     if [ -z "$organism_name" ]; then
         log_error "Failed to extract organism name"
         return 1
-    }
+    fi
     
     echo "$organism_name"
 }
@@ -41,7 +41,7 @@ function reorganize_genome_files() {
     local cds_target="${source_dir}/${GENOME_NAMING[CDS_FILE]}"
     if [ -f "$cds_source" ]; then
         mv -v "$cds_source" "$cds_target" || log_warning "Failed to rename CDS file"
-    }
+    fi
     
     # Rename genomic file
     find "$source_dir" -name "${GENOME_NAMING[GENOMIC_PATTERN]}" \

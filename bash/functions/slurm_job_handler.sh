@@ -10,14 +10,14 @@ function validate_array_range() {
     if [[ ! "$range" =~ ^[0-9]+(|-[0-9]+(%[0-9]+)?|,[0-9]+)*$ ]]; then
         log_error "Invalid array range format: $range"
         return 1
-    }
+    fi
     
     if [[ "$range" =~ %([0-9]+) ]]; then
         local concurrent="${BASH_REMATCH[1]}"
         if ((concurrent > ${SLURM_WRAPPER[MAX_ARRAY_SIZE]})); then
             log_warning "Concurrent jobs ($concurrent) exceeds recommended maximum (${SLURM_WRAPPER[MAX_ARRAY_SIZE]})"
         }
-    }
+        fi
     
     return 0
 }
@@ -33,12 +33,12 @@ function find_script() {
     if [ -z "$script_path" ]; then
         log_error "Script not found: $script_name"
         return 1
-    }
+    fi
     
     if [ ! -x "$script_path" ]; then
         log_error "Script not executable: $script_path"
         return 1
-    }
+    fi
     
     echo "$script_path"
 }
@@ -54,7 +54,7 @@ function validate_experiment_dir() {
     if [ -z "$full_path" ]; then
         log_error "Directory not found: $dir_name"
         return 1
-    }
+    fi
     
     echo "$full_path"
 }

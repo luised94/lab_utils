@@ -74,7 +74,7 @@ function process_bam_coverage() {
     if ! eval "$cmd"; then
         log_error "Coverage generation failed for: $bam_file"
         return 1
-    }
+    fi
     
     log_info "Successfully generated coverage for: $bam_file"
     return 0

@@ -11,9 +11,9 @@ function setup_feature_directory() {
         if ! mkdir -p "$base_dir"; then
             log_error "Failed to create directory: $base_dir"
             return 1
-        }
+        fi
         log_info "Created directory: $base_dir"
-    }
+    fi
     
     echo "$base_dir"
 }
@@ -27,11 +27,11 @@ function download_rossi_data() {
     
     if ! clone_repository "${repo_config[url]}" "$target_dir" "${repo_config[depth]}"; then
         return 1
-    }
+    fi
     
     if ! verify_repository "$target_dir"; then
         return 1
-    }
+    fi
     
     log_info "Successfully downloaded Rossi 2021 data"
     return 0

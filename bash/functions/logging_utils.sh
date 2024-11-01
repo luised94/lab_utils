@@ -61,6 +61,48 @@ write_log_atomic() {
     return 1
 }
 
+#' Get Run Count
+#' @param log_file Character Path to log file
+#' @return Integer Run count
+get_run_count() {
+    local log_file="$1"
+    local lock_file="${log_file}.lock"
+    local count=0
+    
+    # Acquire lock for counting
+    if ! acquire_lock "$lock_file"; then
+        echo "0"
+        return 1
+    fi
+    
+    # Count runs with error handling
+    if [[ -f "$log_file" ]]; then
+        count=$(grep -c "${LOGGING_CONFIG[RUN_SEPARATOR]}" "$log_file" 2>/dev/null || echo "0")
+    fi
+    
+    release_lock "$lock_file"
+    echo "$count"
+}
+
+#' Format Run Entry
+#' @param count Integer Run count
+#' @return String Formatted entry
+format_run_entry() {
+    local count="$1"
+    local timestamp
+    timestamp=$(date +"${LOGGING_CONFIG[TIMESTAMP_FORMAT]}")
+    
+    if [[ $count -eq 0 ]]; then
+        printf "${LOGGING_CONFIG[FIRST_RUN_FORMAT]}" \
+            "${LOGGING_CONFIG[RUN_SEPARATOR]}" \
+            "$timestamp"
+    else
+        printf "${LOGGING_CONFIG[ENTRY_FORMAT]}" \
+            "${LOGGING_CONFIG[RUN_SEPARATOR]}" \
+            "$((count + 1))" \
+            "$timestamp"
+    fi
+}
 #' Initialize Logging
 #' @param script_name Character Name of the calling script
 #' @param log_dir Character Optional log directory
@@ -68,38 +110,21 @@ write_log_atomic() {
 
 initialize_logging() {
     local script_name="${1:-$(basename "${BASH_SOURCE[1]}" )}"
-    local log_dir="${2:-${LOGGING_CONFIG[DEFAULT_LOG_ROOT]}}"
+    local log_dir="${2:-${PROJECT_CONFIG[DEFAULT_LOG_ROOT]}}"
     local log_file
     
-    # Create log directory
-    if ! mkdir -p "$log_dir/$(date +%Y-%m)"; then
-        echo "ERROR: Failed to create log directory" >&2
-        return 1
-    }
-    
-    # Set log file path
+    # Setup log file
     log_file="$log_dir/$(date +%Y-%m)/$(date +%Y-%m-%d)_${script_name}.log"
+    mkdir -p "$(dirname "$log_file")"
     
-    # Initialize with atomic write
-    local init_entry
-    if [[ -f "$log_file" ]]; then
-        local run_count
-        run_count=$(grep -c "=== New Run ===" "$log_file" 2>/dev/null)
-        run_count=${run_count:-0}
-        run_count=$((run_count + 1))
-        init_entry="\n=== New Run === (#$run_count) === $(date +'%Y-%m-%d %H:%M:%S') ===\n"
-    else
-        init_entry="=== New Run === (#1) === $(date +'%Y-%m-%d %H:%M:%S') ==="
-    fi
+    # Get run count atomically
+    local run_count
+    run_count=$(get_run_count "$log_file")
     
-    if ! write_log_atomic "$init_entry" "$log_file"; then
-        echo "ERROR: Failed to initialize log file" >&2
-        return 1
-    }
-    
-    # Write headers atomically
-    log_system_info "$log_file"
-    log_git_info "$log_file"
+    # Write header atomically
+    local entry
+    entry=$(format_run_entry "$run_count")
+    write_log_atomic "$entry" "$log_file"
     
     echo -n "$log_file"
 }
@@ -120,7 +145,7 @@ log_message() {
     if [[ ! " ${LOGGING_CONFIG[LOG_LEVELS]} " =~ " ${level} " ]]; then
         echo "Invalid log level: $level" >&2
         return 1
-    }
+    fi
     # Truncate long messages
     if [[ ${#message} -gt ${LOGGING_CONFIG[MAX_MESSAGE_LENGTH]} ]]; then
         message="${message:0:${LOGGING_CONFIG[MAX_MESSAGE_LENGTH]}}..."
@@ -137,35 +162,6 @@ log_message() {
     
     return 0
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #' Log System Information
 #' @param log_file Character Path to log file

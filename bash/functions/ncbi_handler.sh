@@ -6,7 +6,7 @@ function validate_ncbi_tools() {
     if ! command -v datasets &>/dev/null; then
         log_error "NCBI datasets tool not found"
         return 1
-    }
+    fi
     return 0
 }
 
@@ -28,13 +28,13 @@ function download_genome() {
         --filename "${target_dir}/${accession}.zip"; then
         log_error "Download failed for accession: $accession"
         return 1
-    }
+    fi
     
     log_info "Extracting files for: $accession"
     if ! unzip -q "${target_dir}/${accession}.zip" -d "$target_dir"; then
         log_error "Extraction failed for: $accession"
         return 1
-    }
+    fi
     
     rm "${target_dir}/${accession}.zip"
     log_info "Successfully processed: $accession"

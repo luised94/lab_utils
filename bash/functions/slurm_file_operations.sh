@@ -13,7 +13,7 @@ function find_slurm_files() {
     if [[ ! -d "$search_dir" ]]; then
         log_error "Directory does not exist: $search_dir"
         return 1
-    }
+    fi
 
     find "$search_dir" \
         -maxdepth "$max_depth" \

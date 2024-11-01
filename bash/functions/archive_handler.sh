@@ -13,7 +13,7 @@ function find_zip_files() {
     if [ -z "$files" ]; then
         log_warning "No ZIP files found"
         return 1
-    }
+    fi
     
     echo "$files"
 }
@@ -24,7 +24,7 @@ function verify_zip_file() {
     if ! unzip -t "$zip_file" >/dev/null 2>&1; then
         log_error "Invalid or corrupted ZIP file: $zip_file"
         return 1
-    }
+    fi
     
     return 0
 }
@@ -47,7 +47,7 @@ function unzip_in_place() {
         if ! unzip -o "$filename"; then
             log_error "Failed to unzip: $filename"
             return 1
-        }
+        fi
         
         if [ "$preserve" = false ]; then
             rm "$filename" || log_warning "Failed to remove ZIP file: $filename"

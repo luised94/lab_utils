@@ -16,19 +16,19 @@ validate_slurm_environment() {
     if [[ ! " ALIGN QC BW " =~ " $job_type " ]]; then
         log_error "Invalid job type: $job_type" "$log_file"
         return 1
-    }
+    fi
     
     # Check SLURM environment
     if [[ -z "${SLURM_JOB_ID:-}" ]]; then
         log_error "Not running in SLURM environment" "$log_file"
         return 1
-    }
+    fi
     
     # Verify reference directory
     if [[ ! -d "${SLURM_GENOMES[BASE_DIR]}" ]]; then
         log_error "Reference genome directory not found: ${SLURM_GENOMES[BASE_DIR]}" "$log_file"
         return 1
-    }
+    fi
     
     return 0
 }
@@ -52,9 +52,56 @@ validate_modules() {
     return 0
 }
 
-validate_array_range() {
-    local array_range="$1"
-    local log_file="$2"
-    # MIT-specific validation
-    # [implementation from previous wrapper]
+#' Format Array Range for MIT SLURM
+#' @param range_input String Input range (e.g., "1-10", "1,2,3", "5")
+#' @return String Formatted range with %16
+format_array_range() {
+    local range_input="$1"
+    
+    # Single number
+    if [[ "$range_input" =~ ^[0-9]+$ ]]; then
+        echo "$range_input"
+        return 0
+    fi
+    
+    # Comma-separated list
+    if [[ "$range_input" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
+        echo "$range_input"
+        return 0
+    fi
+    
+    # Range (add %16 if not present)
+    if [[ "$range_input" =~ ^[0-9]+-[0-9]+$ ]]; then
+        echo "${range_input}%16"
+        return 0
+    fi
+    
+    # Invalid format
+    return 1
 }
+#' Validate SLURM Array Range
+#' @param range_input String Input range
+#' @param log_file Character Log file path
+#' @return Integer 0 if valid
+validate_array_range() {
+    local range_input="$1"
+    local log_file="$2"
+    
+    # Validate format
+    if ! [[ "$range_input" =~ ^([0-9]+|[0-9]+-[0-9]+|[0-9]+(,[0-9]+)*)$ ]]; then
+        log_error "Invalid array range format: $range_input" "$log_file"
+        return 1
+    fi
+    
+    # Format range
+    local formatted_range
+    if ! formatted_range=$(format_array_range "$range_input"); then
+        log_error "Failed to format array range" "$log_file"
+        return 1
+    fi
+    
+    echo "$formatted_range"
+    return 0
+}
+
+

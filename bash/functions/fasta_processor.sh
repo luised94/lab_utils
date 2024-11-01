@@ -10,12 +10,12 @@ function validate_fasta() {
     if [ ! -f "$file" ]; then
         log_error "File not found: $file"
         return 1
-    }
+    fi
     
     if ! grep -q '^>' "$file"; then
         log_error "Invalid FASTA format: No headers found"
         return 1
-    }
+    fi
     
     return 0
 }
@@ -31,12 +31,12 @@ function create_backup() {
     if [ -f "$backup_file" ]; then
         log_warning "Backup file already exists: $backup_file"
         return 0
-    }
+    fi
     
     if ! cp "$source_file" "$backup_file"; then
         log_error "Failed to create backup"
         return 1
-    }
+    fi
     
     return 0
 }
@@ -92,12 +92,12 @@ function verify_conversion() {
     if [ "$orig_count" -ne "$conv_count" ]; then
         log_error "Header count mismatch: Original=$orig_count, Converted=$conv_count"
         return 1
-    }
+    fi
     
     if grep -q "${HEADER_PATTERNS[OLD_PREFIX]}" "$converted"; then
         log_error "Old prefix still present in converted file"
         return 1
-    }
+    fi
     
     log_info "Conversion verified successfully"
     return 0

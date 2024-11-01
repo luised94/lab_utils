@@ -45,12 +45,12 @@ function perform_alignment() {
          samtools sort -@ "$threads" -o "$output_bam" -; then
         log_error "Alignment failed for: $fastq_id to $genome_name"
         return 1
-    }
+    fi
     
     if ! samtools index "$output_bam"; then
         log_error "Index creation failed for: $output_bam"
         return 1
-    }
+    fi
     
     log_info "Completed alignment: $output_bam"
     return 0

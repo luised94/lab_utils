@@ -19,12 +19,12 @@ function validate_slurm_env() {
     if [ -z "${SLURM_ARRAY_TASK_ID:-}" ]; then
         log_error "This script must be run as a SLURM array job"
         return 1
-    }
+    fi
     
     if [ -z "${SLURM_ARRAY_JOB_ID:-}" ]; then
         log_error "SLURM_ARRAY_JOB_ID not set"
         return 1
-    }
+    fi
     
     return 0
 }

@@ -22,13 +22,13 @@ function run_fastqc() {
     if [ ! -f "$file_path" ]; then
         log_error "File not found: $file_path"
         return 1
-    }
+    fi
     
     log_info "Running FASTQC on: $file_path"
     if ! fastqc --outdir="$output_dir" "$file_path"; then
         log_error "FASTQC failed for: $file_path"
         return 1
-    }
+    fi
     
     log_info "FASTQC completed for: $file_path"
     return 0

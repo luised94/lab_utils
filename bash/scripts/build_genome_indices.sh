@@ -29,13 +29,13 @@ function main() {
     if [ ${#genome_paths[@]} -eq 0 ]; then
         log_error "No reference genomes found"
         exit 1
-    }
+    fi
     
     local task_index=$((SLURM_ARRAY_TASK_ID - 1))
     if [ $task_index -ge ${#genome_paths[@]} ]; then
         log_error "Task ID exceeds number of genomes"
         exit 1
-    }
+    fi
     
     build_genome_index "${genome_paths[$task_index]}" || exit 1
     

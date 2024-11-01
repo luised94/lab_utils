@@ -10,7 +10,7 @@ function validate_input() {
     if [ -z "$download_dir" ]; then
         log_error "Download directory not specified"
         return 1
-    }
+    fi
     
     local full_path="${SRA_CONFIG[DATA_DIR]}/$download_dir"
     
@@ -20,7 +20,7 @@ function validate_input() {
             log_error "Failed to create directory: $full_path"
             return 1
         }
-    }
+    fi
     
     echo "$full_path"
 }
@@ -40,7 +40,7 @@ function verify_url() {
     if ! curl --head --silent --fail "$url" >/dev/null; then
         log_error "URL not accessible: $url"
         return 1
-    }
+    fi
     
     return 0
 }
@@ -54,7 +54,7 @@ function download_file() {
     if ! wget --quiet --show-progress --output-document="$output_file" "$url"; then
         log_error "Download failed: $url"
         return 1
-    }
+    fi
     
     log_info "Download complete: $output_file"
     return 0
@@ -71,7 +71,7 @@ function concatenate_files() {
         if [ ! -f "$output_dir/$file" ]; then
             log_error "File not found: $file"
             return 1
-        }
+        fi
         cat "$output_dir/$file" >> "$output_file" || {
             log_error "Failed to concatenate: $file"
             return 1
@@ -90,7 +90,7 @@ function decompress_file() {
     if ! gunzip "$file"; then
         log_error "Decompression failed: $file"
         return 1
-    }
+    fi
     
     log_info "Decompression complete"
     return 0
