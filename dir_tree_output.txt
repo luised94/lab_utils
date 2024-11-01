@@ -27,6 +27,3 @@
 +- renv
 |  +- staging
 +- scripts
-+- tests
-|  +- core
-|  +- modules
