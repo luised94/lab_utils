@@ -90,31 +90,18 @@ validate_slurm_config() {
     return 0
 }
 
-#' Generate SLURM Headers
-#' @param job_name Character Job name
-#' @param config_type Character Resource configuration type
-#' @return String SLURM headers
-generate_slurm_headers() {
-    local job_name="$1"
-    local config_type="$2"
+#' Get SLURM Options
+#' @param job_type Character Type of job (ALIGN, QC, BW)
+#' @return String SLURM options
+get_slurm_options() {
+    local job_type="$1"
     
-    cat << EOF
-#!/bin/bash
-#SBATCH --job-name=$job_name
-#SBATCH --nodes=${SLURM_CONFIG[NODES]}
-#SBATCH --ntasks=${SLURM_CONFIG[TASKS]}
-#SBATCH --cpus-per-task=${SLURM_RESOURCES[${config_type}_CPUS]}
-#SBATCH --mem-per-cpu=${SLURM_RESOURCES[${config_type}_MEM]}
-#SBATCH --time=${SLURM_RESOURCES[${config_type}_TIME]}
-#SBATCH --exclude=${SLURM_CONFIG[EXCLUDE_NODES]}
-#SBATCH --nice=${SLURM_CONFIG[NICE]}
-#SBATCH --mail-type=${SLURM_CONFIG[MAIL_TYPE]}
-#SBATCH --mail-user=${SLURM_CONFIG[MAIL_USER]}
-
-# Load required modules
-$(for module in ${SLURM_MODULES[LOAD_ORDER]}; do
-    echo "module load ${SLURM_MODULES[$module]}"
-done)
-
-EOF
+    echo "--nodes=${SLURM_CONFIG[NODES]} \
+          --cpus-per-task=${SLURM_RESOURCES[${job_type}_CPUS]} \
+          --mem-per-cpu=${SLURM_RESOURCES[${job_type}_MEM]} \
+          --time=${SLURM_RESOURCES[${job_type}_TIME]} \
+          --exclude=${SLURM_CONFIG[EXCLUDE_NODES]} \
+          --nice=${SLURM_CONFIG[NICE]} \
+          --mail-type=${SLURM_CONFIG[MAIL_TYPE]} \
+          --mail-user=${SLURM_CONFIG[MAIL_USER]}"
 }

@@ -13,13 +13,14 @@ submit_slurm_job_main() {
     fi
     
     # Initialize logging with timestamp for concurrent access
-    local timestamp=$(date +%s)
+    local timestamp_for_log=$(date +%s)
     local log_file
-    log_file=$(initialize_logging "slurm_submit_${timestamp}")
+    log_file=$(initialize_logging "slurm_submit_${timestamp_for_log}")
     
     local array_range="$1"
     local script_name="$2"
     local dir_name="$3"
+    local timestamp_for_data=$(date "+%Y-%m-%d-%H-%M-%S")
     
     # Validate inputs
     if ! validate_array_range "$array_range" "$log_file"; then
@@ -43,31 +44,16 @@ submit_slurm_job_main() {
     log_info "  Array: $array_range" "$log_file"
     
     local job_id
-    job_id=$(sbatch --parsable --array="$array_range" "$script_path" "${dir_name}/" "$timestamp")
+    if ! job_id=$(submit_slurm_array_job "$array_range" "$script_name" "$dir_name" "$job_type"  "$timestamp_for_data" "$log_file"); then
+        return 1
+    fi
     
     if [[ -z "$job_id" ]]; then
         log_error "Job submission failed" "$log_file"
         return 1
     fi
     
-    log_info "Job submitted successfully:" "$log_file"
-    log_info "  Job ID: $job_id" "$log_file"
-    log_info "  Time ID: $timestamp" "$log_file"
-    
-    # Output log locations
-    cat << EOF
-
-Job Information:
-  Job ID: $job_id
-  Time ID: $timestamp
-  Log File: $log_file
-
-Monitor Job:
-  squeue -j $job_id
-  sacct -j $job_id
-  tail -f $log_file
-EOF
-    
+    print_job_info "$job_id"  "$log_file"
     return 0
 }
 
