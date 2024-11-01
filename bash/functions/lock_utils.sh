@@ -45,7 +45,7 @@ acquire_lock() {
     if ! validate_lock_path "$lock_file"; then
         echo "ERROR: Invalid or protected lock path: $lock_file" >&2
         return 1
-    }
+    fi
     
     local wait_time=0
     while [[ $wait_time -lt $timeout ]]; do
@@ -67,7 +67,7 @@ release_lock() {
     if ! validate_lock_path "$lock_file"; then
         echo "ERROR: Invalid or protected lock path: $lock_file" >&2
         return 1
-    }
+    fi
     
     [[ ! -d "$lock_file" ]] && return 0
     
