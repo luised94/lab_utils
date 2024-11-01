@@ -40,7 +40,7 @@ validate_lock_path() {
 # Modified acquire_lock to use shared validation
 acquire_lock() {
     local lock_file="$1"
-    local timeout="${2:-$LOGGING_CONFIG[LOCK_TIMEOUT]}"
+    local timeout="${2:-${LOGGING_CONFIG[LOCK_TIMEOUT]}}"
     
     if ! validate_lock_path "$lock_file"; then
         echo "ERROR: Invalid or protected lock path: $lock_file" >&2
