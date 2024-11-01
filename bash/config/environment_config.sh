@@ -16,8 +16,8 @@ declare -A FILE_PATTERNS=(
 declare -A LOAD_ORDER=(
     ["PRIORITY"]=(
         "logging.sh"
-        "utils.sh"
-        "core.sh"
+        "lock_utils.sh"
+        h"
     )
     ["OPTIONAL"]=(
         "experimental.sh"
