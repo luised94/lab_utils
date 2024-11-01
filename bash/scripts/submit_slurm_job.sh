@@ -44,7 +44,7 @@ submit_slurm_job_main() {
     log_info "  Array: $array_range" "$log_file"
     
     local job_id
-    if ! job_id=$(submit_slurm_array_job "$array_range" "$script_name" "$dir_name" "$job_type"  "$timestamp_for_data" "$log_file"); then
+    if ! job_id=$(submit_slurm_array_job "$array_range" "$script_name" "$exp_dir" "$job_type"  "$timestamp_for_data" "$log_file"); then
         return 1
     fi
     
