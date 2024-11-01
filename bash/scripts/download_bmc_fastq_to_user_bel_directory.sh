@@ -38,12 +38,6 @@ download_bmc_data_main() {
     fi
     log_info "Starting BMC data download for experiment: $experiment_id" "$log_file"
 
-    # Ensure log file is writable
-    if ! touch "$log_file" 2>/dev/null; then
-        echo "ERROR: Unable to create or write to log file: $log_file. Check permissions or quotas."
-        return 1
-    fi
-
     echo "$log_file"
     # Validate paths
     local paths
