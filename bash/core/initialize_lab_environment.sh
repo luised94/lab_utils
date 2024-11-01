@@ -56,6 +56,7 @@ for config in "${CORE_CONFIG_FILES[@]}"; do
         source "$config_path"
     else
         echo "ERROR: Required configuration not found: ${config}" >&2
+        echo "ERROR: Required configuration not found: ${LAB_UTILS_ROOT}" >&2
         return 1
     fi
 done
@@ -84,7 +85,7 @@ if [[ -z "$LAB_UTILS_LOG_FILE" ]]; then
 fi
 
 # Cleanup stale locks on initialization
-cleanup_stale_locks 2>/dev/null
+#cleanup_stale_locks 2>/dev/null
 
 # Mark as initialized
 readonly LAB_UTILS_INITIALIZED=1
