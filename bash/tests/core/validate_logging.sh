@@ -1,5 +1,5 @@
-# bash/tests/core/validate_logging.sh
 #!/bin/bash
+# bash/tests/core/validate_logging.sh
 
 #' Comprehensive Logging System Validation
 validate_logging_system() {
