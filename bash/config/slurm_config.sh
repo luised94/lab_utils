@@ -77,7 +77,7 @@ validate_slurm_config() {
     if [[ ! -d "${SLURM_GENOMES[BASE_DIR]}" ]]; then
         log_error "Reference genome directory not found: ${SLURM_GENOMES[BASE_DIR]}" "$log_file"
         return 1
-    }
+    fi
     
     # Verify module availability
     for module in ${SLURM_MODULES[LOAD_ORDER]}; do

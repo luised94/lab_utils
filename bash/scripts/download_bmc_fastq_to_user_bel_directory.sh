@@ -71,16 +71,18 @@ download_bmc_data_main() {
 }
 
 # Show usage information
+
 show_usage() {
     cat << EOF
 Usage: $(basename "$0") <experiment_id>
 
 Arguments:
-    BMC server name (e.g., ${BMC_CONFIG[BMC_DEFAULT_SERVER]})
-    experiment_id Experiment identifier (format: YYMMDD'Bel')
+    experiment_id    Experiment identifier (format: YYMMDD'Bel')
+                    Example: 241010Bel
 
-Example:
-$(basename "$0") ${BMC_CONFIG[BMC_DEFAULT_SERVER]} 240808Bel
+Source path: ${BMC_CONFIG[SOURCE_FS]}/<experiment_id>
+Target path: ${BMC_CONFIG[TARGET_FS]}/<experiment_id>
+
 EOF
 }
 
