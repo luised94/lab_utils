@@ -1,7 +1,7 @@
 # bash/functions/lock_utils.sh
 #!/bin/bash
 
-source "$HOME/lab_utils/bash/config/lock_config.sh"
+source "$HOME/lab_utils/bash/config/logging_config.sh"
 
 # Shared validation for both acquire and release
 
