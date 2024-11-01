@@ -22,7 +22,7 @@ CORE_CONFIG <- list(
         MODULES = "~/lab_utils/R/modules",
         CONFIG = "~/lab_utils/R/config",
         DATA = "~/data"
-    )
+    ),
     MODULES = list(
         REQUIRED = c("bmc", "ngs", "genome"),
         OPTIONAL = c("viz")
