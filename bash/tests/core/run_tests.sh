@@ -10,7 +10,7 @@ run_core_tests() {
     if ! repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
         echo "? Not in a git repository"
         return 1
-    }
+    fi
     
     local test_dir="$repo_root/bash/tests/core"
     local failed=0

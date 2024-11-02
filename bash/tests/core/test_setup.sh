@@ -10,7 +10,7 @@ setup_test_environment() {
     if ! repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
         echo "? Not in a git repository"
         return 1
-    }
+    fi
     
     echo "ÃÄ Setting up test environment"
     echo "³  ÃÄ Repository root: $repo_root"
@@ -19,7 +19,7 @@ setup_test_environment() {
     if ! source "$repo_root/bash/config/core_config.sh"; then
         echo "³  ? Failed to source core config"
         return 1
-    }
+    fi
     
     # Source core modules
     local core_modules=(
