@@ -16,7 +16,28 @@ verify_init() {
         echo "ERROR: Environment not initialized"
         return 1
     }
+
+    # Verify paths
+    echo "Verifying paths:"
+    echo "LAB_UTILS_ROOT: $LAB_UTILS_ROOT"
+    echo "Config directory: $LAB_UTILS_CONFIG_DIR"
     
+    # Check critical directories exist
+    for dir in "bash/config" "bash/core" "bash/modules"; do
+        if [[ ! -d "$LAB_UTILS_ROOT/$dir" ]]; then
+            echo "ERROR: Required directory not found: $LAB_UTILS_ROOT/$dir"
+            exit 1
+        fi
+    done
+
+    # Check critical files exist
+    for file in "core_config.sh" "logging_config.sh" "lock_config.sh"; do
+        if [[ ! -f "$LAB_UTILS_ROOT/bash/config/$file" ]]; then
+            echo "ERROR: Required configuration not found: $file"
+            exit 1
+        fi
+    done
+    #
     # 3. Test logging
     log_file=$(initialize_logging "verify")
     [[ -f "$log_file" ]] || {

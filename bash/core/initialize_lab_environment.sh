@@ -12,22 +12,46 @@
 #' @return String Absolute path to lab utils root
 discover_lab_utils_root() {
     local script_path
+    local current_dir
     
     # Try readlink first (handles symlinks)
     if script_path="$(readlink -f "${BASH_SOURCE[0]}")"; then
-        echo "$(cd "$(dirname "$script_path")/.." && pwd)"
-    # Fallback to BASH_SOURCE
+        current_dir="$(dirname "$script_path")"
+        # Count path components to determine how many levels to go up
+        local path_depth=$(echo "$current_dir" | tr '/' '\n' | grep -c '^')
+        local up_levels=""
+        
+        # If under bash/core, go up two levels
+        if [[ "$current_dir" =~ /bash/core$ ]]; then
+            up_levels="../.."
+        # If under bash/tests/core, go up three levels
+        elif [[ "$current_dir" =~ /bash/tests/core$ ]]; then
+            up_levels="../../.."
+        # Default to two levels
+        else
+            up_levels="../.."
+        fi
+        
+        echo "$(cd "$current_dir/$up_levels" && pwd)"
+    # Fallback to BASH_SOURCE with same logic
     elif [[ -n "${BASH_SOURCE[0]}" ]]; then
-        echo "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+        current_dir="$(dirname "${BASH_SOURCE[0]}")"
+        if [[ "$current_dir" =~ /bash/tests/core$ ]]; then
+            echo "$(cd "$current_dir/../../.." && pwd)"
+        else
+            echo "$(cd "$current_dir/../.." && pwd)"
+        fi
     # Last resort: use environment variable or home directory
     else
         echo "${LAB_UTILS_ROOT:-$HOME/lab_utils}"
     fi
 }
-
+#
 # Set root directory
 if [[ -z "$LAB_UTILS_ROOT" ]]; then
     LAB_UTILS_ROOT="$(discover_lab_utils_root)"
+    echo "DEBUG: LAB_UTILS_ROOT set to: $LAB_UTILS_ROOT"
+    echo "DEBUG: Looking for config in: $LAB_UTILS_ROOT/bash/config"
     export LAB_UTILS_ROOT
 fi
 
@@ -56,7 +80,6 @@ for config in "${CORE_CONFIG_FILES[@]}"; do
         source "$config_path"
     else
         echo "ERROR: Required configuration not found: ${config}" >&2
-        echo "ERROR: Required configuration not found: ${LAB_UTILS_ROOT}" >&2
         return 1
     fi
 done
