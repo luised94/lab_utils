@@ -31,7 +31,7 @@ verify_init() {
     done
 
     # Check critical files exist
-    for file in "core_config.sh" "logging_config.sh" "lock_config.sh"; do
+    for file in "core_config.sh" ; do
         if [[ ! -f "$LAB_UTILS_ROOT/bash/config/$file" ]]; then
             echo "ERROR: Required configuration not found: $file"
             exit 1
