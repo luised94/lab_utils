@@ -101,6 +101,11 @@ export_core_config || {
     return 1
 }
 
+# Verify export worked
+if [[ -z "$LAB_UTILS_CONFIG_SERIALIZED" ]]; then
+    echo "[ERROR] Configuration export failed" >&2
+    return 1
+fi
 # Export critical functions
 export -f import_core_config
 export -f export_core_config

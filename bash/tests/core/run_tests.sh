@@ -34,7 +34,7 @@ run_core_tests() {
     # Advanced tests
     local tests=(
         "test_config_export.sh"
-        #"test_logging_concurrent.sh"
+        "test_logging_concurrent.sh"
         "test_lock_recovery.sh"
         "test_error_conditions.sh"
     )
