@@ -1,15 +1,70 @@
 #!/bin/bash
 # verify_init.sh
 
-# Quick initialization verification
-verify_init() {
-    local log_file
+test_lock_management() {
+    echo "ÃÄ Testing lock management"
+    local test_lock="test_lock_$$"
     
-    # 1. Source initialization
-    source "$HOME/lab_utils/bash/core/initialize_lab_environment.sh" || {
-        echo "ERROR: Failed to source initialization script"
+    if acquire_lock "$test_lock" 5; then
+        echo "³  û Lock acquired"
+        if release_lock "$test_lock"; then
+            echo "³  û Lock released"
+            return 0
+        fi
+    fi
+    echo "? Lock management failed"
+    return 1
+}
+
+test_core_config() {
+    echo "ÃÄ Testing core configuration"
+    
+    [[ -n "${CORE_CONFIG[VERSION]}" ]] || {
+        echo "? Missing version"
         return 1
     }
+    
+    [[ -n "${CORE_CONFIG[LOG_LEVELS]}" ]] || {
+        echo "? Missing log levels"
+        return 1
+    }
+    
+    echo "³  û Configuration verified"
+    return 0
+}
+
+test_guard_mechanism() {
+    echo "ÃÄ Testing guard mechanism"
+    (
+        source "${LAB_UTILS_ROOT}/bash/core/initialize_lab_environment.sh"
+        [[ -n "$LAB_UTILS_INITIALIZED" ]] || {
+            echo "? Guard failed"
+            return 1
+        }
+    )
+    echo "³  û Guard verified"
+    return 0
+}
+# Quick initialization verification
+verify_init() {
+    local failed=0
+    echo "ÃÄ Starting verification"
+    local log_file
+    
+    # Source initialization
+    source "$HOME/lab_utils/bash/core/initialize_lab_environment.sh" || {
+        echo "? Failed to source initialization script"
+        return 1
+    }
+    
+    # Test core configuration
+    test_core_config || ((failed++))
+    
+    # Test guard mechanism
+    test_guard_mechanism || ((failed++))
+    
+    # Test lock management
+    test_lock_management || ((failed++))
     
     # 2. Verify environment
     [[ -n "$LAB_UTILS_INITIALIZED" ]] || {
@@ -17,11 +72,16 @@ verify_init() {
         return 1
     }
 
-    # Verify paths
-    echo "Verifying paths:"
-    echo "LAB_UTILS_ROOT: $LAB_UTILS_ROOT"
-    echo "Config directory: $LAB_UTILS_CONFIG_DIR"
+    if ((failed > 0)); then
+        echo "ÀÄ ? Verification failed ($failed errors)"
+        return 1
+    fi
     
+    # Verify paths
+    echo "ÃÄ Verifying paths"
+    echo "³  LAB_UTILS_ROOT: $LAB_UTILS_ROOT"
+    echo "³  Config directory: $LAB_UTILS_CONFIG_DIR"
+    #
     # Check critical directories exist
     for dir in "bash/config" "bash/core" "bash/modules"; do
         if [[ ! -d "$LAB_UTILS_ROOT/$dir" ]]; then
