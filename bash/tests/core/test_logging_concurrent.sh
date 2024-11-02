@@ -1,34 +1,41 @@
 #!/bin/bash
 # bash/tests/core/test_logging_concurrent.sh
-#
-# Source test environment
-source "$(dirname "${BASH_SOURCE[0]}")/test_setup.sh" || exit 1
-setup_test_environment || exit 1
-
 
 test_concurrent_logging() {
     local test_dir="/tmp/lab_utils_test_$$"
     local log_file="$test_dir/concurrent.log"
     local pids=()
-    source "$HOME/lab_utils/bash/config/core_config.sh"
     
-    echo "ÃÄ Testing concurrent logging"
+    # Initialize environment if running standalone
+    if [[ -z "$LAB_UTILS_INITIALIZED" ]]; then
+        source "$(dirname "${BASH_SOURCE[0]}")/test_setup.sh" || exit 1
+        setup_test_environment || exit 1
+    fi
+
+    echo "[TEST] Testing concurrent logging"
     
     # Ensure test directory exists
     mkdir -p "$test_dir" || {
-        echo "³  ? Failed to create test directory"
+        echo "[FAIL] Failed to create test directory"
         return 1
     }
     
     # Touch log file to ensure it exists
     touch "$log_file" || {
-        echo "³  ? Failed to create log file"
+        echo "[FAIL] Failed to create log file"
         return 1
     }
+
+    # Export necessary functions for subprocesses
+    export -f log_message
+    export -f write_log_atomic
     
     # Launch parallel processes
     for i in {1..5}; do
         (
+            # Source core config directly in subprocess
+            source "${LAB_UTILS_ROOT}/bash/config/core_config.sh"
+            
             for j in {1..10}; do
                 log_message "INFO" "Test message $i-$j" "$log_file"
                 sleep 0.1
@@ -47,13 +54,16 @@ test_concurrent_logging() {
     local actual=$(wc -l < "$log_file")
     
     if [[ "$actual" -eq "$expected" ]]; then
-        echo "³  û All messages logged ($actual/$expected)"
+        echo "[PASS] All messages logged ($actual/$expected)"
         rm -rf "$test_dir"
         return 0
     else
-        echo "³  ? Message count mismatch ($actual/$expected)"
+        echo "[FAIL] Message count mismatch ($actual/$expected)"
         return 1
     fi
 }
 
-[[ "${BASH_SOURCE[0]}" == "${0}" ]] && test_concurrent_logging
+# Run test if executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    test_concurrent_logging
+fi
