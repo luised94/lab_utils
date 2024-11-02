@@ -29,7 +29,7 @@ function find_s288c_genome() {
     if [ -z "$genome_path" ]; then
         log_error "S288C genome not found"
         return 1
-    }
+    fi
     
     echo "$genome_path"
 }

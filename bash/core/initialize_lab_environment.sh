@@ -35,6 +35,57 @@ discover_lab_utils_root() {
     echo "$repo_root"
 }
 
+# bash/core/initialize_lab_environment.sh
+
+#' Load Module Configuration
+#' @param module_name Character Name of module
+#' @return Integer 0 if successful
+load_module_config() {
+    local module_name="$1"
+    local config_path="${LAB_UTILS_ROOT}/bash/config/modules/${module_name}_config.sh"
+    
+    log_debug "Loading module configuration: ${module_name}" "${LAB_UTILS_LOG_FILE:-/dev/null}"
+    
+    if [[ ! -f "$config_path" ]]; then
+        log_error "Module configuration not found: ${module_name}_config.sh"
+        return 1
+    fi
+    
+    source "$config_path" || {
+        log_error "Failed to load module configuration: ${module_name}"
+        return 1
+    }
+    
+    return 0
+}
+
+#' Load Laboratory Module
+#' @param module_path Character Path relative to modules directory
+#' @return Integer 0 if successful
+load_lab_module() {
+    local module_path="$1"
+    local module_name="${module_path%%/*}"  # Extract base module name
+    
+    # Load module configuration first
+    load_module_config "$module_name" || {
+        log_error "Failed to load configuration for module: $module_name"
+        return 1
+    }
+    
+    # Then load module implementation
+    local full_path="${LAB_UTILS_ROOT}/bash/modules/${module_path}.sh"
+    if [[ ! -f "$full_path" ]]; then
+        log_error "Module not found: $module_path"
+        return 1
+    fi
+    
+    source "$full_path" || {
+        log_error "Failed to load module: $module_path"
+        return 1
+    }
+    
+    return 0
+}
 #' Load Laboratory Module
 #' @description Load module from lab utils repository
 #' @param module_path Character Path relative to modules directory
@@ -79,7 +130,6 @@ fi
 # Core configuration files (order matters)
 readonly CORE_CONFIG_FILES=(
     "core_config.sh"      # Base configuration with logging and lock settings.
-    "bmc_config.sh"      # 
 )
 
 # Core module files (order matters)
