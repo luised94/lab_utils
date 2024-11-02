@@ -49,10 +49,10 @@ write_log_atomic() {
     mkdir -p "${CORE_CONFIG[DEFAULT_LOG_ROOT]}" 2>/dev/null
 
     while [[ $retry_count -lt ${CORE_CONFIG[LOCK_RETRY]} ]]; do
-        if acquire_lock "$lock_file"; then
+        if acquire_lock "$lock_name"; then
             echo "$entry" >> "$log_file"
             local status=$?
-            release_lock "$lock_file"
+            release_lock "$lock_name"
             return $status
         fi
         ((retry_count++))
@@ -68,11 +68,11 @@ write_log_atomic() {
 #' @return Integer Run count
 get_run_count() {
     local log_file="$1"
-    local lock_file="${log_file}.lock"
+    local lock_name="log_$(basename "$log_file")"
     local count=0
     
     # Acquire lock for counting
-    if ! acquire_lock "$lock_file"; then
+    if ! acquire_lock "$lock_name"; then
         echo "0"
         return 1
     fi
@@ -82,7 +82,7 @@ get_run_count() {
         count=$(grep -c "${CORE_CONFIG[RUN_SEPARATOR]}" "$log_file" 2>/dev/null || echo "0")
     fi
     
-    release_lock "$lock_file"
+    release_lock "$lock_name"
     echo "$count"
 }
 
