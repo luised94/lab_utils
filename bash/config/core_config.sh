@@ -12,7 +12,7 @@ declare -A CORE_CONFIG=(
     # Locking
     [LOCK_TIMEOUT]="30"
     [LOCK_RETRY]="3"
-    [LOCK_DIR]="/tmp/lab_utils_locks"
+    [LOCK_BASE_DIR]="/tmp/lab_utils_locks"
     # Paths
     [PROJECT_ROOT]="$HOME/lab_utils"
     [MODULE_PATH]="$HOME/lab_utils/bash/modules"
@@ -24,27 +24,6 @@ declare -A CORE_CONFIG=(
     [MAX_MESSAGE_LENGTH]="1024"   # Maximum message length
 )
 
-declare -rA PROTECTED_PATHS=(
-    # System directories
-    ["^/s?bin(/.*)?$"]=1              # Matches /bin, /sbin and subdirs
-    ["^/usr/s?bin(/.*)?$"]=1          # Matches /usr/bin, /usr/sbin and subdirs
-    ["^/etc(/.*)?$"]=1                # /etc and all subdirs
-    ["^/dev(/.*)?$"]=1                # /dev and all subdirs
-    ["^/proc(/.*)?$"]=1               # /proc and all subdirs
-    ["^/sys(/.*)?$"]=1                # /sys and all subdirs
-    
-    # User spaces
-    ["^/home$"]=1                     # Just /home
-    ["^/root(/.*)?$"]=1               # root's home
-    ["^${HOME}$"]=1                   # User's home exact match
-    
-    # System locations
-    ["^/usr/lib(/.*)?$"]=1            # System libraries
-    ["^/var/run(/.*)?$"]=1            # Runtime files
-    ["^/boot(/.*)?$"]=1               # Boot files
-)
-
-#
 #declare -A PATHS=(
 #    ["BASE_DIR"]="$HOME/lab_utils"
 #    ["FUNCTIONS_DIR"]="bash/functions"

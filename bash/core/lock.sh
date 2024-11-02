@@ -1,110 +1,175 @@
-# bash/functions/lock_utils.sh
 #!/bin/bash
+# bash/functions/lock_utils.sh
 
-source "$HOME/lab_utils/bash/config/logging_config.sh"
+# Source core_config and logging or through initialization.
+#source "$HOME/lab_utils/bash/config/logging_config.sh"
 
 # Shared validation for both acquire and release
-
+#' Validate Lock Path
+#' @param lock_path Character Path to lock file
+#' @return Integer 0 if valid
 validate_lock_path() {
-    local path="$1"
+    local lock_path="$1"
     local normalized_path
     
     # Basic checks
-    [[ -z "$path" ]] && { echo "Empty path" >&2; return 1; }
-    [[ "$path" == "/" ]] && { echo "Root path not allowed" >&2; return 1; }
-    
-    # Resolve path
-    normalized_path=$(readlink -f "$path" 2>/dev/null) || {
-        echo "Cannot resolve path: $path" >&2
+    [[ -z "$lock_path" ]] && { 
+        log_error "Empty lock path"
         return 1
     }
     
-    # Check against protected patterns
-    for pattern in "${!PROTECTED_PATHS[@]}"; do
-        if [[ "$normalized_path" =~ $pattern ]]; then
-            echo "Protected path matched pattern: $pattern" >&2
-            return 1
-        fi
-    done
+    # Ensure path is under user's lock directory
+    normalized_path=$(readlink -f "$lock_path" 2>/dev/null) || {
+        log_error "Cannot resolve path: $lock_path"
+        return 1
+    }
     
-    # Verify parent directory is writable
+    local user_lock_dir="${CORE_CONFIG[LOCK_BASE_DIR]}/${USER}"
+    if [[ ! "$normalized_path" =~ ^"$user_lock_dir" ]]; then
+        log_error "Lock must be in user directory: $user_lock_dir"
+        return 1
+    }
+    
+    # Check parent directory permissions
     local parent_dir=$(dirname "$normalized_path")
     if [[ ! -w "$parent_dir" ]]; then
-        echo "Parent directory not writable: $parent_dir" >&2
+        log_error "Parent directory not writable: $parent_dir"
         return 1
-    fi
+    }
     
     return 0
 }
 
-
-#' Enhanced Lock Acquisition with Deadlock Prevention
+#' Acquire Lock
+#' @param lock_name Character Lock identifier
+#' @param timeout Integer Seconds to wait
 acquire_lock() {
-    local lock_file="$1"
+    local lock_name="$1"
     local timeout="${2:-${CORE_CONFIG[LOCK_TIMEOUT]}}"
+    local user_specific_dir="${CORE_CONFIG[LOCK_BASE_DIR]}/${USER}"
+    local lock_file="$user_specific_dir/${lock_name}.lock"
+    
+    # Ensure user lock directory exists
+    create_lock_directory
+    
+    # Attempt to acquire lock
     local start_time=$(date +%s)
-    
-    # Ensure clean state
-    cleanup_stale_locks
-    
-    while true; do
-        # Check timeout
-        if (( $(date +%s) - start_time >= timeout )); then
-            echo "ERROR: Lock acquisition timeout: $lock_file" >&2
-            return 1
-        }
-        
-        # Try to acquire lock
+    while (( $(date +%s) - start_time < timeout )); do
         if mkdir "$lock_file" 2>/dev/null; then
-            # Record lock metadata
             echo $$ > "$lock_file/pid"
-            date +%s > "$lock_file/timestamp"
-            echo "${BASH_SOURCE[1]}" > "$lock_file/source"
+            chmod 700 "$lock_file"  # Only owner can access
             return 0
         fi
-        
-        # Check for stale lock
-        if is_lock_stale "$lock_file"; then
-            cleanup_lock "$lock_file"
-            continue
-        fi
-        
         sleep 0.1
     done
+    
+    return 1
 }
 
 #' Cleanup Stale Locks
 cleanup_stale_locks() {
     local lock_dir="${CORE_CONFIG[LOCK_BASE_DIR]}"
     local max_age=3600  # 1 hour
+    local user_specific_dir="${lock_dir}/${USER}"
     
-    find "$lock_dir" -type d -name "*.lock" | while read -r lock; do
-        is_lock_stale "$lock" && cleanup_lock "$lock"
+    # Only clean user-specific locks
+    if [[ ! -d "$user_specific_dir" ]]; then
+        return 0
+    }
+    
+    # Find only locks owned by current user
+    find "$user_specific_dir" -type d -name "*.lock" -user "$USER" -mmin +60 | \
+    while read -r lock; do
+        if validate_lock_path "$lock"; then
+            local pid_file="$lock/pid"
+            if [[ -f "$pid_file" ]]; then
+                local stored_pid=$(cat "$pid_file")
+                # Check if process still exists
+                if ! kill -0 "$stored_pid" 2>/dev/null; then
+                    rm -rf "$lock"
+                    log_debug "Removed stale lock: $lock (PID: $stored_pid)"
+                fi
+            else
+                rm -rf "$lock"
+                log_debug "Removed invalid lock: $lock (no PID file)"
+            fi
+        fi
     done
+    
+    log_info "Cleaned up stale locks for user: $USER"
 }
 
-# Enhanced release_lock with shared validation
+#' Create Lock Directory
+#' @description Ensure user-specific lock directory exists
+create_lock_directory() {
+    local lock_base="${CORE_CONFIG[LOCK_BASE_DIR]}"
+    local user_dir="$lock_base/$USER"
+    
+    # Create with strict permissions
+    mkdir -p "$lock_base"
+    chmod 1777 "$lock_base"  # Like /tmp
+    
+    mkdir -p "$user_dir"
+    chmod 700 "$user_dir"    # Only user can access
+    
+    return 0
+}
+
+#' Release Lock
+#' @param lock_name Character Lock identifier
+#' @param force Logical Force release even if not owner
+#' @return Integer 0 if successful
 release_lock() {
-    local lock_file="$1"
+    local lock_name="$1"
     local force="${2:-false}"
+    local user_specific_dir="${CORE_CONFIG[LOCK_BASE_DIR]}/${USER}"
+    local lock_file="$user_specific_dir/${lock_name}.lock"
     
+    # Validate lock path
     if ! validate_lock_path "$lock_file"; then
-        echo "ERROR: Invalid or protected lock path: $lock_file" >&2
+        log_error "Invalid or protected lock path: $lock_file"
         return 1
-    fi
+    }
     
-    [[ ! -d "$lock_file" ]] && return 0
+    # Check if lock exists
+    if [[ ! -d "$lock_file" ]]; then
+        log_debug "Lock already released: $lock_file"
+        return 0
+    }
     
+    # Verify ownership
+    if [[ ! -O "$lock_file" ]]; then
+        log_error "Lock owned by different user: $(stat -c %U "$lock_file")"
+        return 1
+    }
+    
+    # Check PID
     local pid_file="$lock_file/pid"
     if [[ -f "$pid_file" ]]; then
-        local stored_pid=$(cat "$pid_file")
+        local stored_pid
+        stored_pid=$(cat "$pid_file" 2>/dev/null)
+        
         if [[ "$stored_pid" != "$$" && "$force" != "true" ]]; then
-            echo "ERROR: PID mismatch. Lock owned by $stored_pid" >&2
-            return 1
+            # Additional check: see if process is still running
+            if kill -0 "$stored_pid" 2>/dev/null; then
+                log_error "Lock owned by running process: $stored_pid"
+                return 1
+            elif [[ "$force" != "true" ]]; then
+                log_warning "Found stale lock from dead process: $stored_pid"
+            fi
         fi
     fi
     
-    rm -rf "${lock_file:?}"/* 2>/dev/null
-    rmdir "${lock_file:?}" 2>/dev/null
-    return $?
+    # Safe removal with error checking
+    {
+        rm -f "${lock_file:?}/pid" 2>/dev/null
+        rm -rf "${lock_file:?}"/* 2>/dev/null
+        rmdir "${lock_file:?}" 2>/dev/null
+    } || {
+        log_error "Failed to remove lock: $lock_file"
+        return 1
+    }
+    
+    log_debug "Released lock: $lock_name"
+    return 0
 }
