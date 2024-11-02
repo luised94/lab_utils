@@ -79,6 +79,7 @@ fi
 # Core configuration files (order matters)
 readonly CORE_CONFIG_FILES=(
     "core_config.sh"      # Base configuration with logging and lock settings.
+    "bmc_config.sh"      # 
 )
 
 # Core module files (order matters)
