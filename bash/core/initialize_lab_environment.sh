@@ -35,6 +35,33 @@ discover_lab_utils_root() {
     echo "$repo_root"
 }
 
+#' Load Laboratory Module
+#' @description Load module from lab utils repository
+#' @param module_path Character Path relative to modules directory
+#' @return Integer 0 if successful
+load_lab_module() {
+    local module_path="$1"
+    local full_path="${LAB_UTILS_ROOT}/bash/modules/${module_path}.sh"
+    
+    # Debug output
+    log_debug "Loading module: $module_path" "${LAB_UTILS_LOG_FILE:-/dev/null}"
+    
+    # Validate path
+    if [[ ! -f "$full_path" ]]; then
+        log_error "Module not found: $module_path" "${LAB_UTILS_LOG_FILE:-/dev/null}"
+        return 1
+    }
+    
+    # Source module with error handling
+    if ! source "$full_path"; then
+        log_error "Failed to load module: $module_path" "${LAB_UTILS_LOG_FILE:-/dev/null}"
+        return 1
+    }
+    
+    log_debug "Successfully loaded: $module_path" "${LAB_UTILS_LOG_FILE:-/dev/null}"
+    return 0
+}
+
 # Set root directory
 if [[ -z "$LAB_UTILS_ROOT" ]]; then
     LAB_UTILS_ROOT="$(discover_lab_utils_root)"

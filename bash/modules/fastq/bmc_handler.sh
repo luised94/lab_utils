@@ -1,17 +1,17 @@
 #!/bin/bash
-source "$HOME/lab_utils/bash/functions/filesystem_utils.sh"
-source "$HOME/lab_utils/bash/functions/logging_utils.sh"
+# bash/modules/fastq/bmc_handler.sh
 
-#' Verify Host Environment
-#' @return Integer 0 if valid host, 1 otherwise
+#' BMC Data Handler Functions
+#' @description Functions for BMC data management
+
+source "${LAB_UTILS_ROOT}/bash/config/modules/bmc_config.sh"
+
 verify_host() {
     local current_host=$(hostname)
-    if [[ "$current_host" != "luria" ]]; then
-        log_error "This script must be run on luria.mit.edu"
-        log_error "Current host: $current_host"
+    [[ "$current_host" == "luria" ]] || {
+        log_error "Must run on luria.mit.edu (current: $current_host)"
         return 1
-    fi
-    return 0
+    }
 }
 
 validate_bmc_paths() {
