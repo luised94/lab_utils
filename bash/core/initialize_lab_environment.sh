@@ -50,13 +50,13 @@ load_lab_module() {
     if [[ ! -f "$full_path" ]]; then
         log_error "Module not found: $module_path" "${LAB_UTILS_LOG_FILE:-/dev/null}"
         return 1
-    }
+    fi
     
     # Source module with error handling
     if ! source "$full_path"; then
         log_error "Failed to load module: $module_path" "${LAB_UTILS_LOG_FILE:-/dev/null}"
         return 1
-    }
+    fi
     
     log_debug "Successfully loaded: $module_path" "${LAB_UTILS_LOG_FILE:-/dev/null}"
     return 0

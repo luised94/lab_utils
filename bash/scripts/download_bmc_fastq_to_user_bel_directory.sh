@@ -53,6 +53,7 @@ download_bmc_data_main() {
     
     local bmc_path=${paths%:*}
     local local_path=${paths#*:}
+
     log_debug " BMC path: $bmc_path" "$log_file"
     log_debug " Local path: $local_path" "$log_file"
     
