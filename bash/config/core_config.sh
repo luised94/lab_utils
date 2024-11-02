@@ -16,6 +16,7 @@ declare -A CORE_CONFIG=(
     # Paths
     [PROJECT_ROOT]="$HOME/lab_utils"
     [MODULE_PATH]="$HOME/lab_utils/bash/modules"
+    [VERBOSE]="false"
     [RUN_SEPARATOR]="=== New Run ==="
     [TIMESTAMP_FORMAT]="%Y-%m-%d %H:%M:%S"
     [ENTRY_FORMAT]="\n%s (#%d) === %s ===\n"

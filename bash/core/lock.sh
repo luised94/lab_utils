@@ -124,6 +124,7 @@ release_lock() {
     local force="${2:-false}"
     local user_specific_dir="${CORE_CONFIG[LOCK_BASE_DIR]}/${USER}"
     local lock_file="$user_specific_dir/${lock_name}.lock"
+    local verbose="${3:-${CORE_CONFIG[VERBOSE]:-false}}"  # ÃÄ Add verbose parameter
     
     # Validate lock path
     if ! validate_lock_path "$lock_file"; then
@@ -169,7 +170,9 @@ release_lock() {
         log_error "Failed to remove lock: $lock_file"
         return 1
     }
-    
-    log_debug "Released lock: $lock_name"
+
+    if [[ "$verbose" == "true" ]]; then
+        log_debug "Released lock: $lock_name"  # ÀÄ Only log if verbose
+    fi
     return 0
 }

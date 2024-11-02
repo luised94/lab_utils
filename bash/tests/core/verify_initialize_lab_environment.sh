@@ -39,7 +39,7 @@ verify_init() {
     done
     #
     # 3. Test logging
-    log_file=$(initialize_logging "verify")
+    log_file=$(initialize_logging "verify_initialize_lab_environment")
     [[ -f "$log_file" ]] || {
         echo "ERROR: Logging initialization failed"
         return 1
