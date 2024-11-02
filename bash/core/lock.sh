@@ -28,7 +28,7 @@ validate_lock_path() {
     if [[ ! "$normalized_path" =~ ^"$user_lock_dir" ]]; then
         log_error "Lock must be in user directory: $user_lock_dir"
         return 1
-    }
+    fi
     
     # Check parent directory permissions
     local parent_dir=$(dirname "$normalized_path")
