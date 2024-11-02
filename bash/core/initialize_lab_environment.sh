@@ -89,6 +89,22 @@ export LAB_UTILS_MODULES_DIR="${LAB_UTILS_ROOT}/bash/modules"
 export LAB_UTILS_SCRIPTS_DIR="${LAB_UTILS_ROOT}/bash/scripts"
 export LAB_UTILS_TESTS_DIR="${LAB_UTILS_ROOT}/bash/tests"
 
+
+source "${LAB_UTILS_CORE_DIR}/config_export.sh" || {
+    echo "[ERROR] Failed to load config export functions" >&2
+    return 1
+}
+
+# After loading config
+export_core_config || {
+    echo "[ERROR] Failed to export configuration" >&2
+    return 1
+}
+
+# Export critical functions
+export -f import_core_config
+export -f export_core_config
+
 # Initialize logging
 if [[ -z "$LAB_UTILS_LOG_FILE" ]]; then
     initialize_logging "lab_utils_init"
