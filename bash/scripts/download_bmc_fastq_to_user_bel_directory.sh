@@ -1,31 +1,24 @@
-
-# bash/scripts/fastq/download_bmc_data.sh
 #!/bin/bash
+# bash/scripts/fastq/download_bmc_data.sh
 
 #' Download BMC Data Script
 #' @description Download and process BMC FASTQ data
 
-echo " Initializing BMC data download"
+echo "Initializing BMC data download"
 echo "Script location: ${BASH_SOURCE[0]}"
-echo " Working directory: $(pwd)"
+echo "Working directory: $(pwd)"
 
-# Initialize environment
-source "${BASH_SOURCE%/*}/../../core/initialize_lab_environment.sh" || {
-    echo "? Failed to initialize environment"
+# Find repository root using git
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "? Not in a git repository"
     exit 1
 }
 
-# Load required modules
-echo "Loading required modules"
-for module in "fastq/bmc_handler" "fastq/fastq_processor"; do
-    echo "Loading: $module"
-    if ! load_lab_module "$module"; then
-        log_error "Failed to load module: $module"
-        exit 1
-    fi
-    echo "Loaded succesfully"
-done
-
+# Initialize environment
+source "$repo_root/bash/core/initialize_lab_environment.sh" || {
+    echo "? Failed to initialize environment"
+    exit 1
+}
 #' Download BMC Data Main Function
 #' @param experiment_id Character Experiment identifier
 #' @return Integer 0 if successful
