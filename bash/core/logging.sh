@@ -59,7 +59,7 @@ write_log_atomic() {
         sleep 1
     done
     
-    echo "ERROR: Failed to acquire log lock after ${LOGGING_CONFIG[LOCK_RETRY]} attempts" >&2
+    echo "ERROR: Failed to acquire log lock after ${CORE_CONFIG[LOCK_RETRY]} attempts" >&2
     return 1
 }
 
@@ -79,7 +79,7 @@ get_run_count() {
     
     # Count runs with error handling
     if [[ -f "$log_file" ]]; then
-        count=$(grep -c "${LOGGING_CONFIG[RUN_SEPARATOR]}" "$log_file" 2>/dev/null || echo "0")
+        count=$(grep -c "${CORE_CONFIG[RUN_SEPARATOR]}" "$log_file" 2>/dev/null || echo "0")
     fi
     
     release_lock "$lock_file"
@@ -92,15 +92,15 @@ get_run_count() {
 format_run_entry() {
     local count="$1"
     local timestamp
-    timestamp=$(date +"${LOGGING_CONFIG[TIMESTAMP_FORMAT]}")
+    timestamp=$(date +"${CORE_CONFIG[TIMESTAMP_FORMAT]}")
     
     if [[ $count -eq 0 ]]; then
-        printf "${LOGGING_CONFIG[FIRST_RUN_FORMAT]}" \
-            "${LOGGING_CONFIG[RUN_SEPARATOR]}" \
+        printf "${CORE_CONFIG[FIRST_RUN_FORMAT]}" \
+            "${CORE_CONFIG[RUN_SEPARATOR]}" \
             "$timestamp"
     else
-        printf "${LOGGING_CONFIG[ENTRY_FORMAT]}" \
-            "${LOGGING_CONFIG[RUN_SEPARATOR]}" \
+        printf "${CORE_CONFIG[ENTRY_FORMAT]}" \
+            "${CORE_CONFIG[RUN_SEPARATOR]}" \
             "$((count + 1))" \
             "$timestamp"
     fi
@@ -112,7 +112,7 @@ format_run_entry() {
 
 initialize_logging() {
     local script_name="${1:-$(basename "${BASH_SOURCE[1]}" )}"
-    local log_dir="${2:-${LOGGING_CONFIG[DEFAULT_LOG_ROOT]}}"
+    local log_dir="${2:-${CORE_CONFIG[DEFAULT_LOG_ROOT]}}"
     local log_file
     
     # Setup log file
@@ -145,13 +145,13 @@ log_message() {
     local task_id="${SLURM_ARRAY_TASK_ID:-standalone}"
     local job_id="${SLURM_JOB_ID:-local}"
     # Validate level
-    if [[ ! " ${LOGGING_CONFIG[LOG_LEVELS]} " =~ " ${level} " ]]; then
+    if [[ ! " ${CORE_CONFIG[LOG_LEVELS]} " =~ " ${level} " ]]; then
         echo "Invalid log level: $level" >&2
         return 1
     fi
     # Truncate long messages
-    if [[ ${#message} -gt ${LOGGING_CONFIG[MAX_MESSAGE_LENGTH]} ]]; then
-        message="${message:0:${LOGGING_CONFIG[MAX_MESSAGE_LENGTH]}}..."
+    if [[ ${#message} -gt ${CORE_CONFIG[MAX_MESSAGE_LENGTH]} ]]; then
+        message="${message:0:${CORE_CONFIG[MAX_MESSAGE_LENGTH]}}..."
     fi
     # Format entry
     local log_entry="[${timestamp}] [${level}] [Job:${job_id}] [Task:${task_id}] ${message}"
@@ -194,7 +194,7 @@ log_git_info() {
 }
 
 #' Convenience Logging Functions
-for level in ${LOGGING_CONFIG[LOG_LEVELS]}; do
+for level in ${CORE_CONFIG[LOG_LEVELS]}; do
     level_lower=$(echo "$level" | tr '[:upper:]' '[:lower:]')
     eval "log_${level_lower}() { log_message \"$level\" \"\$1\" \"\$2\"; }"
 done
