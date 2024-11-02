@@ -5,19 +5,31 @@
 source "$(dirname "${BASH_SOURCE[0]}")/test_setup.sh" || exit 1
 setup_test_environment || exit 1
 
+
 test_concurrent_logging() {
     local test_dir="/tmp/lab_utils_test_$$"
     local log_file="$test_dir/concurrent.log"
     local pids=()
     
     echo "ÃÄ Testing concurrent logging"
-    mkdir -p "$test_dir"
+    
+    # Ensure test directory exists
+    mkdir -p "$test_dir" || {
+        echo "³  ? Failed to create test directory"
+        return 1
+    }
+    
+    # Touch log file to ensure it exists
+    touch "$log_file" || {
+        echo "³  ? Failed to create log file"
+        return 1
+    }
     
     # Launch parallel processes
     for i in {1..5}; do
         (
             for j in {1..10}; do
-                log_message "INFO" "Test $i-$j" "$log_file"
+                log_message "INFO" "Test message $i-$j" "$log_file"
                 sleep 0.1
             done
         ) &
