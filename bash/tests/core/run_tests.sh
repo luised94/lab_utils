@@ -16,6 +16,12 @@ run_core_tests() {
     echo "[START] Lab Utils Core Test Suite"
     
     # Source and setup test environment
+    #source "$test_dir/verify_initialize_lab_environment.sh" || {
+    #    echo "[ERROR] Failed to source test environment"
+    #    return 1
+    #}
+    
+    # Source and setup test environment
     source "$test_dir/test_setup.sh" || {
         echo "[ERROR] Failed to source test environment"
         return 1
