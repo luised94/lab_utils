@@ -35,7 +35,7 @@ validate_lock_path() {
     if [[ ! -w "$parent_dir" ]]; then
         log_error "Parent directory not writable: $parent_dir"
         return 1
-    }
+    fi
     
     return 0
 }
@@ -75,7 +75,7 @@ cleanup_stale_locks() {
     # Only clean user-specific locks
     if [[ ! -d "$user_specific_dir" ]]; then
         return 0
-    }
+    fi
     
     # Find only locks owned by current user
     find "$user_specific_dir" -type d -name "*.lock" -user "$USER" -mmin +60 | \
@@ -129,19 +129,19 @@ release_lock() {
     if ! validate_lock_path "$lock_file"; then
         log_error "Invalid or protected lock path: $lock_file"
         return 1
-    }
+    fi
     
     # Check if lock exists
     if [[ ! -d "$lock_file" ]]; then
         log_debug "Lock already released: $lock_file"
         return 0
-    }
+    fi
     
     # Verify ownership
     if [[ ! -O "$lock_file" ]]; then
         log_error "Lock owned by different user: $(stat -c %U "$lock_file")"
         return 1
-    }
+    fi
     
     # Check PID
     local pid_file="$lock_file/pid"

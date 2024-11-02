@@ -70,7 +70,6 @@ readonly CORE_CONFIG_FILES=(
 readonly CORE_MODULES=(
     "logging.sh"          # Must be first
     "lock.sh"
-    "path_utils.sh"
 )
 
 # Initialize core configuration

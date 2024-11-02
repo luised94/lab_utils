@@ -2,9 +2,6 @@
 #!/bin/bash
 
 # Load required settings for logging_utils
-source "$HOME/lab_utils/bash/config/project_config.sh"
-source "$HOME/lab_utils/bash/config/logging_config.sh"
-source "$HOME/lab_utils/bash/functions/lock_utils.sh"
 # Advanced Logging Functions for Bash Scripts
 #
 # Script: 002_logging_functions.sh
