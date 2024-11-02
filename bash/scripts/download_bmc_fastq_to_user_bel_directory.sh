@@ -42,7 +42,7 @@ download_bmc_data_main() {
     if ! verify_host; then
         log_error "Host verification failed" "$log_file"
         return 1
-    }
+    fi
     
     # Validate paths
     local paths
