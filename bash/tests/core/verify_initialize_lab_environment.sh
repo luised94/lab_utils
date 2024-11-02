@@ -119,4 +119,4 @@ verify_init() {
     return 0
 }
 
-verify_init
+[[ "${BASH_SOURCE[0]}" == "${0}" ]] && verify_init
