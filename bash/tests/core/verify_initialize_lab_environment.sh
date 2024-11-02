@@ -17,20 +17,27 @@ test_lock_management() {
 }
 
 test_core_config() {
-    echo "ÃÄ Testing core configuration"
+    local required_keys=(
+        "VERSION"
+        "LOG_LEVELS"
+        "DEFAULT_LOG_ROOT"
+        "LOCK_BASE_DIR"
+    )
     
-    [[ -n "${CORE_CONFIG[VERSION]}" ]] || {
-        echo "? Missing version"
-        return 1
-    }
+    for key in "${required_keys[@]}"; do
+        [[ -n "${CORE_CONFIG[$key]}" ]] || return 1
+    done
+}
+
+test_directory_permissions() {
+    local dirs=(
+        "${CORE_CONFIG[DEFAULT_LOG_ROOT]}"
+        "${CORE_CONFIG[LOCK_BASE_DIR]}"
+    )
     
-    [[ -n "${CORE_CONFIG[LOG_LEVELS]}" ]] || {
-        echo "? Missing log levels"
-        return 1
-    }
-    
-    echo "³  û Configuration verified"
-    return 0
+    for dir in "${dirs[@]}"; do
+        [[ -w "$dir" ]] || return 1
+    done
 }
 
 test_guard_mechanism() {
@@ -65,6 +72,9 @@ verify_init() {
     
     # Test lock management
     test_lock_management || ((failed++))
+    
+    #Test directory permissions 
+    test_directory_permissions || ((failed++))
     
     # 2. Verify environment
     [[ -n "$LAB_UTILS_INITIALIZED" ]] || {
