@@ -19,6 +19,18 @@ source "$repo_root/bash/core/initialize_lab_environment.sh" || {
     echo "? Failed to initialize environment"
     exit 1
 }
+
+
+# Load required modules
+echo "Loading required modules"
+for module in "fastq/bmc_handler" "fastq/fastq_processor"; do
+    echo "Loading: $module"
+    if ! load_lab_module "$module"; then
+        log_error "Failed to load module: $module"
+        exit 1
+    fi
+    echo "Loaded successfully"
+done
 #' Download BMC Data Main Function
 #' @param experiment_id Character Experiment identifier
 #' @return Integer 0 if successful
