@@ -8,45 +8,33 @@
 # Guard against multiple inclusion
 [[ -n "$LAB_UTILS_INITIALIZED" ]] && return
 
-#' Discover Lab Utils Root Directory
-#' @return String Absolute path to lab utils root
+#' Discover Lab Utils Root Using Git
+#' @description Find repository root using git
+#' @return String Absolute path to repository root
 discover_lab_utils_root() {
-    local script_path
-    local current_dir
+    local repo_root
     
-    # Try readlink first (handles symlinks)
-    if script_path="$(readlink -f "${BASH_SOURCE[0]}")"; then
-        current_dir="$(dirname "$script_path")"
-        # Count path components to determine how many levels to go up
-        local path_depth=$(echo "$current_dir" | tr '/' '\n' | grep -c '^')
-        local up_levels=""
-        
-        # If under bash/core, go up two levels
-        if [[ "$current_dir" =~ /bash/core$ ]]; then
-            up_levels="../.."
-        # If under bash/tests/core, go up three levels
-        elif [[ "$current_dir" =~ /bash/tests/core$ ]]; then
-            up_levels="../../.."
-        # Default to two levels
-        else
-            up_levels="../.."
-        fi
-        
-        echo "$(cd "$current_dir/$up_levels" && pwd)"
-    # Fallback to BASH_SOURCE with same logic
-    elif [[ -n "${BASH_SOURCE[0]}" ]]; then
-        current_dir="$(dirname "${BASH_SOURCE[0]}")"
-        if [[ "$current_dir" =~ /bash/tests/core$ ]]; then
-            echo "$(cd "$current_dir/../../.." && pwd)"
-        else
-            echo "$(cd "$current_dir/../.." && pwd)"
-        fi
-    # Last resort: use environment variable or home directory
-    else
-        echo "${LAB_UTILS_ROOT:-$HOME/lab_utils}"
+    # Check if we're in a git repository
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "? Not in a git repository" >&2
+        return 1
     fi
+    
+    # Get repository root (compatible with git 1.8+)
+    repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+        echo "? Failed to determine repository root" >&2
+        return 1
+    }
+    
+    # Verify it's the correct repository
+    if [[ ! -d "$repo_root/bash/core" ]]; then
+        echo "? Invalid repository structure" >&2
+        return 1
+    fi
+    
+    echo "$repo_root"
 }
-#
+
 # Set root directory
 if [[ -z "$LAB_UTILS_ROOT" ]]; then
     LAB_UTILS_ROOT="$(discover_lab_utils_root)"
