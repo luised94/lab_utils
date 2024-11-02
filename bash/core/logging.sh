@@ -144,11 +144,22 @@ log_message() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local task_id="${SLURM_ARRAY_TASK_ID:-standalone}"
     local job_id="${SLURM_JOB_ID:-local}"
-    # Validate level
-    if [[ ! " ${CORE_CONFIG[LOG_LEVELS]} " =~ " ${level} " ]]; then
-        echo "Invalid log level: $level" >&2
+    
+    # Improved level validation
+    local valid_levels=(${CORE_CONFIG[LOG_LEVELS]})
+    local is_valid=0
+    for valid_level in "${valid_levels[@]}"; do
+        if [[ "$level" == "$valid_level" ]]; then
+            is_valid=1
+            break
+        fi
+    done
+    
+    if [[ $is_valid -eq 0 ]]; then
+        echo "Invalid log level: $level (Valid levels: ${CORE_CONFIG[LOG_LEVELS]})" >&2
         return 1
     fi
+    
     # Truncate long messages
     if [[ ${#message} -gt ${CORE_CONFIG[MAX_MESSAGE_LENGTH]} ]]; then
         message="${message:0:${CORE_CONFIG[MAX_MESSAGE_LENGTH]}}..."

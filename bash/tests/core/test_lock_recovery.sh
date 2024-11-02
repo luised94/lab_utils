@@ -9,6 +9,7 @@ test_lock_recovery() {
     echo "ÃÄ Testing lock recovery"
     local test_dir="/tmp/lab_utils_test_$$"
     local lock_file="$test_dir/stale.lock"
+    source "$HOME/lab_utils/bash/config/core_config.sh"
     
     # Create stale lock
     mkdir -p "$lock_file"

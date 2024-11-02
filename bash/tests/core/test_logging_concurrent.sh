@@ -10,6 +10,7 @@ test_concurrent_logging() {
     local test_dir="/tmp/lab_utils_test_$$"
     local log_file="$test_dir/concurrent.log"
     local pids=()
+    source "$HOME/lab_utils/bash/config/core_config.sh"
     
     echo "ÃÄ Testing concurrent logging"
     
