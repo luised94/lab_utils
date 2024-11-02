@@ -35,3 +35,46 @@ remove_files_safely() {
         fi
     done
 }
+
+#' Check Available Filesystem Space
+#' @param path Character Path to check
+#' @param log_file Character Log file path
+#' @param min_space Numeric Minimum required space in GB
+#' @return Integer 0 if sufficient space
+check_filesystem_space() {
+    local path="$1"
+    local log_file="$2"
+    local min_space="${3:-${CORE_CONFIG[MIN_SPACE_GB]:-10}}"  # Default 10GB if not set
+    
+    # Move to CORE_CONFIG
+    # [MIN_SPACE_GB]="10"
+    
+    local available_gb=$(df -P "$path" | awk 'NR==2 {print $4/1024/1024}')
+    
+    log_info "Available space: ${available_gb}GB" "$log_file"
+    
+    if (( $(echo "$available_gb < $min_space" | bc -l) )); then
+        log_error "Insufficient space: need ${min_space}GB, have ${available_gb}GB" "$log_file"
+        return 1
+    fi
+    return 0
+}
+
+#' Verify Path is Under Expected Filesystem
+#' @param path Character Path to verify
+#' @param expected_fs Character Expected filesystem root
+#' @param log_file Character Log file path
+#' @return Integer 0 if path is valid
+verify_filesystem_path() {
+    local path="$1"
+    local expected_fs="$2"
+    local log_file="$3"
+    
+    local real_path=$(readlink -f "$path")
+    if [[ "$real_path" != "$expected_fs"* ]]; then
+        log_error "Path not under expected filesystem: $path" "$log_file"
+        log_error "Expected root: $expected_fs" "$log_file"
+        return 1
+    fi
+    return 0
+}
