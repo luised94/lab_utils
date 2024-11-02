@@ -49,3 +49,8 @@ declare -A CORE_CONFIG=(
 #        "deprecated.sh"
 #    )
 #)
+#ÃÄ Step marker
+#³  Continuation
+#ÀÄ Final step
+#û Success
+#? Failure

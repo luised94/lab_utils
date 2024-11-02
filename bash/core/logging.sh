@@ -129,7 +129,7 @@ initialize_logging() {
     write_log_atomic "$entry" "$log_file"
     log_system_info "$log_file"
     log_git_info "$log_file"
-    echo -n "$log_file"
+    echo "$log_file"
 }
 
 #' Enhanced Log Message
