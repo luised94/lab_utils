@@ -20,6 +20,15 @@ run_core_tests() {
         return 1
     fi
     
+    # Source test environment
+    source "$test_dir/test_setup.sh" || {
+        echo "? Failed to source test environment"
+        return 1
+    }
+    setup_test_environment || {
+        echo "? Failed to setup test environment"
+        return 1
+    }
     # Advanced tests
     local tests=(
         "test_logging_concurrent.sh"
