@@ -1,5 +1,9 @@
 #!/bin/bash
 # bash/tests/core/test_error_conditions.sh
+#
+# Source test environment
+source "$(dirname "${BASH_SOURCE[0]}")/test_setup.sh" || exit 1
+setup_test_environment || exit 1
 
 test_error_conditions() {
     echo "ÃÄ Testing error conditions"

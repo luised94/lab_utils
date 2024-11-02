@@ -3,6 +3,8 @@
 
 #' Run Core Test Suite
 run_core_tests() {
+
+    local start_time=$(date +%s)
     echo "ษอออออออออออออออออออออออออออป"
     echo "บ Lab Utils Core Test Suite บ"
     echo "ศอออออออออออออออออออออออออออผ"
@@ -32,6 +34,8 @@ run_core_tests() {
         fi
     done
     
+    local duration=$(($(date +%s) - start_time))
+    echo "Verification completed in ${duration}s"
     echo "ภฤ Test suite complete (Failed: $failed)"
     return $failed
 }
