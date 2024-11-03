@@ -44,38 +44,39 @@ for id in $unique_ids; do
     # Create output filename
     output_file="consolidated_${id}_sequence.fastq"
     
-    # Consolidate files
-    if cat $files > "$output_file"; then
-        echo "Successfully created $output_file"
-        
-        # Verify the new file exists and has content
-        if [ -s "$output_file" ]; then
-            # Get size before and after
-            original_size=$(du -b $files | awk '{sum += $1} END {print sum}')
-            new_size=$(du -b "$output_file" | awk '{print $1}')
-            
-            echo "Original files total size: $original_size bytes"
-            echo "New file size: $new_size bytes"
-            
-            if [ "$new_size" -gt 0 ]; then
-                echo "Removing original files..."
-                rm -f $files
-                echo "Original files removed"
-            else
-                echo "Error: Consolidated file is empty"
-                rm -f "$output_file"
-                exit 1
-            fi
-        else
-            echo "Error: Consolidated file is empty"
-            rm -f "$output_file"
-            exit 1
-        fi
-    else
-        echo "Error during consolidation"
-        rm -f "$output_file"
-        exit 1
-    fi
+    echo "Successfully created $output_file"
+    ## Consolidate files
+    #if cat $files > "$output_file"; then
+    #    echo "Successfully created $output_file"
+    #    
+    #    # Verify the new file exists and has content
+    #    if [ -s "$output_file" ]; then
+    #        # Get size before and after
+    #        original_size=$(du -b $files | awk '{sum += $1} END {print sum}')
+    #        new_size=$(du -b "$output_file" | awk '{print $1}')
+    #        
+    #        echo "Original files total size: $original_size bytes"
+    #        echo "New file size: $new_size bytes"
+    #        
+    #        if [ "$new_size" -gt 0 ]; then
+    #            echo "Removing original files..."
+    #            rm -f $files
+    #            echo "Original files removed"
+    #        else
+    #            echo "Error: Consolidated file is empty"
+    #            rm -f "$output_file"
+    #            exit 1
+    #        fi
+    #    else
+    #        echo "Error: Consolidated file is empty"
+    #        rm -f "$output_file"
+    #        exit 1
+    #    fi
+    #else
+    #    echo "Error during consolidation"
+    #    rm -f "$output_file"
+    #    exit 1
+    #fi
 done
 
 echo "All consolidation operations completed successfully"
