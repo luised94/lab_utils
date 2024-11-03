@@ -7,7 +7,7 @@ declare -A COVERAGE_PARAMS=(
     ["MIN_MAPPING_QUALITY"]=20
     ["IGNORE_DUPLICATES"]=true
 )
-
+#--normalizeUsing {RPKM,CPM,BPM,RPGC}
 declare -A FILE_PATTERNS=(
     ["BAM_SUFFIX"]="S288C.bam"
     ["BIGWIG_SUFFIX"]="_indivNorm.bw"
