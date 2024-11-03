@@ -33,18 +33,28 @@ fi
 GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
 GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
 
+# Logging setup
+readonly CURRENT_MONTH=$(date +%Y-%m)
+readonly LOG_ROOT="$HOME/logs"
+readonly MONTH_DIR="${LOG_ROOT}/${CURRENT_MONTH}"
+readonly TOOL_DIR="${MONTH_DIR}/bowtie2_alignment"
+readonly JOB_LOG_DIR="${TOOL_DIR}/job_${SLURM_ARRAY_JOB_ID}"
+readonly TASK_LOG_DIR="${JOB_LOG_DIR}/task_${SLURM_ARRAY_TASK_ID}"
+readonly TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+readonly MAIN_LOG="${TASK_LOG_DIR}/main_${TIMESTAMP}.log"
+readonly ERROR_LOG="${TASK_LOG_DIR}/error_${TIMESTAMP}.log"
+readonly PERFORMANCE_LOG="${TASK_LOG_DIR}/performance_${TIMESTAMP}.log"
 
-LOG_DIR="$HOME/logs"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-LOG_FILE="${LOG_DIR}/ngs_alignment_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}_${TIMESTAMP}.log"
-
-# Create required directories
-mkdir -p "${LOG_DIR}"
+# Create log directories
+mkdir -p "${TASK_LOG_DIR}"
 mkdir -p "${EXPERIMENT_DIR}/alignment"
 
 # Function to log messages
 log_message() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    local level=$1
+    local message=$2
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[${timestamp}] [${level}] [Task ${SLURM_ARRAY_TASK_ID}] ${message}" | tee -a "${MAIN_LOG}"
 }
 
 # Function to validate array range
@@ -52,27 +62,32 @@ validate_array_range() {
     local total_files=$1
     local array_start=$(echo $SLURM_ARRAY_TASK_MIN)
     local array_end=$(echo $SLURM_ARRAY_TASK_MAX)
-    
     log_message "Validating array range..."
     log_message "Total fastq files: $total_files"
     log_message "Array range: $array_start-$array_end"
-    
     if [ $array_end -gt $total_files ]; then
         log_message "WARNING: Array range ($array_end) exceeds number of fastq files ($total_files)"
         log_message "Suggestion: Use --array=1-${total_files}%16"
     fi
 }
+# Function to log performance metrics
+log_performance() {
+    local stage=$1
+    local duration=$2
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[${timestamp}] ${stage}: ${duration} seconds" >> "${PERFORMANCE_LOG}"
+}
 
 # Function to measure command execution time
 measure_performance() {
+    local stage=$1
+    shift
     local start_time=$(date +%s)
-    "$@"
+    "$@" 2>> "${ERROR_LOG}"
     local status=$?
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
-    log_message "Command: $1"
-    log_message "Duration: ${duration} seconds"
-    log_message "Exit Status: ${status}"
+    log_performance "${stage}" "${duration}"
     return $status
 }
 
@@ -87,14 +102,15 @@ if [ ! -f "${GENOME_INDEX}.1.bt2" ]; then
     exit 1
 fi
 
+# Log script start
+log_message "INFO" "Starting alignment process for experiment: ${EXPERIMENT_DIR}"
+log_message "INFO" "Job ID: ${SLURM_ARRAY_JOB_ID}, Task ID: ${SLURM_ARRAY_TASK_ID}"
+log_message "INFO" "Log directory: ${TASK_LOG_DIR}"
+
 # Load required modules
 module purge
 module load bowtie2
 module load samtools
-
-log_message "Starting alignment process"
-log_message "Experiment Directory: $EXPERIMENT_DIR"
-log_message "Array Task ID: $SLURM_ARRAY_TASK_ID"
 
 # Find fastq files
 FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
@@ -102,7 +118,7 @@ mapfile -t FASTQ_FILES < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "*.fastq"
 TOTAL_FILES=${#FASTQ_FILES[@]}
 
 if [ $TOTAL_FILES -eq 0 ]; then
-    log_message "Error: No fastq files found in $FASTQ_DIR"
+    log_message "ERROR" "No fastq files found in ${FASTQ_DIR}"
     exit 1
 fi
 
@@ -122,27 +138,30 @@ fi
 SAMPLE_NAME=$(basename "$FASTQ_PATH" .fastq)
 OUTPUT_BAM="${EXPERIMENT_DIR}/alignment/${SAMPLE_NAME}.sorted.bam"
 
-log_message "Processing sample: $SAMPLE_NAME"
-log_message "Input FASTQ: $FASTQ_PATH"
-log_message "Output BAM: $OUTPUT_BAM"
+log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
+log_message "INFO" "Input: ${FASTQ_PATH}"
+log_message "INFO" "Output: ${OUTPUT_BAM}"
 
 # Alignment and sorting
-log_message "Starting alignment and sorting"
-if measure_performance bowtie2 -x "$GENOME_INDEX" \
-                              -U "$FASTQ_PATH" \
-                              -p "$SLURM_CPUS_PER_TASK" 2>> "$LOG_FILE" | \
-   samtools view -@ "$SLURM_CPUS_PER_TASK" -bS - 2>> "$LOG_FILE" | \
-   samtools sort -@ "$SLURM_CPUS_PER_TASK" -o "$OUTPUT_BAM" - 2>> "$LOG_FILE"; then
+log_message "INFO" "Starting alignment and sorting"
+if measure_performance "alignment_and_sorting" \
+    bowtie2 -x "$GENOME_INDEX" \
+            -U "$FASTQ_PATH" \
+            -p "$SLURM_CPUS_PER_TASK" 2>> "${ERROR_LOG}" | \
+    samtools view -@ "$SLURM_CPUS_PER_TASK" -bS - 2>> "${ERROR_LOG}" | \
+    samtools sort -@ "$SLURM_CPUS_PER_TASK" -o "$OUTPUT_BAM" - 2>> "${ERROR_LOG}"; then
     
-    # Index BAM file
-    log_message "Starting BAM indexing"
-    if measure_performance samtools index "$OUTPUT_BAM" 2>> "$LOG_FILE"; then
-        log_message "Successfully completed processing for $SAMPLE_NAME"
+    log_message "INFO" "Starting BAM indexing"
+    if measure_performance "indexing" samtools index "$OUTPUT_BAM"; then
+        log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
     else
-        log_message "Error: BAM indexing failed for $SAMPLE_NAME"
+        log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
         exit 1
     fi
 else
-    log_message "Error: Alignment/sorting failed for $SAMPLE_NAME"
+    log_message "ERROR" "Alignment/sorting failed for ${SAMPLE_NAME}"
     exit 1
 fi
+
+# Log completion
+log_message "INFO" "Task completed successfully"
