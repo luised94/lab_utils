@@ -27,7 +27,7 @@ if [ -z "$unique_ids" ]; then
 fi
 
 echo "Found the following unique IDs:"
-echo "$unique_ids"
+echo "$unique_ids" | xargs -n6 | sed 's/^/    /'
 
 # Process each unique ID
 for id in $unique_ids; do
