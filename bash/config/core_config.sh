@@ -1,5 +1,5 @@
-# bash/config/core_config.sh
 #!/bin/bash
+# bash/config/core_config.sh
 
 declare -A CORE_CONFIG=(
     # Version Control

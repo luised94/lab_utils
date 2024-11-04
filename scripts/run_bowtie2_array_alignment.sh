@@ -136,7 +136,7 @@ fi
 
 # Generate output name
 SAMPLE_NAME=$(basename "$FASTQ_PATH" .fastq)
-OUTPUT_BAM="${EXPERIMENT_DIR}/alignment/${SAMPLE_NAME}.sorted.bam"
+OUTPUT_BAM="${EXPERIMENT_DIR}/alignment/${SAMPLE_NAME}_to_S288C.sorted.bam"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
 log_message "INFO" "Input: ${FASTQ_PATH}"
