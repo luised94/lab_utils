@@ -1,5 +1,12 @@
 #!/bin/bash
-
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem-per-cpu=50G
+#SBATCH --nice=10000
+#SBATCH --exclude=c[5-22]
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=luised94@mit.edu
 # Script: run_bowtie2_array_alignment.sh
 # Purpose: Executes bowtie2 alignment as SLURM array job for multiple fastq files
 # Usage: sbatch --array=1-N%16 run_bowtie2_array_alignment.sh <experiment_directory>
