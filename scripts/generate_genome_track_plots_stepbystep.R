@@ -220,15 +220,13 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
             )
         }
     }
-    label_categories <- EXPERIMENT_CONFIG$CONTROL_FACTORS$genotype  # Using the ordered columns from config
 
-    #label_categories <- EXPERIMENT_CONFIG$COLUMN_ORDER  # Using the ordered columns from config
+    label_categories <- EXPERIMENT_CONFIG$COLUMN_ORDER  # Using the ordered columns from config
     
     # Generate labels for all samples in comparison
-    comparison_labels <- sample_generate_labels(
-        comp_samples, 
-        label_categories,
-        verbose = TRUE  # Set to FALSE in production
+    comparison_labels <- unique_labeling(
+        comp_samples,
+        label_categories
     )
     
     # Process each sample

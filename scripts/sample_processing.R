@@ -25,7 +25,7 @@ sample_validate_categories <- function(table, categories) {
 # Get unique values for each category
 sample_get_unique_values <- function(table, categories) {
     unique_values <- lapply(table[categories], unique)
-    names(unique_values) <- categories
+    #names(unique_values) <- categories
     return(unique_values)
 }
 
