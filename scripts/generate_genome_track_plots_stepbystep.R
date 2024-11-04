@@ -135,7 +135,11 @@ find_fallback_control <- function(sample_table, bigwig_dir, pattern) {
         valid_control <- validate_bigwig(control_bigwig, input_samples$experiment_number[i])
         if (!is.null(valid_control)) {
             message("Using fallback control: ", basename(valid_control))
-            return(valid_control)
+            return(
+                list(
+                    index = i,
+                    path = valid_control
+                ))
         }
     }
     
@@ -204,18 +208,22 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
         
         # Try primary control
         valid_control <- validate_bigwig(control_bigwig, control_sample$experiment_number)
+        input_track_name <- paste("Input", control_sample$rescue_allele, sep = "_")
         
         # If primary control fails, try fallback
         if (is.null(valid_control)) {
             message("Primary control not found, searching for fallback")
-            valid_control <- find_fallback_control(sample_table, file.path(base_dir, "coverage"), pattern)
+            control_index_and_path <- find_fallback_control(sample_table, file.path(base_dir, "coverage"), pattern)
+            control_sample <- sample_table[control_index_and_path$index, ]
+            input_track_name <- paste("Input", control_sample$rescue_allele, sep = "_")
         }
         
         if (!is.null(valid_control)) {
+
             tracks[[length(tracks) + 1]] <- DataTrack(
                 import(valid_control),
                 type = "l",
-                name = "Input Control",
+                name = input_track_name,
                 col = "#808080"
             )
         }
