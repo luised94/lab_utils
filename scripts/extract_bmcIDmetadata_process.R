@@ -24,9 +24,75 @@ extract_experiment_numbers <- function(directory_path) {
     return(exp_numbers)
 }
 
-# Function to process metadata and add experiment numbers
+
+# Function to validate and enforce factor levels
+enforce_factor_levels <- function(data_frame, categories) {
+    print("Validating and enforcing factor levels")
+    
+    if (!all(names(categories) %in% colnames(data_frame))) {
+        missing_cols <- setdiff(names(categories), colnames(data_frame))
+        stop(sprintf("Missing required columns: %s", paste(missing_cols, collapse = ", ")))
+    }
+    
+    for (col_name in names(categories)) {
+        print(sprintf("Processing column: %s", col_name))
+        
+        # Check for invalid levels
+        invalid_levels <- setdiff(data_frame[[col_name]], categories[[col_name]])
+        if (length(invalid_levels) > 0) {
+            stop(sprintf(
+                "Invalid levels in %s: %s\nAllowed levels: %s",
+                col_name,
+                paste(invalid_levels, collapse = ", "),
+                paste(categories[[col_name]], collapse = ", ")
+            ))
+        }
+        
+        # Convert to factor with predefined levels
+        data_frame[[col_name]] <- factor(
+            x = data_frame[[col_name]],
+            levels = categories[[col_name]],
+            ordered = TRUE
+        )
+        
+        print(sprintf(
+            "Enforced %d levels for %s",
+            length(categories[[col_name]]),
+            col_name
+        ))
+    }
+    
+    return(data_frame)
+}
+
+# Function to sort dataframe by multiple columns
+sort_metadata_frame <- function(data_frame, column_order) {
+    print("Sorting metadata frame")
+    
+    if (!all(column_order %in% colnames(data_frame))) {
+        missing_cols <- setdiff(column_order, colnames(data_frame))
+        stop(sprintf("Missing sort columns: %s", paste(missing_cols, collapse = ", ")))
+    }
+    
+    sorted_frame <- data_frame[do.call(
+        order,
+        data_frame[column_order]
+    ), ]
+    
+    print(sprintf("Sorted by columns: %s", paste(column_order, collapse = ", ")))
+    
+    return(sorted_frame)
+}
+
+# Modified process_metadata function
 process_metadata <- function(directory_path) {
     print("Starting metadata processing")
+    
+    # Source configuration
+    source("~/lab_utils/scripts/bmc_config.R")
+    if (!exists("EXPERIMENT_CONFIG")) {
+        stop("Configuration loading failed: EXPERIMENT_CONFIG not found")
+    }
     
     # Construct file path
     csv_path <- file.path(
@@ -49,6 +115,18 @@ process_metadata <- function(directory_path) {
     
     print(sprintf("Read metadata file with %d rows", nrow(metadata)))
     
+    # Enforce factor levels
+    metadata <- enforce_factor_levels(
+        data_frame = metadata,
+        categories = EXPERIMENT_CONFIG$CATEGORIES
+    )
+    
+    # Sort dataframe
+    metadata <- sort_metadata_frame(
+        data_frame = metadata,
+        column_order = EXPERIMENT_CONFIG$COLUMN_ORDER
+    )
+    
     # Get experiment numbers
     exp_numbers <- extract_experiment_numbers(directory_path)
     
@@ -62,7 +140,7 @@ process_metadata <- function(directory_path) {
     }
     
     # Add experiment numbers
-    metadata$experiment_number <- exp_numbers
+    metadata$sample_id <- exp_numbers
     
     # Save processed file
     output_path <- file.path(
