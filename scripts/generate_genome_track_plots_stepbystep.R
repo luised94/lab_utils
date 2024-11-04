@@ -8,8 +8,8 @@ for (pkg in packages) {
 }
 
 # 2. Set up initial variables and paths
-#experiment_id <- "241007Bel"
-experiment_id <- "241010Bel"
+experiment_id <- "241007Bel"
+#experiment_id <- "241010Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 message("Working directory: ", base_dir)
 
@@ -236,10 +236,7 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
         verbose = TRUE
     )
     message("Generated labels for tracks:")
-    print(data.frame(
-        sample_ID = comp_samples$sample_ID,
-        label = test_labels
-    ))
+    print(test_labels)
     
     # Process each sample
     for (i in seq_len(nrow(comp_samples))) {
