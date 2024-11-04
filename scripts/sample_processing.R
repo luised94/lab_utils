@@ -66,3 +66,54 @@ sample_generate_labels <- function(table, categories_for_label, verbose = FALSE)
     
     return(unname(labels))
 }
+
+unique_labeling <- function(table, categories_for_label) {
+    # Input validation
+    if (!is.data.frame(table)) {
+        stop("Input 'table' must be a data frame")
+    }
+    if (!is.character(categories_for_label) || length(categories_for_label) == 0) {
+        stop("Input 'categories_for_label' must be a non-empty character vector")
+    }
+    
+    # Ensure antibody category is always included
+    if (!"antibody" %in% categories_for_label) {
+    categories_for_label <- c("antibody", categories_for_label)
+    }
+    
+    print(paste("Categories for label:", paste(categories_for_label, collapse = ", ")))
+    
+    # Check if all categories exist in the table
+    missing_categories <- setdiff(categories_for_label, colnames(table))
+    if (length(missing_categories) > 0) {
+        stop(paste("The following categories are missing from the table:", 
+        paste(missing_categories, collapse = ", ")))
+    }
+    
+    # Identify unique values for each category
+    unique_values <- lapply(table[categories_for_label], unique)
+    print("Unique values for each category:")
+    print(unique_values)
+    
+    # Function to construct label for a single sample
+    construct_label <- function(sample) {
+    differing_categories <- sapply(categories_for_label, function(cat) {
+        if (length(unique_values[[cat]]) > 1 || cat == "antibody") {
+            return(sample[cat])
+            #return(paste(cat, sample[cat], sep = ": "))
+        } else {
+            return(NULL)
+        }
+    })
+        differing_categories <- differing_categories[!sapply(differing_categories, is.null)]
+        return(paste(differing_categories, collapse = "_"))
+    }
+    
+    # Apply the construct_label function to each sample (row)
+    labels <- apply(table, 1, construct_label)
+    
+    print("Constructed labels:")
+    print(labels)
+    
+    return(unlist(labels))
+}
