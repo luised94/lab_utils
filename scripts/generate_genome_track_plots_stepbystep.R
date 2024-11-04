@@ -1,3 +1,4 @@
+
 # 1. Load required packages with verification
 packages <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead", "tidyverse")
 for (pkg in packages) {
@@ -14,17 +15,36 @@ message("Working directory: ", base_dir)
 
 # 3. Load and verify config
 source("~/lab_utils/scripts/bmc_config.R")
+source("~/lab_utils/scripts/extract_bmcIDmetadata_process.R")
+
 message("Loaded config with ", length(EXPERIMENT_CONFIG$COMPARISONS), " comparisons")
 
-# 4. Load sample table
-metadata_file <- list.files(
-    file.path(base_dir, "documentation"),
-    pattern = "sample_table",
-    full.names = TRUE
-)[1]
-message("Found metadata file: ", metadata_file)
-sample_table <- read.delim(metadata_file, sep = "\t")
-message("Loaded sample table with ", nrow(sample_table), " rows")
+# 4. Load and process sample table with new processing steps
+metadata_file <- file.path(
+    base_dir, 
+    "documentation", 
+    sprintf("%s_processed_grid.csv", experiment_id)
+)
+message("Processing metadata file: ", metadata_file)
+
+# First enforce factor levels
+sample_table <- read.csv(metadata_file, stringsAsFactors = FALSE)
+message("Initial sample table rows: ", nrow(sample_table))
+
+# Enforce factor levels from config
+sample_table <- enforce_factor_levels(
+    data_frame = sample_table,
+    categories = EXPERIMENT_CONFIG$CATEGORIES
+)
+message("Factor levels enforced")
+
+# Sort metadata using config column order
+sample_table <- sort_metadata_frame(
+    data_frame = sample_table,
+    column_order = EXPERIMENT_CONFIG$COLUMN_ORDER
+)
+message("Sample table sorted by: ", 
+        paste(EXPERIMENT_CONFIG$COLUMN_ORDER, collapse = ", "))
 
 # 5. Load reference genome
 ref_genome_file <- list.files(
@@ -63,17 +83,93 @@ feature_track <- AnnotationTrack(
 )
 message("Created feature track")
 
+
+# INSERT AFTER STEP 7 (after feature track creation)
+# Add this helper function for bigwig validation
+validate_bigwig <- function(bigwig_path, sample_id) {
+    if (is.na(bigwig_path) || !file.exists(bigwig_path)) {
+        warning(sprintf("Bigwig file not found for sample %s", sample_id))
+        return(NULL)
+    }
+    tryCatch({
+        rtracklayer::import(bigwig_path)
+        return(bigwig_path)
+    }, error = function(e) {
+        warning(sprintf("Invalid bigwig file for sample %s: %s", sample_id, e$message))
+        return(NULL)
+    })
+}
+
 # 8. Process a single comparison (for testing)
 # Pick first comparison
 comp_name <- names(EXPERIMENT_CONFIG$COMPARISONS)[1]
 message("Testing with comparison: ", comp_name)
 
-# Get samples for this comparison
+# Get samples for this comparison using processed and sorted sample_table
 comp_samples <- sample_table[eval(
     EXPERIMENT_CONFIG$COMPARISONS[[comp_name]], 
     envir = sample_table
 ), ]
 message("Found ", nrow(comp_samples), " samples for comparison")
+tracks <- list(GenomeAxisTrack(name = sprintf("Chr %s Axis", chromosome)))
+
+# Find control sample first
+control_sample <- sample_table[
+    sample_table$antibody == "Input" &
+    sample_table$rescue_allele == comp_samples$rescue_allele[1],
+][1,]
+
+if (!is.null(control_sample)) {
+    control_bigwig <- list.files(
+        file.path(base_dir, "coverage"),
+        pattern = paste0(control_sample$sample_ID, ".*normalized.*\\.bw$"),
+        full.names = TRUE
+    )[1]
+    
+    # Validate control bigwig
+    valid_control <- validate_bigwig(control_bigwig, control_sample$sample_ID)
+    if (!is.null(valid_control)) {
+        message("Adding control track from: ", basename(valid_control))
+        tracks[[length(tracks) + 1]] <- DataTrack(
+            import(valid_control),
+            type = "l",
+            name = "Input Control",
+            col = "#808080"
+        )
+    }
+}
+
+# Process each sample
+for (i in seq_len(nrow(comp_samples))) {
+    bigwig_file <- list.files(
+        file.path(base_dir, "coverage"),
+        pattern = paste0(comp_samples$sample_ID[i], ".*normalized.*\\.bw$"),
+        full.names = TRUE
+    )[1]
+    
+    # Validate sample bigwig
+    valid_bigwig <- validate_bigwig(bigwig_file, comp_samples$sample_ID[i])
+    if (!is.null(valid_bigwig)) {
+        message("Adding sample track from: ", basename(valid_bigwig))
+        tracks[[length(tracks) + 1]] <- DataTrack(
+            import(valid_bigwig),
+            type = "l",
+            name = paste(
+                comp_samples$antibody[i],
+                comp_samples$rescue_allele[i],
+                comp_samples$time_after_release[i],
+                sep = "_"
+            ),
+            col = "#fd0036"
+        )
+    }
+}
+
+# Add feature track if it exists
+if (!is.null(feature_track)) {
+    tracks[[length(tracks) + 1]] <- feature_track
+}
+
 
 # 9. Create test plot for first comparison
 # Setup chromosome
