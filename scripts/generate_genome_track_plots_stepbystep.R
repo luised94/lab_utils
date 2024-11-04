@@ -228,6 +228,18 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
         comp_samples,
         label_categories
     )
+
+    #
+    test_labels <- sample_generate_labels(
+        comp_samples,
+        EXPERIMENT_CONFIG$COLUMN_ORDER,
+        verbose = TRUE
+    )
+    message("Generated labels for tracks:")
+    print(data.frame(
+        sample_ID = comp_samples$sample_ID,
+        label = test_labels
+    ))
     
     # Process each sample
     for (i in seq_len(nrow(comp_samples))) {
