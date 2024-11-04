@@ -145,3 +145,4 @@ Create the random lock files in bash and try to normalize the R and bash logging
 
 ## 2024-11-03
 9641496
+vim /home/luised94/logs/2024-11/bamcoverage/job_9641582/task_*/*.log
