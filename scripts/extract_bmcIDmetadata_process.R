@@ -85,7 +85,7 @@ sort_metadata_frame <- function(data_frame, column_order) {
 }
 
 # Modified process_metadata function
-process_metadata <- function(directory_path) {
+process_metadata <- function(directory_path, output_to_file = TRUE) {
     print("Starting metadata processing")
     
     # Source configuration
@@ -143,19 +143,20 @@ process_metadata <- function(directory_path) {
     metadata$sample_id <- exp_numbers
     
     # Save processed file
-    output_path <- file.path(
-        directory_path,
-        "documentation",
-        sprintf("%s_processed_grid.csv", basename(directory_path))
-    )
-    
-    write.csv(
-        x = metadata,
-        file = output_path,
-        row.names = FALSE,
-        quote = TRUE
-    )
-    
+    if(output_to_file) {
+        output_path <- file.path(
+            directory_path,
+            "documentation",
+            sprintf("%s_processed_grid.csv", basename(directory_path))
+        )
+        
+        write.csv(
+            x = metadata,
+            file = output_path,
+            row.names = FALSE,
+            quote = TRUE
+        )
+    }
     print(sprintf("Saved processed metadata to: %s", output_path))
     
     return(metadata)
@@ -179,7 +180,7 @@ main <- function() {
     print("Processing completed successfully")
 }
 
-# Execute main if script is run directly
-if (identical(environment(), globalenv())) {
-    main()
-}
+## Execute main if script is run directly
+#if (identical(environment(), globalenv())) {
+#    main()
+#}
