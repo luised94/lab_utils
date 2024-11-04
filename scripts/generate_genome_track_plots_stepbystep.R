@@ -8,6 +8,7 @@ for (pkg in packages) {
 }
 
 # 2. Set up initial variables and paths
+#experiment_id <- "241007Bel"
 experiment_id <- "241010Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 message("Working directory: ", base_dir)
@@ -16,6 +17,7 @@ message("Working directory: ", base_dir)
 source("~/lab_utils/scripts/bmc_config.R")
 source("~/lab_utils/scripts/extract_bmcIDmetadata_process.R")
 source("~/lab_utils/scripts/genome_core.R")
+source("~/lab_utils/scripts/sample_processing.R")
 message("Loaded config with ", length(EXPERIMENT_CONFIG$COMPARISONS), " comparisons")
 
 # Add timestamp constant
@@ -47,7 +49,12 @@ sample_table <- sort_metadata_frame(
 )
 message("Sample table sorted by: ",
         paste(EXPERIMENT_CONFIG$COLUMN_ORDER, collapse = ", "))
-sample_table$experiment_number <- sort(sample_table$experiment_number)
+if("sample_id" %in% names(sample_table)){
+    sample_table$experiment_number <- sort(sample_table$sample_id)
+} else {
+    sample_table$experiment_number <- sort(sample_table$experiment_number)
+}
+
 # 5. Load reference genome
 ref_genome_file <- list.files(
     file.path(Sys.getenv("HOME"), "data", "REFGENS"),
@@ -98,7 +105,6 @@ feature_track <- AnnotationTrack(
 )
 message("Created feature track with style: ",
         genome_detect_chr_style(seqlevels(feature_ranges)))
-
 
 # Function for bigwig validation
 validate_bigwig <- function(bigwig_path, experiment_number) {
@@ -214,6 +220,14 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
             )
         }
     }
+    label_categories <- EXPERIMENT_CONFIG$COLUMN_ORDER  # Using the ordered columns from config
+
+    # Generate labels for all samples in comparison
+    comparison_labels <- sample_generate_labels(
+        comp_samples,
+        label_categories,
+        verbose = TRUE  # Set to FALSE in production
+    )
 
     # Process each sample
     for (i in seq_len(nrow(comp_samples))) {
@@ -229,32 +243,11 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
             tracks[[length(tracks) + 1]] <- DataTrack(
                 import(valid_bigwig),
                 type = "l",
-                name = paste(
-                    comp_samples$antibody[i],
-                    comp_samples$rescue_allele[i],
-                    comp_samples$time_after_release[i],
-                    sep = "_"
-                ),
-                col = "#fd0036"
+                name = comparison_labels[i],
+                col = "#fd0036",
+                chromosome = chromosome_roman
             )
         }
-    }
-
-    y_limits <- calculate_track_limits(tracks)
-    if (!is.null(y_limits)) {
-        message(sprintf("Setting y-limits to: [%.2f, %.2f]", y_limits[1], y_limits[2]))
-        plotTracks(
-            tracks,
-            main = sprintf("Chr %s - %s", chromosome, sub("comp_", "", comp_name)),
-            chromosome = chromosome_roman,
-            ylim = y_limits
-        )
-    } else {
-        plotTracks(
-            tracks,
-            main = sprintf("Chr %s - %s", chromosome, sub("comp_", "", comp_name)),
-            chromosome = chromosome_roman
-        )
     }
 
     # Add feature track if it exists
@@ -266,7 +259,7 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
         base_dir,
         "plots",
         sprintf(
-            "%s_%s_%s_chr%s_test_for_all_comparisons.svg",
+            "%s_%s_%s_chr%s_all_comparisons.svg",
             TIMESTAMP,
             experiment_id,
             comp_name,
@@ -276,17 +269,32 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
     message("Generating plot: ", basename(output_file))
     # Create plot
     tryCatch({
-        svg(output_file)
-        plotTracks(
-            tracks,
-            main = sprintf("Chr %s - %s", chromosome, sub("comp_", "", comp_name)),
-            chromosome = chromosome_roman
-        )
-        dev.off()
-        message("Plot created successfully")
+        y_limits <- calculate_track_limits(tracks)
+        if (!is.null(y_limits)) {
+            message(sprintf("Setting y-limits to: [%.2f, %.2f]", y_limits[1], y_limits[2]))
+            svg(output_file)
+            plotTracks(
+                tracks,
+                main = sprintf("Chr %s - %s", chromosome, sub("comp_", "", comp_name)),
+                chromosome = chromosome_roman,
+                ylim = y_limits
+            )
+            dev.off()
+            message("Plot created successfully")
+        } else {
+            svg(output_file)
+            plotTracks(
+                tracks,
+                main = sprintf("Chr %s - %s", chromosome, sub("comp_", "", comp_name)),
+                chromosome = chromosome_roman
+            )
+            dev.off()
+            message("Plot created successfully")
+        }
     }, error = function(e) {
         warning("Failed to create plot: ", e$message)
     })
 }
 
 message("All plots generated.")
+# rsync -avz --progress luised94@luria.mit.edu:/home/luised94/data/241007Bel/plots/ $HOME/data/241007Bel/plots/
