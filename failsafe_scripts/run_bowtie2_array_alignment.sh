@@ -36,6 +36,20 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     exit 1
 fi
 
+# Function to validate array range
+validate_array_range() {
+    local total_files=$1
+    local array_start=$(echo $SLURM_ARRAY_TASK_MIN)
+    local array_end=$(echo $SLURM_ARRAY_TASK_MAX)
+    log_message "Validating array range..."
+    log_message "Total fastq files: $total_files"
+    log_message "Array range: $array_start-$array_end"
+    if [ $array_end -gt $total_files ]; then
+        log_message "WARNING: Array range ($array_end) exceeds number of fastq files ($total_files)"
+        log_message "Suggestion: Use --array=1-${total_files}%16"
+    fi
+}
+
 # Constants
 GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
 GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
@@ -64,19 +78,19 @@ log_message() {
     echo "[${timestamp}] [${level}] [Task ${SLURM_ARRAY_TASK_ID}] ${message}" | tee -a "${MAIN_LOG}"
 }
 
-# Function to validate array range
-validate_array_range() {
-    local total_files=$1
-    local array_start=$(echo $SLURM_ARRAY_TASK_MIN)
-    local array_end=$(echo $SLURM_ARRAY_TASK_MAX)
-    log_message "Validating array range..."
-    log_message "Total fastq files: $total_files"
-    log_message "Array range: $array_start-$array_end"
-    if [ $array_end -gt $total_files ]; then
-        log_message "WARNING: Array range ($array_end) exceeds number of fastq files ($total_files)"
-        log_message "Suggestion: Use --array=1-${total_files}%16"
-    fi
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Function to log performance metrics
 log_performance() {
     local stage=$1

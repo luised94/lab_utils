@@ -1,164 +1,24 @@
 .
-+- bash
-|  +- config
-|  |  +- core_config.sh
-|  |  +- modules
-|  +- core
-|  |  +- config_export.sh
-|  |  +- file_ops.sh
-|  |  +- initialize_lab_environment.sh
-|  |  +- lock.sh
-|  |  +- logging.sh
-|  |  +- path_utils.sh
-|  +- modules
-|  |  +- alignment_handler.sh
-|  |  +- archive_handler.sh
-|  |  +- bam
-|  |  +- bam_comparer.sh
-|  |  +- bam_processor.sh
-|  |  +- coverage_processor.sh
-|  |  +- fasta_processor.sh
-|  |  +- fastq
-|  |  +- fastq_consolidator_processor.sh
-|  |  +- feature_data_handler.sh
-|  |  +- file_operations.sh
-|  |  +- filter_fastq_processor.sh
-|  |  +- function_loader.sh
-|  |  +- genome
-|  |  +- genome_indexer.sh
-|  |  +- genome_organizer.sh
-|  |  +- git_handler.sh
-|  |  +- ncbi_handler.sh
-|  |  +- ngs_file_manager.sh
-|  |  +- quality_control.sh
-|  |  +- r_integration.sh
-|  |  +- slurm
-|  |  +- slurm_file_operations.sh
-|  |  +- slurm_handler.sh
-|  |  +- slurm_job_handler.sh
-|  |  +- slurm_validator.sh
-|  |  +- slurm_wrapper.sh
-|  |  +- sra_downloader.sh
-|  +- scripts
-|  |  +- 000_install_R_4.2.0.sh
-|  |  +- build_genome_indices.sh
-|  |  +- consolidate_fastq_files.sh
-|  |  +- download_bmc_fastq_to_user_bel_directory.sh
-|  |  +- download_eaton_data.sh
-|  |  +- download_feature_data.sh
-|  |  +- fastq
-|  |  +- generate_coverage.sh
-|  |  +- install_ncbi_datasets_cli.sh
-|  |  +- manage_ngs_files.sh
-|  |  +- manage_slurm_outputs.sh
-|  |  +- process_reference_genomes.sh
-|  |  +- reformat_s288c_header.sh
-|  |  +- reorganize_genomes.sh
-|  |  +- run_alignment.sh
-|  |  +- run_bam_comparison.sh
-|  |  +- run_bam_qc.sh
-|  |  +- run_fastq_filtering.sh
-|  |  +- run_quality_control.sh
-|  |  +- submit_slurm_job.sh
-|  |  +- submit_test_job.sh
-|  |  +- test_slurm_settings.sh
-|  |  +- transfer_bmc_experiment_directory_to_luria.sh
-|  |  +- unzip_fastqc.sh
-|  +- templates
-|  |  +- initialize_lab_environment_snippet.sh
-|  +- tests
-|  |  +- core
-|  |  +- modules
-+- dir_tree_output.txt
 +- docs
-|  +- documentation_template.md
-|  +- linuxClusterModules.txt
-|  +- manual.md
-|  +- NGS_Documentation.md
-|  +- NGS_Manual.md
-|  +- NGS_Vignettes.md
 +- R
 |  +- config
-|  |  +- bmc_sample_grid_config_template.R
-|  |  +- core_config.R
 |  |  +- modules
-|  +- core
-|  |  +- file_ops.sh
-|  |  +- lock.R
-|  |  +- logging.R
-|  +- modules
-|  |  +- 003_table_operations.R
-|  |  +- bam
-|  |  +- bam_finder.R
-|  |  +- bam_qc_analyzer.R
-|  |  +- bigwig_processor.R
-|  |  +- chromosome_converter.R
-|  |  +- cluster_utils.R
-|  |  +- control_handler.R
-|  |  +- control_manager.sh
-|  |  +- data_converter.R
-|  |  +- data_downloader.R
-|  |  +- data_preparer.R
-|  |  +- data_writer.R
-|  |  +- directory_operations.R
-|  |  +- environment_utils.R
-|  |  +- experiment_setup.R
-|  |  +- fastq
-|  |  +- fastqc_parser.R
-|  |  +- feature_processor.R
-|  |  +- file_operations.R
-|  |  +- genome
-|  |  +- genome_processor.R
-|  |  +- granges_converter.R
-|  |  +- mapping_calculator.R
-|  |  +- output_operations.R
-|  |  +- package_installer.R
-|  |  +- package_manager.R
-|  |  +- parse_fastqc.R
-|  |  +- plot_generator.R
-|  |  +- plot_manager.R
-|  |  +- range_handler.R
-|  |  +- sample_labeler.R
-|  |  +- sample_matcher.R
-|  |  +- sample_processor.R
-|  |  +- script_info.R
-|  |  +- script_loader.R
-|  |  +- slurm
-|  |  +- sync_handler.R
-|  |  +- track_assembler.R
-|  |  +- track_generator.R
-|  |  +- track_manager.sh
-|  |  +- utilities.R
-|  |  +- validation_utils.R
-|  |  +- visualization_config.R
-|  +- project_init.R
 |  +- scripts
-|  |  +- 002_R_node_readPlotFCS.R
-|  |  +- analyze_bam_qc.R
-|  |  +- determine_controls.R
-|  |  +- download_features.R
-|  |  +- example_plot_sample_tracks.R
-|  |  +- fcs_package_installation.R
-|  |  +- find_sample_inputs.R
-|  |  +- genome_plot_tracks.R
-|  |  +- install_packages.R
-|  |  +- plot_genome_tracks.R
-|  |  +- process_features.R
-|  |  +- setup_bmc_experiment.R
-|  |  +- visualization_example.R
-|  |  +- visualize_genome_tracks.R
-|  +- templates
+|  +- tests
+|  |  +- modules
+|  |  +- core
+|  +- modules
+|  +- core
++- failsafe_scripts
++- bash
+|  +- config
+|  |  +- modules
+|  +- scripts
 |  +- tests
 |  |  +- core
-|  |  +- modules
-|  |  +- test_core.R
-+- README.md
+|  +- modules
+|  |  +- fastq
+|  +- templates
+|  +- core
 +- renv
-|  +- activate.R
-|  +- settings.json
 |  +- staging
-+- renv.lock
-+- rollback_plan.md
-+- SAMPLE_DOCUMENTATION.md
-+- simple_approach_for_bmc_folder_preparation.md
-+- STICKY_NOTES.md
