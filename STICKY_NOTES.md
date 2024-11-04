@@ -147,3 +147,6 @@ Create the random lock files in bash and try to normalize the R and bash logging
 9641496
 vim /home/luised94/logs/2024-11/bamcoverage/job_9641582/task_*/*.log
 vim /home/luised94/logs/2024-11/bamcoverage/job_9641648/task_*/*.log
+
+Need to doublecheck that samples are in the correct order than I submitted to the bmc.
+Need to test that input sample name is being added correctly.
