@@ -1,4 +1,3 @@
-
 # 1. Load required packages with verification
 packages <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead", "tidyverse")
 for (pkg in packages) {
@@ -16,7 +15,6 @@ message("Working directory: ", base_dir)
 # 3. Load and verify config
 source("~/lab_utils/scripts/bmc_config.R")
 source("~/lab_utils/scripts/extract_bmcIDmetadata_process.R")
-
 message("Loaded config with ", length(EXPERIMENT_CONFIG$COMPARISONS), " comparisons")
 
 # 4. Load and process sample table with new processing steps
@@ -45,7 +43,7 @@ sample_table <- sort_metadata_frame(
 )
 message("Sample table sorted by: ", 
         paste(EXPERIMENT_CONFIG$COLUMN_ORDER, collapse = ", "))
-
+sample_table$experiment_number <- sort(sample_table$experiment_number)
 # 5. Load reference genome
 ref_genome_file <- list.files(
     file.path(Sys.getenv("HOME"), "data", "REFGENS"),
@@ -84,8 +82,7 @@ feature_track <- AnnotationTrack(
 message("Created feature track")
 
 
-# INSERT AFTER STEP 7 (after feature track creation)
-# Add this helper function for bigwig validation
+# Function for bigwig validation
 validate_bigwig <- function(bigwig_path, sample_id) {
     if (is.na(bigwig_path) || !file.exists(bigwig_path)) {
         warning(sprintf("Bigwig file not found for sample %s", sample_id))
@@ -111,7 +108,18 @@ comp_samples <- sample_table[eval(
     envir = sample_table
 ), ]
 message("Found ", nrow(comp_samples), " samples for comparison")
-tracks <- list(GenomeAxisTrack(name = sprintf("Chr %s Axis", chromosome)))
+
+# Setup chromosome
+chromosome <- 10
+chromosome_roman <- paste0("chr", as.roman(chromosome))
+message("Processing chromosome: ", chromosome_roman)
+
+# Create basic tracks
+tracks <- list(
+    GenomeAxisTrack(
+        name = sprintf("Chr %s Axis", chromosome)
+    )
+)
 
 # Find control sample first
 control_sample <- sample_table[
@@ -122,12 +130,12 @@ control_sample <- sample_table[
 if (!is.null(control_sample)) {
     control_bigwig <- list.files(
         file.path(base_dir, "coverage"),
-        pattern = paste0(control_sample$sample_ID, ".*normalized.*\\.bw$"),
+        pattern = paste0(control_sample$experiment_number, ".*normalized.*\\.bw$"),
         full.names = TRUE
     )[1]
     
     # Validate control bigwig
-    valid_control <- validate_bigwig(control_bigwig, control_sample$sample_ID)
+    valid_control <- validate_bigwig(control_bigwig, control_sample$experiment_number)
     if (!is.null(valid_control)) {
         message("Adding control track from: ", basename(valid_control))
         tracks[[length(tracks) + 1]] <- DataTrack(
@@ -143,12 +151,12 @@ if (!is.null(control_sample)) {
 for (i in seq_len(nrow(comp_samples))) {
     bigwig_file <- list.files(
         file.path(base_dir, "coverage"),
-        pattern = paste0(comp_samples$sample_ID[i], ".*normalized.*\\.bw$"),
+        pattern = paste0(comp_samples$experiment_number[i], ".*normalized.*\\.bw$"),
         full.names = TRUE
     )[1]
     
     # Validate sample bigwig
-    valid_bigwig <- validate_bigwig(bigwig_file, comp_samples$sample_ID[i])
+    valid_bigwig <- validate_bigwig(bigwig_file, comp_samples$experiment_number[i])
     if (!is.null(valid_bigwig)) {
         message("Adding sample track from: ", basename(valid_bigwig))
         tracks[[length(tracks) + 1]] <- DataTrack(
@@ -169,72 +177,6 @@ for (i in seq_len(nrow(comp_samples))) {
 if (!is.null(feature_track)) {
     tracks[[length(tracks) + 1]] <- feature_track
 }
-
-
-# 9. Create test plot for first comparison
-# Setup chromosome
-chromosome <- 10
-chromosome_roman <- paste0("chr", as.roman(chromosome))
-message("Processing chromosome: ", chromosome_roman)
-
-# Create basic tracks
-tracks <- list(
-    GenomeAxisTrack(
-        name = sprintf("Chr %s Axis", chromosome)
-    )
-)
-
-# Add control track if available
-control_sample <- sample_table[
-    sample_table$antibody == "Input" &
-    sample_table$rescue_allele == comp_samples$rescue_allele[1],
-][1,]
-
-if (!is.null(control_sample)) {
-    message("Found control sample: ", control_sample$sample_ID)
-    control_bigwig <- list.files(
-        file.path(base_dir, "coverage"),
-        pattern = paste0(control_sample$sample_ID, ".*normalized.*\\.bw$"),
-        full.names = TRUE
-    )[1]
-    if (!is.na(control_bigwig)) {
-        message("Found control bigwig: ", control_bigwig)
-        tracks[[length(tracks) + 1]] <- DataTrack(
-            import(control_bigwig),
-            type = "l",
-            name = "Input Control",
-            col = "#808080"
-        )
-    }
-}
-
-# 10. Add sample tracks
-for (i in seq_len(nrow(comp_samples))) {
-    bigwig_file <- list.files(
-        file.path(base_dir, "coverage"),
-        pattern = paste0(comp_samples$sample_ID[i], ".*normalized.*\\.bw$"),
-        full.names = TRUE
-    )[1]
-    
-    if (!is.na(bigwig_file)) {
-        message("Processing sample ", i, ": ", bigwig_file)
-        tracks[[length(tracks) + 1]] <- DataTrack(
-            import(bigwig_file),
-            type = "l",
-            name = paste(
-                comp_samples$antibody[i],
-                comp_samples$rescue_allele[i],
-                comp_samples$time_after_release[i],
-                sep = "_"
-            ),
-            col = "#fd0036"
-        )
-    }
-}
-
-# 11. Add feature track and generate test plot
-tracks[[length(tracks) + 1]] <- feature_track
-message("Generated ", length(tracks), " tracks")
 
 # 12. Create test plot
 output_file <- file.path(
