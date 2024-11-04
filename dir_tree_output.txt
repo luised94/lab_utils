@@ -160,6 +160,5 @@
 +- renv.lock
 +- rollback_plan.md
 +- SAMPLE_DOCUMENTATION.md
-+- scripts
 +- simple_approach_for_bmc_folder_preparation.md
 +- STICKY_NOTES.md
