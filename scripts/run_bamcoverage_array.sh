@@ -96,7 +96,7 @@ module load deeptools
 
 # Find BAM files
 BAM_DIR="${EXPERIMENT_DIR}/alignment"
-mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*.sorted.bam")
+mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*.sorted.bam" | sort)
 TOTAL_FILES=${#BAM_FILES[@]}
 
 if [ $TOTAL_FILES -eq 0 ]; then
