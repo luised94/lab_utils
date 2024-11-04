@@ -89,7 +89,9 @@ if (feature_style != genome_style) {
         genome_style
     )
     seqlevels(feature_ranges) <- new_seqlevels
+    feature_style <- genome_detect_chr_style(seqlevels(feature_ranges))
 }
+
 feature_track <- AnnotationTrack(
     feature_ranges,
     name = "Origin Peaks (Eaton 2010)"
@@ -132,7 +134,6 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
     message("Found ", nrow(comp_samples), " samples for comparison")
     # Create tracks list (rest of track creation code remains the same)
     tracks <- list(GenomeAxisTrack(name = sprintf("Chr %s Axis", chromosome)))
-    # ... (existing track creation code) ...
     # Find control sample first
     control_sample <- sample_table[
         sample_table$antibody == "Input" &
@@ -184,9 +185,9 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
     if (!is.null(feature_track)) {
         tracks[[length(tracks) + 1]] <- feature_track
     }
-    # MODIFY output filename generation
     output_file <- file.path(
-        plots_dir,
+        base_dir,
+        "plots",
         sprintf(
             "%s_%s_%s_chr%s_test_for_all_comparisons.svg",
             TIMESTAMP,
@@ -210,22 +211,4 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
         warning("Failed to create plot: ", e$message)
     })
 }
-
-
-
-# 12. Create test plot
-output_file <- file.path(
-    base_dir, 
-    "plots", 
-    sprintf("test_%s_%s.svg", comp_name, chromosome_roman)
-)
-message("Creating test plot: ", output_file)
-
-svg(output_file)
-plotTracks(
-    tracks,
-    main = sub("comp_", "", comp_name),
-    chromosome = chromosome_roman
-)
-dev.off()
-message("Plot created successfully")
+message("All plots generated.")
