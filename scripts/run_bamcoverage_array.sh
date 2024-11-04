@@ -114,7 +114,7 @@ fi
 BAM_INDEX=$((SLURM_ARRAY_TASK_ID - 1))
 BAM_PATH="${BAM_FILES[$BAM_INDEX]}"
 SAMPLE_NAME=$(basename "$BAM_PATH" .sorted.bam)
-OUTPUT_BIGWIG="${EXPERIMENT_DIR}/coverage/${SAMPLE_NAME}.normalized_${NORMALIZATION}.bw"
+OUTPUT_BIGWIG="${EXPERIMENT_DIR}/coverage/${SAMPLE_NAME}_normalized_${NORMALIZATION}.bw"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
 log_message "INFO" "Input: ${BAM_PATH}"
@@ -128,9 +128,8 @@ if measure_performance "bamcoverage" bamCoverage \
     --binSize "${BIN_SIZE}" \
     --normalizeUsing "${NORMALIZATION}" \
     --minMappingQuality "${MIN_MAPPING_QUALITY}" \
-    --numberOfProcessors "${SLURM_CPUS_PER_TASK}" \
-    --ignoreDuplicates; then
-    
+    --numberOfProcessors "${SLURM_CPUS_PER_TASK}"; then
+
     log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
 else
     log_message "ERROR" "bamCoverage processing failed for ${SAMPLE_NAME}"
