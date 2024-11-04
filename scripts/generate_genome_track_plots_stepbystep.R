@@ -8,8 +8,8 @@ for (pkg in packages) {
 }
 
 # 2. Set up initial variables and paths
-experiment_id <- "241007Bel"
-#experiment_id <- "241010Bel"
+#experiment_id <- "241007Bel"
+experiment_id <- "241010Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 message("Working directory: ", base_dir)
 
