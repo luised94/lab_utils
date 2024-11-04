@@ -8,7 +8,7 @@ for (pkg in packages) {
 }
 
 # 2. Set up initial variables and paths
-experiment_id <- "241007Bel"
+experiment_id <- "241010Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 message("Working directory: ", base_dir)
 
@@ -23,8 +23,8 @@ TIMESTAMP <- format(Sys.Date(), "%Y%m%d")
 
 # 4. Load and process sample table with new processing steps
 metadata_file <- file.path(
-    base_dir, 
-    "documentation", 
+    base_dir,
+    "documentation",
     sprintf("%s_processed_grid.csv", experiment_id)
 )
 message("Processing metadata file: ", metadata_file)
@@ -45,7 +45,7 @@ sample_table <- sort_metadata_frame(
     data_frame = sample_table,
     column_order = EXPERIMENT_CONFIG$COLUMN_ORDER
 )
-message("Sample table sorted by: ", 
+message("Sample table sorted by: ",
         paste(EXPERIMENT_CONFIG$COLUMN_ORDER, collapse = ", "))
 sample_table$experiment_number <- sort(sample_table$experiment_number)
 # 5. Load reference genome
@@ -96,7 +96,7 @@ feature_track <- AnnotationTrack(
     feature_ranges,
     name = "Origin Peaks (Eaton 2010)"
 )
-message("Created feature track with style: ", 
+message("Created feature track with style: ",
         genome_detect_chr_style(seqlevels(feature_ranges)))
 
 
@@ -118,21 +118,21 @@ validate_bigwig <- function(bigwig_path, experiment_number) {
 find_fallback_control <- function(sample_table, bigwig_dir, pattern) {
     # Get all Input samples
     input_samples <- sample_table[sample_table$antibody == "Input", ]
-    
+
     for (i in seq_len(nrow(input_samples))) {
         control_bigwig <- list.files(
             bigwig_dir,
             pattern = paste0(input_samples$experiment_number[i], ".*normalized.*\\.bw$"),
             full.names = TRUE
         )[1]
-        
+
         valid_control <- validate_bigwig(control_bigwig, input_samples$experiment_number[i])
         if (!is.null(valid_control)) {
             message("Using fallback control: ", basename(valid_control))
             return(valid_control)
         }
     }
-    
+
     warning("No valid Input controls found in dataset")
     return(NULL)
 }
@@ -153,18 +153,18 @@ calculate_track_limits <- function(tracks) {
         }
         return(NULL)
     })
-    
+
     # Remove NULL entries and calculate overall range
     y_ranges <- y_ranges[!sapply(y_ranges, is.null)]
     if (length(y_ranges) > 0) {
         y_min <- min(sapply(y_ranges, `[`, 1), na.rm = TRUE)
         y_max <- max(sapply(y_ranges, `[`, 2), na.rm = TRUE)
-        
+
         # Add 10% padding
         y_range <- y_max - y_min
         y_min <- y_min - (y_range * 0.1)
         y_max <- y_max + (y_range * 0.1)
-        
+
         return(c(y_min, y_max))
     }
     return(NULL)
@@ -173,7 +173,7 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
     message("\nProcessing comparison: ", comp_name)
     # Get samples for this comparison
     comp_samples <- sample_table[eval(
-        EXPERIMENT_CONFIG$COMPARISONS[[comp_name]], 
+        EXPERIMENT_CONFIG$COMPARISONS[[comp_name]],
         envir = sample_table
     ), ]
     if (nrow(comp_samples) == 0) {
@@ -188,23 +188,23 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
         sample_table$antibody == "Input" &
         sample_table$rescue_allele == comp_samples$rescue_allele[1],
     ][1,]
-    
+
     if (!is.null(control_sample)) {
         control_bigwig <- list.files(
             file.path(base_dir, "coverage"),
             pattern = paste0(control_sample$experiment_number, ".*normalized.*\\.bw$"),
             full.names = TRUE
         )[1]
-        
+
         # Try primary control
         valid_control <- validate_bigwig(control_bigwig, control_sample$experiment_number)
-        
+
         # If primary control fails, try fallback
         if (is.null(valid_control)) {
             message("Primary control not found, searching for fallback")
             valid_control <- find_fallback_control(sample_table, file.path(base_dir, "coverage"), pattern)
         }
-        
+
         if (!is.null(valid_control)) {
             tracks[[length(tracks) + 1]] <- DataTrack(
                 import(valid_control),
@@ -214,7 +214,7 @@ for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
             )
         }
     }
-    
+
     # Process each sample
     for (i in seq_len(nrow(comp_samples))) {
         bigwig_file <- list.files(
