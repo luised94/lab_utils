@@ -1,5 +1,12 @@
 #!/bin/bash
-
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem-per-cpu=50G
+#SBATCH --nice=10000
+#SBATCH --exclude=c[5-22]
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=luised94@mit.edu
 # Script: run_bamcoverage_array.sh
 # Purpose: Executes deepTools bamCoverage as SLURM array job for multiple BAM files
 # Usage: sbatch --array=1-N%16 run_bamcoverage_array.sh <experiment_directory>

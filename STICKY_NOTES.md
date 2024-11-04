@@ -143,3 +143,5 @@ I dont think verify_filesystem_path will work expected_fs is not equal to real_p
 Consolidate the two core testing files.
 Create the random lock files in bash and try to normalize the R and bash logging, lock and init.R.
 
+## 2024-11-03
+9641496
