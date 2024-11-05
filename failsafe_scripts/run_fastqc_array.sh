@@ -85,7 +85,7 @@ fi
 # Select current file
 FASTQ_INDEX=$((SLURM_ARRAY_TASK_ID - 1))
 FASTQ_PATH="${FASTQ_FILES[${FASTQ_INDEX}]}"
-SAMPLE_NAME=$(basename "${FASTQ_PATH}" | sed -E 's/\.(fastq|fq)\$//')
+SAMPLE_NAME=$(basename "${FASTQ_PATH}" | sed -E 's/\.(fastq|fq)$//')
 
 # Load required modules
 module purge
