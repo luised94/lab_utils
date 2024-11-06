@@ -7,7 +7,7 @@ if [ -z "$EXPERIMENT_DIR" ]; then
     exit 1
 fi
 
-if [ -d "$EXPERIMENT_DIR" ]; then
+if [ ! -d "$EXPERIMENT_DIR" ]; then
     echo "Error: Experiment directory does not exist."
     echo "Usage: $0 <experiment_directory>"
     exit 1
