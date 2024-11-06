@@ -36,8 +36,12 @@ fi
 # Coverage parameters - hardcoded values
 BIN_SIZE=10
 NORMALIZATION="CPM"
+EFFECTIVE_GENOME_SIZE=12157105 # S. cerevisiae genome size
 MIN_MAPPING_QUALITY=20
 IGNORE_DUPLICATES=true
+
+# Normalization methods array
+declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
 
 # Logging setup
 readonly CURRENT_MONTH=$(date +%Y-%m)
@@ -55,7 +59,8 @@ readonly PERFORMANCE_LOG="${TASK_LOG_DIR}/performance_${TIMESTAMP}.log"
 mkdir -p "${TASK_LOG_DIR}"
 mkdir -p "${EXPERIMENT_DIR}/coverage"
 
-# Function to log messages
+
+# Logging functions
 log_message() {
     local level=$1
     local message=$2
@@ -63,7 +68,11 @@ log_message() {
     echo "[${timestamp}] [${level}] [Task ${SLURM_ARRAY_TASK_ID}] ${message}" | tee -a "${MAIN_LOG}"
 }
 
-# Function to log performance metrics
+log_error() {
+    log_message "ERROR" "$1" >&2
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" >> "${ERROR_LOG}"
+}
+
 log_performance() {
     local stage=$1
     local duration=$2
@@ -71,7 +80,6 @@ log_performance() {
     echo "[${timestamp}] ${stage}: ${duration} seconds" >> "${PERFORMANCE_LOG}"
 }
 
-# Function to measure command execution time
 measure_performance() {
     local stage=$1
     shift
@@ -111,28 +119,43 @@ if [ $SLURM_ARRAY_TASK_ID -gt $TOTAL_FILES ]; then
 fi
 
 # Get current BAM file
-BAM_INDEX=$((SLURM_ARRAY_TASK_ID - 1))
+# Calculate array indices
+BAM_INDEX=$((SLURM_ARRAY_TASK_ID / 4))
+NORM_INDEX=$((SLURM_ARRAY_TASK_ID % 4))
+
+# Get current BAM file and normalization method
 BAM_PATH="${BAM_FILES[$BAM_INDEX]}"
+NORM_METHOD="${NORM_METHODS[$NORM_INDEX]}"
+
+# Set output name
 SAMPLE_NAME=$(basename "$BAM_PATH" .sorted.bam)
-OUTPUT_BIGWIG="${EXPERIMENT_DIR}/coverage/${SAMPLE_NAME}_normalized_${NORMALIZATION}.bw"
+OUTPUT_BIGWIG="${EXPERIMENT_DIR}/coverage/${SAMPLE_NAME}_${NORM_METHOD}.bw"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
+log_message "INFO" "Normalization method: ${NORM_METHOD}"
 log_message "INFO" "Input: ${BAM_PATH}"
 log_message "INFO" "Output: ${OUTPUT_BIGWIG}"
 
+# Build bamCoverage command with specific parameters for each method
+COMMON_PARAMS="--bam ${BAM_PATH} \
+    --outFileName ${OUTPUT_BIGWIG} \
+    --binSize ${BIN_SIZE} \
+    --minMappingQuality ${MIN_MAPPING_QUALITY} \
+    --normalizeUsing ${NORM_METHOD} \
+    --numberOfProcessors ${SLURM_CPUS_PER_TASK}"
+
+# Add RPGC-specific parameters
+if [ "${NORM_METHOD}" == "RPGC" ]; then
+    COMMON_PARAMS+=" --effectiveGenomeSize ${EFFECTIVE_GENOME_SIZE}"
+    log_message "INFO" "Added effectiveGenomeSize parameter for RPGC normalization"
+fi
+
 # Execute bamCoverage
 log_message "INFO" "Starting bamCoverage processing"
-if measure_performance "bamcoverage" bamCoverage \
-    --bam "${BAM_PATH}" \
-    --outFileName "${OUTPUT_BIGWIG}" \
-    --binSize "${BIN_SIZE}" \
-    --normalizeUsing "${NORMALIZATION}" \
-    --minMappingQuality "${MIN_MAPPING_QUALITY}" \
-    --numberOfProcessors "${SLURM_CPUS_PER_TASK}"; then
-
+if measure_performance "bamcoverage" bamCoverage $COMMON_PARAMS; then
     log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
 else
-    log_message "ERROR" "bamCoverage processing failed for ${SAMPLE_NAME}"
+    log_error "bamCoverage processing failed for ${SAMPLE_NAME}"
     exit 1
 fi
 
