@@ -171,6 +171,7 @@ if measure_performance "alignment_and_sorting" \
             -p "$SLURM_CPUS_PER_TASK" 2>> "${ERROR_LOG}" | \
     samtools view -@ "$SLURM_CPUS_PER_TASK" -bS - 2>> "${ERROR_LOG}" | \
     samtools sort -@ "$SLURM_CPUS_PER_TASK" -o "$OUTPUT_BAM" - 2>> "${ERROR_LOG}"; then
+# "-q --mp 4 --met-stderr"
 
     log_message "INFO" "Starting BAM indexing"
     if measure_performance "indexing" samtools index "$OUTPUT_BAM"; then
