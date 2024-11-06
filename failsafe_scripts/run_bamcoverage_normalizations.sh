@@ -118,8 +118,8 @@ fi
 
 # Get current BAM file
 # Calculate array indices
-BAM_INDEX=$((SLURM_ARRAY_TASK_ID / 4))
-NORM_INDEX=$((SLURM_ARRAY_TASK_ID % 4))
+BAM_INDEX=$((SLURM_ARRAY_TASK_ID / 4 - 1))
+NORM_INDEX=$((SLURM_ARRAY_TASK_ID % 4 - 1))
 
 # Get current BAM file and normalization method
 BAM_PATH="${BAM_FILES[$BAM_INDEX]}"

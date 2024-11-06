@@ -7,6 +7,12 @@ if [ -z "$EXPERIMENT_DIR" ]; then
     exit 1
 fi
 
+if [ -d "$EXPERIMENT_DIR" ]; then
+    echo "Error: Experiment directory does not exist."
+    echo "Usage: $0 <experiment_directory>"
+    exit 1
+fi
+
 # Count BAM files
 BAM_COUNT=$(find "${EXPERIMENT_DIR}/alignment" -maxdepth 1 -type f -name "*.sorted.bam" | wc -l)
 echo "Found ${BAM_COUNT} BAM files"
@@ -18,4 +24,4 @@ if [ $BAM_COUNT -eq 0 ]; then
 fi
 
 # Submit job
-sbatch --array=0-$((TOTAL_JOBS - 1)) run_bamcoverage_normalizations.sh "$EXPERIMENT_DIR"
+sbatch --array=1-${TOTAL_JOBS}%16 run_bamcoverage_normalizations.sh "$EXPERIMENT_DIR"
