@@ -35,10 +35,8 @@ fi
 
 # Coverage parameters - hardcoded values
 BIN_SIZE=10
-NORMALIZATION="CPM"
 EFFECTIVE_GENOME_SIZE=12157105 # S. cerevisiae genome size
 MIN_MAPPING_QUALITY=20
-IGNORE_DUPLICATES=true
 
 # Normalization methods array
 declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
@@ -141,6 +139,7 @@ COMMON_PARAMS="--bam ${BAM_PATH} \
     --outFileName ${OUTPUT_BIGWIG} \
     --binSize ${BIN_SIZE} \
     --minMappingQuality ${MIN_MAPPING_QUALITY} \
+    --ignoreDuplicates \
     --normalizeUsing ${NORM_METHOD} \
     --numberOfProcessors ${SLURM_CPUS_PER_TASK}"
 
@@ -159,5 +158,7 @@ else
     exit 1
 fi
 
+log_message "INFO" "Parameters used:"
+log_message "INFO" "$COMMON_PARAMS"
 # Log completion
 log_message "INFO" "Task completed successfully"

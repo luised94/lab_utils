@@ -18,7 +18,4 @@ if [ $BAM_COUNT -eq 0 ]; then
 fi
 
 # Submit job
-sbatch --array=1-${BAM_COUNT}%16 run_bamcoverage_array.sh "$EXPERIMENT_DIR"
-
-# Submit job
 sbatch --array=0-$((TOTAL_JOBS - 1)) run_bamcoverage_normalizations.sh "$EXPERIMENT_DIR"
