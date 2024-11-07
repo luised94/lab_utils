@@ -104,27 +104,31 @@ module load deeptools
 BAM_DIR="${EXPERIMENT_DIR}/alignment"
 mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*.sorted.bam" | sort)
 TOTAL_FILES=${#BAM_FILES[@]}
-
+TOTAL_JOBS=$((TOTAL_FILES * 4))
 if [ $TOTAL_FILES -eq 0 ]; then
     log_message "ERROR" "No BAM files found in ${BAM_DIR}"
     exit 1
 fi
 
 # Validate array range
-if [ $SLURM_ARRAY_TASK_ID -gt $TOTAL_FILES ]; then
-    log_message "ERROR" "Task ID ${SLURM_ARRAY_TASK_ID} exceeds number of files ${TOTAL_FILES}"
+if [ $SLURM_ARRAY_TASK_ID -gt $TOTAL_JOBS ]; then
+    log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} exceeds number of jobs ${TOTAL_FILES}"
     exit 1
 fi
 
 # Get current BAM file
 # Calculate array indices
-BAM_INDEX=$((SLURM_ARRAY_TASK_ID / 4 - 1))
-NORM_INDEX=$((SLURM_ARRAY_TASK_ID % 4 - 1))
+BAM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) / 4 ))
+NORM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) % 4 ))
 
 # Get current BAM file and normalization method
 BAM_PATH="${BAM_FILES[$BAM_INDEX]}"
 NORM_METHOD="${NORM_METHODS[$NORM_INDEX]}"
-
+if [ ! -f $BAM_PATH ]; then
+    log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} bam path does not exist."
+    log_message "WARNING" "Input: ${BAM_PATH}"
+    exit 1
+fi
 # Set output name
 SAMPLE_NAME=$(basename "$BAM_PATH" .sorted.bam)
 OUTPUT_BIGWIG="${EXPERIMENT_DIR}/coverage/${SAMPLE_NAME}_${NORM_METHOD}.bw"
