@@ -78,19 +78,6 @@ log_message() {
     echo "[${timestamp}] [${level}] [Task ${SLURM_ARRAY_TASK_ID}] ${message}" | tee -a "${MAIN_LOG}"
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Function to log performance metrics
 log_performance() {
     local stage=$1
@@ -112,11 +99,6 @@ measure_performance() {
     return $status
 }
 
-# Validate directories and files
-if [ ! -d "$EXPERIMENT_DIR" ]; then
-    log_message "Error: Experiment directory not found: $EXPERIMENT_DIR"
-    exit 1
-fi
 
 if [ ! -f "${GENOME_INDEX}.1.bt2" ]; then
     log_message "Error: Genome index not found: $GENOME_INDEX"
@@ -144,7 +126,7 @@ if [ $TOTAL_FILES -eq 0 ]; then
 fi
 
 # Validate array range against number of files
-validate_array_range $TOTAL_FILES
+#validate_array_range $TOTAL_FILES
 
 # Get current fastq file
 FASTQ_INDEX=$((SLURM_ARRAY_TASK_ID - 1))
@@ -156,8 +138,8 @@ if [ -z "$FASTQ_PATH" ]; then
 fi
 
 # Generate output name
-SAMPLE_NAME=$(basename "$FASTQ_PATH" .fastq)
-OUTPUT_BAM="${EXPERIMENT_DIR}/alignment/${SAMPLE_NAME}_to_S288C.sorted.bam"
+SAMPLE_NAME=$(basename "$FASTQ_PATH" --suffix=".fastq")
+OUTPUT_BAM="${EXPERIMENT_DIR}/alignment/${SAMPLE_NAME}_to_S288C_sorted.bam"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
 log_message "INFO" "Input: ${FASTQ_PATH}"

@@ -8,6 +8,13 @@ if [ -z "$EXPERIMENT_DIR" ]; then
     exit 1
 fi
 
+if [ ! -d "$EXPERIMENT_DIR" ]; then
+    echo "Error: Experiment directory does not exist."
+    echo "Usage: $0 <experiment_directory>"
+    exit 1
+fi
+
+
 # Count fastq files
 FASTQ_COUNT=$(find "${EXPERIMENT_DIR}/fastq" -maxdepth 1 -type f -name "*.fastq" | wc -l)
 echo "Found ${FASTQ_COUNT} fastq files"

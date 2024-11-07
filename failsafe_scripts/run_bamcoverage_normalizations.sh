@@ -30,16 +30,17 @@ EXPERIMENT_DIR="$1"
 # Validate SLURM_ARRAY_TASK_ID
 if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     echo "Error: This script must be run as a SLURM array job"
+    echo "Use: sbatch --array=1-N%16 $0 <experiment_directory>"
     exit 1
 fi
 
-# Coverage parameters - hardcoded values
-BIN_SIZE=10
-EFFECTIVE_GENOME_SIZE=12157105 # S. cerevisiae genome size
-MIN_MAPPING_QUALITY=20
-
 # Normalization methods array
 declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
+
+# coverage parameters - hardcoded values
+BIN_SIZE=10
+EFFECTIVE_GENOME_SIZE=12157105
+MIN_MAPPING_QUALITY=20
 
 # Logging setup
 readonly CURRENT_MONTH=$(date +%Y-%m)
@@ -102,7 +103,7 @@ module load deeptools
 
 # Find BAM files
 BAM_DIR="${EXPERIMENT_DIR}/alignment"
-mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*.sorted.bam" | sort)
+mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*_sorted.bam" | sort)
 TOTAL_FILES=${#BAM_FILES[@]}
 TOTAL_JOBS=$((TOTAL_FILES * ${#NORM_METHODS[@]}))
 if [ $TOTAL_FILES -eq 0 ]; then
@@ -130,7 +131,7 @@ if [ ! -f $BAM_PATH ]; then
     exit 1
 fi
 # Set output name
-SAMPLE_NAME=$(basename "$BAM_PATH" .sorted.bam)
+SAMPLE_NAME=$(basename "$BAM_PATH" --suffix="_sorted.bam")
 OUTPUT_BIGWIG="${EXPERIMENT_DIR}/coverage/${SAMPLE_NAME}_${NORM_METHOD}.bw"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
