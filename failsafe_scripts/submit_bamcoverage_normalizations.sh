@@ -19,6 +19,7 @@ declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
 BAM_COUNT=$(find "${EXPERIMENT_DIR}/alignment" -maxdepth 1 -type f -name "*.sorted.bam" | wc -l)
 echo "Found ${BAM_COUNT} BAM files"
 TOTAL_JOBS=$((BAM_COUNT * ${#NORM_METHODS[@]}))
+echo "Found ${TOTAL_JOBS} jobs to run"
 
 if [ $BAM_COUNT -eq 0 ]; then
     echo "Error: No BAM files found in ${EXPERIMENT_DIR}/alignment"
