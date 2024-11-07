@@ -150,3 +150,6 @@ vim /home/luised94/logs/2024-11/bamcoverage/job_9641648/task_*/*.log
 
 Need to doublecheck that samples are in the correct order than I submitted to the bmc.
 Need to test that input sample name is being added correctly.
+
+## 2024-11-07
+Input samples could still be messed up. Ensure everything lines up during alignment, coverage calculations and plotting.
