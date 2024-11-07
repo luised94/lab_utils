@@ -163,7 +163,7 @@ else
     exit 1
 fi
 
-log_message "INFO" "Parameters used:"
+log_message "INFO" "Parameters used:\n"
 log_message "INFO" "$COMMON_PARAMS"
 # Log completion
 log_message "INFO" "Task completed successfully"
