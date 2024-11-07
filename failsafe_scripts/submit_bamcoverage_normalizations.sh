@@ -14,9 +14,11 @@ if [ ! -d "$EXPERIMENT_DIR" ]; then
 fi
 
 # Count BAM files
+
+declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
 BAM_COUNT=$(find "${EXPERIMENT_DIR}/alignment" -maxdepth 1 -type f -name "*.sorted.bam" | wc -l)
 echo "Found ${BAM_COUNT} BAM files"
-TOTAL_JOBS=$((BAM_COUNT * 4))
+TOTAL_JOBS=$((BAM_COUNT * ${#NORM_METHODS[@]}))
 
 if [ $BAM_COUNT -eq 0 ]; then
     echo "Error: No BAM files found in ${EXPERIMENT_DIR}/alignment"

@@ -104,7 +104,7 @@ module load deeptools
 BAM_DIR="${EXPERIMENT_DIR}/alignment"
 mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*.sorted.bam" | sort)
 TOTAL_FILES=${#BAM_FILES[@]}
-TOTAL_JOBS=$((TOTAL_FILES * 4))
+TOTAL_JOBS=$((TOTAL_FILES * ${#NORM_METHODS[@]}))
 if [ $TOTAL_FILES -eq 0 ]; then
     log_message "ERROR" "No BAM files found in ${BAM_DIR}"
     exit 1
@@ -118,8 +118,8 @@ fi
 
 # Get current BAM file
 # Calculate array indices
-BAM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) / 4 ))
-NORM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) % 4 ))
+BAM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) / ${#NORM_METHODS[@]} ))
+NORM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) % ${#NORM_METHODS[@]} ))
 
 # Get current BAM file and normalization method
 BAM_PATH="${BAM_FILES[$BAM_INDEX]}"
