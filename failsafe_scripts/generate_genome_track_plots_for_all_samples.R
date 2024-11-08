@@ -21,7 +21,7 @@ feature_file <- list.files(
     pattern = "eaton_peaks",
     full.names = TRUE
 )[1]
-REQUIRED_PACKAGES <- c("rtracklayer", "GenomicRanges", "Gviz", "tidyverse")
+REQUIRED_PACKAGES <- c("ShortRead", "GenomeInfoDb", "rtracklayer", "GenomicRanges", "Gviz", "tidyverse", "QuasR")
 
 # 1. Load and verify config and functions
 #-----------------------------------------------------------------------------
@@ -108,8 +108,8 @@ feature_result <- tryCatch({
     features <- rtracklayer::import(feature_file)
     
     # Convert chromosome style
-    seqlevels(features) <- chromosome_names_convert(
-        seqlevels(features),
+    GenomeInfoDb::seqlevels(features) <- chromosome_names_convert(
+        GenomeInfoDb::seqlevels(features),
         "Roman"
     )$data
     

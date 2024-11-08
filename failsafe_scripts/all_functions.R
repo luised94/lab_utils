@@ -36,7 +36,6 @@ validate_comparison_inputs <- function(metadata, comparisons) {
     return(validation_result)
 }
 
-
 #' @title Execute Single Comparison
 #' @description Executes a single comparison expression against metadata
 #' @param metadata data.frame Experiment metadata
@@ -76,7 +75,6 @@ execute_comparison <- function(metadata, comparison) {
     
     return(result)
 }
-
 
 #' @title Create Sample Summary
 #' @description Generates a formatted summary string for a sample row
@@ -1574,7 +1572,6 @@ chromosome_names_convert <- function(chromosome_names, target_style, options = l
 #' @examples
 #' bigwig_file_exists("path/to/file.bw")
 #' @seealso bigwig_file_validate
-
 bigwig_file_exists <- function(file_path) {
     result <- tryCatch({
         stopifnot(
@@ -2163,7 +2160,7 @@ feature_track_create <- function(feature_data, track_options) {
             "track_options must be list" = is.list(track_options)
         )
         
-        track <- AnnotationTrack(
+        track <- Gviz::AnnotationTrack(
             feature_data,
             name = track_options$name %||% "Features",
             chromosome = track_options$chromosome,
@@ -2422,7 +2419,6 @@ comparison_analysis_process <- function(sample_table, comparison_config,
 #' @examples
 #' packages_required_validate(c("rtracklayer", "GenomicRanges"))
 #' @seealso experiment_environment_validate
-
 packages_required_validate <- function(package_list) {
     result <- tryCatch({
         stopifnot(
@@ -2456,6 +2452,7 @@ packages_required_validate <- function(package_list) {
     
     return(result)
 }
+
 #' @title Validate Experiment Environment
 #' @description Validates experiment directory structure and requirements
 #' @param experiment_identifier character Experiment ID
@@ -2465,7 +2462,6 @@ packages_required_validate <- function(package_list) {
 #' @examples
 #' experiment_environment_validate("exp001", list(directories = c("coverage")))
 #' @seealso experiment_files_validate
-
 experiment_environment_validate <- function(experiment_identifier, 
                                          environment_requirements) {
     result <- tryCatch({
@@ -2620,7 +2616,6 @@ genomic_range_create <- function(chromosome_number, range_parameters) {
 #' @examples
 #' track_range_calculate(track_data, list(padding = 0.1))
 #' @seealso track_group_range_calculate
-
 track_range_calculate <- function(track_data, range_options) {
     result <- tryCatch({
         stopifnot(
@@ -2666,7 +2661,6 @@ track_range_calculate <- function(track_data, range_options) {
 #' @examples
 #' track_group_range_calculate(tracks, list(padding = 0.1))
 #' @seealso track_range_calculate
-
 track_group_range_calculate <- function(track_list, range_options) {
     result <- tryCatch({
         stopifnot(
@@ -2774,7 +2768,6 @@ track_single_create <- function(sample_data, track_options) {
 #' @examples
 #' track_group_create(samples, list(samples_per_page = 4))
 #' @seealso track_single_create
-
 track_group_create <- function(sample_list, group_options) {
     result <- tryCatch({
         stopifnot(
@@ -2831,7 +2824,6 @@ track_group_create <- function(sample_list, group_options) {
 #' @examples
 #' plot_path_generate("output", list(chromosome = 10, group = 1))
 #' @seealso plot_tracks_create
-
 plot_path_generate <- function(base_directory, plot_parameters) {
     result <- tryCatch({
         stopifnot(
