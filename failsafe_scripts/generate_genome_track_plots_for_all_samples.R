@@ -28,11 +28,11 @@ REQUIRED_PACKAGES <- c("rtracklayer", "GenomicRanges", "Gviz", "tidyverse")
 source("~/lab_utils/failsafe_scripts/all_functions.R")
 source("~/lab_utils/failsafe_scripts/bmc_config.R")
 
-config_result <- validate_dependencies()
-if (!config_result) {
-    stop("Configuration validation failed")
-}
-# 2. Load and verify required packages
+#config_result <- validate_dependencies()
+#if (!config_result) {
+#    stop("Configuration validation failed")
+#}
+## 2. Load and verify required packages
 #-----------------------------------------------------------------------------
 packages_result <- packages_required_validate(REQUIRED_PACKAGES)
 if (!packages_result$success) {
