@@ -1,4 +1,3 @@
-
 # 1. Load required packages with verification
 packages <- c("QuasR", "GenomicAlignments", "Gviz", "rtracklayer", "ShortRead", "tidyverse")
 for (pkg in packages) {

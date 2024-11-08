@@ -179,6 +179,7 @@ calculate_track_limits <- function(tracks) {
     }
     return(NULL)
 }
+# Plot all comparisons
 for (comp_name in names(EXPERIMENT_CONFIG$COMPARISONS)) {
     message("\nProcessing comparison: ", comp_name)
     # Get samples for this comparison
