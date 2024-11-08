@@ -2162,7 +2162,7 @@ feature_track_create <- function(feature_data, track_options) {
         
         track <- Gviz::AnnotationTrack(
             feature_data,
-            name = track_options$name %||% "Features",
+            name = if (is.null(track_options$name)) "Features" else track_options$name,
             chromosome = track_options$chromosome,
             genome = track_options$genome
         )

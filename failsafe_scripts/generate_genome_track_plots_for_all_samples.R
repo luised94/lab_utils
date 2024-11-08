@@ -21,10 +21,12 @@ feature_file <- list.files(
     pattern = "eaton_peaks",
     full.names = TRUE
 )[1]
+options(ucscChromosomeNames=FALSE)
 REQUIRED_PACKAGES <- c("ShortRead", "GenomeInfoDb", "rtracklayer", "GenomicRanges", "Gviz", "tidyverse", "QuasR")
 
 # 1. Load and verify config and functions
 #-----------------------------------------------------------------------------
+library(rlang) # Required for %||%
 source("~/lab_utils/failsafe_scripts/all_functions.R")
 source("~/lab_utils/failsafe_scripts/bmc_config.R")
 
