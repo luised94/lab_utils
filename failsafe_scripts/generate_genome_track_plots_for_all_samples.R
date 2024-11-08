@@ -25,8 +25,8 @@ REQUIRED_PACKAGES <- c("rtracklayer", "GenomicRanges", "Gviz", "tidyverse")
 
 # 1. Load and verify config and functions
 #-----------------------------------------------------------------------------
-source("bmc_config.R")
-source("all_functions.R")
+source("~/lab_utils/failsafe_scripts/all_functions.R")
+source("~/lab_utils/failsafe_scripts/bmc_config.R")
 
 config_result <- validate_dependencies()
 if (!config_result) {
