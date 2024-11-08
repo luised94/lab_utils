@@ -136,6 +136,7 @@ feature_result <- tryCatch({
 # Process all samples
 #-----------------------------------------------------------------------------
 # Get all bigwig files
+#TODO: Adjust the pattern after rerunning the normalization of the bamcoverage after adjusting the naming of the bam path.
 bigwig_files <- list.files(
     coverage_directory,
     pattern = ".*normalized.*\\.bw$",

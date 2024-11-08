@@ -131,7 +131,7 @@ if [ ! -f $BAM_PATH ]; then
     exit 1
 fi
 # Set output name
-SAMPLE_NAME=$(basename "$BAM_PATH" --suffix="_sorted.bam")
+SAMPLE_NAME=$(basename --suffix=_sorted.bam "$BAM_PATH" )
 OUTPUT_BIGWIG="${EXPERIMENT_DIR}/coverage/${SAMPLE_NAME}_${NORM_METHOD}.bw"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"

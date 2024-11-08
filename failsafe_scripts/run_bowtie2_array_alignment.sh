@@ -138,7 +138,7 @@ if [ -z "$FASTQ_PATH" ]; then
 fi
 
 # Generate output name
-SAMPLE_NAME=$(basename "$FASTQ_PATH" --suffix=".fastq")
+SAMPLE_NAME=$(basename --suffix=.fastq "$FASTQ_PATH" )
 OUTPUT_BAM="${EXPERIMENT_DIR}/alignment/${SAMPLE_NAME}_to_S288C_sorted.bam"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
