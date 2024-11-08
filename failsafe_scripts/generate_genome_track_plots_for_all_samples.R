@@ -32,14 +32,14 @@ config_result <- validate_dependencies()
 if (!config_result) {
     stop("Configuration validation failed")
 }
-# 1. Load and verify required packages
+# 2. Load and verify required packages
 #-----------------------------------------------------------------------------
 packages_result <- packages_required_validate(REQUIRED_PACKAGES)
 if (!packages_result$success) {
     stop(packages_result$error)
 }
 
-# 2. Set up initial variables and paths
+# 3. Set up initial variables and paths
 #-----------------------------------------------------------------------------
 experiment_result <- experiment_environment_validate(
     EXPERIMENT_ID,
