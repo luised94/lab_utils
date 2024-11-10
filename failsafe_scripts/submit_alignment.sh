@@ -1,5 +1,6 @@
 #!/bin/bash
 # submit_alignment.sh
+# Usage: $./submit_alignment.sh $HOME/data/<experiment_directory>
 
 EXPERIMENT_DIR="$1"
 if [ -z "$EXPERIMENT_DIR" ]; then

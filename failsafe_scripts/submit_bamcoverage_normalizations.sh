@@ -1,5 +1,6 @@
 #!/bin/bash
 # submit_bamcoverage_normalizations.sh
+# Usage: $./submit_bamcoverage_normalizations.sh $HOME/data/<experiment_directory>
 EXPERIMENT_DIR="$1"
 if [ -z "$EXPERIMENT_DIR" ]; then
     echo "Error: Experiment directory not provided"
