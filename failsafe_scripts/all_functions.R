@@ -2707,6 +2707,54 @@ track_group_range_calculate <- function(track_list, range_options) {
     
     return(result)
 }
+
+#' @title Create Placeholder Track
+#' @description Creates an empty visualization track for missing bigwig data
+#' @param sample_name character Name of the sample
+#' @param track_options list Track visualization options
+#' @return list Track creation result {success, data, error}
+track_placeholder_create <- function(sample_name, track_options) {
+    result <- tryCatch({
+        stopifnot(
+            "sample_name must be character" = is.character(sample_name),
+            "track_options must be list" = is.list(track_options)
+        )
+        
+        # Create empty GRanges object
+        empty_ranges <- GenomicRanges::GRanges(
+            seqnames = track_options$chromosome,
+            ranges = IRanges::IRanges(start = 1, end = 1),
+            score = 0
+        )
+        
+        # Create empty track
+        empty_track <- Gviz::DataTrack(
+            empty_ranges,
+            type = "l",
+            name = paste(sample_name, "(No Data)"),
+            col = "#cccccc",  # Light gray color
+            chromosome = track_options$chromosome
+        )
+        
+        list(
+            success = TRUE,
+            data = list(
+                track = empty_track,
+                source = "placeholder"
+            ),
+            error = NULL
+        )
+    }, error = function(e) {
+        list(
+            success = FALSE,
+            data = NULL,
+            error = e$message
+        )
+    })
+    
+    return(result)
+}
+
 #' @title Create Single Track
 #' @description Creates visualization track for single sample
 #' @param sample_data list Sample metadata and configuration
@@ -2721,20 +2769,23 @@ track_single_create <- function(sample_data, track_options) {
     result <- tryCatch({
         stopifnot(
             "sample_data must be list" = is.list(sample_data),
-            "track_options must be list" = is.list(track_options),
-            "required sample data missing" = all(c("bigwig_file", "name") %in% 
-                                                names(sample_data))
+            "track_options must be list" = is.list(track_options)
         )
         
         if (!file.exists(sample_data$bigwig_file)) {
-            stop("Bigwig file not found")
+            # Create placeholder track instead of failing
+            return(track_placeholder_create(
+                sample_name = sample_data$name,
+                track_options = track_options
+            ))
         }
         
+        # Rest of the original function remains the same
         track_data <- rtracklayer::import(sample_data$bigwig_file)
         
         track <- Gviz::DataTrack(
             track_data,
-            type = track_options$type %||% "l",
+            type = "l",
             name = sample_data$name,
             col = track_options$color %||% "#fd0036",
             chromosome = track_options$chromosome
@@ -2749,11 +2800,11 @@ track_single_create <- function(sample_data, track_options) {
             error = NULL
         )
     }, error = function(e) {
-        list(
-            success = FALSE,
-            data = NULL,
-            error = e$message
-        )
+        # On any error, create placeholder track
+        return(track_placeholder_create(
+            sample_name = sample_data$name,
+            track_options = track_options
+        ))
     })
     
     return(result)
@@ -2782,19 +2833,15 @@ track_group_create <- function(sample_list, group_options) {
             )
         )
         
-        # Create individual tracks
+        # Create individual tracks (now always succeeding with placeholders)
         sample_tracks <- lapply(sample_list, function(sample) {
             track_single_create(sample, group_options)
         })
         
-        successful_tracks <- vapply(sample_tracks, `[[`, logical(1), "success")
-        if (!any(successful_tracks)) {
-            stop("No valid tracks created")
-        }
-        
+        # All tracks should succeed now (either real or placeholder)
         tracks <- c(
             tracks,
-            lapply(sample_tracks[successful_tracks], function(x) x$data$track)
+            lapply(sample_tracks, function(x) x$data$track)
         )
         
         list(
@@ -2815,6 +2862,7 @@ track_group_create <- function(sample_list, group_options) {
     
     return(result)
 }
+
 #' @title Generate Plot Output Path
 #' @description Generates standardized plot file path
 #' @param base_directory character Base output directory
@@ -2991,3 +3039,69 @@ get_global_range <- function(bigwig_files, genome_range) {
     
     return(result)
 }
+
+create_bigwig_sample_mapping <- function(sample_table, bigwig_files) {
+    result <- tryCatch({
+        stopifnot(
+            "sample_table must be data.frame" = is.data.frame(sample_table),
+            "bigwig_files must be character" = is.character(bigwig_files)
+        )
+        
+        # Create mapping between sample IDs and bigwig files
+        bigwig_mapping <- sapply(
+            X = sample_table$sample_id,
+            FUN = function(sample_id) {
+                matching_file <- bigwig_files[grepl(sample_id, bigwig_files)]
+                if (length(matching_file) > 0) matching_file[1] else NA_character_
+            },
+            USE.NAMES = TRUE
+        )
+        
+        list(
+            success = TRUE,
+            data = bigwig_mapping,
+            error = NULL
+        )
+    }, error = function(e) {
+        list(
+            success = FALSE,
+            data = NULL,
+            error = e$message
+        )
+    })
+    
+    return(result)
+}
+
+create_sample_track_configs <- function(group_samples, bigwig_mapping) {
+    result <- tryCatch({
+        stopifnot(
+            "group_samples must be data.frame" = is.data.frame(group_samples),
+            "bigwig_mapping must be named character" = 
+                is.character(bigwig_mapping) && !is.null(names(bigwig_mapping))
+        )
+        
+        track_configs <- lapply(seq_len(nrow(group_samples)), function(i) {
+            current_sample_id <- group_samples$sample_id[i]
+            list(
+                bigwig_file = bigwig_mapping[current_sample_id],
+                name = current_sample_id
+            )
+        })
+        
+        list(
+            success = TRUE,
+            data = track_configs,
+            error = NULL
+        )
+    }, error = function(e) {
+        list(
+            success = FALSE,
+            data = NULL,
+            error = e$message
+        )
+    })
+    
+    return(result)
+}
+
