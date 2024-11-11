@@ -3040,18 +3040,22 @@ get_global_range <- function(bigwig_files, genome_range) {
     return(result)
 }
 
+
 create_bigwig_sample_mapping <- function(sample_table, bigwig_files) {
     result <- tryCatch({
         stopifnot(
             "sample_table must be data.frame" = is.data.frame(sample_table),
-            "bigwig_files must be character" = is.character(bigwig_files)
+            "bigwig_files must be character" = is.character(bigwig_files),
+            "sample_id column must exist" = "sample_id" %in% colnames(sample_table)
         )
         
         # Create mapping between sample IDs and bigwig files
         bigwig_mapping <- sapply(
             X = sample_table$sample_id,
             FUN = function(sample_id) {
-                matching_file <- bigwig_files[grepl(sample_id, bigwig_files)]
+                # Remove file extension for matching
+                clean_sample_id <- sub("\\.bw$", "", sample_id)
+                matching_file <- bigwig_files[grepl(clean_sample_id, bigwig_files)]
                 if (length(matching_file) > 0) matching_file[1] else NA_character_
             },
             USE.NAMES = TRUE
@@ -3103,224 +3107,4 @@ create_sample_track_configs <- function(group_samples, bigwig_mapping) {
     })
     
     return(result)
-}
-
-#' @title Directory Path Validator
-#' @description Validates experiment directory path and structure
-#' @param directory_path character Path to experiment directory
-#' @return list(success = logical, data = character, error = character)
-#' @throws "Invalid directory path" when directory doesn't exist
-#' @throws "Missing fastq subdirectory" when fastq dir not found
-#' @importFrom base file.path dir.exists
-#' @precondition directory_path must be non-empty string
-#' @postcondition Returns validated directory path if successful
-#' @examples
-#' result <- directory_path_validate("/path/to/experiment")
-#' if(result$success) valid_path <- result$data
-#' @seealso fastq_files_find
-directory_path_validate <- function(directory_path) {
-    result <- list(
-        success = FALSE,
-        data = NULL,
-        error = NULL
-    )
-    
-    tryCatch({
-        stopifnot(
-            "directory_path must be character" = is.character(directory_path),
-            "directory_path must be length 1" = length(directory_path) == 1,
-            "directory_path must not be empty" = nchar(directory_path) > 0
-        )
-        
-        fastq_path <- file.path(directory_path, "fastq")
-        
-        if (!dir.exists(directory_path)) {
-            result$error <- "Invalid directory path"
-            return(result)
-        }
-        
-        if (!dir.exists(fastq_path)) {
-            result$error <- "Missing fastq subdirectory"
-            return(result)
-        }
-        
-        result$success <- TRUE
-        result$data <- directory_path
-        
-    }, error = function(e) {
-        result$error <- as.character(e)
-    })
-    
-    return(result)
-}
-
-#' @title FASTQ Files Finder
-#' @description Locates consolidated sequence FASTQ files
-#' @param directory_path character Validated directory path
-#' @return list(success = logical, data = character[], error = character)
-#' @throws "No FASTQ files found" when no matching files exist
-#' @importFrom base list.files file.path
-#' @precondition directory_path must be validated
-#' @postcondition Returns list of FASTQ filenames
-#' @examples
-#' files_result <- fastq_files_find(valid_path)
-#' if(files_result$success) fastq_files <- files_result$data
-#' @seealso experiment_numbers_extract
-fastq_files_find <- function(directory_path) {
-    result <- list(
-        success = FALSE,
-        data = NULL,
-        error = NULL
-    )
-    
-    tryCatch({
-        stopifnot(
-            "directory_path must be character" = is.character(directory_path),
-            "directory_path must be length 1" = length(directory_path) == 1,
-            "directory_path must exist" = dir.exists(directory_path)
-        )
-        
-        fastq_files <- list.files(
-            path = file.path(directory_path, "fastq"),
-            pattern = "consolidated_.*_sequence\\.fastq$",
-            full.names = FALSE
-        )
-        
-        if (length(fastq_files) == 0) {
-            result$error <- "No FASTQ files found"
-            return(result)
-        }
-        
-        result$success <- TRUE
-        result$data <- fastq_files
-        
-    }, error = function(e) {
-        result$error <- as.character(e)
-    })
-    
-    return(result)
-}
-#' @title Experiment Numbers Extractor
-#' @description Extracts experiment numbers from FASTQ filenames
-#' @param fastq_files character[] Vector of FASTQ filenames
-#' @return list(success = logical, data = character[], error = character)
-#' @throws "Invalid filename pattern" when extraction fails
-#' @importFrom base gsub
-#' @precondition fastq_files must contain valid filenames
-#' @postcondition Returns vector of experiment numbers
-#' @examples
-#' numbers_result <- experiment_numbers_extract(fastq_files)
-#' if(numbers_result$success) exp_numbers <- numbers_result$data
-#' @seealso experiment_numbers_validate
-experiment_numbers_extract <- function(fastq_files) {
-    result <- list(
-        success = FALSE,
-        data = NULL,
-        error = NULL
-    )
-    
-    tryCatch({
-        stopifnot(
-            "fastq_files must be character vector" = is.character(fastq_files),
-            "fastq_files must not be empty" = length(fastq_files) > 0
-        )
-        
-        pattern <- "consolidated_([0-9]{5,6})_sequence\\.fastq"
-        exp_numbers <- gsub(pattern, "\\1", fastq_files)
-        
-        if (any(exp_numbers == fastq_files)) {
-            result$error <- "Invalid filename pattern"
-            return(result)
-        }
-        
-        result$success <- TRUE
-        result$data <- exp_numbers
-        
-    }, error = function(e) {
-        result$error <- as.character(e)
-    })
-    
-    return(result)
-}
-#' @title Experiment Numbers Validator
-#' @description Validates extracted experiment numbers
-#' @param experiment_numbers character[] Vector of experiment numbers
-#' @return list(success = logical, data = character[], error = character)
-#' @throws "Invalid experiment number format" when validation fails
-#' @importFrom base grepl
-#' @precondition experiment_numbers must be non-empty vector
-#' @postcondition Returns validated experiment numbers
-#' @examples
-#' valid_result <- experiment_numbers_validate(exp_numbers)
-#' if(valid_result$success) valid_numbers <- valid_result$data
-experiment_numbers_validate <- function(experiment_numbers) {
-    result <- list(
-        success = FALSE,
-        data = NULL,
-        error = NULL
-    )
-    
-    tryCatch({
-        stopifnot(
-            "experiment_numbers must be character vector" = is.character(experiment_numbers),
-            "experiment_numbers must not be empty" = length(experiment_numbers) > 0
-        )
-        
-        valid_pattern <- "^[0-9]{5,6}$"
-        is_valid <- grepl(valid_pattern, experiment_numbers)
-        
-        if (!all(is_valid)) {
-            result$error <- "Invalid experiment number format"
-            return(result)
-        }
-        
-        result$success <- TRUE
-        result$data <- experiment_numbers
-        
-    }, error = function(e) {
-        result$error <- as.character(e)
-    })
-    
-    return(result)
-}
-
-#' @title Experiment Numbers Pipeline
-#' @description Orchestrates the experiment number extraction workflow
-#' @param directory_path character Input directory path
-#' @return list(success = logical, data = character[], error = character)
-#' @throws Multiple error conditions from component functions
-#' @importFrom purrr compose
-#' @precondition Valid directory path input
-#' @postcondition Returns validated experiment numbers or error
-#' @examples
-#' result <- experiment_numbers_pipeline("/path/to/exp")
-#' if(result$success) numbers <- result$data
-experiment_numbers_pipeline <- function(directory_path) {
-    result <- list(
-        success = FALSE,
-        data = NULL,
-        error = NULL
-    )
-    
-    # Validate directory
-    dir_result <- directory_path_validate(directory_path)
-    if (!dir_result$success) {
-        return(dir_result)
-    }
-    
-    # Find FASTQ files
-    files_result <- fastq_files_find(dir_result$data)
-    if (!files_result$success) {
-        return(files_result)
-    }
-    
-    # Extract numbers
-    numbers_result <- experiment_numbers_extract(files_result$data)
-    if (!numbers_result$success) {
-        return(numbers_result)
-    }
-    
-    # Validate numbers
-    final_result <- experiment_numbers_validate(numbers_result$data)
-    return(final_result)
 }

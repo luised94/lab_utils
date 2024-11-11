@@ -65,34 +65,28 @@ experiment_paths <- list(
 
 # 3. Load and process metadata
 #-----------------------------------------------------------------------------
-metadata_path_result <- metadata_path_validate(
+
+metadata_processing_result <- experiment_metadata_process(
     directory_path = experiment_paths$base,
-    file_name_pattern = "%s_sample_grid.csv"
+    configuration = list(
+        categories = EXPERIMENT_CONFIG$CATEGORIES,
+        column_order = EXPERIMENT_CONFIG$COLUMN_ORDER
+    ),
+    output_options = list(
+        output_file = FALSE,  # Set to TRUE if you want to save processed metadata
+        output_path = NULL
+    )
 )
-if (!metadata_path_result$success) {
-    stop(metadata_path_result$error)
+if (!metadata_processing_result$success) {
+    stop(metadata_processing_result$error)
 }
 
-metadata_result <- metadata_file_read(
-    file_path = metadata_path_result$data,
-    read_options = list(stringsAsFactors = FALSE)
-)
-if (!metadata_result$success) {
-    stop(metadata_result$error)
+sorted_metadata <- metadata_processing_result$data
+
+# Verify sample_id column exists
+if (!"sample_id" %in% colnames(sorted_metadata)) {
+    stop("Processed metadata missing required 'sample_id' column")
 }
-
-# Process metadata with factor levels and sorting
-processed_metadata <- factor_categories_enforce(
-    metadata_frame = metadata_result$data,
-    category_definitions = EXPERIMENT_CONFIG$CATEGORIES
-)$data
-
-sorted_metadata <- metadata_frame_sort(
-    metadata_frame = processed_metadata,
-    sort_columns = EXPERIMENT_CONFIG$COLUMN_ORDER
-)$data
-# Determine experiment ids in fastq file directory.
-sample_identifiers <- experiment_numbers_pipeline(file.path(experiment_paths$base, "fastq"))
 
 # 4. Load genome and feature data
 #-----------------------------------------------------------------------------
