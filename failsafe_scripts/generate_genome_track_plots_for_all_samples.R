@@ -26,7 +26,7 @@ REQUIRED_PACKAGES <- c("ShortRead", "GenomeInfoDb", "rtracklayer", "GenomicRange
 
 # 1. Load and verify config and functions
 #-----------------------------------------------------------------------------
-library(rlang) # Required for %||%
+#library(rlang) # Required for %||%
 source("~/lab_utils/failsafe_scripts/all_functions.R")
 source("~/lab_utils/failsafe_scripts/bmc_config.R")
 
@@ -136,10 +136,10 @@ feature_result <- tryCatch({
 # Process all samples
 #-----------------------------------------------------------------------------
 # Get all bigwig files
-#TODO: Adjust the pattern after rerunning the normalization of the bamcoverage after adjusting the naming of the bam path.
+# TODO: Add to perform plotting for all normalization. CPM must be replaced with list.
 bigwig_files <- list.files(
     coverage_directory,
-    pattern = ".*normalized.*\\.bw$",
+    pattern = "_CPM\\.bw$",
     full.names = TRUE
 )
 
