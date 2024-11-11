@@ -91,6 +91,8 @@ sorted_metadata <- metadata_frame_sort(
     metadata_frame = processed_metadata,
     sort_columns = EXPERIMENT_CONFIG$COLUMN_ORDER
 )$data
+# Determine experiment ids in fastq file directory.
+sample_identifiers <- experiment_numbers_pipeline(file.path(experiment_paths$base, "fastq"))
 
 # 4. Load genome and feature data
 #-----------------------------------------------------------------------------
