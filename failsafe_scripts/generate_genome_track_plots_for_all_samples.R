@@ -1,123 +1,127 @@
+
 #!/usr/bin/env Rscript
+
 # Constants and Configuration
 #-----------------------------------------------------------------------------
 PLOT_CONFIG <- list(
     SAMPLES_PER_PAGE = 4,
     DEFAULT_CHROMOSOME = 10,
     TRACK_COLOR = "#fd0036",
+    PLACEHOLDER_COLOR = "#cccccc",
     WIDTH = 10,
     HEIGHT = 8
 )
+
 EXPERIMENT_ID <- "241007Bel"
 TIMESTAMP <- format(Sys.Date(), "%Y%m%d")
-ref_genome_file <- list.files(
-    file.path(Sys.getenv("HOME"), "data", "REFGENS"),
+
+# Define file paths with intention-revealing names
+reference_genome_path <- list.files(
+    path = file.path(Sys.getenv("HOME"), "data", "REFGENS"),
     pattern = "S288C_refgenome.fna",
     full.names = TRUE,
     recursive = TRUE
 )[1]
-feature_file <- list.files(
-    file.path(Sys.getenv("HOME"), "data", "feature_files"),
+
+feature_annotation_path <- list.files(
+    path = file.path(Sys.getenv("HOME"), "data", "feature_files"),
     pattern = "eaton_peaks",
     full.names = TRUE
 )[1]
-options(ucscChromosomeNames=FALSE)
-REQUIRED_PACKAGES <- c("ShortRead", "GenomeInfoDb", "rtracklayer", "GenomicRanges", "Gviz", "tidyverse", "QuasR")
 
-# 1. Load and verify config and functions
+options(ucscChromosomeNames = FALSE)
+
+REQUIRED_PACKAGES <- c(
+    "ShortRead", "GenomeInfoDb", "rtracklayer", 
+    "GenomicRanges", "Gviz", "tidyverse", "QuasR"
+)
+
+# 1. Load and verify dependencies
 #-----------------------------------------------------------------------------
-#library(rlang) # Required for %||%
 source("~/lab_utils/failsafe_scripts/all_functions.R")
 source("~/lab_utils/failsafe_scripts/bmc_config.R")
 
-#config_result <- validate_dependencies()
-#if (!config_result) {
-#    stop("Configuration validation failed")
-#}
-## 2. Load and verify required packages
-#-----------------------------------------------------------------------------
-packages_result <- packages_required_validate(REQUIRED_PACKAGES)
-if (!packages_result$success) {
-    stop(packages_result$error)
+packages_validation_result <- packages_required_validate(REQUIRED_PACKAGES)
+if (!packages_validation_result$success) {
+    stop(packages_validation_result$error)
 }
 
-# 3. Set up initial variables and paths
+# 2. Initialize experiment environment
 #-----------------------------------------------------------------------------
-experiment_result <- experiment_environment_validate(
-    EXPERIMENT_ID,
-    list(directories = c("coverage", "documentation", "plots"))
+experiment_validation_result <- experiment_environment_validate(
+    experiment_identifier = EXPERIMENT_ID,
+    environment_requirements = list(
+        directories = c("coverage", "documentation", "plots")
+    )
 )
-if (!experiment_result$success) {
-    stop(experiment_result$error)
+if (!experiment_validation_result$success) {
+    stop(experiment_validation_result$error)
 }
 
-base_directory <- experiment_result$data$base_path
-coverage_directory <- file.path(base_directory, "coverage")
-plots_directory <- file.path(base_directory, "plots")
+experiment_paths <- list(
+    base = experiment_validation_result$data$base_path,
+    coverage = file.path(experiment_validation_result$data$base_path, "coverage"),
+    plots = file.path(experiment_validation_result$data$base_path, "plots")
+)
 
-
-# 4. Load and process sample table
+# 3. Load and process metadata
 #-----------------------------------------------------------------------------
 metadata_path_result <- metadata_path_validate(
-    base_directory,
-    "%s_sample_grid.csv"
+    directory_path = experiment_paths$base,
+    file_pattern = "%s_sample_grid.csv"
 )
 if (!metadata_path_result$success) {
     stop(metadata_path_result$error)
 }
 
 metadata_result <- metadata_file_read(
-    metadata_path_result$data,
-    list(stringsAsFactors = FALSE)
+    file_path = metadata_path_result$data,
+    read_options = list(stringsAsFactors = FALSE)
 )
 if (!metadata_result$success) {
     stop(metadata_result$error)
 }
 
-# Enforce factor levels and sort
-sample_table_processed <- factor_categories_enforce(
-    metadata_result$data,
-    EXPERIMENT_CONFIG$CATEGORIES
+# Process metadata with factor levels and sorting
+processed_metadata <- factor_categories_enforce(
+    metadata_frame = metadata_result$data,
+    category_definitions = EXPERIMENT_CONFIG$CATEGORIES
 )$data
 
-sample_table_sorted <- metadata_frame_sort(
-    sample_table_processed,
-    EXPERIMENT_CONFIG$COLUMN_ORDER
+sorted_metadata <- metadata_frame_sort(
+    metadata_frame = processed_metadata,
+    sort_columns = EXPERIMENT_CONFIG$COLUMN_ORDER
 )$data
 
-# 5. Load reference genome
+# 4. Load genome and feature data
 #-----------------------------------------------------------------------------
-genome_result <- tryCatch({
-    Biostrings::readDNAStringSet(ref_genome_file)
+genome_data <- tryCatch({
+    Biostrings::readDNAStringSet(reference_genome_path)
 }, error = function(e) {
     stop(sprintf("Failed to load reference genome: %s", e$message))
 })
 
-# 6. Create genome ranges
-#-----------------------------------------------------------------------------
-chromosome <- PLOT_CONFIG$DEFAULT_CHROMOSOME
 genome_range_result <- genomic_range_create(
-    chromosome,
-    list(start = 1, end = 1e6)
+    chromosome_number = PLOT_CONFIG$DEFAULT_CHROMOSOME,
+    range_parameters = list(start = 1, end = 1e6)
 )
 if (!genome_range_result$success) {
     stop(genome_range_result$error)
 }
 
-# 7. Load and process feature file
-#-----------------------------------------------------------------------------
-feature_result <- tryCatch({
-    features <- rtracklayer::import(feature_file)
+# Load and process feature annotations
+feature_track_result <- tryCatch({
+    feature_data <- rtracklayer::import(feature_annotation_path)
     
     # Convert chromosome style
-    GenomeInfoDb::seqlevels(features) <- chromosome_names_convert(
-        GenomeInfoDb::seqlevels(features),
-        "Roman"
+    GenomeInfoDb::seqlevels(feature_data) <- chromosome_names_convert(
+        chromosome_names = GenomeInfoDb::seqlevels(feature_data),
+        target_style = "Roman"
     )$data
     
     feature_track <- feature_track_create(
-        features,
-        list(
+        feature_data = feature_data,
+        track_options = list(
             name = "Features",
             chromosome = genome_range_result$data@seqnames[1]
         )
@@ -133,105 +137,110 @@ feature_result <- tryCatch({
     NULL
 })
 
-# Process all samples
+# 5. Process bigwig files and create sample mapping
 #-----------------------------------------------------------------------------
-# Get all bigwig files
-# TODO: Add to perform plotting for all normalization. CPM must be replaced with list.
-bigwig_files <- list.files(
-    coverage_directory,
+available_bigwig_files <- list.files(
+    path = experiment_paths$coverage,
     pattern = "_CPM\\.bw$",
     full.names = TRUE
 )
 
-# Calculate global range
-range_result <- get_global_range(bigwig_files, genome_range_result$data)
+bigwig_mapping_result <- create_bigwig_sample_mapping(
+    sample_table = sorted_metadata,
+    bigwig_files = available_bigwig_files
+)
+if (!bigwig_mapping_result$success) {
+    stop(bigwig_mapping_result$error)
+}
+
+# Calculate global range for visualization
+range_result <- get_global_range(
+    bigwig_files = available_bigwig_files,
+    genome_range = genome_range_result$data
+)
 if (!range_result$success) {
     stop(range_result$error)
 }
 
-# Process samples into groups of SAMPLES_PER_PAGE
-
-# Calculate sample grouping parameters
-sample_count <- nrow(sample_table_sorted)
-sample_indices <- seq_len(sample_count)
+# 6. Process samples in groups and create plots
+#-----------------------------------------------------------------------------
+# Calculate grouping parameters
+sample_count <- nrow(sorted_metadata)
 group_count <- ceiling(sample_count / PLOT_CONFIG$SAMPLES_PER_PAGE)
+
+# Create sample groups
 sample_groups <- split(
-    x = sample_indices,
-    f = group_count
+    x = seq_len(sample_count),
+    f = ceiling(seq_len(sample_count) / PLOT_CONFIG$SAMPLES_PER_PAGE)
 )
 
-# Create plots for each group
+# Process each group
 for (group_idx in seq_along(sample_groups)) {
-    group_samples <- sample_table_sorted[sample_groups[[group_idx]], ]
+    current_group_samples <- sorted_metadata[sample_groups[[group_idx]], ]
     
-
-    # Extract sample track configurations
-    sample_track_configs <- lapply(seq_len(nrow(group_samples)), function(i) {
-        list(
-            bigwig_file = bigwig_files[i],
-            name = group_samples$sample_id[i]
-        )
-    })
-
-    # Define track group options
-    track_group_options <- list(
-        chromosome = genome_range_result$data@seqnames[1],
-        color = PLOT_CONFIG$TRACK_COLOR
+    # Create track configurations for current group
+    track_configs_result <- create_sample_track_configs(
+        group_samples = current_group_samples,
+        bigwig_mapping = bigwig_mapping_result$data
     )
-
-    # Create track group with explicit parameters
+    if (!track_configs_result$success) {
+        warning(sprintf("Failed to create track configs for group %d: %s",
+                       group_idx, track_configs_result$error))
+        next
+    }
+    
+    # Create visualization tracks
     track_group_result <- track_group_create(
-        sample_list = sample_track_configs,
-        group_options = track_group_options
+        sample_list = track_configs_result$data,
+        group_options = list(
+            chromosome = genome_range_result$data@seqnames[1],
+            color = PLOT_CONFIG$TRACK_COLOR,
+            placeholder_color = PLOT_CONFIG$PLACEHOLDER_COLOR
+        )
     )
-
     if (!track_group_result$success) {
-        warning(sprintf("Failed to create tracks for group %d: %s", 
+        warning(sprintf("Failed to create tracks for group %d: %s",
                        group_idx, track_group_result$error))
         next
     }
     
     # Add feature track if available
-    if (!is.null(feature_result)) {
+    if (!is.null(feature_track_result)) {
         track_group_result$data$tracks <- c(
             track_group_result$data$tracks,
-            feature_result$track
+            feature_track_result$track
         )
     }
     
-    # Define plot path parameters
-    plot_path_parameters <- list(
-        chromosome = chromosome,
-        group = group_idx
-    )
-    
     # Generate plot path
     plot_path_result <- plot_path_generate(
-        base_directory = plots_directory,
-        plot_parameters = plot_path_parameters
+        base_directory = experiment_paths$plots,
+        plot_parameters = list(
+            chromosome = PLOT_CONFIG$DEFAULT_CHROMOSOME,
+            group = group_idx,
+            timestamp = TIMESTAMP,
+            experiment_id = EXPERIMENT_ID
+        )
     )
-    
     if (!plot_path_result$success) {
         warning(sprintf("Failed to generate plot path for group %d: %s",
                        group_idx, plot_path_result$error))
         next
     }
     
-    # Define track visualization parameters
-    track_plot_parameters <- list(
-        width = PLOT_CONFIG$WIDTH,
-        height = PLOT_CONFIG$HEIGHT,
-        output_path = plot_path_result$data,
-        calculate_limits = TRUE,
-        chromosome = genome_range_result$data@seqnames[1],
-    )
-    
-    # Create plot with explicit parameters
+    # Create visualization plot
     plot_result <- plot_tracks_create(
         track_group = track_group_result$data,
-        plot_options = track_plot_parameters
+        plot_options = list(
+            width = PLOT_CONFIG$WIDTH,
+            height = PLOT_CONFIG$HEIGHT,
+            output_path = plot_path_result$data,
+            calculate_limits = TRUE,
+            chromosome = genome_range_result$data@seqnames[1],
+            title = sprintf("Chromosome %s - Group %d", 
+                          PLOT_CONFIG$DEFAULT_CHROMOSOME, group_idx)
+        )
     )
-
     if (!plot_result$success) {
         warning(sprintf("Failed to create plot for group %d: %s",
                        group_idx, plot_result$error))
