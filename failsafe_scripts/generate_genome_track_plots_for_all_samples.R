@@ -1,4 +1,3 @@
-
 #!/usr/bin/env Rscript
 
 # Constants and Configuration
@@ -68,7 +67,7 @@ experiment_paths <- list(
 #-----------------------------------------------------------------------------
 metadata_path_result <- metadata_path_validate(
     directory_path = experiment_paths$base,
-    file_pattern = "%s_sample_grid.csv"
+    file_name_pattern = "%s_sample_grid.csv"
 )
 if (!metadata_path_result$success) {
     stop(metadata_path_result$error)
