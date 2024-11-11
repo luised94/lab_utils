@@ -150,29 +150,41 @@ if (!range_result$success) {
 }
 
 # Process samples into groups of SAMPLES_PER_PAGE
+
+# Calculate sample grouping parameters
+sample_count <- nrow(sample_table_sorted)
+sample_indices <- seq_len(sample_count)
+group_count <- ceiling(sample_count / PLOT_CONFIG$SAMPLES_PER_PAGE)
 sample_groups <- split(
-    seq_len(nrow(sample_table_sorted)),
-    ceiling(seq_len(nrow(sample_table_sorted)) / PLOT_CONFIG$SAMPLES_PER_PAGE)
+    x = sample_indices,
+    f = group_count
 )
 
 # Create plots for each group
 for (group_idx in seq_along(sample_groups)) {
     group_samples <- sample_table_sorted[sample_groups[[group_idx]], ]
     
-    # Create tracks for group
-    track_group_result <- track_group_create(
-        lapply(seq_len(nrow(group_samples)), function(i) {
-            list(
-                bigwig_file = bigwig_files[i],
-                name = group_samples$sample_id[i]
-            )
-        }),
+
+    # Extract sample track configurations
+    sample_track_configs <- lapply(seq_len(nrow(group_samples)), function(i) {
         list(
-            chromosome = genome_range_result$data@seqnames[1],
-            color = PLOT_CONFIG$TRACK_COLOR
+            bigwig_file = bigwig_files[i],
+            name = group_samples$sample_id[i]
         )
+    })
+
+    # Define track group options
+    track_group_options <- list(
+        chromosome = genome_range_result$data@seqnames[1],
+        color = PLOT_CONFIG$TRACK_COLOR
     )
-    
+
+    # Create track group with explicit parameters
+    track_group_result <- track_group_create(
+        sample_configurations = sample_track_configs,
+        group_options = track_group_options
+    )
+
     if (!track_group_result$success) {
         warning(sprintf("Failed to create tracks for group %d: %s", 
                        group_idx, track_group_result$error))
@@ -187,13 +199,16 @@ for (group_idx in seq_along(sample_groups)) {
         )
     }
     
-    # Generate plot
+    # Define plot path parameters
+    plot_path_parameters <- list(
+        chromosome = chromosome,
+        group = group_idx
+    )
+    
+    # Generate plot path
     plot_path_result <- plot_path_generate(
-        plots_directory,
-        list(
-            chromosome = chromosome,
-            group = group_idx
-        )
+        base_directory = plots_directory,
+        plot_parameters = plot_path_parameters
     )
     
     if (!plot_path_result$success) {
@@ -202,17 +217,21 @@ for (group_idx in seq_along(sample_groups)) {
         next
     }
     
-    plot_result <- plot_tracks_create(
-        track_group_result$data,
-        list(
-            width = PLOT_CONFIG$WIDTH,
-            height = PLOT_CONFIG$HEIGHT,
-            output_path = plot_path_result$data,
-            calculate_limits = TRUE,
-            chromosome = genome_range_result$data@seqnames[1]
-        )
+    # Define track visualization parameters
+    track_plot_parameters <- list(
+        width = PLOT_CONFIG$WIDTH,
+        height = PLOT_CONFIG$HEIGHT,
+        output_path = plot_path_result$data,
+        calculate_limits = TRUE,
+        chromosome = genome_range_result$data@seqnames[1],
     )
     
+    # Create plot with explicit parameters
+    plot_result <- plot_tracks_create(
+        track_group = track_group_result$data,
+        plot_options = track_plot_parameters
+    )
+
     if (!plot_result$success) {
         warning(sprintf("Failed to create plot for group %d: %s",
                        group_idx, plot_result$error))
