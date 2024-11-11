@@ -149,7 +149,7 @@ if (!range_result$success) {
     stop(range_result$error)
 }
 
-# Process samples in groups
+# Process samples into groups of SAMPLES_PER_PAGE
 sample_groups <- split(
     seq_len(nrow(sample_table_sorted)),
     ceiling(seq_len(nrow(sample_table_sorted)) / PLOT_CONFIG$SAMPLES_PER_PAGE)
