@@ -29,7 +29,8 @@ FUNCTION_REGISTRY <- list(
         "track_single_create",
         "track_group_create",
         "plot_path_generate",
-        "plot_tracks_create"
+        "plot_tracks_create",
+        "get_global_range"
     )
 )
 
@@ -81,6 +82,9 @@ FUNCTION_DEPENDENCIES <- list(
     ),
     plot_tracks_create = c(
         "track_group_range_calculate",
+        "track_range_calculate"
+    ),
+    get_global_range = c(
         "track_range_calculate"
     )
 )

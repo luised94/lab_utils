@@ -2922,3 +2922,72 @@ plot_tracks_create <- function(track_group, plot_options) {
     
     return(result)
 }
+
+#' @title Calculate Global Range Across Bigwig Files
+#' @description Calculates combined value range across multiple bigwig files
+#' @param bigwig_files character Vector of bigwig file paths
+#' @param genome_range GRanges Genomic range to consider
+#' @return list Range calculation result {success, data, error}
+#' @throws RangeCalculationError if calculation fails
+#' @examples
+#' get_global_range(c("sample1.bw", "sample2.bw"), genome_range)
+#' @seealso track_range_calculate
+get_global_range <- function(bigwig_files, genome_range) {
+    result <- tryCatch({
+        stopifnot(
+            "bigwig_files must be character vector" = is.character(bigwig_files),
+            "bigwig_files cannot be empty" = length(bigwig_files) > 0,
+            "genome_range must be GRanges" = inherits(genome_range, "GRanges")
+        )
+        
+        # Calculate range for each file
+        ranges <- lapply(bigwig_files, function(bw_file) {
+            tryCatch({
+                # Import bigwig data for specified range
+                track_data <- rtracklayer::import(bw_file, which = genome_range)
+                if (length(track_data) == 0) {
+                    return(NULL)
+                }
+                
+                # Extract values and calculate range
+                values <- GenomicRanges::values(track_data)$score
+                if (length(values) == 0) {
+                    return(NULL)
+                }
+                
+                range(values, na.rm = TRUE)
+            }, error = function(e) {
+                warning(sprintf("Failed to process %s: %s", 
+                              basename(bw_file), e$message))
+                return(NULL)
+            })
+        })
+        
+        # Remove NULL results and combine ranges
+        valid_ranges <- do.call(rbind, ranges[!sapply(ranges, is.null)])
+        
+        if (nrow(valid_ranges) == 0) {
+            stop("No valid ranges found in any bigwig file")
+        }
+        
+        # Calculate global min and max
+        global_range <- c(
+            min(valid_ranges[, 1], na.rm = TRUE),
+            max(valid_ranges[, 2], na.rm = TRUE)
+        )
+        
+        list(
+            success = TRUE,
+            data = global_range,
+            error = NULL
+        )
+    }, error = function(e) {
+        list(
+            success = FALSE,
+            data = NULL,
+            error = e$message
+        )
+    })
+    
+    return(result)
+}
