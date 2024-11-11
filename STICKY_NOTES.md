@@ -153,3 +153,7 @@ Need to test that input sample name is being added correctly.
 
 ## 2024-11-07
 Input samples could still be messed up. Ensure everything lines up during alignment, coverage calculations and plotting.
+
+## 2024-11-11
+Need to update the output directory to not nest plot directories. See script to plot all samples.
+
