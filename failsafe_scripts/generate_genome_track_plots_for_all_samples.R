@@ -181,7 +181,7 @@ for (group_idx in seq_along(sample_groups)) {
 
     # Create track group with explicit parameters
     track_group_result <- track_group_create(
-        sample_configurations = sample_track_configs,
+        sample_list = sample_track_configs,
         group_options = track_group_options
     )
 
