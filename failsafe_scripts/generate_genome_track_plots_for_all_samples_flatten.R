@@ -7,7 +7,8 @@ DEBUG_CONFIG <- list(
     group = 1,               # Which group to process when in debug mode
     samples_per_group = 4,    # Samples per plot
     save_plots = FALSE,       # Whether to save plots to files
-    verbose = TRUE           # Print debug information
+    verbose = TRUE,           # Print debug information
+    chromosome = 10
 )
 
 PLOT_CONFIG <- list(
@@ -26,14 +27,86 @@ for (pkg in required_packages) {
     }
 }
 
-source("~/lab_utils/failsafe_scripts/all_functions.R")
+#source("~/lab_utils/failsafe_scripts/all_functions.R")
 source("~/lab_utils/failsafe_scripts/bmc_config.R")
 # Load metadata and files
 #-----------------------------------------------------------------------------
 experiment_id <- "241007Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 plots_dir <- file.path(base_dir, "plots", "genome_tracks")
+metadata_path <- file.path(base_dir, "documentation", 
+                          paste0(experiment_id, "_sample_grid.csv"))
 dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
+
+# 2. Find fastq files and extract sample IDs
+fastq_files <- list.files(
+    path = file.path(base_dir, "fastq"),
+    pattern = "consolidated_.*_sequence\\.fastq$",
+    full.names = FALSE
+)
+
+if (length(fastq_files) == 0) {
+    stop("No fastq files found in specified directory")
+}
+
+# Extract sample IDs from fastq filenames
+sample_ids <- gsub(
+    pattern = "consolidated_([0-9]{5,6})_sequence\\.fastq",
+    replacement = "\\1",
+    x = fastq_files
+)
+
+# 3. Load and process metadata
+metadata <- read.csv(metadata_path, stringsAsFactors = FALSE)
+
+# 4. Enforce factor levels from config
+for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
+    if (col_name %in% colnames(metadata)) {
+        metadata[[col_name]] <- factor(
+            metadata[[col_name]],
+            levels = EXPERIMENT_CONFIG$CATEGORIES[[col_name]],
+            ordered = TRUE
+        )
+    }
+}
+
+# 5. Add sample IDs to metadata
+metadata$sample_id <- sample_ids
+
+# 6. Sort metadata using config column order
+sorted_metadata <- metadata[do.call(
+    order, 
+    metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
+), ]
+
+if (DEBUG_CONFIG$verbose) {
+    message("Metadata processing summary:")
+    message(sprintf("Found %d fastq files", length(fastq_files)))
+    message(sprintf("Processed %d metadata rows", nrow(sorted_metadata)))
+    message("Columns with enforced factors:")
+    print(names(EXPERIMENT_CONFIG$CATEGORIES))
+}
+
+# Load reference genome
+ref_genome_file <- list.files(
+    file.path(Sys.getenv("HOME"), "data", "REFGENS"),
+    pattern = "S288C_refgenome.fna",
+    full.names = TRUE,
+    recursive = TRUE
+)[1]
+genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
+
+
+# Create chromosome range
+chromosome_to_plot <- DEBUG_CONFIG$chromosome
+chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
+chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
+
+genome_range <- GenomicRanges::GRanges(
+    seqnames = chromosome_roman,
+    ranges = IRanges::IRanges(start = 1, end = chromosome_width),
+    strand = "*"
+)
 
 # Load sample metadata
 metadata_processing_result <- experiment_metadata_process(
@@ -50,6 +123,7 @@ metadata_processing_result <- experiment_metadata_process(
 if (!metadata_processing_result$success) {
     stop(metadata_processing_result$error)
 }
+
 sorted_metadata <- metadata_processing_result$data
 # Find bigwig files
 bigwig_files <- list.files(
@@ -67,10 +141,15 @@ feature_file <- list.files(
 
 if (!is.null(feature_file)) {
     features <- rtracklayer::import(feature_file)
-    # Make sure chromosome naming matches bigwig files
-    GenomeInfoDb::seqlevels(features) <- paste0("chr", GenomeInfoDb::seqlevels(features))
+    # Convert to chrRoman format
+    GenomeInfoDb::seqlevels(features) <- paste0(
+        "chr", 
+        sapply(
+            gsub("chr", "", GenomeInfoDb::seqlevels(features)), 
+            utils::as.roman
+        )
+    )
 }
-
 # Process samples in groups
 #-----------------------------------------------------------------------------
 # Create sample groups
@@ -96,7 +175,12 @@ for (group_idx in groups_to_process) {
     current_samples <- sorted_metadata[sample_groups[[group_idx]], ]
     
     # Initialize tracks list with chromosome axis
-    tracks <- list(Gviz::GenomeAxisTrack())
+
+    tracks <- list(
+        Gviz::GenomeAxisTrack(
+            name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
+        )
+    )
     
     # Add tracks for each sample
     for (i in seq_len(nrow(current_samples))) {
