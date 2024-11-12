@@ -2162,7 +2162,7 @@ feature_track_create <- function(feature_data, track_options) {
         
         track <- Gviz::AnnotationTrack(
             feature_data,
-            name = if (is.null(track_options$name)) "Features" else track_options$name,
+            name = if (is.null(track_options$name)) "Features" else track_options$name, # Use to replace %||%
             chromosome = track_options$chromosome,
             genome = track_options$genome
         )
@@ -3077,25 +3077,58 @@ create_bigwig_sample_mapping <- function(sample_table, bigwig_files) {
     return(result)
 }
 
-create_sample_track_configs <- function(group_samples, bigwig_mapping) {
+
+# Define a formal data structure contract
+#' @title Create Standard Track Configuration
+#' @description Creates standardized track configuration structure
+track_configuration_create <- function(sample_data) {
     result <- tryCatch({
         stopifnot(
-            "group_samples must be data.frame" = is.data.frame(group_samples),
-            "bigwig_mapping must be named character" = 
-                is.character(bigwig_mapping) && !is.null(names(bigwig_mapping))
+            "sample_data must be list" = is.list(sample_data),
+            "required fields missing" = all(c("bigwig_file", "name") %in% names(sample_data))
         )
         
-        track_configs <- lapply(seq_len(nrow(group_samples)), function(i) {
+        # Create standardized structure
+        track_config <- list(
+            bigwig_file = sample_data$bigwig_file,
+            name = sample_data$name,
+            metadata = list()  # Optional additional metadata
+        )
+        
+        class(track_config) <- "track_configuration"
+        
+        list(
+            success = TRUE,
+            data = track_config,
+            error = NULL
+        )
+    }, error = function(e) {
+        list(
+            success = FALSE,
+            data = NULL,
+            error = e$message
+        )
+    })
+    
+    return(result)
+}
+
+
+create_sample_track_configs <- function(group_samples, bigwig_mapping) {
+    result <- tryCatch({
+        configs <- lapply(seq_len(nrow(group_samples)), function(i) {
             current_sample_id <- group_samples$sample_id[i]
-            list(
+            config_result <- track_configuration_create(list(
                 bigwig_file = bigwig_mapping[current_sample_id],
                 name = current_sample_id
-            )
+            ))
+            if (!config_result$success) stop(config_result$error)
+            config_result$data
         })
         
         list(
             success = TRUE,
-            data = track_configs,
+            data = configs,
             error = NULL
         )
     }, error = function(e) {

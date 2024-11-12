@@ -35,7 +35,7 @@ feature_annotation_path <- list.files(
     full.names = TRUE
 )[1]
 
-options(ucscChromosomeNames = FALSE)
+#options(ucscChromosomeNames = FALSE)
 
 REQUIRED_PACKAGES <- c(
     "ShortRead", "GenomeInfoDb", "rtracklayer", 
@@ -105,7 +105,7 @@ genome_data <- tryCatch({
 
 genome_range_result <- genomic_range_create(
     chromosome_number = PLOT_CONFIG$DEFAULT_CHROMOSOME,
-    range_parameters = list(start = 1, end = 1e6)
+    range_parameters = list(start = 1, end = genome_data[PLOT_CONFIG$DEFAULT_CHROMOSOME]@ranges@width)
 )
 if (!genome_range_result$success) {
     stop(genome_range_result$error)
@@ -119,6 +119,12 @@ feature_track_result <- tryCatch({
     GenomeInfoDb::seqlevels(feature_data) <- chromosome_names_convert(
         chromosome_names = GenomeInfoDb::seqlevels(feature_data),
         target_style = "Roman"
+    )$data
+
+    # Convert chromosome style
+    GenomeInfoDb::seqlevels(feature_data) <- chromosome_names_convert(
+        chromosome_names = GenomeInfoDb::seqlevels(feature_data),
+        target_style = "UCSC"
     )$data
     
     feature_track <- feature_track_create(
@@ -217,7 +223,7 @@ for (group_idx in groups_to_process) {
     
     if (PROCESSING_CONFIG$verbose) {
         message("Group samples:")
-        print(current_group_samples[, c("sample_id", "experiment_number")])
+        print(current_group_samples[, c("sample_id")])
     }
     
     # Create track configurations for current group
