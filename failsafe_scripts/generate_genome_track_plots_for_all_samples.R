@@ -11,6 +11,13 @@ PLOT_CONFIG <- list(
     HEIGHT = 8
 )
 
+# Debug and execution configuration
+PROCESSING_CONFIG <- list(
+    debug_mode = TRUE,  # Toggle between debug (single group) and full processing
+    debug_group = 1,    # Which group to process in debug mode
+    verbose = TRUE      # Enable detailed logging
+)
+
 EXPERIMENT_ID <- "241007Bel"
 TIMESTAMP <- format(Sys.Date(), "%Y%m%d")
 
@@ -169,9 +176,49 @@ sample_groups <- split(
     f = ceiling(seq_len(sample_count) / PLOT_CONFIG$SAMPLES_PER_PAGE)
 )
 
-# Process each group
-for (group_idx in seq_along(sample_groups)) {
+# Determine groups to process based on configuration
+groups_to_process <- if (PROCESSING_CONFIG$debug_mode) {
+    PROCESSING_CONFIG$debug_group
+} else {
+    seq_along(sample_groups)
+}
+
+# Validation and logging of processing configuration
+message(sprintf("Processing mode: %s", 
+                if(PROCESSING_CONFIG$debug_mode) "DEBUG (single group)" else "FULL"))
+message(sprintf("Total groups: %d", length(sample_groups)))
+message(sprintf("Groups to process: %s", 
+                paste(groups_to_process, collapse = ", ")))
+
+
+# Bigwig file validation
+if (PROCESSING_CONFIG$verbose) {
+    message("\nValidating bigwig files:")
+    bigwig_validation <- lapply(available_bigwig_files, function(file) {
+        file_size <- file.size(file)
+        message(sprintf(
+            "File: %s\n  Exists: %s\n  Size: %d bytes",
+            basename(file),
+            file.exists(file),
+            file_size
+        ))
+        return(file_size > 0)
+    })
+    
+    valid_bigwig_count <- sum(unlist(bigwig_validation))
+    message(sprintf("\nValid bigwig files: %d/%d\n",
+                   valid_bigwig_count, length(available_bigwig_files)))
+}
+
+# Process selected groups
+for (group_idx in groups_to_process) {
+    message(sprintf("\nProcessing group %d", group_idx))
     current_group_samples <- sorted_metadata[sample_groups[[group_idx]], ]
+    
+    if (PROCESSING_CONFIG$verbose) {
+        message("Group samples:")
+        print(current_group_samples[, c("sample_id", "experiment_number")])
+    }
     
     # Create track configurations for current group
     track_configs_result <- create_sample_track_configs(
@@ -182,6 +229,19 @@ for (group_idx in seq_along(sample_groups)) {
         warning(sprintf("Failed to create track configs for group %d: %s",
                        group_idx, track_configs_result$error))
         next
+    }
+    
+    if (PROCESSING_CONFIG$verbose) {
+        message("\nTrack configurations:")
+        for (config in track_configs_result$data) {
+            message(sprintf(
+                "Sample: %s\n  Bigwig: %s\n  Exists: %s\n  Size: %d bytes",
+                config$name,
+                basename(config$bigwig_file),
+                file.exists(config$bigwig_file),
+                if(file.exists(config$bigwig_file)) file.size(config$bigwig_file) else 0
+            ))
+        }
     }
     
     # Create visualization tracks
