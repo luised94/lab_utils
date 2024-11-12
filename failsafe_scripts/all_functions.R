@@ -2727,20 +2727,25 @@ track_placeholder_create <- function(sample_name, track_options) {
             score = 0
         )
         
-        # Create empty track
+        # Create empty track with clear visual indication
         empty_track <- Gviz::DataTrack(
             empty_ranges,
             type = "l",
             name = paste(sample_name, "(No Data)"),
-            col = "#cccccc",  # Light gray color
-            chromosome = track_options$chromosome
+            col = track_options$placeholder_color %||% "#cccccc",
+            chromosome = track_options$chromosome,
+            background.title = "#f0f0f0"  # Light gray background for placeholder
         )
         
         list(
             success = TRUE,
             data = list(
                 track = empty_track,
-                source = "placeholder"
+                source = "placeholder",
+                metadata = list(
+                    is_placeholder = TRUE,
+                    original_name = sample_name
+                )
             ),
             error = NULL
         )
@@ -2765,28 +2770,54 @@ track_placeholder_create <- function(sample_name, track_options) {
 #' @examples
 #' track_single_create(sample_data, list(color = "#fd0036"))
 #' @seealso track_group_create
+
 track_single_create <- function(sample_data, track_options) {
     result <- tryCatch({
         stopifnot(
-            "sample_data must be list" = is.list(sample_data),
-            "track_options must be list" = is.list(track_options)
+            "sample_data must be track_configuration" = inherits(sample_data, "track_configuration"),
+            "track_options must be list" = is.list(track_options),
+            "required track configuration fields missing" = 
+                all(c("bigwig_file", "name") %in% names(sample_data))
         )
         
-        if (!file.exists(sample_data$bigwig_file)) {
-            # Create placeholder track instead of failing
+        # Extract validated paths and names
+        bigwig_path <- sample_data$bigwig_file
+        sample_name <- sample_data$name
+        
+        # Validate file existence
+        if (is.na(bigwig_path) || !file.exists(bigwig_path)) {
+            if (track_options$verbose) {
+                message(sprintf("Creating placeholder track for sample: %s", sample_name))
+            }
             return(track_placeholder_create(
-                sample_name = sample_data$name,
+                sample_name = sample_name,
                 track_options = track_options
             ))
         }
         
-        # Rest of the original function remains the same
-        track_data <- rtracklayer::import(sample_data$bigwig_file)
+        # Validate file size
+        if (file.size(bigwig_path) == 0) {
+            if (track_options$verbose) {
+                message(sprintf("Empty bigwig file for sample: %s", sample_name))
+            }
+            return(track_placeholder_create(
+                sample_name = sample_name,
+                track_options = track_options
+            ))
+        }
         
+        if (track_options$verbose) {
+            message(sprintf("Creating track from: %s", basename(bigwig_path)))
+        }
+        
+        # Import track data
+        track_data <- rtracklayer::import(bigwig_path)
+        
+        # Create visualization track
         track <- Gviz::DataTrack(
             track_data,
-            type = "l",
-            name = sample_data$name,
+            type = track_options$type %||% "l",
+            name = sample_name,
             col = track_options$color %||% "#fd0036",
             chromosome = track_options$chromosome
         )
@@ -2795,11 +2826,15 @@ track_single_create <- function(sample_data, track_options) {
             success = TRUE,
             data = list(
                 track = track,
-                source = sample_data$bigwig_file
+                source = bigwig_path,
+                metadata = sample_data$metadata  # Preserve any additional metadata
             ),
             error = NULL
         )
     }, error = function(e) {
+        if (track_options$verbose) {
+            message(sprintf("Error creating track: %s", e$message))
+        }
         # On any error, create placeholder track
         return(track_placeholder_create(
             sample_name = sample_data$name,
