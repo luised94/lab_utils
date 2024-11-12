@@ -14,7 +14,7 @@ PLOT_CONFIG <- list(
 # Debug and execution configuration
 PROCESSING_CONFIG <- list(
     debug_mode = TRUE,  # Toggle between debug (single group) and full processing
-    debug_group = 1,    # Which group to process in debug mode
+    debug_group = 15,    # Which group to process in debug mode
     verbose = TRUE      # Enable detailed logging
 )
 
@@ -102,11 +102,13 @@ genome_data <- tryCatch({
 }, error = function(e) {
     stop(sprintf("Failed to load reference genome: %s", e$message))
 })
+chromosome_length <- genome_data[PLOT_CONFIG$DEFAULT_CHROMOSOME]@ranges@width
 
 genome_range_result <- genomic_range_create(
     chromosome_number = PLOT_CONFIG$DEFAULT_CHROMOSOME,
-    range_parameters = list(start = 1, end = genome_data[PLOT_CONFIG$DEFAULT_CHROMOSOME]@ranges@width)
+    range_parameters = list(start = 1, end = chromosome_length)
 )
+
 if (!genome_range_result$success) {
     stop(genome_range_result$error)
 }
@@ -157,6 +159,7 @@ bigwig_mapping_result <- create_bigwig_sample_mapping(
     sample_table = sorted_metadata,
     bigwig_files = available_bigwig_files
 )
+
 if (!bigwig_mapping_result$success) {
     stop(bigwig_mapping_result$error)
 }
@@ -166,6 +169,7 @@ range_result <- get_global_range(
     bigwig_files = available_bigwig_files,
     genome_range = genome_range_result$data
 )
+
 if (!range_result$success) {
     stop(range_result$error)
 }
@@ -216,100 +220,136 @@ if (PROCESSING_CONFIG$verbose) {
                    valid_bigwig_count, length(available_bigwig_files)))
 }
 
+# Must see if feature_track_result can be accessed correclty. I also could add import which argument to pass genome range.
 # Process selected groups
+
+# Process sample groups
+#-----------------------------------------------------------------------------
 for (group_idx in groups_to_process) {
     message(sprintf("\nProcessing group %d", group_idx))
+    
+    # Get current group samples
     current_group_samples <- sorted_metadata[sample_groups[[group_idx]], ]
     
-    if (PROCESSING_CONFIG$verbose) {
-        message("Group samples:")
-        print(current_group_samples[, c("sample_id")])
-    }
-    
-    # Create track configurations for current group
+    # Create track configurations
     track_configs_result <- create_sample_track_configs(
         group_samples = current_group_samples,
         bigwig_mapping = bigwig_mapping_result$data
     )
+    
     if (!track_configs_result$success) {
         warning(sprintf("Failed to create track configs for group %d: %s",
                        group_idx, track_configs_result$error))
         next
     }
     
+    # Debug output for configurations
     if (PROCESSING_CONFIG$verbose) {
-        message("\nTrack configurations:")
-        for (config in track_configs_result$data) {
-            message(sprintf(
-                "Sample: %s\n  Bigwig: %s\n  Exists: %s\n  Size: %d bytes",
-                config$name,
-                basename(config$bigwig_file),
-                file.exists(config$bigwig_file),
-                if(file.exists(config$bigwig_file)) file.size(config$bigwig_file) else 0
-            ))
-        }
+        message("\nTrack configurations for group ", group_idx, ":")
+        print(data.frame(
+            sample_id = sapply(track_configs_result$data, `[[`, "name"),
+            bigwig = sapply(track_configs_result$data, function(x) basename(x$bigwig_file)),
+            stringsAsFactors = FALSE
+        ))
     }
     
-    # Create visualization tracks
-    track_group_result <- track_group_create(
-        sample_list = track_configs_result$data,
-        group_options = list(
-            chromosome = genome_range_result$data@seqnames[1],
-            color = PLOT_CONFIG$TRACK_COLOR,
-            placeholder_color = PLOT_CONFIG$PLACEHOLDER_COLOR
+    # Initialize track list with genome axis
+    tracks <- list(
+        Gviz::GenomeAxisTrack(
+            name = sprintf("%s", genome_range_result$data@seqnames[1])
         )
     )
-    if (!track_group_result$success) {
-        warning(sprintf("Failed to create tracks for group %d: %s",
-                       group_idx, track_group_result$error))
-        next
+    
+    # Process each sample in group
+    for (track_config in track_configs_result$data) {
+        if (PROCESSING_CONFIG$verbose) {
+            message("\nProcessing sample: ", track_config$name)
+        }
+        
+        # Create track (real or placeholder)
+        if (is.na(track_config$bigwig_file) || !file.exists(track_config$bigwig_file)) {
+            if (PROCESSING_CONFIG$verbose) {
+                message("Creating placeholder for: ", track_config$name)
+            }
+            
+            # Create placeholder track with proper genome range
+            empty_ranges <- GenomicRanges::GRanges(
+                seqnames = genome_range_result$data@seqnames[1],
+                ranges = IRanges::IRanges(
+                    start = 1,
+                    end = genome_data[PLOT_CONFIG$DEFAULT_CHROMOSOME]@ranges@width
+                ),
+            )
+            
+            current_track <- Gviz::DataTrack(
+                empty_ranges,
+                type = "l",
+                name = paste(track_config$name, "(No Data)"),
+                col = PLOT_CONFIG$PLACEHOLDER_COLOR,
+                chromosome = genome_range_result$data@seqnames[1]
+            )
+        } else {
+            if (PROCESSING_CONFIG$verbose) {
+                message("Creating track from: ", basename(track_config$bigwig_file))
+            }
+            
+            # Import data for specific chromosome range
+            track_data <- rtracklayer::import(
+                track_config$bigwig_file,
+                which = genome_range_result$data
+            )
+            
+            current_track <- Gviz::DataTrack(
+                track_data,
+                type = "l",
+                name = track_config$name,
+                col = PLOT_CONFIG$TRACK_COLOR,
+                chromosome = genome_range_result$data@seqnames[1]
+            )
+        }
+        
+        tracks[[length(tracks) + 1]] <- current_track
     }
     
     # Add feature track if available
     if (!is.null(feature_track_result)) {
-        track_group_result$data$tracks <- c(
-            track_group_result$data$tracks,
-            feature_track_result$track
-        )
+        tracks[[length(tracks) + 1]] <- feature_track_result$track
     }
     
-    # Generate plot path
-    plot_path_result <- plot_path_generate(
-        base_directory = experiment_paths$plots,
-        plot_parameters = list(
-            chromosome = PLOT_CONFIG$DEFAULT_CHROMOSOME,
-            group = group_idx,
-            timestamp = TIMESTAMP,
-            experiment_id = EXPERIMENT_ID
-        )
+    # Create output directory if needed
+    output_directory <- file.path(experiment_paths$plots, "genome_tracks/overview")
+    dir.create(output_directory, recursive = TRUE, showWarnings = FALSE)
+    
+    # Generate plot filename
+    plot_filename <- sprintf(
+        "%s_%s_chr%s_group%d.svg",
+        TIMESTAMP,
+        EXPERIMENT_ID,
+        PLOT_CONFIG$DEFAULT_CHROMOSOME,
+        group_idx
     )
-    if (!plot_path_result$success) {
-        warning(sprintf("Failed to generate plot path for group %d: %s",
-                       group_idx, plot_path_result$error))
-        next
+    output_path <- file.path(output_directory, plot_filename)
+    
+    if (PROCESSING_CONFIG$verbose) {
+        message("\nGenerating plot: ", basename(output_path))
     }
     
-    # Create visualization plot
-    plot_result <- plot_tracks_create(
-        track_group = track_group_result$data,
-        plot_options = list(
-            width = PLOT_CONFIG$WIDTH,
-            height = PLOT_CONFIG$HEIGHT,
-            output_path = plot_path_result$data,
-            calculate_limits = TRUE,
+    # Create plot
+    tryCatch({
+        #svg(output_path, width = PLOT_CONFIG$WIDTH, height = PLOT_CONFIG$HEIGHT)
+        Gviz::plotTracks(
+            tracks,
             chromosome = genome_range_result$data@seqnames[1],
             title = sprintf("Chromosome %s - Group %d", 
-                          PLOT_CONFIG$DEFAULT_CHROMOSOME, group_idx)
+                          PLOT_CONFIG$DEFAULT_CHROMOSOME, group_idx),
+            ylim = range_result$data,
+            from = 1,
+            to = genome_data[PLOT_CONFIG$DEFAULT_CHROMOSOME]@ranges@width
         )
-    )
-    if (!plot_result$success) {
-        warning(sprintf("Failed to create plot for group %d: %s",
-                       group_idx, plot_result$error))
-        next
-    }
-    
-    message(sprintf("Created plot for group %d: %s",
-                   group_idx, basename(plot_result$data$path)))
+        #dev.off()
+        message(sprintf("Successfully created plot: %s", basename(output_path)))
+    }, error = function(e) {
+        warning(sprintf("Failed to create plot for group %d: %s", group_idx, e$message))
+    })
 }
-
 message("Processing complete")
