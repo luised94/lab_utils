@@ -8,7 +8,9 @@ DEBUG_CONFIG <- list(
     samples_per_group = 4,    # Samples per plot
     save_plots = FALSE,       # Whether to save plots to files
     verbose = TRUE,           # Print debug information
-    chromosome = 10
+    chromosome = 10,
+    interactive = TRUE,
+    display_time = 2
 )
 
 PLOT_CONFIG <- list(
@@ -223,22 +225,31 @@ for (group_idx in groups_to_process) {
             name = "Features"
         )
     }
-    # Generate plot
+
+    # Display plot
+    Gviz::plotTracks(tracks)
+    
+    # Save plot if needed
     if (DEBUG_CONFIG$save_plots) {
         plot_file <- file.path(
             plots_dir,
             sprintf("%s_group%d.svg", experiment_id, group_idx)
         )
         
-        if (DEBUG_CONFIG$verbose) {
-            message("Saving plot to: ", plot_file)
-        }
-        
         svg(plot_file, width = PLOT_CONFIG$width, height = PLOT_CONFIG$height)
-        Gviz::plotTracks(tracks)
+        Gviz::plotTracks(tracks)  # Recreate plot in SVG device
         dev.off()
+    }
+    
+    # Interactive viewing options
+    if (DEBUG_CONFIG$interactive) {
+        user_input <- readline(
+            prompt = "Options: [Enter] next plot, 's' skip rest, 'q' quit: "
+        )
+        if (user_input == "q") break
+        if (user_input == "s") DEBUG_CONFIG$save_plots <- FALSE
     } else {
-        Gviz::plotTracks(tracks)
+        Sys.sleep(DEBUG_CONFIG$display_time)  # Pause between plots
     }
 }
 
