@@ -6,7 +6,7 @@ DEBUG_CONFIG <- list(
     enabled = TRUE,           # TRUE for testing single group, FALSE for all
     group = 1,               # Which group to process when in debug mode
     samples_per_group = 4,    # Samples per plot
-    save_plots = TRUE,       # Whether to save plots to files
+    save_plots = FALSE,       # Whether to save plots to files
     verbose = TRUE           # Print debug information
 )
 
@@ -26,6 +26,8 @@ for (pkg in required_packages) {
     }
 }
 
+source("~/lab_utils/failsafe_scripts/all_functions.R")
+source("~/lab_utils/failsafe_scripts/bmc_config.R")
 # Load metadata and files
 #-----------------------------------------------------------------------------
 experiment_id <- "241007Bel"
@@ -34,11 +36,21 @@ plots_dir <- file.path(base_dir, "plots", "genome_tracks")
 dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
 
 # Load sample metadata
-metadata <- read.csv(
-    file.path(base_dir, "documentation", paste0(experiment_id, "_sample_grid.csv")),
-    stringsAsFactors = FALSE
+metadata_processing_result <- experiment_metadata_process(
+    directory_path = base_dir,
+    configuration = list(
+        categories = EXPERIMENT_CONFIG$CATEGORIES,
+        column_order = EXPERIMENT_CONFIG$COLUMN_ORDER
+    ),
+    output_options = list(
+        output_file = FALSE,  # Set to TRUE if you want to save processed metadata
+        output_path = NULL
+    )
 )
-
+if (!metadata_processing_result$success) {
+    stop(metadata_processing_result$error)
+}
+sorted_metadata <- metadata_processing_result$data
 # Find bigwig files
 bigwig_files <- list.files(
     file.path(base_dir, "coverage"),
@@ -63,8 +75,8 @@ if (!is.null(feature_file)) {
 #-----------------------------------------------------------------------------
 # Create sample groups
 sample_groups <- split(
-    seq_len(nrow(metadata)),
-    ceiling(seq_len(nrow(metadata)) / DEBUG_CONFIG$samples_per_group)
+    seq_len(nrow(sorted_metadata)),
+    ceiling(seq_len(nrow(sorted_metadata)) / DEBUG_CONFIG$samples_per_group)
 )
 
 # Determine which groups to process
@@ -81,14 +93,14 @@ for (group_idx in groups_to_process) {
     }
     
     # Get current group's samples
-    current_samples <- metadata[sample_groups[[group_idx]], ]
+    current_samples <- sorted_metadata[sample_groups[[group_idx]], ]
     
     # Initialize tracks list with chromosome axis
     tracks <- list(Gviz::GenomeAxisTrack())
     
     # Add tracks for each sample
     for (i in seq_len(nrow(current_samples))) {
-        sample_id <- current_samples$experiment_number[i]
+        sample_id <- current_samples$sample_id[i]
         
         # Find matching bigwig file
         bigwig_file <- bigwig_files[grepl(sample_id, bigwig_files)][1]
