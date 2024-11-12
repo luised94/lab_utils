@@ -16,7 +16,10 @@ PLOT_CONFIG <- list(
     width = 10,
     height = 8,
     track_color = "#fd0036",
-    placeholder_color = "#cccccc"
+    placeholder_color = "#cccccc",
+    track_name_format = "%s (%s)",
+    placeholder_suffix = "(No data)"
+
 )
 
 # Load required packages
@@ -224,7 +227,19 @@ for (group_idx in groups_to_process) {
         
         # Find matching bigwig file
         bigwig_file <- bigwig_files[grepl(sample_id, bigwig_files)][1]
-        
+
+        track_name <- sprintf(
+            PLOT_CONFIG$track_name_format,
+            sample_id,
+            current_samples$short_name[i]
+        )
+
+        placeholder_name <- sprintf(
+            "%s %s",
+            track_name,
+            PLOT_CONFIG$placeholder_suffix
+        )
+
         if (!is.na(bigwig_file) && file.exists(bigwig_file)) {
             if (DEBUG_CONFIG$verbose) {
                 message("Adding track for sample: ", sample_id)
@@ -234,7 +249,7 @@ for (group_idx in groups_to_process) {
             
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 track_data,
-                name = paste(sample_id, current_samples$short_name[i])
+                name = track_name,
                 type = "l",
                 col = PLOT_CONFIG$track_color
             )
@@ -261,7 +276,7 @@ for (group_idx in groups_to_process) {
             
             empty_track <- Gviz::DataTrack(
                 empty_ranges,
-                name = paste(sample_id, "(No Data)"),
+                name = placeholder_name,
                 type = "l",
                 col = PLOT_CONFIG$placeholder_color,
                 chromosome = chromosome_roman
