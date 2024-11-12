@@ -14,7 +14,7 @@ PLOT_CONFIG <- list(
 # Debug and execution configuration
 PROCESSING_CONFIG <- list(
     debug_mode = TRUE,  # Toggle between debug (single group) and full processing
-    debug_group = 15,    # Which group to process in debug mode
+    debug_group = c(8:13),    # Which group to process in debug mode
     verbose = TRUE      # Enable detailed logging
 )
 
