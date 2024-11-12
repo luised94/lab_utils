@@ -3,8 +3,8 @@
 # Configuration
 #-----------------------------------------------------------------------------
 DEBUG_CONFIG <- list(
-    enabled = TRUE,           # TRUE for testing single group, FALSE for all
-    group = 1,               # Which group to process when in debug mode
+    enabled = FALSE,           # TRUE for testing single group, FALSE for all
+    group = 10,               # Which group to process when in debug mode
     samples_per_group = 4,    # Samples per plot
     save_plots = FALSE,       # Whether to save plots to files
     verbose = TRUE,           # Print debug information
@@ -70,14 +70,15 @@ for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
     }
 }
 
-# 5. Add sample IDs to metadata
-metadata$sample_id <- sample_ids
-
-# 6. Sort metadata using config column order
+# 5. Sort metadata using config column order
 sorted_metadata <- metadata[do.call(
     order, 
     metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
 ), ]
+
+# 6. Add sample IDs to metadata
+sorted_metadata$sample_id <- sample_ids
+
 
 if (DEBUG_CONFIG$verbose) {
     message("Metadata processing summary:")
@@ -108,23 +109,6 @@ genome_range <- GenomicRanges::GRanges(
     strand = "*"
 )
 
-# Load sample metadata
-metadata_processing_result <- experiment_metadata_process(
-    directory_path = base_dir,
-    configuration = list(
-        categories = EXPERIMENT_CONFIG$CATEGORIES,
-        column_order = EXPERIMENT_CONFIG$COLUMN_ORDER
-    ),
-    output_options = list(
-        output_file = FALSE,  # Set to TRUE if you want to save processed metadata
-        output_path = NULL
-    )
-)
-if (!metadata_processing_result$success) {
-    stop(metadata_processing_result$error)
-}
-
-sorted_metadata <- metadata_processing_result$data
 # Find bigwig files
 bigwig_files <- list.files(
     file.path(base_dir, "coverage"),
@@ -144,12 +128,10 @@ if (!is.null(feature_file)) {
     # Convert to chrRoman format
     GenomeInfoDb::seqlevels(features) <- paste0(
         "chr", 
-        sapply(
-            gsub("chr", "", GenomeInfoDb::seqlevels(features)), 
-            utils::as.roman
-        )
+        utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
     )
 }
+
 # Process samples in groups
 #-----------------------------------------------------------------------------
 # Create sample groups
@@ -207,17 +189,33 @@ for (group_idx in groups_to_process) {
                 message("Creating placeholder for sample: ", sample_id)
             }
             
-            # Simple placeholder track
+            # Calculate reasonable number of points (e.g., one point per 100bp)
+            sampling_rate <- 100  # Adjust this value based on your needs
+            num_points <- ceiling(chromosome_width / sampling_rate)
+            
+            # Create proper placeholder track with genome coordinates
+            empty_ranges <- GenomicRanges::GRanges(
+                seqnames = chromosome_roman,
+                ranges = IRanges::IRanges(
+                    # Create evenly spaced points across chromosome
+                    start = seq(1, chromosome_width, length.out = num_points),
+                    width = 1
+                ),
+                score = rep(0, num_points),  # One score per position
+                strand = "*"
+            )
+            
             empty_track <- Gviz::DataTrack(
-                GenomicRanges::GRanges(),
+                empty_ranges,
                 name = paste(sample_id, "(No Data)"),
                 type = "l",
-                col = PLOT_CONFIG$placeholder_color
+                col = PLOT_CONFIG$placeholder_color,
+                chromosome = chromosome_roman
             )
             tracks[[length(tracks) + 1]] <- empty_track
         }
     }
-    
+
     # Add feature track if available
     if (exists("features")) {
         tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
@@ -225,7 +223,6 @@ for (group_idx in groups_to_process) {
             name = "Features"
         )
     }
-    
     # Generate plot
     if (DEBUG_CONFIG$save_plots) {
         plot_file <- file.path(
