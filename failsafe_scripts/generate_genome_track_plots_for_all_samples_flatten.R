@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-
 # Configuration
 #-----------------------------------------------------------------------------
 DEBUG_CONFIG <- list(
@@ -149,6 +148,59 @@ groups_to_process <- if (DEBUG_CONFIG$enabled) {
     seq_along(sample_groups)
 }
 
+# Calculate global y-limits for all plots (before the plotting loop)
+#-----------------------------------------------------------------------------
+if (DEBUG_CONFIG$verbose) {
+    message("\nCalculating global range for all tracks...")
+}
+
+# Initialize vectors to store all min/max values
+all_track_values <- c()
+
+# Process each bigwig file
+for (bigwig_file in bigwig_files) {
+    if (file.exists(bigwig_file)) {
+        tryCatch({
+            # Import data for specific chromosome
+            track_data <- rtracklayer::import(
+                bigwig_file,
+                which = genome_range
+            )
+            
+            if (length(track_data) > 0) {
+                values <- GenomicRanges::values(track_data)$score
+                if (length(values) > 0) {
+                    all_track_values <- c(all_track_values, values)
+                }
+            }
+        }, error = function(e) {
+            if (DEBUG_CONFIG$verbose) {
+                message("Skipping ", basename(bigwig_file), ": ", e$message)
+            }
+        })
+    }
+}
+
+# Calculate global limits with 10% padding
+if (length(all_track_values) > 0) {
+    y_min <- min(all_track_values, na.rm = TRUE)
+    y_max <- max(all_track_values, na.rm = TRUE)
+    y_range <- y_max - y_min
+    y_limits <- c(
+        y_min - (y_range * 0.1),  # Add 10% padding
+        y_max + (y_range * 0.1)
+    )
+    
+    if (DEBUG_CONFIG$verbose) {
+        message(sprintf("Global y-limits: [%.2f, %.2f]", y_limits[1], y_limits[2]))
+    }
+} else {
+    y_limits <- NULL
+    if (DEBUG_CONFIG$verbose) {
+        message("No valid track data found for y-limit calculation")
+    }
+}
+
 # Process each group
 for (group_idx in groups_to_process) {
     if (DEBUG_CONFIG$verbose) {
@@ -182,7 +234,7 @@ for (group_idx in groups_to_process) {
             
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 track_data,
-                name = sample_id,
+                name = paste(sample_id, current_samples$short_name[i])
                 type = "l",
                 col = PLOT_CONFIG$track_color
             )
@@ -227,7 +279,14 @@ for (group_idx in groups_to_process) {
     }
 
     # Display plot
-    Gviz::plotTracks(tracks)
+    Gviz::plotTracks(
+        tracks,
+        chromosome = chromosome_roman,
+        from = 1,
+        to = chromosome_width,
+        ylim = y_limits,
+        title = sprintf("Chromosome %s - Group %d", chromosome_to_plot, group_idx)
+    )
     
     # Save plot if needed
     if (DEBUG_CONFIG$save_plots) {
@@ -237,7 +296,14 @@ for (group_idx in groups_to_process) {
         )
         
         svg(plot_file, width = PLOT_CONFIG$width, height = PLOT_CONFIG$height)
-        Gviz::plotTracks(tracks)  # Recreate plot in SVG device
+        Gviz::plotTracks(
+            tracks,
+            chromosome = chromosome_roman,
+            from = 1,
+            to = chromosome_width,
+            ylim = y_limits,
+            title = sprintf("Chromosome %s - Group %d", chromosome_to_plot, group_idx)
+        )
         dev.off()
     }
     
