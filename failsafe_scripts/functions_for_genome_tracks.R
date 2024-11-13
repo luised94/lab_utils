@@ -1,13 +1,26 @@
-create_minimal_identifiers <- function(sample_ids) {
+create_minimal_identifiers <- function(sample_ids, verbose = FALSE) {
+
     # Validation
     stopifnot(
         "sample_ids must be character vector" = is.character(sample_ids),
         "sample_ids cannot be empty" = length(sample_ids) > 0,
-        "sample_ids must be unique" = !any(duplicated(sample_ids))
+        "sample_ids must be unique" = !any(duplicated(sample_ids)),
+        "sample_ids must have equal length" = length(unique(nchar(sample_ids))) == 1,
+        "verbose must be logical" = is.logical(verbose)
     )
+
+    if (verbose) {
+        message(sprintf("Processing %d sample IDs of length %d", 
+                       length(sample_ids), nchar(sample_ids[1])))
+    }
     # Find positions where values differ
     id_matrix <- do.call(rbind, strsplit(sample_ids, ""))
     diff_positions <- which(apply(id_matrix, 2, function(x) length(unique(x)) > 1))
+
+    if (verbose) {
+        message(sprintf("Found differences at positions: %s", 
+                       paste(diff_positions, collapse = ", ")))
+    }
     
     # Get minimal required positions
     min_pos <- min(diff_positions)
@@ -15,6 +28,17 @@ create_minimal_identifiers <- function(sample_ids) {
     
     # Extract minimal substring that ensures uniqueness
     short_ids <- substr(sample_ids, min_pos, max_pos + 1)
+
+    if (verbose) {
+        message(sprintf("Reduced sample IDs from %d to %d digits", 
+                       nchar(sample_ids[1]), nchar(short_ids[1])))
+        message(sprintf("Using positions %d to %d", min_pos, max_pos + 1))
+    }
+    
+    # Verify uniqueness of result
+    if (any(duplicated(short_ids))) {
+        stop("Failed to create unique short identifiers")
+    }
     
     return(short_ids)
 }
