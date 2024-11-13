@@ -2,9 +2,9 @@
 # Configuration
 #-----------------------------------------------------------------------------
 DEBUG_CONFIG <- list(
-    enabled = FALSE,           # TRUE for testing single comparison
+    enabled = TRUE,           # TRUE for testing single comparison
     comparison = "comp_1108forNoneAndWT",  # Which comparison to process in debug mode
-    save_plots = TRUE,        # Whether to save plots to files
+    save_plots = FALSE,        # Whether to save plots to files
     verbose = TRUE,           # Print debug information
     chromosome = 10,
     interactive = TRUE,
@@ -89,7 +89,7 @@ if (DEBUG_CONFIG$validate_config) {
 #experiment_id <- "241007Bel"
 experiment_id <- "241010Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
-plots_dir <- file.path(base_dir, "plots", "genome_tracks", "experiments")
+plots_dir <- file.path(base_dir, "plots", "genome_tracks", "comparisons")
 metadata_path <- file.path(base_dir, "documentation", 
                           paste0(experiment_id, "_sample_grid.csv"))
 dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
@@ -134,26 +134,6 @@ sorted_metadata <- metadata[do.call(
 
 # 6. Add sample IDs to metadata
 sorted_metadata$sample_id <- sample_ids
-
-## Create color mapping for antibodies
-#unique_antibodies <- unique(sorted_metadata$antibody)
-#antibody_colors <- generate_distinct_colors(length(unique_antibodies))
-#names(antibody_colors) <- unique_antibodies
-#
-## Update PLOT_CONFIG with dynamic colors
-#PLOT_CONFIG$track_colors <- list(
-#    antibody = antibody_colors,
-#    placeholder = PLOT_CONFIG$placeholder_color  # Maintain consistent placeholder
-#)
-
-# Create color legend text
-#legend_text <- sprintf(
-#    "Track Colors:\n%s\n%s",
-#    paste("?", names(PLOT_CONFIG$track_colors$antibody), 
-#          sprintf("(%s)", PLOT_CONFIG$track_colors$antibody), 
-#          collapse = "\n"),
-#    sprintf("? No Data (%s)", PLOT_CONFIG$placeholder_color)
-#)
 
 if (DEBUG_CONFIG$verbose) {
     message("Metadata processing summary:")
@@ -209,19 +189,23 @@ if (!is.null(feature_file)) {
     )
 }
 
-# Process samples in groups
-#-----------------------------------------------------------------------------
-# Create sample groups
-sample_groups <- split(
-    seq_len(nrow(sorted_metadata)),
-    ceiling(seq_len(nrow(sorted_metadata)) / DEBUG_CONFIG$samples_per_group)
-)
 
-# Determine which groups to process
-groups_to_process <- if (DEBUG_CONFIG$enabled) {
-    DEBUG_CONFIG$group
+# Process Comparisons
+#-----------------------------------------------------------------------------
+# Determine which comparisons to process
+comparisons_to_process <- if (DEBUG_CONFIG$enabled) {
+    if (!DEBUG_CONFIG$comparison %in% names(EXPERIMENT_CONFIG$COMPARISONS)) {
+        stop("Debug comparison not found in EXPERIMENT_CONFIG$COMPARISONS")
+    }
+    DEBUG_CONFIG$comparison
 } else {
-    seq_along(sample_groups)
+    names(EXPERIMENT_CONFIG$COMPARISONS)
+}
+
+if (DEBUG_CONFIG$verbose) {
+    message("\nProcessing comparisons:")
+    message(sprintf("- Total comparisons: %d", length(comparisons_to_process)))
+    message("- Comparisons: ", paste(comparisons_to_process, collapse = ", "))
 }
 
 # Calculate global y-limits for all plots (before the plotting loop)
@@ -274,5 +258,284 @@ if (length(all_track_values) > 0) {
     y_limits <- NULL
     if (DEBUG_CONFIG$verbose) {
         message("No valid track data found for y-limit calculation")
+    }
+}
+
+
+# Process each comparison
+#-----------------------------------------------------------------------------
+for (comparison_name in comparisons_to_process) {
+    if (DEBUG_CONFIG$verbose) {
+        message(sprintf("\nProcessing comparison: %s", comparison_name))
+    }
+    
+    # Get comparison expression and filter metadata
+    comparison_expression <- EXPERIMENT_CONFIG$COMPARISONS[[comparison_name]]
+    comparison_samples <- sorted_metadata[eval(comparison_expression, 
+                                             envir = sorted_metadata), ]
+    
+    if (nrow(comparison_samples) == 0) {
+        warning(sprintf("No samples found for comparison: %s", comparison_name))
+        next
+    }
+    
+    if (DEBUG_CONFIG$verbose) {
+        message(sprintf("Found %d samples for comparison", nrow(comparison_samples)))
+    }
+    
+    # Initialize track list with genome axis
+    tracks <- list(
+        Gviz::GenomeAxisTrack(
+            name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
+        )
+    )
+    
+    # Find and add control track (single control per comparison)
+    if (DEBUG_CONFIG$verbose) {
+        message("\nFinding control sample for comparison...")
+    }
+    
+    # Try to find control for first available sample
+    control_sample <- find_control_sample(
+        comparison_samples[1, ],
+        sorted_metadata,
+        EXPERIMENT_CONFIG$CONTROL_FACTORS
+    )
+    
+    # Add single control track (real or placeholder)
+    if (!is.null(control_sample)) {
+        control_bigwig <- bigwig_files[grepl(control_sample$sample_id, 
+                                           bigwig_files)]
+        if (length(control_bigwig) > 0 && file.exists(control_bigwig[1])) {
+            if (DEBUG_CONFIG$verbose) {
+                message(sprintf("Adding control track: %s", 
+                              control_sample$sample_id))
+            }
+            
+            control_track_data <- rtracklayer::import(
+                control_bigwig[1],
+                which = genome_range
+            )
+            
+            tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
+                control_track_data,
+                name = sprintf(
+                    PLOT_CONFIG$track_name_format,
+                    control_sample$sample_id,
+                    "Input",
+                    control_sample$rescue_allele
+                ),
+                type = "l",
+                col = PLOT_CONFIG$placeholder_color,
+                chromosome = chromosome_roman
+            )
+        } else {
+            if (DEBUG_CONFIG$verbose) {
+                message("Creating placeholder for control track")
+            }
+            
+            # Create placeholder control track
+            empty_ranges <- GenomicRanges::GRanges(
+                seqnames = chromosome_roman,
+                ranges = IRanges::IRanges(
+                    start = seq(1, chromosome_width, length.out = 1000),
+                    width = 1
+                ),
+                score = rep(0, 1000),
+                strand = "*"
+            )
+            
+            tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
+                empty_ranges,
+                name = sprintf(
+                    "%s: %s - %s %s",
+                    control_sample$sample_id,
+                    "Input",
+                    control_sample$rescue_allele,
+                    PLOT_CONFIG$placeholder_suffix
+                ),
+                type = "l",
+                col = PLOT_CONFIG$placeholder_color,
+                chromosome = chromosome_roman
+            )
+        }
+    } else {
+        if (DEBUG_CONFIG$verbose) {
+            message("No matching control found, adding placeholder track")
+        }
+        
+        # Create placeholder track when no control found
+        empty_ranges <- GenomicRanges::GRanges(
+            seqnames = chromosome_roman,
+            ranges = IRanges::IRanges(
+                start = seq(1, chromosome_width, length.out = 1000),
+                width = 1
+            ),
+            score = rep(0, 1000),
+            strand = "*"
+        )
+        
+        tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
+            empty_ranges,
+            name = sprintf("Input Control %s", PLOT_CONFIG$placeholder_suffix),
+            type = "l",
+            col = PLOT_CONFIG$placeholder_color,
+            chromosome = chromosome_roman
+        )
+    }
+    # Add sample tracks
+    for (i in seq_len(nrow(comparison_samples))) {
+        sample_id <- comparison_samples$sample_id[i]
+        sample_bigwig <- bigwig_files[grepl(sample_id, bigwig_files)]
+        
+        track_name <- sprintf(
+            PLOT_CONFIG$track_name_format,
+            sample_id,
+            comparison_samples$antibody[i],
+            comparison_samples$rescue_allele[i]
+        )
+        
+        if (length(sample_bigwig) > 0 && file.exists(sample_bigwig[1])) {
+            if (DEBUG_CONFIG$verbose) {
+                message(sprintf("Adding track for sample: %s", sample_id))
+            }
+            
+            track_data <- rtracklayer::import(
+                sample_bigwig[1],
+                which = genome_range
+            )
+            
+            tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
+                track_data,
+                name = track_name,
+                type = "l",
+                col = PLOT_CONFIG$track_color,
+                chromosome = chromosome_roman
+            )
+        } else {
+            if (DEBUG_CONFIG$verbose) {
+                message(sprintf("Creating placeholder for sample: %s", sample_id))
+            }
+            
+            # Create placeholder track
+            empty_ranges <- GenomicRanges::GRanges(
+                seqnames = chromosome_roman,
+                ranges = IRanges::IRanges(
+                    start = seq(1, chromosome_width, length.out = 1000),
+                    width = 1
+                ),
+                score = rep(0, 1000),
+                strand = "*"
+            )
+            
+            tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
+                empty_ranges,
+                name = paste(track_name, PLOT_CONFIG$placeholder_suffix),
+                type = "l",
+                col = PLOT_CONFIG$placeholder_color,
+                chromosome = chromosome_roman
+            )
+        }
+    }
+    
+    # Add feature track if available
+    if (!is.null(features)) {
+        tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
+            features,
+            name = "Features"
+        )
+    }
+    # Create plot title
+    #-----------------------------------------------------------------------------
+    plot_title <- sprintf(
+        PLOT_CONFIG$title_format,
+        experiment_id,
+        sub("^comp_", "", comparison_name),  # Remove 'comp_' prefix
+        chromosome_to_plot,
+        nrow(comparison_samples),
+        format(Sys.time(), "%Y-%m-%d %H:%M"),
+        normalization_method
+    )
+    # Generate plot
+    #-----------------------------------------------------------------------------
+    if (DEBUG_CONFIG$verbose) {
+        message("\nGenerating visualization...")
+    }
+    
+    # Create plot
+    Gviz::plotTracks(
+        tracks,
+        chromosome = chromosome_roman,
+        from = 1,
+        to = chromosome_width,
+        ylim = y_limits,
+        main = plot_title,
+        background.title = "white",
+        col.border.title = "#E0E0E0",
+        fontcolor = "black",
+        cex.main = 1,
+        margin = 15,
+        innerMargin = 5
+    )
+    
+    # Save plot if configured
+    if (DEBUG_CONFIG$save_plots) {
+        plot_file <- file.path(
+            plots_dir,
+            sprintf(
+                "%s_%s_chr%s_%s.svg",
+                TIMESTAMPS$full,
+                experiment_id,
+                chromosome_to_plot,
+                sub("^comp_", "", comparison_name)
+            )
+        )
+        
+        if (DEBUG_CONFIG$verbose) {
+            message(sprintf("Saving plot to: %s", basename(plot_file)))
+        }
+        
+        svg(plot_file, 
+            width = PLOT_CONFIG$width, 
+            height = PLOT_CONFIG$height)
+        
+        Gviz::plotTracks(
+            tracks,
+            chromosome = chromosome_roman,
+            from = 1,
+            to = chromosome_width,
+            ylim = y_limits,
+            main = plot_title,
+            background.title = "white",
+            col.border.title = "#E0E0E0",
+            fontcolor = "black",
+            cex.main = 1,
+            margin = 15,
+            innerMargin = 5
+        )
+        
+        dev.off()
+    }
+    
+    # Interactive viewing options
+    if (DEBUG_CONFIG$interactive) {
+        user_input <- readline(
+            prompt = "Options: [Enter] next comparison, 's' skip rest, 'q' quit: "
+        )
+        if (user_input == "q") break
+        if (user_input == "s") DEBUG_CONFIG$save_plots <- FALSE
+    } else {
+        Sys.sleep(DEBUG_CONFIG$display_time)
+    }
+}
+
+
+# Final processing summary
+#-----------------------------------------------------------------------------
+if (DEBUG_CONFIG$verbose) {
+    message("\nProcessing complete")
+    message(sprintf("Processed %d comparisons", length(comparisons_to_process)))
+    if (DEBUG_CONFIG$save_plots) {
+        message(sprintf("Output directory: %s", plots_dir))
     }
 }
