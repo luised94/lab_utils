@@ -197,6 +197,13 @@ limits_result <- calculate_track_limits(
     verbose = DEBUG_CONFIG$verbose
 )
 
+if (!limits_result$success) {
+    warning("Failed to calculate y-limits: ", limits_result$error)
+    y_limits <- c(0, 1000)  # Default fallback
+} else {
+    y_limits <- limits_result$data
+}
+
 # Add after processing metadata but before track creation
 short_sample_ids <- create_minimal_identifiers(sorted_metadata$sample_id)
 

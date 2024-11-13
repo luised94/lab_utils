@@ -184,7 +184,7 @@ limits_result <- calculate_track_limits(
 
 if (!limits_result$success) {
     warning("Failed to calculate y-limits: ", limits_result$error)
-    y_limits <- c(0, 1)  # Default fallback
+    y_limits <- c(0, 1000)  # Default fallback
 } else {
     y_limits <- limits_result$data
 }
