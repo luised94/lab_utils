@@ -12,6 +12,19 @@ DEBUG_CONFIG <- list(
     display_time = 2
 )
 
+
+# Time formatting configuration
+TIME_CONFIG <- list(
+    timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
+    date_format = "%Y%m%d"               # YYYYMMDD
+)
+
+# Generate timestamps once at script start
+TIMESTAMPS <- list(
+    full = format(Sys.time(), TIME_CONFIG$timestamp_format),
+    date = format(Sys.Date(), TIME_CONFIG$date_format)
+)
+
 PLOT_CONFIG <- list(
     width = 10,
     height = 8,
@@ -307,8 +320,21 @@ for (group_idx in groups_to_process) {
     if (DEBUG_CONFIG$save_plots) {
         plot_file <- file.path(
             plots_dir,
-            sprintf("%s_group%d.svg", experiment_id, group_idx)
+            sprintf(
+                "%s_%s_chr%s_group%d.svg",
+                TIMESTAMPS$full,              # Add timestamp
+                experiment_id,
+                chromosome_to_plot,
+                group_idx
+            )
         )
+        
+        if (DEBUG_CONFIG$verbose) {
+            message(sprintf(
+                "Saving plot to: %s", 
+                basename(plot_file)
+            ))
+        }
         
         svg(plot_file, width = PLOT_CONFIG$width, height = PLOT_CONFIG$height)
         Gviz::plotTracks(
