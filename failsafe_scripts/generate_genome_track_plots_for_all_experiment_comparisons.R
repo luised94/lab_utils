@@ -8,6 +8,7 @@ DEBUG_CONFIG <- list(
     verbose = TRUE,           # Print debug information
     chromosome = 10,
     interactive = TRUE,
+    validate_config = TRUE,
     display_time = 2
 )
 
@@ -70,13 +71,19 @@ for (pkg in required_packages) {
 
 #source("~/lab_utils/failsafe_scripts/all_functions.R")
 source("~/lab_utils/failsafe_scripts/bmc_config.R")
-
-
-# Validate comparison configuration
-if (!all(names(EXPERIMENT_CONFIG$COMPARISONS) == 
-         sub("^comp_", "", names(EXPERIMENT_CONFIG$COMPARISONS)))) {
-    stop("Comparison names must match their definition names")
+if (DEBUG_CONFIG$validate_config) {
+    if (!exists("EXPERIMENT_CONFIG") || 
+        !("COMPARISONS" %in% names(EXPERIMENT_CONFIG))) {
+        stop("EXPERIMENT_CONFIG must contain COMPARISONS element")
+    }
+    
+    if (DEBUG_CONFIG$verbose) {
+        message("Found ", length(EXPERIMENT_CONFIG$COMPARISONS), 
+                " comparisons in configuration")
+    }
 }
+
+
 # Load metadata and files
 #-----------------------------------------------------------------------------
 #experiment_id <- "241007Bel"
