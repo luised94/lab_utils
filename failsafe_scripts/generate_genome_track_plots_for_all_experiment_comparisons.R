@@ -31,7 +31,7 @@ PLOT_CONFIG <- list(
     placeholder_color = "#cccccc",
     track_name_format = "%s: %s - %s",
     placeholder_suffix = "(No data)",
-    title_format = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
+    title_format = "%s\nComparison: %s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
 
 )
 
@@ -462,20 +462,30 @@ for (comparison_name in comparisons_to_process) {
         message("\nGenerating visualization...")
     }
     
-    # Create plot
     Gviz::plotTracks(
-        tracks,
+        trackList = tracks,
         chromosome = chromosome_roman,
         from = 1,
         to = chromosome_width,
         ylim = y_limits,
         main = plot_title,
-        background.title = "white",
-        col.border.title = "#E0E0E0",
-        fontcolor = "black",
+        # Track name appearance
+        fontcolor = "black",           # Track name text color
+        background.title = "white",    # Track name background
+        col.border.title = "#E0E0E0",  # Light gray border around track names
+        
+        # Other visualization parameters
         cex.main = 1,
         margin = 15,
-        innerMargin = 5
+        innerMargin = 5,
+        
+        # Axis appearance
+        col.axis = "black",            # Axis text color
+        cex.axis = 0.8,               # Axis text size
+        
+        # Title panel
+        col.title = "black",          # Title text color
+        fontface.title = 2            # Bold title
     )
     
     # Save plot if configured
@@ -500,20 +510,30 @@ for (comparison_name in comparisons_to_process) {
             height = PLOT_CONFIG$height)
         
         Gviz::plotTracks(
-            tracks,
+            trackList = tracks,
             chromosome = chromosome_roman,
             from = 1,
             to = chromosome_width,
             ylim = y_limits,
             main = plot_title,
-            background.title = "white",
-            col.border.title = "#E0E0E0",
-            fontcolor = "black",
+            # Track name appearance
+            fontcolor = "black",           # Track name text color
+            background.title = "white",    # Track name background
+            col.border.title = "#E0E0E0",  # Light gray border around track names
+            
+            # Other visualization parameters
             cex.main = 1,
             margin = 15,
-            innerMargin = 5
+            innerMargin = 5,
+            
+            # Axis appearance
+            col.axis = "black",            # Axis text color
+            cex.axis = 0.8,               # Axis text size
+            
+            # Title panel
+            col.title = "black",          # Title text color
+            fontface.title = 2            # Bold title
         )
-        
         dev.off()
     }
     
