@@ -262,6 +262,33 @@ if (length(all_track_values) > 0) {
 }
 
 
+create_minimal_identifiers_alt <- function(sample_ids) {
+    # Validation
+    stopifnot(
+        "sample_ids must be character vector" = is.character(sample_ids),
+        "sample_ids cannot be empty" = length(sample_ids) > 0,
+        "sample_ids must be unique" = !any(duplicated(sample_ids))
+    )
+    # Find positions where values differ
+    id_matrix <- do.call(rbind, strsplit(sample_ids, ""))
+    diff_positions <- which(apply(id_matrix, 2, function(x) length(unique(x)) > 1))
+    
+    # Get minimal required positions
+    min_pos <- min(diff_positions)
+    max_pos <- max(diff_positions)
+    
+    # Extract minimal substring that ensures uniqueness
+    short_ids <- substr(sample_ids, min_pos, max_pos + 1)
+    
+    return(short_ids)
+}
+
+# Add after processing metadata but before track creation
+short_sample_ids <- create_minimal_identifiers(sorted_metadata$sample_id)
+
+# Create mapping between full and short IDs
+sample_id_mapping <- setNames(short_sample_ids, sorted_metadata$sample_id)
+
 # Process each comparison
 #-----------------------------------------------------------------------------
 for (comparison_name in comparisons_to_process) {
@@ -321,7 +348,7 @@ for (comparison_name in comparisons_to_process) {
                 control_track_data,
                 name = sprintf(
                     PLOT_CONFIG$track_name_format,
-                    control_sample$sample_id,
+                    sample_id_mapping[control_sample$sample_id],
                     "Input",
                     control_sample$rescue_allele
                 ),
@@ -390,7 +417,7 @@ for (comparison_name in comparisons_to_process) {
         
         track_name <- sprintf(
             PLOT_CONFIG$track_name_format,
-            sample_id,
+            sample_id_mapping[sample_id],
             comparison_samples$antibody[i],
             comparison_samples$rescue_allele[i]
         )
