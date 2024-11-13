@@ -31,13 +31,16 @@ PLOT_CONFIG <- list(
     track_color = "#fd0036",
     placeholder_color = "#cccccc",
     track_name_format = "%s: %s - %s",
-    placeholder_suffix = "(No data)"
+    placeholder_suffix = "(No data)",
+    background_colors = list(
+        title = "white",
+        border =  "#E0E0E0"
+    )
 
 )
 
 PLOT_CONFIG$title_format <- list(
-    main = "%s\nChromosome %s (%d samples)\n%s",
-    subtitle = "%d Samples | %s | CPM Normalized", # count, timestamp
+    main = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s",
     background = "#F0F0F0"
 )
 
@@ -138,6 +141,8 @@ bigwig_files <- list.files(
     pattern = "_CPM\\.bw$",
     full.names = TRUE
 )
+normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1", 
+                          basename(bigwig_files[1]))
 
 # Load feature file (annotation)
 feature_file <- list.files(
@@ -318,7 +323,8 @@ for (group_idx in groups_to_process) {
         experiment_id,
         chromosome_to_plot,
         nrow(current_samples),
-        TIMESTAMPS$full
+        TIMESTAMPS$full,
+        normalization_method
     )
     
     Gviz::plotTracks(
@@ -329,8 +335,12 @@ for (group_idx in groups_to_process) {
         ylim = y_limits,
         main = plot_title,
         cex.main = 1,
+        background.title = PLOT_CONFIG$background_colors$title,
+        col.border.title = PLOT_CONFIG$background_colors$border,
+
         col.main = "black",
-        margin = 10,        # Increase margin for readability
+        main.width = 0.8,
+        margin = 15,        # Increase margin for readability
         innerMargin = 5,    # Space between tracks
         background.title = "#F0F0F0"  # Light gray background for track titles
     )
