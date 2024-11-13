@@ -105,36 +105,25 @@ sorted_metadata <- metadata[do.call(
 # 6. Add sample IDs to metadata
 sorted_metadata$sample_id <- sample_ids
 
-# Function to generate distinct colors
-generate_distinct_colors <- function(n) {
-    # RColorBrewer provides good distinct colors
-    if (n <= 8) {
-        RColorBrewer::brewer.pal(max(3, n), "Set2")[1:n]
-    } else {
-        # For more categories, use rainbow with better spacing
-        rainbow(n, s = 0.7, v = 0.9)
-    }
-}
-
-# Create color mapping for antibodies
-unique_antibodies <- unique(sorted_metadata$antibody)
-antibody_colors <- generate_distinct_colors(length(unique_antibodies))
-names(antibody_colors) <- unique_antibodies
-
-# Update PLOT_CONFIG with dynamic colors
-PLOT_CONFIG$track_colors <- list(
-    antibody = antibody_colors,
-    placeholder = PLOT_CONFIG$placeholder_color  # Maintain consistent placeholder
-)
+## Create color mapping for antibodies
+#unique_antibodies <- unique(sorted_metadata$antibody)
+#antibody_colors <- generate_distinct_colors(length(unique_antibodies))
+#names(antibody_colors) <- unique_antibodies
+#
+## Update PLOT_CONFIG with dynamic colors
+#PLOT_CONFIG$track_colors <- list(
+#    antibody = antibody_colors,
+#    placeholder = PLOT_CONFIG$placeholder_color  # Maintain consistent placeholder
+#)
 
 # Create color legend text
-legend_text <- sprintf(
-    "Track Colors:\n%s\n%s",
-    paste("?", names(PLOT_CONFIG$track_colors$antibody), 
-          sprintf("(%s)", PLOT_CONFIG$track_colors$antibody), 
-          collapse = "\n"),
-    sprintf("? No Data (%s)", PLOT_CONFIG$placeholder_color)
-)
+#legend_text <- sprintf(
+#    "Track Colors:\n%s\n%s",
+#    paste("?", names(PLOT_CONFIG$track_colors$antibody), 
+#          sprintf("(%s)", PLOT_CONFIG$track_colors$antibody), 
+#          collapse = "\n"),
+#    sprintf("? No Data (%s)", PLOT_CONFIG$placeholder_color)
+#)
 
 if (DEBUG_CONFIG$verbose) {
     message("Metadata processing summary:")
@@ -364,16 +353,23 @@ for (group_idx in groups_to_process) {
         to = chromosome_width,
         ylim = y_limits,
         main = plot_title,
+        # Track name appearance
+        fontcolor = "black",           # Track name text color
+        background.title = "white",    # Track name background
+        col.border.title = "#E0E0E0",  # Light gray border around track names
+        
+        # Other visualization parameters
         cex.main = 1,
-        background.title = PLOT_CONFIG$background_colors$title,
-        col.border.title = PLOT_CONFIG$background_colors$border,
-
-        col.main = "black",
-        main.width = 0.8,
-        legend = legend_text,
-        cex.legend = 0.8,
-        margin = 15,        # Increase margin for readability
-        innerMargin = 5    # Space between tracks
+        margin = 15,
+        innerMargin = 5,
+        
+        # Axis appearance
+        col.axis = "black",            # Axis text color
+        cex.axis = 0.8,               # Axis text size
+        
+        # Title panel
+        col.title = "black",          # Title text color
+        fontface.title = 2            # Bold title
     )
     
     # Save plot if needed
