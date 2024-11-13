@@ -2,16 +2,14 @@
 # Configuration
 #-----------------------------------------------------------------------------
 DEBUG_CONFIG <- list(
-    enabled = FALSE,           # TRUE for testing single group, FALSE for all
-    group = 10,               # Which group to process when in debug mode
-    samples_per_group = 4,    # Samples per plot
-    save_plots = FALSE,       # Whether to save plots to files
+    enabled = FALSE,           # TRUE for testing single comparison
+    comparison = "comp_1108forNoneAndWT",  # Which comparison to process in debug mode
+    save_plots = TRUE,        # Whether to save plots to files
     verbose = TRUE,           # Print debug information
     chromosome = 10,
     interactive = TRUE,
     display_time = 2
 )
-
 
 # Time formatting configuration
 TIME_CONFIG <- list(
@@ -36,6 +34,31 @@ PLOT_CONFIG <- list(
 
 )
 
+# Function to find matching control sample
+find_control_sample <- function(experimental_sample, metadata, control_factors) {
+    # Create matching conditions for control
+    control_conditions <- lapply(control_factors$genotype, function(factor) {
+        metadata[[factor]] == experimental_sample[[factor]]
+    })
+    
+    # Combine conditions with Input antibody requirement
+    control_conditions$is_input <- metadata$antibody == "Input"
+    
+    # Find matching control samples
+    control_matches <- Reduce(`&`, control_conditions)
+    
+    if (sum(control_matches) == 0) {
+        if (DEBUG_CONFIG$verbose) {
+            message("No matching control found for sample: ", 
+                   experimental_sample$sample_id)
+        }
+        return(NULL)
+    }
+    
+    # Return first matching control
+    metadata[control_matches, ][1, ]
+}
+
 # Load required packages
 #-----------------------------------------------------------------------------
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
@@ -47,6 +70,13 @@ for (pkg in required_packages) {
 
 #source("~/lab_utils/failsafe_scripts/all_functions.R")
 source("~/lab_utils/failsafe_scripts/bmc_config.R")
+
+
+# Validate comparison configuration
+if (!all(names(EXPERIMENT_CONFIG$COMPARISONS) == 
+         sub("^comp_", "", names(EXPERIMENT_CONFIG$COMPARISONS)))) {
+    stop("Comparison names must match their definition names")
+}
 # Load metadata and files
 #-----------------------------------------------------------------------------
 #experiment_id <- "241007Bel"
