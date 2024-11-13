@@ -190,52 +190,12 @@ if (DEBUG_CONFIG$verbose) {
     message("\nCalculating global range for all tracks...")
 }
 
-# Initialize vectors to store all min/max values
-all_track_values <- c()
-
-# Process each bigwig file
-for (bigwig_file in bigwig_files) {
-    if (file.exists(bigwig_file)) {
-        tryCatch({
-            # Import data for specific chromosome
-            track_data <- rtracklayer::import(
-                bigwig_file,
-                which = genome_range
-            )
-            
-            if (length(track_data) > 0) {
-                values <- GenomicRanges::values(track_data)$score
-                if (length(values) > 0) {
-                    all_track_values <- c(all_track_values, values)
-                }
-            }
-        }, error = function(e) {
-            if (DEBUG_CONFIG$verbose) {
-                message("Skipping ", basename(bigwig_file), ": ", e$message)
-            }
-        })
-    }
-}
-
-# Calculate global limits with 10% padding
-if (length(all_track_values) > 0) {
-    y_min <- min(all_track_values, na.rm = TRUE)
-    y_max <- max(all_track_values, na.rm = TRUE)
-    y_range <- y_max - y_min
-    y_limits <- c(
-        y_min - (y_range * 0.1),  # Add 10% padding
-        y_max + (y_range * 0.1)
-    )
-    
-    if (DEBUG_CONFIG$verbose) {
-        message(sprintf("Global y-limits: [%.2f, %.2f]", y_limits[1], y_limits[2]))
-    }
-} else {
-    y_limits <- NULL
-    if (DEBUG_CONFIG$verbose) {
-        message("No valid track data found for y-limit calculation")
-    }
-}
+limits_result <- calculate_track_limits(
+    bigwig_files = bigwig_files,
+    genome_range = genome_range,
+    padding_fraction = 0.1,
+    verbose = DEBUG_CONFIG$verbose
+)
 
 # Add after processing metadata but before track creation
 short_sample_ids <- create_minimal_identifiers(sorted_metadata$sample_id)
