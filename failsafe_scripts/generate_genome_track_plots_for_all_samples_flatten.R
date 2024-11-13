@@ -34,6 +34,11 @@ PLOT_CONFIG <- list(
     placeholder_suffix = "(No data)"
 
 )
+PLOT_CONFIG$title_format <- list(
+    main = "%s - Chr %s (Group %d/%d)",      # experiment, chr, group, total groups
+    subtitle = "%d Samples | %s | CPM Normalized", # count, timestamp
+    background = "#F0F0F0"
+)
 
 # Load required packages
 #-----------------------------------------------------------------------------
@@ -306,15 +311,39 @@ for (group_idx in groups_to_process) {
         )
     }
 
-    # Display plot
+    plot_title <- sprintf(
+        PLOT_CONFIG$title_format$main,
+        experiment_id,
+        chromosome_to_plot,
+        group_idx,
+        max(groups_to_process)
+    )
+    
+    plot_subtitle <- sprintf(
+        PLOT_CONFIG$title_format$subtitle,
+        nrow(current_samples),
+        format(Sys.time(), "%Y-%m-%d %H:%M")
+    )
+
     Gviz::plotTracks(
         tracks,
         chromosome = chromosome_roman,
         from = 1,
         to = chromosome_width,
         ylim = y_limits,
-        title = sprintf("Chromosome %s - Group %d", chromosome_to_plot, group_idx)
+        main = plot_title,
+        subtitle = plot_subtitle,
+        background.title = PLOT_CONFIG$title_format$background
     )
+    # Display plot
+    #Gviz::plotTracks(
+    #    tracks,
+    #    chromosome = chromosome_roman,
+    #    from = 1,
+    #    to = chromosome_width,
+    #    ylim = y_limits,
+    #    title = sprintf("Chromosome %s - Group %d", chromosome_to_plot, group_idx)
+    #)
     
     # Save plot if needed
     if (DEBUG_CONFIG$save_plots) {
