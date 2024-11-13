@@ -184,3 +184,101 @@ calculate_track_limits <- function(bigwig_files, genome_range,
     
     return(result)
 }
+
+
+#' @title Create Consistent Color Scheme
+#' @description Generates and manages consistent colors for track visualization
+#' @param config list Configuration including fixed colors
+#' @param categories list Named list of category values requiring colors
+#' @return list Color assignments and management functions
+create_color_scheme <- function(config, categories) {
+    # Fixed colors that should remain consistent
+    fixed_colors <- list(
+        placeholder = "#cccccc",
+        input = "#808080"
+    )
+    
+    # Generate colors for variable categories
+    category_colors <- list()
+    for (cat_name in names(categories)) {
+        set.seed(sum(utf8ToInt(cat_name)))  # Consistent seed per category
+        n_colors <- length(categories[[cat_name]])
+        category_colors[[cat_name]] <- RColorBrewer::brewer.pal(
+            max(3, n_colors), 
+            "Set2"
+        )[seq_len(n_colors)]
+        names(category_colors[[cat_name]]) <- categories[[cat_name]]
+    }
+    
+    list(
+        fixed = fixed_colors,
+        categories = category_colors,
+        get_color = function(category, value) {
+            if (category == "antibody" && value == "Input") {
+                return(fixed_colors$input)
+            }
+            category_colors[[category]][[value]] %||% fixed_colors$placeholder
+        }
+    )
+}
+
+#' @title Create Informative Track Labels
+#' @description Generates track labels based on distinguishing sample characteristics
+#' @param samples data.frame Sample metadata
+#' @param categories character vector Categories to consider
+#' @param always_show character vector Categories to always show
+#' @param verbose logical Print processing information
+#' @return character vector of track labels
+create_track_labels <- function(samples, categories, 
+                              always_show = c("antibody"), 
+                              verbose = FALSE) {
+    result <- tryCatch({
+        # Input validation
+        stopifnot(
+            "samples must be data.frame" = is.data.frame(samples),
+            "categories must be character" = is.character(categories),
+            "categories cannot be empty" = length(categories) > 0,
+            "always_show must be character" = is.character(always_show),
+            "categories must exist in samples" = 
+                all(c(categories, always_show) %in% colnames(samples))
+        )
+        
+        if (verbose) {
+            message("Creating labels using categories: ", 
+                   paste(categories, collapse = ", "))
+        }
+        
+        # Find distinguishing categories
+        distinguishing_cats <- c(
+            always_show,
+            categories[sapply(categories, function(cat) {
+                length(unique(samples[[cat]])) > 1
+            })]
+        ) %>% unique()
+        
+        if (verbose) {
+            message("Distinguishing categories: ", 
+                   paste(distinguishing_cats, collapse = ", "))
+        }
+        
+        # Create labels
+        labels <- apply(samples, 1, function(row) {
+            values <- sapply(distinguishing_cats, function(cat) row[[cat]])
+            paste(values, collapse = " - ")
+        })
+        
+        list(
+            success = TRUE,
+            data = labels,
+            error = NULL
+        )
+    }, error = function(e) {
+        list(
+            success = FALSE,
+            data = NULL,
+            error = e$message
+        )
+    })
+    
+    return(result)
+}
