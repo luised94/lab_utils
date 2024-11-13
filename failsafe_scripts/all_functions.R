@@ -3186,3 +3186,43 @@ generate_distinct_colors <- function(n) {
         rainbow(n, s = 0.7, v = 0.9)
     }
 }
+
+validate_bigwig <- function(bigwig_path, experiment_number) {
+    if (is.na(bigwig_path) || !file.exists(bigwig_path)) {
+        warning(sprintf("Bigwig file not found for sample %s", experiment_number))
+        return(NULL)
+    }
+    tryCatch({
+        rtracklayer::import(bigwig_path)
+        return(bigwig_path)
+    }, error = function(e) {
+        warning(sprintf("Invalid bigwig file for sample %s: %s", experiment_number, e$message))
+        return(NULL)
+    })
+}
+
+find_fallback_control <- function(sample_table, bigwig_dir, pattern) {
+    # Get all Input samples
+    input_samples <- sample_table[sample_table$antibody == "Input", ]
+    
+    for (i in seq_len(nrow(input_samples))) {
+        control_bigwig <- list.files(
+            bigwig_dir,
+            pattern = paste0(input_samples$experiment_number[i], ".*normalized.*\\.bw$"),
+            full.names = TRUE
+        )[1]
+        
+        valid_control <- validate_bigwig(control_bigwig, input_samples$experiment_number[i])
+        if (!is.null(valid_control)) {
+            message("Using fallback control: ", basename(valid_control))
+            return(
+                list(
+                    index = i,
+                    path = valid_control
+                ))
+        }
+    }
+    
+    warning("No valid Input controls found in dataset")
+    return(NULL)
+}
