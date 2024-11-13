@@ -1,4 +1,4 @@
-create_minimal_identifiers_alt <- function(sample_ids) {
+create_minimal_identifiers <- function(sample_ids) {
     # Validation
     stopifnot(
         "sample_ids must be character vector" = is.character(sample_ids),
