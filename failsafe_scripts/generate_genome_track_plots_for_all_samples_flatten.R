@@ -31,12 +31,12 @@ PLOT_CONFIG <- list(
     track_color = "#fd0036",
     placeholder_color = "#cccccc",
     track_name_format = "%s: %s - %s",
-    placeholder_suffix = "(No data)",
+    placeholder_suffix = "(No data)"
 
 )
 
 PLOT_CONFIG$title_format <- list(
-    main = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s",
+    main = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
 )
 
 # Load required packages
@@ -53,6 +53,7 @@ source("~/lab_utils/failsafe_scripts/bmc_config.R")
 # Load metadata and files
 #-----------------------------------------------------------------------------
 experiment_id <- "241007Bel"
+experiment_id <- "241010Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 plots_dir <- file.path(base_dir, "plots", "genome_tracks", "overview")
 metadata_path <- file.path(base_dir, "documentation", 
