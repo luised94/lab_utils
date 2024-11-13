@@ -31,12 +31,9 @@ PLOT_CONFIG <- list(
     track_color = "#fd0036",
     placeholder_color = "#cccccc",
     track_name_format = "%s: %s - %s",
-    placeholder_suffix = "(No data)"
+    placeholder_suffix = "(No data)",
+    title_format = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
 
-)
-
-PLOT_CONFIG$title_format <- list(
-    main = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
 )
 
 # Load required packages

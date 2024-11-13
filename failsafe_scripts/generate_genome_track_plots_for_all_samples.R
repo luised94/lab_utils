@@ -31,13 +31,11 @@ PLOT_CONFIG <- list(
     track_color = "#fd0036",
     placeholder_color = "#cccccc",
     track_name_format = "%s: %s - %s",
-    placeholder_suffix = "(No data)"
+    placeholder_suffix = "(No data)",
+    title_format = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
 
 )
 
-PLOT_CONFIG$title_format <- list(
-    main = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
-)
 
 # Load required packages
 #-----------------------------------------------------------------------------
@@ -314,7 +312,7 @@ for (group_idx in groups_to_process) {
     }
 
     plot_title <- sprintf(
-        PLOT_CONFIG$title_format$main,
+        PLOT_CONFIG$title_format,
         experiment_id,
         chromosome_to_plot,
         nrow(current_samples),
