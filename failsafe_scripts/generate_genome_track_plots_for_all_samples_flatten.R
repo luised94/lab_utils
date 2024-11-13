@@ -52,7 +52,7 @@ for (pkg in required_packages) {
 source("~/lab_utils/failsafe_scripts/bmc_config.R")
 # Load metadata and files
 #-----------------------------------------------------------------------------
-experiment_id <- "241007Bel"
+#experiment_id <- "241007Bel"
 experiment_id <- "241010Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 plots_dir <- file.path(base_dir, "plots", "genome_tracks", "overview")
@@ -100,26 +100,6 @@ sorted_metadata <- metadata[do.call(
 
 # 6. Add sample IDs to metadata
 sorted_metadata$sample_id <- sample_ids
-
-## Create color mapping for antibodies
-#unique_antibodies <- unique(sorted_metadata$antibody)
-#antibody_colors <- generate_distinct_colors(length(unique_antibodies))
-#names(antibody_colors) <- unique_antibodies
-#
-## Update PLOT_CONFIG with dynamic colors
-#PLOT_CONFIG$track_colors <- list(
-#    antibody = antibody_colors,
-#    placeholder = PLOT_CONFIG$placeholder_color  # Maintain consistent placeholder
-#)
-
-# Create color legend text
-#legend_text <- sprintf(
-#    "Track Colors:\n%s\n%s",
-#    paste("?", names(PLOT_CONFIG$track_colors$antibody), 
-#          sprintf("(%s)", PLOT_CONFIG$track_colors$antibody), 
-#          collapse = "\n"),
-#    sprintf("? No Data (%s)", PLOT_CONFIG$placeholder_color)
-#)
 
 if (DEBUG_CONFIG$verbose) {
     message("Metadata processing summary:")

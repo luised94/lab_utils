@@ -55,7 +55,7 @@ source("~/lab_utils/failsafe_scripts/bmc_config.R")
 experiment_id <- "241007Bel"
 experiment_id <- "241010Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
-plots_dir <- file.path(base_dir, "plots", "genome_tracks", "overview")
+plots_dir <- file.path(base_dir, "plots", "genome_tracks", "experiments")
 metadata_path <- file.path(base_dir, "documentation", 
                           paste0(experiment_id, "_sample_grid.csv"))
 dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
