@@ -241,7 +241,7 @@ if (length(all_track_values) > 0) {
 short_sample_ids <- create_minimal_identifiers(sorted_metadata$sample_id)
 
 # Create mapping between full and short IDs
-sample_id_mapping <- setNames(short_sample_ids, sorted_metadata$sample_id)
+sample_id_mapping <- setNames(short_sample_ids, sorted_metadata$sample_id, verbose = DEBUG_CONFIG$verbose)
 
 # Process each comparison
 #-----------------------------------------------------------------------------
