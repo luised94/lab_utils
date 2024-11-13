@@ -3177,15 +3177,6 @@ create_sample_track_configs <- function(group_samples, bigwig_mapping) {
     return(result)
 }
 
-generate_distinct_colors <- function(n) {
-    # RColorBrewer provides good distinct colors
-    if (n <= 8) {
-        RColorBrewer::brewer.pal(max(3, n), "Set2")[1:n]
-    } else {
-        # For more categories, use rainbow with better spacing
-        rainbow(n, s = 0.7, v = 0.9)
-    }
-}
 
 validate_bigwig <- function(bigwig_path, experiment_number) {
     if (is.na(bigwig_path) || !file.exists(bigwig_path)) {

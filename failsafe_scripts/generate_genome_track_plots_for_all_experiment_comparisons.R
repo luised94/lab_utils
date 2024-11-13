@@ -35,31 +35,6 @@ PLOT_CONFIG <- list(
 
 )
 
-# Function to find matching control sample
-find_control_sample <- function(experimental_sample, metadata, control_factors) {
-    # Create matching conditions for control
-    control_conditions <- lapply(control_factors$genotype, function(factor) {
-        metadata[[factor]] == experimental_sample[[factor]]
-    })
-    
-    # Combine conditions with Input antibody requirement
-    control_conditions$is_input <- metadata$antibody == "Input"
-    
-    # Find matching control samples
-    control_matches <- Reduce(`&`, control_conditions)
-    
-    if (sum(control_matches) == 0) {
-        if (DEBUG_CONFIG$verbose) {
-            message("No matching control found for sample: ", 
-                   experimental_sample$sample_id)
-        }
-        return(NULL)
-    }
-    
-    # Return first matching control
-    metadata[control_matches, ][1, ]
-}
-
 # Load required packages
 #-----------------------------------------------------------------------------
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
@@ -70,6 +45,7 @@ for (pkg in required_packages) {
 }
 
 #source("~/lab_utils/failsafe_scripts/all_functions.R")
+source("~/lab_utils/failsafe_scripts/functions_for_genome_tracks.R")
 source("~/lab_utils/failsafe_scripts/bmc_config.R")
 if (DEBUG_CONFIG$validate_config) {
     if (!exists("EXPERIMENT_CONFIG") || 
@@ -259,28 +235,6 @@ if (length(all_track_values) > 0) {
     if (DEBUG_CONFIG$verbose) {
         message("No valid track data found for y-limit calculation")
     }
-}
-
-
-create_minimal_identifiers_alt <- function(sample_ids) {
-    # Validation
-    stopifnot(
-        "sample_ids must be character vector" = is.character(sample_ids),
-        "sample_ids cannot be empty" = length(sample_ids) > 0,
-        "sample_ids must be unique" = !any(duplicated(sample_ids))
-    )
-    # Find positions where values differ
-    id_matrix <- do.call(rbind, strsplit(sample_ids, ""))
-    diff_positions <- which(apply(id_matrix, 2, function(x) length(unique(x)) > 1))
-    
-    # Get minimal required positions
-    min_pos <- min(diff_positions)
-    max_pos <- max(diff_positions)
-    
-    # Extract minimal substring that ensures uniqueness
-    short_ids <- substr(sample_ids, min_pos, max_pos + 1)
-    
-    return(short_ids)
 }
 
 # Add after processing metadata but before track creation

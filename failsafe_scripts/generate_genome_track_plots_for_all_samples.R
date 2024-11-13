@@ -47,6 +47,7 @@ for (pkg in required_packages) {
 }
 
 #source("~/lab_utils/failsafe_scripts/all_functions.R")
+source("~/lab_utils/failsafe_scripts/functions_for_genome_tracks.R")
 source("~/lab_utils/failsafe_scripts/bmc_config.R")
 # Load metadata and files
 #-----------------------------------------------------------------------------
@@ -221,6 +222,12 @@ if (length(all_track_values) > 0) {
     }
 }
 
+# Add after processing metadata but before track creation
+short_sample_ids <- create_minimal_identifiers(sorted_metadata$sample_id)
+
+# Create mapping between full and short IDs
+sample_id_mapping <- setNames(short_sample_ids, sorted_metadata$sample_id)
+
 # Process each group
 for (group_idx in groups_to_process) {
     if (DEBUG_CONFIG$verbose) {
@@ -247,7 +254,7 @@ for (group_idx in groups_to_process) {
 
         track_name <- sprintf(
             PLOT_CONFIG$track_name_format,
-            sample_id,
+            sample_id_mapping[sample_id],
             current_samples$short_name[i],
             current_samples$antibody[i]
         )
