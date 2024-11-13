@@ -106,6 +106,36 @@ sorted_metadata <- metadata[do.call(
 sorted_metadata$sample_id <- sample_ids
 
 
+generate_distinct_colors <- function(n) {
+    # RColorBrewer provides good distinct colors
+    if (n <= 8) {
+        RColorBrewer::brewer.pal(max(3, n), "Set2")[1:n]
+    } else {
+        # For more categories, use rainbow with better spacing
+        rainbow(n, s = 0.7, v = 0.9)
+    }
+}
+
+# Create color mapping for antibodies
+unique_antibodies <- unique(sorted_metadata$antibody)
+antibody_colors <- generate_distinct_colors(length(unique_antibodies))
+names(antibody_colors) <- unique_antibodies
+
+# Update PLOT_CONFIG with dynamic colors
+PLOT_CONFIG$track_colors <- list(
+    antibody = antibody_colors,
+    placeholder = PLOT_CONFIG$placeholder_color  # Maintain consistent placeholder
+)
+
+# Create color legend text
+legend_text <- sprintf(
+    "Track Colors:\n%s\n%s",
+    paste("?", names(PLOT_CONFIG$track_colors$antibody), 
+          sprintf("(%s)", PLOT_CONFIG$track_colors$antibody), 
+          collapse = "\n"),
+    sprintf("? No Data (%s)", PLOT_CONFIG$placeholder_color)
+)
+
 if (DEBUG_CONFIG$verbose) {
     message("Metadata processing summary:")
     message(sprintf("Found %d fastq files", length(fastq_files)))
@@ -340,6 +370,8 @@ for (group_idx in groups_to_process) {
 
         col.main = "black",
         main.width = 0.8,
+        legend = legend_text,
+        cex.legend = 0.8,
         margin = 15,        # Increase margin for readability
         innerMargin = 5,    # Space between tracks
         background.title = "#F0F0F0"  # Light gray background for track titles
