@@ -37,7 +37,6 @@ PLOT_CONFIG <- list(
 
 PLOT_CONFIG$title_format <- list(
     main = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s",
-    background = "#F0F0F0"
 )
 
 # Load required packages
@@ -398,11 +397,23 @@ for (group_idx in groups_to_process) {
             to = chromosome_width,
             ylim = y_limits,
             main = plot_title,
+            # Track name appearance
+            fontcolor = "black",           # Track name text color
+            background.title = "white",    # Track name background
+            col.border.title = "#E0E0E0",  # Light gray border around track names
+            
+            # Other visualization parameters
             cex.main = 1,
-            col.main = "black",
-            margin = 10,        # Increase margin for readability
-            innerMargin = 5,    # Space between tracks
-            background.title = "#F0F0F0"  # Light gray background for track titles
+            margin = 15,
+            innerMargin = 5,
+            
+            # Axis appearance
+            col.axis = "black",            # Axis text color
+            cex.axis = 0.8,               # Axis text size
+            
+            # Title panel
+            col.title = "black",          # Title text color
+            fontface.title = 2            # Bold title
         )
         dev.off()
     }
