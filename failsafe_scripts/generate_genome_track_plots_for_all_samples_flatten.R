@@ -105,7 +105,7 @@ sorted_metadata <- metadata[do.call(
 # 6. Add sample IDs to metadata
 sorted_metadata$sample_id <- sample_ids
 
-
+# Function to generate distinct colors
 generate_distinct_colors <- function(n) {
     # RColorBrewer provides good distinct colors
     if (n <= 8) {
@@ -373,20 +373,8 @@ for (group_idx in groups_to_process) {
         legend = legend_text,
         cex.legend = 0.8,
         margin = 15,        # Increase margin for readability
-        innerMargin = 5,    # Space between tracks
-        background.title = "#F0F0F0"  # Light gray background for track titles
+        innerMargin = 5    # Space between tracks
     )
-
-
-    # Display plot
-    #Gviz::plotTracks(
-    #    tracks,
-    #    chromosome = chromosome_roman,
-    #    from = 1,
-    #    to = chromosome_width,
-    #    ylim = y_limits,
-    #    title = sprintf("Chromosome %s - Group %d", chromosome_to_plot, group_idx)
-    #)
     
     # Save plot if needed
     if (DEBUG_CONFIG$save_plots) {
