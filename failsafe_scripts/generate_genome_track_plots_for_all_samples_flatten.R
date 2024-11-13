@@ -32,10 +32,6 @@ PLOT_CONFIG <- list(
     placeholder_color = "#cccccc",
     track_name_format = "%s: %s - %s",
     placeholder_suffix = "(No data)",
-    background_colors = list(
-        title = "white",
-        border =  "#E0E0E0"
-    )
 
 )
 
