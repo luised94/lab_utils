@@ -30,10 +30,11 @@ PLOT_CONFIG <- list(
     height = 8,
     track_color = "#fd0036",
     placeholder_color = "#cccccc",
-    track_name_format = "%s (%s)",
+    track_name_format = "%s: %s - %s",
     placeholder_suffix = "(No data)"
 
 )
+
 PLOT_CONFIG$title_format <- list(
     main = "%s\nChromosome %s (%d samples)\n%s",
     subtitle = "%d Samples | %s | CPM Normalized", # count, timestamp
@@ -55,7 +56,7 @@ source("~/lab_utils/failsafe_scripts/bmc_config.R")
 #-----------------------------------------------------------------------------
 experiment_id <- "241007Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
-plots_dir <- file.path(base_dir, "plots", "genome_tracks")
+plots_dir <- file.path(base_dir, "plots", "genome_tracks", "overview")
 metadata_path <- file.path(base_dir, "documentation", 
                           paste0(experiment_id, "_sample_grid.csv"))
 dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
@@ -249,7 +250,8 @@ for (group_idx in groups_to_process) {
         track_name <- sprintf(
             PLOT_CONFIG$track_name_format,
             sample_id,
-            current_samples$short_name[i]
+            current_samples$short_name[i],
+            current_samples$antibody[i]
         )
 
         placeholder_name <- sprintf(
@@ -346,15 +348,17 @@ for (group_idx in groups_to_process) {
     
     # Save plot if needed
     if (DEBUG_CONFIG$save_plots) {
-        plot_file <- file.path(
-            plots_dir,
-            sprintf(
-                "%s_%s_chr%s_group%d.svg",
-                TIMESTAMPS$full,              # Add timestamp
+        plot_filename <- sprintf(
+                "%s_%s_chr%s_n%d_group%d.svg",
+                TIMESTAMPS$full,
                 experiment_id,
                 chromosome_to_plot,
+                nrow(current_samples),
                 group_idx
-            )
+        )
+        plot_file <- file.path(
+            plots_dir,
+            plot_filename
         )
         
         if (DEBUG_CONFIG$verbose) {
@@ -366,12 +370,17 @@ for (group_idx in groups_to_process) {
         
         svg(plot_file, width = PLOT_CONFIG$width, height = PLOT_CONFIG$height)
         Gviz::plotTracks(
-            tracks,
+            trackList = tracks,
             chromosome = chromosome_roman,
             from = 1,
             to = chromosome_width,
             ylim = y_limits,
-            title = sprintf("Chromosome %s - Group %d", chromosome_to_plot, group_idx)
+            main = plot_title,
+            cex.main = 1,
+            col.main = "black",
+            margin = 10,        # Increase margin for readability
+            innerMargin = 5,    # Space between tracks
+            background.title = "#F0F0F0"  # Light gray background for track titles
         )
         dev.off()
     }
