@@ -29,7 +29,8 @@ PLOT_CONFIG <- list(
     height = 8,
     track_color = "#fd0036",
     placeholder_color = "#cccccc",
-    track_name_format = "%s: %s - %s",
+    input_color ="#808080",
+    track_name_format = "%s: %s",
     placeholder_suffix = "(No data)",
     title_format = "%s\nComparison: %s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
 
@@ -119,6 +120,25 @@ if (DEBUG_CONFIG$verbose) {
     print(names(EXPERIMENT_CONFIG$CATEGORIES))
 }
 
+# Create color scheme
+color_scheme <- create_color_scheme(
+    config = list(
+        placeholder = PLOT_CONFIG$placeholder_color,
+        input = PLOT_CONFIG$input_color
+    ),
+    categories = list(
+        antibody = unique(sorted_metadata$antibody),
+        rescue_allele = unique(sorted_metadata$rescue_allele)
+    )
+)
+
+if (DEBUG_CONFIG$verbose) {
+    message("\nColor scheme initialized:")
+    message("Fixed colors:")
+    print(color_scheme$fixed)
+    message("Category colors:")
+    print(color_scheme$categories)
+}
 # Load reference genome
 ref_genome_file <- list.files(
     file.path(Sys.getenv("HOME"), "data", "REFGENS"),
@@ -224,7 +244,20 @@ for (comparison_name in comparisons_to_process) {
     comparison_expression <- EXPERIMENT_CONFIG$COMPARISONS[[comparison_name]]
     comparison_samples <- sorted_metadata[eval(comparison_expression, 
                                              envir = sorted_metadata), ]
-    
+    label_result <- create_track_labels(
+        comparison_samples,
+        always_show = "antibody",
+        categories = EXPERIMENT_CONFIG$CONTROL_FACTORS$genotype,
+        verbose = DEBUG_CONFIG$verbose
+    )
+
+    if (!label_result$success) {
+        warning("Failed to create track labels: ", label_result$error)
+        track_labels <- comparison_samples$short_name  # Fallback to sample_id
+    } else {
+        track_labels <- label_result$data
+    }
+
     if (nrow(comparison_samples) == 0) {
         warning(sprintf("No samples found for comparison: %s", comparison_name))
         next
@@ -342,8 +375,7 @@ for (comparison_name in comparisons_to_process) {
         track_name <- sprintf(
             PLOT_CONFIG$track_name_format,
             sample_id_mapping[sample_id],
-            comparison_samples$antibody[i],
-            comparison_samples$rescue_allele[i]
+            track_labels[i],
         )
         
         if (length(sample_bigwig) > 0 && file.exists(sample_bigwig[1])) {
