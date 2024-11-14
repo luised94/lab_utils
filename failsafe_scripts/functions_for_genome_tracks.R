@@ -249,12 +249,14 @@ create_track_labels <- function(samples, categories,
         }
         
         # Find distinguishing categories
-        distinguishing_cats <- c(
+        distinguishing_cats <- unique(
+            c(
             always_show,
             categories[sapply(categories, function(cat) {
                 length(unique(samples[[cat]])) > 1
             })]
-        ) %>% unique()
+            )
+        )
         
         if (verbose) {
             message("Distinguishing categories: ", 
