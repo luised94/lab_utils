@@ -384,6 +384,13 @@ for (comparison_name in comparisons_to_process) {
                 message(sprintf("Adding track for sample: %s", sample_id))
             }
             
+            # Update track color based on antibody
+            track_color <- if (current_antibody == "Input") {
+                color_scheme$fixed$input
+            } else {
+                color_scheme$get_color("antibody", current_antibody)
+            }
+
             track_data <- rtracklayer::import(
                 sample_bigwig[1],
                 which = genome_range
@@ -416,7 +423,7 @@ for (comparison_name in comparisons_to_process) {
                 empty_ranges,
                 name = paste(track_name, PLOT_CONFIG$placeholder_suffix),
                 type = "l",
-                col = PLOT_CONFIG$placeholder_color,
+                col = color_scheme$fixed$placeholder,
                 chromosome = chromosome_roman
             )
         }
