@@ -311,7 +311,7 @@ for (comparison_name in comparisons_to_process) {
                     control_sample$rescue_allele
                 ),
                 type = "l",
-                col = PLOT_CONFIG$placeholder_color,
+                col = color_scheme$fixed$input,
                 chromosome = chromosome_roman
             )
         } else {
@@ -340,7 +340,7 @@ for (comparison_name in comparisons_to_process) {
                     PLOT_CONFIG$placeholder_suffix
                 ),
                 type = "l",
-                col = PLOT_CONFIG$placeholder_color,
+                col = color_scheme$fixed$placeholder,
                 chromosome = chromosome_roman
             )
         }
@@ -364,10 +364,11 @@ for (comparison_name in comparisons_to_process) {
             empty_ranges,
             name = sprintf("Input Control %s", PLOT_CONFIG$placeholder_suffix),
             type = "l",
-            col = PLOT_CONFIG$placeholder_color,
+            col = color_scheme$fixed$placeholder,
             chromosome = chromosome_roman
         )
     }
+
     # Add sample tracks
     for (i in seq_len(nrow(comparison_samples))) {
         sample_id <- comparison_samples$sample_id[i]
@@ -401,7 +402,7 @@ for (comparison_name in comparisons_to_process) {
                 track_data,
                 name = track_name,
                 type = "l",
-                col = PLOT_CONFIG$track_color,
+                col = track_color,
                 chromosome = chromosome_roman
             )
         } else {
