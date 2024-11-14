@@ -376,7 +376,7 @@ for (comparison_name in comparisons_to_process) {
         track_name <- sprintf(
             PLOT_CONFIG$track_name_format,
             sample_id_mapping[sample_id],
-            track_labels[i],
+            track_labels[i]
         )
         
         if (length(sample_bigwig) > 0 && file.exists(sample_bigwig[1])) {
