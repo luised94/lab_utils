@@ -372,6 +372,7 @@ for (comparison_name in comparisons_to_process) {
     for (i in seq_len(nrow(comparison_samples))) {
         sample_id <- comparison_samples$sample_id[i]
         sample_bigwig <- bigwig_files[grepl(sample_id, bigwig_files)]
+        current_antibody <- comparison_samples$antibody[i]
         
         track_name <- sprintf(
             PLOT_CONFIG$track_name_format,
