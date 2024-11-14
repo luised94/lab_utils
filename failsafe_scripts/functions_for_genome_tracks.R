@@ -185,43 +185,6 @@ calculate_track_limits <- function(bigwig_files, genome_range,
     return(result)
 }
 
-
-#' @title Create Consistent Color Scheme
-#' @description Generates and manages consistent colors for track visualization
-#' @param config list Configuration including fixed colors
-#' @param categories list Named list of category values requiring colors
-#' @return list Color assignments and management functions
-create_color_scheme <- function(config, categories) {
-    # Fixed colors that should remain consistent
-    fixed_colors <- list(
-        placeholder = "#cccccc",
-        input = "#808080"
-    )
-    
-    # Generate colors for variable categories
-    category_colors <- list()
-    for (cat_name in names(categories)) {
-        set.seed(sum(utf8ToInt(cat_name)))  # Consistent seed per category
-        n_colors <- length(categories[[cat_name]])
-        category_colors[[cat_name]] <- RColorBrewer::brewer.pal(
-            max(3, n_colors), 
-            "Set2"
-        )[seq_len(n_colors)]
-        names(category_colors[[cat_name]]) <- categories[[cat_name]]
-    }
-    
-    list(
-        fixed = fixed_colors,
-        categories = category_colors,
-        get_color = function(category, value) {
-            if (category == "antibody" && value == "Input") {
-                return(fixed_colors$input)
-            }
-            category_colors[[category]][[value]] %||% fixed_colors$placeholder
-        }
-    )
-}
-
 #' @title Create Informative Track Labels
 #' @description Generates track labels based on distinguishing sample characteristics
 #' @param samples data.frame Sample metadata
@@ -283,4 +246,98 @@ create_track_labels <- function(samples, categories,
     })
     
     return(result)
+}
+
+#' @title Create Consistent Color Scheme
+#' @description Generates and manages consistent colors for track visualization
+#' @param config list Configuration including fixed colors
+#' @param categories list Named list of category values requiring colors
+#' @return list Color assignments and management functions
+create_color_scheme <- function(config, categories, verbose = FALSE) {
+    # Input validation
+    stopifnot(
+        "config must be a list" = is.list(config),
+        "categories must be a list" = is.list(categories),
+        "config must contain placeholder color" = !is.null(config$placeholder),
+        "config must contain input color" = !is.null(config$input),
+        "verbose must be logical" = is.logical(verbose)
+    )
+    
+    # Initialize fixed colors
+    fixed_colors <- list(
+        placeholder = config$placeholder,
+        input = config$input
+    )
+    
+    if (verbose) {
+        message("Initializing color scheme...")
+        message("Fixed colors:")
+        message("- Placeholder: ", fixed_colors$placeholder)
+        message("- Input: ", fixed_colors$input)
+    }
+    
+    # Generate category-specific colors
+    category_colors <- list()
+    
+    for (category_name in names(categories)) {
+        # Get unique values for current category
+        category_values <- categories[[category_name]]
+        color_count <- length(category_values)
+        
+        # Set consistent seed for reproducibility
+        category_seed <- sum(utf8ToInt(category_name))
+        set.seed(category_seed)
+        
+        # Generate colors based on category size
+        if (color_count <= 8) {
+            category_palette <- RColorBrewer::brewer.pal(max(3, color_count), "Set2")
+            category_colors_vector <- category_palette[seq_len(color_count)]
+        } else {
+            category_colors_vector <- rainbow(color_count, s = 0.7, v = 0.9)
+        }
+        
+        # Assign names to colors
+        names(category_colors_vector) <- category_values
+        category_colors[[category_name]] <- category_colors_vector
+        
+        if (verbose) {
+            message(sprintf("\nColors for category '%s':", category_name))
+            for (value in category_values) {
+                message(sprintf("- %s: %s", value, category_colors[[category_name]][value]))
+            }
+        }
+    }
+    
+    # Create color getter function
+    get_color <- function(category, value) {
+        if (category == "antibody" && value == "Input") {
+            return(fixed_colors$input)
+        }
+        
+        if (!category %in% names(category_colors)) {
+            if (verbose) {
+                message(sprintf("Category '%s' not found, using placeholder", category))
+            }
+            return(fixed_colors$placeholder)
+        }
+        
+        if (!value %in% names(category_colors[[category]])) {
+            if (verbose) {
+                message(sprintf("Value '%s' not found in category '%s', using placeholder",
+                              value, category))
+            }
+            return(fixed_colors$placeholder)
+        }
+        
+        return(category_colors[[category]][value])
+    }
+    
+    # Create output structure
+    color_scheme <- list(
+        fixed = fixed_colors,
+        categories = category_colors,
+        get_color = get_color
+    )
+    
+    return(color_scheme)
 }
