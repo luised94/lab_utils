@@ -31,6 +31,7 @@ PLOT_CONFIG <- list(
     placeholder_color = "#cccccc",
     input_color ="#808080",
     track_name_format = "%s: %s",
+    input_track_name_format = "%s: %s - %s",
     placeholder_suffix = "(No data)",
     title_format = "%s\nComparison: %s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
 
@@ -304,7 +305,7 @@ for (comparison_name in comparisons_to_process) {
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 control_track_data,
                 name = sprintf(
-                    PLOT_CONFIG$track_name_format,
+                    PLOT_CONFIG$input_track_name_format,
                     sample_id_mapping[control_sample$sample_id],
                     "Input",
                     control_sample$rescue_allele
