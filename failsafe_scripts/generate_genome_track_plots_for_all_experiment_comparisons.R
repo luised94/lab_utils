@@ -38,7 +38,7 @@ PLOT_CONFIG <- list(
     title = list(
         mode = "development",  # or "publication"
         development = list(
-            width = 0.8,
+            width = 1,
             fontface = 1,
             cex = 0.8,
             background = "white",

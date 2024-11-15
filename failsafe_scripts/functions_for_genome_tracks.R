@@ -383,30 +383,48 @@ create_plot_title <- function(metadata, comparison_name, plot_info,
     shared_values <- unlist(shared_values[!sapply(shared_values, is.null)])
     
     # Create title based on mode
+    
     if (mode == "development") {
+        # Create columns with explicit line breaks and fixed width
         col1 <- sprintf(
-            "Experiment: %s\nComparison: %s\nChromosome: %s\nSamples: %d\nNorm: %s",
-            plot_info$experiment_id,
-            comparison_name,
-            plot_info$chromosome,
-            nrow(metadata),
-            plot_info$normalization
+            "%-35s\n%-35s\n%-35s\n%-35s\n%-35s",
+            sprintf("Experiment: %s", plot_info$experiment_id),
+            sprintf("Comparison: %s", comparison_name),
+            sprintf("Chromosome: %s", plot_info$chromosome),
+            sprintf("Samples: %d", nrow(metadata)),
+            sprintf("Norm: %s", plot_info$normalization)
         )
         
-        col2 <- if (length(shared_values) > 0) {
-            sprintf("Shared Properties:\n%s", paste(shared_values, collapse = "\n"))
-        } else {
-            "No Shared Properties"
-        }
+        # Format shared properties
+        shared_props <- sapply(shared_categories, function(col) {
+            values <- unique(metadata[[col]])
+            if (length(values) == 1) {
+                sprintf("%s: %s", col, values[1])
+            }
+        })
+        shared_props <- shared_props[!sapply(shared_props, is.null)]
+        
+        col2 <- sprintf(
+            "Shared Properties:\n%s",
+            paste(strwrap(paste(shared_props, collapse = ", "), width = 35), 
+                  collapse = "\n")
+        )
         
         col3 <- sprintf(
-            "Processing:\n%s\nY-range: [%.2f, %.2f]",
+            "%-35s\n%-35s",
             format(Sys.time(), "%Y-%m-%d %H:%M"),
-            plot_info$y_limits[1],
-            plot_info$y_limits[2]
+            sprintf("Y-range: [%.2f, %.2f]", plot_info$y_limits[1], plot_info$y_limits[2])
         )
         
-        title <- sprintf("%-40s %-40s %-40s", col1, col2, col3)
+        # Combine with explicit column separators
+        title <- paste(
+            col1,
+            "|",
+            col2,
+            "|",
+            col3,
+            sep = "  "
+        )
     } else {
         title <- sprintf(
             "%s: %s\nChr %s",
