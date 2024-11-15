@@ -150,9 +150,10 @@ genome_range <- GenomicRanges::GRanges(
 )
 
 # Find bigwig files
+bigwig_pattern <- sprintf("_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
 bigwig_files <- list.files(
     file.path(base_dir, "coverage"),
-    pattern = "_CPM\\.bw$",
+    pattern = bigwig_pattern,
     full.names = TRUE
 )
 normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1", 
