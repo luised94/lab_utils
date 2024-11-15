@@ -185,13 +185,14 @@ calculate_track_limits <- function(bigwig_files, genome_range,
     return(result)
 }
 
-#' @title Create Informative Track Labels
-#' @description Generates track labels based on distinguishing sample characteristics
+
+#' @title Create Track Labels and Category Information
+#' @description Creates labels and returns category usage information
 #' @param samples data.frame Sample metadata
 #' @param categories character vector Categories to consider
 #' @param always_show character vector Categories to always show
 #' @param verbose logical Print processing information
-#' @return character vector of track labels
+#' @return list containing labels and category information
 create_track_labels <- function(samples, categories, 
                               always_show = c("antibody"), 
                               verbose = FALSE) {
@@ -212,13 +213,19 @@ create_track_labels <- function(samples, categories,
         }
         
         # Find distinguishing categories
-        distinguishing_cats <- unique(
-            c(
-            always_show,
-            categories[sapply(categories, function(cat) {
-                length(unique(samples[[cat]])) > 1
-            })]
-            )
+        varying_categories <- categories[sapply(categories, function(cat) {
+            length(unique(samples[[cat]])) > 1
+        })]
+        
+        # Combine with always_show categories
+        distinguishing_cats <- unique(c(always_show, varying_categories))
+        
+        # Track category usage
+        category_info <- list(
+            distinguishing = distinguishing_cats,
+            varying = varying_categories,
+            always_shown = always_show,
+            all_available = colnames(samples)
         )
         
         if (verbose) {
@@ -234,7 +241,10 @@ create_track_labels <- function(samples, categories,
         
         list(
             success = TRUE,
-            data = labels,
+            data = list(
+                labels = labels,
+                categories = category_info
+            ),
             error = NULL
         )
     }, error = function(e) {
@@ -342,7 +352,126 @@ create_color_scheme <- function(config, categories, verbose = FALSE) {
     return(color_scheme)
 }
 
+#' @title Create Plot Title Using Category Information
+create_plot_title <- function(metadata, comparison_name, plot_info, 
+                            categories = NULL, mode = "development") {
+    # Input validation
+    stopifnot(
+        "metadata must be data.frame" = is.data.frame(metadata),
+        "comparison_name must be character" = is.character(comparison_name),
+        "plot_info must be list" = is.list(plot_info),
+        "mode must be development or publication" = mode %in% c("development", "publication")
+    )
+    
+    # Get labels and category information
+    label_result <- create_track_labels(
+        samples = metadata,
+        categories = categories$track_labels,
+        always_show = categories$always_show,
+        verbose = FALSE
+    )
+    
+    if (!label_result$success) {
+        stop("Failed to create labels: ", label_result$error)
+    }
+    
+    # Find shared characteristics (columns not used for distinction)
+    used_categories <- unique(c(
+        label_result$data$categories$distinguishing,
+        label_result$data$categories$always_shown
+    ))
+    
+    shared_columns <- setdiff(
+        label_result$data$categories$all_available,
+        c(used_categories, "sample_id")
+    )
+    
+    # Get shared values
+    shared_values <- sapply(shared_columns, function(col) {
+        values <- unique(metadata[[col]])
+        if (length(values) == 1) {
+            sprintf("%s: %s", col, values)
+        } else {
+            NULL
+        }
+    })
+    shared_values <- unlist(shared_values[!sapply(shared_values, is.null)])
+    
+    # Create title based on mode
+    if (mode == "development") {
+        col1 <- sprintf(
+            "Experiment: %s\nComparison: %s\nChromosome: %s\nSamples: %d\nNorm: %s",
+            plot_info$experiment_id,
+            comparison_name,
+            plot_info$chromosome,
+            nrow(metadata),
+            plot_info$normalization
+        )
+        
+        col2 <- if (length(shared_values) > 0) {
+            sprintf("Shared Properties:\n%s", paste(shared_values, collapse = "\n"))
+        } else {
+            "No Shared Properties"
+        }
+        
+        col3 <- sprintf(
+            "Processing:\n%s\nY-range: [%.2f, %.2f]",
+            format(Sys.time(), "%Y-%m-%d %H:%M"),
+            plot_info$y_limits[1],
+            plot_info$y_limits[2]
+        )
+        
+        title <- sprintf("%-40s %-40s %-40s", col1, col2, col3)
+    } else {
+        title <- sprintf(
+            "%s: %s\nChr %s",
+            plot_info$experiment_id,
+            sub("^comp_", "", comparison_name),
+            plot_info$chromosome
+        )
+    }
+    
+    # Format title according to configuration
+    formatted_title <- format_title_text(
+        title,
+        max_width = PLOT_CONFIG$title$format$max_width,
+        max_lines = PLOT_CONFIG$title$format$max_lines
+    )
+    
+    return(formatted_title)
+}
 
+format_title_text <- function(text, max_width = 40, max_lines = NULL) {
+    # Input validation
+    stopifnot(
+        "text must be character" = is.character(text),
+        "max_width must be positive number" = is.numeric(max_width) && max_width > 0,
+        "max_lines must be NULL or positive number" = 
+            is.null(max_lines) || (is.numeric(max_lines) && max_lines > 0)
+    )
+    
+    # Split into lines
+    lines <- strsplit(text, "\n")[[1]]
+    
+    # Truncate or wrap each line
+    formatted_lines <- sapply(lines, function(line) {
+        if (nchar(line) > max_width) {
+            paste0(substr(line, 1, max_width - 3), "...")
+        } else {
+            line
+        }
+    })
+    
+    # Limit number of lines if specified
+    if (!is.null(max_lines) && length(formatted_lines) > max_lines) {
+        formatted_lines <- c(
+            formatted_lines[1:(max_lines - 1)],
+            "..."
+        )
+    }
+    
+    paste(formatted_lines, collapse = "\n")
+}
 ## Create color mapping for antibodies
 #unique_antibodies <- unique(sorted_metadata$antibody)
 #antibody_colors <- generate_distinct_colors(length(unique_antibodies))
