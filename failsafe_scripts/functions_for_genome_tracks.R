@@ -236,7 +236,7 @@ create_track_labels <- function(samples, categories,
         # Create labels
         labels <- apply(samples, 1, function(row) {
             values <- sapply(distinguishing_cats, function(cat) row[[cat]])
-            paste(values, collapse = " - ")
+            paste(values, collapse = "-")
         })
         
         list(
