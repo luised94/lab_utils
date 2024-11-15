@@ -466,7 +466,7 @@ for (comparison_name in comparisons_to_process) {
         tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
             features,
             name = feature_track_name,
-            rotation.title = 90
+            rotation.title = 0
         )
     }
 
@@ -571,8 +571,8 @@ for (comparison_name in comparisons_to_process) {
         innerMargin = 5,
         
         # Axis appearance
-        col.axis = "black",            # Axis text color
-        cex.axis = 3               # Axis text size
+        col.axis = "black", # Axis text color
+        cex.axis = 0.8 # Axis text size
         
     )
     
@@ -626,7 +626,7 @@ for (comparison_name in comparisons_to_process) {
             
             # Axis appearance
             col.axis = "black"            # Axis text color
-            #cex.axis = 0.8               # Axis text size
+            cex.axis = 0.8               # Axis text size
             
         )
         dev.off()
