@@ -39,7 +39,7 @@ PLOT_CONFIG <- list(
         development = list(
             width = 0.9,
             fontface = 1,
-            cex = 0.75,
+            cex = 0.6,
             background = "white",
             # Format title with visual spacing
             format = paste(
@@ -288,7 +288,7 @@ for (comparison_name in comparisons_to_process) {
         samples = comparison_samples,
         always_show = "antibody",
         never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
-        separator = " - ",
+        separator = "-",
         verbose = TRUE
     )
 
