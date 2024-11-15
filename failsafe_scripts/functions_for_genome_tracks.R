@@ -354,38 +354,23 @@ create_color_scheme <- function(config, categories, verbose = FALSE) {
 
 #' @title Create Plot Title Using Category Information
 create_plot_title <- function(metadata, comparison_name, plot_info, 
-                            categories = NULL, mode = "development") {
+                            label_result = NULL, mode = "development") {
     # Input validation
     stopifnot(
         "metadata must be data.frame" = is.data.frame(metadata),
         "comparison_name must be character" = is.character(comparison_name),
         "plot_info must be list" = is.list(plot_info),
-        "mode must be development or publication" = mode %in% c("development", "publication")
+        "mode must be development or publication" = mode %in% c("development", "publication"),
+        "label_result must contain required components" = is.list(label_result) &&       all(c("labels", "categories") %in% names(label_result$data))
     )
     
-    # Get labels and category information
-    label_result <- create_track_labels(
-        samples = metadata,
-        categories = categories$track_labels,
-        always_show = categories$always_show,
-        verbose = FALSE
-    )
+    # Use existing label information
+    distinguishing_cats <- label_result$data$categories$distinguishing
+    varying_cats <- label_result$data$categories$varying
+    all_cats <- label_result$data$categories$all_available
     
-    if (!label_result$success) {
-        stop("Failed to create labels: ", label_result$error)
-    }
-    
-    # Find shared characteristics (columns not used for distinction)
-    used_categories <- unique(c(
-        label_result$data$categories$distinguishing,
-        label_result$data$categories$always_shown
-    ))
-    
-    shared_columns <- setdiff(
-        label_result$data$categories$all_available,
-        c(used_categories, "sample_id")
-    )
-    
+    # Find shared characteristics using existing categorization
+    shared_columns <- setdiff(all_cats, c(distinguishing_cats, "sample_id"))
     # Get shared values
     shared_values <- sapply(shared_columns, function(col) {
         values <- unique(metadata[[col]])

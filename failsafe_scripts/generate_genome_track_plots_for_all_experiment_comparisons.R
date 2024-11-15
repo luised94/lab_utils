@@ -281,7 +281,7 @@ for (comparison_name in comparisons_to_process) {
         warning("Failed to create track labels for comparison %s: %s", comparison_name, label_result$error)
         track_labels <- comparison_samples$short_name  # Fallback to sample_id
     } else {
-        track_labels <- label_result$data
+        track_labels <- label_result$data$labels
     }
 
     if (nrow(comparison_samples) == 0) {
@@ -464,6 +464,42 @@ for (comparison_name in comparisons_to_process) {
         )
     }
 
+    # For creating plot title, use category information
+    distinguishing_categories <- label_result$data$categories$distinguishing
+    varying_categories <- label_result$data$categories$varying
+    all_categories <- label_result$data$categories$all_available
+
+
+    # Find shared characteristics
+    shared_categories <- setdiff(
+        all_categories,
+        c(distinguishing_categories, "sample_id")
+    )
+
+
+    # Create shared characteristics text
+    shared_values <- sapply(shared_categories, function(col) {
+        values <- unique(comparison_samples[[col]])
+        if (length(values) == 1) {
+            sprintf("%s: %s", col, values)
+        } else {
+            NULL
+        }
+    })
+    shared_values <- unlist(shared_values[!sapply(shared_values, is.null)])
+    
+    # Debug output if needed
+    if (DEBUG_CONFIG$verbose) {
+        message("\nLabel Result Summary:")
+        message("- Distinguishing categories: ", 
+                paste(distinguishing_categories, collapse = ", "))
+        message("- Varying categories: ", 
+                paste(varying_categories, collapse = ", "))
+        message("- Shared categories: ", 
+                paste(shared_categories, collapse = ", "))
+        message("- Number of labels: ", length(track_labels))
+    }
+
     # Prepare plot information
     plot_info <- list(
         experiment_id = experiment_id,
@@ -477,10 +513,7 @@ for (comparison_name in comparisons_to_process) {
         metadata = comparison_samples,
         comparison_name = comparison_name,
         plot_info = plot_info,
-        categories = list(
-            track_labels = EXPERIMENT_CONFIG$CONTROL_FACTORS$genotype,
-            always_show = "antibody"
-        ),
+        label_result = label_result,
         mode = PLOT_CONFIG$title$mode
     )
     # Create plot title
