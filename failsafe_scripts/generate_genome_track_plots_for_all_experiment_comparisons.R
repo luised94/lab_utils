@@ -7,7 +7,7 @@ DEBUG_CONFIG <- list(
     save_plots = FALSE,        # Whether to save plots to files
     verbose = TRUE,           # Print debug information
     chromosome = 10,
-    interactive = TRUE,
+    interactive = FALSE,
     validate_config = TRUE,
     display_time = 2
 )
