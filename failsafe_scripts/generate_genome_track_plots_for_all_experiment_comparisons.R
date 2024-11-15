@@ -207,8 +207,6 @@ feature_track_name <- gsub(
                         tools::toTitleCase(pattern_for_feature_file)
                         )
 
-# Print the result
-print(output_string)
 if (!is.null(feature_file)) {
     features <- rtracklayer::import(feature_file)
     # Convert to chrRoman format
@@ -565,7 +563,7 @@ for (comparison_name in comparisons_to_process) {
         fontcolor = "black",           # Track name text color
         background.title = "white",    # Track name background
         col.border.title = "#E0E0E0",  # Light gray border around track names
-        fontsize = 7, # Base font size
+        fontsize = 9, # Base font size
         
         # Other visualization parameters
         cex.main = 1,
