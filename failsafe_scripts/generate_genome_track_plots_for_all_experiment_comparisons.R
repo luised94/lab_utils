@@ -555,6 +555,7 @@ for (comparison_name in comparisons_to_process) {
         fontcolor = "black",           # Track name text color
         background.title = "white",    # Track name background
         col.border.title = "#E0E0E0",  # Light gray border around track names
+        fontsize = 7, # Base font size
         
         # Other visualization parameters
         cex.main = 1,
