@@ -32,24 +32,23 @@ PLOT_CONFIG <- list(
     track_name_format = "%s: %s",
     control_track_name_format = "%s: %s - %s",
     placeholder_suffix = "(No data)",
-    title_format = "%s\nComparison: %s\nChromosome %s (%d samples)\n%s\nNormalization: %s",
 
     #Title configuration
     title = list(
         mode = "development",  # or "publication"
         development = list(
             width = 1,
-            fontface = 1,
+            fontface = 2,
             cex = 0.8,
             background = "white",
-            format = "three_column"
+            format = "%s\nComparison: %s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
         ),
         publication = list(
             width = 0.4,
             fontface = 2,
             cex = 1,
             background = "transparent",
-            format = "minimal"
+            format = "%s: Chr%s (%s)"
         ),
         format = list(
             max_width = 40,
@@ -524,23 +523,25 @@ for (comparison_name in comparisons_to_process) {
     #)
     # Create plot title
     #-----------------------------------------------------------------------------
+    # Get title configuration for current mode
+    title_config <- PLOT_CONFIG$title[[PLOT_CONFIG$title$mode]]
+
     plot_title <- sprintf(
-        PLOT_CONFIG$title_format,
+        title_config$format,
         experiment_id,
-        sub("^comp_", "", comparison_name),  # Remove 'comp_' prefix
+        sub("^comp_", "", comparison_name),
         chromosome_to_plot,
         nrow(comparison_samples),
         format(Sys.time(), "%Y-%m-%d %H:%M"),
         normalization_method
     )
+
     # Generate plot
     #-----------------------------------------------------------------------------
     if (DEBUG_CONFIG$verbose) {
         message("\nGenerating visualization...")
     }
     
-    # Get title configuration for current mode
-    title_config <- PLOT_CONFIG$title[[PLOT_CONFIG$title$mode]]
 
     Gviz::plotTracks(
         trackList = tracks,
