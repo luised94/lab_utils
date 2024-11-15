@@ -38,8 +38,8 @@ PLOT_CONFIG <- list(
         mode = "development",  # or "publication"
         development = list(
             width = 0.9,
-            fontface = 2,
-            cex = 0.3,
+            fontface = 1,
+            cex = 0.75,
             background = "white",
             # Format title with visual spacing
             format = paste(
@@ -63,7 +63,7 @@ PLOT_CONFIG <- list(
             max_lines = 5
         )
     )
-    
+
 )
 
 # Load required packages
@@ -79,13 +79,13 @@ for (pkg in required_packages) {
 source("~/lab_utils/failsafe_scripts/functions_for_genome_tracks.R")
 source("~/lab_utils/failsafe_scripts/bmc_config.R")
 if (DEBUG_CONFIG$validate_config) {
-    if (!exists("EXPERIMENT_CONFIG") || 
+    if (!exists("EXPERIMENT_CONFIG") ||
         !("COMPARISONS" %in% names(EXPERIMENT_CONFIG))) {
         stop("EXPERIMENT_CONFIG must contain COMPARISONS element")
     }
-    
+
     if (DEBUG_CONFIG$verbose) {
-        message("Found ", length(EXPERIMENT_CONFIG$COMPARISONS), 
+        message("Found ", length(EXPERIMENT_CONFIG$COMPARISONS),
                 " comparisons in configuration")
     }
 }
@@ -97,7 +97,7 @@ if (DEBUG_CONFIG$validate_config) {
 experiment_id <- "241010Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 plots_dir <- file.path(base_dir, "plots", "genome_tracks", "comparisons")
-metadata_path <- file.path(base_dir, "documentation", 
+metadata_path <- file.path(base_dir, "documentation",
                           paste0(experiment_id, "_sample_grid.csv"))
 dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -135,7 +135,7 @@ for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
 
 # 5. Sort metadata using config column order
 sorted_metadata <- metadata[do.call(
-    order, 
+    order,
     metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
 ), ]
 
@@ -197,7 +197,7 @@ bigwig_files <- list.files(
     pattern = "_CPM\\.bw$",
     full.names = TRUE
 )
-normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1", 
+normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1",
                           basename(bigwig_files[1]))
 
 # Load feature file (annotation)
@@ -218,7 +218,7 @@ if (!is.null(feature_file)) {
     features <- rtracklayer::import(feature_file)
     # Convert to chrRoman format
     GenomeInfoDb::seqlevels(features) <- paste0(
-        "chr", 
+        "chr",
         utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
     )
 }
@@ -277,10 +277,10 @@ for (comparison_name in comparisons_to_process) {
     if (DEBUG_CONFIG$verbose) {
         message(sprintf("\nProcessing comparison: %s", comparison_name))
     }
-    
+
     # Get comparison expression and filter metadata
     comparison_expression <- EXPERIMENT_CONFIG$COMPARISONS[[comparison_name]]
-    comparison_samples <- sorted_metadata[eval(comparison_expression, 
+    comparison_samples <- sorted_metadata[eval(comparison_expression,
                                              envir = sorted_metadata), ]
     label_result <- create_track_labels(
         samples = comparison_samples,
@@ -300,45 +300,45 @@ for (comparison_name in comparisons_to_process) {
         warning(sprintf("No samples found for comparison: %s", comparison_name))
         next
     }
-    
+
     if (DEBUG_CONFIG$verbose) {
         message(sprintf("Found %d samples for comparison", nrow(comparison_samples)))
     }
-    
+
     # Initialize track list with genome axis
     tracks <- list(
         Gviz::GenomeAxisTrack(
             name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
         )
     )
-    
+
     # Find and add control track (single control per comparison)
     if (DEBUG_CONFIG$verbose) {
         message("\nFinding control sample for comparison...")
     }
-    
+
     # Try to find control for first available sample
     control_sample <- find_control_sample(
         comparison_samples[1, ],
         sorted_metadata,
         EXPERIMENT_CONFIG$CONTROL_FACTORS
     )
-    
+
     # Add single control track (real or placeholder)
     if (!is.null(control_sample)) {
-        control_bigwig <- bigwig_files[grepl(control_sample$sample_id, 
+        control_bigwig <- bigwig_files[grepl(control_sample$sample_id,
                                            bigwig_files)]
         if (length(control_bigwig) > 0 && file.exists(control_bigwig[1])) {
             if (DEBUG_CONFIG$verbose) {
-                message(sprintf("Adding control track: %s", 
+                message(sprintf("Adding control track: %s",
                               control_sample$sample_id))
             }
-            
+
             control_track_data <- rtracklayer::import(
                 control_bigwig[1],
                 which = genome_range
             )
-            
+
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 control_track_data,
                 name = sprintf(
@@ -349,13 +349,14 @@ for (comparison_name in comparisons_to_process) {
                 ),
                 type = "l",
                 col = color_scheme$fixed$input,
-                chromosome = chromosome_roman
+                chromosome = chromosome_roman,
+                cex.title = 1.2
             )
         } else {
             if (DEBUG_CONFIG$verbose) {
                 message("Creating placeholder for control track")
             }
-            
+
             # Create placeholder control track
             empty_ranges <- GenomicRanges::GRanges(
                 seqnames = chromosome_roman,
@@ -366,7 +367,7 @@ for (comparison_name in comparisons_to_process) {
                 score = rep(0, 1000),
                 strand = "*"
             )
-            
+
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 empty_ranges,
                 name = sprintf(
@@ -378,14 +379,15 @@ for (comparison_name in comparisons_to_process) {
                 ),
                 type = "l",
                 col = color_scheme$fixed$placeholder,
-                chromosome = chromosome_roman
+                chromosome = chromosome_roman,
+                cex.title = 1.2
             )
         }
     } else {
         if (DEBUG_CONFIG$verbose) {
             message("No matching control found, adding placeholder track")
         }
-        
+
         # Create placeholder track when no control found
         empty_ranges <- GenomicRanges::GRanges(
             seqnames = chromosome_roman,
@@ -396,13 +398,14 @@ for (comparison_name in comparisons_to_process) {
             score = rep(0, 1000),
             strand = "*"
         )
-        
+
         tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
             empty_ranges,
             name = sprintf("Input Control %s", PLOT_CONFIG$placeholder_suffix),
             type = "l",
             col = color_scheme$fixed$placeholder,
-            chromosome = chromosome_roman
+            chromosome = chromosome_roman,
+            cex.title = 1.2
         )
     }
 
@@ -411,18 +414,18 @@ for (comparison_name in comparisons_to_process) {
         sample_id <- comparison_samples$sample_id[i]
         sample_bigwig <- bigwig_files[grepl(sample_id, bigwig_files)]
         current_antibody <- comparison_samples$antibody[i]
-        
+
         track_name <- sprintf(
             PLOT_CONFIG$track_name_format,
             sample_id_mapping[sample_id],
             track_labels[i]
         )
-        
+
         if (length(sample_bigwig) > 0 && file.exists(sample_bigwig[1])) {
             if (DEBUG_CONFIG$verbose) {
                 message(sprintf("Adding track for sample: %s", sample_id))
             }
-            
+
             # Update track color based on antibody
             track_color <- if (current_antibody == "Input") {
                 color_scheme$fixed$input
@@ -434,19 +437,20 @@ for (comparison_name in comparisons_to_process) {
                 sample_bigwig[1],
                 which = genome_range
             )
-            
+
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 track_data,
                 name = track_name,
                 type = "l",
                 col = track_color,
-                chromosome = chromosome_roman
+                chromosome = chromosome_roman,
+                cex.title = 1.2
             )
         } else {
             if (DEBUG_CONFIG$verbose) {
                 message(sprintf("Creating placeholder for sample: %s", sample_id))
             }
-            
+
             # Create placeholder track
             empty_ranges <- GenomicRanges::GRanges(
                 seqnames = chromosome_roman,
@@ -457,23 +461,25 @@ for (comparison_name in comparisons_to_process) {
                 score = rep(0, 1000),
                 strand = "*"
             )
-            
+
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 empty_ranges,
                 name = paste(track_name, PLOT_CONFIG$placeholder_suffix),
                 type = "l",
                 col = color_scheme$fixed$placeholder,
-                chromosome = chromosome_roman
+                chromosome = chromosome_roman,
+                cex.title = 1.2
             )
         }
     }
-    
+
     # Add feature track if available
     if (!is.null(features)) {
         tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
             features,
             name = feature_track_name,
-            rotation.title = 0
+            rotation.title = 0,
+            cex.title = 1.2
         )
     }
 
@@ -500,15 +506,15 @@ for (comparison_name in comparisons_to_process) {
         }
     })
     shared_values <- unlist(shared_values[!sapply(shared_values, is.null)])
-    
+
     # Debug output if needed
     if (DEBUG_CONFIG$verbose) {
         message("\nLabel Result Summary:")
-        message("- Distinguishing categories: ", 
+        message("- Distinguishing categories: ",
                 paste(distinguishing_categories, collapse = ", "))
-        message("- Varying categories: ", 
+        message("- Varying categories: ",
                 paste(varying_categories, collapse = ", "))
-        message("- Shared categories: ", 
+        message("- Shared categories: ",
                 paste(shared_categories, collapse = ", "))
         message("- Number of labels: ", length(track_labels))
     }
@@ -533,7 +539,7 @@ for (comparison_name in comparisons_to_process) {
     if (DEBUG_CONFIG$verbose) {
         message("\nGenerating visualization...")
     }
-    
+
 
     Gviz::plotTracks(
         trackList = tracks,
@@ -547,28 +553,26 @@ for (comparison_name in comparisons_to_process) {
         fontface.title = title_config$fontface,
         cex.title = title_config$cex,
         background.title = title_config$background,
-
-        # Title panel
         col.title = "black",          # Title text color
-        fontface.title = 2,            # Bold title
 
         # Track name appearance
         fontcolor = "black",           # Track name text color
         background.title = "white",    # Track name background
         col.border.title = "#E0E0E0",  # Light gray border around track names
-        fontsize = 9, # Base font size
-        
+        fontsize = 11, # Base font size
+
         # Other visualization parameters
-        cex.main = 1,
+        cex.main = .75,
+        fontface.main = 0.6,
         margin = 15,
         innerMargin = 5,
-        
+
         # Axis appearance
         col.axis = "black", # Axis text color
         cex.axis = 0.8 # Axis text size
-        
+
     )
-    
+
     # Save plot if configured
     if (DEBUG_CONFIG$save_plots) {
         plot_file <- file.path(
@@ -581,12 +585,12 @@ for (comparison_name in comparisons_to_process) {
                 sub("^comp_", "", comparison_name)
             )
         )
-        
+
         if (DEBUG_CONFIG$verbose) {
             message(sprintf("Saving plot to: %s", basename(plot_file)))
         }
-        
-        svg(plot_file, 
+
+        svg(plot_file,
             width = PLOT_CONFIG$width,
             height = PLOT_CONFIG$height)
         Gviz::plotTracks(
@@ -611,20 +615,20 @@ for (comparison_name in comparisons_to_process) {
             fontcolor = "black",           # Track name text color
             background.title = "white",    # Track name background
             col.border.title = "#E0E0E0",  # Light gray border around track names
-            
+
             # Other visualization parameters
-            cex.main = 1,
+            cex.main = 0.6,
             margin = 15,
             innerMargin = 5,
-            
+
             # Axis appearance
             col.axis = "black",            # Axis text color
             cex.axis = 0.8               # Axis text size
-            
+
         )
         dev.off()
     }
-    
+
     # Interactive viewing options
     if (DEBUG_CONFIG$interactive) {
         user_input <- readline(
