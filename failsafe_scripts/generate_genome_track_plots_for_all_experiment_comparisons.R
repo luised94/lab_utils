@@ -194,12 +194,21 @@ normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1",
                           basename(bigwig_files[1]))
 
 # Load feature file (annotation)
+pattern_for_feature_file <- "eaton_peaks"
 feature_file <- list.files(
     file.path(Sys.getenv("HOME"), "data", "feature_files"),
-    pattern = "eaton_peaks",
+    pattern = pattern_for_feature_file,
     full.names = TRUE
 )[1]
+# Convert to title case and replace "_" with " "
+feature_track_name <- gsub(
+                        "_",
+                        " ",
+                        tools::toTitleCase(pattern_for_feature_file)
+                        )
 
+# Print the result
+print(output_string)
 if (!is.null(feature_file)) {
     features <- rtracklayer::import(feature_file)
     # Convert to chrRoman format
@@ -458,7 +467,8 @@ for (comparison_name in comparisons_to_process) {
     if (!is.null(features)) {
         tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
             features,
-            name = "Features"
+            name = feature_track_name,
+            rotation = 90
         )
     }
 
