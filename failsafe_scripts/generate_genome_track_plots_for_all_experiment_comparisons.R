@@ -32,7 +32,7 @@ PLOT_CONFIG <- list(
     track_name_format = "%s: %s",
     control_track_name_format = "%s: %s - %s",
     placeholder_suffix = "(No data)",
-    title_format = "%s\nComparison: %s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
+    title_format = "%s\nComparison: %s\nChromosome %s (%d samples)\n%s\nNormalization: %s",
 
     #Title configuration
     title = list(
