@@ -69,7 +69,7 @@ PLOT_CONFIG <- list(
                 "Normalization: %s",
                 sep = "\n"
             ),
-            cex = 0.6,      # Size specific to main title
+            cex = 0.7,      # Size specific to main title
             fontface = 2    # Bold for main title
         ),
         publication = list(
@@ -438,6 +438,10 @@ for (comparison_name in comparisons_to_process) {
             sample_id_mapping[sample_id],
             track_labels[i]
         )
+
+        if (DEBUG_CONFIG$verbose) {
+            message(sprintf("Creating track: %s", track_name))
+        }
 
         if (length(sample_bigwig) > 0 && file.exists(sample_bigwig[1])) {
             if (DEBUG_CONFIG$verbose) {
