@@ -363,7 +363,7 @@ for (comparison_name in comparisons_to_process) {
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 control_track_data,
                 name = sprintf(
-                    PLOT_CONFIG$control_track_name_format,
+                    PLOT_CONFIG$tracks$names$control_format,
                     sample_id_mapping[control_sample$sample_id],
                     "Input",
                     control_sample$rescue_allele
@@ -602,8 +602,8 @@ for (comparison_name in comparisons_to_process) {
         }
 
         svg(plot_file,
-            width = PLOT_CONFIG$width,
-            height = PLOT_CONFIG$height)
+            width = PLOT_CONFIG$dimensions$width,
+            height = PLOT_CONFIG$dimensions$height)
         
         
         
