@@ -69,7 +69,7 @@ PLOT_CONFIG <- list(
                 "Normalization: %s",
                 sep = "\n"
             ),
-            cex = 1.2,      # Size specific to main title
+            cex = 0.6,      # Size specific to main title
             fontface = 2    # Bold for main title
         ),
         publication = list(
