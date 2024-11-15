@@ -625,7 +625,7 @@ for (comparison_name in comparisons_to_process) {
             innerMargin = 5,
             
             # Axis appearance
-            col.axis = "black"            # Axis text color
+            col.axis = "black",            # Axis text color
             cex.axis = 0.8               # Axis text size
             
         )
