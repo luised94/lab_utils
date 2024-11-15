@@ -37,11 +37,19 @@ PLOT_CONFIG <- list(
     title = list(
         mode = "development",  # or "publication"
         development = list(
-            width = 1,
+            width = 0.9,
             fontface = 2,
-            cex = 0.8,
+            cex = 0.3,
             background = "white",
-            format = "%s\nComparison: %s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
+            # Format title with visual spacing
+            format = paste(
+                "%s",
+                "Comparison: %s",
+                "Chromosome %s (%d samples)",
+                "%s",
+                "Normalization: %s",
+                sep = "\n"
+            )
         ),
         publication = list(
             width = 0.4,
@@ -505,22 +513,6 @@ for (comparison_name in comparisons_to_process) {
         message("- Number of labels: ", length(track_labels))
     }
 
-    # Prepare plot information
-    #plot_info <- list(
-    #    experiment_id = experiment_id,
-    #    chromosome = chromosome_to_plot,
-    #    normalization = normalization_method,
-    #    y_limits = y_limits
-    #)
-    #
-    ## Create title
-    #plot_title <- create_plot_title(
-    #    metadata = comparison_samples,
-    #    comparison_name = comparison_name,
-    #    plot_info = plot_info,
-    #    label_result = label_result,
-    #    mode = PLOT_CONFIG$title$mode
-    #)
     # Create plot title
     #-----------------------------------------------------------------------------
     # Get title configuration for current mode
