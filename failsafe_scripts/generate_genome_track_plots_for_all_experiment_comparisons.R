@@ -33,6 +33,32 @@ PLOT_CONFIG <- list(
     control_track_name_format = "%s: %s - %s",
     placeholder_suffix = "(No data)",
     title_format = "%s\nComparison: %s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
+
+    #Title configuration
+    title = list(
+        mode = "development",  # or "publication"
+        development = list(
+            width = 0.8,
+            rotation = 0,
+            fontface = 1,
+            cex = 0.8,
+            background = "white",
+            format = "three_column"
+        ),
+        publication = list(
+            width = 0.4,
+            rotation = 90,
+            fontface = 2,
+            cex = 1,
+            background = "transparent",
+            format = "minimal"
+        ),
+        format = list(
+            max_width = 40,
+            max_lines = 5
+        )
+    )
+    
 )
 
 # Load required packages
@@ -245,14 +271,14 @@ for (comparison_name in comparisons_to_process) {
     comparison_samples <- sorted_metadata[eval(comparison_expression, 
                                              envir = sorted_metadata), ]
     label_result <- create_track_labels(
-        comparison_samples,
+        samples = comparison_samples,
         always_show = "antibody",
         categories = EXPERIMENT_CONFIG$CONTROL_FACTORS$genotype,
         verbose = DEBUG_CONFIG$verbose
     )
 
     if (!label_result$success) {
-        warning("Failed to create track labels: ", label_result$error)
+        warning("Failed to create track labels for comparison %s: %s", comparison_name, label_result$error)
         track_labels <- comparison_samples$short_name  # Fallback to sample_id
     } else {
         track_labels <- label_result$data
@@ -437,23 +463,46 @@ for (comparison_name in comparisons_to_process) {
             name = "Features"
         )
     }
+
+    # Prepare plot information
+    plot_info <- list(
+        experiment_id = experiment_id,
+        chromosome = chromosome_to_plot,
+        normalization = normalization_method,
+        y_limits = y_limits
+    )
+    
+    # Create title
+    plot_title <- create_plot_title(
+        metadata = comparison_samples,
+        comparison_name = comparison_name,
+        plot_info = plot_info,
+        categories = list(
+            track_labels = EXPERIMENT_CONFIG$CONTROL_FACTORS$genotype,
+            always_show = "antibody"
+        ),
+        mode = PLOT_CONFIG$title$mode
+    )
     # Create plot title
     #-----------------------------------------------------------------------------
-    plot_title <- sprintf(
-        PLOT_CONFIG$title_format,
-        experiment_id,
-        sub("^comp_", "", comparison_name),  # Remove 'comp_' prefix
-        chromosome_to_plot,
-        nrow(comparison_samples),
-        format(Sys.time(), "%Y-%m-%d %H:%M"),
-        normalization_method
-    )
+    #plot_title <- sprintf(
+    #    PLOT_CONFIG$title_format,
+    #    experiment_id,
+    #    sub("^comp_", "", comparison_name),  # Remove 'comp_' prefix
+    #    chromosome_to_plot,
+    #    nrow(comparison_samples),
+    #    format(Sys.time(), "%Y-%m-%d %H:%M"),
+    #    normalization_method
+    #)
     # Generate plot
     #-----------------------------------------------------------------------------
     if (DEBUG_CONFIG$verbose) {
         message("\nGenerating visualization...")
     }
     
+    # Get title configuration for current mode
+    title_config <- PLOT_CONFIG$title[[PLOT_CONFIG$title$mode]]
+
     Gviz::plotTracks(
         trackList = tracks,
         chromosome = chromosome_roman,
@@ -461,6 +510,17 @@ for (comparison_name in comparisons_to_process) {
         to = chromosome_width,
         ylim = y_limits,
         main = plot_title,
+        # Title appearance based on mode
+        title.width = title_config$width,
+        rotation.title = title_config$rotation,
+        fontface.title = title_config$fontface,
+        cex.title = title_config$cex,
+        background.title = title_config$background,
+
+        # Title panel
+        col.title = "black",          # Title text color
+        fontface.title = 2,            # Bold title
+
         # Track name appearance
         fontcolor = "black",           # Track name text color
         background.title = "white",    # Track name background
@@ -473,11 +533,8 @@ for (comparison_name in comparisons_to_process) {
         
         # Axis appearance
         col.axis = "black",            # Axis text color
-        cex.axis = 0.8,               # Axis text size
+        cex.axis = 0.8               # Axis text size
         
-        # Title panel
-        col.title = "black",          # Title text color
-        fontface.title = 2            # Bold title
     )
     
     # Save plot if configured
