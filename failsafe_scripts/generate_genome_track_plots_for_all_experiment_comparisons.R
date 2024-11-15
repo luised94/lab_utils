@@ -283,11 +283,13 @@ for (comparison_name in comparisons_to_process) {
     comparison_expression <- EXPERIMENT_CONFIG$COMPARISONS[[comparison_name]]
     comparison_samples <- sorted_metadata[eval(comparison_expression,
                                              envir = sorted_metadata), ]
+
     label_result <- create_track_labels(
         samples = comparison_samples,
         always_show = "antibody",
-        categories = EXPERIMENT_CONFIG$CONTROL_FACTORS$genotype,
-        verbose = DEBUG_CONFIG$verbose
+        never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
+        separator = " - ",
+        verbose = TRUE
     )
 
     if (!label_result$success) {

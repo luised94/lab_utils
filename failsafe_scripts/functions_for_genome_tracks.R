@@ -186,58 +186,105 @@ calculate_track_limits <- function(bigwig_files, genome_range,
 }
 
 
-#' @title Create Track Labels and Category Information
-#' @description Creates labels and returns category usage information
+#' @title Create Track Labels from Sample Metadata
+#' @description Creates labels based on sample categories with configurable display rules
 #' @param samples data.frame Sample metadata
-#' @param categories character vector Categories to consider
+#' @param categories character vector Categories to consider for labels
 #' @param always_show character vector Categories to always show
+#' @param never_show character vector Categories to never show
+#' @param separator character String to use between label components
 #' @param verbose logical Print processing information
-#' @return list containing labels and category information
-create_track_labels <- function(samples, categories, 
-                              always_show = c("antibody"), 
+create_track_labels <- function(samples, 
+                              categories = NULL,  # Now optional
+                              always_show = c("antibody"),
+                              never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
+                              separator = " - ",
                               verbose = FALSE) {
     result <- tryCatch({
         # Input validation
         stopifnot(
             "samples must be data.frame" = is.data.frame(samples),
-            "categories must be character" = is.character(categories),
-            "categories cannot be empty" = length(categories) > 0,
             "always_show must be character" = is.character(always_show),
-            "categories must exist in samples" = 
-                all(c(categories, always_show) %in% colnames(samples))
+            "never_show must be character" = is.character(never_show),
+            "separator must be character" = is.character(separator),
+            "always_show categories must exist in samples" = 
+                all(always_show %in% colnames(samples))
         )
         
-        if (verbose) {
-            message("Creating labels using categories: ", 
-                   paste(categories, collapse = ", "))
+        # If categories not provided, use all columns except never_show
+        if (is.null(categories)) {
+            categories <- setdiff(colnames(samples), never_show)
+            if (verbose) {
+                message("Using all available categories except: ", 
+                       paste(never_show, collapse = ", "))
+            }
+        } else {
+            stopifnot("categories must be character" = is.character(categories))
+            # Remove any never_show categories if present
+            categories <- setdiff(categories, never_show)
         }
         
-        # Find distinguishing categories
+        if (verbose) {
+            message("Analyzing categories: ", paste(categories, collapse = ", "))
+        }
+        
+        # Find categories with varying values
         varying_categories <- categories[sapply(categories, function(cat) {
             length(unique(samples[[cat]])) > 1
         })]
         
-        # Combine with always_show categories
-        distinguishing_cats <- unique(c(always_show, varying_categories))
+        if (verbose) {
+            message("Found varying categories: ", 
+                   paste(varying_categories, collapse = ", "))
+        }
         
-        # Track category usage
-        category_info <- list(
-            distinguishing = distinguishing_cats,
-            varying = varying_categories,
-            always_shown = always_show,
-            all_available = colnames(samples)
-        )
+        # Combine always_show with varying categories, ensuring order
+        label_categories <- unique(c(
+            always_show,  # Always first
+            intersect(varying_categories, categories)  # Then varying
+        ))
+        
+        # Remove any never_show categories that might have slipped through
+        label_categories <- setdiff(label_categories, never_show)
         
         if (verbose) {
-            message("Distinguishing categories: ", 
-                   paste(distinguishing_cats, collapse = ", "))
+            message("Final label categories: ", 
+                   paste(label_categories, collapse = ", "))
         }
+        
+        # Create category information
+        category_info <- list(
+            distinguishing = label_categories,
+            varying = varying_categories,
+            always_shown = always_show,
+            never_shown = never_show,
+            all_available = colnames(samples),
+            used_separator = separator
+        )
         
         # Create labels
         labels <- apply(samples, 1, function(row) {
-            values <- sapply(distinguishing_cats, function(cat) row[[cat]])
-            paste(values, collapse = "-")
+            # Get values for each category
+            values <- sapply(label_categories, function(cat) {
+                value <- row[[cat]]
+                # Clean up NA values
+                if (is.na(value)) return("NA")
+                as.character(value)
+            })
+            
+            # Remove empty or NA values
+            values <- values[values != "" & values != "NA"]
+            
+            # Combine with separator
+            paste(values, collapse = separator)
         })
+        
+        if (verbose) {
+            message("\nLabel Summary:")
+            message("- Total labels: ", length(labels))
+            message("- Unique labels: ", length(unique(labels)))
+            message("- Example label: ", labels[1])
+        }
         
         list(
             success = TRUE,
