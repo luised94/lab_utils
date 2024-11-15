@@ -580,6 +580,7 @@ for (comparison_name in comparisons_to_process) {
         background.title = track_config$background,
         fontcolor = track_config$fontcolor,
         col.border.title = track_config$border_color,
+        showTitle = TRUE,
         
         # Other parameters
         margin = 15,
