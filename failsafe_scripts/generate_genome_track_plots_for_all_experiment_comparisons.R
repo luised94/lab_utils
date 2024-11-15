@@ -507,32 +507,32 @@ for (comparison_name in comparisons_to_process) {
     }
 
     # Prepare plot information
-    plot_info <- list(
-        experiment_id = experiment_id,
-        chromosome = chromosome_to_plot,
-        normalization = normalization_method,
-        y_limits = y_limits
-    )
-    
-    # Create title
-    plot_title <- create_plot_title(
-        metadata = comparison_samples,
-        comparison_name = comparison_name,
-        plot_info = plot_info,
-        label_result = label_result,
-        mode = PLOT_CONFIG$title$mode
-    )
+    #plot_info <- list(
+    #    experiment_id = experiment_id,
+    #    chromosome = chromosome_to_plot,
+    #    normalization = normalization_method,
+    #    y_limits = y_limits
+    #)
+    #
+    ## Create title
+    #plot_title <- create_plot_title(
+    #    metadata = comparison_samples,
+    #    comparison_name = comparison_name,
+    #    plot_info = plot_info,
+    #    label_result = label_result,
+    #    mode = PLOT_CONFIG$title$mode
+    #)
     # Create plot title
     #-----------------------------------------------------------------------------
-    #plot_title <- sprintf(
-    #    PLOT_CONFIG$title_format,
-    #    experiment_id,
-    #    sub("^comp_", "", comparison_name),  # Remove 'comp_' prefix
-    #    chromosome_to_plot,
-    #    nrow(comparison_samples),
-    #    format(Sys.time(), "%Y-%m-%d %H:%M"),
-    #    normalization_method
-    #)
+    plot_title <- sprintf(
+        PLOT_CONFIG$title_format,
+        experiment_id,
+        sub("^comp_", "", comparison_name),  # Remove 'comp_' prefix
+        chromosome_to_plot,
+        nrow(comparison_samples),
+        format(Sys.time(), "%Y-%m-%d %H:%M"),
+        normalization_method
+    )
     # Generate plot
     #-----------------------------------------------------------------------------
     if (DEBUG_CONFIG$verbose) {
