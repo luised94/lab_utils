@@ -557,7 +557,6 @@ for (comparison_name in comparisons_to_process) {
         svg(plot_file, 
             width = PLOT_CONFIG$width, 
             height = PLOT_CONFIG$height)
-        
         Gviz::plotTracks(
             trackList = tracks,
             chromosome = chromosome_roman,
@@ -565,6 +564,17 @@ for (comparison_name in comparisons_to_process) {
             to = chromosome_width,
             ylim = y_limits,
             main = plot_title,
+            # Title appearance based on mode
+            title.width = title_config$width,
+            rotation.title = title_config$rotation,
+            fontface.title = title_config$fontface,
+            cex.title = title_config$cex,
+            background.title = title_config$background,
+
+            # Title panel
+            col.title = "black",          # Title text color
+            fontface.title = 2,            # Bold title
+
             # Track name appearance
             fontcolor = "black",           # Track name text color
             background.title = "white",    # Track name background
@@ -577,11 +587,8 @@ for (comparison_name in comparisons_to_process) {
             
             # Axis appearance
             col.axis = "black",            # Axis text color
-            cex.axis = 0.8,               # Axis text size
+            cex.axis = 0.8               # Axis text size
             
-            # Title panel
-            col.title = "black",          # Title text color
-            fontface.title = 2            # Bold title
         )
         dev.off()
     }
