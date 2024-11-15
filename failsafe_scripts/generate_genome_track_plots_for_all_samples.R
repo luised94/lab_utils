@@ -28,8 +28,8 @@ TIMESTAMPS <- list(
 PLOT_CONFIG <- list(
     width = 10,
     height = 8,
-    track_color = "#fd0036",
     placeholder_color = "#cccccc",
+    input_color ="#808080",
     track_name_format = "%s: %s - %s",
     placeholder_suffix = "(No data)",
     title_format = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
@@ -107,6 +107,26 @@ if (DEBUG_CONFIG$verbose) {
     message("Columns with enforced factors:")
     print(names(EXPERIMENT_CONFIG$CATEGORIES))
 }
+# Create color scheme
+color_scheme <- create_color_scheme(
+    config = list(
+        placeholder = PLOT_CONFIG$placeholder_color,
+        input = PLOT_CONFIG$input_color
+    ),
+    categories = list(
+        antibody = unique(sorted_metadata$antibody),
+        rescue_allele = unique(sorted_metadata$rescue_allele)
+    )
+)
+
+if (DEBUG_CONFIG$verbose) {
+    message("\nColor scheme initialized:")
+    message("Fixed colors:")
+    print(color_scheme$fixed)
+    message("Category colors:")
+    print(color_scheme$categories)
+}
+
 
 # Load reference genome
 ref_genome_file <- list.files(
@@ -214,6 +234,7 @@ for (group_idx in groups_to_process) {
     # Add tracks for each sample
     for (i in seq_len(nrow(current_samples))) {
         sample_id <- current_samples$sample_id[i]
+        current_antibody <- current_samples$antibody[i]
         
         # Find matching bigwig file
         bigwig_file <- bigwig_files[grepl(sample_id, bigwig_files)][1]
@@ -236,13 +257,19 @@ for (group_idx in groups_to_process) {
                 message("Adding track for sample: ", sample_id)
             }
             
+            # Update track color based on antibody
+            track_color <- if (current_antibody == "Input") {
+                color_scheme$fixed$input
+            } else {
+                color_scheme$get_color("antibody", current_antibody)
+            }
             track_data <- rtracklayer::import(bigwig_file)
             
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 track_data,
                 name = track_name,
                 type = "l",
-                col = PLOT_CONFIG$track_color
+                col = track_color
             )
         } else {
             if (DEBUG_CONFIG$verbose) {
@@ -269,7 +296,7 @@ for (group_idx in groups_to_process) {
                 empty_ranges,
                 name = placeholder_name,
                 type = "l",
-                col = PLOT_CONFIG$placeholder_color,
+                col = color_scheme$fixed$placeholder,
                 chromosome = chromosome_roman
             )
             tracks[[length(tracks) + 1]] <- empty_track

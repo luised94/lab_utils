@@ -341,3 +341,24 @@ create_color_scheme <- function(config, categories, verbose = FALSE) {
     
     return(color_scheme)
 }
+
+
+## Create color mapping for antibodies
+#unique_antibodies <- unique(sorted_metadata$antibody)
+#antibody_colors <- generate_distinct_colors(length(unique_antibodies))
+#names(antibody_colors) <- unique_antibodies
+#
+## Update PLOT_CONFIG with dynamic colors
+#PLOT_CONFIG$track_colors <- list(
+#    antibody = antibody_colors,
+#    placeholder = PLOT_CONFIG$placeholder_color  # Maintain consistent placeholder
+#)
+
+# Create color legend text
+#legend_text <- sprintf(
+#    "Track Colors:\n%s\n%s",
+#    paste("?", names(PLOT_CONFIG$track_colors$antibody), 
+#          sprintf("(%s)", PLOT_CONFIG$track_colors$antibody), 
+#          collapse = "\n"),
+#    sprintf("? No Data (%s)", PLOT_CONFIG$placeholder_color)
+#)

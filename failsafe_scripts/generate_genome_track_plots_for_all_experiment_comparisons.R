@@ -27,7 +27,6 @@ TIMESTAMPS <- list(
 PLOT_CONFIG <- list(
     width = 10,
     height = 8,
-    track_color = "#fd0036",
     placeholder_color = "#cccccc",
     input_color ="#808080",
     track_name_format = "%s: %s",
@@ -140,6 +139,7 @@ if (DEBUG_CONFIG$verbose) {
     message("Category colors:")
     print(color_scheme$categories)
 }
+
 # Load reference genome
 ref_genome_file <- list.files(
     file.path(Sys.getenv("HOME"), "data", "REFGENS"),
