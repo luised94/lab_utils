@@ -47,5 +47,10 @@ EXPERIMENT_CONFIG <- list(
         genotype = c("rescue_allele")
     ),
     
-    COLUMN_ORDER = c("antibody", "rescue_allele", "auxin_treatment", "time_after_release")
+    COLUMN_ORDER = c("antibody", "rescue_allele", "auxin_treatment", "time_after_release"),
+    NORMALIZATION = list(
+        methods = c("CPM", "BPM", "RPGC", "RPKM"),
+        active = "RPKM"  # Set via command line or config
+    )
 )
+
