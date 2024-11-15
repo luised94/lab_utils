@@ -423,7 +423,11 @@ for (comparison_name in comparisons_to_process) {
             name = sprintf("Input Control %s", PLOT_CONFIG$tracks$names$placeholder_suffix),
             type = "l",
             col = color_scheme$fixed$placeholder,
-            chromosome = chromosome_roman
+            chromosome = chromosome_roman,
+            showTitle = TRUE,        # Explicitly show title
+            background.title = PLOT_CONFIG$tracks$display$background,
+            fontcolor.title = PLOT_CONFIG$tracks$display$fontcolor,
+            cex.title = PLOT_CONFIG$tracks$display$cex
         )
     }
 
@@ -492,7 +496,11 @@ for (comparison_name in comparisons_to_process) {
                 name = paste(track_name, PLOT_CONFIG$tracks$names$placeholder_suffix),
                 type = "l",
                 col = color_scheme$fixed$placeholder,
-                chromosome = chromosome_roman
+                chromosome = chromosome_roman,
+                showTitle = TRUE,        # Explicitly show title
+                background.title = PLOT_CONFIG$tracks$display$background,
+                fontcolor.title = PLOT_CONFIG$tracks$display$fontcolor,
+                cex.title = PLOT_CONFIG$tracks$display$cex
             )
         }
     }
@@ -502,7 +510,11 @@ for (comparison_name in comparisons_to_process) {
         tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
             features,
             name = feature_track_name,
-            rotation.title = 0
+            rotation.title = 0,
+            showTitle = TRUE,        # Explicitly show title
+            background.title = PLOT_CONFIG$tracks$display$background,
+            fontcolor.title = PLOT_CONFIG$tracks$display$fontcolor,
+            cex.title = PLOT_CONFIG$tracks$display$cex
         )
     }
 
