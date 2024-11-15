@@ -434,7 +434,7 @@ for (comparison_name in comparisons_to_process) {
         current_antibody <- comparison_samples$antibody[i]
 
         track_name <- sprintf(
-            PLOT_CONFIG$track_name_format,
+            PLOT_CONFIG$tracks$names$format,
             sample_id_mapping[sample_id],
             track_labels[i]
         )
@@ -481,7 +481,7 @@ for (comparison_name in comparisons_to_process) {
 
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 empty_ranges,
-                name = paste(track_name, PLOT_CONFIG$placeholder_suffix),
+                name = paste(track_name, PLOT_CONFIG$tracks$names$placeholder_suffix),
                 type = "l",
                 col = color_scheme$fixed$placeholder,
                 chromosome = chromosome_roman
@@ -541,7 +541,7 @@ for (comparison_name in comparisons_to_process) {
     track_config <- PLOT_CONFIG$tracks$display
 
     plot_title <- sprintf(
-        title_config$format,
+        main_title_config$format,
         experiment_id,
         sub("^comp_", "", comparison_name),
         chromosome_to_plot,
@@ -604,39 +604,33 @@ for (comparison_name in comparisons_to_process) {
         svg(plot_file,
             width = PLOT_CONFIG$dimensions$width,
             height = PLOT_CONFIG$dimensions$height)
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
 
-        
-        
-        
-
-        
-        
-        
-        
-
-        
-        
-        
-        
-
-        
-        
-        
-
-        
+        Gviz::plotTracks(
+            trackList = tracks,
+            chromosome = chromosome_roman,
+            from = 1,
+            to = chromosome_width,
+            ylim = y_limits,
+            
+            # Main title settings
+            main = plot_title,
+            cex.main = main_title_config$cex,
+            fontface.main = main_title_config$fontface,
+            
+            # Track display settings
+            title.width = track_config$width,
+            fontface.title = track_config$fontface,
+            cex.title = track_config$cex,
+            background.title = track_config$background,
+            fontcolor = track_config$fontcolor,
+            col.border.title = track_config$border_color,
+            
+            # Other parameters
+            margin = 15,
+            innerMargin = 5,
+            col.axis = "black",
+            cex.axis = 0.8
+        )
         dev.off()
     }
 
