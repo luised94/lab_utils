@@ -25,23 +25,42 @@ TIMESTAMPS <- list(
 )
 
 PLOT_CONFIG <- list(
-    width = 10,
-    height = 8,
-    placeholder_color = "#cccccc",
-    input_color ="#808080",
-    track_name_format = "%s: %s",
-    control_track_name_format = "%s: %s - %s",
-    placeholder_suffix = "(No data)",
-
-    #Title configuration
-    title = list(
-        mode = "development",  # or "publication"
-        development = list(
+    # Basic plot settings
+    dimensions = list(
+        width = 10,
+        height = 8
+    ),
+    
+    # Track configuration
+    tracks = list(
+        # Visual settings for all tracks
+        display = list(
             width = 0.9,
             fontface = 1,
             cex = 0.6,
             background = "white",
-            # Format title with visual spacing
+            fontcolor = "black",
+            border_color = "#E0E0E0"
+        ),
+        
+        # Track-specific colors
+        colors = list(
+            placeholder = "#cccccc",
+            input = "#808080"
+        ),
+        
+        # Track name formatting
+        names = list(
+            format = "%s: %s",
+            control_format = "%s: %s - %s",
+            placeholder_suffix = "(No data)"
+        )
+    ),
+    
+    # Main title configuration
+    main_title = list(
+        mode = "development",  # or "publication"
+        development = list(
             format = paste(
                 "%s",
                 "Comparison: %s",
@@ -49,21 +68,20 @@ PLOT_CONFIG <- list(
                 "%s",
                 "Normalization: %s",
                 sep = "\n"
-            )
+            ),
+            cex = 1.2,      # Size specific to main title
+            fontface = 2    # Bold for main title
         ),
         publication = list(
-            width = 0.4,
-            fontface = 2,
+            format = "%s: Chr%s (%s)",
             cex = 1,
-            background = "transparent",
-            format = "%s: Chr%s (%s)"
+            fontface = 2
         ),
         format = list(
             max_width = 40,
             max_lines = 5
         )
     )
-
 )
 
 # Load required packages
@@ -153,8 +171,8 @@ if (DEBUG_CONFIG$verbose) {
 # Create color scheme
 color_scheme <- create_color_scheme(
     config = list(
-        placeholder = PLOT_CONFIG$placeholder_color,
-        input = PLOT_CONFIG$input_color
+        placeholder = PLOT_CONFIG$tracks$colors$placeholder,
+        input = PLOT_CONFIG$tracks$colors$input
     ),
     categories = list(
         antibody = unique(sorted_metadata$antibody),
@@ -352,8 +370,7 @@ for (comparison_name in comparisons_to_process) {
                 ),
                 type = "l",
                 col = color_scheme$fixed$input,
-                chromosome = chromosome_roman,
-                cex.title = 1.2
+                chromosome = chromosome_roman
             )
         } else {
             if (DEBUG_CONFIG$verbose) {
@@ -378,12 +395,11 @@ for (comparison_name in comparisons_to_process) {
                     control_sample$sample_id,
                     "Input",
                     control_sample$rescue_allele,
-                    PLOT_CONFIG$placeholder_suffix
+                    PLOT_CONFIG$tracks$colors$placeholder
                 ),
                 type = "l",
                 col = color_scheme$fixed$placeholder,
-                chromosome = chromosome_roman,
-                cex.title = 1.2
+                chromosome = chromosome_roman
             )
         }
     } else {
@@ -404,11 +420,10 @@ for (comparison_name in comparisons_to_process) {
 
         tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
             empty_ranges,
-            name = sprintf("Input Control %s", PLOT_CONFIG$placeholder_suffix),
+            name = sprintf("Input Control %s", PLOT_CONFIG$tracks$names$placeholder_suffix),
             type = "l",
             col = color_scheme$fixed$placeholder,
-            chromosome = chromosome_roman,
-            cex.title = 1.2
+            chromosome = chromosome_roman
         )
     }
 
@@ -446,8 +461,7 @@ for (comparison_name in comparisons_to_process) {
                 name = track_name,
                 type = "l",
                 col = track_color,
-                chromosome = chromosome_roman,
-                cex.title = 1.2
+                chromosome = chromosome_roman
             )
         } else {
             if (DEBUG_CONFIG$verbose) {
@@ -470,8 +484,7 @@ for (comparison_name in comparisons_to_process) {
                 name = paste(track_name, PLOT_CONFIG$placeholder_suffix),
                 type = "l",
                 col = color_scheme$fixed$placeholder,
-                chromosome = chromosome_roman,
-                cex.title = 1.2
+                chromosome = chromosome_roman
             )
         }
     }
@@ -481,8 +494,7 @@ for (comparison_name in comparisons_to_process) {
         tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
             features,
             name = feature_track_name,
-            rotation.title = 0,
-            cex.title = 1.2
+            rotation.title = 0
         )
     }
 
@@ -525,7 +537,8 @@ for (comparison_name in comparisons_to_process) {
     # Create plot title
     #-----------------------------------------------------------------------------
     # Get title configuration for current mode
-    title_config <- PLOT_CONFIG$title[[PLOT_CONFIG$title$mode]]
+    main_title_config <- PLOT_CONFIG$main_title[[PLOT_CONFIG$main_title$mode]]
+    track_config <- PLOT_CONFIG$tracks$display
 
     plot_title <- sprintf(
         title_config$format,
@@ -550,30 +563,25 @@ for (comparison_name in comparisons_to_process) {
         from = 1,
         to = chromosome_width,
         ylim = y_limits,
+        
+        # Main title settings
         main = plot_title,
-        # Title appearance based on mode
-        title.width = title_config$width,
-        fontface.title = title_config$fontface,
-        cex.title = title_config$cex,
-        background.title = title_config$background,
-        col.title = "black",          # Title text color
-
-        # Track name appearance
-        fontcolor = "black",           # Track name text color
-        background.title = "white",    # Track name background
-        col.border.title = "#E0E0E0",  # Light gray border around track names
-        fontsize = 11, # Base font size
-
-        # Other visualization parameters
-        cex.main = .75,
-        fontface.main = 0.6,
+        cex.main = main_title_config$cex,
+        fontface.main = main_title_config$fontface,
+        
+        # Track display settings
+        title.width = track_config$width,
+        fontface.title = track_config$fontface,
+        cex.title = track_config$cex,
+        background.title = track_config$background,
+        fontcolor = track_config$fontcolor,
+        col.border.title = track_config$border_color,
+        
+        # Other parameters
         margin = 15,
         innerMargin = 5,
-
-        # Axis appearance
-        col.axis = "black", # Axis text color
-        cex.axis = 0.8 # Axis text size
-
+        col.axis = "black",
+        cex.axis = 0.8
     )
 
     # Save plot if configured
@@ -596,39 +604,39 @@ for (comparison_name in comparisons_to_process) {
         svg(plot_file,
             width = PLOT_CONFIG$width,
             height = PLOT_CONFIG$height)
-        Gviz::plotTracks(
-            trackList = tracks,
-            chromosome = chromosome_roman,
-            from = 1,
-            to = chromosome_width,
-            ylim = y_limits,
-            main = plot_title,
-            # Title appearance based on mode
-            title.width = title_config$width,
-            rotation.title = title_config$rotation,
-            fontface.title = title_config$fontface,
-            cex.title = title_config$cex,
-            background.title = title_config$background,
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 
-            # Title panel
-            col.title = "black",          # Title text color
-            fontface.title = 2,            # Bold title
+        
+        
+        
 
-            # Track name appearance
-            fontcolor = "black",           # Track name text color
-            background.title = "white",    # Track name background
-            col.border.title = "#E0E0E0",  # Light gray border around track names
+        
+        
+        
+        
 
-            # Other visualization parameters
-            cex.main = 0.6,
-            margin = 15,
-            innerMargin = 5,
+        
+        
+        
+        
 
-            # Axis appearance
-            col.axis = "black",            # Axis text color
-            cex.axis = 0.8               # Axis text size
+        
+        
+        
 
-        )
+        
         dev.off()
     }
 
