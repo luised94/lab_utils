@@ -465,7 +465,11 @@ for (comparison_name in comparisons_to_process) {
                 name = track_name,
                 type = "l",
                 col = track_color,
-                chromosome = chromosome_roman
+                chromosome = chromosome_roman,
+                showTitle = TRUE,        # Explicitly show title
+                background.title = PLOT_CONFIG$tracks$display$background,
+                fontcolor.title = PLOT_CONFIG$tracks$display$fontcolor,
+                cex.title = PLOT_CONFIG$tracks$display$cex
             )
         } else {
             if (DEBUG_CONFIG$verbose) {
