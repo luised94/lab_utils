@@ -563,7 +563,7 @@ for (comparison_name in comparisons_to_process) {
         
         # Axis appearance
         col.axis = "black",            # Axis text color
-        cex.axis = 0.8               # Axis text size
+        cex.axis = 0.5               # Axis text size
         
     )
     
