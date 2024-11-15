@@ -545,7 +545,7 @@ for (comparison_name in comparisons_to_process) {
         main = plot_title,
         # Title appearance based on mode
         title.width = title_config$width,
-        rotation.title = title_config$rotation,
+        rotation.title = 0,
         fontface.title = title_config$fontface,
         cex.title = title_config$cex,
         background.title = title_config$background,
@@ -555,6 +555,7 @@ for (comparison_name in comparisons_to_process) {
         fontface.title = 2,            # Bold title
 
         # Track name appearance
+        rotation = 0,
         fontcolor = "black",           # Track name text color
         background.title = "white",    # Track name background
         col.border.title = "#E0E0E0",  # Light gray border around track names
