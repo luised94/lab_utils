@@ -466,7 +466,7 @@ for (comparison_name in comparisons_to_process) {
         tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
             features,
             name = feature_track_name,
-            rotation = 90
+            rotation.title = 90
         )
     }
 
@@ -572,7 +572,7 @@ for (comparison_name in comparisons_to_process) {
         
         # Axis appearance
         col.axis = "black",            # Axis text color
-        cex.axis = 0.5               # Axis text size
+        cex.axis = 3               # Axis text size
         
     )
     
@@ -594,7 +594,7 @@ for (comparison_name in comparisons_to_process) {
         }
         
         svg(plot_file, 
-            width = PLOT_CONFIG$width, 
+            width = PLOT_CONFIG$width,
             height = PLOT_CONFIG$height)
         Gviz::plotTracks(
             trackList = tracks,
