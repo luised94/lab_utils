@@ -24,7 +24,7 @@ VIEWER_CONFIG <- list(
 
 # Required Packages and Functions
 #-----------------------------------------------------------------------------
-required_packages <- c("magick")
+required_packages <- c("rsvg", "magick")
 for (pkg in required_packages) {
     if (!base::requireNamespace(pkg, quietly = TRUE)) {
         stop(sprintf("Package '%s' is missing", pkg))
@@ -39,7 +39,7 @@ source("~/lab_utils/failsafe_scripts/functions_for_plotting_utilities.R")
 # Example usage
 files <- find_plot_files(
     base_dir = VIEWER_CONFIG$base_dir,
-    experiment = "241007Bel",
+    experiment = "241010Bel",
     #timestamp = "20231116",  # Optional
     #pattern = "chr10",      # Optional
     verbose = DEBUG_CONFIG$verbose
