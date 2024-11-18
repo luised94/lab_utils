@@ -36,10 +36,10 @@ source("~/lab_utils/failsafe_scripts/functions_for_plotting_utilities.R")
 #-----------------------------------------------------------------------------
 # Command line argument processing could be added here
 
-# Example usage
 files <- find_plot_files(
     base_dir = VIEWER_CONFIG$base_dir,
-    experiment = "241010Bel",
+    patterns = VIEWER_CONFIG$patterns,
+    experiment = "241007Bel",
     #timestamp = "20231116",  # Optional
     #pattern = "chr10",      # Optional
     verbose = DEBUG_CONFIG$verbose
@@ -50,7 +50,14 @@ if (length(files) > 0) {
         base::message("\nStarting plot display...")
     }
     
-    display_plots(files, VIEWER_CONFIG)
+    # Usage in main script
+    display_plots(
+        files = files,
+        device_config = VIEWER_CONFIG$device,
+        interactive = DEBUG_CONFIG$interactive,
+        display_time = DEBUG_CONFIG$display_time,
+        verbose = DEBUG_CONFIG$verbose
+    )
 } else {
     base::message("No files found matching criteria")
 }

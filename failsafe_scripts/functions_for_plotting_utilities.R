@@ -1,24 +1,27 @@
-#' Validate find_plot_files parameters
-#' @param base_dir character Base directory path
+#' Validate plot file search parameters
+#' @param base_dir character Base directory to search
 #' @param experiment character Optional experiment ID
 #' @param timestamp character Optional timestamp
 #' @param pattern character Optional file pattern
+#' @param patterns list Required patterns for validation
 #' @param verbose logical Print processing details
-validate_find_plot_parameters <- function(base_dir, experiment, timestamp, 
-                                        pattern, verbose) {
-    # Required parameters
+validate_find_plot_files_parameters <- function(base_dir, experiment, timestamp, pattern, 
+                                   validation_patterns, verbose) {
+    # Basic type checking
     stopifnot(
         "base_dir must be character" = is.character(base_dir),
         "base_dir must exist" = dir.exists(base_dir),
+        "patterns must be a list" = is.list(patterns),
+        "required patterns missing" = all(c("experiment", "timestamp") %in% names(patterns)),
         "verbose must be logical" = is.logical(verbose)
     )
     
-    # Optional parameters
+    # Optional parameter validation
     if (!is.null(experiment)) {
         stopifnot(
             "experiment must be character" = is.character(experiment),
             "experiment must match pattern" = 
-                grepl(VIEWER_CONFIG$patterns$experiment, experiment)
+                grepl(patterns$experiment, experiment)
         )
     }
     
@@ -26,7 +29,7 @@ validate_find_plot_parameters <- function(base_dir, experiment, timestamp,
         stopifnot(
             "timestamp must be character" = is.character(timestamp),
             "timestamp must match format" = 
-                grepl(VIEWER_CONFIG$patterns$timestamp, timestamp)
+                grepl(patterns$timestamp, timestamp)
         )
     }
     
@@ -37,48 +40,28 @@ validate_find_plot_parameters <- function(base_dir, experiment, timestamp,
     }
 }
 
-#' Validate display_plots parameters
-#' @param files character vector of file paths
-#' @param config list Viewer configuration
-validate_display_parameters <- function(files, config) {
-    stopifnot(
-        "files must be character vector" = is.character(files),
-        "config must be list" = is.list(config),
-        "config must contain device settings" = 
-            !is.null(config$device) && 
-            !is.null(config$device$width) && 
-            !is.null(config$device$height),
-        "device dimensions must be numeric" = 
-            is.numeric(config$device$width) && 
-            is.numeric(config$device$height),
-        "device dimensions must be positive" = 
-            config$device$width > 0 && config$device$height > 0
-    )
-    
-    # Validate file existence
-    missing_files <- files[!file.exists(files)]
-    if (length(missing_files) > 0) {
-        warning("Some files do not exist: ", 
-                paste(basename(missing_files), collapse = ", "))
-    }
-}
-
 #' Find plot files based on criteria
 #' @param base_dir character Base directory to search
 #' @param experiment character Optional experiment ID
 #' @param timestamp character Optional timestamp
 #' @param pattern character Optional file pattern
 #' @param verbose logical Print processing details
-find_plot_files <- function(base_dir, experiment = NULL, timestamp = NULL, 
-                          pattern = NULL, verbose = FALSE) {
-
+find_plot_files <- function(base_dir, patterns, experiment = NULL, 
+                          timestamp = NULL, pattern = NULL, verbose = FALSE) {
     # Validate inputs
-    validate_find_plot_parameters(base_dir, experiment, timestamp, pattern, verbose)
-
+    validate_find_plot_files_parameters(
+        base_dir = base_dir,
+        experiment = experiment,
+        timestamp = timestamp,
+        pattern = pattern,
+        validation_patterns = patterns,
+        verbose = verbose
+    )
+    
     # Start with all SVG files
-    files <- list.files(
+    files <- base::list.files(
         path = base_dir,
-        pattern = VIEWER_CONFIG$patterns$svg,
+        pattern = patterns$svg,
         recursive = TRUE,
         full.names = TRUE
     )
