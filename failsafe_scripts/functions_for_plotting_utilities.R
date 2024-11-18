@@ -1,3 +1,68 @@
+#' Validate find_plot_files parameters
+#' @param base_dir character Base directory path
+#' @param experiment character Optional experiment ID
+#' @param timestamp character Optional timestamp
+#' @param pattern character Optional file pattern
+#' @param verbose logical Print processing details
+validate_find_plot_parameters <- function(base_dir, experiment, timestamp, 
+                                        pattern, verbose) {
+    # Required parameters
+    stopifnot(
+        "base_dir must be character" = is.character(base_dir),
+        "base_dir must exist" = dir.exists(base_dir),
+        "verbose must be logical" = is.logical(verbose)
+    )
+    
+    # Optional parameters
+    if (!is.null(experiment)) {
+        stopifnot(
+            "experiment must be character" = is.character(experiment),
+            "experiment must match pattern" = 
+                grepl(VIEWER_CONFIG$patterns$experiment, experiment)
+        )
+    }
+    
+    if (!is.null(timestamp)) {
+        stopifnot(
+            "timestamp must be character" = is.character(timestamp),
+            "timestamp must match format" = 
+                grepl(VIEWER_CONFIG$patterns$timestamp, timestamp)
+        )
+    }
+    
+    if (!is.null(pattern)) {
+        stopifnot(
+            "pattern must be character" = is.character(pattern)
+        )
+    }
+}
+
+#' Validate display_plots parameters
+#' @param files character vector of file paths
+#' @param config list Viewer configuration
+validate_display_parameters <- function(files, config) {
+    stopifnot(
+        "files must be character vector" = is.character(files),
+        "config must be list" = is.list(config),
+        "config must contain device settings" = 
+            !is.null(config$device) && 
+            !is.null(config$device$width) && 
+            !is.null(config$device$height),
+        "device dimensions must be numeric" = 
+            is.numeric(config$device$width) && 
+            is.numeric(config$device$height),
+        "device dimensions must be positive" = 
+            config$device$width > 0 && config$device$height > 0
+    )
+    
+    # Validate file existence
+    missing_files <- files[!file.exists(files)]
+    if (length(missing_files) > 0) {
+        warning("Some files do not exist: ", 
+                paste(basename(missing_files), collapse = ", "))
+    }
+}
+
 #' Find plot files based on criteria
 #' @param base_dir character Base directory to search
 #' @param experiment character Optional experiment ID
@@ -6,6 +71,10 @@
 #' @param verbose logical Print processing details
 find_plot_files <- function(base_dir, experiment = NULL, timestamp = NULL, 
                           pattern = NULL, verbose = FALSE) {
+
+    # Validate inputs
+    validate_find_plot_parameters(base_dir, experiment, timestamp, pattern, verbose)
+
     # Start with all SVG files
     files <- list.files(
         path = base_dir,
@@ -46,6 +115,7 @@ find_plot_files <- function(base_dir, experiment = NULL, timestamp = NULL,
 }
 
 display_plots <- function(files, config) {
+    validate_display_parameters(files, config)
     if (length(files) == 0) {
         base::message("No files to display")
         return(base::invisible(NULL))
