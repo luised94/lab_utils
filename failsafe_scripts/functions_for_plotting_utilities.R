@@ -11,8 +11,8 @@ validate_find_plot_files_parameters <- function(base_dir, experiment, timestamp,
     stopifnot(
         "base_dir must be character" = is.character(base_dir),
         "base_dir must exist" = dir.exists(base_dir),
-        "patterns must be a list" = is.list(patterns),
-        "required patterns missing" = all(c("experiment", "timestamp") %in% names(patterns)),
+        "patterns must be a list" = is.list(validation_patterns),
+        "required patterns missing" = all(c("experiment", "timestamp") %in% names(validation_patterns)),
         "verbose must be logical" = is.logical(verbose)
     )
     
@@ -21,7 +21,7 @@ validate_find_plot_files_parameters <- function(base_dir, experiment, timestamp,
         stopifnot(
             "experiment must be character" = is.character(experiment),
             "experiment must match pattern" = 
-                grepl(patterns$experiment, experiment)
+                grepl(validation_patterns$experiment, experiment)
         )
     }
     
@@ -29,7 +29,7 @@ validate_find_plot_files_parameters <- function(base_dir, experiment, timestamp,
         stopifnot(
             "timestamp must be character" = is.character(timestamp),
             "timestamp must match format" = 
-                grepl(patterns$timestamp, timestamp)
+                grepl(validation_patterns$timestamp, timestamp)
         )
     }
     
@@ -97,8 +97,34 @@ find_plot_files <- function(base_dir, patterns, experiment = NULL,
     return(files)
 }
 
-display_plots <- function(files, config) {
-    validate_display_parameters(files, config)
+#' Validate display parameters
+#' @param files character vector of file paths
+#' @param device_config list Device configuration settings
+validate_display_parameters <- function(files, device_config) {
+    stopifnot(
+        "files must be character vector" = is.character(files),
+        "device_config must be list" = is.list(device_config),
+        "device dimensions must be numeric" = 
+            is.numeric(device_config$width) && 
+            is.numeric(device_config$height)
+    )
+    
+    # Validate file existence
+    missing_files <- files[!file.exists(files)]
+    if (length(missing_files) > 0) {
+        base::warning(
+            sprintf("Missing files:\n%s", 
+                    paste(basename(missing_files), collapse = "\n"))
+        )
+    }
+}
+
+# Updated display_plots function
+display_plots <- function(files, device_config, interactive = TRUE, 
+                         display_time = 2, verbose = FALSE) {
+    # Validate inputs
+    validate_display_parameters(files, device_config)
+    
     if (length(files) == 0) {
         base::message("No files to display")
         return(base::invisible(NULL))
@@ -108,7 +134,13 @@ display_plots <- function(files, config) {
     while (i <= length(files)) {
         file <- files[i]
         
-        if (DEBUG_CONFIG$verbose) {
+        if (!file.exists(file)) {
+            base::message(sprintf("Skipping missing file: %s", basename(file)))
+            i <- i + 1
+            next
+        }
+        
+        if (verbose) {
             base::message(sprintf("\nDisplaying file %d of %d:", i, length(files)))
             base::message(base::basename(file))
         }
@@ -119,7 +151,7 @@ display_plots <- function(files, config) {
             plot(img)
             
             # Interactive viewing control
-            if (DEBUG_CONFIG$interactive) {
+            if (interactive) {
                 user_input <- base::readline(
                     prompt = "Options: [Enter] next, 'p' previous, 'q' quit: "
                 )
@@ -131,7 +163,7 @@ display_plots <- function(files, config) {
                     i <- i + 1
                 }
             } else {
-                base::Sys.sleep(DEBUG_CONFIG$display_time)
+                base::Sys.sleep(display_time)
                 i <- i + 1
             }
         }, error = function(e) {
