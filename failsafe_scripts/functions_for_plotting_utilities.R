@@ -45,23 +45,14 @@ find_plot_files <- function(base_dir, experiment = NULL, timestamp = NULL,
     return(files)
 }
 
-#' Display plots interactively
-#' @param files character vector of file paths
-#' @param config list Viewer configuration
 display_plots <- function(files, config) {
     if (length(files) == 0) {
         base::message("No files to display")
-        return(invisible(NULL))
+        return(base::invisible(NULL))
     }
     
-    # Initialize device
-    grDevices::dev.new(
-        width = config$device$width,
-        height = config$device$height
-    )
-    
-    # Process each file
-    for (i in base::seq_along(files)) {
+    i <- 1
+    while (i <= length(files)) {
         file <- files[i]
         
         if (DEBUG_CONFIG$verbose) {
@@ -69,24 +60,30 @@ display_plots <- function(files, config) {
             base::message(base::basename(file))
         }
         
-        # Display plot
-        plot <- grDevices::readPicture(file)
-        grDevices::replayPlot(plot)
-        
-        # Interactive viewing control
-        if (DEBUG_CONFIG$interactive) {
-            user_input <- base::readline(
-                prompt = "Options: [Enter] next, 'p' previous, 'q' quit: "
-            )
+        tryCatch({
+            # Read and display SVG
+            img <- magick::image_read_svg(file)
+            plot(img)
             
-            if (user_input == "q") break
-            if (user_input == "p" && i > 1) {
-                i <- i - 2  # Will be incremented in next loop
+            # Interactive viewing control
+            if (DEBUG_CONFIG$interactive) {
+                user_input <- base::readline(
+                    prompt = "Options: [Enter] next, 'p' previous, 'q' quit: "
+                )
+                
+                if (user_input == "q") break
+                if (user_input == "p" && i > 1) {
+                    i <- i - 1
+                } else {
+                    i <- i + 1
+                }
+            } else {
+                base::Sys.sleep(DEBUG_CONFIG$display_time)
+                i <- i + 1
             }
-        } else {
-            base::Sys.sleep(DEBUG_CONFIG$display_time)
-        }
+        }, error = function(e) {
+            base::message(sprintf("Error displaying file: %s", e$message))
+            i <- i + 1  # Move to next file even if current fails
+        })
     }
-    
-    grDevices::dev.off()
 }
