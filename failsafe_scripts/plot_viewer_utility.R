@@ -24,9 +24,9 @@ VIEWER_CONFIG <- list(
 
 # Required Packages and Functions
 #-----------------------------------------------------------------------------
-required_packages <- c("grDevices")
+required_packages <- c("magick")
 for (pkg in required_packages) {
-    if (!requireNamespace(pkg, quietly = TRUE)) {
+    if (!base::requireNamespace(pkg, quietly = TRUE)) {
         stop(sprintf("Package '%s' is missing", pkg))
     }
 }
