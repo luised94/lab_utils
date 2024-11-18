@@ -5,10 +5,10 @@ DEBUG_CONFIG <- list(
     enabled = FALSE,           # TRUE for testing single group, FALSE for all
     group = 10,               # Which group to process when in debug mode
     samples_per_group = 4,    # Samples per plot
-    save_plots = FALSE,       # Whether to save plots to files
+    save_plots = TRUE,       # Whether to save plots to files
     verbose = TRUE,           # Print debug information
     chromosome = 10,
-    interactive = TRUE,
+    interactive = FALSE,
     display_time = 2
 )
 
@@ -55,7 +55,7 @@ source("~/lab_utils/failsafe_scripts/bmc_config.R")
 experiment_id <- "241010Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 plots_dir <- file.path(base_dir, "plots", "genome_tracks", "overview")
-metadata_path <- file.path(base_dir, "documentation", 
+metadata_path <- file.path(base_dir, "documentation",
                           paste0(experiment_id, "_sample_grid.csv"))
 dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -93,7 +93,7 @@ for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
 
 # 5. Sort metadata using config column order
 sorted_metadata <- metadata[do.call(
-    order, 
+    order,
     metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
 ), ]
 
@@ -156,7 +156,7 @@ bigwig_files <- list.files(
     pattern = bigwig_pattern,
     full.names = TRUE
 )
-normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1", 
+normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1",
                           basename(bigwig_files[1]))
 
 # Load feature file (annotation)
@@ -170,7 +170,7 @@ if (!is.null(feature_file)) {
     features <- rtracklayer::import(feature_file)
     # Convert to chrRoman format
     GenomeInfoDb::seqlevels(features) <- paste0(
-        "chr", 
+        "chr",
         utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
     )
 }
@@ -220,10 +220,10 @@ for (group_idx in groups_to_process) {
     if (DEBUG_CONFIG$verbose) {
         message("\nProcessing group ", group_idx)
     }
-    
+
     # Get current group's samples
     current_samples <- sorted_metadata[sample_groups[[group_idx]], ]
-    
+
     # Initialize tracks list with chromosome axis
 
     tracks <- list(
@@ -231,12 +231,12 @@ for (group_idx in groups_to_process) {
             name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
         )
     )
-    
+
     # Add tracks for each sample
     for (i in seq_len(nrow(current_samples))) {
         sample_id <- current_samples$sample_id[i]
         current_antibody <- current_samples$antibody[i]
-        
+
         # Find matching bigwig file
         bigwig_file <- bigwig_files[grepl(sample_id, bigwig_files)][1]
 
@@ -257,7 +257,7 @@ for (group_idx in groups_to_process) {
             if (DEBUG_CONFIG$verbose) {
                 message("Adding track for sample: ", sample_id)
             }
-            
+
             # Update track color based on antibody
             track_color <- if (current_antibody == "Input") {
                 color_scheme$fixed$input
@@ -265,7 +265,7 @@ for (group_idx in groups_to_process) {
                 color_scheme$get_color("antibody", current_antibody)
             }
             track_data <- rtracklayer::import(bigwig_file)
-            
+
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 track_data,
                 name = track_name,
@@ -276,11 +276,11 @@ for (group_idx in groups_to_process) {
             if (DEBUG_CONFIG$verbose) {
                 message("Creating placeholder for sample: ", sample_id)
             }
-            
+
             # Calculate reasonable number of points (e.g., one point per 100bp)
             sampling_rate <- 100  # Adjust this value based on your needs
             num_points <- ceiling(chromosome_width / sampling_rate)
-            
+
             # Create proper placeholder track with genome coordinates
             empty_ranges <- GenomicRanges::GRanges(
                 seqnames = chromosome_roman,
@@ -292,7 +292,7 @@ for (group_idx in groups_to_process) {
                 score = rep(0, num_points),  # One score per position
                 strand = "*"
             )
-            
+
             empty_track <- Gviz::DataTrack(
                 empty_ranges,
                 name = placeholder_name,
@@ -320,7 +320,7 @@ for (group_idx in groups_to_process) {
         TIMESTAMPS$full,
         normalization_method
     )
-    
+
     Gviz::plotTracks(
         trackList = tracks,
         chromosome = chromosome_roman,
@@ -332,21 +332,21 @@ for (group_idx in groups_to_process) {
         fontcolor = "black",           # Track name text color
         background.title = "white",    # Track name background
         col.border.title = "#E0E0E0",  # Light gray border around track names
-        
+
         # Other visualization parameters
         cex.main = 1,
         margin = 15,
         innerMargin = 5,
-        
+
         # Axis appearance
         col.axis = "black",            # Axis text color
         cex.axis = 0.8,               # Axis text size
-        
+
         # Title panel
         col.title = "black",          # Title text color
         fontface.title = 2            # Bold title
     )
-    
+
     # Save plot if needed
     if (DEBUG_CONFIG$save_plots) {
         plot_filename <- sprintf(
@@ -361,14 +361,14 @@ for (group_idx in groups_to_process) {
             plots_dir,
             plot_filename
         )
-        
+
         if (DEBUG_CONFIG$verbose) {
             message(sprintf(
-                "Saving plot to: %s", 
+                "Saving plot to: %s",
                 basename(plot_file)
             ))
         }
-        
+
         svg(plot_file, width = PLOT_CONFIG$width, height = PLOT_CONFIG$height)
         Gviz::plotTracks(
             trackList = tracks,
@@ -381,23 +381,23 @@ for (group_idx in groups_to_process) {
             fontcolor = "black",           # Track name text color
             background.title = "white",    # Track name background
             col.border.title = "#E0E0E0",  # Light gray border around track names
-            
+
             # Other visualization parameters
             cex.main = 1,
             margin = 15,
             innerMargin = 5,
-            
+
             # Axis appearance
             col.axis = "black",            # Axis text color
             cex.axis = 0.8,               # Axis text size
-            
+
             # Title panel
             col.title = "black",          # Title text color
             fontface.title = 2            # Bold title
         )
         dev.off()
     }
-    
+
     # Interactive viewing options
     if (DEBUG_CONFIG$interactive) {
         user_input <- readline(

@@ -50,7 +50,7 @@ EXPERIMENT_CONFIG <- list(
     COLUMN_ORDER = c("antibody", "rescue_allele", "auxin_treatment", "time_after_release"),
     NORMALIZATION = list(
         methods = c("CPM", "BPM", "RPGC", "RPKM"),
-        active = "RPGC"  # Set via config
+        active = "CPM"  # Set via config
     )
 )
 
