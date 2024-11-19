@@ -6,13 +6,13 @@
 #' @param patterns list Required patterns for validation
 #' @param verbose logical Print processing details
 validate_find_plot_files_parameters <- function(base_dir, experiment, timestamp, pattern, 
-                                   validation_patterns, verbose) {
+                                   validation_patterns, additional_filtering_patterns, verbose) {
     # Basic type checking
     stopifnot(
         "base_dir must be character" = is.character(base_dir),
         "base_dir must exist" = dir.exists(base_dir),
         "patterns must be a list" = is.list(validation_patterns),
-        "required patterns missing" = all(c("experiment", "timestamp") %in% names(validation_patterns)),
+        "required patterns missing" = all(c("experiment", "timestamp", "svg") %in% names(validation_patterns)),
         "verbose must be logical" = is.logical(verbose)
     )
     
@@ -33,6 +33,19 @@ validate_find_plot_files_parameters <- function(base_dir, experiment, timestamp,
         )
     }
     
+    if (!is.null(additional_patterns)) {
+        # Check if single pattern or list of patterns
+        if (is.character(additional_patterns)) {
+            stopifnot("pattern must be non-empty" = nchar(additional_patterns) > 0)
+        } else if (is.list(additional_patterns)) {
+            stopifnot(
+                "all patterns must be character" = all(sapply(additional_patterns, is.character)),
+                "all patterns must be non-empty" = all(sapply(additional_patterns, nchar) > 0)
+            )
+        } else {
+            stop("additional_patterns must be character or list of characters")
+        }
+    }
     if (!is.null(pattern)) {
         stopifnot(
             "pattern must be character" = is.character(pattern)
@@ -47,7 +60,7 @@ validate_find_plot_files_parameters <- function(base_dir, experiment, timestamp,
 #' @param pattern character Optional file pattern
 #' @param verbose logical Print processing details
 find_plot_files <- function(base_dir, patterns, experiment = NULL, 
-                          timestamp = NULL, pattern = NULL, verbose = FALSE) {
+                          timestamp = NULL, pattern = NULL, additional_filtering_patterns = NULL, verbose = FALSE) {
     # Validate inputs
     validate_find_plot_files_parameters(
         base_dir = base_dir,
@@ -55,6 +68,7 @@ find_plot_files <- function(base_dir, patterns, experiment = NULL,
         timestamp = timestamp,
         pattern = pattern,
         validation_patterns = patterns,
+        additional_filtering_patterns = additional_filtering_patterns,
         verbose = verbose
     )
     
@@ -93,7 +107,7 @@ find_plot_files <- function(base_dir, patterns, experiment = NULL,
             base::message(sprintf("After pattern filter: %d files", length(files)))
         }
     }
-    
+
     return(files)
 }
 
