@@ -20,30 +20,28 @@ validate_find_plot_files_parameters <- function(base_dir, experiment, timestamp,
     if (!is.null(experiment)) {
         stopifnot(
             "experiment must be character" = is.character(experiment),
-            "experiment must match pattern" = 
-                grepl(validation_patterns$experiment, experiment)
+            "experiment must match pattern" = grepl(validation_patterns$experiment, experiment)
         )
     }
     
     if (!is.null(timestamp)) {
         stopifnot(
             "timestamp must be character" = is.character(timestamp),
-            "timestamp must match format" = 
-                grepl(validation_patterns$timestamp, timestamp)
+            "timestamp must match format" = grepl(validation_patterns$timestamp, timestamp)
         )
     }
     
-    if (!is.null(additional_patterns)) {
+    if (!is.null(additional_filtering_patterns)) {
         # Check if single pattern or list of patterns
-        if (is.character(additional_patterns)) {
-            stopifnot("pattern must be non-empty" = nchar(additional_patterns) > 0)
-        } else if (is.list(additional_patterns)) {
+        if (is.character(additional_filtering_patterns)) {
+            stopifnot("pattern must be non-empty" = nchar(additional_filtering_patterns) > 0)
+        } else if (is.list(additional_filtering_patterns)) {
             stopifnot(
-                "all patterns must be character" = all(sapply(additional_patterns, is.character)),
-                "all patterns must be non-empty" = all(sapply(additional_patterns, nchar) > 0)
+                "all patterns must be character" = all(sapply(additional_filtering_patterns, is.character)),
+                "all patterns must be non-empty" = all(sapply(additional_filtering_patterns, nchar) > 0)
             )
         } else {
-            stop("additional_patterns must be character or list of characters")
+            stop("additional_filtering_patterns must be character or list of characters")
         }
     }
     if (!is.null(pattern)) {
@@ -108,15 +106,15 @@ find_plot_files <- function(base_dir, patterns, experiment = NULL,
         }
     }
     # Filter by additional patterns
-    if (!is.null(additional_patterns)) {
-        if (is.character(additional_patterns)) {
-            additional_patterns <- list(additional_patterns)  # Convert single pattern to list
+    if (!is.null(additional_filtering_patterns)) {
+        if (is.character(additional_filtering_patterns)) {
+            additional_filtering_patterns <- list(additional_filtering_patterns)  # Convert single pattern to list
         }
         
         # Apply all patterns
         files <- Reduce(function(files, pattern) {
             files[base::grepl(pattern, base::basename(files))]
-        }, additional_patterns, init = files)
+        }, additional_filtering_patterns, init = files)
         
         if (verbose) {
             base::message(sprintf("After additional pattern filters: %d files", length(files)))
@@ -129,15 +127,15 @@ find_plot_files <- function(base_dir, patterns, experiment = NULL,
 #' Create command configuration structure
 #' @description Define available commands and their descriptions
 create_viewer_commands <- function() {
-    list(
-        "" = "next plot",
+    return(list(
+        "PRESS ENTER" = "next plot",
         "p" = "previous plot",
         "q" = "quit viewer",
         "h" = "show this help",
         "i" = "show current plot info",
         "l" = "list all plots",
         "g" = "go to specific plot number"
-    )
+    ))
 }
 
 #' Validate commands configuration
@@ -200,9 +198,7 @@ validate_display_parameters <- function(files, device_config) {
     stopifnot(
         "files must be character vector" = is.character(files),
         "device_config must be list" = is.list(device_config),
-        "device dimensions must be numeric" = 
-            is.numeric(device_config$width) && 
-            is.numeric(device_config$height)
+        "device dimensions must be numeric" = is.numeric(device_config$width) && is.numeric(device_config$height)
     )
     
     # Validate file existence
