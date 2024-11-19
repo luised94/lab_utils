@@ -135,14 +135,46 @@ create_viewer_commands <- function() {
         "q" = "quit viewer",
         "h" = "show this help",
         "i" = "show current plot info",
-        "l" = "list all plots"
+        "l" = "list all plots",
+        "g" = "go to specific plot number"
     )
+}
+
+#' Validate commands configuration
+#' @param commands list Command configuration
+validate_commands <- function(commands) {
+    # Basic structure validation
+    stopifnot(
+        "commands must be a list" = is.list(commands),
+        "commands cannot be empty" = length(commands) > 0
+    )
+    
+    # Validate contents
+    invalid_names <- !sapply(names(commands), is.character)
+    invalid_desc <- !sapply(commands, is.character)
+    
+    if (any(invalid_names)) {
+        stop("All command names must be character strings")
+    }
+    
+    if (any(invalid_desc)) {
+        stop("All command descriptions must be character strings")
+    }
+    
+    # Validate command name format (optional)
+    if (any(nchar(names(commands)) > 1)) {
+        warning("Some command names are longer than one character")
+    }
 }
 
 #' Display help information
 #' @param commands list Command configuration
 #' @param verbose logical Print additional information
 display_help <- function(commands, verbose = FALSE) {
+
+    # Validation
+    validate_commands(commands)
+
     if (verbose) {
         base::message("\nViewer Commands:")
     }
@@ -227,6 +259,13 @@ display_plots <- function(files, device_config, interactive = TRUE,
                     prompt = sprintf("Plot %d/%d [h for help]: ", 
                                    i, length(files))
                 )
+
+                # Process user input
+                if (!user_input %in% c("", names(commands))) {
+                    base::message(sprintf("Invalid command: '%s'", user_input))
+                    display_help(commands, verbose = TRUE)
+                    next
+                }
                 
                 # Process user input
                 if (user_input == "q") {
@@ -246,10 +285,40 @@ display_plots <- function(files, device_config, interactive = TRUE,
                                             idx, basename(files[idx])))
                     }
                     next  # Stay on current plot
+                } else if (user_input == "g") {
+                    base::message("\nAvailable plots:")
+                    for (idx in seq_along(files)) {
+                        base::message(sprintf("%3d: %s", 
+                                            idx, basename(files[idx])))
+                    }
+                    
+                    # Get plot number from user
+                    plot_num <- base::readline(
+                        prompt = sprintf("Enter plot number (1-%d): ", length(files))
+                    )
+                    
+                    # Validate and convert input
+                    plot_num <- tryCatch({
+                        num <- as.integer(plot_num)
+                        if (is.na(num) || num < 1 || num > length(files)) {
+                            base::message(sprintf("Invalid plot number. Must be between 1 and %d", 
+                                                length(files)))
+                            i  # Keep current position
+                        } else {
+                            num  # Use provided number
+                        }
+                    }, error = function(e) {
+                        base::message("Invalid input. Please enter a number.")
+                        i  # Keep current position
+                    })
+                    
+                    i <- plot_num
+                    next
                 } else {
                     i <- i + 1
                 }
             } else {
+                # If not interactive, wait display time and continue.
                 base::Sys.sleep(display_time)
                 i <- i + 1
             }
