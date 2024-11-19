@@ -107,6 +107,21 @@ find_plot_files <- function(base_dir, patterns, experiment = NULL,
             base::message(sprintf("After pattern filter: %d files", length(files)))
         }
     }
+    # Filter by additional patterns
+    if (!is.null(additional_patterns)) {
+        if (is.character(additional_patterns)) {
+            additional_patterns <- list(additional_patterns)  # Convert single pattern to list
+        }
+        
+        # Apply all patterns
+        files <- Reduce(function(files, pattern) {
+            files[base::grepl(pattern, base::basename(files))]
+        }, additional_patterns, init = files)
+        
+        if (verbose) {
+            base::message(sprintf("After additional pattern filters: %d files", length(files)))
+        }
+    }
 
     return(files)
 }
