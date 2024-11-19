@@ -126,6 +126,41 @@ find_plot_files <- function(base_dir, patterns, experiment = NULL,
     return(files)
 }
 
+#' Create command configuration structure
+#' @description Define available commands and their descriptions
+create_viewer_commands <- function() {
+    list(
+        "" = "next plot",
+        "p" = "previous plot",
+        "q" = "quit viewer",
+        "h" = "show this help",
+        "i" = "show current plot info",
+        "l" = "list all plots"
+    )
+}
+
+#' Display help information
+#' @param commands list Command configuration
+#' @param verbose logical Print additional information
+display_help <- function(commands, verbose = FALSE) {
+    if (verbose) {
+        base::message("\nViewer Commands:")
+    }
+    
+    # Calculate maximum command length for alignment
+    max_cmd_length <- max(nchar(names(commands)))
+    
+    # Create format string for aligned output
+    format_string <- sprintf("  %%-%ds : %%s", max_cmd_length)
+    
+    # Display commands
+    for (cmd in names(commands)) {
+        # Handle empty command (Enter key) specially
+        display_cmd <- if (cmd == "") "[Enter]" else cmd
+        base::message(sprintf(format_string, display_cmd, commands[[cmd]]))
+    }
+}
+
 #' Validate display parameters
 #' @param files character vector of file paths
 #' @param device_config list Device configuration settings
@@ -158,6 +193,13 @@ display_plots <- function(files, device_config, interactive = TRUE,
         base::message("No files to display")
         return(base::invisible(NULL))
     }
+
+    commands <- create_viewer_commands()
+
+    if(interactive) {
+        base::message("\nStarting interactive plot viewer")
+        display_help(commands, verbose = TRUE)
+    }
     
     i <- 1
     while (i <= length(files)) {
@@ -182,12 +224,28 @@ display_plots <- function(files, device_config, interactive = TRUE,
             # Interactive viewing control
             if (interactive) {
                 user_input <- base::readline(
-                    prompt = "Options: [Enter] next, 'p' previous, 'q' quit: "
+                    prompt = sprintf("Plot %d/%d [h for help]: ", 
+                                   i, length(files))
                 )
                 
-                if (user_input == "q") break
-                if (user_input == "p" && i > 1) {
+                # Process user input
+                if (user_input == "q") {
+                    break
+                } else if (user_input == "h") {
+                    display_help(commands, verbose = TRUE)
+                    next  # Stay on current plot
+                } else if (user_input == "p" && i > 1) {
                     i <- i - 1
+                } else if (user_input == "i") {
+                    base::message(sprintf("\nCurrent plot: %s", basename(file)))
+                    next  # Stay on current plot
+                } else if (user_input == "l") {
+                    base::message("\nAvailable plots:")
+                    for (idx in seq_along(files)) {
+                        base::message(sprintf("%3d: %s", 
+                                            idx, basename(files[idx])))
+                    }
+                    next  # Stay on current plot
                 } else {
                     i <- i + 1
                 }
