@@ -5,6 +5,7 @@ sudo apt-get install -y libx11-dev libxt-dev libpng-dev libjpeg-dev libcairo2-de
 sudo apt-get install -y default-jdk
 # Install related libraries for R packages.
 sudo apt-get install libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libfontconfig1-dev
+sudo apt-get install libmagick++-dev
 
 # Install LaTeX and related packages
 sudo apt-get install -y texlive texlive-fonts-extra texlive-latex-extra texinfo
