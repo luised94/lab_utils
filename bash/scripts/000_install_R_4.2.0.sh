@@ -1,8 +1,10 @@
 # Update and install necessary dependencies
 sudo apt-get update
-sudo apt-get install -y build-essential libcurl4-gnutls-dev libxml2-dev libssl-dev
-sudo apt-get install -y libx11-dev libxt-dev libpng-dev libjpeg-dev libcairo2-dev libxext-dev libxrender-dev libxmu-dev libxmuu-dev x11-apps xauth
+sudo apt-get install -y build-essential libcurl4-gnutls-dev libxml2-dev libssl-dev gfortran
+sudo apt-get install -y libx11-dev libxt-dev libpng-dev libjpeg-dev libcairo2-dev libxext-dev libxrender-dev libxmu-dev libxmuu-dev x11-apps xauth libreadline-dev libbz2-dev liblzma-dev
 sudo apt-get install -y default-jdk
+# Install related libraries for R packages.
+sudo apt-get install libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libfontconfig1-dev
 
 # Install LaTeX and related packages
 sudo apt-get install -y texlive texlive-fonts-extra texlive-latex-extra texinfo
