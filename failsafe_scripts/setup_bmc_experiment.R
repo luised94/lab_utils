@@ -1,3 +1,26 @@
+
+CONFIG <- list(
+    ID_REGEX = "\\d{5,6}",
+    FILE_PATTERNS = list(
+        FASTQ = "*.fastq",
+        SAMPLE_TABLE = "sample_table"
+    ),
+    PATHS = list(
+        BASE_DATA = file.path(Sys.getenv("HOME"), "data"),
+        DOCUMENTATION = "documentation",
+        FASTQ = "fastq"
+    )
+)
+DEBUG_CONFIG <- list(
+    enabled = FALSE,           # TRUE for testing single group, FALSE for all
+    group = 10,               # Which group to process when in debug mode
+    samples_per_group = 4,    # Samples per plot
+    save_plots = TRUE,       # Whether to save plots to files
+    verbose = TRUE,           # Print debug information
+    chromosome = 10,
+    interactive = FALSE,
+    display_time = 2
+)
 create_experiment_dir <- function(directory_path, subdirectories){
     if (!dir.exists(directory_path)) {
         dir.create(directory_path, recursive = TRUE)
