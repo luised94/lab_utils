@@ -52,3 +52,34 @@ EXPERIMENT_CONFIG <- list(
         active = "CPM"  # Set via config
     )
 )
+
+
+################################################################################
+# Configuration Validation
+################################################################################
+source("~/lab_utils/failsafe_scripts/functions_for_bmc_config_validation.R")
+
+# Validate configuration structure
+stopifnot(
+    "Missing required config sections" = 
+        all(c("METADATA", "CATEGORIES", "INVALID_COMBINATIONS", 
+              "EXPERIMENTAL_CONDITIONS", "COMPARISONS", "CONTROL_FACTORS", 
+              "COLUMN_ORDER", "NORMALIZATION") %in% names(EXPERIMENT_CONFIG))
+)
+
+# Validate each section
+validate_category_values(EXPERIMENT_CONFIG$CATEGORIES)
+
+validate_column_references(
+    categories = EXPERIMENT_CONFIG$CATEGORIES,
+    comparisons = EXPERIMENT_CONFIG$COMPARISONS,
+    control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS,
+    conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS
+)
+
+validate_column_order(
+    categories = EXPERIMENT_CONFIG$CATEGORIES,
+    column_order = EXPERIMENT_CONFIG$COLUMN_ORDER
+)
+
+cat("[VALIDATED] Experiment configuration loaded successfully\n")
