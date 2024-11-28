@@ -52,6 +52,7 @@
 # VERSION: 2.0.0
 #
 ################################################################################
+# !! Update EXPERIMENT_CONFIG if starting a new experiment.
 EXPERIMENT_CONFIG <- list(
     METADATA = list(
         EXPERIMENT_ID = "241122Bel",
@@ -113,6 +114,7 @@ EXPERIMENT_CONFIG <- list(
 ################################################################################
 source("~/lab_utils/failsafe_scripts/functions_for_bmc_config_validation.R")
 
+# !! Update if you want thourough messages during validation.
 validation_verbose <- FALSE  # Set to TRUE for detailed validation output
 
 # Validate configuration structure
