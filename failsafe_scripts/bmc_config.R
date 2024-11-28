@@ -1,6 +1,6 @@
 EXPERIMENT_CONFIG <- list(
     METADATA = list(
-        EXPERIMENT_ID = "241007Bel",
+        EXPERIMENT_ID = "241122Bel",
         EXPECTED_SAMPLES = 65,
         VERSION = "1.0.0"
     ),

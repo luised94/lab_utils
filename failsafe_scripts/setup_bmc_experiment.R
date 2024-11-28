@@ -10,6 +10,9 @@ stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
     "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
 )
+
+source("~/lab_utils/failsafe_scripts/bmc_config.R")
+stopifnot("Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = experiment_id == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID)
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 if (DEBUG_CONFIG$interactive) {
     cat(sprintf("\nExperiment ID: %s\n", experiment_id))
@@ -55,9 +58,6 @@ if (DEBUG_CONFIG$verbose) {
 }
 
 cat("Directories created successfully!\n")
-
-source("~/lab_utils/failsafe_scripts/bmc_config.R")
-
 # Generate combinations
 grid <- do.call(expand.grid, EXPERIMENT_CONFIG$CATEGORIES)
 # Filter invalid combinations
