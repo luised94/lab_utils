@@ -2,7 +2,7 @@ DEBUG_CONFIG <- list(
     enabled = FALSE,
     verbose = TRUE,
     interactive = TRUE,
-    dry_run = TRUE
+    dry_run = FALSE
 )
 
 experiment_id <- "241122Bel"
@@ -11,7 +11,8 @@ stopifnot(
     "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
 )
 
-source("~/lab_utils/failsafe_scripts/bmc_config.R")
+bmc_configuration_definition_path <- "~/lab_utils/failsafe_scripts/bmc_config.R"
+source(bmc_configuration_definition_path)
 stopifnot("Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = experiment_id == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID)
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 if (DEBUG_CONFIG$interactive) {
@@ -100,6 +101,7 @@ metadata <- metadata[do.call(
 metadata$full_name <- apply(metadata, 1, paste, collapse = "_")
 metadata$short_name <- apply(metadata[, EXPERIMENT_CONFIG$COLUMN_ORDER], 1, 
     function(x) paste0(substr(x, 1, 1), collapse = ""))
+
 bmc_metadata <- data.frame(
     SampleName = metadata$full_name,
     Vol_uL = 10,
@@ -114,6 +116,67 @@ bmc_metadata <- data.frame(
     Pool = "A",
     stringsAsFactors = FALSE
 )
+
+# File paths
+sample_grid_path <- file.path(base_dir, "documentation", 
+                             paste0(experiment_id,"_", "sample_grid.csv"))
+bmc_table_path <- file.path(base_dir, "documentation", 
+                           paste0(experiment_id,"_", "bmc_table.tsv"))
+
+bmc_experiment_config_path <- file.path(base_dir, "documentation", 
+                           paste0(experiment_id,"_", "bmc_config.R"))
+# Handle directory creation and file writing with dry run checks
+if (DEBUG_CONFIG$dry_run) {
+    cat(sprintf("[DRY RUN] Would write sample grid to: %s\n", sample_grid_path))
+    cat(sprintf("[DRY RUN] Would write BMC table to: %s\n", bmc_table_path))
+    cat(sprintf("[DRY RUN] Would write BMC config script: %s\n", bmc_experiment_config_path))
+} else {
+    # Write sample grid file
+    if (file.exists(sample_grid_path)) {
+        if (DEBUG_CONFIG$verbose) {
+            cat(sprintf("[SKIP] Sample grid file already exists: %s\n", sample_grid_path))
+        }
+    } else {
+        write.csv(
+            metadata,
+            file = sample_grid_path,
+            row.names = FALSE
+        )
+        if (DEBUG_CONFIG$verbose) {
+            cat(sprintf("[WROTE] Sample grid to: %s\n", sample_grid_path))
+        }
+    }
+    
+    # Write BMC table file
+    if (file.exists(bmc_table_path)) {
+        if (DEBUG_CONFIG$verbose) {
+            cat(sprintf("[SKIP] BMC table file already exists: %s\n", bmc_table_path))
+        }
+    } else {
+        write.table(
+            bmc_metadata,
+            file = bmc_table_path,
+            sep = "\t",
+            row.names = FALSE,
+            quote = FALSE
+        )
+        if (DEBUG_CONFIG$verbose) {
+            cat(sprintf("[WROTE] BMC table to: %s\n", bmc_table_path))
+        }
+    }
+    # Copy BMC Experiment Config
+    if (file.exists(bmc_experiment_config_path)) {
+        if (DEBUG_CONFIG$verbose) {
+            cat(sprintf("[SKIP] BMC config file already exists: %s\n", bmc_configuration_definition_path))
+        }
+    } else {
+        file.copy(bmc_configuration_definition_path, to = bmc_experiment_config_path)
+        if (DEBUG_CONFIG$verbose) {
+            cat(sprintf("[WROTE] BMC table to: %s\n", bmc_table_path))
+        }
+    }
+}
+
 ##' Add to existing configurations
 #CONFIG <- list(
 #    EXPERIMENT = list(
