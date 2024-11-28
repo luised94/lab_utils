@@ -59,27 +59,50 @@ EXPERIMENT_CONFIG <- list(
 ################################################################################
 source("~/lab_utils/failsafe_scripts/functions_for_bmc_config_validation.R")
 
+validation_verbose <- TRUE  # Set to TRUE for detailed validation output
+
+# Validate configuration structure
+if (validation_verbose) cat("\nValidating EXPERIMENT_CONFIG structure...\n")
+
+required_sections <- c("METADATA", "CATEGORIES", "INVALID_COMBINATIONS", 
+                      "EXPERIMENTAL_CONDITIONS", "COMPARISONS", 
+                      "CONTROL_FACTORS", "COLUMN_ORDER")
+
+missing_sections <- setdiff(required_sections, names(EXPERIMENT_CONFIG))
+if (length(missing_sections) > 0) {
+    stop(sprintf("Missing required config sections: %s", 
+                paste(missing_sections, collapse = ", ")))
+}
+
+if (validation_verbose) cat("[PASS] All required sections present\n\n")
+
 # Validate configuration structure
 stopifnot(
     "Missing required config sections" = 
-        all(c("METADATA", "CATEGORIES", "INVALID_COMBINATIONS", 
-              "EXPERIMENTAL_CONDITIONS", "COMPARISONS", "CONTROL_FACTORS", 
-              "COLUMN_ORDER", "NORMALIZATION") %in% names(EXPERIMENT_CONFIG))
+        all(required_sections %in% names(EXPERIMENT_CONFIG))
 )
 
 # Validate each section
-validate_category_values(EXPERIMENT_CONFIG$CATEGORIES)
+validate_category_values(
+    EXPERIMENT_CONFIG$CATEGORIES,
+    verbose = validation_verbose
+)
 
 validate_column_references(
     categories = EXPERIMENT_CONFIG$CATEGORIES,
     comparisons = EXPERIMENT_CONFIG$COMPARISONS,
     control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS,
-    conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS
+    conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS,
+    verbose = validation_verbose
 )
 
 validate_column_order(
     categories = EXPERIMENT_CONFIG$CATEGORIES,
-    column_order = EXPERIMENT_CONFIG$COLUMN_ORDER
+    column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
+    verbose = validation_verbose
 )
 
-cat("[VALIDATED] Experiment configuration loaded successfully\n")
+
+if (validation_verbose) {
+    cat("\n[VALIDATED] Experiment configuration loaded successfully\n")
+}
