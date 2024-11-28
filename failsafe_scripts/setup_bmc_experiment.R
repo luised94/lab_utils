@@ -58,34 +58,44 @@ if (DEBUG_CONFIG$verbose) {
 }
 
 cat("Directories created successfully!\n")
+
 # Generate combinations
-grid <- do.call(expand.grid, EXPERIMENT_CONFIG$CATEGORIES)
+metadata <- do.call(expand.grid, EXPERIMENT_CONFIG$CATEGORIES)
 # Filter invalid combinations
 invalid_idx <- Reduce(
     `|`, 
-    lapply(EXPERIMENT_CONFIG$INVALID_COMBINATIONS, eval, envir = grid)
+    lapply(EXPERIMENT_CONFIG$INVALID_COMBINATIONS, eval, envir = metadata)
 )
-grid <- subset(grid, !invalid_idx)
+metadata <- subset(metadata, !invalid_idx)
 
 # Apply experimental conditions
 valid_idx <- Reduce(
     `|`, 
-    lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = grid)
+    lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = metadata)
 )
-grid <- subset(grid, valid_idx)
+metadata <- subset(metadata, valid_idx)
 
 # Verify sample count
-n_samples <- nrow(grid)
-if (n_samples != EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES) {
-    warning(sprintf(
-        "Expected %d samples, got %d", 
-        EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES, 
-        n_samples
-    ))
+n_samples <- nrow(metadata)
+expected <- EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
+if (n_samples != expected) {
+    stop(sprintf("Expected %d samples, got %d", expected, n_samples))
+}
+# Enforce factor levels from config
+for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
+    if (col_name %in% colnames(metadata)) {
+        metadata[[col_name]] <- factor(
+            metadata[[col_name]],
+            levels = EXPERIMENT_CONFIG$CATEGORIES[[col_name]],
+            ordered = TRUE
+        )
+    }
 }
 
-# Sort columns
-grid <- grid[, EXPERIMENT_CONFIG$COLUMN_ORDER]
+metadata <- metadata[do.call(
+    order,
+    metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
+), ]
 ##' Add to existing configurations
 #CONFIG <- list(
 #    EXPERIMENT = list(
