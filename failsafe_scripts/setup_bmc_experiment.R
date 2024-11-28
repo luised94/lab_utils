@@ -1,61 +1,18 @@
-#' Add to existing configurations
-CONFIG <- list(
-    EXPERIMENT = list(
-        PATHS = list(
-            DROPBOX = "/mnt/c/Users/%s/Dropbox (MIT)/",
-            CONFIG = "sampleGridConfig.R"
-        ),
-        
-        DIRECTORIES = c(
-            "peak",
-            "fastq",
-            "alignment",
-            "qualityControl",
-            "bigwig",
-            "plots",
-            "documentation"
-        ),
-        
-        OUTPUT = list(
-            ENABLED = FALSE,
-            CONFIG_TEMPLATE = "%s_%s.R"
-        )
-    ),
-    
-    ENVIRONMENT = list(
-        REQUIRED_VARS = c(
-            "WINDOWS_USER"
-        )
-    )
-)
-CONFIG <- list(
-    ID_REGEX = "\\d{5,6}",
-    FILE_PATTERNS = list(
-        FASTQ = "*.fastq",
-        SAMPLE_TABLE = "sample_table"
-    ),
-    PATHS = list(
-        BASE_DATA = file.path(Sys.getenv("HOME"), "data"),
-        DOCUMENTATION = "documentation",
-        FASTQ = "fastq"
-    )
-)
 DEBUG_CONFIG <- list(
-    enabled = FALSE,           # TRUE for testing single group, FALSE for all
-    group = 10,               # Which group to process when in debug mode
-    samples_per_group = 4,    # Samples per plot
-    save_plots = TRUE,       # Whether to save plots to files
-    verbose = TRUE,           # Print debug information
-    chromosome = 10,
+    enabled = FALSE,
+    verbose = TRUE,
     interactive = FALSE,
-    display_time = 2
+    dry_run = TRUE
 )
 
 experiment_id <- "241122Bel"
-if (!grepl("^\\d{6}Bel$", experiment_id)) {
-    stop("Invalid experiment ID format. Expected: YYMMDD'Bel'")
+stopifnot(
+    "Experiment ID must be a character string" = is.character(experiment_id),
+    "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
+)
+if (DEBUG_CONFIG$interactive) {
+    readline("Press Enter to continue...")
 }
-
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 
 # Define the paths directly in a character vector
@@ -70,6 +27,68 @@ data_directories <- c(
     "documentation/dna_qc_traces",
 )
 
+# Create directories with debug output
 full_paths <- file.path(base_dir, data_directories)
-sapply(full_paths, dir.create, recursive = TRUE, showWarnings = FALSE)
+sapply(full_paths, function(path){
+    if (DEBUG_CONFIG$dry_run) {
+        cat(sprintf("[DRY RUN] Would create directory: %s\n", path))
+    } else {
+        dir_created <- dir.create(path, recursive = TRUE, showWarnings = FALSE)
+        if (DEBUG_CONFIG$verbose) {
+            status <- if (dir_created) "Created" else "Already exists"
+            cat(sprintf("[%s] %s\n", status, path))
+        }
+    }
+})
+
+if (DEBUG_CONFIG$verbose) {
+    mode <- if (DEBUG_CONFIG$dry_run) "DRY RUN" else "LIVE RUN"
+    cat(sprintf("\n[%s] Directory structure for experiment: %s\n", mode, experiment_id))
+    cat(sprintf("[%s] Base directory: %s\n", mode, base_dir))
+}
+
 cat("Directories created successfully!\n")
+
+
+##' Add to existing configurations
+#CONFIG <- list(
+#    EXPERIMENT = list(
+#        PATHS = list(
+#            DROPBOX = "/mnt/c/Users/%s/Dropbox (MIT)/",
+#            CONFIG = "sampleGridConfig.R"
+#        ),
+#        
+#        DIRECTORIES = c(
+#            "peak",
+#            "fastq",
+#            "alignment",
+#            "qualityControl",
+#            "bigwig",
+#            "plots",
+#            "documentation"
+#        ),
+#        
+#        OUTPUT = list(
+#            ENABLED = FALSE,
+#            CONFIG_TEMPLATE = "%s_%s.R"
+#        )
+#    ),
+#    
+#    ENVIRONMENT = list(
+#        REQUIRED_VARS = c(
+#            "WINDOWS_USER"
+#        )
+#    )
+#)
+#CONFIG <- list(
+#    ID_REGEX = "\\d{5,6}",
+#    FILE_PATTERNS = list(
+#        FASTQ = "*.fastq",
+#        SAMPLE_TABLE = "sample_table"
+#    ),
+#    PATHS = list(
+#        BASE_DATA = file.path(Sys.getenv("HOME"), "data"),
+#        DOCUMENTATION = "documentation",
+#        FASTQ = "fastq"
+#    )
+#)
