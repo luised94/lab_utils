@@ -59,7 +59,7 @@ EXPERIMENT_CONFIG <- list(
 ################################################################################
 source("~/lab_utils/failsafe_scripts/functions_for_bmc_config_validation.R")
 
-validation_verbose <- TRUE  # Set to TRUE for detailed validation output
+validation_verbose <- FALSE  # Set to TRUE for detailed validation output
 
 # Validate configuration structure
 if (validation_verbose) cat("\nValidating EXPERIMENT_CONFIG structure...\n")
@@ -102,7 +102,4 @@ validate_column_order(
     verbose = validation_verbose
 )
 
-
-if (validation_verbose) {
-    cat("\n[VALIDATED] Experiment configuration loaded successfully\n")
-}
+cat("\n[VALIDATED] Experiment configuration loaded successfully\n")
