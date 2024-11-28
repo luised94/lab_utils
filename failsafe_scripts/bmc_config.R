@@ -1,3 +1,57 @@
+################################################################################
+# BMC Experiment Configuration
+################################################################################
+#
+# PURPOSE:
+#   Defines and validates experimental design for BMC ChIP-seq experiments,
+#   including sample categories, valid combinations, and comparison groups.
+#
+# USAGE:
+#   1. Use '/!!' in vim/neovim to jump to required updates
+#   2. Modify METADATA section with experiment details
+#   3. Update CATEGORIES if experimental design changes
+#   4. Review INVALID_COMBINATIONS and EXPERIMENTAL_CONDITIONS
+#
+# !! ----> REQUIRED UPDATES:
+# !! EXPERIMENT_CONFIG$METADATA <- list(
+# !!     EXPERIMENT_ID = "241010Bel",
+# !!     EXPECTED_SAMPLES = 65,
+# !!     VERSION = "1.0.0"
+# !! )
+#
+# STRUCTURE:
+#   EXPERIMENT_CONFIG/
+#   +-- METADATA/
+#   |   +-- EXPERIMENT_ID    # Format: YYMMDD'Bel'
+#   |   +-- EXPECTED_SAMPLES # Total valid combinations
+#   |   +-- VERSION         # Configuration version
+#   +-- CATEGORIES/         # Valid values for each factor
+#   +-- INVALID_COMBINATIONS/# Excluded experimental combinations
+#   +-- EXPERIMENTAL_CONDITIONS/# Valid sample definitions
+#   +-- COMPARISONS/        # Analysis groupings
+#   +-- CONTROL_FACTORS/    # Control sample definitions
+#   +-- COLUMN_ORDER/       # Standard column arrangement
+#
+# VALIDATION:
+#   1. Category Values: Must be character vectors, unique
+#   2. Column References: All referenced columns must exist
+#   3. Column Order: Must include all category columns
+#   4. Sample Count: Must match EXPECTED_SAMPLES
+#
+# DEPENDENCIES:
+#   - R base packages only
+#   - functions_for_bmc_config_validation.R for validation functions
+#
+# COMMON ISSUES:
+#   1. Mismatched EXPERIMENT_ID -> Check format YYMMDD'Bel'
+#   2. Wrong sample count -> Review INVALID_COMBINATIONS
+#   3. Missing categories -> Check CATEGORIES vs COLUMN_ORDER
+#
+# AUTHOR: Luis
+# DATE: 2024-11-27
+# VERSION: 2.0.0
+#
+################################################################################
 EXPERIMENT_CONFIG <- list(
     METADATA = list(
         EXPERIMENT_ID = "241122Bel",
