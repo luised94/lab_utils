@@ -1,4 +1,18 @@
-
+################################################################################
+# Experiment Configuration Validation Functions
+################################################################################
+#' @title Validate Category Values in Experiment Configuration
+#' @description Ensures all category values are character vectors and unique
+#' @param categories list Category name to character vector mapping
+#' @param stop_on_error logical Whether to stop on error or return status (default: TRUE)
+#' @param verbose logical Print detailed validation steps (default: FALSE)
+#' @return logical TRUE if validation passes, FALSE if fails and stop_on_error is FALSE
+#' @examples
+#' categories <- list(
+#'     condition = c("control", "treatment"),
+#'     replicate = c("1", "2", "3")
+#' )
+#' validate_category_values(categories, verbose = TRUE)
 validate_category_values <- function(
     categories,     # list: category name -> character vector mapping
     stop_on_error = TRUE,  # logical: whether to stop or return validation status
@@ -44,6 +58,23 @@ validate_category_values <- function(
     })
 }
 
+#' @title Validate Column References in Experimental Design
+#' @description Ensures all column references in comparisons, control factors,
+#'   and conditions match the defined categories
+#' @param categories list Valid column names from configuration
+#' @param comparisons list Named expressions for experimental comparisons
+#' @param control_factors list Factor definitions for controls
+#' @param conditions list Experimental condition definitions
+#' @param stop_on_error logical Whether to stop on error or return status (default: TRUE)
+#' @param verbose logical Print detailed validation steps (default: FALSE)
+#' @return logical TRUE if validation passes, FALSE if fails and stop_on_error is FALSE
+#' @examples
+#' validate_column_references(
+#'     categories = list(treatment = c("A", "B")),
+#'     comparisons = list(comp1 = quote(treatment == "A")),
+#'     control_factors = list(ctrl = c("treatment")),
+#'     conditions = list(cond1 = quote(treatment == "B"))
+#' )
 validate_column_references <- function(
     categories,        # list: valid column names
     comparisons,       # list: named expressions
@@ -120,6 +151,18 @@ validate_column_references <- function(
     })
 }
 
+#' @title Validate Column Order in Experiment Configuration
+#' @description Ensures column order includes all category columns
+#' @param categories list Category definitions from configuration
+#' @param column_order character vector Ordered column names
+#' @param stop_on_error logical Whether to stop on error or return status (default: TRUE)
+#' @param verbose logical Print detailed validation steps (default: FALSE)
+#' @return logical TRUE if validation passes, FALSE if fails and stop_on_error is FALSE
+#' @examples
+#' validate_column_order(
+#'     categories = list(treatment = c("A", "B"), time = c("0h", "2h")),
+#'     column_order = c("treatment", "time")
+#' )
 validate_column_order <- function(
     categories,    # list: category definitions
     column_order,  # character: ordered column names
