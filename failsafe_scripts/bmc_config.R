@@ -120,7 +120,8 @@ if (validation_verbose) cat("\nValidating EXPERIMENT_CONFIG structure...\n")
 
 required_sections <- c("METADATA", "CATEGORIES", "INVALID_COMBINATIONS", 
                       "EXPERIMENTAL_CONDITIONS", "COMPARISONS", 
-                      "CONTROL_FACTORS", "COLUMN_ORDER")
+                      "CONTROL_FACTORS", "COLUMN_ORDER", "NORMALIZATION")
+
 
 missing_sections <- setdiff(required_sections, names(EXPERIMENT_CONFIG))
 if (length(missing_sections) > 0) {
