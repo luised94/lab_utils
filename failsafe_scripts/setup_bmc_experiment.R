@@ -1,3 +1,6 @@
+################################################################################
+# Configuration and Debug Settings
+################################################################################
 DEBUG_CONFIG <- list(
     enabled = FALSE,
     verbose = TRUE,
@@ -5,15 +8,24 @@ DEBUG_CONFIG <- list(
     dry_run = FALSE
 )
 
+################################################################################
+# Experiment ID Validation
+################################################################################
 experiment_id <- "241122Bel"
 stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
     "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
 )
 
+################################################################################
+# Load and Validate Experiment Configuration
+################################################################################
 bmc_configuration_definition_path <- "~/lab_utils/failsafe_scripts/bmc_config.R"
 source(bmc_configuration_definition_path)
 stopifnot("Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = experiment_id == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID)
+################################################################################
+# Directory Setup and User Confirmation
+################################################################################
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 if (DEBUG_CONFIG$interactive) {
     cat(sprintf("\nExperiment ID: %s\n", experiment_id))
@@ -26,7 +38,10 @@ if (DEBUG_CONFIG$interactive) {
     cat("Proceeding with directory creation...\n\n")
 }
 
-# Define the paths directly in a character vector
+################################################################################
+# Directory Structure Definition and Creation
+################################################################################
+# Define directory structure
 data_directories <- c(
     "peak",
     "fastq/raw",
@@ -38,7 +53,7 @@ data_directories <- c(
     "documentation/dna_qc_traces"
 )
 
-# Create directories with debug output
+# Create directory structure
 full_paths <- file.path(base_dir, data_directories)
 invisible(lapply(full_paths, function(path) {
     if (DEBUG_CONFIG$dry_run) {
@@ -52,6 +67,7 @@ invisible(lapply(full_paths, function(path) {
     }
 }))
 
+# Report directory creation status
 if (DEBUG_CONFIG$verbose) {
     mode <- if (DEBUG_CONFIG$dry_run) "DRY RUN" else "LIVE RUN"
     cat(sprintf("\n[%s] Directory structure for experiment: %s\n", mode, experiment_id))
@@ -60,8 +76,12 @@ if (DEBUG_CONFIG$verbose) {
 
 cat("Directories created successfully!\n")
 
-# Generate combinations
+################################################################################
+# Sample Metadata Generation and Validation
+################################################################################
+# Generate experimental combinations
 metadata <- do.call(expand.grid, EXPERIMENT_CONFIG$CATEGORIES)
+
 # Filter invalid combinations
 invalid_idx <- Reduce(
     `|`, 
@@ -80,8 +100,20 @@ metadata <- subset(metadata, valid_idx)
 n_samples <- nrow(metadata)
 expected <- EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
 if (n_samples != expected) {
+    # Print diagnostic information
+    cat("\nDiagnostic Information:\n")
+    cat("----------------------\n")
+    print(table(metadata$antibody))  # Show antibody distribution
+    cat("\nFull sample breakdown:\n")
+    print(summary(metadata))         # Show all category distributions
+    cat("\n")
+    
     stop(sprintf("Expected %d samples, got %d", expected, n_samples))
 }
+
+################################################################################
+# Metadata Formatting and Organization
+################################################################################
 # Enforce factor levels from config
 for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
     if (col_name %in% colnames(metadata)) {
@@ -93,15 +125,20 @@ for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
     }
 }
 
+# Sort metadata according to column order
 metadata <- metadata[do.call(
     order,
     metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
 ), ]
 
+# Generate sample names
 metadata$full_name <- apply(metadata, 1, paste, collapse = "_")
 metadata$short_name <- apply(metadata[, EXPERIMENT_CONFIG$COLUMN_ORDER], 1, 
     function(x) paste0(substr(x, 1, 1), collapse = ""))
 
+################################################################################
+# BMC Metadata Generation
+################################################################################
 bmc_metadata <- data.frame(
     SampleName = metadata$full_name,
     Vol_uL = 10,
@@ -117,15 +154,20 @@ bmc_metadata <- data.frame(
     stringsAsFactors = FALSE
 )
 
-# File paths
+################################################################################
+# File Output Generation
+################################################################################
+# Define output file paths
 sample_grid_path <- file.path(base_dir, "documentation", 
                              paste0(experiment_id,"_", "sample_grid.csv"))
+
 bmc_table_path <- file.path(base_dir, "documentation", 
                            paste0(experiment_id,"_", "bmc_table.tsv"))
 
 bmc_experiment_config_path <- file.path(base_dir, "documentation", 
                            paste0(experiment_id,"_", "bmc_config.R"))
-# Handle directory creation and file writing with dry run checks
+
+# Handle file writing with dry run checks
 if (DEBUG_CONFIG$dry_run) {
     cat(sprintf("[DRY RUN] Would write sample grid to: %s\n", sample_grid_path))
     cat(sprintf("[DRY RUN] Would write BMC table to: %s\n", bmc_table_path))
@@ -164,6 +206,7 @@ if (DEBUG_CONFIG$dry_run) {
             cat(sprintf("[WROTE] BMC table to: %s\n", bmc_table_path))
         }
     }
+
     # Copy BMC Experiment Config
     if (file.exists(bmc_experiment_config_path)) {
         if (DEBUG_CONFIG$verbose) {
