@@ -96,6 +96,24 @@ metadata <- metadata[do.call(
     order,
     metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
 ), ]
+
+metadata$full_name <- apply(metadata, 1, paste, collapse = "_")
+metadata$short_name <- apply(metadata[, EXPERIMENT_CONFIG$COLUMN_ORDER], 1, 
+    function(x) paste0(substr(x, 1, 1), collapse = ""))
+bmc_metadata <- data.frame(
+    SampleName = metadata$full_name,
+    Vol_uL = 10,
+    Conc = 0,
+    Type = "ChIP",
+    Genome = "Saccharomyces cerevisiae",
+    Notes = ifelse(
+        metadata$antibody == "Input", 
+        "Run on fragment analyzer.", 
+        "Run on femto pulse."
+    ),
+    Pool = "A",
+    stringsAsFactors = FALSE
+)
 ##' Add to existing configurations
 #CONFIG <- list(
 #    EXPERIMENT = list(
