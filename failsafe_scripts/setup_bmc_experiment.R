@@ -1,6 +1,71 @@
 ################################################################################
+# BMC Experiment Setup Script
+################################################################################
+#
+# PURPOSE:
+#   Creates standardized directory structure and metadata files for BMC ChIP-seq
+#   experiments, including sample tracking and submission documents.
+#
+# USAGE:
+#   1. Use '/!!' in vim/neovim to jump to required updates
+#   2. Update experiment_id (format: YYMMDD'Bel', e.g., "241122Bel")
+#   3. Set DEBUG_CONFIG options as needed
+#   4. Source or run script
+#
+# !! ----> REQUIRED UPDATES:
+# !! experiment_id <- "241122Bel"
+# !! DEBUG_CONFIG <- list(
+# !!      enabled = FALSE,
+# !!      verbose = TRUE,
+# !!      interactive = TRUE,
+# !!      dry_run = FALSE
+# !!  )
+
+# INPUTS:
+#   - experiment_id: 9-character experiment identifier
+#   - bmc_config.R: External configuration defining experimental design
+#
+# OUTPUTS:
+#   1. Directory Structure:
+#      ~/data/[experiment_id]/
+#      +-- peak/
+#      +-- fastq/
+#      |   +-- raw/
+#      |   +-- processed/
+#      +-- alignment/
+#      +-- bigwig/
+#      +-- plots/
+#      +-- documentation/
+#
+#   2. Files:
+#      - [experiment_id]_sample_grid.csv: Complete experimental design
+#      - [experiment_id]_bmc_table.tsv: BMC submission metadata
+#      - [experiment_id]_bmc_config.R: Configuration snapshot
+#
+# CONTROLS:
+#   DEBUG_CONFIG$dry_run    = TRUE   # Preview without creating files
+#   DEBUG_CONFIG$verbose    = TRUE   # Show detailed progress
+#   DEBUG_CONFIG$interactive = TRUE  # Confirm before proceeding
+#
+# DEPENDENCIES:
+#   - R base packages only
+#   - ~/lab_utils/failsafe_scripts/bmc_config.R
+#
+# COMMON ISSUES:
+#   1. Wrong experiment ID format -> Check YYMMDD pattern
+#   2. Unexpected sample count -> Review antibody distribution
+#   3. File access denied -> Check ~/data permissions
+#
+# AUTHOR: Luis
+# DATE: 2024-11-27
+# VERSION: 2.0.0
+#
+################################################################################
+
+################################################################################
 # Configuration and Debug Settings
 ################################################################################
+# !! Review debug configuration
 DEBUG_CONFIG <- list(
     enabled = FALSE,
     verbose = TRUE,
@@ -11,6 +76,7 @@ DEBUG_CONFIG <- list(
 ################################################################################
 # Experiment ID Validation
 ################################################################################
+# !! Update experiment ID
 experiment_id <- "241122Bel"
 stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
@@ -23,6 +89,7 @@ stopifnot(
 bmc_configuration_definition_path <- "~/lab_utils/failsafe_scripts/bmc_config.R"
 source(bmc_configuration_definition_path)
 stopifnot("Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = experiment_id == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID)
+
 ################################################################################
 # Directory Setup and User Confirmation
 ################################################################################
@@ -30,7 +97,7 @@ base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 if (DEBUG_CONFIG$interactive) {
     cat(sprintf("\nExperiment ID: %s\n", experiment_id))
     cat("Base directory will be:", base_dir, "\n")
-    
+
     user_response <- readline("Continue with this experiment? (y/n): ")
     if (tolower(user_response) != "y") {
         stop("Script terminated by user")
@@ -84,14 +151,14 @@ metadata <- do.call(expand.grid, EXPERIMENT_CONFIG$CATEGORIES)
 
 # Filter invalid combinations
 invalid_idx <- Reduce(
-    `|`, 
+    `|`,
     lapply(EXPERIMENT_CONFIG$INVALID_COMBINATIONS, eval, envir = metadata)
 )
 metadata <- subset(metadata, !invalid_idx)
 
 # Apply experimental conditions
 valid_idx <- Reduce(
-    `|`, 
+    `|`,
     lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = metadata)
 )
 metadata <- subset(metadata, valid_idx)
@@ -107,7 +174,7 @@ if (n_samples != expected) {
     cat("\nFull sample breakdown:\n")
     print(summary(metadata))         # Show all category distributions
     cat("\n")
-    
+
     stop(sprintf("Expected %d samples, got %d", expected, n_samples))
 }
 
@@ -133,7 +200,7 @@ metadata <- metadata[do.call(
 
 # Generate sample names
 metadata$full_name <- apply(metadata, 1, paste, collapse = "_")
-metadata$short_name <- apply(metadata[, EXPERIMENT_CONFIG$COLUMN_ORDER], 1, 
+metadata$short_name <- apply(metadata[, EXPERIMENT_CONFIG$COLUMN_ORDER], 1,
     function(x) paste0(substr(x, 1, 1), collapse = ""))
 
 ################################################################################
@@ -146,8 +213,8 @@ bmc_metadata <- data.frame(
     Type = "ChIP",
     Genome = "Saccharomyces cerevisiae",
     Notes = ifelse(
-        metadata$antibody == "Input", 
-        "Run on fragment analyzer.", 
+        metadata$antibody == "Input",
+        "Run on fragment analyzer.",
         "Run on femto pulse."
     ),
     Pool = "A",
@@ -158,13 +225,13 @@ bmc_metadata <- data.frame(
 # File Output Generation
 ################################################################################
 # Define output file paths
-sample_grid_path <- file.path(base_dir, "documentation", 
+sample_grid_path <- file.path(base_dir, "documentation",
                              paste0(experiment_id,"_", "sample_grid.csv"))
 
-bmc_table_path <- file.path(base_dir, "documentation", 
+bmc_table_path <- file.path(base_dir, "documentation",
                            paste0(experiment_id,"_", "bmc_table.tsv"))
 
-bmc_experiment_config_path <- file.path(base_dir, "documentation", 
+bmc_experiment_config_path <- file.path(base_dir, "documentation",
                            paste0(experiment_id,"_", "bmc_config.R"))
 
 # Handle file writing with dry run checks
@@ -188,7 +255,7 @@ if (DEBUG_CONFIG$dry_run) {
             cat(sprintf("[WROTE] Sample grid to: %s\n", sample_grid_path))
         }
     }
-    
+
     # Write BMC table file
     if (file.exists(bmc_table_path)) {
         if (DEBUG_CONFIG$verbose) {
@@ -227,7 +294,7 @@ if (DEBUG_CONFIG$dry_run) {
 #            DROPBOX = "/mnt/c/Users/%s/Dropbox (MIT)/",
 #            CONFIG = "sampleGridConfig.R"
 #        ),
-#        
+#
 #        DIRECTORIES = c(
 #            "peak",
 #            "fastq",
@@ -237,13 +304,13 @@ if (DEBUG_CONFIG$dry_run) {
 #            "plots",
 #            "documentation"
 #        ),
-#        
+#
 #        OUTPUT = list(
 #            ENABLED = FALSE,
 #            CONFIG_TEMPLATE = "%s_%s.R"
 #        )
 #    ),
-#    
+#
 #    ENVIRONMENT = list(
 #        REQUIRED_VARS = c(
 #            "WINDOWS_USER"
