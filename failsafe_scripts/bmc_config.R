@@ -1,4 +1,3 @@
-
 EXPERIMENT_CONFIG <- list(
     METADATA = list(
         EXPERIMENT_ID = "241007Bel",
@@ -53,4 +52,3 @@ EXPERIMENT_CONFIG <- list(
         active = "CPM"  # Set via config
     )
 )
-

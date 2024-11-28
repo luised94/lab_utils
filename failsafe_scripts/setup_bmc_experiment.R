@@ -1,7 +1,7 @@
 DEBUG_CONFIG <- list(
     enabled = FALSE,
     verbose = TRUE,
-    interactive = FALSE,
+    interactive = TRUE,
     dry_run = TRUE
 )
 
@@ -10,10 +10,17 @@ stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
     "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
 )
-if (DEBUG_CONFIG$interactive) {
-    readline("Press Enter to continue...")
-}
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
+if (DEBUG_CONFIG$interactive) {
+    cat(sprintf("\nExperiment ID: %s\n", experiment_id))
+    cat("Base directory will be:", base_dir, "\n")
+    
+    user_response <- readline("Continue with this experiment? (y/n): ")
+    if (tolower(user_response) != "y") {
+        stop("Script terminated by user")
+    }
+    cat("Proceeding with directory creation...\n\n")
+}
 
 # Define the paths directly in a character vector
 data_directories <- c(
@@ -24,12 +31,12 @@ data_directories <- c(
     "bigwig",
     "plots/genome_tracks/overview",
     "plots/genome_tracks/experimental_comparisons",
-    "documentation/dna_qc_traces",
+    "documentation/dna_qc_traces"
 )
 
 # Create directories with debug output
 full_paths <- file.path(base_dir, data_directories)
-sapply(full_paths, function(path){
+invisible(lapply(full_paths, function(path) {
     if (DEBUG_CONFIG$dry_run) {
         cat(sprintf("[DRY RUN] Would create directory: %s\n", path))
     } else {
@@ -39,7 +46,7 @@ sapply(full_paths, function(path){
             cat(sprintf("[%s] %s\n", status, path))
         }
     }
-})
+}))
 
 if (DEBUG_CONFIG$verbose) {
     mode <- if (DEBUG_CONFIG$dry_run) "DRY RUN" else "LIVE RUN"
@@ -49,7 +56,36 @@ if (DEBUG_CONFIG$verbose) {
 
 cat("Directories created successfully!\n")
 
+source("~/lab_utils/failsafe_scripts/bmc_config.R")
 
+# Generate combinations
+grid <- do.call(expand.grid, EXPERIMENT_CONFIG$CATEGORIES)
+# Filter invalid combinations
+invalid_idx <- Reduce(
+    `|`, 
+    lapply(EXPERIMENT_CONFIG$INVALID_COMBINATIONS, eval, envir = grid)
+)
+grid <- subset(grid, !invalid_idx)
+
+# Apply experimental conditions
+valid_idx <- Reduce(
+    `|`, 
+    lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = grid)
+)
+grid <- subset(grid, valid_idx)
+
+# Verify sample count
+n_samples <- nrow(grid)
+if (n_samples != EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES) {
+    warning(sprintf(
+        "Expected %d samples, got %d", 
+        EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES, 
+        n_samples
+    ))
+}
+
+# Sort columns
+grid <- grid[, EXPERIMENT_CONFIG$COLUMN_ORDER]
 ##' Add to existing configurations
 #CONFIG <- list(
 #    EXPERIMENT = list(
