@@ -99,6 +99,21 @@ if (DEBUG_CONFIG$verbose) {
     message(sprintf("Found %d FastQC files", length(fastqc_files)))
 }
 
+sample_ids <- gsub(
+    pattern = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt",
+    replacement = "\\1",
+    x = basename(fastqc_files)
+)
+
+if (DEBUG_CONFIG$verbose) {
+    message(sprintf("Found %d FastQC files", length(fastqc_files)))
+    message("Sample IDs extracted:")
+    print(data.frame(
+        file = basename(fastqc_files),
+        sample_id = sample_ids
+    ))
+}
+
 ################################################################################
 # Process Files
 ################################################################################
