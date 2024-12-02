@@ -213,7 +213,11 @@ for (file_idx in files_to_process) {
                     if (DEBUG_CONFIG$verbose) {
                         message(sprintf("    Parsed data: %d rows, %d columns", 
                                         nrow(data), ncol(data)))
+                        message(sprintf("\n    Data preview for module %s:", module_name))
+                        print(head(data))
                     }
+                } else {
+                    message("Skip header.")
                 }
             }
         }
