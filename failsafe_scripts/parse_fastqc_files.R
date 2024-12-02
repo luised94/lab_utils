@@ -2,141 +2,269 @@
 # Parse fastqc files for an experiment.
 ################################################################################
 # PURPOSE:
+#   Process FastQC output files and generate parsed tab-delimited summaries
 #
 # USAGE:
-#   1. Use '/!!' in vim/neovim to jump to required updates
+#   1. Update experiment_id to point to correct data directory
+#   2. Adjust DEBUG_CONFIG as needed
+#   3. Run script
 #
 # !! ----> REQUIRED UPDATES:
+#   - Set experiment_id
+#   - Review debug configuration
 #
 # STRUCTURE:
+#   1. Configuration blocks
+#   2. Directory validation
+#   3. File discovery
+#   4. Module parsing
+#   5. Data output
 #
 # VALIDATION:
+#   - Directory existence
+#   - FastQC file presence
+#   - Module structure
 #
 # DEPENDENCIES:
+#   - Base R
 #
 # COMMON ISSUES:
+#   - Missing quality control directory
+#   - Malformed FastQC files
+#   - Write permission errors
 #
 # AUTHOR: Luis
 # DATE: 2024-12-02
 # VERSION: 1.0.0
-#
 ################################################################################
+
 ################################################################################
 # Configuration and Debug Settings
 ################################################################################
-# !! Review debug configuration
-DEBUG_CONFIG <- list(
-    enabled = TRUE,
-    verbose = TRUE,
-    interactive = TRUE,
-    dry_run = FALSE,
-    files_to_process_idx = 1
+DEBUG_CONFIG <- list( # !! UPDATE THIS
+    enabled = TRUE,           # Enable debug mode
+    verbose = TRUE,           # Print processing details
+    interactive = TRUE,       # Allow interactive processing
+    dry_run = TRUE,         # Skip file writes
+    files_to_process_idx = 1  # Process specific files in debug mode
 )
 
 FASTQC_CONFIG <- list(
-    VERSION = "1.0.0",
-    FASTQC_DATA_PATTERN = "fastqc_data",
-    OUTPUT_SUFFIX = ".tab",
-    QC_SUBDIR = "quality_control"
+    module_separator = ">>",
+    module_end = ">>END_MODULE",
+    header_prefix = "#",
+    fastqc_pattern = "fastqc_data",
+    output_suffix = ".tab",
+    qc_subdir = "quality_control"
 )
 
-#CONFIG$COLUMN_NAMES <- list(
-#    SUMMARY = c("Stat", "Value")
-#)
-
-# Time formatting configuration
 TIME_CONFIG <- list(
-    timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
-    date_format = "%Y%m%d"               # YYYYMMDD
+    timestamp_format = "%Y%m%d_%H%M%S",
+    date_format = "%Y%m%d"
 )
 
-# Generate timestamps once at script start
+# Generate timestamps
 TIMESTAMPS <- list(
     full = format(Sys.time(), TIME_CONFIG$timestamp_format),
     date = format(Sys.Date(), TIME_CONFIG$date_format)
 )
 
+################################################################################
+# Directory Setup and Validation
+################################################################################
+experiment_id <- "241007Bel"  # !! UPDATE THIS
+base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
+qc_dir <- file.path(base_dir, FASTQC_CONFIG$qc_subdir)
 
-# !! Update experiment_id to denote the data directory that will be processed.
-experiment_id <- "241007Bel"
-base_experiment_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 stopifnot(
-    "Base experiment not set." = !is.null(base_experiment_dir),
-    "Directory does not exist." = dir.exists(base_experiment_dir)
+    "Base directory does not exist" = dir.exists(base_dir),
+    "Quality control directory does not exist" = dir.exists(qc_dir)
 )
 
-##########
-quality_control_dir <- file.path(base_experiment_dir, FASTQC_CONFIG$QC_SUBDIR)
-stopifnot(
-    "Quality control directory does not exist." = dir.exists(quality_control_dir)
-)
-
+################################################################################
+# File Discovery
+################################################################################
 fastqc_files <- list.files(
-    quality_control_dir,
-    pattern = FASTQC_CONFIG$FASTQC_DATA_PATTERN,
+    qc_dir,
+    pattern = FASTQC_CONFIG$fastqc_pattern,
     recursive = TRUE,
     full.names = TRUE
 )
 
 stopifnot(
-    "No quality control files found in experiment directory." = length(fastqc_files) > 0
+    "No FastQC files found" = length(fastqc_files) > 0
 )
 
-files_to_process_indexes <- if (DEBUG_CONFIG$enabled) {
+if (DEBUG_CONFIG$verbose) {
+    message(sprintf("Found %d FastQC files", length(fastqc_files)))
+}
+
+################################################################################
+# Process Files
+################################################################################
+files_to_process <- if (DEBUG_CONFIG$enabled) {
     DEBUG_CONFIG$files_to_process_idx
 } else {
     seq_along(fastqc_files)
 }
 
-for (sample_idx in files_to_process_indexes) {
+for (file_idx in files_to_process) {
+    current_file <- fastqc_files[file_idx]
+    
     if (DEBUG_CONFIG$verbose) {
-        message("\nProcessing sample ", sample_idx)
+        message(sprintf("\nProcessing file %d of %d: %s", 
+                       file_idx, 
+                       length(files_to_process), 
+                       basename(current_file)))
     }
-
-    lines <- readLines(fastqc_files[sample_idx])
-    modules_starts <- which(grepl(">>", lines))
-    modules_ends <- which(grepl(">>END_MODULE", lines))
-    modules_starts <- modules_starts[!(modules_starts %in% modules_ends)]
-    output_dir <- dirname(fastqc_files[file_idx])
+    
+    # Read and parse file
+    lines <- readLines(current_file)
+    module_starts <- which(grepl(FASTQC_CONFIG$module_separator, lines))
+    module_ends <- which(grepl(FASTQC_CONFIG$module_end, lines))
+    module_starts <- module_starts[!(module_starts %in% module_ends)]
+    
+    if (DEBUG_CONFIG$verbose) {
+        message(sprintf("Found %d modules", length(module_starts)))
+    }
+    
+    output_dir <- dirname(current_file)
     fastqc_summary <- list()
-    for (module_idx in seq_along(modules_starts)) {
-        module_lines <- lines[modules_starts[module_idx]:modules_ends[module_idx]]
-        module_summary <- gsub(">>", "", module_lines[1])
+    
+    # Process each module
+    for (module_idx in seq_along(module_starts)) {
+        if (DEBUG_CONFIG$verbose) {
+            message(sprintf("\n  Processing module %d of %d", 
+                          module_idx, 
+                          length(module_starts)))
+        }
+        
+        module_lines <- lines[module_starts[module_idx]:module_ends[module_idx]]
+        module_summary <- gsub(FASTQC_CONFIG$module_separator, "", module_lines[1])
         fastqc_summary <- append(fastqc_summary, module_summary)
-        module_filename <- gsub(" ", "", strsplit(module_summary, "\t")[[1]][1])
-        potential_headers <- which(grepl("^#", module_lines[2:length(module_lines)-1]))
-        last_potential_header <- potential_headers[length(potential_headers)] 
-        for (header_idx in potential_headers) {
-            number_of_elements_in_header <- length(strsplit(module_lines[header_idx], "\t")[[1]])
-            number_of_elements_in_line <- length(strsplit(module_lines[last_potential_header], "\t")[[1]])
-            if(number_of_elements_in_header == number_of_elements_in_line) {
-                header <- gsub("#", "", module_lines[header_idx])
-                if (DEBUG_CONFIG$dry_run) {
-                    data <- read.table(text = module_lines[(header_idx+1):length(module_lines)-1],
-                                   header = FALSE,
-                                   col.names = strsplit(header, "\t")[[1]],
-                                   sep = "\t")
+        
+        # Parse module data
+        module_name <- gsub(" ", "", strsplit(module_summary, "\t")[[1]][1])
+        if (DEBUG_CONFIG$verbose) {
+            message(sprintf("    Module name: %s", module_name))
+            message(sprintf("    Module summary: %s", module_summary))
+            message(sprintf("    Module lines: %d", length(module_lines)))
+        }
+        
+        # Find potential headers
+        potential_headers <- which(grepl(paste0("^", FASTQC_CONFIG$header_prefix), 
+                                       module_lines[2:(length(module_lines)-1)]))
+        
+        if (DEBUG_CONFIG$verbose) {
+            message(sprintf("    Found %d potential headers", length(potential_headers)))
+            if (length(potential_headers) > 0) {
+                message("    Headers content:")
+                for(h_idx in potential_headers) {
+                    message(sprintf("      Line %d: %s", h_idx, module_lines[h_idx]))
                 }
             }
-
         }
-        output_file_name <- paste0(current_time, "_", "fastqc_", module_filename, ".tab")
-        output_file_path <- file.path(output_dir, output_file_name)
-        write.table(data, file = output_file_path, append = FALSE, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
+        
+        # Only process if we found headers
+        if (length(potential_headers) > 0) {
+            last_potential_header <- potential_headers[length(potential_headers)]
+            data <- NULL
+            
+            # Validate headers against data structure
+            for (header_idx in potential_headers) {
+                header_elements <- strsplit(module_lines[header_idx], "\t")[[1]]
+                last_line_elements <- strsplit(module_lines[last_potential_header], "\t")[[1]]
+                
+                if (DEBUG_CONFIG$verbose) {
+                    message(sprintf("    Checking header at line %d:", header_idx))
+                    message(sprintf("      Header elements: %d", length(header_elements)))
+                    message(sprintf("      Data line elements: %d", length(last_line_elements)))
+                }
+                
+                if(length(header_elements) == length(last_line_elements)) {
+                    if (DEBUG_CONFIG$verbose) {
+                        message("    Found matching header structure")
+                    }
+                    
+                    header <- gsub(FASTQC_CONFIG$header_prefix, "", module_lines[header_idx])
+                    
+                    if (!DEBUG_CONFIG$dry_run) {
+                        data <- read.table(
+                            text = module_lines[(header_idx+1):length(module_lines)-1],
+                            header = FALSE,
+                            col.names = strsplit(header, "\t")[[1]],
+                            sep = "\t"
+                        )
+                        
+                        if (DEBUG_CONFIG$verbose) {
+                            message(sprintf("    Parsed data: %d rows, %d columns", 
+                                          nrow(data), ncol(data)))
+                        }
+                    }
+                }
+            }
+            
+            # Save module data if we successfully parsed it
+            if (!is.null(data) && !DEBUG_CONFIG$dry_run) {
+                output_file <- file.path(
+                    output_dir,
+                    sprintf("%s_fastqc_%s%s", 
+                           TIMESTAMPS$full,
+                           module_name,
+                           FASTQC_CONFIG$output_suffix)
+                )
+                
+                write.table(
+                    data,
+                    file = output_file,
+                    sep = "\t",
+                    row.names = FALSE,
+                    quote = FALSE
+                )
+                
+                if (DEBUG_CONFIG$verbose) {
+                    message(sprintf("    Wrote module data to: %s", 
+                                  basename(output_file)))
+                }
+            }
+        }
     }
-    fastqc_summary <- read.table(text = unlist(fastqc_summary),
-                       header = FALSE,
-                       col.names = c("Stat", "Value"),
-                       sep = "\t")
-    print(head(fastqc_summary))
-    output_file_name <- paste0(current_time, "_", "fastqc_", "summary", ".tab")
-    output_file_path <- file.path(output_dir, output_file_name)
-    write.table(fastqc_summary, file = output_file_path, append = FALSE, quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
+    
+    # Save summary for this file
+    if (!DEBUG_CONFIG$dry_run) {
+        summary_data <- read.table(
+            text = unlist(fastqc_summary),
+            header = FALSE,
+            col.names = c("Stat", "Value"),
+            sep = "\t"
+        )
+        
+        if (DEBUG_CONFIG$verbose) {
+            message("\n  Summary data:")
+            print(head(summary_data))
+        }
+        
+        summary_file <- file.path(
+            output_dir,
+            sprintf("%s_fastqc_summary%s",
+                    TIMESTAMPS$full,
+                    FASTQC_CONFIG$output_suffix)
+        )
+        
+        write.table(
+            summary_data,
+            file = summary_file,
+            sep = "\t",
+            row.names = FALSE,
+            quote = FALSE
+        )
+        
+        if (DEBUG_CONFIG$verbose) {
+            message(sprintf("  Wrote summary to: %s", basename(summary_file)))
+        }
+    }
 }
 
-#base::sprintf("%s_%s_%s%s",
-#    get_timestamp(),
-#    prefix,
-#    module_name,
-#    FASTQC_CONFIG$OUTPUT_SUFFIX)
-#
+if (DEBUG_CONFIG$verbose) {
+    message("\nProcessing complete")
+}
