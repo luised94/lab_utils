@@ -203,18 +203,17 @@ for (file_idx in files_to_process) {
                     
                     header <- gsub(FASTQC_CONFIG$header_prefix, "", module_lines[header_idx])
                     
-                    if (!DEBUG_CONFIG$dry_run) {
-                        data <- read.table(
-                            text = module_lines[(header_idx+1):length(module_lines)-1],
-                            header = FALSE,
-                            col.names = strsplit(header, "\t")[[1]],
-                            sep = "\t"
-                        )
-                        
-                        if (DEBUG_CONFIG$verbose) {
-                            message(sprintf("    Parsed data: %d rows, %d columns", 
-                                          nrow(data), ncol(data)))
-                        }
+                    data <- read.table(
+                        text = module_lines[(header_idx+1):length(module_lines)-1],
+                        header = FALSE,
+                        col.names = strsplit(header, "\t")[[1]],
+                        sep = "\t"
+                    )
+                     
+                    if (DEBUG_CONFIG$verbose) {
+                        message(sprintf("    Parsed data: %d rows, %d columns", 
+                                        nrow(data), ncol(data)))
+                    }
                     }
                 }
             }
@@ -258,19 +257,20 @@ for (file_idx in files_to_process) {
                 FASTQC_CONFIG$output_suffix)
     )
 
+    summary_data <- read.table(
+        text = unlist(fastqc_summary),
+        header = FALSE,
+        col.names = c("Stat", "Value"),
+        sep = "\t"
+    )
+        
+    if (DEBUG_CONFIG$verbose) {
+        message("\n  Summary data:")
+        print(head(summary_data))
+    }
+
     # Save summary for this file
     if (!DEBUG_CONFIG$dry_run) {
-        summary_data <- read.table(
-            text = unlist(fastqc_summary),
-            header = FALSE,
-            col.names = c("Stat", "Value"),
-            sep = "\t"
-        )
-        
-        if (DEBUG_CONFIG$verbose) {
-            message("\n  Summary data:")
-            print(head(summary_data))
-        }
         
         write.table(
             summary_data,
