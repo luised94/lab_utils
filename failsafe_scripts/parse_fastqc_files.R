@@ -219,15 +219,16 @@ for (file_idx in files_to_process) {
                 }
             }
             
+            output_file <- file.path(
+                output_dir,
+                sprintf("%s_%s_fastqc_%s%s", 
+                        TIMESTAMPS$full,
+                        sample_ids[file_idx],  # Add sample ID to filename
+                        module_name,
+                        FASTQC_CONFIG$output_suffix)
+            )
             # Save module data if we successfully parsed it
             if (!is.null(data) && !DEBUG_CONFIG$dry_run) {
-                output_file <- file.path(
-                    output_dir,
-                    sprintf("%s_fastqc_%s%s", 
-                           TIMESTAMPS$full,
-                           module_name,
-                           FASTQC_CONFIG$output_suffix)
-                )
                 
                 write.table(
                     data,
@@ -241,10 +242,22 @@ for (file_idx in files_to_process) {
                     message(sprintf("    Wrote module data to: %s", 
                                   basename(output_file)))
                 }
+            } else {
+                message(sprintf("    Would write module data to: %s", 
+                        basename(output_file)))
+
             }
         }
     }
     
+    summary_file <- file.path(
+        output_dir,
+        sprintf("%s_%s_fastqc_summary%s",
+                TIMESTAMPS$full,
+                sample_ids[file_idx],  # Add sample ID to filename
+                FASTQC_CONFIG$output_suffix)
+    )
+
     # Save summary for this file
     if (!DEBUG_CONFIG$dry_run) {
         summary_data <- read.table(
@@ -259,13 +272,6 @@ for (file_idx in files_to_process) {
             print(head(summary_data))
         }
         
-        summary_file <- file.path(
-            output_dir,
-            sprintf("%s_fastqc_summary%s",
-                    TIMESTAMPS$full,
-                    FASTQC_CONFIG$output_suffix)
-        )
-        
         write.table(
             summary_data,
             file = summary_file,
@@ -277,9 +283,11 @@ for (file_idx in files_to_process) {
         if (DEBUG_CONFIG$verbose) {
             message(sprintf("  Wrote summary to: %s", basename(summary_file)))
         }
+    } else {
+        if (DEBUG_CONFIG$verbose) {
+            message(sprintf("  Would write summary to: %s", basename(summary_file)))
+        }
     }
 }
 
-if (DEBUG_CONFIG$verbose) {
-    message("\nProcessing complete")
-}
+message("\nProcessing complete")
