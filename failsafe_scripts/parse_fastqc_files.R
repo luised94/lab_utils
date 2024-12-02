@@ -214,38 +214,36 @@ for (file_idx in files_to_process) {
                         message(sprintf("    Parsed data: %d rows, %d columns", 
                                         nrow(data), ncol(data)))
                     }
-                    }
                 }
             }
+        }
             
-            output_file <- file.path(
-                output_dir,
-                sprintf("%s_%s_fastqc_%s%s", 
-                        TIMESTAMPS$full,
-                        sample_ids[file_idx],  # Add sample ID to filename
-                        module_name,
-                        FASTQC_CONFIG$output_suffix)
+        output_file <- file.path(
+            output_dir,
+            sprintf("%s_%s_fastqc_%s%s", 
+                    TIMESTAMPS$full,
+                    sample_ids[file_idx],  # Add sample ID to filename
+                    module_name,
+                    FASTQC_CONFIG$output_suffix)
+        )
+        # Save module data if we successfully parsed it
+        if (!is.null(data) && !DEBUG_CONFIG$dry_run) {
+             
+            write.table(
+                data,
+                file = output_file,
+                sep = "\t",
+                row.names = FALSE,
+                quote = FALSE
             )
-            # Save module data if we successfully parsed it
-            if (!is.null(data) && !DEBUG_CONFIG$dry_run) {
-                
-                write.table(
-                    data,
-                    file = output_file,
-                    sep = "\t",
-                    row.names = FALSE,
-                    quote = FALSE
-                )
-                
-                if (DEBUG_CONFIG$verbose) {
-                    message(sprintf("    Wrote module data to: %s", 
-                                  basename(output_file)))
-                }
-            } else {
-                message(sprintf("    Would write module data to: %s", 
-                        basename(output_file)))
-
+             
+            if (DEBUG_CONFIG$verbose) {
+                message(sprintf("    Wrote module data to: %s", 
+                                basename(output_file)))
             }
+        } else {
+            message(sprintf("    Would write module data to: %s", 
+                    basename(output_file)))
         }
     }
     
