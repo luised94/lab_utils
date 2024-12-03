@@ -95,17 +95,8 @@ EXPERIMENT_CONFIG <- list(
         
         is_positive = quote(
             (antibody == "HM1108") |  # Known working condition
-            (antibody == "V5") |
-            (antibody == "UM174" & time_after_release == c("1", "2"))
-        ),
-        
-        is_treatment = quote(
-            !(antibody == "Input") &  # Not input
-            !(antibody == "ProtG" | (antibody == "V5" & rescue_allele == "NONE")) &  # Not negative
-            !(
-                (antibody == "HM1108" & rescue_allele == "WT" & auxin_treatment == "NO") |
-                (antibody == "ALFA" & rescue_allele == "WT" & time_after_release == "0" & auxin_treatment == "NO")
-            )  # Not positive
+            (antibody == "V5" & rescue_allele == "WT") |
+            (antibody == "UM174" & time_after_release %in% c("1", "2") & rescue_allele == "WT")
         )
     ),
 
