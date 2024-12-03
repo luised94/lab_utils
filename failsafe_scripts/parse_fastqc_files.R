@@ -55,7 +55,7 @@
 #   - Module-specific tab-delimited files
 #   - Summary statistics for each sample
 #   - Processing logs (when verbose)
-#
+#   - Module Name File for future reference and mappings.
 # AUTHOR: Luis
 # DATE: 2024-12-02
 # VERSION: 1.0.0
@@ -80,7 +80,8 @@ FASTQC_CONFIG <- list(
     header_prefix = "#",
     fastqc_pattern = "fastqc_data",
     output_suffix = ".tab",
-    qc_subdir = "quality_control"
+    qc_subdir = "quality_control",
+    module_names = character(0)
 )
 
 FASTQC_CONFIG$FILE_PATTERN <- list(
@@ -255,6 +256,8 @@ for (file_idx in files_to_process) {
         
         # Parse module data
         module_name <- gsub(" ", "", strsplit(module_summary, "\t")[[1]][1])
+        FASTQC_CONFIG$module_names <- unique(c(FASTQC_CONFIG$names, module_name))
+
         if (DEBUG_CONFIG$verbose) {
             message(sprintf("    Module name: %s", module_name))
             message(sprintf("    Module summary: %s", module_summary))
@@ -403,3 +406,30 @@ for (file_idx in files_to_process) {
 }
 
 message("\nProcessing complete")
+
+# Save module reference
+module_reference_file <- file.path(
+    Sys.getenv("HOME"),
+    "lab_utils/failsafe_scripts",
+    "fastqc_module_reference.rds"
+)
+
+if (!DEBUG_CONFIG$dry_run) {
+    if (DEBUG_CONFIG$verbose) {
+        message("\nSaving FastQC module reference:")
+        print(FASTQC_CONFIG$module_names)
+    }
+    
+    saveRDS(
+        FASTQC_CONFIG$module_names,
+        file = module_reference_file
+    )
+    
+    if (DEBUG_CONFIG$verbose) {
+        message(sprintf("Wrote module reference to: %s", module_reference_file))
+    }
+} else {
+    if (DEBUG_CONFIG$verbose) {
+        message(sprintf("Would write module reference to: %s", module_reference_file))
+    }
+}
