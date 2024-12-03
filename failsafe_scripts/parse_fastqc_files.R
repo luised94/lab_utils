@@ -61,6 +61,11 @@ FASTQC_CONFIG <- list(
     qc_subdir = "quality_control"
 )
 
+FASTQC_CONFIG$FILE_PATTERN <- list(
+    REGEX = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
+    EXPECTED_FORMAT = "consolidated_XXXXXX_sequence_fastqc_data.txt"  # For error messages
+)
+
 TIME_CONFIG <- list(
     timestamp_format = "%Y%m%d_%H%M%S",
     date_format = "%Y%m%d"
@@ -132,22 +137,39 @@ if (DEBUG_CONFIG$verbose) {
     message(sprintf("Number of files checked: %d", length(fastqc_versions)))
 }
 
+# Extract and validate sample IDs
+sample_ids <- character(length(fastqc_files))
+invalid_format_files <- character(0)
+
+# Extract sample IDs with direct pattern matching
 sample_ids <- gsub(
-    pattern = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt",
+    pattern = FASTQC_CONFIG$FILE_PATTERN$REGEX,
     replacement = "\\1",
     x = basename(fastqc_files)
 )
 
+# Validate specific failure modes with descriptive errors
+invalid_format_files <- basename(fastqc_files)[
+    !grepl("consolidated_.*_sequence_fastqc_data\\.txt$", basename(fastqc_files))
+]
+invalid_id_files <- basename(fastqc_files)[!grepl("^[0-9]{5,6}$", sample_ids)]
+duplicate_ids <- sample_ids[duplicated(sample_ids)]
+
+# Clear validation with specific error messages
 stopifnot(
-    "Number of sample ids does not match number of fastqc txt files found" = length(fastqc_files) == length(sample_ids)
+    `Files not matching expected format` = length(invalid_format_files) == 0,
+    `Files with invalid sample IDs` = length(invalid_id_files) == 0,
+    `Duplicate sample IDs found` = length(duplicate_ids) == 0,
+    `All sample IDs must be extracted` = !any(sample_ids == ""),
+    `Number of sample IDs must match number of files` = length(fastqc_files) == length(sample_ids)
 )
 
 if (DEBUG_CONFIG$verbose) {
-    message(sprintf("Found %d FastQC files", length(fastqc_files)))
-    message("Sample IDs extracted:")
+    message("Sample ID validation passed:")
     print(data.frame(
         file = basename(fastqc_files),
-        sample_id = sample_ids
+        sample_id = sample_ids,
+        stringsAsFactors = FALSE
     ))
 }
 
