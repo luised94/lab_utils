@@ -1,43 +1,65 @@
+
 ################################################################################
-# Parse fastqc files for an experiment.
+# Parse FastQC files for ChIP-seq quality control
 ################################################################################
 # PURPOSE:
-#   Process FastQC output files and generate parsed tab-delimited summaries
+#   Process FastQC output files and generate parsed tab-delimited summaries for
+#   ChIP-seq quality control analysis. Extracts module-specific data and creates
+#   standardized output files with sample identifiers.
 #
 # USAGE:
 #   1. Update experiment_id to point to correct data directory
-#   2. Adjust DEBUG_CONFIG as needed
+#   2. Adjust DEBUG_CONFIG as needed:
+#      - enabled: TRUE for testing single files
+#      - verbose: TRUE for detailed processing information
+#      - dry_run: TRUE to check without writing files
 #   3. Run script
 #
 # !! ----> REQUIRED UPDATES:
-#   - Set experiment_id
-#   - Review debug configuration
+#   - Set experiment_id for data directory
+#   - Review debug configuration for testing needs
+#   - Verify FastQC version requirements
 #
 # STRUCTURE:
-#   1. Configuration blocks
-#   2. Directory validation
-#   3. File discovery
-#   4. Module parsing
-#   5. Data output
+#   1. Configuration and debug settings
+#   2. Directory and version validation
+#   3. File discovery and sample ID extraction
+#   4. Module parsing and data extraction:
+#      - Basic Statistics
+#      - Per base sequence quality
+#      - Per sequence quality scores
+#      - Other FastQC modules
+#   5. Data validation and output
 #
 # VALIDATION:
-#   - Directory existence
-#   - FastQC file presence
-#   - Module structure
+#   - Directory structure and permissions
+#   - FastQC file presence and version
+#   - Sample ID format and uniqueness
+#   - Module structure and content
+#   - Data parsing integrity
 #
 # DEPENDENCIES:
-#   - Base R
+#   - Base R (>= 4.2.0)
+#   - FastQC (version 0.11.5)
+#   - submit_fastqc.sh
+#   - run_fastqc_array.sh
 #
 # COMMON ISSUES:
-#   - Missing quality control directory
-#   - Malformed FastQC files
-#   - Write permission errors
+#   - Missing or incorrect quality control directory
+#   - Malformed FastQC files or unexpected versions
+#   - Write permission errors in output directory
+#   - Inconsistent sample ID formats
+#   - Memory limitations with large datasets
+#
+# OUTPUT:
+#   - Module-specific tab-delimited files
+#   - Summary statistics for each sample
+#   - Processing logs (when verbose)
 #
 # AUTHOR: Luis
 # DATE: 2024-12-02
 # VERSION: 1.0.0
 ################################################################################
-
 ################################################################################
 # Configuration and Debug Settings
 ################################################################################
