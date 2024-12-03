@@ -179,6 +179,46 @@ if (n_samples != expected) {
 }
 
 ################################################################################
+# Sample Classification
+################################################################################
+sample_classifications <- EXPERIMENT_CONFIG$SAMPLE_CLASSIFICATIONS
+
+# First, create a matrix/data frame to store all classification results
+classification_results <- matrix(FALSE, 
+                               nrow = nrow(metadata), 
+                               ncol = length(sample_classifications),
+                               dimnames = list(NULL, names(sample_classifications)))
+
+# Evaluate each classification condition
+for (type in names(sample_classifications)) {
+    classification_results[, type] <- eval(sample_classifications[[type]], 
+                                         envir = metadata)
+}
+
+# Create the final classification vector
+metadata$sample_type <- "treatment"  # Default classification
+for (type in names(sample_classifications)) {
+    # Find rows where this classification is TRUE
+    matching_rows <- classification_results[, type]
+    # Assign the type name (removing 'is_' prefix)
+    metadata$sample_type[matching_rows] <- sub("^is_", "", type)
+}
+
+# Validation check
+multiple_classifications <- rowSums(classification_results) > 1
+if (any(multiple_classifications)) {
+    print(metadata[multiple_classifications,])
+    stop("Some samples have multiple classifications")
+}
+
+# Validate classification
+sample_type_counts <- table(metadata$sample_type)
+if (DEBUG_CONFIG$verbose) {
+    cat("\nSample Type Distribution:\n")
+    print(sample_type_counts)
+}
+stop("Test section complete.")
+################################################################################
 # Metadata Formatting and Organization
 ################################################################################
 # Enforce factor levels from config
