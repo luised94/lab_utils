@@ -229,7 +229,7 @@ for (file_idx in files_to_process) {
         `File must contain content` = length(lines) > 0,
         `File must contain FastQC modules` = length(module_starts) > 0,
         `Module start and end markers must match` = length(module_starts) == length(module_ends),
-        `Module markers must be in correct order` = all(module_starts < module_ends)
+        `Module markers must be in correct order` = all(module_starts < module_ends),
         `Module must have valid content` = all(module_starts > 0 & module_ends <= length(lines)),
         `Module must contain data lines` = all(module_ends - module_starts > 2)
     )
