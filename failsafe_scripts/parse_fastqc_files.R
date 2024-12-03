@@ -50,6 +50,9 @@ DEBUG_CONFIG <- list( # !! UPDATE THIS
 )
 
 FASTQC_CONFIG <- list(
+    VERSION = "0.11.5",                    # Expected FastQC version
+    VERSION_PATTERN = "^##FastQC\\s+",     # Pattern to match version line
+    HEADER_PATTERN = "^##FastQC",          # Pattern to identify FastQC header
     module_separator = ">>",
     module_end = ">>END_MODULE",
     header_prefix = "#",
@@ -95,10 +98,48 @@ stopifnot(
     "No FastQC files found" = length(fastqc_files) > 0
 )
 
+# Check FastQC versions across files
+fastqc_versions <- list()
+for (file_path in fastqc_files) {
+    first_line <- readLines(file_path, n = 1)
+    if (grepl(FASTQC_CONFIG$HEADER_PATTERN, first_line)) {
+        version <- gsub(FASTQC_CONFIG$VERSION_PATTERN, "", first_line)
+        fastqc_versions[[basename(file_path)]] <- version
+    } else {
+        warning(sprintf("File %s does not start with expected FastQC header", 
+                       basename(file_path)))
+    }
+}
+
+# Check if all versions match
+expected_version <- FASTQC_CONFIG$VERSION
+version_check <- sapply(fastqc_versions, function(v) v == expected_version)
+
+if (!all(version_check)) {
+    different_versions <- fastqc_versions[!version_check]
+    warning(sprintf(
+        "Found different FastQC versions:\nExpected: %s\nDifferent versions found in:\n%s",
+        expected_version,
+        paste(sprintf("- %s: %s", 
+                     names(different_versions), 
+                     unlist(different_versions)), 
+              collapse = "\n")
+    ))
+}
+
+if (DEBUG_CONFIG$verbose) {
+    message("FastQC version check complete")
+    message(sprintf("Number of files checked: %d", length(fastqc_versions)))
+}
+
 sample_ids <- gsub(
     pattern = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt",
     replacement = "\\1",
     x = basename(fastqc_files)
+)
+
+stopifnot(
+    "Number of sample ids does not match number of fastqc txt files found" = length(fastqc_files) == length(sample_ids)
 )
 
 if (DEBUG_CONFIG$verbose) {
