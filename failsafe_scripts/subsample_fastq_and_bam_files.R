@@ -1,8 +1,8 @@
 ################################################################################
 # SCRIPT: genomic_subsampling.R
-# PURPOSE: Create subsampled FASTQ/BAM files for testing pipelines
+# PURPOSE: Create subsampled FASTQ files for testing pipelines
 # USAGE: Run in R/RStudio with renv. Processes first FASTQ and BAM found.
-# VALIDATION: Tested with paired/single-end FASTQ and indexed BAM files
+# VALIDATION: Tested with 191209Bel fastq file.
 # UPDATES: 
 #   2024-12-03: Initial version
 #   2024-12-03: Modified for renv, explicit package calls
@@ -102,38 +102,6 @@ if (!is.na(FASTQ_FILE)) {
 #===============================================================================
 # BAM PROCESSING
 #===============================================================================
-if (!is.na(BAM_FILE)) {
-    if (DEBUG) message("\nProcessing BAM file...")
-    
-    output_file <- file.path(HOME_DIR, 
-                            paste0(OUTPUT_PREFIX, "_", basename(BAM_FILE)))
-    
-    if (!DRY_RUN) {
-        tryCatch({
-            # Open BAM
-            bam_data <- Rsamtools::BamFile(BAM_FILE)
-            
-            # Get total reads
-            total_reads <- Rsamtools::countBam(bam_data)$records
-            
-            # Sample reads
-            subset_idx <- sort(sample(total_reads, 
-                                    min(N_READS, total_reads)))
-            
-            # Create subsampled BAM
-            Rsamtools::filterBam(
-                BAM_FILE, 
-                output_file,
-                indexDestination = TRUE,
-                param = Rsamtools::ScanBamParam(which = subset_idx)
-            )
-            
-            if (VERBOSE) message("Created: ", basename(output_file))
-        }, error = function(e) {
-            warning("Error processing ", basename(BAM_FILE), ": ", e$message)
-        })
-    }
-}
 
 #===============================================================================
 # COMPLETION
