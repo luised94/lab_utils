@@ -182,6 +182,11 @@ files_to_process <- if (DEBUG_CONFIG$enabled) {
     seq_along(fastqc_files)
 }
 
+stopifnot(
+    `Files to process must be within valid range` = all(files_to_process <= length(fastqc_files)),
+    `Files to process cannot be negative` = all(files_to_process > 0)
+)
+
 for (file_idx in files_to_process) {
     current_file <- fastqc_files[file_idx]
     
@@ -198,6 +203,15 @@ for (file_idx in files_to_process) {
     module_ends <- which(grepl(FASTQC_CONFIG$module_end, lines))
     module_starts <- module_starts[!(module_starts %in% module_ends)]
     
+    stopifnot(
+        `File must contain content` = length(lines) > 0,
+        `File must contain FastQC modules` = length(module_starts) > 0,
+        `Module start and end markers must match` = length(module_starts) == length(module_ends),
+        `Module markers must be in correct order` = all(module_starts < module_ends)
+        `Module must have valid content` = all(module_starts > 0 & module_ends <= length(lines)),
+        `Module must contain data lines` = all(module_ends - module_starts > 2)
+    )
+
     if (DEBUG_CONFIG$verbose) {
         message(sprintf("Found %d modules", length(module_starts)))
     }
@@ -270,6 +284,14 @@ for (file_idx in files_to_process) {
                         col.names = strsplit(header, "\t")[[1]],
                         sep = "\t"
                     )
+
+                    if (!is.null(data)) {
+                        stopifnot(
+                            `Parsed data must have rows` = nrow(data) > 0,
+                            `Parsed data must have columns` = ncol(data) > 0,
+                            `Column names must not be empty` = all(nchar(colnames(data)) > 0)
+                        )
+                    }
                      
                     if (DEBUG_CONFIG$verbose) {
                         message(sprintf("    Parsed data: %d rows, %d columns", 
@@ -327,6 +349,11 @@ for (file_idx in files_to_process) {
         sep = "\t"
     )
         
+    stopifnot(
+        `Summary must contain data` = nrow(summary_data) > 0,
+        `Summary must have required columns` = all(c("Stat", "Value") %in% colnames(summary_data))
+    )
+
     if (DEBUG_CONFIG$verbose) {
         message("\n  Summary data:")
         print(head(summary_data))
