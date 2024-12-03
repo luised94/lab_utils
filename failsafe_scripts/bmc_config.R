@@ -83,6 +83,32 @@ EXPERIMENT_CONFIG <- list(
         is_174 = quote(antibody == "UM174")
     ),
 
+    SAMPLE_CLASSIFICATIONS = list(
+        is_input = quote(antibody == "Input"),
+        
+        is_negative = quote(
+            antibody == "ProtG" |  # Protein G negative control
+            (antibody == "V5" & rescue_allele == "NONE") | # No-tag control
+            (time_after_release == "0" & antibody == "UM174") | # MCM at G2
+            (auxin_treatment == "YES" & antibody == "ALFA") # Degradation of Orc4-ALFA.
+        ),
+        
+        is_positive = quote(
+            (antibody == "HM1108") |  # Known working condition
+            (antibody == "V5") |
+            (antibody == "UM174" & time_after_release == c("1", "2"))
+        ),
+        
+        is_treatment = quote(
+            !(antibody == "Input") &  # Not input
+            !(antibody == "ProtG" | (antibody == "V5" & rescue_allele == "NONE")) &  # Not negative
+            !(
+                (antibody == "HM1108" & rescue_allele == "WT" & auxin_treatment == "NO") |
+                (antibody == "ALFA" & rescue_allele == "WT" & time_after_release == "0" & auxin_treatment == "NO")
+            )  # Not positive
+        )
+    ),
+
     COMPARISONS = list(
         comp_1108forNoneAndWT = quote(antibody == "HM1108" & rescue_allele %in% c("NONE", "WT")),
         comp_1108forNoneAndWT_auxin = quote(antibody == "HM1108" & auxin_treatment == "YES"),
@@ -102,6 +128,7 @@ EXPERIMENT_CONFIG <- list(
     ),
 
     COLUMN_ORDER = c("antibody", "rescue_allele", "auxin_treatment", "time_after_release"),
+
     NORMALIZATION = list(
         methods = c("CPM", "BPM", "RPGC", "RPKM"),
         active = "CPM"  # Set via config
@@ -120,9 +147,10 @@ validation_verbose <- FALSE  # Set to TRUE for detailed validation output
 # Validate configuration structure
 if (validation_verbose) cat("\nValidating EXPERIMENT_CONFIG structure...\n")
 
-required_sections <- c("METADATA", "CATEGORIES", "INVALID_COMBINATIONS", 
-                      "EXPERIMENTAL_CONDITIONS", "COMPARISONS", 
-                      "CONTROL_FACTORS", "COLUMN_ORDER", "NORMALIZATION")
+required_sections <- c("METADATA", "CATEGORIES", "INVALID_COMBINATIONS",
+                      "EXPERIMENTAL_CONDITIONS", "COMPARISONS",
+                      "CONTROL_FACTORS", "COLUMN_ORDER", "NORMALIZATION",
+                      "SAMPLE_CLASSIFICATIONS")
 
 
 missing_sections <- setdiff(required_sections, names(EXPERIMENT_CONFIG))
