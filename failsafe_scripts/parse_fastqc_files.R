@@ -95,10 +95,6 @@ stopifnot(
     "No FastQC files found" = length(fastqc_files) > 0
 )
 
-if (DEBUG_CONFIG$verbose) {
-    message(sprintf("Found %d FastQC files", length(fastqc_files)))
-}
-
 sample_ids <- gsub(
     pattern = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt",
     replacement = "\\1",
@@ -167,15 +163,14 @@ for (file_idx in files_to_process) {
         }
         
         # Find potential headers
-        potential_headers <- which(grepl(paste0("^", FASTQC_CONFIG$header_prefix), 
-                                       module_lines[2:(length(module_lines)-1)]))
-        
+        module_data <- module_lines[2:(length(module_lines)-1)]
+        potential_headers <- which(grepl(paste0("^", FASTQC_CONFIG$header_prefix), module_data))
         if (DEBUG_CONFIG$verbose) {
             message(sprintf("    Found %d potential headers", length(potential_headers)))
             if (length(potential_headers) > 0) {
                 message("    Headers content:")
                 for(h_idx in potential_headers) {
-                    message(sprintf("      Line %d: %s", h_idx, module_lines[h_idx]))
+                    message(sprintf("      Line %d: %s", h_idx, module_data[h_idx]))
                 }
             }
         }
@@ -187,8 +182,8 @@ for (file_idx in files_to_process) {
             
             # Validate headers against data structure
             for (header_idx in potential_headers) {
-                header_elements <- strsplit(module_lines[header_idx], "\t")[[1]]
-                last_line_elements <- strsplit(module_lines[last_potential_header], "\t")[[1]]
+                header_elements <- strsplit(module_data[header_idx], "\t")[[1]]
+                last_line_elements <- strsplit(module_data[last_potential_header], "\t")[[1]]
                 
                 if (DEBUG_CONFIG$verbose) {
                     message(sprintf("    Checking header at line %d:", header_idx))
@@ -201,10 +196,13 @@ for (file_idx in files_to_process) {
                         message("    Found matching header structure")
                     }
                     
-                    header <- gsub(FASTQC_CONFIG$header_prefix, "", module_lines[header_idx])
+                    header <- gsub(FASTQC_CONFIG$header_prefix, "", module_data[header_idx])
+                    # Adjust indexes to skip the module header line
+                    data_start_idx <- header_idx + 1
+                    data_end_idx <- length(module_data)
                     
                     data <- read.table(
-                        text = module_lines[(header_idx+1):length(module_lines)-1],
+                        text = module_data[data_start_idx:data_end_idx],
                         header = FALSE,
                         col.names = strsplit(header, "\t")[[1]],
                         sep = "\t"
