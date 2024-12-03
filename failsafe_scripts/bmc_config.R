@@ -85,39 +85,16 @@ EXPERIMENT_CONFIG <- list(
 
     SAMPLE_CLASSIFICATIONS = list(
         is_input = quote(antibody == "Input"),
-<<<<<<< HEAD
-
-=======
-        
->>>>>>> 872fb2a (Add SAMPLE_CLASSIFICATIONS list to EXPERIMENT_CONFIG. This will serve as an additional factor variable for quality control analysis. Remove commented code at the bottom. Not required.)
         is_negative = quote(
             antibody == "ProtG" |  # Protein G negative control
             (antibody == "V5" & rescue_allele == "NONE") | # No-tag control
             (time_after_release == "0" & antibody == "UM174") | # MCM at G2
             (auxin_treatment == "YES" & antibody == "ALFA") # Degradation of Orc4-ALFA.
         ),
-<<<<<<< HEAD
-
         is_positive = quote(
             (antibody == "HM1108") |  # Known working condition
             (antibody == "V5" & rescue_allele == "WT") | # Test by removing rescue_allele condition.
             (antibody == "UM174" & time_after_release %in% c("1", "2") & rescue_allele == "WT")
-=======
-        
-        is_positive = quote(
-            (antibody == "HM1108") |  # Known working condition
-            (antibody == "V5") |
-            (antibody == "UM174" & time_after_release == c("1", "2"))
-        ),
-        
-        is_treatment = quote(
-            !(antibody == "Input") &  # Not input
-            !(antibody == "ProtG" | (antibody == "V5" & rescue_allele == "NONE")) &  # Not negative
-            !(
-                (antibody == "HM1108" & rescue_allele == "WT" & auxin_treatment == "NO") |
-                (antibody == "ALFA" & rescue_allele == "WT" & time_after_release == "0" & auxin_treatment == "NO")
-            )  # Not positive
->>>>>>> 872fb2a (Add SAMPLE_CLASSIFICATIONS list to EXPERIMENT_CONFIG. This will serve as an additional factor variable for quality control analysis. Remove commented code at the bottom. Not required.)
         )
     ),
 
