@@ -113,6 +113,7 @@ data_directories <- c(
     "peak",
     "fastq/raw",
     "fastq/processed",
+    "quality_control",
     "alignment",
     "bigwig",
     "plots/genome_tracks/overview",
