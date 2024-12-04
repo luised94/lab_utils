@@ -319,12 +319,19 @@ if (DEBUG_CONFIG$dry_run) {
     # Write sample grid file
     if (file.exists(sample_grid_path)) {
         if (DEBUG_CONFIG$verbose) {
-            cat(sprintf("[SKIP] Sample grid file already exists: %s\n", sample_grid_path))
+            cat(sprintf("[WARNING] Sample grid file already exists: %s\n", sample_grid_path))
         }
         user_input <- readline(prompt="File exists. Overwrite? (y/n): ")
-        if (tolower(user_input) != "y") {
+        if (tolower(user_input) == "n") {
             stop("Operation cancelled by user")
-        } else if (tolower(user_input))
+        } else if (tolower(user_input) == "y") {
+            write.csv(
+                metadata,
+                file = sample_grid_path,
+                row.names = FALSE
+            )
+        } else {
+            cat(sprintf("[SKIP] Option not recognized. Did not write: %s\n", sample_grid_path))
         }
     } else {
         write.csv(
