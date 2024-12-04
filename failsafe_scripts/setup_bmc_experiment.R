@@ -207,8 +207,25 @@ for (type in names(sample_classifications)) {
 # Validation check
 multiple_classifications <- rowSums(classification_results) > 1
 if (any(multiple_classifications)) {
-    print(metadata[multiple_classifications,])
-    stop("Some samples have multiple classifications")
+    cat("\nERROR: Multiple Classification Detected!\n")
+    cat("----------------------------------------\n")
+    
+    # Show problematic samples with their classifications
+    problem_samples <- metadata[multiple_classifications, ]
+    cat("Samples with multiple classifications:\n\n")
+    
+    # Show which classifications were TRUE for each problematic sample
+    for (i in which(multiple_classifications)) {
+        cat(sprintf("\nSample %d:\n", i))
+        cat("Sample details:\n")
+        print(metadata[i, ])
+        cat("\nMatching classifications:\n")
+        matching_types <- names(classification_results[i,])[classification_results[i,]]
+        print(matching_types)
+        cat("----------------------------------------\n")
+    }
+    
+    stop("Please fix multiple classifications in experiment configuration")
 }
 
 # Validate classification
