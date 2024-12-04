@@ -80,7 +80,12 @@ FASTQC_CONFIG <- list(
     fastqc_pattern = "fastqc_data",
     output_suffix = ".tab",
     qc_subdir = "quality_control",
-    module_names = character(0)
+    module_names = character(0),
+    module_reference_file = file.path(
+        Sys.getenv("HOME"),
+        "lab_utils/failsafe_scripts",
+        "fastqc_module_reference.rds"
+    )
 )
 
 FASTQC_CONFIG$FILE_PATTERN <- list(
@@ -401,9 +406,6 @@ for (file_idx in files_to_process) {
             row.names = FALSE,
             quote = FALSE
         )
-        if (DEBUG_CONFIG$verbose) {
-            message(sprintf("  Wrote summary to: %s", basename(summary_file)))
-        }
     } else {
         if (DEBUG_CONFIG$verbose) {
             message(sprintf("  Would write summary to: %s", basename(summary_file)))
@@ -413,29 +415,26 @@ for (file_idx in files_to_process) {
 
 message("\nProcessing complete")
 
-# Save module reference
-module_reference_file <- file.path(
-    Sys.getenv("HOME"),
-    "lab_utils/failsafe_scripts",
-    "fastqc_module_reference.rds"
-)
-
 if (!DEBUG_CONFIG$dry_run) {
-    if (DEBUG_CONFIG$verbose) {
-        message("\nSaving FastQC module reference:")
-        print(FASTQC_CONFIG$module_names)
-    }
-    
-    saveRDS(
-        FASTQC_CONFIG$module_names,
-        file = module_reference_file
+    success <- safe_write_file(
+        data = FASTQC_CONFIG$module_names,
+        path = FASTQC_CONFIG$module_reference$path,
+        write_fn = saveRDS,
+        verbose = DEBUG_CONFIG$verbose,
+        interactive = FALSE
     )
     
-    if (DEBUG_CONFIG$verbose) {
-        message(sprintf("Wrote module reference to: %s", module_reference_file))
-    }
-} else {
-    if (DEBUG_CONFIG$verbose) {
-        message(sprintf("Would write module reference to: %s", module_reference_file))
+    if (!success) {
+        warning("Failed to save FastQC module reference")
+    } else if (FASTQC_CONFIG$module_reference$validate) {
+        # Simple validation
+        tryCatch({
+            readRDS(FASTQC_CONFIG$module_reference$path)
+            if (DEBUG_CONFIG$verbose) {
+                message("FastQC module reference validated successfully")
+            }
+        }, error = function(e) {
+            warning("Failed to validate saved FastQC module reference")
+        })
     }
 }
