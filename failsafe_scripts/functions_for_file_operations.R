@@ -6,11 +6,17 @@
 #' @param ... Additional arguments passed to write_fn
 #' @return Boolean indicating success
 safe_write_file <- function(data, path, write_fn, verbose = FALSE, ...) {
+    # Input Validation 
+    stopifnot(
+        "write_fn must be a function" = is.function(write_fn),
+        "verbose must be logical" = is.logical(verbose) && length(verbose) == 1,
+        "parent directory must exist and be writable" = dir.exists(dirname(path)) && file.access(dirname(path), mode = 2) == 0
+    )
+
     if (verbose) {
         cat(sprintf("[INFO] Processing file: %s\n", path))
     }
 
-    # Define the write operation as a local function to avoid duplication
     do_write <- function() {
         tryCatch({
             write_fn(data, path, ...)
@@ -24,22 +30,27 @@ safe_write_file <- function(data, path, write_fn, verbose = FALSE, ...) {
         })
     }
 
-    if (file.exists(path)) {
-        if (verbose) {
-            cat(sprintf("[WARNING] File already exists: %s\n", path))
-        }
-        user_input <- readline(prompt="File exists. Overwrite? (y/n): ")
-        
-        if (tolower(user_input) == "y") {
-            return(do_write())
-        } else if (tolower(user_input) == "n") {
-            cat(sprintf("[WARNING SKIP] No overwrite. Did not write: %s\n", path))
-            return(FALSE)
-        } else {
-            cat(sprintf("[WARNING SKIP] Option not recognized. Did not write: %s\n", path))
-            return(FALSE)
-        }
+    # If file doesn't exist, write immediately
+    if (!file.exists(path)) {
+        return(do_write())
     }
+
+    # Handle existing file
+    if (verbose) {
+        cat(sprintf("[WARNING] File already exists: %s\n", path))
+    }
+    user_input <- readline(prompt="File exists. Overwrite? (y/n): ")
     
-    return(do_write())
+    if (tolower(user_input) == "y") {
+        return(do_write())
+    } 
+    
+    # Handle non-overwrite cases
+    message <- if(tolower(user_input) == "n") {
+        "[WARNING SKIP] No overwrite. Did not write: %s\n"
+    } else {
+        "[WARNING SKIP] Option not recognized. Did not write: %s\n"
+    }
+    cat(sprintf(message, path))
+    return(FALSE)
 }
