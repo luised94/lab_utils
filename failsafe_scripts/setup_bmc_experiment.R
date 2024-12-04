@@ -61,7 +61,6 @@
 # VERSION: 2.0.0
 #
 ################################################################################
-
 ################################################################################
 # Configuration and Debug Settings
 ################################################################################
@@ -180,6 +179,82 @@ if (n_samples != expected) {
 }
 
 ################################################################################
+# Sample Classification
+################################################################################
+sample_classifications <- EXPERIMENT_CONFIG$SAMPLE_CLASSIFICATIONS
+
+# First, create a matrix/data frame to store all classification results
+classification_results <- matrix(FALSE, 
+                               nrow = nrow(metadata), 
+                               ncol = length(sample_classifications),
+                               dimnames = list(NULL, names(sample_classifications)))
+
+# Evaluate each classification condition
+for (type in names(sample_classifications)) {
+    classification_results[, type] <- eval(sample_classifications[[type]], 
+                                         envir = metadata)
+}
+
+# Create the final classification vector
+metadata$sample_type <- "treatment"  # Default classification
+for (type in names(sample_classifications)) {
+    # Find rows where this classification is TRUE
+    matching_rows <- classification_results[, type]
+    # Assign the type name (removing 'is_' prefix)
+    metadata$sample_type[matching_rows] <- sub("^is_", "", type)
+}
+
+# Validation check
+multiple_classifications <- rowSums(classification_results) > 1
+if (any(multiple_classifications)) {
+    cat("\nERROR: Multiple Classification Detected!\n")
+    cat("----------------------------------------\n")
+    
+    # Show problematic samples with their classifications
+    problem_samples <- metadata[multiple_classifications, ]
+    cat("Samples with multiple classifications:\n\n")
+    
+    # Show which classifications were TRUE for each problematic sample
+    for (i in which(multiple_classifications)) {
+        cat(sprintf("\nSample %d:\n", i))
+        cat("Sample details:\n")
+        print(metadata[i, ])
+        cat("\nMatching classifications:\n")
+        matching_types <- names(classification_results[i,])[classification_results[i,]]
+        print(matching_types)
+        cat("----------------------------------------\n")
+    }
+    
+    stop("Please fix multiple classifications in experiment configuration")
+}
+
+# Success diagnostic display
+cat("\nSample Classification Summary:\n")
+cat("============================\n")
+
+# Overall counts
+cat("\n1. Distribution of sample types:\n")
+print(table(metadata$sample_type))
+
+# Detailed breakdown by relevant factors
+cat("\n2. Sample types by antibody:\n")
+print(table(metadata$sample_type, metadata$antibody))
+
+# Show a few samples from each classification
+cat("\n3. Example samples from each classification:\n")
+for (type in unique(metadata$sample_type)) {
+    cat(sprintf("\n%s samples:\n", toupper(type)))
+    print(metadata[metadata$sample_type == type, ][1:min(3, sum(metadata$sample_type == type)), ])
+    cat("----------------------------------------\n")
+}
+
+# Verification message
+cat("\nClassification Verification:\n")
+cat(sprintf("- Total samples: %d\n", nrow(metadata)))
+cat(sprintf("- Classified samples: %d\n", sum(table(metadata$sample_type))))
+cat(sprintf("- Unclassified samples: %d\n", sum(is.na(metadata$sample_type))))
+
+################################################################################
 # Metadata Formatting and Organization
 ################################################################################
 # Enforce factor levels from config
@@ -244,7 +319,22 @@ if (DEBUG_CONFIG$dry_run) {
     # Write sample grid file
     if (file.exists(sample_grid_path)) {
         if (DEBUG_CONFIG$verbose) {
-            cat(sprintf("[SKIP] Sample grid file already exists: %s\n", sample_grid_path))
+            cat(sprintf("[WARNING] Sample grid file already exists: %s\n", sample_grid_path))
+        }
+        user_input <- readline(prompt="File exists. Overwrite? (y/n): ")
+        if (tolower(user_input) == "n") {
+            cat(sprintf("[WARNING SKIP] No overwrite. Did not write: %s\n", sample_grid_path))
+        } else if (tolower(user_input) == "y") {
+            write.csv(
+                metadata,
+                file = sample_grid_path,
+                row.names = FALSE
+            )
+            if (DEBUG_CONFIG$verbose) {
+                cat(sprintf("[WROTE] Sample grid to: %s\n", sample_grid_path))
+            }
+        } else {
+            cat(sprintf("[WARNING SKIP] Option not recognized. Did not write: %s\n", sample_grid_path))
         }
     } else {
         write.csv(
@@ -260,7 +350,24 @@ if (DEBUG_CONFIG$dry_run) {
     # Write BMC table file
     if (file.exists(bmc_table_path)) {
         if (DEBUG_CONFIG$verbose) {
-            cat(sprintf("[SKIP] BMC table file already exists: %s\n", bmc_table_path))
+            cat(sprintf("[WARNING] BMC table file already exists: %s\n", bmc_table_path))
+        }
+        user_input <- readline(prompt="File exists. Overwrite? (y/n): ")
+        if (tolower(user_input) == "n") {
+            cat(sprintf("[WARNING SKIP] No overwrite. Did not write: %s\n", bmc_table_path))
+        } else if (tolower(user_input) == "y") {
+            write.table(
+                bmc_metadata,
+                file = bmc_table_path,
+                sep = "\t",
+                row.names = FALSE,
+                quote = FALSE
+            )
+            if (DEBUG_CONFIG$verbose) {
+                cat(sprintf("[WROTE] BMC table to: %s\n", bmc_table_path))
+            }
+        } else {
+            cat(sprintf("[SKIP] Option not recognized. Did not write: %s\n", bmc_table_path))
         }
     } else {
         write.table(
@@ -278,55 +385,24 @@ if (DEBUG_CONFIG$dry_run) {
     # Copy BMC Experiment Config
     if (file.exists(bmc_experiment_config_path)) {
         if (DEBUG_CONFIG$verbose) {
-            cat(sprintf("[SKIP] BMC config file already exists: %s\n", bmc_configuration_definition_path))
+            cat(sprintf("[WARNING] BMC config file already exists: %s\n", bmc_experiment_config_path))
         }
+        user_input <- readline(prompt="File exists. Overwrite? (y/n): ")
+        if (tolower(user_input) == "n") {
+            cat(sprintf("[WARNING SKIP] No overwrite. Did not write: %s\n", bmc_experiment_config_path))
+        } else if (tolower(user_input) == "y") {
+            file.copy(bmc_configuration_definition_path, to = bmc_experiment_config_path, overwrite = TRUE)
+            if (DEBUG_CONFIG$verbose) {
+                cat(sprintf("[WROTE] BMC config file to: %s\n", bmc_configuration_definition_path))
+            }
+        } else {
+            cat(sprintf("[WARNING SKIP] Option not recognized. Did not write: %s\n", bmc_experiment_config_path))
+        }
+
     } else {
         file.copy(bmc_configuration_definition_path, to = bmc_experiment_config_path)
         if (DEBUG_CONFIG$verbose) {
-            cat(sprintf("[WROTE] BMC table to: %s\n", bmc_table_path))
+            cat(sprintf("[WROTE] BMC table to: %s\n", bmc_experiment_config_path))
         }
     }
 }
-
-##' Add to existing configurations
-#CONFIG <- list(
-#    EXPERIMENT = list(
-#        PATHS = list(
-#            DROPBOX = "/mnt/c/Users/%s/Dropbox (MIT)/",
-#            CONFIG = "sampleGridConfig.R"
-#        ),
-#
-#        DIRECTORIES = c(
-#            "peak",
-#            "fastq",
-#            "alignment",
-#            "qualityControl",
-#            "bigwig",
-#            "plots",
-#            "documentation"
-#        ),
-#
-#        OUTPUT = list(
-#            ENABLED = FALSE,
-#            CONFIG_TEMPLATE = "%s_%s.R"
-#        )
-#    ),
-#
-#    ENVIRONMENT = list(
-#        REQUIRED_VARS = c(
-#            "WINDOWS_USER"
-#        )
-#    )
-#)
-#CONFIG <- list(
-#    ID_REGEX = "\\d{5,6}",
-#    FILE_PATTERNS = list(
-#        FASTQ = "*.fastq",
-#        SAMPLE_TABLE = "sample_table"
-#    ),
-#    PATHS = list(
-#        BASE_DATA = file.path(Sys.getenv("HOME"), "data"),
-#        DOCUMENTATION = "documentation",
-#        FASTQ = "fastq"
-#    )
-#)
