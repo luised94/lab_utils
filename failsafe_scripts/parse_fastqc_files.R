@@ -1,4 +1,3 @@
-
 ################################################################################
 # Parse FastQC files for ChIP-seq quality control
 ################################################################################
@@ -99,6 +98,17 @@ TIMESTAMPS <- list(
     full = format(Sys.time(), TIME_CONFIG$timestamp_format),
     date = format(Sys.Date(), TIME_CONFIG$date_format)
 )
+
+################################################################################
+# Load and Validate Experiment Configuration
+################################################################################
+# Bootstrap phase
+bootstrap_path <- normalizePath("~/lab_utils/failsafe_scripts/functions_for_file_operations.R", 
+                              mustWork = FALSE)
+if (!file.exists(bootstrap_path)) {
+    stop(sprintf("[FATAL] Bootstrap file not found: %s", bootstrap_path))
+}
+source(bootstrap_path)
 
 ################################################################################
 # Directory Setup and Validation
@@ -340,19 +350,15 @@ for (file_idx in files_to_process) {
         )
         # Save module data if we successfully parsed it
         if (!is.null(data) && !DEBUG_CONFIG$dry_run) {
-             
-            write.table(
-                data,
-                file = output_file,
+            safe_write_file(
+                data = data,
+                path = output_file,
+                write_fn = write.table,
+                verbose = DEBUG_CONFIG$verbose,
                 sep = "\t",
                 row.names = FALSE,
                 quote = FALSE
             )
-             
-            if (DEBUG_CONFIG$verbose) {
-                message(sprintf("    Wrote module data to: %s", 
-                                basename(output_file)))
-            }
         } else {
             message(sprintf("    Would write module data to: %s", 
                     basename(output_file)))
@@ -386,15 +392,15 @@ for (file_idx in files_to_process) {
 
     # Save summary for this file
     if (!DEBUG_CONFIG$dry_run) {
-        
-        write.table(
-            summary_data,
-            file = summary_file,
+        safe_write_file(
+            data = summary_data,
+            path = summary_file,
+            write_fn = write.table,
+            verbose = DEBUG_CONFIG$verbose,
             sep = "\t",
             row.names = FALSE,
             quote = FALSE
         )
-        
         if (DEBUG_CONFIG$verbose) {
             message(sprintf("  Wrote summary to: %s", basename(summary_file)))
         }
