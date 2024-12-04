@@ -179,4 +179,3 @@ find_timestamped_files <- function(base_path, full_paths = TRUE) {
     
     return(matches)
 }
-
