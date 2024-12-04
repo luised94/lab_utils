@@ -228,13 +228,32 @@ if (any(multiple_classifications)) {
     stop("Please fix multiple classifications in experiment configuration")
 }
 
-# Validate classification
-sample_type_counts <- table(metadata$sample_type)
-if (DEBUG_CONFIG$verbose) {
-    cat("\nSample Type Distribution:\n")
-    print(sample_type_counts)
+# Success diagnostic display
+cat("\nSample Classification Summary:\n")
+cat("============================\n")
+
+# Overall counts
+cat("\n1. Distribution of sample types:\n")
+print(table(metadata$sample_type))
+
+# Detailed breakdown by relevant factors
+cat("\n2. Sample types by antibody:\n")
+print(table(metadata$sample_type, metadata$antibody))
+
+# Show a few samples from each classification
+cat("\n3. Example samples from each classification:\n")
+for (type in unique(metadata$sample_type)) {
+    cat(sprintf("\n%s samples:\n", toupper(type)))
+    print(metadata[metadata$sample_type == type, ][1:min(3, sum(metadata$sample_type == type)), ])
+    cat("----------------------------------------\n")
 }
-stop("Test section complete.")
+
+# Verification message
+cat("\nClassification Verification:\n")
+cat(sprintf("- Total samples: %d\n", nrow(metadata)))
+cat(sprintf("- Classified samples: %d\n", sum(table(metadata$sample_type))))
+cat(sprintf("- Unclassified samples: %d\n", sum(is.na(metadata$sample_type))))
+
 ################################################################################
 # Metadata Formatting and Organization
 ################################################################################
@@ -301,6 +320,11 @@ if (DEBUG_CONFIG$dry_run) {
     if (file.exists(sample_grid_path)) {
         if (DEBUG_CONFIG$verbose) {
             cat(sprintf("[SKIP] Sample grid file already exists: %s\n", sample_grid_path))
+        }
+        user_input <- readline(prompt="File exists. Overwrite? (y/n): ")
+        if (tolower(user_input) != "y") {
+            stop("Operation cancelled by user")
+        } else if (tolower(user_input))
         }
     } else {
         write.csv(
