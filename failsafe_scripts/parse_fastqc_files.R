@@ -66,7 +66,7 @@ DEBUG_CONFIG <- list( # !! UPDATE THIS
     enabled = TRUE,           # Enable debug mode
     verbose = TRUE,           # Print processing details
     interactive = TRUE,       # Allow interactive processing
-    dry_run = TRUE,         # Skip file writes
+    dry_run = FALSE,         # Skip file writes
     files_to_process_idx = 1  # Process specific files in debug mode
 )
 
@@ -418,7 +418,7 @@ message("\nProcessing complete")
 if (!DEBUG_CONFIG$dry_run) {
     success <- safe_write_file(
         data = FASTQC_CONFIG$module_names,
-        path = FASTQC_CONFIG$module_reference$path,
+        path = FASTQC_CONFIG$module_reference_file,
         write_fn = saveRDS,
         verbose = DEBUG_CONFIG$verbose,
         interactive = FALSE
@@ -426,12 +426,12 @@ if (!DEBUG_CONFIG$dry_run) {
     
     if (!success) {
         warning("Failed to save FastQC module reference")
-    } else if (FASTQC_CONFIG$module_reference$validate) {
+    } else {
         # Simple validation
         tryCatch({
-            readRDS(FASTQC_CONFIG$module_reference$path)
+            readRDS(FASTQC_CONFIG$module_reference_file)
             if (DEBUG_CONFIG$verbose) {
-                message("FastQC module reference validated successfully")
+                message("FastQC module reference was read successfully")
             }
         }, error = function(e) {
             warning("Failed to validate saved FastQC module reference")
