@@ -323,15 +323,18 @@ if (DEBUG_CONFIG$dry_run) {
         }
         user_input <- readline(prompt="File exists. Overwrite? (y/n): ")
         if (tolower(user_input) == "n") {
-            stop("Operation cancelled by user")
+            cat(sprintf("[WARNING SKIP] No overwrite. Did not write: %s\n", sample_grid_path))
         } else if (tolower(user_input) == "y") {
             write.csv(
                 metadata,
                 file = sample_grid_path,
                 row.names = FALSE
             )
+            if (DEBUG_CONFIG$verbose) {
+                cat(sprintf("[WROTE] Sample grid to: %s\n", sample_grid_path))
+            }
         } else {
-            cat(sprintf("[SKIP] Option not recognized. Did not write: %s\n", sample_grid_path))
+            cat(sprintf("[WARNING SKIP] Option not recognized. Did not write: %s\n", sample_grid_path))
         }
     } else {
         write.csv(
@@ -347,7 +350,24 @@ if (DEBUG_CONFIG$dry_run) {
     # Write BMC table file
     if (file.exists(bmc_table_path)) {
         if (DEBUG_CONFIG$verbose) {
-            cat(sprintf("[SKIP] BMC table file already exists: %s\n", bmc_table_path))
+            cat(sprintf("[WARNING] BMC table file already exists: %s\n", bmc_table_path))
+        }
+        user_input <- readline(prompt="File exists. Overwrite? (y/n): ")
+        if (tolower(user_input) == "n") {
+            cat(sprintf("[WARNING SKIP] No overwrite. Did not write: %s\n", bmc_table_path))
+        } else if (tolower(user_input) == "y") {
+            write.table(
+                bmc_metadata,
+                file = bmc_table_path,
+                sep = "\t",
+                row.names = FALSE,
+                quote = FALSE
+            )
+            if (DEBUG_CONFIG$verbose) {
+                cat(sprintf("[WROTE] BMC table to: %s\n", bmc_table_path))
+            }
+        } else {
+            cat(sprintf("[SKIP] Option not recognized. Did not write: %s\n", bmc_table_path))
         }
     } else {
         write.table(
@@ -365,12 +385,24 @@ if (DEBUG_CONFIG$dry_run) {
     # Copy BMC Experiment Config
     if (file.exists(bmc_experiment_config_path)) {
         if (DEBUG_CONFIG$verbose) {
-            cat(sprintf("[SKIP] BMC config file already exists: %s\n", bmc_configuration_definition_path))
+            cat(sprintf("[WARNING] BMC config file already exists: %s\n", bmc_experiment_config_path))
         }
+        user_input <- readline(prompt="File exists. Overwrite? (y/n): ")
+        if (tolower(user_input) == "n") {
+            cat(sprintf("[WARNING SKIP] No overwrite. Did not write: %s\n", bmc_experiment_config_path))
+        } else if (tolower(user_input) == "y") {
+            file.copy(bmc_configuration_definition_path, to = bmc_experiment_config_path, overwrite = TRUE)
+            if (DEBUG_CONFIG$verbose) {
+                cat(sprintf("[WROTE] BMC config file to: %s\n", bmc_configuration_definition_path))
+            }
+        } else {
+            cat(sprintf("[WARNING SKIP] Option not recognized. Did not write: %s\n", bmc_experiment_config_path))
+        }
+
     } else {
         file.copy(bmc_configuration_definition_path, to = bmc_experiment_config_path)
         if (DEBUG_CONFIG$verbose) {
-            cat(sprintf("[WROTE] BMC table to: %s\n", bmc_table_path))
+            cat(sprintf("[WROTE] BMC table to: %s\n", bmc_experiment_config_path))
         }
     }
 }
