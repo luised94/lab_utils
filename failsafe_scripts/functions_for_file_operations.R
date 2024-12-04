@@ -85,7 +85,6 @@ safe_write_file <- function(data, path, write_fn, verbose = FALSE, interactive =
     }
     cat(sprintf(message, abs_path))
     return(FALSE)
-    }
 
 }
 
