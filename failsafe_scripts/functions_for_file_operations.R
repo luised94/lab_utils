@@ -17,6 +17,8 @@ safe_write_file <- function(data, path, write_fn, verbose = FALSE, ...) {
     )
 
     # Create wrapper for supported functions
+    # Handles differences in parameter ordering for different file function.
+    # Only allows explicitly handled functions.
     wrapped_write <- function(data, path, ...) {
         if (identical(write_fn, write.csv) || identical(write_fn, write.table)) {
             write_fn(x = data, file = path, ...)
@@ -69,4 +71,52 @@ safe_write_file <- function(data, path, write_fn, verbose = FALSE, ...) {
     }
     cat(sprintf(message, path))
     return(FALSE)
+}
+
+#' Safe Source Function for R Scripts
+#' @param file_path Path to the R script to source
+#' @param verbose Boolean to control logging output
+#' @param local Logical; evaluate sourced code in local or global environment
+#' @param chdir Logical; change directory when sourcing
+#' @param ... Additional arguments passed to source()
+#' @return Boolean indicating success of sourcing operation
+safe_source <- function(file_path, verbose = FALSE, local = FALSE, chdir = FALSE, ...) {
+    # Input validation
+    stopifnot(
+        "file_path must be a character string" = is.character(file_path) && length(file_path) == 1,
+        "verbose must be logical" = is.logical(verbose) && length(verbose) == 1,
+        "local must be logical" = is.logical(local) && length(local) == 1,
+        "chdir must be logical" = is.logical(chdir) && length(chdir) == 1
+    )
+
+    # Check file existence and readability
+    if (!file.exists(file_path)) {
+        cat(sprintf("[ERROR] File not found: %s\n", file_path))
+        return(FALSE)
+    }
+    if (file.access(file_path, mode = 4) != 0) {  # mode 4 is read permission
+        cat(sprintf("[ERROR] File not readable: %s\n", file_path))
+        return(FALSE)
+    }
+
+    # Attempt to source the file
+    if (verbose) {
+        cat(sprintf("[INFO] Attempting to source: %s\n", file_path))
+    }
+
+    tryCatch({
+        source(file_path, local = local, chdir = chdir, ...)
+        if (verbose) {
+            cat(sprintf("[SUCCESS] Successfully sourced: %s\n", file_path))
+        }
+        return(TRUE)
+    }, error = function(e) {
+        cat(sprintf("[ERROR] Failed to source %s: %s\n", file_path, e$message))
+        return(FALSE)
+    }, warning = function(w) {
+        if (verbose) {
+            cat(sprintf("[WARNING] Warning while sourcing %s: %s\n", file_path, w$message))
+        }
+        return(TRUE)  # Continue despite warnings
+    })
 }
