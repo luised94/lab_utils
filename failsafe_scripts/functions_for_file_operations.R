@@ -10,6 +10,7 @@
 #' @param interactive Boolean to control user prompts for overwriting
 #' @param ... Additional arguments passed to write_fn
 #' @return Boolean indicating success
+<<<<<<< HEAD
 safe_write_file <- function(data, path, write_fn, verbose = FALSE, interactive = TRUE, ...) {
     # Convert to absolute path
     tryCatch({
@@ -62,6 +63,7 @@ safe_write_file <- function(data, path, write_fn, verbose = FALSE, interactive =
         })
     }
 
+<<<<<<< HEAD
     # If file doesn't exist or non-interactive, write immediately
     if (!file.exists(abs_path) || !interactive) {
         return(do_write())
