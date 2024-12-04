@@ -200,23 +200,39 @@ safe_source <- function(file_path, verbose = FALSE, local = FALSE, chdir = FALSE
         "file must be readable" = file.access(file_path, mode = 4) == 0
     )
 
+    # Convert to absolute path
+    tryCatch({
+        abs_path <- normalizePath(file_path, mustWork = FALSE)
+    }, error = function(e) {
+        cat("[ERROR] Failed to resolve path. Check path validity.\n")
+        return(FALSE)
+    })
+
+
+    # Attempt to source the file
     if (verbose) {
-        cat(sprintf("[INFO] Attempting to source: %s\n", file_path))
+        cat(sprintf("[INFO] Attempting to source: %s\n", abs_path))
     }
 
     tryCatch({
-        source(file_path, local = local, chdir = chdir, ...)
+        source(abs_path, local = local, chdir = chdir, ...)
         if (verbose) {
-            cat(sprintf("[SUCCESS] Successfully sourced: %s\n", file_path))
+            cat(sprintf("[SUCCESS] Successfully sourced: %s\n", abs_path))
         }
         return(TRUE)
     }, error = function(e) {
-        cat(sprintf("[ERROR] Failed to source %s: %s\n", file_path, e$message))
+        # Enhanced error messages for common source() errors
+        error_msg <- switch(class(e)[1],
+            "parseError" = "Syntax error in script",
+            "evaluationError" = "Error evaluating script",
+            e$message
+        )
+        cat(sprintf("[ERROR] Failed to source %s: %s\n", abs_path, error_msg))
         return(FALSE)
     }, warning = function(w) {
         if (verbose) {
-            cat(sprintf("[WARNING] Warning while sourcing %s: %s\n", file_path, w$message))
+            cat(sprintf("[WARNING] Warning while sourcing %s: %s\n", abs_path, w$message))
         }
-        return(TRUE)  # Continue despite warnings
+        return(TRUE)
     })
 }
