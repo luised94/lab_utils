@@ -86,20 +86,11 @@ safe_source <- function(file_path, verbose = FALSE, local = FALSE, chdir = FALSE
         "file_path must be a character string" = is.character(file_path) && length(file_path) == 1,
         "verbose must be logical" = is.logical(verbose) && length(verbose) == 1,
         "local must be logical" = is.logical(local) && length(local) == 1,
-        "chdir must be logical" = is.logical(chdir) && length(chdir) == 1
+        "chdir must be logical" = is.logical(chdir) && length(chdir) == 1,
+        "file must exist" = file.exists(file_path),
+        "file must be readable" = file.access(file_path, mode = 4) == 0
     )
 
-    # Check file existence and readability
-    if (!file.exists(file_path)) {
-        cat(sprintf("[ERROR] File not found: %s\n", file_path))
-        return(FALSE)
-    }
-    if (file.access(file_path, mode = 4) != 0) {  # mode 4 is read permission
-        cat(sprintf("[ERROR] File not readable: %s\n", file_path))
-        return(FALSE)
-    }
-
-    # Attempt to source the file
     if (verbose) {
         cat(sprintf("[INFO] Attempting to source: %s\n", file_path))
     }
