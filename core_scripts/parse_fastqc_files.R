@@ -116,7 +116,6 @@ if (!file.exists(bootstrap_path)) {
 }
 source(bootstrap_path)
 
-<<<<<<< HEAD
 # Define required dependencies
 required_modules <- list(
     list(
