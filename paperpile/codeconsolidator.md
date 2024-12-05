@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 #STATUS: KEEP.
+=======
+>>>>>>> 9eb69bf (feat(consolidate_into_main): Consolidate restructure into main to)
 # Consolidate into lab workflow
 /mnt/c/Users/liusm/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/script/yuhie_MinimizationbyDescent.R
 /mnt/c/Users/liusm/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/script/standard-curve.R
