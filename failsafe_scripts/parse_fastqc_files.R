@@ -1,4 +1,3 @@
-
 ################################################################################
 # Parse FastQC files for ChIP-seq quality control
 ################################################################################
@@ -10,7 +9,7 @@
 # USAGE:
 #   1. Update experiment_id to point to correct data directory
 #   2. Adjust DEBUG_CONFIG as needed:
-#      - enabled: TRUE for testing single files
+#      - single_file_mode: TRUE for testing single files
 #      - verbose: TRUE for detailed processing information
 #      - dry_run: TRUE to check without writing files
 #   3. Run script
@@ -64,10 +63,10 @@
 # Configuration and Debug Settings
 ################################################################################
 DEBUG_CONFIG <- list( # !! UPDATE THIS
-    enabled = TRUE,           # Enable debug mode
+    single_file_mode = FALSE,           # Test single file in main logic.
     verbose = TRUE,           # Print processing details
     interactive = TRUE,       # Allow interactive processing
-    dry_run = TRUE,         # Skip file writes
+    dry_run = FALSE,         # Skip file writes
     files_to_process_idx = 1  # Process specific files in debug mode
 )
 
@@ -81,7 +80,13 @@ FASTQC_CONFIG <- list(
     fastqc_pattern = "fastqc_data",
     output_suffix = ".tab",
     qc_subdir = "quality_control",
-    module_names = character(0)
+    existing_version_limit = 1,
+    module_names = character(0),
+    module_reference_file = file.path(
+        Sys.getenv("HOME"),
+        "data",
+        "fastqc_module_reference.rds"
+    )
 )
 
 FASTQC_CONFIG$FILE_PATTERN <- list(
@@ -99,6 +104,17 @@ TIMESTAMPS <- list(
     full = format(Sys.time(), TIME_CONFIG$timestamp_format),
     date = format(Sys.Date(), TIME_CONFIG$date_format)
 )
+
+################################################################################
+# Load and Validate Experiment Configuration
+################################################################################
+# Bootstrap phase
+bootstrap_path <- normalizePath("~/lab_utils/failsafe_scripts/functions_for_file_operations.R", 
+                              mustWork = FALSE)
+if (!file.exists(bootstrap_path)) {
+    stop(sprintf("[FATAL] Bootstrap file not found: %s", bootstrap_path))
+}
+source(bootstrap_path)
 
 ################################################################################
 # Directory Setup and Validation
@@ -199,7 +215,7 @@ if (DEBUG_CONFIG$verbose) {
 ################################################################################
 # Process Files
 ################################################################################
-files_to_process <- if (DEBUG_CONFIG$enabled) {
+files_to_process <- if (DEBUG_CONFIG$single_file_mode) {
     DEBUG_CONFIG$files_to_process_idx
 } else {
     seq_along(fastqc_files)
@@ -340,18 +356,24 @@ for (file_idx in files_to_process) {
         )
         # Save module data if we successfully parsed it
         if (!is.null(data) && !DEBUG_CONFIG$dry_run) {
-             
-            write.table(
-                data,
-                file = output_file,
-                sep = "\t",
-                row.names = FALSE,
-                quote = FALSE
-            )
-             
-            if (DEBUG_CONFIG$verbose) {
-                message(sprintf("    Wrote module data to: %s", 
-                                basename(output_file)))
+            existing_files <- find_timestamped_files(output_file)
+            
+            if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit) {
+                if (DEBUG_CONFIG$verbose) {
+                    cat("[SKIP] Analysis output limit reached. Existing versions:\n")
+                    invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
+                }
+            } else {
+                safe_write_file(
+                    data = data,
+                    path = output_file,
+                    write_fn = write.table,
+                    verbose = DEBUG_CONFIG$verbose,
+                    interactive = FALSE,
+                    sep = "\t",
+                    row.names = FALSE,
+                    quote = FALSE
+                )
             }
         } else {
             message(sprintf("    Would write module data to: %s", 
@@ -386,17 +408,22 @@ for (file_idx in files_to_process) {
 
     # Save summary for this file
     if (!DEBUG_CONFIG$dry_run) {
-        
-        write.table(
-            summary_data,
-            file = summary_file,
-            sep = "\t",
-            row.names = FALSE,
-            quote = FALSE
-        )
-        
-        if (DEBUG_CONFIG$verbose) {
-            message(sprintf("  Wrote summary to: %s", basename(summary_file)))
+        existing_files <- find_timestamped_files(summary_file)
+            
+        if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit || DEBUG_CONFIG$verbose) {
+            cat("Found existing versions:\n")
+            invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
+        } else {
+            safe_write_file(
+                data = data,
+                path = summary_file,
+                write_fn = write.table,
+                verbose = DEBUG_CONFIG$verbose,
+                interactive = FALSE,
+                sep = "\t",
+                row.names = FALSE,
+                quote = FALSE
+            )
         }
     } else {
         if (DEBUG_CONFIG$verbose) {
@@ -407,29 +434,30 @@ for (file_idx in files_to_process) {
 
 message("\nProcessing complete")
 
-# Save module reference
-module_reference_file <- file.path(
-    Sys.getenv("HOME"),
-    "lab_utils/failsafe_scripts",
-    "fastqc_module_reference.rds"
-)
-
 if (!DEBUG_CONFIG$dry_run) {
-    if (DEBUG_CONFIG$verbose) {
-        message("\nSaving FastQC module reference:")
-        print(FASTQC_CONFIG$module_names)
-    }
-    
-    saveRDS(
-        FASTQC_CONFIG$module_names,
-        file = module_reference_file
-    )
-    
-    if (DEBUG_CONFIG$verbose) {
-        message(sprintf("Wrote module reference to: %s", module_reference_file))
-    }
-} else {
-    if (DEBUG_CONFIG$verbose) {
-        message(sprintf("Would write module reference to: %s", module_reference_file))
+    if (!file.exists(FASTQC_CONFIG$module_reference_file)) {
+        success <- safe_write_file(
+            data = FASTQC_CONFIG$module_names,
+            path = FASTQC_CONFIG$module_reference_file,
+            write_fn = saveRDS,
+            verbose = DEBUG_CONFIG$verbose,
+            interactive = FALSE
+        )
+        
+        if (!success) {
+            warning("Failed to save FastQC module reference")
+        } else {
+            # Simple validation
+            tryCatch({
+                readRDS(FASTQC_CONFIG$module_reference_file)
+                if (DEBUG_CONFIG$verbose) {
+                    message("FastQC module reference was read successfully")
+                }
+            }, error = function(e) {
+                warning("Failed to validate saved FastQC module reference")
+            })
+        }
+    } else {
+        message("FastQC module reference already exists")
     }
 }

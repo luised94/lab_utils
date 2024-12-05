@@ -5,15 +5,26 @@
 #'                 - write.csv(x, file, ...)
 #'                 - write.table(x, file, ...)
 #'                 - file.copy(from, to, ...)
+#'                 - saveRDS(object, file, ...)
 #' @param verbose Boolean to control logging output
+#' @param interactive Boolean to control user prompts for overwriting
 #' @param ... Additional arguments passed to write_fn
 #' @return Boolean indicating success
-safe_write_file <- function(data, path, write_fn, verbose = FALSE, ...) {
+safe_write_file <- function(data, path, write_fn, verbose = FALSE, interactive = TRUE, ...) {
+    # Convert to absolute path
+    tryCatch({
+        abs_path <- normalizePath(path, mustWork = FALSE)
+    }, error = function(e) {
+        cat("[ERROR] Failed to resolve path. Check path validity.\n")
+        return(FALSE)
+    })
+
     # Input validation 
     stopifnot(
         "write_fn must be a function" = is.function(write_fn),
         "verbose must be logical" = is.logical(verbose) && length(verbose) == 1,
-        "parent directory must exist and be writable" = dir.exists(dirname(path)) && file.access(dirname(path), mode = 2) == 0
+        "interactive must be logical" = is.logical(interactive) && length(interactive) == 1,
+        "parent directory must be writable" = file.access(dirname(abs_path), mode = 2) == 0
     )
 
     # Create wrapper for supported functions
@@ -24,22 +35,24 @@ safe_write_file <- function(data, path, write_fn, verbose = FALSE, ...) {
             write_fn(x = data, file = path, ...)
         } else if (identical(write_fn, file.copy)) {
             write_fn(from = data, to = path, ...)
+        } else if (identical(write_fn, saveRDS)) {
+            write_fn(object = data, file = path, ...)
         } else {
             stop(sprintf(
-                "Unsupported writing function: %s. Supported functions are: write.csv, write.table, file.copy",
+                "Unsupported writing function: %s. Supported functions are: write.csv, write.table, file.copy, saveRDS",
                 deparse(substitute(write_fn))
             ))
         }
     }
     if (verbose) {
-        cat(sprintf("[INFO] Processing file: %s\n", path))
+        cat(sprintf("[INFO] Processing file: %s\n", abs_path))
     }
 
     do_write <- function() {
         tryCatch({
-            wrapped_write(data, path, ...)
+            wrapped_write(data, abs_path, ...)
             if (verbose) {
-                cat(sprintf("[WROTE] File to: %s\n", path))
+                cat(sprintf("[WROTE] File to: %s\n", abs_path))
             }
             return(TRUE)
         }, error = function(e) {
@@ -48,28 +61,28 @@ safe_write_file <- function(data, path, write_fn, verbose = FALSE, ...) {
         })
     }
 
-    # If file doesn't exist, write immediately
-    if (!file.exists(path)) {
+    # If file doesn't exist or non-interactive, write immediately
+    if (!file.exists(abs_path) || !interactive) {
         return(do_write())
     }
 
-    # Handle existing file
+    # Handle existing file in interactive mode
     if (verbose) {
-        cat(sprintf("[WARNING] File already exists: %s\n", path))
+        cat(sprintf("[WARNING] File already exists: %s\n", abs_path))
     }
+
     user_input <- readline(prompt="File exists. Overwrite? (y/n): ")
-    
     if (tolower(user_input) == "y") {
         return(do_write())
-    } 
-    
+    }
+
     # Handle non-overwrite cases
     message <- if(tolower(user_input) == "n") {
         "[WARNING SKIP] No overwrite. Did not write: %s\n"
     } else {
         "[WARNING SKIP] Option not recognized. Did not write: %s\n"
     }
-    cat(sprintf(message, path))
+    cat(sprintf(message, abs_path))
     return(FALSE)
 }
 
@@ -126,4 +139,41 @@ safe_source <- function(file_path, verbose = FALSE, local = FALSE, chdir = FALSE
         }
         return(TRUE)
     })
+}
+
+#' Find Files with Timestamp Pattern
+#' @param base_path Path to check for timestamped versions
+#' @param full_paths Boolean to return full paths or just filenames
+#' @return Character vector of matching files
+find_timestamped_files <- function(base_path, full_paths = TRUE) {
+    # Input validation
+    stopifnot(
+        "base_path must be a character string" = is.character(base_path) && length(base_path) == 1,
+        "full_paths must be logical" = is.logical(full_paths) && length(full_paths) == 1
+    )
+
+    # Path normalization
+    base_path <- normalizePath(base_path, mustWork = FALSE)
+    
+    # Extract path components
+    dir_path <- dirname(base_path)
+    base_name <- basename(base_path)
+    
+    # Timestamp regex pattern
+    timestamp_regex <- "\\d{4}\\d{2}\\d{2}_\\d{2}\\d{2}\\d{2}"
+    
+    # Remove timestamp from base name
+    base_pattern <- gsub(timestamp_regex, "", base_name, perl = TRUE)
+    
+    # Create search pattern
+    search_pattern <- sprintf("^.*%s$", base_pattern)
+    
+    # Find matching files
+    matches <- list.files(
+        dir_path,
+        pattern = search_pattern,
+        full.names = full_paths
+    )
+    
+    return(matches)
 }
