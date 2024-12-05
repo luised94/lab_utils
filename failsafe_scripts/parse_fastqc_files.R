@@ -358,19 +358,23 @@ for (file_idx in files_to_process) {
         if (!is.null(data) && !DEBUG_CONFIG$dry_run) {
             existing_files <- find_timestamped_files(output_file)
             
-            if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit && DEBUG_CONFIG$verbose) {
-                cat("Found existing versions:\n")
-                invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
+            if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit) {
+                if (DEBUG_CONFIG$verbose) {
+                    cat("[SKIP] Analysis output limit reached. Existing versions:\n")
+                    invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
+                }
+            } else {
+                safe_write_file(
+                    data = data,
+                    path = output_file,
+                    write_fn = write.table,
+                    verbose = DEBUG_CONFIG$verbose,
+                    interactive = FALSE,
+                    sep = "\t",
+                    row.names = FALSE,
+                    quote = FALSE
+                )
             }
-            safe_write_file(
-                data = data,
-                path = output_file,
-                write_fn = write.table,
-                verbose = DEBUG_CONFIG$verbose,
-                sep = "\t",
-                row.names = FALSE,
-                quote = FALSE
-            )
         } else {
             message(sprintf("    Would write module data to: %s", 
                     basename(output_file)))
@@ -404,15 +408,23 @@ for (file_idx in files_to_process) {
 
     # Save summary for this file
     if (!DEBUG_CONFIG$dry_run) {
-        safe_write_file(
-            data = summary_data,
-            path = summary_file,
-            write_fn = write.table,
-            verbose = DEBUG_CONFIG$verbose,
-            sep = "\t",
-            row.names = FALSE,
-            quote = FALSE
-        )
+        existing_files <- find_timestamped_files(summary_file)
+            
+        if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit || DEBUG_CONFIG$verbose) {
+            cat("Found existing versions:\n")
+            invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
+        } else {
+            safe_write_file(
+                data = data,
+                path = summary_file,
+                write_fn = write.table,
+                verbose = DEBUG_CONFIG$verbose,
+                interactive = FALSE,
+                sep = "\t",
+                row.names = FALSE,
+                quote = FALSE
+            )
+        }
     } else {
         if (DEBUG_CONFIG$verbose) {
             message(sprintf("  Would write summary to: %s", basename(summary_file)))
@@ -423,25 +435,29 @@ for (file_idx in files_to_process) {
 message("\nProcessing complete")
 
 if (!DEBUG_CONFIG$dry_run) {
-    success <- safe_write_file(
-        data = FASTQC_CONFIG$module_names,
-        path = FASTQC_CONFIG$module_reference_file,
-        write_fn = saveRDS,
-        verbose = DEBUG_CONFIG$verbose,
-        interactive = FALSE
-    )
-    
-    if (!success) {
-        warning("Failed to save FastQC module reference")
+    if (!file.exists(FASTQC_CONFIG$module_reference_file)) {
+        success <- safe_write_file(
+            data = FASTQC_CONFIG$module_names,
+            path = FASTQC_CONFIG$module_reference_file,
+            write_fn = saveRDS,
+            verbose = DEBUG_CONFIG$verbose,
+            interactive = FALSE
+        )
+        
+        if (!success) {
+            warning("Failed to save FastQC module reference")
+        } else {
+            # Simple validation
+            tryCatch({
+                readRDS(FASTQC_CONFIG$module_reference_file)
+                if (DEBUG_CONFIG$verbose) {
+                    message("FastQC module reference was read successfully")
+                }
+            }, error = function(e) {
+                warning("Failed to validate saved FastQC module reference")
+            })
+        }
     } else {
-        # Simple validation
-        tryCatch({
-            readRDS(FASTQC_CONFIG$module_reference_file)
-            if (DEBUG_CONFIG$verbose) {
-                message("FastQC module reference was read successfully")
-            }
-        }, error = function(e) {
-            warning("Failed to validate saved FastQC module reference")
-        })
+        message("FastQC module reference already exists")
     }
 }
