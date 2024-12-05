@@ -80,10 +80,11 @@ FASTQC_CONFIG <- list(
     fastqc_pattern = "fastqc_data",
     output_suffix = ".tab",
     qc_subdir = "quality_control",
+    existing_version_limit = 1,
     module_names = character(0),
     module_reference_file = file.path(
         Sys.getenv("HOME"),
-        "lab_utils/failsafe_scripts",
+        "data",
         "fastqc_module_reference.rds"
     )
 )
@@ -355,6 +356,12 @@ for (file_idx in files_to_process) {
         )
         # Save module data if we successfully parsed it
         if (!is.null(data) && !DEBUG_CONFIG$dry_run) {
+            existing_files <- find_timestamped_files(output_file)
+            
+            if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit && DEBUG_CONFIG$verbose) {
+                cat("Found existing versions:\n")
+                invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
+            }
             safe_write_file(
                 data = data,
                 path = output_file,
