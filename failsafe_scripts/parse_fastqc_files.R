@@ -465,10 +465,11 @@ for (file_idx in files_to_process) {
     # Save summary for this file
     if (!DEBUG_CONFIG$dry_run) {
         existing_files <- find_timestamped_files(summary_file)
-            
-        if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit || DEBUG_CONFIG$verbose) {
-            cat("Found existing versions:\n")
-            invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
+        if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit) {
+            if (DEBUG_CONFIG$verbose) {
+                cat("[SKIP] Analysis output limit reached. Existing versions:\n")
+                invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
+            }
         } else {
             safe_write_file(
                 data = data,
