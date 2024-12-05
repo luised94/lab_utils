@@ -9,7 +9,7 @@
 # USAGE:
 #   1. Update experiment_id to point to correct data directory
 #   2. Adjust DEBUG_CONFIG as needed:
-#      - enabled: TRUE for testing single files
+#      - single_file_mode: TRUE for testing single files
 #      - verbose: TRUE for detailed processing information
 #      - dry_run: TRUE to check without writing files
 #   3. Run script
@@ -63,7 +63,7 @@
 # Configuration and Debug Settings
 ################################################################################
 DEBUG_CONFIG <- list( # !! UPDATE THIS
-    enabled = TRUE,           # Enable debug mode
+    single_file_mode = FALSE,           # Test single file in main logic.
     verbose = TRUE,           # Print processing details
     interactive = TRUE,       # Allow interactive processing
     dry_run = FALSE,         # Skip file writes
@@ -215,7 +215,7 @@ if (DEBUG_CONFIG$verbose) {
 ################################################################################
 # Process Files
 ################################################################################
-files_to_process <- if (DEBUG_CONFIG$enabled) {
+files_to_process <- if (DEBUG_CONFIG$single_file_mode) {
     DEBUG_CONFIG$files_to_process_idx
 } else {
     seq_along(fastqc_files)
