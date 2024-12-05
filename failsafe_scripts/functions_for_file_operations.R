@@ -142,3 +142,41 @@ safe_source <- function(file_path, verbose = FALSE, local = FALSE, chdir = FALSE
         return(TRUE)
     })
 }
+
+#' Find Files with Timestamp Pattern
+#' @param base_path Path to check for timestamped versions
+#' @param full_paths Boolean to return full paths or just filenames
+#' @return Character vector of matching files
+find_timestamped_files <- function(base_path, full_paths = TRUE) {
+    # Input validation
+    stopifnot(
+        "base_path must be a character string" = is.character(base_path) && length(base_path) == 1,
+        "full_paths must be logical" = is.logical(full_paths) && length(full_paths) == 1
+    )
+
+    # Path normalization
+    base_path <- normalizePath(base_path, mustWork = FALSE)
+    
+    # Extract path components
+    dir_path <- dirname(base_path)
+    base_name <- basename(base_path)
+    
+    # Timestamp regex pattern
+    timestamp_regex <- "\\d{4}\\d{2}\\d{2}_\\d{2}\\d{2}\\d{2}"
+    
+    # Remove timestamp from base name
+    base_pattern <- gsub(timestamp_regex, "", base_name, perl = TRUE)
+    
+    # Create search pattern
+    search_pattern <- sprintf("^.*%s$", base_pattern)
+    
+    # Find matching files
+    matches <- list.files(
+        dir_path,
+        pattern = search_pattern,
+        full.names = full_paths
+    )
+    
+    return(matches)
+}
+
