@@ -1,4 +1,4 @@
-#STATUS: KEEP.
+#STATUS: REMOVE.
 #!/bin/bash
 #Description: Initialize variables and modules to test in interactive node. 
 #USAGE:Run source ~/data/lab_utils/next_generation_sequencing/FTQPRC/test_000_createExampleVariables.sh <dir>'

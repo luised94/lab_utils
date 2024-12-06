@@ -1,4 +1,4 @@
-#STATUS:  REMOVE.
+#STATUS: REMOVE.
 #!/bin/bash
 
 # Script Name: 001_downloadReferenceGenomes.sh
