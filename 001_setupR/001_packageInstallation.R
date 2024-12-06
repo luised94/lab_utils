@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 # Installs R libraries to library_location.
 # Inside R source the file. 
 # This should be setup in 001_setupR/000_installingR4.2.0.sh

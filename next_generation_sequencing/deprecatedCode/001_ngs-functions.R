@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #Functions used to create a pipeline for Next-Generation Sequencing analysis. 
 #Includes filter and trim function, align, sort and index function. 
 #Designed to be used with a list of files and the destination files for the output files of each function. 

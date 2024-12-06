@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #!/usr/bin/env bash
 
 set -o errexit

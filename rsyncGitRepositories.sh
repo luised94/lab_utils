@@ -1,4 +1,5 @@
-#STATUS:
+#STATUS: KEEP.
+# Move to code_review_holder.
 #!/bin/bash
 #if [ $# -ne 1 ]; then
 echo "Usage: $0 "

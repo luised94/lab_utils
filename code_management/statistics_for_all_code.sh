@@ -1,4 +1,5 @@
-#STATUS:
+#STATUS: REMOVE.
+#./code_management/statistics_for_all_code.sh
 #!/bin/bash
 
 set -euo pipefail

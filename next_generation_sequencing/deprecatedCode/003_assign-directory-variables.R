@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #Separate file to source for assigning variables instead of writing it each time.
 #Assigning directory variables ----
 suppressPackageStartupMessages(library(tidyverse, quietly = TRUE))

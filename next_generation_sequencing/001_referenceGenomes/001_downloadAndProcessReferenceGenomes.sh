@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: CODE.
 #!/bin/bash
 
 set -euo pipefail

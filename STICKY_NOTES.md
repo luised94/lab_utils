@@ -1,4 +1,3 @@
-#STATUS:
 # STICKY NOTES
 This note is just a section that documents thoughts and comments while I am developing the code in this directory.
 I have separated it into dates.

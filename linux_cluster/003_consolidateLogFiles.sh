@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #!/bin/bash
 if [ $# -ne 1 ]; then 
 	echo -e "No directory provided. Provide the basename of a directory with no / in the ~/data directory"

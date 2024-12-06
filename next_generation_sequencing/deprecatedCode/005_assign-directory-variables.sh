@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #!/bin/bash
 #SBATCH -N 1                      # Number of nodes. You must always set -N 1 unless you receive special instruction from the system admin
 #SBATCH -n 1                      # Number of tasks. Don't specify more than 16 unless approved by the system admin

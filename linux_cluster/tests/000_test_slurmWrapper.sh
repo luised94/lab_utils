@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #!/bin/bash
 #USAGE: 
 #~/lab_utils/next_generation_sequencing/linux_cluster/000_sh_node_slurmWrapper.sh 1-N%16 000_scriptToRun.sh 240304Bel

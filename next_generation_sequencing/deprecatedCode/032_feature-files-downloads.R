@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: CODE.
 #Load packages required by script
 package_to_check <- c("curl", "tidyverse","tools","R.utils")
 package_was_loaded <- unlist(suppressPackageStartupMessages(lapply(package_to_check, library, character.only = TRUE, logical.return=TRUE, quietly = TRUE)))

@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #!/bin/bash
 #USAGE: From ~/data/REFGENS/, run './node_ bt2build_refgenomes.sh'
 #

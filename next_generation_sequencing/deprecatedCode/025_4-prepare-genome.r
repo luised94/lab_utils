@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 
 #Assigning directory variables ----
 Sys.time()

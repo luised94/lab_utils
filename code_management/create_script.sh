@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #/bin/bash
 
 determine_next_experiment_id() {

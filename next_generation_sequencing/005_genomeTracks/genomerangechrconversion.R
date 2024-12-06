@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 
 suppressPackageStartupMessages({
     library(GenomicAlignments)

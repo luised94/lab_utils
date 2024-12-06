@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #!/bin/bash
 #DESCRIPTION: Download the fastq data from BMC servers. 
 #USAGE: ./001_downloadDataFromBMC.sh <bmc_server> <experiment_directory>
