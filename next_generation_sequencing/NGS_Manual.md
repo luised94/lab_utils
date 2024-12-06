@@ -1,4 +1,4 @@
-#STATUS: KEEP.
+#STATUS: REMOVE.
 # Next-Generation Sequencing
 
 ## Overview

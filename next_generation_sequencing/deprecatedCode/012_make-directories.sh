@@ -1,4 +1,4 @@
-#STATUS: REMOVe.
+#STATUS: REMOVE.
 #!/bin/bash
 date
 

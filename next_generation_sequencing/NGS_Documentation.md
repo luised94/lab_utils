@@ -1,4 +1,4 @@
-#STATUS: KEEP.
+#STATUS: REMOVE.
 # NGS Analysis Pipeline Documentation
 
 ## Table of Contents
