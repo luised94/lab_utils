@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: CODE.
 
 #Gets relative paths for the directories in data folder and assigns them to variables
 if(grepl("Windows", osVersion)){

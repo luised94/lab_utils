@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: CODE.
 #!/bin/bash
 #DESCRIPTION: Download data from Eaton 2010 paper as control and comparison. 
 #USAGE: 001_downloadEatonData.sh <dir>

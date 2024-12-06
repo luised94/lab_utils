@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #Run with: ----
 #Login to luria via cmd line using ssh  -A -Y account@luria.mit.edu using your username and password.
 #Add R module using module add r/4.2.0

@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 # Description: Renames the fasta hearders for the S288c genome to fit USCS specification.
 # Usage: I ran the lines individually on the command line as a way to test. 
 # Not idempotent so cant continually test. Run only once.

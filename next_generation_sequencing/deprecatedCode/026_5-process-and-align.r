@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 # source("./scripts/4-prepare-genome.r")
 library(ShortRead)
 library(QuasR)

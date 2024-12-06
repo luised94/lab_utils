@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #Please see "./scripts/R-files/1-package-installation.R" to see packages that are required.
 #Add this to all subdirectories
 files_suffix <- "-files"

@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: CODE.
 #!/bin/bash
 # Description: This script searches for tags in the format #TAG on a given directory and given file extensions.
 # Run 002_sh_node_findTag.sh -h for usage information

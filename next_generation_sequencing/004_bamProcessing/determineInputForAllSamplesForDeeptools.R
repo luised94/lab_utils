@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #DESCRIPTION: 
 #USAGE:
 #TODO: Need some way to aggregate the column names I use from the sampleConfig.R files to keep track of variables I use to keep consistent experiment to experiment.

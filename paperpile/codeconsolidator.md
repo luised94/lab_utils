@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: KEEP.
 # Consolidate into lab workflow
 /mnt/c/Users/liusm/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/script/yuhie_MinimizationbyDescent.R
 /mnt/c/Users/liusm/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/script/standard-curve.R

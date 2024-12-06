@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #!/bin/bash
 # Script Name: <script_name>
 # Description: Reorganize the reference genomes to be in a single directory

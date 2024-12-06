@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #Description: Configuration file that defines the categories of an experiment, creates the combinations of all the variables and then uses a filter function to grab the combinations.
 #USAGE: This is the template for other experiments. Source the sampleGridConfig.R file in the script createSampleGrid.R, not the template file.
 # This shows an example setup for BMC CHIP-seq experiment 240808Bel.

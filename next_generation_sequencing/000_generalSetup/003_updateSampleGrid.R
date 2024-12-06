@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #PURPOSE: Process the BMC sample grid data to create a csv file with the sample number, information and short name for further processing
 #USAGE: Run as a script with Rscript and positional arguments or replace commented directory to scan line. 
 #Example: Rscript ./001_R_node_processBMCSampleGridDataCSV.R <directory_to_process>

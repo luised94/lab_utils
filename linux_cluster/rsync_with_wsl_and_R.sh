@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 # Running rsync through R ----
 #The following requires WSL to be installed on Windows computer 
 #

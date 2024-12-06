@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #BEGIN {
 # Field separator designation.
     FS = "/"

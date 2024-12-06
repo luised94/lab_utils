@@ -1,7 +1,11 @@
 <<<<<<< HEAD:bash/modules/file_operations.sh
+<<<<<<< HEAD:bash/modules/file_operations.sh
 #!/bin/bash
 =======
 #STATUS:
+=======
+#STATUS: REMOVE.
+>>>>>>> 3530145 (Added status markers for removal or moving to hold folder.):code_management/create_script.sh
 #/bin/bash
 
 >>>>>>> 83e3091 (Add status to all files while I go through them one by one.):code_management/create_script.sh

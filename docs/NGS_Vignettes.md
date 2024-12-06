@@ -1,3 +1,3 @@
-#STATUS:
+#STATUS: KEEP.
 # Conducting CHIP-seq analysis using lab_utils
 

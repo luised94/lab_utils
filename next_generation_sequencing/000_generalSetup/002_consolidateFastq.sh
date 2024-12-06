@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: REMOVE.
 #!/bin/bash
 #DESCRIPTION: Consolidate multiple fastq files into one per sample.
 #USAGE: ./000_consolidateFastq.sh <experiment_name>

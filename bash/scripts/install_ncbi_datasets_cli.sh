@@ -1,4 +1,4 @@
-#STATUS:
+#STATUS: CODE.
 #!/bin/bash
 # functions moved
 # not really needed but added tag
