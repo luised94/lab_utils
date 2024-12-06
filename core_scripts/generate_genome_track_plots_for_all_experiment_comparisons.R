@@ -93,9 +93,9 @@ for (pkg in required_packages) {
     }
 }
 
-#source("~/lab_utils/failsafe_scripts/all_functions.R")
-source("~/lab_utils/failsafe_scripts/functions_for_genome_tracks.R")
-source("~/lab_utils/failsafe_scripts/bmc_config.R")
+#source("~/lab_utils/core_scripts/all_functions.R")
+source("~/lab_utils/core_scripts/functions_for_genome_tracks.R")
+source("~/lab_utils/core_scripts/bmc_config.R")
 if (DEBUG_CONFIG$validate_config) {
     if (!exists("EXPERIMENT_CONFIG") ||
         !("COMPARISONS" %in% names(EXPERIMENT_CONFIG))) {

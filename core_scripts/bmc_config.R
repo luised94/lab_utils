@@ -130,7 +130,7 @@ EXPERIMENT_CONFIG <- list(
 ################################################################################
 # Configuration Validation
 ################################################################################
-source("~/lab_utils/failsafe_scripts/functions_for_bmc_config_validation.R")
+source("~/lab_utils/core_scripts/functions_for_bmc_config_validation.R")
 
 # !! Update if you want thourough messages during validation.
 validation_verbose <- FALSE  # Set to TRUE for detailed validation output

@@ -49,7 +49,7 @@
 #
 # DEPENDENCIES:
 #   - R base packages only
-#   - ~/lab_utils/failsafe_scripts/bmc_config.R
+#   - ~/lab_utils/core_scripts/bmc_config.R
 #
 # COMMON ISSUES:
 #   1. Wrong experiment ID format -> Check YYMMDD pattern
@@ -86,7 +86,7 @@ stopifnot(
 # Load and Validate Experiment Configuration
 ################################################################################
 # Bootstrap phase
-bootstrap_path <- normalizePath("~/lab_utils/failsafe_scripts/functions_for_file_operations.R", 
+bootstrap_path <- normalizePath("~/lab_utils/core_scripts/functions_for_file_operations.R", 
                               mustWork = FALSE)
 if (!file.exists(bootstrap_path)) {
     stop(sprintf("[FATAL] Bootstrap file not found: %s", bootstrap_path))
@@ -96,7 +96,7 @@ source(bootstrap_path)
 # Define required dependencies
 required_modules <- list(
     list(
-        path = "~/lab_utils/failsafe_scripts/bmc_config.R",
+        path = "~/lab_utils/core_scripts/bmc_config.R",
         description = "BMC Configuration",
         required = TRUE
     )

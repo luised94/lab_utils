@@ -31,7 +31,7 @@ for (pkg in required_packages) {
     }
 }
 
-source("~/lab_utils/failsafe_scripts/functions_for_plotting_utilities.R")
+source("~/lab_utils/core_scripts/functions_for_plotting_utilities.R")
 # Main Processing
 #-----------------------------------------------------------------------------
 # Command line argument processing could be added here
