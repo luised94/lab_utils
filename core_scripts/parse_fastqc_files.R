@@ -109,7 +109,7 @@ TIMESTAMPS <- list(
 # Load and Validate Experiment Configuration
 ################################################################################
 # Bootstrap phase
-bootstrap_path <- normalizePath("~/lab_utils/failsafe_scripts/functions_for_file_operations.R", 
+bootstrap_path <- normalizePath("~/lab_utils/core_scripts/functions_for_file_operations.R", 
                               mustWork = FALSE)
 if (!file.exists(bootstrap_path)) {
     stop(sprintf("[FATAL] Bootstrap file not found: %s", bootstrap_path))

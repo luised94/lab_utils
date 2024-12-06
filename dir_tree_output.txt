@@ -79,7 +79,7 @@
 +- dir_tree_output.txt
 +- SAMPLE_DOCUMENTATION.md
 +- rollback_plan.md
-+- failsafe_scripts
++- core_scripts
 |  +- comparison_analysis.R
 |  +- sample_processing.R
 |  +- submit_alignment.sh
