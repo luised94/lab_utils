@@ -41,7 +41,8 @@ find "/mnt/c/Users/${WINDOWS_USER}/Dropbox (MIT)/Lab/Projects/automate-the-borin
     -size +10M > large_files.txt
 
 # Find expected scripts or documentation files.
-find "/mnt/c/Users/Luised94/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff" -type f $$ \
+find "/mnt/c/Users/${WINDOWS_USER}/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff" \
+    -type f \
     -name "*.R" -o \
     -name "*.r" -o \
     -name "*.qmd" -o \
@@ -53,17 +54,18 @@ find "/mnt/c/Users/Luised94/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff
 ) -print > code_files_to_move.txt
 
 # Find potential data files
-find "/mnt/c/Users/Luised94/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff" -type f $$ \
-    -name "*.csv" -o \
-    -name "*.xlsx" -o \
-    -name "*.txt" -o \
-    -name "*.tsv" -o \
-    -name "*.rds" \
-) > data_files.txt
+# Corrected command
+find "/mnt/c/Users/${WINDOWS_USER}/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff" \
+    -type f \
+    \( -name "*.csv" -o \
+       -name "*.xlsx" -o \
+       -name "*.txt" -o \
+       -name "*.tsv" -o \
+       -name "*.rds" \) > data_files.txt
 
 # Find potentially missed files
 comm -23 \
-    <(find "/mnt/c/Users/Luised94/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff" -type f | sort) \
+    <(find "/mnt/c/Users/${WINDOWS_USER}/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff" -type f | sort) \
     <(cat data_files.txt code_files_to_move.txt | sort) > missed_files.txt
 
 # Analyze missed files
