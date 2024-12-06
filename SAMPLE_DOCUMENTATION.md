@@ -1,3 +1,4 @@
+#STATUS:
 ## Introduction
 Data from next-generation-sequencing experiments is stored in a linux cluster. Code from lab_utils repository/next-generation-sequecing is meant to be used on that data. 
 
