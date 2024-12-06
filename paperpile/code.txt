@@ -1,3 +1,4 @@
+#STATUS: KEEP.
 /mnt/c/Users/liusm/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/.git
 /mnt/c/Users/liusm/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/.Rproj.user
 /mnt/c/Users/liusm/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/2023/nov1.Rmd

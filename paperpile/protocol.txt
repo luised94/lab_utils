@@ -1,3 +1,4 @@
+#STATUS: KEEP.
 /mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Chromatin/Co-IP with GFP-Trap_20210426.docx
 /mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Chromatin/gkab1180_supplemental_files/Supplementary Table legends.docx
 /mnt/c/Users/Luis/Dropbox (MIT)/Lab/Experiments/ATP hydrolysis by Orc1_Orc4/Chromatin/Histone Octamer Purification.docx
