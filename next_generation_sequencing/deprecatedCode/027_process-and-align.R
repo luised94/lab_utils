@@ -1,3 +1,4 @@
+#STATUS:
 source("./scripts/assign-directory-variables.R")
 #Prepare the dataframe with the input/output files ----
 

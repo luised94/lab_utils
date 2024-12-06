@@ -1,3 +1,4 @@
+#STATUS:
 #!/bin/bash
 date
 

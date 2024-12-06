@@ -1,3 +1,4 @@
+#STATUS:
 #Description:
 #USAGE: Use with Rscript command. 
 #Add section to create date and directory for experiment, same day as request service initialization. Probably interactive.

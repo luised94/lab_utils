@@ -1,3 +1,4 @@
+#STATUS:
 # Installing R 4.2.0
 # Purpose: Create a working environment that is similar to linux cluster to minimize the chance of conflict.
 # See Brain Mode short version for thread

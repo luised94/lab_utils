@@ -1,3 +1,4 @@
+#STATUS:
 #Get time at start of script ----
 start_time <- Sys.time()
 print("Script start")

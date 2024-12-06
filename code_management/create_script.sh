@@ -1,3 +1,4 @@
+#STATUS:
 #/bin/bash
 
 determine_next_experiment_id() {

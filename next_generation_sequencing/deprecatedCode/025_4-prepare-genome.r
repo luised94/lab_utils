@@ -1,3 +1,4 @@
+#STATUS:
 
 #Assigning directory variables ----
 Sys.time()

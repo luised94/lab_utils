@@ -1,3 +1,4 @@
+#STATUS:
 
 #If running on Bash script, you must add the R and gnu modules 
 #Had to run this manually first. May have to include this line next time I try to set it up. 

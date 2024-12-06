@@ -1,3 +1,4 @@
+#STATUS:
 #!/bin/bash
 #DESCRIPTION: Download feature data from Rossi 2021 paper that will be used to categorical analysis and plot tracking.
 #USAGE: $./002_sh_downloadFeatureData.sh

@@ -1,3 +1,4 @@
+#STATUS:
 #Rename fastq files 
 
 # fastq_ids<- read.table('./scripts/fastq_info.txt')

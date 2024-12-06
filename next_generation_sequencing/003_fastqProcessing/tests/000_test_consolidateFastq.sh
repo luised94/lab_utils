@@ -1,3 +1,4 @@
+#STATUS:
 # Define the directory to process
 ABSOLUTE_PATH_OF_DIR="$HOME/data/$1"
 OUTPUT_DIR="${ABSOLUTE_PATH_OF_DIR}fastq/"

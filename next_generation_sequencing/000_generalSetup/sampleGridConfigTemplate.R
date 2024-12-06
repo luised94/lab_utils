@@ -1,3 +1,4 @@
+#STATUS:
 # Description: Configures and generates a sample table with experiments.
 # Usage: Rscript sampleGridConfigAndExprTemplate.R <experiment_id>
 

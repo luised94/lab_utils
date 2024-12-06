@@ -1,3 +1,4 @@
+#STATUS:
 
 #Running R from command line, use default interpreter 
 Rscript -e 'renv::run("/home/luised94/data/R-scripts/1-package-installation.r", project = "/home/luised94/data/221024Bel_CHIP/")'

@@ -1,3 +1,4 @@
+#STATUS:
 #DESCRIPTION: Read in and analyse the quality control files for Bam.
 #USAGE: 003_checkQcBam.R <dir>
 #Run with: Rscript lab_utils/next_generation_sequencing/004_bamProcessing/003_R_node_checkQcBam.R dirname > output.log 2>&1

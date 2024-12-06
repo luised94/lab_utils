@@ -1,3 +1,4 @@
+#STATUS:
 #!/bin/bash
 
 # Script Name: 001_downloadReferenceGenomes.sh

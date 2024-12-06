@@ -1,3 +1,4 @@
+#STATUS:
 # DESCRIPTION: Parse FastQC files in a given directory and output summarized data
 # USAGE: Rscript lab_utils/next_generation_sequencing/003_fastqProcessing/006_R_node_parseFastqc.R dirname > output.log 2>&1
 args <- commandArgs(trailingOnly = TRUE)

@@ -1,3 +1,4 @@
+#STATUS:
 sudo apt-get remove r-base r-base-core r-recommended
 sudo apt-get autoremove
 sudo apt-get purge r-base r-base-core r-recommended

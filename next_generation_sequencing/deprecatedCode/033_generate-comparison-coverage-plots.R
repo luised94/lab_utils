@@ -1,3 +1,4 @@
+#STATUS:
 #Run with: ----
 #$sbatch sbatch-generate-comparison-plots.sh 7 
 #See ./regenerate-comparison-coverage-plots.R to get parameters used for plot. 

@@ -1,3 +1,4 @@
+#STATUS:
 #Changing the name of the fastq files. 
 #See C:\Users\Luis\Dropbox (MIT)\Lab\Experiments\ATP hydrolysis by ORC and Cdc6\ORC\ORC1_4 interface\ORC4 R267A\Assays\Yeast Genetics\2022_08_26_CHIP-seq_ORC-MCM-supps\downloading-bmc-data.md
 

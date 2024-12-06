@@ -1,3 +1,4 @@
+#STATUS:
 #Ran the commands manually as well instead of via script.
 #Dry runs
 find "$HOME/data/$1" -type d -name "*D24*" -exec echo "Deleting: {}" \; 

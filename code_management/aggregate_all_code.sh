@@ -1,3 +1,4 @@
+#STATUS:
 #!/bin/bash
 
 set -euo pipefail

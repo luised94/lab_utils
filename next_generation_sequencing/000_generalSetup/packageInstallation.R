@@ -1,3 +1,4 @@
+#STATUS:
 # 
 #
 #home_directory <- Sys.getenv("HOME")

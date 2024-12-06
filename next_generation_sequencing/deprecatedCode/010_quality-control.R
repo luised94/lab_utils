@@ -1,3 +1,4 @@
+#STATUS:
 #Get time at start of script ----
 start_date <- Sys.time()
 start_time <- as.character(stringr::str_replace_all(start_date, pattern = ":| |-", replacement="_"))

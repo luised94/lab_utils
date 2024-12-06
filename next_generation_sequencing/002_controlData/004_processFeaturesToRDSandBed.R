@@ -1,3 +1,4 @@
+#STATUS:
 #DESCRIPTION: Convert features files from Rossi 2021, Hawkins 2014, and Eaton 2010 to a bed and rds format for plotting tracks and factor analysis.
 #USAGE: Rscript ./004_processFeaturesToRdsAndBed.R 
 # @TODO: Still need to update the file processing. 

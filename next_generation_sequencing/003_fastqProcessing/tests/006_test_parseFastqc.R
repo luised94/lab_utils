@@ -1,3 +1,4 @@
+#STATUS:
 #Run with: Rscript lab_utils/next_generation_sequencing/003_fastqProcessing/006_R_node_readInFastqc.R > output.log 2>&1
 
 get_current_datetime_string <- function() {

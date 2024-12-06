@@ -1,4 +1,5 @@
-BEGIN {
+#STATUS:
+#BEGIN {
 # Field separator designation.
     FS = "/"
 }
