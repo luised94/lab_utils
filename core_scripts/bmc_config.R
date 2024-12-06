@@ -85,14 +85,12 @@ EXPERIMENT_CONFIG <- list(
 
     SAMPLE_CLASSIFICATIONS = list(
         is_input = quote(antibody == "Input"),
-
         is_negative = quote(
             antibody == "ProtG" |  # Protein G negative control
             (antibody == "V5" & rescue_allele == "NONE") | # No-tag control
             (time_after_release == "0" & antibody == "UM174") | # MCM at G2
             (auxin_treatment == "YES" & antibody == "ALFA") # Degradation of Orc4-ALFA.
         ),
-
         is_positive = quote(
             (antibody == "HM1108") |  # Known working condition
             (antibody == "V5" & rescue_allele == "WT") | # Test by removing rescue_allele condition.

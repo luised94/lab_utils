@@ -116,6 +116,62 @@ if (!file.exists(bootstrap_path)) {
 }
 source(bootstrap_path)
 
+# Define required dependencies
+required_modules <- list(
+    list(
+        path = "~/lab_utils/failsafe_scripts/functions_for_logging.R",
+        description = "BMC Configuration",
+        required = TRUE
+    )
+)
+
+# Validate module structure
+stopifnot(
+    "modules must have required fields" = all(sapply(required_modules, function(m) {
+        all(c("path", "description", "required") %in% names(m))
+    }))
+)
+
+# Load dependencies with status tracking
+load_status <- lapply(required_modules, function(module) {
+    if (DEBUG_CONFIG$verbose) {
+        cat(sprintf("\n[LOADING] %s\n", module$description))
+    }
+    
+    success <- safe_source(module$path, verbose = TRUE)
+    
+    if (!success && module$required) {
+        stop(sprintf(
+            "[FATAL] Failed to load required module: %s\n  Path: %s",
+            module$description, module$path
+        ))
+    } else if (!success) {
+        warning(sprintf(
+            "[WARNING] Optional module not loaded: %s\n  Path: %s",
+            module$description, module$path
+        ))
+    }
+    
+    return(list(
+        module = module$description,
+        path = module$path,
+        loaded = success
+    ))
+})
+
+# Display loading summary using ASCII
+if (DEBUG_CONFIG$verbose) {
+    cat("\n=== Module Loading Summary ===\n")
+    invisible(lapply(load_status, function(status) {
+        cat(sprintf(
+            "[%s] %s\n    Path: %s\n",
+            if(status$loaded) "+" else "-",
+            status$module,
+            status$path
+        ))
+    }))
+}
+
 ################################################################################
 # Directory Setup and Validation
 ################################################################################
@@ -409,10 +465,11 @@ for (file_idx in files_to_process) {
     # Save summary for this file
     if (!DEBUG_CONFIG$dry_run) {
         existing_files <- find_timestamped_files(summary_file)
-            
-        if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit || DEBUG_CONFIG$verbose) {
-            cat("Found existing versions:\n")
-            invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
+        if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit) {
+            if (DEBUG_CONFIG$verbose) {
+                cat("[SKIP] Analysis output limit reached. Existing versions:\n")
+                invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
+            }
         } else {
             safe_write_file(
                 data = data,
@@ -460,4 +517,8 @@ if (!DEBUG_CONFIG$dry_run) {
     } else {
         message("FastQC module reference already exists")
     }
+}
+
+if (DEBUG_CONFIG$verbose) {
+    print_config_settings(DEBUG_CONFIG)
 }
