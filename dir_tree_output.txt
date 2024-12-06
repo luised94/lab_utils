@@ -1,0 +1,169 @@
+.
++- docs
+|  +- linuxClusterModules.txt
+|  +- NGS_Vignettes.md
+|  +- NGS_Documentation.md
+|  +- documentation_template.md
+|  +- manual.md
+|  +- NGS_Manual.md
++- R
+|  +- config
+|  |  +- core_config.R
+|  |  +- bmc_sample_grid_config_template.R
+|  |  +- modules
+|  +- scripts
+|  |  +- plot_genome_tracks.R
+|  |  +- 002_R_node_readPlotFCS.R
+|  |  +- install_packages.R
+|  |  +- process_features.R
+|  |  +- visualization_example.R
+|  |  +- fcs_package_installation.R
+|  |  +- genome_plot_tracks.R
+|  |  +- example_plot_sample_tracks.R
+|  |  +- setup_bmc_experiment.R
+|  |  +- download_features.R
+|  |  +- analyze_bam_qc.R
+|  |  +- determine_controls.R
+|  |  +- visualize_genome_tracks.R
+|  |  +- find_sample_inputs.R
+|  +- tests
+|  |  +- test_core.R
+|  |  +- modules
+|  |  +- core
+|  +- modules
+|  |  +- control_handler.R
+|  |  +- validation_utils.R
+|  |  +- parse_fastqc.R
+|  |  +- cluster_utils.R
+|  |  +- bam_finder.R
+|  |  +- sample_processor.R
+|  |  +- file_operations.R
+|  |  +- fastqc_parser.R
+|  |  +- script_info.R
+|  |  +- bigwig_processor.R
+|  |  +- sync_handler.R
+|  |  +- data_downloader.R
+|  |  +- directory_operations.R
+|  |  +- output_operations.R
+|  |  +- bam_qc_analyzer.R
+|  |  +- visualization_config.R
+|  |  +- package_installer.R
+|  |  +- track_manager.sh
+|  |  +- script_loader.R
+|  |  +- utilities.R
+|  |  +- range_handler.R
+|  |  +- genome_processor.R
+|  |  +- feature_processor.R
+|  |  +- package_manager.R
+|  |  +- track_generator.R
+|  |  +- data_preparer.R
+|  |  +- data_converter.R
+|  |  +- plot_generator.R
+|  |  +- control_manager.sh
+|  |  +- sample_matcher.R
+|  |  +- mapping_calculator.R
+|  |  +- 003_table_operations.R
+|  |  +- sample_labeler.R
+|  |  +- environment_utils.R
+|  |  +- plot_manager.R
+|  |  +- chromosome_converter.R
+|  |  +- data_writer.R
+|  |  +- experiment_setup.R
+|  |  +- track_assembler.R
+|  |  +- granges_converter.R
+|  +- core
+|  |  +- file_ops.sh
+|  |  +- logging.R
+|  |  +- lock.R
+|  +- project_init.R
++- dir_tree_output.txt
++- SAMPLE_DOCUMENTATION.md
++- rollback_plan.md
++- failsafe_scripts
+|  +- comparison_analysis.R
+|  +- sample_processing.R
+|  +- submit_alignment.sh
+|  +- run_bamcoverage_array.sh
+|  +- bmc_config.R
+|  +- run_bowtie2_array_alignment.sh
+|  +- submit_bamcoverage.sh
+|  +- generate_genome_track_plots_stepbystep.R
+|  +- cleanup_bmc_directory.sh
+|  +- extract_bmcIDmetadata_process.R
+|  +- genome_core.R
+|  +- consolidate_fastq.sh
++- cleanup_bmc_directory.sh
++- STICKY_NOTES.md
++- bash
+|  +- config
+|  |  +- modules
+|  |  +- core_config.sh
+|  +- scripts
+|  |  +- run_quality_control.sh
+|  |  +- download_feature_data.sh
+|  |  +- run_fastq_filtering.sh
+|  |  +- reformat_s288c_header.sh
+|  |  +- manage_ngs_files.sh
+|  |  +- install_ncbi_datasets_cli.sh
+|  |  +- manage_slurm_outputs.sh
+|  |  +- unzip_fastqc.sh
+|  |  +- reorganize_genomes.sh
+|  |  +- run_alignment.sh
+|  |  +- generate_coverage.sh
+|  |  +- submit_test_job.sh
+|  |  +- build_genome_indices.sh
+|  |  +- test_slurm_settings.sh
+|  |  +- process_reference_genomes.sh
+|  |  +- run_bam_qc.sh
+|  |  +- download_bmc_fastq_to_user_bel_directory.sh
+|  |  +- 000_install_R_4.2.0.sh
+|  |  +- run_bam_comparison.sh
+|  |  +- transfer_bmc_experiment_directory_to_luria.sh
+|  |  +- submit_slurm_job.sh
+|  |  +- download_eaton_data.sh
+|  |  +- consolidate_fastq_files.sh
+|  +- tests
+|  |  +- core
+|  +- modules
+|  |  +- slurm_wrapper.sh
+|  |  +- bam_processor.sh
+|  |  +- ncbi_handler.sh
+|  |  +- function_loader.sh
+|  |  +- genome_indexer.sh
+|  |  +- slurm_handler.sh
+|  |  +- slurm_job_handler.sh
+|  |  +- alignment_handler.sh
+|  |  +- sra_downloader.sh
+|  |  +- quality_control.sh
+|  |  +- fastq
+|  |  +- slurm_file_operations.sh
+|  |  +- genome_organizer.sh
+|  |  +- ngs_file_manager.sh
+|  |  +- filter_fastq_processor.sh
+|  |  +- feature_data_handler.sh
+|  |  +- archive_handler.sh
+|  |  +- git_handler.sh
+|  |  +- file_operations.sh
+|  |  +- r_integration.sh
+|  |  +- coverage_processor.sh
+|  |  +- slurm_validator.sh
+|  |  +- fastq_consolidator_processor.sh
+|  |  +- fasta_processor.sh
+|  |  +- bam_comparer.sh
+|  +- templates
+|  |  +- initialize_lab_environment_snippet.sh
+|  +- core
+|  |  +- config_export.sh
+|  |  +- initialize_lab_environment.sh
+|  |  +- path_utils.sh
+|  |  +- file_ops.sh
+|  |  +- logging.sh
+|  |  +- lock.sh
++- README.md
++- renv.lock
++- repository_aggregate.md
++- renv
+|  +- settings.json
+|  +- staging
+|  +- activate.R
++- simple_approach_for_bmc_folder_preparation.md

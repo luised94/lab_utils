@@ -40,11 +40,12 @@ The analysis are done locally or in a linux computing cluster. The linux cluster
 
 1. R 4.2.0
 2. Command line utils
-3. bowtie2
-4. fastp 
-5. fastqc 
-6. deeptools ( cluster version requires python 2.7)
+3. bowtie2/2.3.5.1
+4. fastp/0.20.0
+5. fastqc/0.11.5
+6. deeptools/3.0.1
 7. gatk
+8. python 2.7
 ## Installation
 ```{bash}
 git clone https://github.com/luised94/lab_utils.git
