@@ -57,12 +57,12 @@ source(bootstrap_path)
 required_modules <- list(
     list(
         path = "~/lab_utils/failsafe_scripts/functions_for_logging.R",
-        description = "BMC Configuration",
+        description = "Logging functions",
         required = TRUE
     ),
     list(
-        path = "~/lab_utils/failsafe_scripts/functions_for_logging.R",
-        description = "BMC Configuration",
+        path = "~/lab_utils/failsafe_scripts/functions_for_metadata_processing.R",
+        description = "Process metadata grid for downstream analysis.",
         required = TRUE
     )
 )
@@ -178,5 +178,6 @@ files_to_process <- if (DEBUG_CONFIG$single_file_mode) {
 }
 
 for (file in files_to_process){
-
+    # find control sample.
+    # run normR with default values.
 }
