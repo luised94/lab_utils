@@ -43,7 +43,7 @@ for (pkg in required_packages) {
 }
 
 ################################################################################
-# Load and Validate Experiment Configuration
+# Load and Validate Experiment Configuration and Dependencies
 ################################################################################
 # Bootstrap phase
 bootstrap_path <- normalizePath("~/lab_utils/core_scripts/functions_for_file_operations.R", 
@@ -130,7 +130,7 @@ stopifnot(
 
 # Create output directory if it doesn't exist
 if (!dir.exists(output_dir)) {
-    dir.create(output_dir, recursive = TRUE)
+    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 }
 
 
