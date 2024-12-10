@@ -289,7 +289,15 @@ for (file in files_to_process) {
     }
     
     # Perform peak calling
+    # Perform peak calling
     tryCatch({
+        if (DEBUG_CONFIG$verbose) {
+            message("\nStarting peak calling...")
+            message(sprintf("Genome size: %d bp across %d chromosomes", 
+                          sum(genome_info$size), 
+                          nrow(genome_info)))
+        }
+        
         # Run normR enrichR
         enrichment_results <- normr::enrichR(
             treatment = chip_bam,
@@ -305,25 +313,36 @@ for (file in files_to_process) {
                 sum(normr::getFDR(enrichment_results) <= fdr)
             })
             
-            message("\nEnrichment Statistics:")
+            message("\nPeak Calling Results:")
+            message("----------------------------------------")
+            message(sprintf("Sample: %s vs Control: %s", chip_id, input_id))
             message(sprintf("Total regions analyzed: %d", length(enrichment_results)))
-            message(sprintf("Enriched regions (FDR <= 1%%): %d", enrichment_stats[1]))
-            message(sprintf("Enriched regions (FDR <= 5%%): %d", enrichment_stats[2]))
-            message(sprintf("Enriched regions (FDR <= 10%%): %d", enrichment_stats[3]))
+            message("\nEnriched Regions Found:")
+            message(sprintf("- Strong peaks (FDR <= 1%%): %d", enrichment_stats[1]))
+            message(sprintf("- Medium peaks (FDR <= 5%%): %d", enrichment_stats[2]))
+            message(sprintf("- Weak peaks (FDR <= 10%%): %d", enrichment_stats[3]))
+            
+            # Add context for S. cerevisiae ORC
+            message("\nContext:")
+            message("Previous studies identified ~250-400 ORC binding sites in S. cerevisiae")
+            if (enrichment_stats[2] < 100) {
+                message("WARNING: Fewer peaks than expected for ORC binding")
+            } else if (enrichment_stats[2] > 500) {
+                message("WARNING: More peaks than expected for ORC binding")
+            } else {
+                message("Peak count is within expected range for ORC binding")
+            }
             
             # Add mean enrichment score for significant regions
             sig_regions <- normr::getFDR(enrichment_results) <= 0.05
             if (any(sig_regions)) {
                 mean_enrich <- mean(normr::getEnrichment(enrichment_results)[sig_regions])
-                message(sprintf("Mean enrichment score (FDR <= 5%%): %.2f", mean_enrich))
+                message(sprintf("\nMean enrichment score (FDR <= 5%%): %.2f", mean_enrich))
             }
             
-            if (is_self_control) {
-                message("\nNote: Self-control analysis completed")
-            }
-            message("----------------------------------------")
+            message("----------------------------------------\n")
         }
-        
+            
         # Export results if not in dry run mode
         if (!DEBUG_CONFIG$dry_run) {
             normr::exportR(
