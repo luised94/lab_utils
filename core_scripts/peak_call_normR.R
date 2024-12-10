@@ -24,6 +24,35 @@ DEBUG_CONFIG <- list(
     files_to_process_idx = 1
 )
 
+NORMR_CONFIG <- list(
+    # Peak calling parameters
+    fdr_thresholds = c(0.01, 0.05, 0.1),
+    default_fdr = 0.05,
+    bin_size = 100,  # Base pairs
+    min_mapq = 30,   # Minimum mapping quality
+
+    # S. cerevisiae ORC-specific parameters
+    expected_peak_range = list(
+        min = 100,
+        max = 500,
+        typical = 250:400
+    ),
+
+    # File patterns
+    bam_pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam$",
+    genome_pattern = "S288C_refgenome.fna",
+
+    # Output formatting
+    output_name_template = "peaks_%s_%s_vs_%s_%s_normr.bed",  # timestamp, chip, input, package
+
+    # Genome requirements
+    expected_chromosomes = 16,
+    chromosome_prefix = "chr",
+
+    # Quality thresholds
+    min_enrichment_score = 1.5,
+    min_read_count = 10
+)
 PEAK_CALLING_CONFIG <- list(
     min_mapping_quality = 30,
     fdr_threshold = 0.01,
@@ -84,9 +113,9 @@ load_status <- lapply(required_modules, function(module) {
     if (DEBUG_CONFIG$verbose) {
         cat(sprintf("\n[LOADING] %s\n", module$description))
     }
-    
+
     success <- safe_source(module$path, verbose = TRUE)
-    
+
     if (!success && module$required) {
         stop(sprintf(
             "[FATAL] Failed to load required module: %s\n  Path: %s",
@@ -98,7 +127,7 @@ load_status <- lapply(required_modules, function(module) {
             module$description, module$path
         ))
     }
-    
+
     return(list(
         module = module$description,
         path = module$path,
@@ -248,20 +277,20 @@ for (file in files_to_process) {
         metadata = sorted_metadata,
         control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS
     )
-    
+
     # Get sample IDs
     chip_id <- sorted_metadata[file, "sample_id"]
     input_id <- control_sample$sample_id
-    
+
     if (DEBUG_CONFIG$verbose) {
         message(sprintf("Processing sample: %s", chip_id))
         message(sprintf("Using control sample: %s", input_id))
     }
-    
+
     # Find BAM files using grepl for more robust matching
     chip_bam <- bam_files[grepl(paste0("consolidated_", chip_id, "_sequence_to_S288C_sorted\\.bam$"), bam_files)]
     input_bam <- bam_files[grepl(paste0("consolidated_", input_id, "_sequence_to_S288C_sorted\\.bam$"), bam_files)]
-    
+
     # Validate BAM files
     stopifnot(
         "ChIP BAM file not found" = length(chip_bam) == 1,
@@ -269,88 +298,99 @@ for (file in files_to_process) {
         "ChIP BAM file does not exist" = file.exists(chip_bam),
         "Input BAM file does not exist" = file.exists(input_bam)
     )
-    
+
     # Check if using same file as treatment and control
     is_self_control <- identical(chip_bam, input_bam)
     if (is_self_control && DEBUG_CONFIG$verbose) {
         message("Note: Using same file as treatment and control - expect minimal/no enrichment")
     }
-    
+
     # Generate output filename using short IDs
     output_filename <- sprintf(
-        "peaks_%s_vs_%s.bed",
+        NORMR_CONFIG$output_name_template,
+        TIMESTAMPS$full,
         sample_id_mapping[chip_id],
-        sample_id_mapping[input_id]
+        sample_id_mapping[input_id],
+        "normr"
     )
+
     output_path <- file.path(peak_dir, output_filename)
-    
+
     if (DEBUG_CONFIG$verbose) {
         message(sprintf("Output will be written to: %s", output_path))
     }
-    
-    # Perform peak calling
+
     # Perform peak calling
     tryCatch({
         if (DEBUG_CONFIG$verbose) {
             message("\nStarting peak calling...")
             message(sprintf("Genome size: %d bp across %d chromosomes", 
-                          sum(genome_info$size), 
-                          nrow(genome_info)))
+                        sum(genome_info$size), 
+                        nrow(genome_info)))
         }
-        
+
         # Run normR enrichR
         enrichment_results <- normr::enrichR(
             treatment = chip_bam,
             control = input_bam,
             genome = genome_info
         )
-        
+
         # Extract and display enrichment statistics
         if (DEBUG_CONFIG$verbose) {
-            # Get enriched regions at different FDR thresholds
-            fdr_thresholds <- c(0.01, 0.05, 0.1)
-            enrichment_stats <- sapply(fdr_thresholds, function(fdr) {
-                sum(normr::getFDR(enrichment_results) <= fdr)
+            # Get q-values and enrichment scores
+            qvals <- normr::getQvalues(enrichment_results)
+            enrichment_scores <- normr::getEnrichment(enrichment_results)
+
+            # Calculate peaks at different q-value thresholds
+            enrichment_stats <- sapply(NORMR_CONFIG$fdr_thresholds, function(threshold) {
+                sum(!is.na(qvals) & qvals <= threshold)
             })
-            
+
             message("\nPeak Calling Results:")
             message("----------------------------------------")
             message(sprintf("Sample: %s vs Control: %s", chip_id, input_id))
             message(sprintf("Total regions analyzed: %d", length(enrichment_results)))
+
             message("\nEnriched Regions Found:")
-            message(sprintf("- Strong peaks (FDR <= 1%%): %d", enrichment_stats[1]))
-            message(sprintf("- Medium peaks (FDR <= 5%%): %d", enrichment_stats[2]))
-            message(sprintf("- Weak peaks (FDR <= 10%%): %d", enrichment_stats[3]))
-            
-            # Add context for S. cerevisiae ORC
+            message(sprintf("- Strong peaks (q <= 1%%): %d", enrichment_stats[1]))
+            message(sprintf("- Medium peaks (q <= 5%%): %d", enrichment_stats[2]))
+            message(sprintf("- Weak peaks (q <= 10%%): %d", enrichment_stats[3]))
+
+            # Get significant regions and their enrichment scores
+            sig_regions <- !is.na(qvals) & qvals <= NORMR_CONFIG$default_fdr
+            if (any(sig_regions)) {
+                mean_enrich <- mean(enrichment_scores[sig_regions])
+                message(sprintf("\nMean enrichment score (q <= 5%%): %.2f", mean_enrich))
+
+                # Get peak classifications
+                peak_classes <- normr::getClasses(enrichment_results)
+                enriched_count <- sum(!is.na(peak_classes) & peak_classes == 1)
+                message(sprintf("Regions classified as enriched: %d", enriched_count))
+            }
+
+            # Context for S. cerevisiae ORC
             message("\nContext:")
             message("Previous studies identified ~250-400 ORC binding sites in S. cerevisiae")
-            if (enrichment_stats[2] < 100) {
+            if (enrichment_stats[2] < NORMR_CONFIG$expected_peak_range$min) {
                 message("WARNING: Fewer peaks than expected for ORC binding")
-            } else if (enrichment_stats[2] > 500) {
+            } else if (enrichment_stats[2] > NORMR_CONFIG$expected_peak_range$max) {
                 message("WARNING: More peaks than expected for ORC binding")
             } else {
                 message("Peak count is within expected range for ORC binding")
             }
-            
-            # Add mean enrichment score for significant regions
-            sig_regions <- normr::getFDR(enrichment_results) <= 0.05
-            if (any(sig_regions)) {
-                mean_enrich <- mean(normr::getEnrichment(enrichment_results)[sig_regions])
-                message(sprintf("\nMean enrichment score (FDR <= 5%%): %.2f", mean_enrich))
-            }
-            
+
             message("----------------------------------------\n")
         }
-            
-        # Export results if not in dry run mode
-        if (!DEBUG_CONFIG$dry_run) {
-            normr::exportR(
-                obj = enrichment_results,
-                filename = output_path,
-                type = "bed"
-            )
-        }
+
+            # Export results if not in dry run mode
+            if (!DEBUG_CONFIG$dry_run) {
+                normr::exportR(
+                    obj = enrichment_results,
+                    filename = output_path,
+                    type = "bed"
+                )
+            }
     }, error = function(e) {
         message(sprintf("Error processing sample %s: %s",
                        chip_id,
