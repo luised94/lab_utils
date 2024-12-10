@@ -241,17 +241,63 @@ files_to_process <- if (DEBUG_CONFIG$single_file_mode) {
     seq_along(bam_files)
 }
 
-for (file in files_to_process){
-    # find control sample.
+for (file in files_to_process) {
+    # Find control sample
     control_sample <- find_control_sample(
-
-        experimental_sample = sorted_metadata[file, ]
-        metadta = sorted_metadata,
+        experimental_sample = sorted_metadata[file, ],
+        metadata = sorted_metadata,
         control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS
     )
+    
     if (DEBUG_CONFIG$verbose) {
-        message(sprintf("Adding control track: %s",
-                control_sample$sample_id))
+        message(sprintf("Processing sample: %s", sorted_metadata[file, "sample_id"]))
+        message(sprintf("Using control sample: %s", control_sample$sample_id))
     }
-    # run normR with default values.
+    
+    # Get BAM file paths using sample IDs
+    chip_bam <- bam_files[which(sample_ids == sorted_metadata[file, "sample_id"])]
+    input_bam <- bam_files[which(sample_ids == control_sample$sample_id)]
+    
+    # Validate BAM files
+    stopifnot(
+        "ChIP BAM file not found" = length(chip_bam) == 1,
+        "Input BAM file not found" = length(input_bam) == 1,
+        "ChIP BAM file does not exist" = file.exists(chip_bam),
+        "Input BAM file does not exist" = file.exists(input_bam)
+    )
+    
+    # Generate output filename using short IDs
+    output_filename <- sprintf(
+        "peaks_%s_vs_%s.bed",
+        sample_id_mapping[sorted_metadata[file, "sample_id"]],
+        sample_id_mapping[control_sample$sample_id]
+    )
+    output_path <- file.path(peak_dir, output_filename)
+    
+    if (DEBUG_CONFIG$verbose) {
+        message(sprintf("Output will be written to: %s", output_path))
+    }
+    
+    # Perform peak calling
+    tryCatch({
+        # Run normR enrichR
+        enrichment_results <- normr::enrichR(
+            treatment = chip_bam,
+            control = input_bam,
+            genome = genome_info
+        )
+        
+        # Export results if not in dry run mode
+        if (!DEBUG_CONFIG$dry_run) {
+            normr::exportR(
+                obj = enrichment_results,
+                filename = output_path,
+                type = "bed"
+            )
+        }
+    }, error = function(e) {
+        message(sprintf("Error processing sample %s: %s",
+                       sorted_metadata[file, "sample_id"],
+                       e$message))
+    })
 }
