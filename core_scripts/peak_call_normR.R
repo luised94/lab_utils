@@ -249,14 +249,18 @@ for (file in files_to_process) {
         control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS
     )
     
+    # Get sample IDs
+    chip_id <- sorted_metadata[file, "sample_id"]
+    input_id <- control_sample$sample_id
+    
     if (DEBUG_CONFIG$verbose) {
-        message(sprintf("Processing sample: %s", sorted_metadata[file, "sample_id"]))
-        message(sprintf("Using control sample: %s", control_sample$sample_id))
+        message(sprintf("Processing sample: %s", chip_id))
+        message(sprintf("Using control sample: %s", input_id))
     }
     
-    # Get BAM file paths using sample IDs
-    chip_bam <- bam_files[which(sample_ids == sorted_metadata[file, "sample_id"])]
-    input_bam <- bam_files[which(sample_ids == control_sample$sample_id)]
+    # Find BAM files using grepl for more robust matching
+    chip_bam <- bam_files[grepl(paste0("consolidated_", chip_id, "_sequence_to_S288C_sorted\\.bam$"), bam_files)]
+    input_bam <- bam_files[grepl(paste0("consolidated_", input_id, "_sequence_to_S288C_sorted\\.bam$"), bam_files)]
     
     # Validate BAM files
     stopifnot(
@@ -266,11 +270,17 @@ for (file in files_to_process) {
         "Input BAM file does not exist" = file.exists(input_bam)
     )
     
+    # Check if using same file as treatment and control
+    is_self_control <- identical(chip_bam, input_bam)
+    if (is_self_control && DEBUG_CONFIG$verbose) {
+        message("Note: Using same file as treatment and control - expect minimal/no enrichment")
+    }
+    
     # Generate output filename using short IDs
     output_filename <- sprintf(
         "peaks_%s_vs_%s.bed",
-        sample_id_mapping[sorted_metadata[file, "sample_id"]],
-        sample_id_mapping[control_sample$sample_id]
+        sample_id_mapping[chip_id],
+        sample_id_mapping[input_id]
     )
     output_path <- file.path(peak_dir, output_filename)
     
@@ -287,6 +297,33 @@ for (file in files_to_process) {
             genome = genome_info
         )
         
+        # Extract and display enrichment statistics
+        if (DEBUG_CONFIG$verbose) {
+            # Get enriched regions at different FDR thresholds
+            fdr_thresholds <- c(0.01, 0.05, 0.1)
+            enrichment_stats <- sapply(fdr_thresholds, function(fdr) {
+                sum(normr::getFDR(enrichment_results) <= fdr)
+            })
+            
+            message("\nEnrichment Statistics:")
+            message(sprintf("Total regions analyzed: %d", length(enrichment_results)))
+            message(sprintf("Enriched regions (FDR <= 1%%): %d", enrichment_stats[1]))
+            message(sprintf("Enriched regions (FDR <= 5%%): %d", enrichment_stats[2]))
+            message(sprintf("Enriched regions (FDR <= 10%%): %d", enrichment_stats[3]))
+            
+            # Add mean enrichment score for significant regions
+            sig_regions <- normr::getFDR(enrichment_results) <= 0.05
+            if (any(sig_regions)) {
+                mean_enrich <- mean(normr::getEnrichment(enrichment_results)[sig_regions])
+                message(sprintf("Mean enrichment score (FDR <= 5%%): %.2f", mean_enrich))
+            }
+            
+            if (is_self_control) {
+                message("\nNote: Self-control analysis completed")
+            }
+            message("----------------------------------------")
+        }
+        
         # Export results if not in dry run mode
         if (!DEBUG_CONFIG$dry_run) {
             normr::exportR(
@@ -297,7 +334,7 @@ for (file in files_to_process) {
         }
     }, error = function(e) {
         message(sprintf("Error processing sample %s: %s",
-                       sorted_metadata[file, "sample_id"],
+                       chip_id,
                        e$message))
     })
 }
