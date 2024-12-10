@@ -37,8 +37,9 @@ PLOT_CONFIG <- list(
 )
 
 
-# Load required packages
-#-----------------------------------------------------------------------------
+################################################################################
+# Load Required Libraries
+################################################################################
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 for (pkg in required_packages) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
@@ -46,6 +47,9 @@ for (pkg in required_packages) {
     }
 }
 
+################################################################################
+# Load and Validate Experiment Configuration and Dependencies
+################################################################################
 #source("~/lab_utils/core_scripts/all_functions.R")
 source("~/lab_utils/core_scripts/functions_for_genome_tracks.R")
 source("~/lab_utils/core_scripts/functions_for_metadata_processing.R")
