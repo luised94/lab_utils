@@ -64,6 +64,11 @@ required_modules <- list(
         path = "~/lab_utils/failsafe_scripts/functions_for_metadata_processing.R",
         description = "Process metadata grid for downstream analysis.",
         required = TRUE
+    ),
+    list(
+        path = "~/lab_utils/core_scripts/bmc_config.R",
+        description = "Load EXPERIMENT CONFIG object.",
+        required = TRUE
     )
 )
 
@@ -115,12 +120,14 @@ if (DEBUG_CONFIG$verbose) {
 }
 
 ################################################################################
-# Directory Setup and Validation
+# Directory Setup
 ################################################################################
 experiment_id <- "241010Bel"  # !! UPDATE THIS
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 bam_dir <- file.path(base_dir, "alignment")
 peak_dir <- file.path(base_dir, "peak")
+metadata_path <- file.path(base_dir, "documentation",
+                          paste0(experiment_id, "_sample_grid.csv"))
 
 # Validate directories
 stopifnot(
@@ -129,7 +136,7 @@ stopifnot(
 )
 
 # Create output directory if it doesn't exist
-if (!dir.exists(output_dir)) {
+if (!dir.exists(peak_dir)) {
     dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 }
 
@@ -139,16 +146,53 @@ if (!dir.exists(output_dir)) {
 ################################################################################
 bam_files <- list.files(
     path = bam_dir,
-    pattern = "\\.bam$",
+    pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam$",
     recursive = TRUE,
     full.names = TRUE
 )
 
-stopifnot(
-    "No BAM files found" = length(bam_files) > 0,
+# Extract sample IDs from fastq filenames
+sample_ids <- gsub(
+    pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam",
+    replacement = "\\1",
+    x = basename(bam_files)
 )
 
+stopifnot(
+    "No BAM files found" = length(bam_files) > 0,
+    "No sample_ids found" = length(sample_ids) > 0,
+    "Number of sample ids must match number of files" = length(bam_files) == length(sample_ids)
+
+)
+
+################################################################################
+# Load sample metadata
+################################################################################
+# Load and process metadata
+metadata <- read.csv(metadata_path, stringsAsFactors = FALSE)
+
+# Enforce factor levels from config
+for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
+    if (col_name %in% colnames(metadata)) {
+        metadata[[col_name]] <- factor(
+            metadata[[col_name]],
+            levels = EXPERIMENT_CONFIG$CATEGORIES[[col_name]],
+            ordered = TRUE
+        )
+    }
+}
+
+# Sort metadata using config column order
+sorted_metadata <- metadata[do.call(
+    order,
+    metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
+), ]
+
+# Add sample IDs to metadata
+sorted_metadata$sample_id <- sample_ids
+################################################################################
 # Load reference genome
+################################################################################
 ref_genome_file <- list.files(
     file.path(Sys.getenv("HOME"), "data", "REFGENS"),
     pattern = "S288C_refgenome.fna",
