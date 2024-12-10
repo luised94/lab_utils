@@ -39,10 +39,7 @@ safe_write_file <- function(data, path, write_fn, verbose = FALSE, interactive =
             write_fn(object = data, file = path, ...)
         } else {
             stop(sprintf(
-                "Unsupported writing function: %s. Supported functions are: write.csv, write.table, file.copy, saveRDS",
-        } else {
-            stop(sprintf(
-                "Unsupported writing function: %s. Supported functions are: write.csv, write.table, file.copy",
+                "Unsupported writing function: %s. Supported functions are: write.csv, write.table, file.copy, saveRDS", 
                 deparse(substitute(write_fn))
             ))
         }
