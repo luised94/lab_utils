@@ -175,14 +175,14 @@ if (!dir.exists(peak_dir)) {
 ################################################################################
 bam_files <- list.files(
     path = bam_dir,
-    pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam$",
+    pattern = NORMR_CONFIG$bam_pattern,
     recursive = TRUE,
     full.names = TRUE
 )
 
 # Extract sample IDs from fastq filenames
 sample_ids <- gsub(
-    pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam",
+    pattern = NORMR_CONFIG$bam_pattern,
     replacement = "\\1",
     x = basename(bam_files)
 )
@@ -234,7 +234,7 @@ sample_id_mapping <- setNames(short_sample_ids, sorted_metadata$sample_id)
 ################################################################################
 ref_genome_file <- list.files(
     file.path(Sys.getenv("HOME"), "data", "REFGENS"),
-    pattern = "S288C_refgenome.fna",
+    pattern = NORMR_CONFIG$genome_pattern,
     full.names = TRUE,
     recursive = TRUE
 )[1]
@@ -396,4 +396,8 @@ for (file in files_to_process) {
                        chip_id,
                        e$message))
     })
+}
+
+if (DEBUG_CONFIG$verbose) {
+    print_config_settings(DEBUG_CONFIG)
 }
