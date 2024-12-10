@@ -56,12 +56,12 @@ source(bootstrap_path)
 # Define required dependencies
 required_modules <- list(
     list(
-        path = "~/lab_utils/failsafe_scripts/functions_for_logging.R",
+        path = "~/lab_utils/core_scripts/functions_for_logging.R",
         description = "Logging functions",
         required = TRUE
     ),
     list(
-        path = "~/lab_utils/failsafe_scripts/functions_for_metadata_processing.R",
+        path = "~/lab_utils/core_scripts/functions_for_metadata_processing.R",
         description = "Process metadata grid for downstream analysis.",
         required = TRUE
     ),
@@ -162,11 +162,10 @@ stopifnot(
     "No BAM files found" = length(bam_files) > 0,
     "No sample_ids found" = length(sample_ids) > 0,
     "Number of sample ids must match number of files" = length(bam_files) == length(sample_ids)
-
 )
 
 ################################################################################
-# Load sample metadata
+# Load and process sample metadata
 ################################################################################
 # Load and process metadata
 metadata <- read.csv(metadata_path, stringsAsFactors = FALSE)
@@ -190,6 +189,17 @@ sorted_metadata <- metadata[do.call(
 
 # Add sample IDs to metadata
 sorted_metadata$sample_id <- sample_ids
+
+
+# Add after processing metadata but before track creation
+short_sample_ids <- create_minimal_identifiers(
+    sorted_metadata$sample_id,
+    verbose = DEBUG_CONFIG$verbose
+)
+
+# Create mapping between full and short IDs
+sample_id_mapping <- setNames(short_sample_ids, sorted_metadata$sample_id)
+
 ################################################################################
 # Load reference genome
 ################################################################################
@@ -199,18 +209,28 @@ ref_genome_file <- list.files(
     full.names = TRUE,
     recursive = TRUE
 )[1]
+
 stopifnot(
-    "No reference genome found. One expected." = length(ref_genome_file) < 1,
-    "More than one reference genome found. Only one expected." = length(ref_genome_file) > 1,
+    "No reference genome found. One expected." = length(ref_genome_file) == 1
 )
+
 genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
 
 # Convert genome data to required format
 genome_info <- data.frame(
     chrom = names(genome_data),
-    size = width(genome_data)
+    size = genome_data@ranges@width
 )
 
+# Validation
+stopifnot(
+    "genome_info must be a data frame" = is.data.frame(genome_info),
+    "genome_info must have exactly 16 rows and 2 columns" = all(dim(genome_info) == c(16, 2)),
+    "Column names must be 'chrom' and 'size'" = all(colnames(genome_info) == c("chrom", "size")),
+    "Chromosome sizes must be positive" = all(genome_info$size > 0),
+    "Chromosome names must start with 'chr'" = all(grepl("^chr", genome_info$chrom)),
+    "No missing values allowed" = !any(is.na(genome_info))
+)
 
 ################################################################################
 # Process Files
@@ -221,7 +241,7 @@ files_to_process <- if (DEBUG_CONFIG$single_file_mode) {
     seq_along(bam_files)
 }
 
-for (file in files_to_process){
+#for (file in files_to_process){
     # find control sample.
     # run normR with default values.
-}
+#}
