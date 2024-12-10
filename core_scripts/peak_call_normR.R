@@ -53,13 +53,26 @@ NORMR_CONFIG <- list(
     min_enrichment_score = 1.5,
     min_read_count = 10
 )
-PEAK_CALLING_CONFIG <- list(
-    min_mapping_quality = 30,
-    fdr_threshold = 0.01,
-    bin_size = 100,
-    peak_merge_distance = 250,
-    min_read_count = 10
+
+# Time formatting configuration
+TIME_CONFIG <- list(
+    timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
+    date_format = "%Y%m%d"               # YYYYMMDD
 )
+
+# Generate timestamps once at script start
+TIMESTAMPS <- list(
+    full = format(Sys.time(), TIME_CONFIG$timestamp_format),
+    date = format(Sys.Date(), TIME_CONFIG$date_format)
+)
+
+#PEAK_CALLING_CONFIG <- list(
+#    min_mapping_quality = 30,
+#    fdr_threshold = 0.01,
+#    bin_size = 100,
+#    peak_merge_distance = 250,
+#    min_read_count = 10
+#)
 
 ################################################################################
 # Load Required Libraries
