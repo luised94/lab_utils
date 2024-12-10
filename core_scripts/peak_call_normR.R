@@ -18,7 +18,7 @@
 # Configuration and Debug Settings
 ################################################################################
 DEBUG_CONFIG <- list(
-    single_file_mode = FALSE,
+    single_file_mode = TRUE,
     verbose = TRUE,
     dry_run = TRUE,
     files_to_process_idx = 1
@@ -241,7 +241,17 @@ files_to_process <- if (DEBUG_CONFIG$single_file_mode) {
     seq_along(bam_files)
 }
 
-#for (file in files_to_process){
+for (file in files_to_process){
     # find control sample.
+    control_sample <- find_control_sample(
+
+        experimental_sample = sorted_metadata[file, ]
+        metadta = sorted_metadata,
+        control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS
+    )
+    if (DEBUG_CONFIG$verbose) {
+        message(sprintf("Adding control track: %s",
+                control_sample$sample_id))
+    }
     # run normR with default values.
-#}
+}
