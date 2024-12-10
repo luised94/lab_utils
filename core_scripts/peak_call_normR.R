@@ -43,7 +43,7 @@ NORMR_CONFIG <- list(
     genome_pattern = "S288C_refgenome.fna",
 
     # Output formatting
-    output_name_template = "peaks_%s_%s_vs_%s_%s_normr.bed",  # timestamp, chip, input, package
+    output_name_template = "%s_peaks_%s_vs_%s_%s.bed",  # timestamp, chip, input, package
 
     # Genome requirements
     expected_chromosomes = 16,
@@ -51,7 +51,22 @@ NORMR_CONFIG <- list(
 
     # Quality thresholds
     min_enrichment_score = 1.5,
-    min_read_count = 10
+    min_read_count = 10,
+
+    # Binning parameters
+    min_reads_per_bin = 1,
+    paired_end = FALSE,
+
+    # Output formats
+    region_file_template = "regions_%s_%s_vs_%s_%s_normr.tsv",
+    bedgraph_template = "enrichment_%s_%s_vs_%s_%s_normr.bedGraph",
+
+    # Column specifications for region output
+    region_columns = c(
+        "chromosome", "start", "end", 
+        "treatment_count", "control_count",
+        "enrichment", "qvalue", "peak_class"
+    )
 )
 
 # Time formatting configuration
@@ -342,12 +357,53 @@ for (file in files_to_process) {
                         nrow(genome_info)))
         }
 
-        # Run normR enrichR
-        enrichment_results <- normr::enrichR(
+        if (DEBUG_CONFIG$verbose) {
+            message("\nPre-processing count data...")
+        }
+
+        # First create count data
+        count_data <- normr::countConfigPaired(
             treatment = chip_bam,
             control = input_bam,
+            binsize = NORMR_CONFIG$bin_size,
+            mapq = NORMR_CONFIG$min_mapq,
+            paired = FALSE  # Specify single-end data
+        )
+
+        # Get count matrices
+        treatment_counts <- count_data$treatment
+        control_counts <- count_data$control
+
+        # Find valid bins (no NA, infinite, or zero in both)
+        valid_bins <- !is.na(treatment_counts) & 
+                     !is.na(control_counts) & 
+                     !is.infinite(treatment_counts) & 
+                     !is.infinite(control_counts) &
+                     !(treatment_counts == 0 & control_counts == 0)
+
+        if (DEBUG_CONFIG$verbose) {
+            total_bins <- length(treatment_counts)
+            filtered_bins <- sum(!valid_bins)
+            message(sprintf("Total bins: %d", total_bins))
+            message(sprintf("Filtered bins: %d (%.2f%%)", 
+                    filtered_bins, 
+                    100 * filtered_bins/total_bins))
+        }
+
+        # Create filtered count data
+        filtered_count_data <- list(
+            treatment = treatment_counts[valid_bins],
+            control = control_counts[valid_bins],
+            regions = count_data$regions[valid_bins]
+        )
+
+        # Run normR enrichR with filtered data
+        enrichment_results <- normr::enrichR(
+            treatment = filtered_count_data$treatment,
+            control = filtered_count_data$control,
             genome = genome_info
         )
+
 
         # Extract and display enrichment statistics
         if (DEBUG_CONFIG$verbose) {
@@ -396,14 +452,72 @@ for (file in files_to_process) {
             message("----------------------------------------\n")
         }
 
-            # Export results if not in dry run mode
-            if (!DEBUG_CONFIG$dry_run) {
-                normr::exportR(
-                    obj = enrichment_results,
-                    filename = output_path,
-                    type = "bed"
+        # Document regions for visualization
+        if (!DEBUG_CONFIG$dry_run) {
+            # Create detailed region information
+            region_info <- data.frame(
+                chromosome = seqnames(filtered_count_data$regions),
+                start = start(filtered_count_data$regions),
+                end = end(filtered_count_data$regions),
+                treatment_count = filtered_count_data$treatment,
+                control_count = filtered_count_data$control,
+                enrichment = normr::getEnrichment(enrichment_results),
+                qvalue = normr::getQvalues(enrichment_results),
+                peak_class = normr::getClasses(enrichment_results)
+            )
+
+            # Export full region information for later analysis
+            regions_output <- file.path(
+                peak_dir,
+                sprintf(
+                    "regions_%s_%s_vs_%s_%s_normr.tsv",
+                    TIMESTAMPS$full,
+                    sample_id_mapping[chip_id],
+                    sample_id_mapping[input_id],
+                    "normr"
                 )
-            }
+            )
+            write.table(
+                region_info,
+                file = regions_output,
+                sep = "\t",
+                quote = FALSE,
+                row.names = FALSE
+            )
+
+            # Export significant peaks in bedGraph format for genome browser
+            sig_peaks <- region_info[!is.na(region_info$peak_class) & 
+                                   region_info$qvalue <= NORMR_CONFIG$default_fdr, ]
+
+            bedgraph_output <- file.path(
+                peak_dir,
+                sprintf(
+                    "enrichment_%s_%s_vs_%s_%s_normr.bedGraph",
+                    TIMESTAMPS$full,
+                    sample_id_mapping[chip_id],
+                    sample_id_mapping[input_id],
+                    "normr"
+                )
+            )
+
+            write.table(
+                sig_peaks[, c("chromosome", "start", "end", "enrichment")],
+                file = bedgraph_output,
+                sep = "\t",
+                quote = FALSE,
+                row.names = FALSE,
+                col.names = FALSE
+            )
+        }
+
+        # Export results if not in dry run mode
+        if (!DEBUG_CONFIG$dry_run) {
+            normr::exportR(
+                obj = enrichment_results,
+                filename = output_path,
+                type = "bed"
+            )
+        }
     }, error = function(e) {
         message(sprintf("Error processing sample %s: %s",
                        chip_id,
