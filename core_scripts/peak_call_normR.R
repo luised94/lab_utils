@@ -25,46 +25,41 @@ DEBUG_CONFIG <- list(
 )
 
 NORMR_CONFIG <- list(
-    # Peak calling parameters
-    fdr_thresholds = c(0.01, 0.05, 0.1),
-    default_fdr = 0.05,
-    bin_size = 100,  # Base pairs
-    min_mapq = 30,   # Minimum mapping quality
-
+    # Core analysis parameters
+    bin_size = 1000L,    # Base pairs, adjusted for yeast genome
+    min_mapq = 30L,      # Minimum mapping quality for high-quality alignments
+    iterations = 10L,    # Number of EM iterations
+    processors = 1L,     # Number of processors to use
+    paired_end = FALSE,  # Specify single-end data
+    
+    # Peak calling thresholds
+    fdr_thresholds = c(0.01, 0.05, 0.1),  # For classification of peak strength
+    default_fdr = 0.05,                    # Default threshold for significant peaks
+    min_enrichment_score = 1.5,            # Minimum fold change
+    min_reads_per_bin = 1,                 # Minimum reads required per bin
+    
     # S. cerevisiae ORC-specific parameters
     expected_peak_range = list(
         min = 100,
         max = 500,
         typical = 250:400
     ),
-
-    # File patterns
-    bam_pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam$",
-    genome_pattern = "S288C_refgenome.fna",
-    # Output formatting
-    output_name_template = "%s_peaks_%s_vs_%s_%s.bed",  # timestamp, chip, input, package
-    region_file_template = "%s_regions_%s_vs_%s_%s.tsv",
-    bedgraph_template = "%s_enrichment_%s_vs_%s_%s.bedGraph",
-
-    # Genome requirements
+    
+    # Genome specifications
     expected_chromosomes = 16,
     chromosome_prefix = "chr",
-
-    # Quality thresholds
-    min_enrichment_score = 1.5,
-    min_read_count = 10,
-
-    # Binning parameters
-    min_reads_per_bin = 1,
-    paired_end = FALSE,
-
-    # Count configuration
-    bin_size = 1000L,    # Reasonable bin size for yeast
-    min_mapq = 30L,      # High quality alignments
-    iterations = 10L,    # Number of EM iterations
-    processors = 1L,     # Number of processors to use
-
-    # Column specifications for region output
+    chromosome_adjustment = TRUE,  # Round chromosome sizes to bin size multiples
+    
+    # File patterns and templates
+    bam_pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam$",
+    genome_pattern = "S288C_refgenome.fna",
+    
+    # Output templates
+    output_name_template = "%s_peaks_%s_vs_%s_%s.bed",        # timestamp, chip, input, package
+    region_file_template = "%s_regions_%s_vs_%s_%s.tsv",
+    bedgraph_template = "%s_enrichment_%s_vs_%s_%s.bedGraph",
+    
+    # Output specifications
     region_columns = c(
         "chromosome", "start", "end", 
         "treatment_count", "control_count",
@@ -83,14 +78,6 @@ TIMESTAMPS <- list(
     full = format(Sys.time(), TIME_CONFIG$timestamp_format),
     date = format(Sys.Date(), TIME_CONFIG$date_format)
 )
-
-#PEAK_CALLING_CONFIG <- list(
-#    min_mapping_quality = 30,
-#    fdr_threshold = 0.01,
-#    bin_size = 100,
-#    peak_merge_distance = 250,
-#    min_read_count = 10
-#)
 
 ################################################################################
 # Load Required Libraries
