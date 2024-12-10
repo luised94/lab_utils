@@ -300,6 +300,24 @@ files_to_process <- if (DEBUG_CONFIG$single_file_mode) {
 } else {
     seq_along(bam_files)
 }
+# Initialize data.frame for gathering statistics.
+sample_statistics <- data.frame(
+    timestamp = character(),
+    chip_id = character(),
+    input_id = character(),
+    total_bins = integer(),
+    zero_bins = integer(),
+    zero_bins_percent = numeric(),
+    mean_treatment_counts = numeric(),
+    mean_control_counts = numeric(),
+    strong_peaks = integer(),  # q <= 0.01
+    medium_peaks = integer(),  # q <= 0.05
+    weak_peaks = integer(),    # q <= 0.10
+    mean_enrichment_score = numeric(),
+    enriched_regions = integer(),
+    within_expected_range = logical(),
+    stringsAsFactors = FALSE
+)
 
 for (file in files_to_process) {
     # Find control sample
@@ -363,7 +381,6 @@ for (file in files_to_process) {
         if (DEBUG_CONFIG$verbose) {
             message("\nPre-processing count data...")
         }
-
 
         # Create count configuration for single-end data
         count_config <- normr::countConfigSingleEnd(
@@ -474,7 +491,7 @@ for (file in files_to_process) {
                     TIMESTAMPS$full,
                     sample_id_mapping[chip_id],
                     sample_id_mapping[input_id],
-                    "peaks"
+                    "normr_peaks"
                 )
             )
 
@@ -497,7 +514,7 @@ for (file in files_to_process) {
                     TIMESTAMPS$full,
                     sample_id_mapping[chip_id],
                     sample_id_mapping[input_id],
-                    "peaks"
+                    "normr_peaks"
                 )
             )
 
@@ -518,6 +535,26 @@ for (file in files_to_process) {
             )
         }
 
+        current_stats <- data.frame(
+            timestamp = TIMESTAMPS$full,
+            chip_id = chip_id,
+            input_id = input_id,
+            total_bins = stats$total_bins,
+            zero_bins = stats$zero_bins,
+            zero_bins_percent = 100 * stats$zero_bins/stats$total_bins,
+            mean_treatment_counts = mean(stats$counts$treatment),
+            mean_control_counts = mean(stats$counts$control),
+            strong_peaks = stats$enrichment_by_threshold[1],
+            medium_peaks = stats$enrichment_by_threshold[2],
+            weak_peaks = stats$enrichment_by_threshold[3],
+            mean_enrichment_score = if(any(stats$sig_regions)) mean(stats$enrichment_scores[stats$sig_regions]) else NA,
+            enriched_regions = sum(!is.na(stats$peak_classes) & stats$peak_classes == 1),
+            within_expected_range = stats$enrichment_by_threshold[2] >= NORMR_CONFIG$expected_peak_range$min && 
+                                  stats$enrichment_by_threshold[2] <= NORMR_CONFIG$expected_peak_range$max
+        )
+
+        sample_statistics <- rbind(sample_statistics, current_stats)
+
     }, error = function(e) {
         message(sprintf("Error processing sample %s: %s",
                        chip_id,
@@ -527,4 +564,67 @@ for (file in files_to_process) {
 
 if (DEBUG_CONFIG$verbose) {
     print_config_settings(DEBUG_CONFIG)
+}
+
+if (DEBUG_CONFIG$verbose && nrow(sample_statistics) > 0) {
+    message("\n=== Final Analysis Summary ===")
+
+    # Basic statistics
+    message("\n1. Overall Processing Statistics:")
+    message(sprintf("   Total samples processed: %d", nrow(sample_statistics)))
+    message(sprintf("   Samples within expected peak range: %d of %d", 
+                   sum(sample_statistics$within_expected_range), 
+                   nrow(sample_statistics)))
+
+    # Peak statistics
+    message("\n2. Peak Statistics Summary:")
+    message("   Strong peaks (q <= 1%):")
+    message(sprintf("     Mean: %.1f", mean(sample_statistics$strong_peaks)))
+    message(sprintf("     Range: %d - %d", min(sample_statistics$strong_peaks), max(sample_statistics$strong_peaks)))
+    message("   Medium peaks (q <= 5%):")
+    message(sprintf("     Mean: %.1f", mean(sample_statistics$medium_peaks)))
+    message(sprintf("     Range: %d - %d", min(sample_statistics$medium_peaks), max(sample_statistics$medium_peaks)))
+
+    # Count statistics
+    message("\n3. Count Statistics Summary:")
+    message(sprintf("   Mean zero bins percentage: %.2f%%", mean(sample_statistics$zero_bins_percent)))
+    message(sprintf("   Mean treatment counts: %.2f", mean(sample_statistics$mean_treatment_counts)))
+    message(sprintf("   Mean control counts: %.2f", mean(sample_statistics$mean_control_counts)))
+
+    # Enrichment statistics
+    message("\n4. Enrichment Statistics Summary:")
+    message(sprintf("   Mean enriched regions per sample: %.1f", mean(sample_statistics$enriched_regions)))
+    message(sprintf("   Mean enrichment score: %.2f", mean(sample_statistics$mean_enrichment_score, na.rm=TRUE)))
+
+    # Samples outside expected range
+    if (any(!sample_statistics$within_expected_range)) {
+        message("\n5. Samples Outside Expected Range:")
+        outliers <- sample_statistics[!sample_statistics$within_expected_range, ]
+        for (i in 1:nrow(outliers)) {
+            message(sprintf("   %s vs %s: %d peaks", 
+                          outliers$chip_id[i], 
+                          outliers$input_id[i], 
+                          outliers$medium_peaks[i]))
+        }
+    }
+
+    message("\n===========================\n")
+
+    # Export statistics if not in dry run mode
+    if (!DEBUG_CONFIG$dry_run) {
+        stats_output <- file.path(
+            peak_dir,
+            sprintf(
+                "peak_calling_statistics_%s.tsv",
+                TIMESTAMPS$full
+            )
+        )
+        write.table(
+            sample_statistics,
+            file = stats_output,
+            sep = "\t",
+            quote = FALSE,
+            row.names = FALSE
+        )
+    }
 }
