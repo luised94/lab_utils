@@ -41,9 +41,10 @@ NORMR_CONFIG <- list(
     # File patterns
     bam_pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam$",
     genome_pattern = "S288C_refgenome.fna",
-
     # Output formatting
     output_name_template = "%s_peaks_%s_vs_%s_%s.bed",  # timestamp, chip, input, package
+    region_file_template = "%s_regions_%s_vs_%s_%s.tsv",
+    bedgraph_template = "%s_enrichment_%s_vs_%s_%s.bedGraph",
 
     # Genome requirements
     expected_chromosomes = 16,
@@ -57,9 +58,11 @@ NORMR_CONFIG <- list(
     min_reads_per_bin = 1,
     paired_end = FALSE,
 
-    # Output formats
-    region_file_template = "regions_%s_%s_vs_%s_%s_normr.tsv",
-    bedgraph_template = "enrichment_%s_%s_vs_%s_%s_normr.bedGraph",
+    # Count configuration
+    bin_size = 1000L,    # Reasonable bin size for yeast
+    min_mapq = 30L,      # High quality alignments
+    iterations = 10L,    # Number of EM iterations
+    processors = 1L,     # Number of processors to use
 
     # Column specifications for region output
     region_columns = c(
@@ -361,106 +364,103 @@ for (file in files_to_process) {
             message("\nPre-processing count data...")
         }
 
-        # First create count data
-        count_data <- normr::countConfigPaired(
-            treatment = chip_bam,
-            control = input_bam,
+
+        # Create count configuration for single-end data
+        count_config <- normr::countConfigSingleEnd(
             binsize = NORMR_CONFIG$bin_size,
             mapq = NORMR_CONFIG$min_mapq,
-            paired = FALSE  # Specify single-end data
+            filteredFlag = 1024,  # Filter duplicates
+            shift = 0  # No shift in 3' direction
         )
 
-        # Get count matrices
-        treatment_counts <- count_data$treatment
-        control_counts <- count_data$control
-
-        # Find valid bins (no NA, infinite, or zero in both)
-        valid_bins <- !is.na(treatment_counts) & 
-                     !is.na(control_counts) & 
-                     !is.infinite(treatment_counts) & 
-                     !is.infinite(control_counts) &
-                     !(treatment_counts == 0 & control_counts == 0)
-
         if (DEBUG_CONFIG$verbose) {
-            total_bins <- length(treatment_counts)
-            filtered_bins <- sum(!valid_bins)
-            message(sprintf("Total bins: %d", total_bins))
-            message(sprintf("Filtered bins: %d (%.2f%%)", 
-                    filtered_bins, 
-                    100 * filtered_bins/total_bins))
+            message("\nStarting enrichment analysis...")
+            message(sprintf("Processing ChIP: %s", basename(chip_bam)))
+            message(sprintf("Using Input: %s", basename(input_bam)))
         }
 
-        # Create filtered count data
-        filtered_count_data <- list(
-            treatment = treatment_counts[valid_bins],
-            control = control_counts[valid_bins],
-            regions = count_data$regions[valid_bins]
-        )
-
-        # Run normR enrichR with filtered data
+        # Run normR enrichR with count configuration
         enrichment_results <- normr::enrichR(
-            treatment = filtered_count_data$treatment,
-            control = filtered_count_data$control,
-            genome = genome_info
+            treatment = chip_bam,
+            control = input_bam,
+            genome = genome_info,
+            countConfig = count_config,
+            iterations = NORMR_CONFIG$iterations,
+            procs = NORMR_CONFIG$processors,
+            verbose = DEBUG_CONFIG$verbose
         )
 
-
-        # Extract and display enrichment statistics
         if (DEBUG_CONFIG$verbose) {
-            # Get q-values and enrichment scores
-            qvals <- normr::getQvalues(enrichment_results)
-            enrichment_scores <- normr::getEnrichment(enrichment_results)
+            # Collect all statistics
+            stats <- list(
+                # Count statistics
+                counts = normr::getCounts(enrichment_results),
+                qvals = normr::getQvalues(enrichment_results),
+                enrichment_scores = normr::getEnrichment(enrichment_results),
+                peak_classes = normr::getClasses(enrichment_results)
+            )
 
-            # Calculate peaks at different q-value thresholds
-            enrichment_stats <- sapply(NORMR_CONFIG$fdr_thresholds, function(threshold) {
-                sum(!is.na(qvals) & qvals <= threshold)
+            # Calculate derived statistics
+            stats$total_bins <- length(stats$counts$treatment)
+            stats$zero_bins <- sum(stats$counts$treatment == 0 & stats$counts$control == 0)
+            stats$enrichment_by_threshold <- sapply(NORMR_CONFIG$fdr_thresholds, function(threshold) {
+                sum(!is.na(stats$qvals) & stats$qvals <= threshold)
             })
+            stats$sig_regions <- !is.na(stats$qvals) & stats$qvals <= NORMR_CONFIG$default_fdr
 
-            message("\nPeak Calling Results:")
-            message("----------------------------------------")
-            message(sprintf("Sample: %s vs Control: %s", chip_id, input_id))
-            message(sprintf("Total regions analyzed: %d", length(enrichment_results)))
+            # Print comprehensive analysis report
+            message("\n=== normR Peak Calling Analysis Report ===")
+            message("\n1. Sample Information:")
+            message(sprintf("   Treatment: %s", chip_id))
+            message(sprintf("   Control: %s", input_id))
 
-            message("\nEnriched Regions Found:")
-            message(sprintf("- Strong peaks (q <= 1%%): %d", enrichment_stats[1]))
-            message(sprintf("- Medium peaks (q <= 5%%): %d", enrichment_stats[2]))
-            message(sprintf("- Weak peaks (q <= 10%%): %d", enrichment_stats[3]))
+            message("\n2. Count Statistics:")
+            message(sprintf("   Total bins analyzed: %d", stats$total_bins))
+            message(sprintf("   Empty bins (zero in both): %d (%.2f%%)", 
+                    stats$zero_bins, 
+                    100 * stats$zero_bins/stats$total_bins))
+            message(sprintf("   Mean treatment counts: %.2f", mean(stats$counts$treatment)))
+            message(sprintf("   Mean control counts: %.2f", mean(stats$counts$control)))
 
-            # Get significant regions and their enrichment scores
-            sig_regions <- !is.na(qvals) & qvals <= NORMR_CONFIG$default_fdr
-            if (any(sig_regions)) {
-                mean_enrich <- mean(enrichment_scores[sig_regions])
-                message(sprintf("\nMean enrichment score (q <= 5%%): %.2f", mean_enrich))
+            message("\n3. Peak Statistics:")
+            message(sprintf("   Strong peaks (q <= 1%%): %d", stats$enrichment_by_threshold[1]))
+            message(sprintf("   Medium peaks (q <= 5%%): %d", stats$enrichment_by_threshold[2]))
+            message(sprintf("   Weak peaks (q <= 10%%): %d", stats$enrichment_by_threshold[3]))
 
-                # Get peak classifications
-                peak_classes <- normr::getClasses(enrichment_results)
-                enriched_count <- sum(!is.na(peak_classes) & peak_classes == 1)
-                message(sprintf("Regions classified as enriched: %d", enriched_count))
+            if (any(stats$sig_regions)) {
+                message("\n4. Enrichment Statistics:")
+                message(sprintf("   Mean enrichment score (q <= 5%%): %.2f", 
+                        mean(stats$enrichment_scores[stats$sig_regions])))
+                enriched_count <- sum(!is.na(stats$peak_classes) & stats$peak_classes == 1)
+                message(sprintf("   Regions classified as enriched: %d", enriched_count))
             }
 
-            # Context for S. cerevisiae ORC
-            message("\nContext:")
-            message("Previous studies identified ~250-400 ORC binding sites in S. cerevisiae")
-            if (enrichment_stats[2] < NORMR_CONFIG$expected_peak_range$min) {
-                message("WARNING: Fewer peaks than expected for ORC binding")
-            } else if (enrichment_stats[2] > NORMR_CONFIG$expected_peak_range$max) {
-                message("WARNING: More peaks than expected for ORC binding")
+            message("\n5. Biological Context:")
+            message("   Expected: 250-400 ORC binding sites in S. cerevisiae")
+            if (stats$enrichment_by_threshold[2] < NORMR_CONFIG$expected_peak_range$min) {
+                message("   WARNING: Fewer peaks than expected for ORC binding")
+            } else if (stats$enrichment_by_threshold[2] > NORMR_CONFIG$expected_peak_range$max) {
+                message("   WARNING: More peaks than expected for ORC binding")
             } else {
-                message("Peak count is within expected range for ORC binding")
+                message("   Peak count is within expected range for ORC binding")
             }
 
-            message("----------------------------------------\n")
+            message("\n=========================================\n")
         }
 
         # Document regions for visualization
         if (!DEBUG_CONFIG$dry_run) {
+            # Get genomic ranges from enrichment results
+            ranges <- normr::getRanges(enrichment_results)
+            counts <- normr::getCounts(enrichment_results)
+
             # Create detailed region information
             region_info <- data.frame(
-                chromosome = seqnames(filtered_count_data$regions),
-                start = start(filtered_count_data$regions),
-                end = end(filtered_count_data$regions),
-                treatment_count = filtered_count_data$treatment,
-                control_count = filtered_count_data$control,
+                chromosome = seqnames(ranges),
+                start = start(ranges),
+                end = end(ranges),
+                treatment_count = counts$treatment,
+                control_count = counts$control,
                 enrichment = normr::getEnrichment(enrichment_results),
                 qvalue = normr::getQvalues(enrichment_results),
                 peak_class = normr::getClasses(enrichment_results)
@@ -470,13 +470,14 @@ for (file in files_to_process) {
             regions_output <- file.path(
                 peak_dir,
                 sprintf(
-                    "regions_%s_%s_vs_%s_%s_normr.tsv",
+                    NORMR_CONFIG$region_file_template,
                     TIMESTAMPS$full,
                     sample_id_mapping[chip_id],
                     sample_id_mapping[input_id],
-                    "normr"
+                    "peaks"
                 )
             )
+
             write.table(
                 region_info,
                 file = regions_output,
@@ -492,11 +493,11 @@ for (file in files_to_process) {
             bedgraph_output <- file.path(
                 peak_dir,
                 sprintf(
-                    "enrichment_%s_%s_vs_%s_%s_normr.bedGraph",
+                    NORMR_CONFIG$bedgraph_template,
                     TIMESTAMPS$full,
                     sample_id_mapping[chip_id],
                     sample_id_mapping[input_id],
-                    "normr"
+                    "peaks"
                 )
             )
 
@@ -508,16 +509,15 @@ for (file in files_to_process) {
                 row.names = FALSE,
                 col.names = FALSE
             )
-        }
 
-        # Export results if not in dry run mode
-        if (!DEBUG_CONFIG$dry_run) {
+            # Export enrichment results in BED format
             normr::exportR(
                 obj = enrichment_results,
                 filename = output_path,
                 type = "bed"
             )
         }
+
     }, error = function(e) {
         message(sprintf("Error processing sample %s: %s",
                        chip_id,
