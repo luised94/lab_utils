@@ -124,39 +124,6 @@ EXPERIMENT_CONFIG <- list(
     )
 )
 
-
-################################################################################
-# DEBUG CONFIGURATIONS
-################################################################################
-DEBUG_CONFIG <- list(
-    # Runtime control
-    enabled = TRUE,
-    interactive = FALSE,
-    verbose = TRUE,
-    validate_config = TRUE,
-    
-    # Processing scope
-    comparison = "comp_1108forNoneAndWT",
-    chromosome = 10,
-    group = 10,
-    samples_per_group = 4,
-    
-    # Output control
-    save_plots = FALSE,
-    dry_run = TRUE,
-    display_time = 2
-)
-
-################################################################################
-# TIMESTAMP CONFIGURATIONS
-################################################################################
-TIMESTAMP_CONFIG <- list(
-    timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
-    date_format = "%Y%m%d"               # YYYYMMDD
-)
-TIMESTAMP_CONFIG$full <- format(Sys.time(), TIME_CONFIG$timestamp_format)
-TIMESTAMP_CONFIG$date <- format(Sys.time(), TIME_CONFIG$date_format)
-
 ################################################################################
 # Configuration Validation
 ################################################################################
@@ -214,3 +181,164 @@ validate_column_order(
 )
 
 cat("\n[VALIDATED] Experiment configuration loaded successfully\n")
+
+################################################################################
+# DEBUG CONFIGURATIONS
+################################################################################
+DEBUG_CONFIG <- list(
+    # Runtime control
+    enabled = TRUE,
+    interactive = FALSE,
+    verbose = TRUE,
+    validate_config = TRUE,
+    
+    # Processing scope
+    comparison = "comp_1108forNoneAndWT",
+    chromosome = 10,
+    group = 10,
+    samples_per_group = 4,
+    
+    # Output control
+    save_plots = FALSE,
+    dry_run = TRUE,
+    display_time = 2
+)
+
+DEBUG_CONFIG <- list( # !! UPDATE THIS
+    single_file_mode = FALSE,           # Test single file in main logic.
+    verbose = TRUE,           # Print processing details
+    interactive = TRUE,       # Allow interactive processing
+    dry_run = FALSE,         # Skip file writes
+    files_to_process_idx = 1  # Process specific files in debug mode
+)
+DEBUG_CONFIG <- list(
+    enabled = FALSE,           # TRUE for testing single group, FALSE for all
+    group = 10,               # Which group to process when in debug mode
+    samples_per_group = 4,    # Samples per plot
+    save_plots = TRUE,       # Whether to save plots to files
+    verbose = TRUE,           # Print debug information
+    chromosome = 10,
+    interactive = FALSE,
+    display_time = 2
+)
+################################################################################
+# TIMESTAMP CONFIGURATIONS
+################################################################################
+TIMESTAMP_CONFIG <- list(
+    timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
+    date_format = "%Y%m%d"               # YYYYMMDD
+)
+TIMESTAMP_CONFIG$full <- format(Sys.time(), TIME_CONFIG$timestamp_format)
+TIMESTAMP_CONFIG$date <- format(Sys.time(), TIME_CONFIG$date_format)
+
+################################################################################
+# VISUALIZATION AND DISPLAY CONFIGURATIONS
+################################################################################
+VIEWER_CONFIG <- list(
+    base_dir = file.path(Sys.getenv("HOME"), "data"),
+    patterns = list(
+        svg = "\\.svg$",
+        timestamp = "^[0-9]{8}_[0-9]{6}",  # YYYYMMDD_HHMMSS
+        experiment = "^[0-9]{6}Bel"
+    ),
+    device = list(
+        width = 10,
+        height = 8
+    )
+)
+GENOME_TRACK_CONFIG <- list(
+    # Basic plot settings
+    dimensions = list(
+        width = 10,
+        height = 8
+    ),
+    
+    # Track configuration
+    tracks = list(
+        # Visual settings for all tracks
+        display = list(
+            width = 0.9,
+            fontface = 1,
+            cex = 0.6,
+            background = "white",
+            fontcolor = "black",
+            border_color = "#E0E0E0"
+        ),
+        
+        # Track-specific colors
+        colors = list(
+            placeholder = "#cccccc",
+            input = "#808080"
+        ),
+        
+        # Track name formatting
+        names = list(
+            format = "%s: %s",
+            control_format = "%s: %s - %s",
+            placeholder_suffix = "(No data)"
+        )
+    ),
+    
+    # Main title configuration
+    main_title = list(
+        mode = "development",  # or "publication"
+        development = list(
+            format = paste(
+                "%s",
+                "Comparison: %s",
+                "Chromosome %s (%d samples)",
+                "%s",
+                "Normalization: %s",
+                sep = "\n"
+            ),
+            cex = 0.7,      # Size specific to main title
+            fontface = 2    # Bold for main title
+        ),
+        publication = list(
+            format = "%s: Chr%s (%s)",
+            cex = 1,
+            fontface = 2
+        ),
+        format = list(
+            max_width = 40,
+            max_lines = 5
+        )
+    )
+)
+GENOME_TRACK_CONFIG <- list(
+    width = 10,
+    height = 8,
+    placeholder_color = "#cccccc",
+    input_color ="#808080",
+    track_name_format = "%s: %s - %s",
+    placeholder_suffix = "(No data)",
+    title_format = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
+
+)
+
+################################################################################
+# FASTQC PROCESSING CONFIGURATIONS
+################################################################################
+FASTQC_CONFIG <- list(
+    VERSION = "0.11.5",                    # Expected FastQC version
+    VERSION_PATTERN = "^##FastQC\\s+",     # Pattern to match version line
+    HEADER_PATTERN = "^##FastQC",          # Pattern to identify FastQC header
+    module_separator = ">>",
+    module_end = ">>END_MODULE",
+    header_prefix = "#",
+    fastqc_pattern = "fastqc_data",
+    output_suffix = ".tab",
+    qc_subdir = "quality_control",
+    existing_version_limit = 1,
+    module_names = character(0),
+    module_reference_file = file.path(
+        Sys.getenv("HOME"),
+        "data",
+        "fastqc_module_reference.rds"
+    )
+)
+
+FASTQC_CONFIG$FILE_PATTERN <- list(
+    REGEX = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
+    EXPECTED_FORMAT = "consolidated_XXXXXX_sequence_fastqc_data.txt"  # For error messages
+)
