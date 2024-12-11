@@ -121,8 +121,34 @@ EXPERIMENT_CONFIG <- list(
 )
 
 ################################################################################
+# DEBUG CONFIGURATIONS
+################################################################################
+DEBUG_CONFIG <- list(
+    # Runtime control
+    enabled = TRUE,
+    interactive = FALSE,
+    verbose = TRUE,
+    validate_config = TRUE,
+    
+    # Processing scope
+    comparison = "comp_1108forNoneAndWT",
+    chromosome = 10,
+    group = 10,
+    samples_per_group = 4,
+    
+    # Output control
+    save_plots = FALSE,
+    dry_run = TRUE,
+    display_time = 2
+)
+################################################################################
 # Configuration Validation
 ################################################################################
+experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+stopifnot(
+    "Experiment ID must be a character string" = is.character(experiment_id),
+    "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
+)
 source("~/lab_utils/core_scripts/functions_for_bmc_config_validation.R")
 
 # !! Update if you want thourough messages during validation.
