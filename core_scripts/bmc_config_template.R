@@ -146,6 +146,17 @@ DEBUG_CONFIG <- list(
     dry_run = TRUE,
     display_time = 2
 )
+
+################################################################################
+# TIMESTAMP CONFIGURATIONS
+################################################################################
+TIMESTAMP_CONFIG <- list(
+    timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
+    date_format = "%Y%m%d"               # YYYYMMDD
+)
+TIMESTAMP_CONFIG$full <- format(Sys.time(), TIME_CONFIG$timestamp_format)
+TIMESTAMP_CONFIG$date <- format(Sys.time(), TIME_CONFIG$date_format)
+
 ################################################################################
 # Configuration Validation
 ################################################################################
