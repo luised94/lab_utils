@@ -106,85 +106,75 @@ find "$OUTPUT_DIR" -type d -empty -delete
 
 echo "Processing completed. FASTQ files are in ${FASTQ_DIR}"
 
-echo "Consolidating FASTQ files..."
-#-------------------------------------------------------------------------------
-# Get unique sample names
-#-------------------------------------------------------------------------------
-declare -a UNIQUE_SAMPLES
-while IFS=: read -r sample _; do
-    base_name=$(echo "$sample" | awk -F'_rep' '{print $1}')
-    UNIQUE_SAMPLES+=("$base_name")
-done < <(printf '%s\n' "${SAMPLES[@]}")
+echo "Starting consolidation process..."
+ls -l "$FASTQ_DIR"
 
-# Remove duplicates
-UNIQUE_SAMPLES=($(printf '%s\n' "${UNIQUE_SAMPLES[@]}" | sort -u))
-
-echo "Found ${#UNIQUE_SAMPLES[@]} unique samples to process"
-
-#-------------------------------------------------------------------------------
-# Process each unique sample
-#-------------------------------------------------------------------------------
-for unique_sample in "${UNIQUE_SAMPLES[@]}"; do
-    echo "Processing $unique_sample..."
-    
-    # Find all SRR values for this sample
-    declare -a sample_srr
-    for sample in "${SAMPLES[@]}"; do
-        if [[ "$sample" == "$unique_sample"* ]]; then
-            IFS=: read -r _ srr _ <<< "$sample"
-            sample_srr+=("$srr")
-        fi
-    done
-    
-    # Get corresponding FASTQ files
-    declare -a files
-    for srr in "${sample_srr[@]}"; do
-        if [[ -f "${FASTQ_DIR}/${srr}.fastq" ]]; then
-            files+=("${FASTQ_DIR}/${srr}.fastq")
-        fi
-    done
-    
-    # Skip if no files found
-    if [[ ${#files[@]} -eq 0 ]]; then
-        echo "No files found for $unique_sample"
-        continue
+read -p "Continue with these files? (y/n): " confirm
+if [[ ! $confirm =~ ^[Yy]$ ]]; then
+    echo "Operation cancelled"
+    exit 0
+fi
+#
+# Group samples by GSM ID
+declare -A gsm_groups
+for sample in "${SAMPLES[@]}"; do
+    IFS=':' read -r name srr gsm <<< "$sample"
+    if [[ ! ${gsm_groups[$gsm]} ]]; then
+        gsm_groups[$gsm]=""
     fi
+    gsm_groups[$gsm]+="${FASTQ_DIR}/${srr}.fastq "
+done
+
+# Show consolidation plan
+echo -e "\nPlanned consolidation:"
+for gsm in "${!gsm_groups[@]}"; do
+    echo "GSM: $gsm"
+    echo "Files: ${gsm_groups[$gsm]}"
+    echo "---"
+done
+
+read -p "Proceed with consolidation? (y/n): " proceed
+if [[ ! $proceed =~ ^[Yy]$ ]]; then
+    echo "Consolidation cancelled"
+    exit 0
+fi
+# Process each GSM group
+for gsm in "${!gsm_groups[@]}"; do
+    echo "Processing GSM: $gsm"
     
-    # Get ID from first SRR number
-    id=${sample_srr[0]:3:6}
+    # Get first SRR for this group for naming
+    first_srr=$(echo "${SAMPLES[@]}" | tr ' ' '\n' | grep "$gsm" | head -n1 | cut -d: -f2)
+    id=${first_srr:3:6}
+    
+    files=${gsm_groups[$gsm]}
     output_file="${FASTQ_DIR}/consolidated_${id}_sequence.fastq"
     
-    echo "Consolidating files for $unique_sample into $output_file..."
+    echo "Consolidating files into $output_file..."
+    echo "Input files: $files"
     
-    # Consolidate files with proper quoting and error checking
-    if printf '%s\n' "${files[@]}" | xargs cat > "$output_file"; then
+    if cat $files > "$output_file"; then
         if [ -s "$output_file" ]; then
-            # Get size before and after
-            original_size=$(du -b "${files[@]}" | awk '{sum += $1} END {print sum}')
+            original_size=$(du -b $files | awk '{sum += $1} END {print sum}')
             new_size=$(du -b "$output_file" | awk '{print $1}')
-
+            
             echo "Original files total size: $original_size bytes"
             echo "New file size: $new_size bytes"
-
+            
             if [ "$new_size" -gt 0 ]; then
                 echo "Removing original files..."
-                rm -f "${files[@]}"
+                rm -f $files
                 echo "Original files removed"
             else
                 echo "Error: Consolidated file is empty"
                 rm -f "$output_file"
-                exit 1
+                continue
             fi
-        else
-            echo "Error: Consolidated file is empty"
-            rm -f "$output_file"
-            exit 1
         fi
     else
         echo "Error during consolidation"
         rm -f "$output_file"
-        exit 1
+        continue
     fi
 done
 
-echo "All consolidation completed successfully"
+echo "Consolidation completed"
