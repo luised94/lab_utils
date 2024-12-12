@@ -6,6 +6,10 @@
 # DATE: 2024-12-12
 # VERSION: 1.0.0
 #===============================================================================
+<<<<<<< HEAD
+=======
+
+>>>>>>> 48e7cdd (- Add Eaton2010 data download script using curl and sra-tools.)
 #-------------------------------------------------------------------------------
 # Setup SRA-tools
 #-------------------------------------------------------------------------------
@@ -70,7 +74,8 @@ for sample in "${SAMPLES[@]}"; do
     ACCESSIONS+=("$acc")
 done
 
-# Download and convert each SRA file
+# Download each SRA file and convert to FASTQ
+>>>>>>> 48e7cdd (- Add Eaton2010 data download script using curl and sra-tools.)
 for acc in "${ACCESSIONS[@]}"; do
     echo "Processing $acc..."
     
