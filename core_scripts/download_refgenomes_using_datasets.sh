@@ -9,6 +9,30 @@
 
 set -euo pipefail
 
+setup_ncbi_datasets() {
+    local tool="datasets"
+    
+    if command -v "$tool" &> /dev/null; then
+        return 0
+    fi
+
+    DATASETS_DIR=$(ls "${HOME}" | grep "ncbi-datasets-cli" | grep -v tar.gz)
+    if [[ -n "$DATASETS_DIR" ]]; then
+        echo "Found NCBI datasets CLI in ${HOME}/${DATASETS_DIR}"
+        export PATH="${PATH}:${HOME}/${DATASETS_DIR}/bin"
+        
+        if command -v "$tool" &> /dev/null; then
+            return 0
+        fi
+    fi
+
+    echo "Error: $tool not found"
+    echo "Please run ~/lab_utils/core_scripts/install_ncbi_datasets_cli.sh first"
+    exit 1
+}
+
+# Call this function before using datasets
+setup_ncbi_datasets
 #-------------------------------------------------------------------------------
 <<<<<<< HEAD
 # Setup NCBI datasets
