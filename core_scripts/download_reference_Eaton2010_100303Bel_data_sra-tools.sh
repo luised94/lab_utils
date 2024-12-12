@@ -106,7 +106,6 @@ find "$OUTPUT_DIR" -type d -empty -delete
 
 echo "Processing completed. FASTQ files are in ${FASTQ_DIR}"
 
-<<<<<<< HEAD
 echo "Starting consolidation process..."
 ls -l "$FASTQ_DIR"
 
@@ -170,10 +169,6 @@ for gsm in "${!gsm_groups[@]}"; do
                 rm -f "$output_file"
                 continue
             fi
-        else
-            echo "Error: Consolidated file is empty"
-            rm -f "$output_file"
-            exit 1
         fi
     else
         echo "Error during consolidation"
@@ -183,7 +178,6 @@ for gsm in "${!gsm_groups[@]}"; do
 done
 
 echo "Consolidation completed"
-
 echo -e "\nTo sync data manually, run the following command:\n"
 echo "rsync -avzP LOCAL_DIR/ REMOTE_HOST:REMOTE_DIR/"
 echo -e "\nReplace:\nLOCAL_DIR with ${HOME}/data/100303Bel\nREMOTE_HOST with your Luria username@luria.mit.edu\nREMOTE_DIR with ~/data/100303Bel"
