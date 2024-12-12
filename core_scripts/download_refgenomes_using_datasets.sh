@@ -9,6 +9,9 @@
 
 set -euo pipefail
 
+#-------------------------------------------------------------------------------
+# Setup NCBI datasets
+#-------------------------------------------------------------------------------
 setup_ncbi_datasets() {
     local tool="datasets"
     
@@ -31,10 +34,8 @@ setup_ncbi_datasets() {
     exit 1
 }
 
-# Call this function before using datasets
 setup_ncbi_datasets
 #-------------------------------------------------------------------------------
-<<<<<<< HEAD
 # Setup NCBI datasets
 #-------------------------------------------------------------------------------
 setup_ncbi_datasets() {
@@ -65,7 +66,6 @@ setup_ncbi_datasets
 #-------------------------------------------------------------------------------
 DOWNLOAD_DIR="$HOME/data/REFGENS"
 LOG_DIR="$HOME/data/REFGENS/logs"
-<<<<<<< HEAD
 DOWNLOAD_LOG="${LOG_DIR}/reference_genome_metadata.txt"
 
 # File naming patterns
@@ -182,7 +182,6 @@ for accession in "${ACCESSIONS[@]}"; do
         echo "Error: Extracted organism name is too short: $organism_name"
         exit 1
     fi
-
     echo "Reorganizing files for: $organism_name"
     
     # Move all files to root directory
