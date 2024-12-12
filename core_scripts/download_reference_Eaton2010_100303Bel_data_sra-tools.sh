@@ -6,7 +6,6 @@
 # DATE: 2024-12-12
 # VERSION: 1.0.0
 #===============================================================================
-
 #-------------------------------------------------------------------------------
 # Setup SRA-tools
 #-------------------------------------------------------------------------------
@@ -71,7 +70,7 @@ for sample in "${SAMPLES[@]}"; do
     ACCESSIONS+=("$acc")
 done
 
-# Download each SRA file and convert to FASTQ
+# Download and convert each SRA file
 for acc in "${ACCESSIONS[@]}"; do
     echo "Processing $acc..."
     
