@@ -89,3 +89,102 @@ for acc in "${ACCESSIONS[@]}"; do
     
     echo "Successfully processed $acc"
 done
+
+#-------------------------------------------------------------------------------
+# Cleanup and Consolidation
+#-------------------------------------------------------------------------------
+echo "Organizing files..."
+
+# Move all FASTQ files to FASTQ directory
+find "$OUTPUT_DIR" -type f -name "*.fastq" -exec mv {} "$FASTQ_DIR" \;
+
+# Remove all non-FASTQ files
+find "$OUTPUT_DIR" -type f ! -name "*.fastq" -delete
+
+# Remove empty directories
+find "$OUTPUT_DIR" -type d -empty -delete
+
+echo "Processing completed. FASTQ files are in ${FASTQ_DIR}"
+
+echo "Consolidating FASTQ files..."
+#-------------------------------------------------------------------------------
+# Get unique sample names
+#-------------------------------------------------------------------------------
+declare -a UNIQUE_SAMPLES
+while IFS=: read -r sample _; do
+    base_name=$(echo "$sample" | awk -F'_rep' '{print $1}')
+    UNIQUE_SAMPLES+=("$base_name")
+done < <(printf '%s\n' "${SAMPLES[@]}")
+
+# Remove duplicates
+UNIQUE_SAMPLES=($(printf '%s\n' "${UNIQUE_SAMPLES[@]}" | sort -u))
+
+echo "Found ${#UNIQUE_SAMPLES[@]} unique samples to process"
+
+#-------------------------------------------------------------------------------
+# Process each unique sample
+#-------------------------------------------------------------------------------
+for unique_sample in "${UNIQUE_SAMPLES[@]}"; do
+    echo "Processing $unique_sample..."
+    
+    # Find all SRR values for this sample
+    declare -a sample_srr
+    for sample in "${SAMPLES[@]}"; do
+        if [[ "$sample" == "$unique_sample"* ]]; then
+            IFS=: read -r _ srr _ <<< "$sample"
+            sample_srr+=("$srr")
+        fi
+    done
+    
+    # Get corresponding FASTQ files
+    declare -a files
+    for srr in "${sample_srr[@]}"; do
+        if [[ -f "${FASTQ_DIR}/${srr}.fastq" ]]; then
+            files+=("${FASTQ_DIR}/${srr}.fastq")
+        fi
+    done
+    
+    # Skip if no files found
+    if [[ ${#files[@]} -eq 0 ]]; then
+        echo "No files found for $unique_sample"
+        continue
+    fi
+    
+    # Get ID from first SRR number
+    id=${sample_srr[0]:3:6}
+    output_file="${FASTQ_DIR}/consolidated_${id}_sequence.fastq"
+    
+    echo "Consolidating files for $unique_sample into $output_file..."
+    
+    # Consolidate files with proper quoting and error checking
+    if printf '%s\n' "${files[@]}" | xargs cat > "$output_file"; then
+        if [ -s "$output_file" ]; then
+            # Get size before and after
+            original_size=$(du -b "${files[@]}" | awk '{sum += $1} END {print sum}')
+            new_size=$(du -b "$output_file" | awk '{print $1}')
+
+            echo "Original files total size: $original_size bytes"
+            echo "New file size: $new_size bytes"
+
+            if [ "$new_size" -gt 0 ]; then
+                echo "Removing original files..."
+                rm -f "${files[@]}"
+                echo "Original files removed"
+            else
+                echo "Error: Consolidated file is empty"
+                rm -f "$output_file"
+                exit 1
+            fi
+        else
+            echo "Error: Consolidated file is empty"
+            rm -f "$output_file"
+            exit 1
+        fi
+    else
+        echo "Error during consolidation"
+        rm -f "$output_file"
+        exit 1
+    fi
+done
+
+echo "All consolidation completed successfully"
