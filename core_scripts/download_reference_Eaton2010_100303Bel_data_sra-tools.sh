@@ -37,32 +37,41 @@ setup_sratools() {
     exit 1
 }
 
-# Check for required tools
-setup_sratools "prefetch"
-setup_sratools "fasterq-dump"
-
 #-------------------------------------------------------------------------------
 # Configuration
 #-------------------------------------------------------------------------------
-OUTPUT_DIR="${HOME}/data/Eaton2010"
-ACCESSIONS=(
-    "SRR034477"
-    "SRR034475"
-    "SRR034476"
-    "SRR034473"
-    "SRR034474"
-    "SRR034471"
-    "SRR034472"
-    "SRR034470"
+OUTPUT_DIR="${HOME}/data/100303Bel"
+FASTQ_DIR="${OUTPUT_DIR}/fastq"
+SAMPLES=(
+    "WT_G1_37C_Nucleosomes:SRR034477:GSM442537"
+    "WT_G2_ORC_rep1:SRR034475:GSM424494"
+    "WT_G2_ORC_rep2:SRR034476:GSM424494"
+    "orc1-161_G2_37C_Nucleosomes_rep1:SRR034473:GSM424493"
+    "orc1-161_G2_37C_Nucleosomes_rep2:SRR034474:GSM424493"
+    "WT_G2_37C_Nucleosomes_rep1:SRR034471:GSM424492"
+    "WT_G2_37C_Nucleosomes_rep2:SRR034472:GSM424492"
+    "WT_Asynchronous_23C_Nucleosomes:SRR034470:GSM424491"
 )
+
+# Check for required tools
+setup_sratools "prefetch"
+setup_sratools "fasterq-dump"
 
 #-------------------------------------------------------------------------------
 # Main Process
 #-------------------------------------------------------------------------------
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
+mkdir -p "$FASTQ_DIR"
 
-# Download each SRA file and convert to FASTQ
+# Extract accessions from SAMPLES array
+ACCESSIONS=()
+for sample in "${SAMPLES[@]}"; do
+    IFS=':' read -r _ acc _ <<< "$sample"
+    ACCESSIONS+=("$acc")
+done
+
+# Download and convert each SRA file
 for acc in "${ACCESSIONS[@]}"; do
     echo "Processing $acc..."
     
@@ -80,5 +89,3 @@ for acc in "${ACCESSIONS[@]}"; do
     
     echo "Successfully processed $acc"
 done
-
-echo "All processing completed."
