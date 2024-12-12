@@ -71,7 +71,7 @@ for sample in "${SAMPLES[@]}"; do
     ACCESSIONS+=("$acc")
 done
 
-# Download and convert each SRA file
+# Download each SRA file and convert to FASTQ
 for acc in "${ACCESSIONS[@]}"; do
     echo "Processing $acc..."
     
@@ -182,3 +182,4 @@ echo "Consolidation completed"
 echo -e "\nTo sync data manually, run the following command:\n"
 echo "rsync -avzP LOCAL_DIR/ REMOTE_HOST:REMOTE_DIR/"
 echo -e "\nReplace:\nLOCAL_DIR with ${HOME}/data/100303Bel\nREMOTE_HOST with your Luria username@luria.mit.edu\nREMOTE_DIR with ~/data/100303Bel"
+echo "All processing completed."
