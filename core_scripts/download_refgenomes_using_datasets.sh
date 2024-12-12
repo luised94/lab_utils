@@ -4,11 +4,14 @@
 # DESCRIPTION: Downloads and processes reference genomes using NCBI datasets
 # AUTHOR: [Your Name]
 # DATE: 2024-12-12
-# VERSION: 1.0.0
+# VERSION: 2.0.0
 #===============================================================================
 
 set -euo pipefail
 
+#-------------------------------------------------------------------------------
+# Setup NCBI datasets
+#-------------------------------------------------------------------------------
 setup_ncbi_datasets() {
     local tool="datasets"
     
@@ -31,13 +34,26 @@ setup_ncbi_datasets() {
     exit 1
 }
 
-# Call this function before using datasets
 setup_ncbi_datasets
 #-------------------------------------------------------------------------------
 # Configuration
 #-------------------------------------------------------------------------------
 DOWNLOAD_DIR="$HOME/data/REFGENS"
 LOG_DIR="$HOME/data/REFGENS/logs"
+DOWNLOAD_LOG="${LOG_DIR}/file_download_data.txt"
+
+# File naming patterns
+ORIGINAL_CDS="cds_from_genomic.fna"
+CDS_FILE="cds.fna"
+GENOMIC_PATTERN="*.fna"
+REFGENOME_SUFFIX="_reference.fna"
+NCBI_DATA="ncbi_dataset"
+
+mkdir -p "$LOG_DIR"
+
+#-------------------------------------------------------------------------------
+# Download and Process
+#-------------------------------------------------------------------------------
 ACCESSIONS=(
     "GCF_000146045.2"  # S. cerevisiae S288C
     "GCF_000001405.40" # Human
@@ -45,26 +61,17 @@ ACCESSIONS=(
     "GCA_002163515.1"  # S cerevisiae W303
 )
 
-#-------------------------------------------------------------------------------
-# Setup directories
-#-------------------------------------------------------------------------------
-mkdir -p "$DOWNLOAD_DIR"
-mkdir -p "$LOG_DIR"
-
-#-------------------------------------------------------------------------------
-# Download genomes
-#-------------------------------------------------------------------------------
 echo "Starting genome downloads..."
 
 for accession in "${ACCESSIONS[@]}"; do
     echo "Processing accession: $accession"
-    
-    # Create timestamped directory
-    timestamp=$(date +"%Y%m%d_%H%M%S")
-    target_dir="${DOWNLOAD_DIR}/${accession}_${timestamp}"
+    target_dir="${DOWNLOAD_DIR}/${accession}"
     mkdir -p "$target_dir"
     
-    echo "Downloading genome for $accession to $target_dir"
+    # Log download timestamp
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Downloading $accession" >> "$DOWNLOAD_LOG"
+    
+    # Download genome
     if ! datasets download genome accession "$accession" \
         --include genome,rna,cds,protein,gff3,gtf \
         --filename "${target_dir}/${accession}.zip"; then
@@ -72,12 +79,43 @@ for accession in "${ACCESSIONS[@]}"; do
         continue
     fi
     
-    echo "Extracting files..."
+    # Extract files
     unzip "${target_dir}/${accession}.zip" -d "$target_dir"
     rm "${target_dir}/${accession}.zip"
     
-    echo "Download and extraction complete for: $accession"
+    # Extract organism name from metadata
+    report_file="${target_dir}/${NCBI_DATA}/data/assembly_data_report.jsonl"
+    organism_name=$(grep -m 1 -o '"organismName":"[^"]*' "$report_file" | 
+                   cut -d '"' -f4 | 
+                   sed 's/ //g')
+    
+    if [ -z "$organism_name" ]; then
+        echo "Failed to extract organism name for $accession"
+        continue
+    fi
+    
+    echo "Reorganizing files for: $organism_name"
+    
+    # Move all files to root directory
+    find "$target_dir/${NCBI_DATA}/data/" -type f -exec mv -v {} "$target_dir/" \;
+    
+    # Rename CDS file if exists
+    if [ -f "${target_dir}/${ORIGINAL_CDS}" ]; then
+        mv -v "${target_dir}/${ORIGINAL_CDS}" "${target_dir}/${CDS_FILE}"
+    fi
+    
+    # Rename genomic file
+    find "$target_dir" -name "${GENOMIC_PATTERN}" ! -name "${CDS_FILE}" \
+        -exec mv -v {} "${target_dir}/${organism_name}${REFGENOME_SUFFIX}" \;
+    
+    # Cleanup
+    rm -rf "${target_dir}/${NCBI_DATA}"
+    
+    echo "Completed processing: $accession"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Completed $accession" >> "$DOWNLOAD_LOG"
 done
+
+echo "All operations completed successfully."
 
 #-------------------------------------------------------------------------------
 # Build Bowtie2 index (commented out)
