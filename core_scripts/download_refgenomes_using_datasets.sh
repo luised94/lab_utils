@@ -46,11 +46,23 @@ DOWNLOAD_LOG="${LOG_DIR}/file_download_data.txt"
 ORIGINAL_CDS="cds_from_genomic.fna"
 CDS_FILE="cds.fna"
 GENOMIC_PATTERN="*.fna"
-REFGENOME_SUFFIX="_reference.fna"
+REFGENOME_SUFFIX="_refgenome.fna"
 NCBI_DATA="ncbi_dataset"
 
 mkdir -p "$LOG_DIR"
 
+echo -e "\nConfiguration:"
+echo "Download directory: $DOWNLOAD_DIR"
+echo "Log directory: $LOG_DIR"
+echo "Download log file: $DOWNLOAD_LOG"
+echo -e "\nAccessions to process:"
+printf '%s\n' "${ACCESSIONS[@]}"
+
+read -p "Continue with these settings? (y/n): " confirm
+if [[ ! $confirm =~ ^[Yy]$ ]]; then
+    echo "Operation cancelled"
+    exit 0
+fi
 #-------------------------------------------------------------------------------
 # Download and Process
 #-------------------------------------------------------------------------------
@@ -66,6 +78,17 @@ echo "Starting genome downloads..."
 for accession in "${ACCESSIONS[@]}"; do
     echo "Processing accession: $accession"
     target_dir="${DOWNLOAD_DIR}/${accession}"
+
+    echo -e "\nProcessing details for $accession:"
+    echo "Target directory: $target_dir"
+    echo "Expected files: genome, RNA, CDS, protein, GFF3, GTF"
+    
+    read -p "Process this accession? (y/n): " process_confirm
+    if [[ ! $process_confirm =~ ^[Yy]$ ]]; then
+        echo "Skipping $accession"
+        continue
+    fi
+
     mkdir -p "$target_dir"
     
     # Log download timestamp
@@ -89,6 +112,18 @@ for accession in "${ACCESSIONS[@]}"; do
                    cut -d '"' -f4 | 
                    sed 's/ //g')
     
+    echo -e "\nExtracted information:"
+    echo "Organism name: $organism_name"
+    echo "Source directory: $target_dir"
+    echo "Target CDS file: ${target_dir}/${CDS_FILE}"
+    echo "Target genome file: ${target_dir}/${organism_name}${REFGENOME_SUFFIX}"
+    
+    read -p "Continue with file reorganization? (y/n): " reorg_confirm
+    if [[ ! $reorg_confirm =~ ^[Yy]$ ]]; then
+        echo "Skipping reorganization for $accession"
+        continue
+    fi
+
     if [ -z "$organism_name" ]; then
         echo "Failed to extract organism name for $accession"
         continue
