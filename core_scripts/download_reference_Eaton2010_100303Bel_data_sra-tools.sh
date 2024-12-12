@@ -105,6 +105,7 @@ find "$OUTPUT_DIR" -type d -empty -delete
 
 echo "Processing completed. FASTQ files are in ${FASTQ_DIR}"
 
+<<<<<<< HEAD
 echo "Starting consolidation process..."
 ls -l "$FASTQ_DIR"
 
