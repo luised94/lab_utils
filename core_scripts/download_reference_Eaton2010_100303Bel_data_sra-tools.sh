@@ -56,6 +56,7 @@ SAMPLES=(
 setup_sratools "prefetch"
 setup_sratools "fasterq-dump"
 
+#-------------------------------------------------------------------------------
 # Main Process
 #-------------------------------------------------------------------------------
 # Create output directory
