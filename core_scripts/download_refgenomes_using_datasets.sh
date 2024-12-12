@@ -40,7 +40,7 @@ setup_ncbi_datasets
 #-------------------------------------------------------------------------------
 DOWNLOAD_DIR="$HOME/data/REFGENS"
 LOG_DIR="$HOME/data/REFGENS/logs"
-DOWNLOAD_LOG="${LOG_DIR}/file_download_data.txt"
+DOWNLOAD_LOG="${LOG_DIR}/reference_genome_metadata.txt"
 
 # File naming patterns
 ORIGINAL_CDS="cds_from_genomic.fna"
@@ -146,8 +146,33 @@ for accession in "${ACCESSIONS[@]}"; do
     # Cleanup
     rm -rf "${target_dir}/${NCBI_DATA}"
     
+    # Rename directory to organism name
+    new_dir="${DOWNLOAD_DIR}/${organism_name}"
+    if [[ -d "$new_dir" ]]; then
+        echo "Warning: Directory $new_dir already exists"
+        read -p "Overwrite existing directory? (y/n): " overwrite_confirm
+        if [[ ! $overwrite_confirm =~ ^[Yy]$ ]]; then
+            echo "Skipping $accession"
+            continue
+        fi
+        rm -rf "$new_dir"
+    fi
+
+    echo "Renaming directory from ${target_dir} to ${new_dir}"
+    mv "$target_dir" "$new_dir"
+    target_dir="$new_dir"
+
+    # Log metadata
+    {
+        echo "----------------------------------------"
+        echo "Organism: $organism_name"
+        echo "Accession: $accession"
+        echo "Download Date: $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "Download Directory: $new_dir"
+        echo "----------------------------------------"
+    } >> "${new_dir}/reference_genome_metadata.txt"
     echo "Completed processing: $accession"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Completed $accession" >> "$DOWNLOAD_LOG"
+
 done
 
 echo "All operations completed successfully."
@@ -155,12 +180,12 @@ echo "All operations completed successfully."
 #-------------------------------------------------------------------------------
 # Build Bowtie2 index (commented out)
 #-------------------------------------------------------------------------------
-echo "Finding genome files for indexing..."
-mapfile -t genome_paths < <(find "${DOWNLOAD_DIR}" -type f -name "GCF*.fna" -o -name "GCA*.fna")
-
-for genome_path in "${genome_paths[@]}"; do
-    echo "Would index: $genome_path"
-    #bowtie2-build "$genome_path" "${genome_path%.fna}_index"
-done
-
-echo "All operations completed successfully."
+#echo "Finding genome files for indexing..."
+#mapfile -t genome_paths < <(find "${DOWNLOAD_DIR}" -type f -name "GCF*.fna" -o -name "GCA*.fna")
+#
+#for genome_path in "${genome_paths[@]}"; do
+#    echo "Would index: $genome_path"
+#    #bowtie2-build "$genome_path" "${genome_path%.fna}_index"
+#done
+#
+#echo "All operations completed successfully."
