@@ -71,7 +71,7 @@ for sample in "${SAMPLES[@]}"; do
     ACCESSIONS+=("$acc")
 done
 
-# Download and convert each SRA file
+# Download each SRA file and convert to FASTQ
 for acc in "${ACCESSIONS[@]}"; do
     echo "Processing $acc..."
     
