@@ -48,7 +48,12 @@ CDS_FILE="cds.fna"
 GENOMIC_PATTERN="*.fna"
 REFGENOME_SUFFIX="_refgenome.fna"
 NCBI_DATA="ncbi_dataset"
-
+ACCESSIONS=(
+    "GCF_000146045.2"  # S. cerevisiae S288C
+    "GCF_000001405.40" # Human
+    "GCF_000005845.2"  # E. coli
+    "GCA_002163515.1"  # S cerevisiae W303
+)
 mkdir -p "$LOG_DIR"
 
 echo -e "\nConfiguration:"
@@ -66,12 +71,6 @@ fi
 #-------------------------------------------------------------------------------
 # Download and Process
 #-------------------------------------------------------------------------------
-ACCESSIONS=(
-    "GCF_000146045.2"  # S. cerevisiae S288C
-    "GCF_000001405.40" # Human
-    "GCF_000005845.2"  # E. coli
-    "GCA_002163515.1"  # S cerevisiae W303
-)
 
 echo "Starting genome downloads..."
 
@@ -108,15 +107,34 @@ for accession in "${ACCESSIONS[@]}"; do
     
     # Extract organism name from metadata
     report_file="${target_dir}/${NCBI_DATA}/data/assembly_data_report.jsonl"
-    organism_name=$(grep -m 1 -o '"organismName":"[^"]*' "$report_file" | 
-                   cut -d '"' -f4 | 
-                   sed 's/ //g')
-    
+    #-------------------------------------------------------------------------------
+    # Extract and validate organism name
+    # The organism name is stored in a nested JSON structure within assembly_data_report.jsonl
+    # We need to handle two cases:
+    # 1. Using jq (preferred) for proper JSON parsing
+    # 2. Fallback to grep/sed for systems without jq
+    # The extraction removes spaces and special characters to create valid directory names
+    #-------------------------------------------------------------------------------
+    if command -v jq &> /dev/null; then
+        organism_name=$(jq -r '.organism.organismName' "$report_file" | 
+                       sed 's/ //g' | 
+                       tr -d '\n\r')
+    else
+        organism_name=$(grep -m 1 '"organismName":"[^"]*"' "$report_file" | 
+                       sed 's/.*"organismName":"\([^"]*\)".*/\1/' |
+                       sed 's/ //g' | 
+                       tr -d '\n\r')
+    fi
+
     echo -e "\nExtracted information:"
     echo "Organism name: $organism_name"
     echo "Source directory: $target_dir"
     echo "Target CDS file: ${target_dir}/${CDS_FILE}"
     echo "Target genome file: ${target_dir}/${organism_name}${REFGENOME_SUFFIX}"
+    echo -e "\nProposed directory naming:"
+    echo "Organism name extracted: $organism_name"
+    new_dir="${DOWNLOAD_DIR}/${organism_name}"
+    echo "New directory will be: $new_dir"
     
     read -p "Continue with file reorganization? (y/n): " reorg_confirm
     if [[ ! $reorg_confirm =~ ^[Yy]$ ]]; then
@@ -129,6 +147,16 @@ for accession in "${ACCESSIONS[@]}"; do
         continue
     fi
     
+    if [[ "$organism_name" =~ [^[:alnum:]] ]]; then
+        echo "Error: Extracted organism name contains invalid characters: $organism_name"
+        exit 1
+    fi
+    
+    if [[ ${#organism_name} -lt 3 ]]; then
+        echo "Error: Extracted organism name is too short: $organism_name"
+        exit 1
+    fi
+
     echo "Reorganizing files for: $organism_name"
     
     # Move all files to root directory
@@ -146,8 +174,6 @@ for accession in "${ACCESSIONS[@]}"; do
     # Cleanup
     rm -rf "${target_dir}/${NCBI_DATA}"
     
-    # Rename directory to organism name
-    new_dir="${DOWNLOAD_DIR}/${organism_name}"
     if [[ -d "$new_dir" ]]; then
         echo "Warning: Directory $new_dir already exists"
         read -p "Overwrite existing directory? (y/n): " overwrite_confirm
