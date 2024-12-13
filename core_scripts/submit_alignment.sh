@@ -25,5 +25,16 @@ if [ $FASTQ_COUNT -eq 0 ]; then
     exit 1
 fi
 
+echo -e "\nWill submit array job with following parameters:"
+echo "Array size: 1-${FASTQ_COUNT}"
+echo "Max simultaneous jobs: 16"
+echo "Script: run_bowtie2_array_alignment.sh"
+echo "Working directory: ${EXPERIMENT_DIR}"
+
+read -p "Proceed with job submission? (y/n): " confirm
+if [[ ! $confirm =~ ^[Yy]$ ]]; then
+    echo "Job submission cancelled"
+    exit 0
+fi
 # Submit job
 sbatch --array=1-${FASTQ_COUNT}%16 run_bowtie2_array_alignment.sh "$EXPERIMENT_DIR"
