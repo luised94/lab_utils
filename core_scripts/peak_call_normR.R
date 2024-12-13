@@ -91,7 +91,7 @@ for (pkg in required_packages) {
 ################################################################################
 # Directory Setup
 ################################################################################
-experiment_id <- "100303Bel"  # !! UPDATE THIS
+experiment_id <- "241010Bel"  # !! UPDATE THIS
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 bam_dir <- file.path(base_dir, "alignment")
 peak_dir <- file.path(base_dir, "peak")
@@ -409,7 +409,6 @@ for (file in files_to_process) {
                 fdr = NORMR_CONFIG$fdr_threshold
             )
         }
-
     }, error = function(e) {
         message(sprintf("Error processing sample %s: %s",
                        chip_id,
