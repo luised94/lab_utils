@@ -63,6 +63,7 @@ experiment_id <- args[["experiment-id"]]
 source(file.path("~/data", experiment_id, "documentation", 
                 paste0(experiment_id, "_bmc_config.R")))
 validate_configs(c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG"))
+################################################################################
 # Experiment ID Validation
 ################################################################################
 stopifnot(
