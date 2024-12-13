@@ -1,7 +1,6 @@
-*/sampleGridConfig.R
 repository_aggregate.md
 treestructure*.txt
-sampleGridConfig.R
+bmc_config.R
 slurm-*.out
 test.log
 Rplots.pdf
