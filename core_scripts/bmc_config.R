@@ -77,7 +77,7 @@ EXPERIMENT_CONFIG <- list(
         ),
         # Group 2: ORC antibody restrictions
         orc_restrictions = quote(
-            antibody == "ORC" & 
+            antibody == "ORC" &
             (temperature == "23" |                  # no ORC at 23øC
              cell_cycle %in% c("alpha", "async"))      # no ORC in alpha or async
         ),
@@ -139,6 +139,7 @@ DEBUG_CONFIG <- list(
     dry_run = TRUE,
     display_time = 2
 )
+
 ################################################################################
 # Configuration Validation
 ################################################################################
