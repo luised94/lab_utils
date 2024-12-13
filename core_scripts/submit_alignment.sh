@@ -1,7 +1,8 @@
 #!/bin/bash
 # submit_alignment.sh
 # Usage: $./submit_alignment.sh $HOME/data/<experiment_directory>
-
+#
+# Immediately exit if not on luria.
 if [[ "$(hostname)" != "luria" ]]; then
     echo "Error: This script must be run on luria cluster"
     exit 1
