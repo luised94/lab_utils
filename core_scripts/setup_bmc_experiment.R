@@ -76,7 +76,7 @@ DEBUG_CONFIG <- list(
 # Experiment ID Validation
 ################################################################################
 # !! Update experiment ID
-experiment_id <- "241122Bel"
+experiment_id <- "100303Bel"
 stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
     "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
@@ -101,6 +101,12 @@ required_modules <- list(
         required = TRUE
     )
 )
+
+bmc_configuration_definition_path <- required_modules[[
+    which(sapply(required_modules, function(x) 
+        x$description == "BMC Configuration"
+    ))
+]]$path
 
 # Validate module structure
 stopifnot(
@@ -179,7 +185,8 @@ data_directories <- c(
     "bigwig",
     "plots/genome_tracks/overview",
     "plots/genome_tracks/experimental_comparisons",
-    "documentation/dna_qc_traces"
+    "documentation/dna_qc_traces",
+    "documentation/config"
 )
 
 # Create directory structure
