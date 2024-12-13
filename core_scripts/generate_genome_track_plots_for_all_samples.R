@@ -5,7 +5,7 @@ DEBUG_CONFIG <- list(
     enabled = FALSE,           # TRUE for testing single group, FALSE for all
     group = 10,               # Which group to process when in debug mode
     samples_per_group = 4,    # Samples per plot
-    save_plots = TRUE,       # Whether to save plots to files
+    save_plots = FALSE,       # Whether to save plots to files
     verbose = TRUE,           # Print debug information
     chromosome = 10,
     interactive = FALSE,
