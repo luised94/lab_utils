@@ -55,75 +55,70 @@
 # !! Update EXPERIMENT_CONFIG if starting a new experiment.
 EXPERIMENT_CONFIG <- list(
     METADATA = list(
-        EXPERIMENT_ID = "241122Bel",
-        EXPECTED_SAMPLES = 65,
+        EXPERIMENT_ID = "100303Bel",
+        EXPECTED_SAMPLES = 5,
         VERSION = "1.0.0"
     ),
 
     CATEGORIES = list(
-        rescue_allele = c("NONE", "WT", "4R", "PS"),
-        auxin_treatment = c("NO", "YES"),
-        time_after_release = c("0", "1", "2"),
-        antibody = c("Input", "ProtG", "HM1108", "V5", "ALFA", "UM174")
+        orc_phenotype = c("WT", "orc1-161"),
+        cell_cycle = c("alpha", "nocodazole", "async"),
+        temperature = c("23", "37"),
+        antibody = c("ORC", "Nucleosomes")
     ),
 
     INVALID_COMBINATIONS = list(
-        rescue_allele_auxin_treatment = quote(rescue_allele %in% c("4R", "PS") & auxin_treatment == "NO"),
-        protg_time_after_release = quote(antibody == "ProtG" & time_after_release %in% c("1", "2")),
-        input_time_after_release = quote(antibody == "Input" & time_after_release %in% c("1", "2")),
-        input_rescue_allele_auxin_treatment = quote(antibody == "Input" & rescue_allele %in% c("NONE", "WT") & auxin_treatment == "YES")
-    ),
-
-    EXPERIMENTAL_CONDITIONS = list(
-        is_input = quote(time_after_release == "0" & antibody == "Input"),
-        is_protg = quote(rescue_allele == "WT" & time_after_release == "0" & antibody == "ProtG" & auxin_treatment == "NO"),
-        is_v5 = quote(antibody == "V5"),
-        is_alfa = quote(antibody == "ALFA"),
-        is_1108 = quote(antibody == "HM1108" & time_after_release == "0"),
-        is_174 = quote(antibody == "UM174")
-    ),
-
-    SAMPLE_CLASSIFICATIONS = list(
-        is_input = quote(antibody == "Input"),
-        is_negative = quote(
-            antibody == "ProtG" |  # Protein G negative control
-            (antibody == "V5" & rescue_allele == "NONE") | # No-tag control
-            (time_after_release == "0" & antibody == "UM174") | # MCM at G2
-            (auxin_treatment == "YES" & antibody == "ALFA") # Degradation of Orc4-ALFA.
+        # Group 1: orc1-161 restrictions
+        orc1_161_restrictions = quote(
+            orc_phenotype == "orc1-161" & 
+            (temperature == "23" |                  # no orc1-161 at 23øC
+             antibody == "ORC" |                    # no orc1-161 with ORC
+             cell_cycle %in% c("async", "alpha"))      # no orc1-161 in async or alpha
         ),
-        is_positive = quote(
-            (antibody == "HM1108") |  # Known working condition
-            (antibody == "V5" & rescue_allele == "WT") | # Test by removing rescue_allele condition.
-            (antibody == "UM174" & time_after_release %in% c("1", "2") & rescue_allele == "WT")
+        
+        # Group 2: ORC antibody restrictions
+        orc_restrictions = quote(
+            antibody == "ORC" & 
+            (temperature == "23" |                  # no ORC at 23øC
+             cell_cycle %in% c("alpha", "async"))      # no ORC in alpha or async
+        ),
+        
+        # Group 3: Nucleosome and temperature restrictions
+        nucleosome_temp_restrictions = quote(
+            (antibody == "Nucleosomes" & temperature == "23" & cell_cycle %in% c("alpha", "nocodazole")) | # no Nucleosomes at 23øC in alpha/nocodazole
+            (temperature == "37" & cell_cycle == "async")    # no async at 37øC
         )
     ),
 
+    EXPERIMENTAL_CONDITIONS = list(
+        is_orc = quote(orc_phenotype == "WT" & cell_cycle == "nocodazole" & antibody == "ORC"),
+        is_nucleosomes = quote(antibody == "Nucleosomes"),
+        is_wt_37c = quote(orc_phenotype == "WT" & temperature == "37"),
+        is_async = quote(orc_phenotype == "WT" & cell_cycle == "async" & temperature == "23")
+    ),
+
+    SAMPLE_CLASSIFICATIONS = list(
+        is_positive = quote(orc_phenotype == "WT" & antibody == "ORC"),
+        is_negative = quote(orc_phenotype == "orc1-161" & antibody == "ORC" & temperature == "37")
+    ),
+
     COMPARISONS = list(
-        comp_1108forNoneAndWT = quote(antibody == "HM1108" & rescue_allele %in% c("NONE", "WT")),
-        comp_1108forNoneAndWT_auxin = quote(antibody == "HM1108" & auxin_treatment == "YES"),
-        comp_timeAfterReleaseV5WT = quote(antibody == "V5" & rescue_allele == "WT" & auxin_treatment == "YES"),
-        comp_timeAfterReleaseV5NoTag = quote(antibody == "V5" & rescue_allele == "NONE" & auxin_treatment == "YES"),
-        comp_V5atTwoHours = quote(antibody == "V5" & time_after_release == "2" & auxin_treatment == "YES"),
-        comp_UM174atTwoHours = quote(antibody == "UM174" & time_after_release == "2" & auxin_treatment == "YES"),
-        comp_ALFAforNoRescueNoTreat = quote(antibody == "ALFA" & rescue_allele == "NONE" & auxin_treatment == "NO"),
-        comp_ALFAforNoRescueWithTreat = quote(antibody == "ALFA" & rescue_allele == "NONE" & auxin_treatment == "YES"),
-        comp_ALFAatTwoHoursForAllAlleles = quote(antibody == "ALFA" & time_after_release == "2" & auxin_treatment == "YES"),
-        comp_UM174atZeroHoursForAllAlleles = quote(antibody == "UM174" & time_after_release == "0" & auxin_treatment == "YES"),
-        comp_AuxinEffectOnUM174 = quote(antibody == "UM174" & time_after_release == "2" & rescue_allele %in% c("NONE", "WT"))
+        wt_vs_mutant = quote(orc_phenotype == "WT" | orc_phenotype == "orc1-161"),
+        temp_effect = quote(temperature == "23" | temperature == "37"),
+        cell_cycle_effect = quote(cell_cycle %in% c("alpha", "nocodazole", "async"))
     ),
 
     CONTROL_FACTORS = list(
-        genotype = c("rescue_allele")
+        genotype = c("orc_phenotype")
     ),
 
-    COLUMN_ORDER = c("antibody", "rescue_allele", "auxin_treatment", "time_after_release"),
+    COLUMN_ORDER = c("antibody", "orc_phenotype", "cell_cycle", "temperature"),
 
     NORMALIZATION = list(
         methods = c("CPM", "BPM", "RPGC", "RPKM"),
-        active = "CPM"  # Set via config
+        active = "CPM"
     )
 )
-
 
 ################################################################################
 # Configuration Validation
