@@ -102,6 +102,7 @@ config_path <- file.path(base_dir, "documentation", paste0(experiment_id, "_bmc_
 # Validate directories
 stopifnot(
     "Base directory does not exist" = dir.exists(base_dir),
+<<<<<<< HEAD
     "BAM directory does not exist" = dir.exists(bam_dir),
     "Metadata path file does not exist" = file.exists(metadata_path)
 )
