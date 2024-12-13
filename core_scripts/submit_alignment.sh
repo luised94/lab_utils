@@ -2,6 +2,11 @@
 # submit_alignment.sh
 # Usage: $./submit_alignment.sh $HOME/data/<experiment_directory>
 
+if [[ "$(hostname)" != "luria" ]]; then
+    echo "Error: This script must be run on luria cluster"
+    exit 1
+fi
+
 EXPERIMENT_DIR="$1"
 if [ -z "$EXPERIMENT_DIR" ]; then
     echo "Error: Experiment directory not provided"
@@ -25,6 +30,13 @@ if [ $FASTQ_COUNT -eq 0 ]; then
     exit 1
 fi
 
+# Format file listing with columns and headers
+echo -e "\nFASTQ files found:"
+echo "----------------"
+find "${EXPERIMENT_DIR}/fastq" -maxdepth 1 -type f -name "*.fastq" -exec basename {} \; | \
+    pr -3 -t -w 100 | \
+    column -t
+echo "----------------"
 echo -e "\nWill submit array job with following parameters:"
 echo "Array size: 1-${FASTQ_COUNT}"
 echo "Max simultaneous jobs: 16"
