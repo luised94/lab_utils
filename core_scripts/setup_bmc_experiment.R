@@ -69,14 +69,14 @@ DEBUG_CONFIG <- list(
     enabled = FALSE,
     verbose = TRUE,
     interactive = TRUE,
-    dry_run = FALSE
+    dry_run = TRUE
 )
 
 ################################################################################
 # Experiment ID Validation
 ################################################################################
 # !! Update experiment ID
-experiment_id <- "100303Bel"
+experiment_id <- "241122Bel"
 stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
     "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
@@ -226,11 +226,11 @@ invalid_idx <- Reduce(
 metadata <- subset(metadata, !invalid_idx)
 
 # Apply experimental conditions
-valid_idx <- Reduce(
-    `|`,
-    lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = metadata)
-)
-metadata <- subset(metadata, valid_idx)
+#valid_idx <- Reduce(
+#    `|`,
+#    lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = metadata)
+#)
+#metadata <- subset(metadata, valid_idx)
 
 # Verify sample count
 n_samples <- nrow(metadata)
