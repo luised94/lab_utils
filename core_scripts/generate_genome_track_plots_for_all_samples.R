@@ -62,6 +62,8 @@ base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 plots_dir <- file.path(base_dir, "plots", "genome_tracks", "overview")
 metadata_path <- file.path(base_dir, "documentation",
                           paste0(experiment_id, "_sample_grid.csv"))
+config_path <- file.path(base_dir, "documentation", paste0(experiment_id, "_bmc_config.R"))
+source(config_path)
 dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
 
 # 2. Find fastq files and extract sample IDs
