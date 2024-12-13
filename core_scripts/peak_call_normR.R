@@ -91,7 +91,7 @@ for (pkg in required_packages) {
 ################################################################################
 # Directory Setup
 ################################################################################
-experiment_id <- "100303Bel"  # !! UPDATE THIS
+experiment_id <- "241010Bel"  # !! UPDATE THIS
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 bam_dir <- file.path(base_dir, "alignment")
 peak_dir <- file.path(base_dir, "peak")
@@ -103,7 +103,8 @@ config_path <- file.path(base_dir, "documentation", paste0(experiment_id, "_bmc_
 stopifnot(
     "Base directory does not exist" = dir.exists(base_dir),
     "BAM directory does not exist" = dir.exists(bam_dir),
-    "Metadata path file does not exist" = file.exists(metadata_path)
+    "Metadata path file does not exist" = file.exists(metadata_path),
+    "BAM directory does not exist" = dir.exists(bam_dir)
 )
 
 # Create output directory if it doesn't exist
@@ -389,7 +390,6 @@ for (file in files_to_process) {
 
         # --- 4. Filter significant peaks ---
         significant_peaks <- ranges[!is.na(qvals) & qvals <= NORMR_CONFIG$default_fdr]
-        
         if (DEBUG_CONFIG$verbose) {
             message(sprintf("Number of significant peaks: %d", length(significant_peaks)))
             message(sprintf("FDR threshold used: %g", NORMR_CONFIG$fdr_threshold))
@@ -399,7 +399,6 @@ for (file in files_to_process) {
                                 counts$treatment[first_peak_index], counts$control[first_peak_index]))
             }
         }
-        
         # Export results if not in dry run mode
         if (!DEBUG_CONFIG$dry_run) {
             normr::exportR(
@@ -409,7 +408,6 @@ for (file in files_to_process) {
                 fdr = NORMR_CONFIG$fdr_threshold
             )
         }
-
     }, error = function(e) {
         message(sprintf("Error processing sample %s: %s",
                        chip_id,
