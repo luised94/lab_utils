@@ -1,6 +1,6 @@
 repository_aggregate.md
 treestructure*.txt
-bmc_config.R
+**/bmc_config.R
 slurm-*.out
 test.log
 Rplots.pdf
