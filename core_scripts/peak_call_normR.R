@@ -66,7 +66,7 @@ NORMR_CONFIG <- list(
 
     # Column specifications for region output
     region_columns = c(
-        "chromosome", "start", "end", 
+        "chromosome", "start", "end",
         "treatment_count", "control_count",
         "enrichment", "qvalue", "peak_class"
     )
@@ -103,10 +103,32 @@ for (pkg in required_packages) {
 }
 
 ################################################################################
+# Directory Setup
+################################################################################
+experiment_id <- "100303Bel"  # !! UPDATE THIS
+base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
+bam_dir <- file.path(base_dir, "alignment")
+peak_dir <- file.path(base_dir, "peak")
+metadata_path <- file.path(base_dir, "documentation",
+                          paste0(experiment_id, "_sample_grid.csv"))
+
+config_path <- file.path(base_dir, "documentation", paste0(experiment_id, "_bmc_config.R"))
+# Validate directories
+stopifnot(
+    "Base directory does not exist" = dir.exists(base_dir),
+    "BAM directory does not exist" = dir.exists(bam_dir)
+)
+
+# Create output directory if it doesn't exist
+if (!dir.exists(peak_dir)) {
+    dir.create(peak_dir, recursive = TRUE, showWarnings = FALSE)
+}
+
+################################################################################
 # Load and Validate Experiment Configuration and Dependencies
 ################################################################################
 # Bootstrap phase
-bootstrap_path <- normalizePath("~/lab_utils/core_scripts/functions_for_file_operations.R", 
+bootstrap_path <- normalizePath("~/lab_utils/core_scripts/functions_for_file_operations.R",
                               mustWork = FALSE)
 if (!file.exists(bootstrap_path)) {
     stop(sprintf("[FATAL] Bootstrap file not found: %s", bootstrap_path))
@@ -126,7 +148,7 @@ required_modules <- list(
         required = TRUE
     ),
     list(
-        path = "~/lab_utils/core_scripts/bmc_config.R",
+        path = config_path,
         description = "Load EXPERIMENT CONFIG object.",
         required = TRUE
     )
@@ -178,28 +200,6 @@ if (DEBUG_CONFIG$verbose) {
         ))
     }))
 }
-
-################################################################################
-# Directory Setup
-################################################################################
-experiment_id <- "241010Bel"  # !! UPDATE THIS
-base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
-bam_dir <- file.path(base_dir, "alignment")
-peak_dir <- file.path(base_dir, "peak")
-metadata_path <- file.path(base_dir, "documentation",
-                          paste0(experiment_id, "_sample_grid.csv"))
-
-# Validate directories
-stopifnot(
-    "Base directory does not exist" = dir.exists(base_dir),
-    "BAM directory does not exist" = dir.exists(bam_dir)
-)
-
-# Create output directory if it doesn't exist
-if (!dir.exists(peak_dir)) {
-    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-}
-
 
 ################################################################################
 # File Discovery and Validation
@@ -318,7 +318,7 @@ sample_statistics <- data.frame(
     within_expected_range = logical(),
     stringsAsFactors = FALSE
 )
-
+stop("this is the strategic breakpoint.")
 for (file in files_to_process) {
     # Find control sample
     control_sample <- find_control_sample(
@@ -373,8 +373,8 @@ for (file in files_to_process) {
     tryCatch({
         if (DEBUG_CONFIG$verbose) {
             message("\nStarting peak calling...")
-            message(sprintf("Genome size: %d bp across %d chromosomes", 
-                        sum(genome_info$size), 
+            message(sprintf("Genome size: %d bp across %d chromosomes",
+                        sum(genome_info$size),
                         nrow(genome_info)))
         }
 
@@ -433,8 +433,8 @@ for (file in files_to_process) {
 
             message("\n2. Count Statistics:")
             message(sprintf("   Total bins analyzed: %d", stats$total_bins))
-            message(sprintf("   Empty bins (zero in both): %d (%.2f%%)", 
-                    stats$zero_bins, 
+            message(sprintf("   Empty bins (zero in both): %d (%.2f%%)",
+                    stats$zero_bins,
                     100 * stats$zero_bins/stats$total_bins))
             message(sprintf("   Mean treatment counts: %.2f", mean(stats$counts$treatment)))
             message(sprintf("   Mean control counts: %.2f", mean(stats$counts$control)))
@@ -446,7 +446,7 @@ for (file in files_to_process) {
 
             if (any(stats$sig_regions)) {
                 message("\n4. Enrichment Statistics:")
-                message(sprintf("   Mean enrichment score (q <= 5%%): %.2f", 
+                message(sprintf("   Mean enrichment score (q <= 5%%): %.2f",
                         mean(stats$enrichment_scores[stats$sig_regions])))
                 enriched_count <- sum(!is.na(stats$peak_classes) & stats$peak_classes == 1)
                 message(sprintf("   Regions classified as enriched: %d", enriched_count))
@@ -504,7 +504,7 @@ for (file in files_to_process) {
             )
 
             # Export significant peaks in bedGraph format for genome browser
-            sig_peaks <- region_info[!is.na(region_info$peak_class) & 
+            sig_peaks <- region_info[!is.na(region_info$peak_class) &
                                    region_info$qvalue <= NORMR_CONFIG$default_fdr, ]
 
             bedgraph_output <- file.path(
@@ -549,7 +549,7 @@ for (file in files_to_process) {
             weak_peaks = stats$enrichment_by_threshold[3],
             mean_enrichment_score = if(any(stats$sig_regions)) mean(stats$enrichment_scores[stats$sig_regions]) else NA,
             enriched_regions = sum(!is.na(stats$peak_classes) & stats$peak_classes == 1),
-            within_expected_range = stats$enrichment_by_threshold[2] >= NORMR_CONFIG$expected_peak_range$min && 
+            within_expected_range = stats$enrichment_by_threshold[2] >= NORMR_CONFIG$expected_peak_range$min &&
                                   stats$enrichment_by_threshold[2] <= NORMR_CONFIG$expected_peak_range$max
         )
 
@@ -572,8 +572,8 @@ if (DEBUG_CONFIG$verbose && nrow(sample_statistics) > 0) {
     # Basic statistics
     message("\n1. Overall Processing Statistics:")
     message(sprintf("   Total samples processed: %d", nrow(sample_statistics)))
-    message(sprintf("   Samples within expected peak range: %d of %d", 
-                   sum(sample_statistics$within_expected_range), 
+    message(sprintf("   Samples within expected peak range: %d of %d",
+                   sum(sample_statistics$within_expected_range),
                    nrow(sample_statistics)))
 
     # Peak statistics
@@ -601,9 +601,9 @@ if (DEBUG_CONFIG$verbose && nrow(sample_statistics) > 0) {
         message("\n5. Samples Outside Expected Range:")
         outliers <- sample_statistics[!sample_statistics$within_expected_range, ]
         for (i in 1:nrow(outliers)) {
-            message(sprintf("   %s vs %s: %d peaks", 
-                          outliers$chip_id[i], 
-                          outliers$input_id[i], 
+            message(sprintf("   %s vs %s: %d peaks",
+                          outliers$chip_id[i],
+                          outliers$input_id[i],
                           outliers$medium_peaks[i]))
         }
     }

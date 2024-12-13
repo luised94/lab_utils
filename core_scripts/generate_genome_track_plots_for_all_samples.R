@@ -5,7 +5,7 @@ DEBUG_CONFIG <- list(
     enabled = FALSE,           # TRUE for testing single group, FALSE for all
     group = 10,               # Which group to process when in debug mode
     samples_per_group = 4,    # Samples per plot
-    save_plots = TRUE,       # Whether to save plots to files
+    save_plots = FALSE,       # Whether to save plots to files
     verbose = TRUE,           # Print debug information
     chromosome = 10,
     interactive = FALSE,
@@ -53,15 +53,16 @@ for (pkg in required_packages) {
 #source("~/lab_utils/core_scripts/all_functions.R")
 source("~/lab_utils/core_scripts/functions_for_genome_tracks.R")
 source("~/lab_utils/core_scripts/functions_for_metadata_processing.R")
-source("~/lab_utils/core_scripts/bmc_config.R")
 # Load metadata and files
 #-----------------------------------------------------------------------------
 #experiment_id <- "241007Bel"
-experiment_id <- "241010Bel"
+experiment_id <- "100303Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 plots_dir <- file.path(base_dir, "plots", "genome_tracks", "overview")
 metadata_path <- file.path(base_dir, "documentation",
                           paste0(experiment_id, "_sample_grid.csv"))
+config_path <- file.path(base_dir, "documentation", paste0(experiment_id, "_bmc_config.R"))
+source(config_path)
 dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
 
 # 2. Find fastq files and extract sample IDs
