@@ -92,7 +92,7 @@ for (pkg in required_packages) {
 ################################################################################
 # Directory Setup
 ################################################################################
-experiment_id <- "241010Bel"  # !! UPDATE THIS
+experiment_id <- "100303Bel"  # !! UPDATE THIS
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 bam_dir <- file.path(base_dir, "alignment")
 peak_dir <- file.path(base_dir, "peak")
@@ -108,7 +108,7 @@ stopifnot(
 
 # Create output directory if it doesn't exist
 if (!dir.exists(peak_dir)) {
-    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+    dir.create(peak_dir, recursive = TRUE, showWarnings = FALSE)
 }
 
 ################################################################################
@@ -305,7 +305,7 @@ sample_statistics <- data.frame(
     within_expected_range = logical(),
     stringsAsFactors = FALSE
 )
-
+stop("this is the strategic breakpoint.")
 for (file in files_to_process) {
     # Find control sample
     control_sample <- find_control_sample(
