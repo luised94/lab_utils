@@ -56,7 +56,7 @@ source("~/lab_utils/core_scripts/functions_for_metadata_processing.R")
 # Load metadata and files
 #-----------------------------------------------------------------------------
 #experiment_id <- "241007Bel"
-experiment_id <- "241010Bel"
+experiment_id <- "100303Bel"
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 plots_dir <- file.path(base_dir, "plots", "genome_tracks", "overview")
 metadata_path <- file.path(base_dir, "documentation",
