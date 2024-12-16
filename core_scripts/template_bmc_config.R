@@ -135,6 +135,7 @@ TIME_CONFIG$date <- format(Sys.Date(), TIME_CONFIG$date_format)
 ################################################################################
 DEBUG_CONFIG <- list(
     # Runtime control
+    single_file_mode = FALSE,           # Test single file in main logic.
     enabled = TRUE,
     interactive = FALSE,
     verbose = TRUE,
@@ -145,19 +146,12 @@ DEBUG_CONFIG <- list(
     chromosome = 10,
     group = 10,
     samples_per_group = 4,
+    files_to_process_idx = 1,  # Process specific files in debug mode
     
     # Output control
     save_plots = FALSE,
     dry_run = TRUE,
     display_time = 2
-)
-
-DEBUG_CONFIG <- list( # !! UPDATE THIS
-    single_file_mode = FALSE,           # Test single file in main logic.
-    verbose = TRUE,           # Print processing details
-    interactive = TRUE,       # Allow interactive processing
-    dry_run = FALSE,         # Skip file writes
-    files_to_process_idx = 1  # Process specific files in debug mode
 )
 
 ################################################################################
@@ -251,14 +245,13 @@ PLOT_CONFIG <- list(
 )
 
 PLOT_CONFIG <- list(
-    width = 10,
+    #width = 10,
     height = 8,
     placeholder_color = "#cccccc",
     input_color ="#808080",
     track_name_format = "%s: %s - %s",
     placeholder_suffix = "(No data)",
     title_format = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
-
 )
 ################################################################################
 # Peak Calling Configurations
@@ -311,8 +304,9 @@ NORMR_CONFIG <- list(
     )
 )
 
-# Plot Viewer Configuration
-#-----------------------------------------------------------------------------
+################################################################################
+# Plot viewer configuration
+################################################################################
 VIEWER_CONFIG <- list(
     base_dir = file.path(Sys.getenv("HOME"), "data"),
     patterns = list(
