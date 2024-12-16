@@ -388,7 +388,7 @@ for (file in files_to_process) {
         stopifnot(is.numeric(peak_classes) | is.null(peak_classes))
 
         # --- 4. Filter significant peaks ---
-        significant_peaks <- ranges[!is.na(qvals) & qvals <= NORMR_CONFIG$fdr_threshold]
+        significant_peaks <- ranges[!is.na(qvals) & qvals <= NORMR_CONFIG$default_fdr]
         
         if (DEBUG_CONFIG$verbose) {
             message(sprintf("Number of significant peaks: %d", length(significant_peaks)))
