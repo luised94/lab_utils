@@ -244,7 +244,6 @@ stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
     "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
 )
->>>>>>> config_consolidation
 source("~/lab_utils/core_scripts/functions_for_bmc_config_validation.R")
 
 # !! Update if you want thourough messages during validation.
