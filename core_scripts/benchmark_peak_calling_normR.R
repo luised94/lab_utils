@@ -299,10 +299,31 @@ stopifnot(
 )
 
 ################################################################################
+# Load feature file (annotation)
+################################################################################
+feature_file <- list.files(
+    file.path(Sys.getenv("HOME"), "data", "feature_files"),
+    pattern = "eaton_peaks",
+    full.names = TRUE
+)[1]
+
+if (!is.null(feature_file)) {
+    features <- rtracklayer::import(feature_file)
+    # Convert to chrRoman format
+    GenomeInfoDb::seqlevels(features) <- paste0(
+        "chr",
+        utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
+    )
+}
+
+################################################################################
 # Process given control file.
 ################################################################################
 # Set the appropriate control for the given experiment.
 control_idx <- 7
+chromosome_to_plot <- 10
+chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
+chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
 #TODO: Add interactive that displays the chosen control to confirm benchmarking.
 # Find control sample
 control_sample <- find_control_sample(
@@ -311,21 +332,33 @@ control_sample <- find_control_sample(
     control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS
 )
 # Get sample IDs
-chip_id <- sorted_metadata[file, "sample_id"]
+chip_id <- sorted_metadata[control_idx, "sample_id"]
 input_id <- control_sample$sample_id
+track_name <- sprintf(
+    "%s: %s - %s",
+    sample_id_mapping[chip_id],
+    sorted_metadata$short_name[control_idx],
+    current_samples$antibody[control_idx]
+)
 if (DEBUG_CONFIG$verbose) {
     message(sprintf("Processing sample: %s", chip_id))
     message(sprintf("Using control sample: %s", input_id))
+    message(sprintf("Track name for visualization: %s", track_name))
 }
 # Find BAM files using grepl for more robust matching
 chip_bam <- bam_files[grepl(paste0("consolidated_", chip_id, "_sequence_to_S288C_sorted\\.bam$"), bam_files)]
 input_bam <- bam_files[grepl(paste0("consolidated_", input_id, "_sequence_to_S288C_sorted\\.bam$"), bam_files)]
+bigwig_file <- bigwig_files[grepl(chip_id, bigwig_files)][1]
+input_bigwig_file <- bigwig_files[grepl(input_bam, bigwig_files)][1]
+
 # Validate BAM files
 stopifnot(
     "ChIP BAM file not found" = length(chip_bam) == 1,
     "Input BAM file not found" = length(input_bam) == 1,
     "ChIP BAM file does not exist" = file.exists(chip_bam),
-    "Input BAM file does not exist" = file.exists(input_bam)
+    "Input BAM file does not exist" = file.exists(input_bam),
+    "ChIP bigwig file does not exist" = file.exists(bigwig_file)
+    "Input bigwig file does not exist" = file.exists(input_bigwig_file)
 )
 # Generate output filename using short IDs
 output_filename <- sprintf(
@@ -372,6 +405,7 @@ tryCatch({
         procs = NORMR_CONFIG$processors,
         verbose = DEBUG_CONFIG$verbose
     )
+
     ranges <- normr::getRanges(enrichment_results)
     counts <- normr::getCounts(enrichment_results)
     qvals <- normr::getQvalues(enrichment_results)
@@ -421,23 +455,26 @@ tryCatch({
     # Genome Track Plot
     # Use tryCatch to handle potential plotting errors gracefully
     tryCatch({
+
+        track_data <- rtracklayer::import(bigwig_file)
       plotTracks(list(
         Gviz::GenomeAxisTrack(),
+        Gviz::DataTrack(track_data, name = track_name, type = "l")
         Gviz::AnnotationTrack(top_500_peaks, name = "Top 500"),
         Gviz::AnnotationTrack(elbow_peaks, name = "Elbow Method"),
         Gviz::AnnotationTrack(bh_peaks, name = "BH FDR"),
         Gviz::AnnotationTrack(boot_peaks, name = "Bootstrap"),
-        Gviz::AnnotationTrack(previous_peaks, name = "Previous Study")
-      ), chromosome = "chrII", from = 200000, to = 400000) # Example region
+        Gviz::AnnotationTrack(features, name = "Eaton 2010")
+      ), chromosome = chromosome_roman)
     }, error = function(e) {
       print(paste("Error plotting tracks:", e$message))
     })
     
     # Overlap Calculation and Output
-    overlap_500 <- calculate_overlap(top_500_peaks, previous_peaks)
-    overlap_elbow <- calculate_overlap(elbow_peaks, previous_peaks)
-    overlap_bh <- calculate_overlap(bh_peaks, previous_peaks)
-    overlap_boot <- calculate_overlap(boot_peaks, previous_peaks)
+    overlap_500 <- calculate_overlap(top_500_peaks, features)
+    overlap_elbow <- calculate_overlap(elbow_peaks, features)
+    overlap_bh <- calculate_overlap(bh_peaks, features)
+    overlap_boot <- calculate_overlap(boot_peaks, features)
     
     print(paste("Top 500 overlap:", round(overlap_500$percent_overlap,2), "%"))
     print(paste("Elbow method overlap:", round(overlap_elbow$percent_overlap,2), "%"))
