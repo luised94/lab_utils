@@ -385,6 +385,7 @@ for (file in files_to_process) {
         # --- 4. Filter significant peaks ---
         significant_peaks <- ranges[!is.na(qvals) & qvals <= NORMR_CONFIG$default_fdr]
         if (RUNTIME_CONFIG$verbose) {
+
             message(sprintf("Number of significant peaks: %d", length(significant_peaks)))
             message(sprintf("FDR threshold used: %g", NORMR_CONFIG$fdr_threshold))
             if(length(significant_peaks) > 0) {
