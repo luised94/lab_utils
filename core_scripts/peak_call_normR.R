@@ -287,24 +287,6 @@ files_to_process <- if (DEBUG_CONFIG$single_file_mode) {
 } else {
     seq_along(bam_files)
 }
-# Initialize data.frame for gathering statistics.
-sample_statistics <- data.frame(
-    timestamp = character(),
-    chip_id = character(),
-    input_id = character(),
-    total_bins = integer(),
-    zero_bins = integer(),
-    zero_bins_percent = numeric(),
-    mean_treatment_counts = numeric(),
-    mean_control_counts = numeric(),
-    strong_peaks = integer(),  # q <= 0.01
-    medium_peaks = integer(),  # q <= 0.05
-    weak_peaks = integer(),    # q <= 0.10
-    mean_enrichment_score = numeric(),
-    enriched_regions = integer(),
-    within_expected_range = logical(),
-    stringsAsFactors = FALSE
-)
 stop("this is the strategic breakpoint.")
 for (file in files_to_process) {
     # Find control sample
@@ -393,6 +375,40 @@ for (file in files_to_process) {
             procs = NORMR_CONFIG$processors,
             verbose = DEBUG_CONFIG$verbose
         )
+
+        ranges <- normr::getRanges(enrichment_results)
+        stopifnot(class(ranges) == "GRanges")
+        counts <- normr::getCounts(enrichment_results)
+        stopifnot(is.list(counts))
+        qvals <- normr::getQvalues(enrichment_results)
+        stopifnot(is.numeric(qvals) | is.null(qvals))
+        enrichment_scores <- normr::getEnrichment(enrichment_results)
+        stopifnot(is.numeric(enrichment_scores))
+        peak_classes <- normr::getClasses(enrichment_results)
+        stopifnot(is.numeric(peak_classes) | is.null(peak_classes))
+
+        # --- 4. Filter significant peaks ---
+        significant_peaks <- ranges[!is.na(qvals) & qvals <= NORMR_CONFIG$fdr_threshold]
+        
+        if (DEBUG_CONFIG$verbose) {
+            message(sprintf("Number of significant peaks: %d", length(significant_peaks)))
+            message(sprintf("FDR threshold used: %g", NORMR_CONFIG$fdr_threshold))
+            if(length(significant_peaks) > 0) {
+                first_peak_index <- which(GenomicRanges::ranges(ranges) == GenomicRanges::ranges(significant_peaks[1]))
+                message(sprintf("First significant peak - Treatment count: %d, Control count: %d", 
+                                counts$treatment[first_peak_index], counts$control[first_peak_index]))
+            }
+        }
+        
+        # Export results if not in dry run mode
+        if (!DEBUG_CONFIG$dry_run) {
+            normr::exportR(
+                obj = enrichment_results,
+                filename = output_path,
+                type = "bed",
+                fdr = NORMR_CONFIG$fdr_threshold
+            )
+        }
 
     }, error = function(e) {
         message(sprintf("Error processing sample %s: %s",
