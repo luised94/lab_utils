@@ -121,6 +121,16 @@ EXPERIMENT_CONFIG <- list(
 )
 
 ################################################################################
+# Time Configurations
+################################################################################
+TIME_CONFIG <- list(
+    timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
+    date_format = "%Y%m%d"               # YYYYMMDD
+)
+TIME_CONFIG$full <- format(Sys.time(), TIME_CONFIG$timestamp_format)
+TIME_CONFIG$date <- format(Sys.Date(), TIME_CONFIG$date_format)
+
+################################################################################
 # DEBUG CONFIGURATIONS
 ################################################################################
 DEBUG_CONFIG <- list(
@@ -140,6 +150,180 @@ DEBUG_CONFIG <- list(
     save_plots = FALSE,
     dry_run = TRUE,
     display_time = 2
+)
+
+DEBUG_CONFIG <- list( # !! UPDATE THIS
+    single_file_mode = FALSE,           # Test single file in main logic.
+    verbose = TRUE,           # Print processing details
+    interactive = TRUE,       # Allow interactive processing
+    dry_run = FALSE,         # Skip file writes
+    files_to_process_idx = 1  # Process specific files in debug mode
+)
+
+################################################################################
+# Quality control configuration
+################################################################################
+FASTQC_CONFIG <- list(
+    VERSION = "0.11.5",                    # Expected FastQC version
+    VERSION_PATTERN = "^##FastQC\\s+",     # Pattern to match version line
+    HEADER_PATTERN = "^##FastQC",          # Pattern to identify FastQC header
+    module_separator = ">>",
+    module_end = ">>END_MODULE",
+    header_prefix = "#",
+    fastqc_pattern = "fastqc_data",
+    output_suffix = ".tab",
+    qc_subdir = "quality_control",
+    existing_version_limit = 1,
+    module_names = character(0),
+    module_reference_file = file.path(
+        Sys.getenv("HOME"),
+        "data",
+        "fastqc_module_reference.rds"
+    )
+)
+
+FASTQC_CONFIG$FILE_PATTERN <- list(
+    REGEX = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
+    EXPECTED_FORMAT = "consolidated_XXXXXX_sequence_fastqc_data.txt"  # For error messages
+)
+################################################################################
+# GENOME TRACK CONFIG
+################################################################################
+PLOT_CONFIG <- list(
+
+    # Basic plot settings
+    dimensions = list(
+        width = 10,
+        height = 8
+    ),
+    
+    # Track configuration
+    tracks = list(
+        # Visual settings for all tracks
+        display = list(
+            width = 0.9,
+            fontface = 1,
+            cex = 0.6,
+            background = "white",
+            fontcolor = "black",
+            border_color = "#E0E0E0"
+        ),
+        
+        # Track-specific colors
+        colors = list(
+            placeholder = "#cccccc",
+            input = "#808080"
+        ),
+        
+        # Track name formatting
+        names = list(
+            format = "%s: %s",
+            control_format = "%s: %s - %s",
+            placeholder_suffix = "(No data)"
+        )
+    ),
+    
+    # Main title configuration
+    main_title = list(
+        mode = "development",  # or "publication"
+        development = list(
+            format = paste(
+                "%s",
+                "Comparison: %s",
+                "Chromosome %s (%d samples)",
+                "%s",
+                "Normalization: %s",
+                sep = "\n"
+            ),
+            cex = 0.7,      # Size specific to main title
+            fontface = 2    # Bold for main title
+        ),
+        publication = list(
+            format = "%s: Chr%s (%s)",
+            cex = 1,
+            fontface = 2
+        ),
+        format = list(
+            max_width = 40,
+            max_lines = 5
+        )
+    )
+)
+
+PLOT_CONFIG <- list(
+    width = 10,
+    height = 8,
+    placeholder_color = "#cccccc",
+    input_color ="#808080",
+    track_name_format = "%s: %s - %s",
+    placeholder_suffix = "(No data)",
+    title_format = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
+
+)
+################################################################################
+# Peak Calling Configurations
+################################################################################
+NORMR_CONFIG <- list(
+    # Peak calling parameters
+    fdr_thresholds = c(0.01, 0.05, 0.1),
+    default_fdr = 0.000001,
+    bin_size = 100,  # Base pairs
+    min_mapq = 30,   # Minimum mapping quality
+
+    # S. cerevisiae ORC-specific parameters
+    expected_peak_range = list(
+        min = 100,
+        max = 500,
+        typical = 250:400
+    ),
+
+    # File patterns
+    bam_pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam$",
+    genome_pattern = "S288C_refgenome.fna",
+    # Output formatting
+    output_name_template = "%s_peaks_%s_vs_%s_%s.bed",  # timestamp, chip, input, package
+    region_file_template = "%s_regions_%s_vs_%s_%s.tsv",
+    bedgraph_template = "%s_enrichment_%s_vs_%s_%s.bedGraph",
+
+    # Genome requirements
+    expected_chromosomes = 16,
+    chromosome_prefix = "chr",
+
+    # Quality thresholds
+    min_enrichment_score = 1.5,
+    min_read_count = 10,
+
+    # Binning parameters
+    min_reads_per_bin = 1,
+    paired_end = FALSE,
+
+    # Count configuration
+    bin_size = 1000L,    # Reasonable bin size for yeast
+    min_mapq = 30L,      # High quality alignments
+    iterations = 10L,    # Number of EM iterations
+    processors = 1L,     # Number of processors to use
+
+    # Column specifications for region output
+    region_columns = c(
+        "chromosome", "start", "end",
+        "treatment_count", "control_count",
+        "enrichment", "qvalue", "peak_class"
+    )
+)
+
+# Plot Viewer Configuration
+#-----------------------------------------------------------------------------
+VIEWER_CONFIG <- list(
+    base_dir = file.path(Sys.getenv("HOME"), "data"),
+    patterns = list(
+        svg = "\\.svg$",
+        timestamp = "^[0-9]{8}_[0-9]{6}",  # YYYYMMDD_HHMMSS
+        experiment = "^[0-9]{6}Bel"
+    ),
+    device = list(
+        width = 10,
+        height = 8
+    )
 )
 ################################################################################
 # Configuration Validation
