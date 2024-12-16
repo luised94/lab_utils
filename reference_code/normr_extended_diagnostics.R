@@ -132,6 +132,25 @@ export_detailed_results <- function(enrichment_results, peak_dir, chip_id, input
 # }
 ################################################################################
 #######
+
+# Initialize data.frame for gathering statistics.
+#sample_statistics <- data.frame(
+#    timestamp = character(),
+#    chip_id = character(),
+#    input_id = character(),
+#    total_bins = integer(),
+#    zero_bins = integer(),
+#    zero_bins_percent = numeric(),
+#    mean_treatment_counts = numeric(),
+#    mean_control_counts = numeric(),
+#    strong_peaks = integer(),  # q <= 0.01
+#    medium_peaks = integer(),  # q <= 0.05
+#    weak_peaks = integer(),    # q <= 0.10
+#    mean_enrichment_score = numeric(),
+#    enriched_regions = integer(),
+#    within_expected_range = logical(),
+#    stringsAsFactors = FALSE
+#)
 #        if (DEBUG_CONFIG$verbose) {
 #            # Collect all statistics
 #            stats <- list(
