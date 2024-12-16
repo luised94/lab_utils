@@ -91,7 +91,7 @@ for (pkg in required_packages) {
 ################################################################################
 # Directory Setup
 ################################################################################
-experiment_id <- "100303Bel"  # !! UPDATE THIS
+experiment_id <- "241010Bel"  # !! UPDATE THIS
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 bam_dir <- file.path(base_dir, "alignment")
 peak_dir <- file.path(base_dir, "peak")
@@ -102,7 +102,8 @@ config_path <- file.path(base_dir, "documentation", paste0(experiment_id, "_bmc_
 # Validate directories
 stopifnot(
     "Base directory does not exist" = dir.exists(base_dir),
-    "BAM directory does not exist" = dir.exists(bam_dir)
+    "BAM directory does not exist" = dir.exists(bam_dir),
+    "Metadata path file does not exist" = file.exists(metadata_path)
 )
 
 # Create output directory if it doesn't exist
