@@ -80,7 +80,7 @@ TIMESTAMPS <- list(
 ################################################################################
 # Load Required Libraries
 ################################################################################
-required_packages <- c("normr", "GenomicRanges", "rtracklayer", "cosmo", "ggplot2", "Gviz")
+required_packages <- c("normr", "GenomicRanges", "rtracklayer", "cosmo", "ggplot2", "Gviz", "stats", "boot")
 for (pkg in required_packages) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
         stop(sprintf("Package '%s' is missing", pkg))
@@ -213,8 +213,19 @@ sample_ids <- gsub(
     x = basename(bam_files)
 )
 
+# Find bigwig files
+bigwig_pattern <- sprintf("_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
+bigwig_files <- list.files(
+    file.path(base_dir, "coverage"),
+    pattern = bigwig_pattern,
+    full.names = TRUE
+)
+normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1",
+                          basename(bigwig_files[1]))
+
 stopifnot(
     "No BAM files found" = length(bam_files) > 0,
+    "No bigwig files found" = length(bigwig_files) > 0,
     "No sample_ids found" = length(sample_ids) > 0,
     "Number of sample ids must match number of files" = length(bam_files) == length(sample_ids)
 )
@@ -376,13 +387,68 @@ tryCatch({
     elbow_peaks <- ranges[qvals <= find_elbow_point(qvals)$elbow_qval]
     
     # Benjamini-Hochberg FDR
-    bh_threshold <- max(p.adjust(qvals, method="BH") <= 0.05)
+    bh_threshold <- max(stats::p.adjust(qvals, method="BH") <= 0.05)
     bh_peaks <- ranges[qvals <= bh_threshold]
     
     # Bootstrapping (using 95% CI upper bound for conservativeness)
-    boot_results <- boot(qvals, bootstrap_elbow, R=1000)
-    ci <- boot.ci(boot_results, type="perc")
+    boot_results <- boot::boot(qvals, bootstrap_elbow, R=1000)
+    ci <- boot::boot.ci(boot_results, type="perc")
     boot_peaks <- ranges[qvals <= ci$percent[5]]
+
+    # --- Output and Visualization ---
+    # Print peak counts
+    print(paste("Number of top 500 peaks:", length(top_500_peaks)))
+    print(paste("Number of elbow peaks:", length(elbow_peaks)))
+    print(paste("Number of BH peaks:", length(bh_peaks)))
+    print(paste("Number of bootstrap peaks:", length(boot_peaks)))
+    
+    # Print Elbow Method Results
+    print("Elbow Method Results:")
+    print(paste("Elbow q-value:", elbow_results$elbow_qval))
+    print(paste("Elbow Peaks:", length(elbow_peaks)))
+    
+    # Print BH Threshold
+    print(paste("Benjamini-Hochberg threshold at 5% FDR:", bh_threshold))
+    
+    # Print Bootstrap Results
+    print(paste("95% CI for elbow q-value:", round(ci$percent[4], 6), "-", round(ci$percent[5], 6)))
+    
+    # Stability Check
+    stability_results <- stability_check(qvals)
+    print("Stability check results:")
+    print(stability_results)
+    
+    # Genome Track Plot
+    # Use tryCatch to handle potential plotting errors gracefully
+    tryCatch({
+      plotTracks(list(
+        Gviz::GenomeAxisTrack(),
+        Gviz::AnnotationTrack(top_500_peaks, name = "Top 500"),
+        Gviz::AnnotationTrack(elbow_peaks, name = "Elbow Method"),
+        Gviz::AnnotationTrack(bh_peaks, name = "BH FDR"),
+        Gviz::AnnotationTrack(boot_peaks, name = "Bootstrap"),
+        Gviz::AnnotationTrack(previous_peaks, name = "Previous Study")
+      ), chromosome = "chrII", from = 200000, to = 400000) # Example region
+    }, error = function(e) {
+      print(paste("Error plotting tracks:", e$message))
+    })
+    
+    # Overlap Calculation and Output
+    overlap_500 <- calculate_overlap(top_500_peaks, previous_peaks)
+    overlap_elbow <- calculate_overlap(elbow_peaks, previous_peaks)
+    overlap_bh <- calculate_overlap(bh_peaks, previous_peaks)
+    overlap_boot <- calculate_overlap(boot_peaks, previous_peaks)
+    
+    print(paste("Top 500 overlap:", round(overlap_500$percent_overlap,2), "%"))
+    print(paste("Elbow method overlap:", round(overlap_elbow$percent_overlap,2), "%"))
+    print(paste("BH FDR overlap:", round(overlap_bh$percent_overlap,2), "%"))
+    print(paste("Bootstrap overlap:", round(overlap_boot$percent_overlap,2), "%"))
+    
+    # Output unique peaks for further analysis if needed
+    #Example: write unique peaks from elbow method to bed file
+    #if(length(overlap_elbow$unique_peaks)>0){
+    #    rtracklayer::export(overlap_elbow$unique_peaks, "unique_elbow_peaks.bed", format = "BED")
+    #}
 
     # Export results if not in dry run mode
     if (!DEBUG_CONFIG$dry_run) {
