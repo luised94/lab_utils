@@ -161,6 +161,7 @@ Need to update the output directory to not nest plot directories. See script to 
 Update the instances of:
 - DEBUG_CONFIG enabled instances to single_file_mode.
 - PLOT_CONFIG dimensions and name for particular specific scripts and rename t genome_track_config.
+
 ## 2024-12-16
 Performed some benchmarking and simple scripts to analyze the 241010Bel dataset.
 I tried normR and the following methods for isolating significant peaks:
