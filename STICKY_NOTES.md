@@ -161,3 +161,16 @@ Need to update the output directory to not nest plot directories. See script to 
 Update the instances of:
 - DEBUG_CONFIG enabled instances to single_file_mode.
 - PLOT_CONFIG dimensions and name for particular specific scripts and rename t genome_track_config.
+## 2024-12-16
+Performed some benchmarking and simple scripts to analyze the 241010Bel dataset.
+I tried normR and the following methods for isolating significant peaks:
+1. taking the top 500.
+2. taking the extreme peaks (qvals == 0)
+3. using BH correction from the stats package.
+4. trying to find the elbow of the q values.
+None of these yielded peak sets that overlapped significantly with the eaton file.
+The input file and the HM1108 looked noisy so changed to a cleaner input and a V5 sample and that also didnt work to produce biologically significant peak sets.
+I plotted eaton and it looked ok. Furthremore, there is no input data so I cant use normR. Maybe I should have shifted at this time.
+I think I need to plot particular regions, see if I can install macs2 manually, use another R package and finally complete the quality control.
+I received the new repeat, so I can analyze that as well.
+Need to reach out to an expert to see if they can help me.
