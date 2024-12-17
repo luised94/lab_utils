@@ -69,7 +69,7 @@ DEBUG_CONFIG <- list(
     enabled = FALSE,
     verbose = TRUE,
     interactive = TRUE,
-    dry_run = TRUE
+    dry_run = FALSE
 )
 
 ################################################################################
@@ -93,10 +93,12 @@ if (!file.exists(bootstrap_path)) {
 }
 source(bootstrap_path)
 
+# !! Update the path and the file accordingly.
+config_path <- "~/bmc_config.R"
 # Define required dependencies
 required_modules <- list(
     list(
-        path = "~/lab_utils/core_scripts/bmc_config.R",
+        path = config_path,
         description = "BMC Configuration",
         required = TRUE
     )
