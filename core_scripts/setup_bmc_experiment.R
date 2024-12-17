@@ -76,7 +76,7 @@ DEBUG_CONFIG <- list(
 # Experiment ID Validation
 ################################################################################
 # !! Update experiment ID
-experiment_id <- "100303Bel"
+experiment_id <- "241122Bel"
 stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
     "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
