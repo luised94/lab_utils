@@ -2,6 +2,7 @@
 # Benchmarking peak calling sample processing using control sample
 ################################################################################
 # PURPOSE: Perform peak calling on ChIP-seq data using normR
+# Conclusion: normR results were too many regions. Filtering using significance, BH correction, top 500 peaks just did not produce significant sets that overlapped with the eaton bed files. Decided to move to macs2 installation.
 # USAGE: source("peak_calling_normr.R")
 # !! ----> REQUIRED UPDATES: experiment_id, input files paths
 # STRUCTURE: Configuration -> Validation -> Processing -> Output
