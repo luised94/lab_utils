@@ -25,7 +25,7 @@ DEBUG_CONFIG <- list(
 
 NORMR_CONFIG <- list(
     # Core analysis parameters
-    bin_size = 1000L,    # Base pairs, adjusted for yeast genome
+    bin_size = 100L,    # Base pairs, adjusted for yeast genome
     min_mapq = 30L,      # Minimum mapping quality for high-quality alignments
     iterations = 10L,    # Number of EM iterations
     processors = 1L,     # Number of processors to use
@@ -80,7 +80,7 @@ TIMESTAMPS <- list(
 ################################################################################
 # Load Required Libraries
 ################################################################################
-required_packages <- c("normr", "GenomicRanges", "rtracklayer", "ggplot2", "Gviz", "stats", "boot")
+required_packages <- c("IRanges", "normr", "GenomicRanges", "rtracklayer", "ggplot2", "Gviz", "stats", "boot")
 # add cosmo after manually installing
 for (pkg in required_packages) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
@@ -321,7 +321,9 @@ if (!is.null(feature_file)) {
 # Process given control file.
 ################################################################################
 # Set the appropriate control for the given experiment.
-control_idx <- 8
+# Suggestions: Try WT samples with 1108 and V5.
+# For 241010Bel, tried 8 for HM1108. Input for that sample is messed up. Will verify 18 which is V5. Use input 3 for control.
+control_idx <- 18
 chromosome_to_plot <- 10
 chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
 chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
@@ -329,14 +331,16 @@ chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
 print("Sample information as positive control")
 print(sorted_metadata[control_idx, ])
 # Find control sample
-control_sample <- find_control_sample(
-    experimental_sample = sorted_metadata[control_idx, ],
-    metadata = sorted_metadata,
-    control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS
-)
+#control_sample <- find_control_sample(
+#    experimental_sample = sorted_metadata[control_idx, ],
+#    metadata = sorted_metadata,
+#    control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS
+#)
 # Get sample IDs
 chip_id <- sorted_metadata[control_idx, "sample_id"]
-input_id <- control_sample$sample_id
+input_idx <- 3
+input_id <- sorted_metadata[input_idx, "sample_id"]
+#input_id <- control_sample$sample_id
 track_name <- sprintf(
     "%s: %s - %s",
     sample_id_mapping[chip_id],
@@ -412,6 +416,7 @@ tryCatch({
     ranges <- normr::getRanges(enrichment_results)
     counts <- normr::getCounts(enrichment_results)
     qvals <- normr::getQvalues(enrichment_results)
+    qvals <- qvals[!is.na(qvals)]
     stopifnot("Q-values must be numeric and between 0 and 1" = 
               is.numeric(qvals) && all(qvals >= 0 & qvals <= 1, na.rm = TRUE))
     enrichment_scores <- normr::getEnrichment(enrichment_results)
@@ -419,66 +424,135 @@ tryCatch({
 
     # Simple 500 peaks
     top_500_peaks <- ranges[order(qvals)[1:500]]
+    extreme_peaks <- ranges[qvals == 0]
+    # Check for overlaps
+    overlaps <- IRanges::findOverlaps(top_500_peaks, drop.self=TRUE, drop.redundant=TRUE)
+    print(length(overlaps))
     
+    # Merge overlapping ranges
+    merged_peaks <- IRanges::reduce(top_500_peaks)
+    print(length(merged_peaks))
+    extreme_merged_peaks <- IRanges::reduce(extreme_peaks)
+    print(length(extreme_merged_peaks))
     # Elbow method (using the geometric approach we discussed)
-    elbow_peaks <- ranges[!is.na(qvals) & qvals <= find_elbow_point(qvals)$elbow_qval]
+    #elbow_peaks <- ranges[!is.na(qvals) & qvals <= find_elbow_point(qvals)$elbow_qval]
     
     # Benjamini-Hochberg FDR
-    bh_threshold <- max(stats::p.adjust(qvals, method="BH") <= 0.05)
-    bh_peaks <- ranges[qvals <= bh_threshold]
+    #adjusted_pvals <- stats::p.adjust(qvals, method="BH")
+    #bh_peaks <- ranges[adjusted_pvals <= 0.05]
+    
+    # Or to get the actual threshold
+    #bh_threshold <- max(qvals[adjusted_pvals <= 0.000001])
+    
+    # Look at the distribution of adjusted p-values
+    #summary(adjusted_pvals)
+    #bh_peaks <- ranges[qvals <= bh_threshold]
     
     # Bootstrapping (using 95% CI upper bound for conservativeness)
-    boot_results <- boot::boot(qvals, bootstrap_elbow, R=1000)
-    ci <- boot::boot.ci(boot_results, type="perc")
-    boot_peaks <- ranges[qvals <= ci$percent[5]]
+    #boot_results <- boot::boot(qvals, bootstrap_elbow, R=1000)
+    #ci <- boot::boot.ci(boot_results, type="perc")
+    #boot_peaks <- ranges[qvals <= ci$percent[5]]
 
     # --- Output and Visualization ---
     # Print peak counts
-    print(paste("Number of top 500 peaks:", length(top_500_peaks)))
-    print(paste("Number of elbow peaks:", length(elbow_peaks)))
-    print(paste("Number of BH peaks:", length(bh_peaks)))
-    print(paste("Number of bootstrap peaks:", length(boot_peaks)))
+    #print(paste("Number of top 500 peaks:", length(top_500_peaks)))
+    #print(paste("Number of elbow peaks:", length(elbow_peaks)))
+    #print(paste("Number of BH peaks:", length(bh_peaks)))
+    #print(paste("Number of bootstrap peaks:", length(boot_peaks)))
     
     # Print Elbow Method Results
-    print("Elbow Method Results:")
-    print(paste("Elbow q-value:", elbow_results$elbow_qval))
-    print(paste("Elbow Peaks:", length(elbow_peaks)))
-    
-    # Print BH Threshold
-    print(paste("Benjamini-Hochberg threshold at 5% FDR:", bh_threshold))
-    
-    # Print Bootstrap Results
-    print(paste("95% CI for elbow q-value:", round(ci$percent[4], 6), "-", round(ci$percent[5], 6)))
-    
-    # Stability Check
-    stability_results <- stability_check(qvals)
-    print("Stability check results:")
-    print(stability_results)
+    #print("Elbow Method Results:")
+    #print(paste("Elbow q-value:", elbow_results$elbow_qval))
+    #print(paste("Elbow Peaks:", length(elbow_peaks)))
+    #
+    ## Print BH Threshold
+    #print(paste("Benjamini-Hochberg threshold at 5% FDR:", bh_threshold))
+    #
+    ## Print Bootstrap Results
+    #print(paste("95% CI for elbow q-value:", round(ci$percent[4], 6), "-", round(ci$percent[5], 6)))
+    #
+    ## Stability Check
+    #stability_results <- stability_check(qvals)
+    #print("Stability check results:")
+    #print(stability_results)
     
     # Genome Track Plot
     # Use tryCatch to handle potential plotting errors gracefully
     tryCatch({
 
         track_data <- rtracklayer::import(bigwig_file)
-      plotTracks(list(
+        input_track <- rtracklayer::import(input_bigwig_file)
+
+
+    filtered_tracks <- list(
         Gviz::GenomeAxisTrack(),
-        Gviz::DataTrack(track_data, name = track_name, type = "l")
-        Gviz::AnnotationTrack(top_500_peaks, name = "Top 500"),
-        Gviz::AnnotationTrack(elbow_peaks, name = "Elbow Method"),
-        Gviz::AnnotationTrack(bh_peaks, name = "BH FDR"),
-        Gviz::AnnotationTrack(boot_peaks, name = "Bootstrap"),
-        Gviz::AnnotationTrack(features, name = "Eaton 2010")
-      ), chromosome = chromosome_roman)
+        Gviz::DataTrack(
+            track_data[GenomicRanges::seqnames(track_data) == chromosome_roman], 
+            name = track_name, 
+            type = "l"
+        ),
+        Gviz::DataTrack(
+            input_track[GenomicRanges::seqnames(input_track) == chromosome_roman], 
+            name = "input", 
+            type = "l"
+        ),
+        Gviz::AnnotationTrack(
+            top_500_peaks[GenomicRanges::seqnames(top_500_peaks) == chromosome_roman], 
+            name = "Top 500"
+        ),
+        Gviz::AnnotationTrack(
+            extreme_peaks[GenomicRanges::seqnames(extreme_peaks) == chromosome_roman], 
+            name = "Extreme peaks"
+        ),
+        Gviz::AnnotationTrack(
+            merged_peaks,
+            name = " Merged Top 500"
+        ),
+        Gviz::AnnotationTrack(
+            extreme_merged_peaks,
+            name = "Merged Extreme peaks"
+        ),
+        Gviz::AnnotationTrack(
+            features[GenomicRanges::seqnames(features) == chromosome_roman], 
+            name = "Eaton 2010"
+        )
+    )
+    png("my_plot.png")
+    Gviz::plotTracks(
+        filtered_tracks,
+        chromosome = chromosome_roman,
+    )
+    dev.off()
+
+    filtered_tracks <- list(
+        Gviz::GenomeAxisTrack(),
+        Gviz::DataTrack(
+            track_data[GenomicRanges::seqnames(track_data) == chromosome_roman], 
+            name = track_name, 
+            type = "l"
+        ),
+        Gviz::DataTrack(
+            input_track[GenomicRanges::seqnames(input_track) == chromosome_roman], 
+            name = "input", 
+            type = "l"
+        )
+    )
+    png("my_plot_track.png")
+    Gviz::plotTracks(
+        filtered_tracks,
+        chromosome = chromosome_roman,
+    )
+    dev.off()
     }, error = function(e) {
       print(paste("Error plotting tracks:", e$message))
     })
     
     # Overlap Calculation and Output
     overlap_500 <- calculate_overlap(top_500_peaks, features)
-    overlap_elbow <- calculate_overlap(elbow_peaks, features)
-    overlap_bh <- calculate_overlap(bh_peaks, features)
-    overlap_boot <- calculate_overlap(boot_peaks, features)
-    
+    #overlap_elbow <- calculate_overlap(elbow_peaks, features)
+    #overlap_bh <- calculate_overlap(bh_peaks, features)
+    #overlap_boot <- calculate_overlap(boot_peaks, features)
+    #
     print(paste("Top 500 overlap:", round(overlap_500$percent_overlap,2), "%"))
     print(paste("Elbow method overlap:", round(overlap_elbow$percent_overlap,2), "%"))
     print(paste("BH FDR overlap:", round(overlap_bh$percent_overlap,2), "%"))
