@@ -80,7 +80,8 @@ TIMESTAMPS <- list(
 ################################################################################
 # Load Required Libraries
 ################################################################################
-required_packages <- c("normr", "GenomicRanges", "rtracklayer", "cosmo", "ggplot2", "Gviz", "stats", "boot")
+required_packages <- c("normr", "GenomicRanges", "rtracklayer", "ggplot2", "Gviz", "stats", "boot")
+# add cosmo after manually installing
 for (pkg in required_packages) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
         stop(sprintf("Package '%s' is missing", pkg))
@@ -320,11 +321,13 @@ if (!is.null(feature_file)) {
 # Process given control file.
 ################################################################################
 # Set the appropriate control for the given experiment.
-control_idx <- 7
+control_idx <- 8
 chromosome_to_plot <- 10
 chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
 chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
 #TODO: Add interactive that displays the chosen control to confirm benchmarking.
+print("Sample information as positive control")
+print(sorted_metadata[control_idx, ])
 # Find control sample
 control_sample <- find_control_sample(
     experimental_sample = sorted_metadata[control_idx, ],
@@ -338,7 +341,7 @@ track_name <- sprintf(
     "%s: %s - %s",
     sample_id_mapping[chip_id],
     sorted_metadata$short_name[control_idx],
-    current_samples$antibody[control_idx]
+    sorted_metadata$antibody[control_idx]
 )
 if (DEBUG_CONFIG$verbose) {
     message(sprintf("Processing sample: %s", chip_id))
@@ -349,7 +352,7 @@ if (DEBUG_CONFIG$verbose) {
 chip_bam <- bam_files[grepl(paste0("consolidated_", chip_id, "_sequence_to_S288C_sorted\\.bam$"), bam_files)]
 input_bam <- bam_files[grepl(paste0("consolidated_", input_id, "_sequence_to_S288C_sorted\\.bam$"), bam_files)]
 bigwig_file <- bigwig_files[grepl(chip_id, bigwig_files)][1]
-input_bigwig_file <- bigwig_files[grepl(input_bam, bigwig_files)][1]
+input_bigwig_file <- bigwig_files[grepl(input_id, bigwig_files)][1]
 
 # Validate BAM files
 stopifnot(
@@ -357,7 +360,7 @@ stopifnot(
     "Input BAM file not found" = length(input_bam) == 1,
     "ChIP BAM file does not exist" = file.exists(chip_bam),
     "Input BAM file does not exist" = file.exists(input_bam),
-    "ChIP bigwig file does not exist" = file.exists(bigwig_file)
+    "ChIP bigwig file does not exist" = file.exists(bigwig_file),
     "Input bigwig file does not exist" = file.exists(input_bigwig_file)
 )
 # Generate output filename using short IDs
@@ -418,7 +421,7 @@ tryCatch({
     top_500_peaks <- ranges[order(qvals)[1:500]]
     
     # Elbow method (using the geometric approach we discussed)
-    elbow_peaks <- ranges[qvals <= find_elbow_point(qvals)$elbow_qval]
+    elbow_peaks <- ranges[!is.na(qvals) & qvals <= find_elbow_point(qvals)$elbow_qval]
     
     # Benjamini-Hochberg FDR
     bh_threshold <- max(stats::p.adjust(qvals, method="BH") <= 0.05)
