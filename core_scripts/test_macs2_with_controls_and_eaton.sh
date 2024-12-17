@@ -28,6 +28,7 @@ GENOME_SIZE="1.2e7"  # S. cerevisiae genome size
 TEST_SAMPLE="path/to/test_sample.bam"
 INPUT_CONTROL="path/to/input_control.bam"
 REF_SAMPLE="path/to/reference_sample.bam"
+OUTPUT_PREFIX="macs2_test"
 
 # Source conda/MACS2 setup
 if ! source ~/conda_macs2_setup.sh; then
@@ -55,28 +56,53 @@ check_output() {
     echo -e "${GREEN}Successfully created: $1${NC}"
 }
 
+# Parameter explanation:
+# --nomodel : Skip the model building step
+# --extsize 147 : Typical yeast nucleosome size (~150bp)
+# --shift -73 : Half the fragment size (147/2)
+# --mfold 3 100 : Minimum fold enrichment of 3
+# --pvalue 1e-6 : Matches paper's significance threshold
+# --bdg : Generate bedGraph files for visualization
+# --SPMR : Normalize to signal per million reads
+# Key differences explained:
+# --nolambda : Disables local lambda estimation since no control sample
+# --broad : More suitable for samples without control, helps reduce false positives
 ## Test Case 1: Sample with Input Control
-echo "Running MACS2 with Input Control..."
+# 1. WITH Input Control
 macs2 callpeak \
     -t "$TEST_SAMPLE" \
     -c "$INPUT_CONTROL" \
-    -n test_with_control \
-    -g "$GENOME_SIZE" \
+    -n "${OUTPUT_PREFIX}_241010Bel" \
+    -g "1.2e7" \
+    --nomodel \
+    --extsize 147 \
+    --shift -73 \
+    --keep-dup auto \
+    --pvalue 1e-6 \
+    --mfold 3 100 \
     --outdir "$OUTDIR" \
-    -q 0.05 || error_exit "MACS2 failed on test with control"
+    --bdg \
+    --SPMR
+
+# 2. WITHOUT Input Control (Reference)
+macs2 callpeak \
+    -t "$REF_SAMPLE" \
+    -n "${OUTPUT_PREFIX}_100303Bel" \
+    -g "1.2e7" \
+    --nomodel \
+    --extsize 147 \
+    --shift -73 \
+    --keep-dup auto \
+    --pvalue 1e-6 \
+    --mfold 3 100 \
+    --outdir "$OUTDIR" \
+    --bdg \
+    --SPMR \
+    --nolambda \  # Different: Disable local lambda estimation
+    --broad      # Different: Better for samples without control
 
 # Verify output
 check_output "$OUTDIR/test_with_control_peaks.narrowPeak"
-
-## Test Case 2: Reference Sample without Input
-echo "Running MACS2 without Input Control..."
-macs2 callpeak \
-    -t "$REF_SAMPLE" \
-    -n test_no_control \
-    -g "$GENOME_SIZE" \
-    --outdir "$OUTDIR" \
-    -q 0.05 \
-    --nomodel || error_exit "MACS2 failed on test without control"
 
 # Verify output
 check_output "$OUTDIR/test_no_control_peaks.narrowPeak"
