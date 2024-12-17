@@ -35,7 +35,6 @@ fi
 
 # Source the virtual environment
 source ~/macs2_env/bin/activate
-<<<<<<< HEAD
 curl https://bootstrap.pypa.io/pip/3.6/get-pip.py -o get-pip.py
 
 
