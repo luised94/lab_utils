@@ -26,7 +26,7 @@ if ! module load gnu/5.4.0; then
 fi
 
 # Create virtual environment
-if python3 -m venv ~/macs2_env; then
+if python3 -m venv ~/macs2_env --clear --without-pip; then
     echo -e "${GREEN}${SUCCESS_MARK}${NC} Created virtual environment"
 else
     echo -e "${RED}${FAILURE_MARK}${NC} Failed to create virtual environment"
@@ -35,10 +35,21 @@ fi
 
 # Source the virtual environment
 source ~/macs2_env/bin/activate
+curl https://bootstrap.pypa.io/pip/3.6/get-pip.py -o get-pip.py
+
+
+
+export PYTHONNOUSERSITE=1
+export PIP_NO_CACHE_DIR=true
+# Confirm virtual environment activation.
+# (macs2_env) user@node dir$
+which pip  # Should show ~/macs2_env/bin/pip
+which python  # Should show ~/macs2_env/bin/python
 
 # Upgrade pip and install numpy
 echo "Installing dependencies..."
-pip install --upgrade pip
+python3 -m pip install --upgrade pip
+python -m pip install --ignore-installed numpy
 pip install numpy
 
 # Install MACS2
