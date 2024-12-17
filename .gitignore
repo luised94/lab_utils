@@ -4,6 +4,8 @@ treestructure*.txt
 slurm-*.out
 test.log
 Rplots.pdf
+*.pdf
+*.png
 **/renv/library/
 **/renv/profiles/
 **/renv/settings.dcf
