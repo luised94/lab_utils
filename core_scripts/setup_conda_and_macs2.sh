@@ -21,6 +21,7 @@ else
             echo "Please refer to installation instructions in: $INSTALL_REFERENCE"
             conda_init_failed=true
         fi
+
     fi
 fi
 unset __conda_setup
