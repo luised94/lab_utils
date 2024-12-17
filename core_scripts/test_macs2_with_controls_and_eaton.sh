@@ -25,8 +25,12 @@ validate_file() {
 MACS2_ENV="macs2_env"
 OUTDIR="macs2_test_results"
 GENOME_SIZE="1.2e7"  # S. cerevisiae genome size
+# From 241010Bel, any of the scripts to find appropriate files and set them manually. Should be 18 and 3. Input files were noisy and spiky relative to expected flat input.
 TEST_SAMPLE="path/to/test_sample.bam"
 INPUT_CONTROL="path/to/input_control.bam"
+# From 100303Bel, file is from 2010 Eaton reference paper.
+# Samples are mismatched with the metadata order.
+# Correct index for HM1108 antibody is 4.
 REF_SAMPLE="path/to/reference_sample.bam"
 OUTPUT_PREFIX="macs2_test"
 

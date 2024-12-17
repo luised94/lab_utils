@@ -2,7 +2,7 @@
 # Plot eaton genomic tracks
 ################################################################################
 # PURPOSE: View control data using same few to see noise.
-# Conclusion: See HM1108 of Eaton 2010 paper to see noise and alignment to reference bed file.
+# Conclusion: See HM1108 of Eaton 2010 paper to see noise and alignment to reference bed file. Files are misordered. Correct file index is 4.
 # Doesnt look particularly different but less noise definitely although mine seem to have more signal.
 # USAGE: 
 # !! ----> REQUIRED UPDATES: experiment_id, input files paths
