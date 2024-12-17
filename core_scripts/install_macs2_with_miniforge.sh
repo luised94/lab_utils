@@ -74,3 +74,8 @@ check_command "Cleaned up installation files"
 echo -e "\n${GREEN}Installation Complete${NC}"
 echo "To activate MACS2 environment: conda activate macs2_env"
 echo "To deactivate: conda deactivate"
+# After succesful installation and verification, you can capture the state with a yml file
+# and reactivate easily. Although I have not tested this.
+# conda env export > ~/lab_utils/macs2_env.yml
+# conda env create -f ~/lab_utils/macs2_env.yml
+# conda activate macs2_env
