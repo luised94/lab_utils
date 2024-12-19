@@ -40,3 +40,4 @@ setup_macs2_env() {
 
 # Run setup
 setup_macs2_env
+macs2 callpeak -h

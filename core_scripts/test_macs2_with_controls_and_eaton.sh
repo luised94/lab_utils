@@ -35,7 +35,7 @@ REF_SAMPLE="/home/luised94/data/100303Bel/alignment/consolidated_034475_sequence
 OUTPUT_PREFIX="macs2_test"
 
 # Source conda/MACS2 setup
-if ! source ~/conda_macs2_setup.sh; then
+if ! source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh; then
     error_exit "Failed to setup MACS2 environment"
 fi
 
@@ -89,6 +89,8 @@ macs2 callpeak \
     --SPMR
 
 # 2. WITHOUT Input Control (Reference)
+# Different: Disable local lambda estimation
+# Different: Better for samples without control
 macs2 callpeak \
     -t "$REF_SAMPLE" \
     -n "${OUTPUT_PREFIX}_100303Bel" \
@@ -102,8 +104,8 @@ macs2 callpeak \
     --outdir "$OUTDIR" \
     --bdg \
     --SPMR \
-    --nolambda \  # Different: Disable local lambda estimation
-    --broad      # Different: Better for samples without control
+    --nolambda \
+    --broad
 
 # Verify output
 check_output "$OUTDIR/${OUTPUT_PREFIX}_241010Bel.narrowPeak"
