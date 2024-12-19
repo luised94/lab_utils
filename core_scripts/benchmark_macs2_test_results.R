@@ -14,7 +14,7 @@ INPUT_FILES <- list(
     narrow_signal = "~/macs2_test_results/macs2_test_241010Bel_treat_pileup.bdg",
     broad_signal = "~/macs2_test_results/macs2_test_100303Bel_treat_pileup.bdg",
     reference_peaks = list.files(
-        file.path(Sys.getenv("HOME"), "data", "reference_peaks"),
+        file.path(Sys.getenv("HOME"), "data", "feature_files"),
         pattern = "eaton_peaks",
         full.names = TRUE
     )[1]
@@ -40,23 +40,23 @@ broad_peaks <- rtracklayer::import(INPUT_FILES$broad_peaks)
 reference_peaks <- rtracklayer::import(INPUT_FILES$reference_peaks)
 # Import signal tracks for visualization
 message("Importing signal tracks...")
-treat_signal1 <- rtracklayer::import(INPUT_FILES$narrow_signal)
-treat_signal2 <- rtracklayer::import(INPUT_FILES$broad_signal)
+treat_signal1 <- rtracklayer::import(INPUT_FILES$narrow_signal, format = "BedGraph")
+treat_signal2 <- rtracklayer::import(INPUT_FILES$broad_signal, format = "BedGraph")
 
 if (!is.null(reference_peaks)) {
-    features <- rtracklayer::import(reference_peaks)
     # Convert to chrRoman format
-    GenomeInfoDb::seqlevels(features) <- paste0(
+    GenomeInfoDb::seqlevels(reference_peaks) <- paste0(
         "chr",
-        utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
+        utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(reference_peaks)))
     )
 }
 
 # Find a reference origin on chrX for focused view
-chrX_refs <- reference_peaks[seqnames(reference_peaks) == "chrX"]
+chromosome_to_plot <- "chrX"
+chrX_refs <- reference_peaks[GenomicRanges::seqnames(reference_peaks) == chromosome_to_plot]
 example_origin <- chrX_refs[1]
-origin_start <- start(example_origin)
-origin_end <- end(example_origin)
+origin_start <- example_origin@ranges@start
+origin_end <- origin_start + example_origin@ranges@width
 
 # Expand region around origin for visualization
 view_window <- 5000  # 5kb window
@@ -68,13 +68,13 @@ message("Calculating basic statistics...")
 peak_stats <- data.frame(
     Dataset = c("With_Control", "No_Control"),
     Total_Peaks = c(length(narrow_peaks), length(broad_peaks)),
-    Mean_Width = c(mean(width(narrow_peaks)), mean(width(broad_peaks))),
+    Mean_Width = c(mean(narrow_peaks@ranges@width), mean(broad_peaks@ranges@width)),
     Median_Score = c(median(narrow_peaks$score), median(broad_peaks$score))
 )
 
 # Chromosome distribution
-chr_stats_narrow <- table(seqnames(narrow_peaks))
-chr_stats_broad <- table(seqnames(broad_peaks))
+chr_stats_narrow <- table(GenomicRanges::seqnames(narrow_peaks))
+chr_stats_broad <- table(GenomicRanges::seqnames(broad_peaks))
 
 # 4. Create visualization tracks
 message("Creating visualization tracks...")
@@ -82,19 +82,19 @@ message("Creating visualization tracks...")
 narrow_tracks <- list(
     Gviz::GenomeAxisTrack(),
     Gviz::DataTrack(
-        treat_signal1[seqnames(treat_signal1) == "chrX"],
+        treat_signal1[GenomicRanges::seqnames(treat_signal1) == "chrX"],
         name="With Control Signal",
         type="histogram",
         col.histogram="darkblue",
         fill.histogram="lightblue"
     ),
     Gviz::AnnotationTrack(
-        narrow_peaks[seqnames(narrow_peaks) == "chrX"],
+        narrow_peaks[GenomicRanges::seqnames(narrow_peaks) == "chrX"],
         name="Narrow Peaks",
         col="darkblue"
     ),
     Gviz::AnnotationTrack(
-        reference_peaks[seqnames(reference_peaks) == "chrX"],
+        reference_peaks[GenomicRanges::seqnames(reference_peaks) == "chrX"],
         name="Reference Origins",
         col="darkred"
     )
@@ -104,19 +104,19 @@ narrow_tracks <- list(
 broad_tracks <- list(
     Gviz::GenomeAxisTrack(),
     Gviz::DataTrack(
-        treat_signal2[seqnames(treat_signal2) == "chrX"],
+        treat_signal2[GenomicRanges::seqnames(treat_signal2) == "chrX"],
         name="No Control Signal",
         type="histogram",
         col.histogram="darkgreen",
         fill.histogram="lightgreen"
     ),
     Gviz::AnnotationTrack(
-        broad_peaks[seqnames(broad_peaks) == "chrX"],
+        broad_peaks[GenomicRanges::seqnames(broad_peaks) == "chrX"],
         name="Broad Peaks",
         col="darkgreen"
     ),
     Gviz::AnnotationTrack(
-        reference_peaks[seqnames(reference_peaks) == "chrX"],
+        reference_peaks[GenomicRanges::seqnames(reference_peaks) == "chrX"],
         name="Reference Origins",
         col="darkred"
     )
@@ -154,7 +154,7 @@ pdf(file.path(output_dir, "narrow_peaks_chrX.pdf"),
 Gviz::plotTracks(
     narrow_tracks,
     chromosome="chrX",
-    main="Narrow Peaks - Chromosome II"
+    main="Narrow Peaks - Chromosome X"
 )
 dev.off()
 
