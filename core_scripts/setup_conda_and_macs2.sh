@@ -3,7 +3,6 @@
 # Purpose: Initialize conda and set up MACS2 environment
 # Usage: source conda_macs2_setup.sh
 
-<<<<<<< HEAD
 # Conda initialization block with error handling
 conda_init_failed=false
 INSTALL_REFERENCE="$HOME/lab_utils/core_scripts/install_macs2.sh"
