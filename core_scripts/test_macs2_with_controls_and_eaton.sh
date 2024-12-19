@@ -106,10 +106,10 @@ macs2 callpeak \
     --broad      # Different: Better for samples without control
 
 # Verify output
-check_output "$OUTDIR/test_with_control_peaks.narrowPeak"
+check_output "$OUTDIR/${OUTPUT_PREFIX}_241010Bel.narrowPeak"
 
 # Verify output
-check_output "$OUTDIR/test_no_control_peaks.narrowPeak"
+check_output "$OUTDIR/${OUTPUT_PREFIX}_100303Bel.narrowPeak"
 
 # Basic Quality Check
 echo "Performing basic quality checks..."
