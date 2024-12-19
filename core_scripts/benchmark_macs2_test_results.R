@@ -9,16 +9,22 @@ for (pkg in required_packages) {
 
 # File paths and configuration
 INPUT_FILES <- list(
-    narrow_peaks = "macs2_test_results/macs2_test_241010Bel_peaks.narrowPeak",
-    broad_peaks = "macs2_test_results/macs2_test_100303Bel_peaks.broadPeak",
-    narrow_signal = "macs2_test_results/macs2_test_241010Bel_treat_pileup.bdg",
-    broad_signal = "macs2_test_results/macs2_test_100303Bel_treat_pileup.bdg",
-    feature_file = list.files(
-        file.path(Sys.getenv("HOME"), "data", "feature_files"),
+    narrow_peaks = "~/macs2_test_results/macs2_test_241010Bel_peaks.narrowPeak",
+    broad_peaks = "~/macs2_test_results/macs2_test_100303Bel_peaks.broadPeak",
+    narrow_signal = "~/macs2_test_results/macs2_test_241010Bel_treat_pileup.bdg",
+    broad_signal = "~/macs2_test_results/macs2_test_100303Bel_treat_pileup.bdg",
+    reference_peaks = list.files(
+        file.path(Sys.getenv("HOME"), "data", "reference_peaks"),
         pattern = "eaton_peaks",
         full.names = TRUE
     )[1]
 )
+output_dir <- "~/macs2_test_results"
+
+# Create output directory if it doesn't exist
+if (!dir.exists(output_dir)) {
+    dir.create(output_dir)
+}
 
 # Validate file existence
 for (file in INPUT_FILES) {
@@ -31,7 +37,31 @@ for (file in INPUT_FILES) {
 message("Importing peak files...")
 narrow_peaks <- rtracklayer::import(INPUT_FILES$narrow_peaks)
 broad_peaks <- rtracklayer::import(INPUT_FILES$broad_peaks)
-reference_peaks <- rtracklayer::import(INPUT_FILES$feature_file)
+reference_peaks <- rtracklayer::import(INPUT_FILES$reference_peaks)
+# Import signal tracks for visualization
+message("Importing signal tracks...")
+treat_signal1 <- rtracklayer::import(INPUT_FILES$narrow_signal)
+treat_signal2 <- rtracklayer::import(INPUT_FILES$broad_signal)
+
+if (!is.null(reference_peaks)) {
+    features <- rtracklayer::import(reference_peaks)
+    # Convert to chrRoman format
+    GenomeInfoDb::seqlevels(features) <- paste0(
+        "chr",
+        utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
+    )
+}
+
+# Find a reference origin on chrX for focused view
+chrX_refs <- reference_peaks[seqnames(reference_peaks) == "chrX"]
+example_origin <- chrX_refs[1]
+origin_start <- start(example_origin)
+origin_end <- end(example_origin)
+
+# Expand region around origin for visualization
+view_window <- 5000  # 5kb window
+region_start <- max(0, origin_start - view_window)
+region_end <- origin_end + view_window
 
 # 2. Basic Statistics
 message("Calculating basic statistics...")
@@ -46,48 +76,100 @@ peak_stats <- data.frame(
 chr_stats_narrow <- table(seqnames(narrow_peaks))
 chr_stats_broad <- table(seqnames(broad_peaks))
 
-# 3. Import signal tracks for visualization
-message("Importing signal tracks...")
-treat_signal1 <- rtracklayer::import(INPUT_FILES$narrow_signal)
-treat_signal2 <- rtracklayer::import(INPUT_FILES$broad_signal)
-
 # 4. Create visualization tracks
 message("Creating visualization tracks...")
-gtrack <- Gviz::GenomeAxisTrack()
-
-dtrack1 <- Gviz::DataTrack(
-    treat_signal1[seqnames(treat_signal1) == "chrII"],
-    name="With Control Signal"
+# Create tracks for narrow peaks (with control)
+narrow_tracks <- list(
+    Gviz::GenomeAxisTrack(),
+    Gviz::DataTrack(
+        treat_signal1[seqnames(treat_signal1) == "chrX"],
+        name="With Control Signal",
+        type="histogram",
+        col.histogram="darkblue",
+        fill.histogram="lightblue"
+    ),
+    Gviz::AnnotationTrack(
+        narrow_peaks[seqnames(narrow_peaks) == "chrX"],
+        name="Narrow Peaks",
+        col="darkblue"
+    ),
+    Gviz::AnnotationTrack(
+        reference_peaks[seqnames(reference_peaks) == "chrX"],
+        name="Reference Origins",
+        col="darkred"
+    )
 )
 
-dtrack2 <- Gviz::DataTrack(
-    treat_signal2[seqnames(treat_signal2) == "chrII"],
-    name="No Control Signal"
-)
-
-ptrack1 <- Gviz::AnnotationTrack(
-    narrow_peaks,
-    name="Narrow Peaks"
-)
-
-ptrack2 <- Gviz::AnnotationTrack(
-    broad_peaks,
-    name="Broad Peaks"
-)
-
-rtrack <- Gviz::AnnotationTrack(
-    reference_peaks,
-    name="Reference Peaks"
+# Create tracks for broad peaks (no control)
+broad_tracks <- list(
+    Gviz::GenomeAxisTrack(),
+    Gviz::DataTrack(
+        treat_signal2[seqnames(treat_signal2) == "chrX"],
+        name="No Control Signal",
+        type="histogram",
+        col.histogram="darkgreen",
+        fill.histogram="lightgreen"
+    ),
+    Gviz::AnnotationTrack(
+        broad_peaks[seqnames(broad_peaks) == "chrX"],
+        name="Broad Peaks",
+        col="darkgreen"
+    ),
+    Gviz::AnnotationTrack(
+        reference_peaks[seqnames(reference_peaks) == "chrX"],
+        name="Reference Origins",
+        col="darkred"
+    )
 )
 
 # 5. Generate plots
 message("Generating plots...")
+
+# Plot and save focused views
+pdf(file.path(output_dir, "narrow_peaks_origin_region.pdf"), 
+    width=10, height=6)
 Gviz::plotTracks(
-    list(gtrack, dtrack1, ptrack1, dtrack2, ptrack2, rtrack),
-    chromosome="chrII",
-    from=200000,
-    to=250000
+    narrow_tracks,
+    chromosome="chrX",
+    from=region_start,
+    to=region_end,
+    main="Narrow Peaks - Origin Region"
 )
+dev.off()
+
+pdf(file.path(output_dir, "broad_peaks_origin_region.pdf"), 
+    width=10, height=6)
+Gviz::plotTracks(
+    broad_tracks,
+    chromosome="chrX",
+    from=region_start,
+    to=region_end,
+    main="Broad Peaks - Origin Region"
+)
+dev.off()
+
+# Plot and save whole chromosome views
+pdf(file.path(output_dir, "narrow_peaks_chrX.pdf"), 
+    width=15, height=6)
+Gviz::plotTracks(
+    narrow_tracks,
+    chromosome="chrX",
+    main="Narrow Peaks - Chromosome II"
+)
+dev.off()
+
+pdf(file.path(output_dir, "broad_peaks_chrX.pdf"), 
+    width=15, height=6)
+Gviz::plotTracks(
+    broad_tracks,
+    chromosome="chrX",
+    main="Broad Peaks - Chromosome X"
+)
+dev.off()
+
+# Print region coordinates for reference
+message(sprintf("Origin region plotted - chrX:%d-%d", region_start, region_end))
+message(sprintf("Full chromosome plotted - chrX"))
 
 # 6. Overlap Analysis
 message("Calculating overlaps...")
