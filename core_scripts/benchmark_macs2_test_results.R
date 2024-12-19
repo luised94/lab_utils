@@ -217,13 +217,33 @@ dev.off()
 broad_peaks_in_control <- rep(FALSE, length(broad_peaks))
 broad_peaks_in_control[S4Vectors::queryHits(broad_overlaps)] <- TRUE
 broad_peak_df <- data.frame(Peak = seq_along(broad_peaks), InControl = broad_peaks_in_control)
+# Create a proper format for UpSetR
+# Convert the logical column into a factor or character
+broad_peak_df$InControl <- as.character(broad_peak_df$InControl)
 
+# Create a list of sets for UpSetR
+peak_sets <- list(
+    "In Control" = broad_peak_df$Peak[broad_peak_df$InControl == "TRUE"],
+    "Not In Control" = broad_peak_df$Peak[broad_peak_df$InControl == "FALSE"]
+)
+
+# Create the UpSetR plot
 pdf(file.path(output_dir, "broad_peaks_upset.pdf"))
+UpSetR::upset(
+    fromList(peak_sets),
+    main.bar.color = "#CC0000",
+    sets.bar.color = "#CC0000",
+    matrix.color = "#CC0000",
+    mainbar.y.label = "Number of Peaks",
+    sets.x.label = "Total Number of Peaks",
+    text.scale = c(1.5, 1.5, 1.3, 1, 1, 0.75)
+)
+dev.off()
+
 UpSetR::upset(broad_peak_df, sets = "InControl", main.bar.color = "#CC0000",
       sets.bar.color = "#CC0000", matrix.color = "#CC0000",
       mainbar.y.label = "Number of Peaks", sets.x.label = "Total Number of Peaks",
       text.scale = c(1.5, 1.5, 1.3, 1, 1, 0.75))
-dev.off()
 
 # Print results
 message("Results summary:")
