@@ -50,7 +50,7 @@ sudo apt-get install -y build-essential wget perl python zlib1g-dev libxml2-dev
 check_command "Installed system dependencies"
 
 # Document installed package versions
-dpkg -l build-essential wget perl python zlib1g-dev libxml2-dev >> meme_install_log.txt
+dpkg -l build-essential wget perl zlib1g-dev libxml2-dev >> meme_install_log.txt
 
 # Create installation directory
 mkdir -p $HOME/meme_install
