@@ -99,7 +99,7 @@ stopifnot(
 )
 
 ################################################################################
-# Genomic Tracks, Peak intersections, and some basic statistics
+# Basic statistics
 ################################################################################
 message("Calculating basic statistics...")
 peak_stats <- data.frame(
@@ -112,77 +112,6 @@ peak_stats <- data.frame(
 # Chromosome distribution
 chr_stats_narrow <- table(GenomicRanges::seqnames(narrow_peaks))
 chr_stats_broad <- table(GenomicRanges::seqnames(broad_peaks))
-
-# 4. Create visualization tracks
-# Define Ideogram using local genome information.
-# Create custom ideogram track
-# First, create a proper bands data frame
-bands_df <- data.frame(
-    chrom = genome_info$chrom,
-    chromStart = 0,
-    chromEnd = genome_info$size,
-    name = paste0(genome_info$chrom, "_band"),
-    gieStain = "gpos50"  # Default staining
-)
-
-# Create chromosome-specific subset
-chromosome_bands <- bands_df[bands_df$chrom == chromosome_to_plot, ]
-
-# Create ideogram track with explicit bands data
-itrack <- Gviz::IdeogramTrack(
-    chromosome = chromosome_to_plot[1],  # Ensure single value
-    genome = "sacCer3",
-    bands = bands_df,
-    name = "Ideogram"
-)
-
-# Plot and save focused views (Narrow Peaks)
-pdf(file.path(output_dir, "narrow_peaks_origin_region.pdf"), width=10, height=6)
-Gviz::plotTracks(list(
-    itrack,
-    Gviz::GenomeAxisTrack(),
-    Gviz::DataTrack(treat_signal1, name="With Control Signal", type="h", col.histogram="darkblue", fill.histogram="lightblue"),
-    Gviz::AnnotationTrack(narrow_peaks, name="Narrow Peaks", col="darkblue"),
-    Gviz::AnnotationTrack(reference_peaks, name="Reference Origins", col="darkred")
-), chromosome=chromosome_to_plot, from=region_start, to=region_end, main="Narrow Peaks - Origin Region")
-dev.off()
-
-# Plot and save whole chromosome views (Narrow Peaks)
-pdf(file.path(output_dir, "narrow_peaks_chrX.pdf"), width=15, height=6)
-Gviz::plotTracks(list(
-    itrack,
-    Gviz::GenomeAxisTrack(),
-    Gviz::DataTrack(treat_signal1, name="With Control Signal", type="h", col.histogram="darkblue", fill.histogram="lightblue"),
-    Gviz::AnnotationTrack(narrow_peaks, name="Narrow Peaks", col="darkblue"),
-    Gviz::AnnotationTrack(reference_peaks, name="Reference Origins", col="darkred")
-), chromosome=chromosome_to_plot, main="Narrow Peaks - Chromosome X")
-dev.off()
-
-# Plot and save focused views (Broad Peaks)
-pdf(file.path(output_dir, "broad_peaks_origin_region.pdf"), width=10, height=6)
-Gviz::plotTracks(list(
-    itrack,
-    Gviz::GenomeAxisTrack(),
-    Gviz::DataTrack(treat_signal2, name="No Control Signal", type="h", col.histogram="darkgreen", fill.histogram="lightgreen"),
-    Gviz::AnnotationTrack(broad_peaks, name="Broad Peaks", col="darkgreen"),
-    Gviz::AnnotationTrack(reference_peaks, name="Reference Origins", col="darkred")
-), chromosome=chromosome_to_plot, from=region_start, to=region_end, main="Broad Peaks - Origin Region")
-dev.off()
-
-# Plot and save whole chromosome views (Broad Peaks)
-pdf(file.path(output_dir, "broad_peaks_chrX.pdf"), width=15, height=6)
-Gviz::plotTracks(list(
-    itrack,
-    Gviz::GenomeAxisTrack(),
-    Gviz::DataTrack(treat_signal2, name="No Control Signal", type="h", col.histogram="darkgreen", fill.histogram="lightgreen"),
-    Gviz::AnnotationTrack(broad_peaks, name="Broad Peaks", col="darkgreen"),
-    Gviz::AnnotationTrack(reference_peaks, name="Reference Origins", col="darkred")
-), chromosome=chromosome_to_plot, main="Broad Peaks - Chromosome X")
-dev.off()
-
-# Print region coordinates for reference (unchanged)
-message(sprintf("Origin region plotted - chrX:%d-%d", region_start, region_end))
-message(sprintf("Full chromosome plotted - chrX"))
 
 # 6. Overlap Analysis (Improved with UpSet plot)
 message("Calculating overlaps...")
@@ -295,24 +224,3 @@ print(peak_stats)
 print(chr_stats_narrow)
 print(chr_stats_broad)
 print(overlap_stats)
-
-################################################################################
-# Motif Analysis
-################################################################################
-# Extract sequences
-peak_centers <- narrow_peaks@ranges@start + narrow_peaks@ranges@width %/% 2
-ranges <- GenomicRanges::GRanges(
-    GenomicRanges::seqnames(narrow_peaks),
-    IRanges::IRanges(peak_centers - (PEAK_WIDTH %/% 2), peak_centers + (PEAK_WIDTH %/% 2)),
-    strand = "*"
-)
-seqs <- Biostrings::getSeq(genome_data, ranges)
-
-# Cosmo analysis
-message("Running Cosmo motif analysis...")
-cosmo_results <- cosmo::cosmo(
-    sequences = overlap_seqs,
-    min.length = MOTIF_MIN_LENGTH,
-    max.length = MOTIF_MAX_LENGTH
-)
-
