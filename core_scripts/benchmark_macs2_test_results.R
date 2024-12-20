@@ -217,7 +217,7 @@ peak_sets <- list(
 # Create the UpSetR plot
 pdf(file.path(output_dir, "narrow_peaks_upset.pdf"))
 UpSetR::upset(
-    fromList(peak_sets),
+    UpSetR::fromList(peak_sets),
     main.bar.color = "#CC0000",
     sets.bar.color = "#CC0000",
     matrix.color = "#CC0000",
@@ -244,7 +244,7 @@ peak_sets <- list(
 # Create the UpSetR plot
 pdf(file.path(output_dir, "broad_peaks_upset.pdf"))
 UpSetR::upset(
-    fromList(peak_sets),
+    UpSetR::fromList(peak_sets),
     main.bar.color = "#CC0000",
     sets.bar.color = "#CC0000",
     matrix.color = "#CC0000",
