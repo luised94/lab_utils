@@ -1,4 +1,5 @@
 # Verify required libraries are available.
+library(ggplot2)
 required_packages <- c("GenomeInfoDb", "IRanges", "GenomicRanges", "rtracklayer", "ggplot2", "Gviz", "TxDb.Scerevisiae.UCSC.sacCer3.sgdGene", "UpSetR")
 # add cosmo after manually installing
 for (pkg in required_packages) {
@@ -187,6 +188,22 @@ message("Calculating overlaps...")
 narrow_overlaps <- GenomicRanges::findOverlaps(narrow_peaks, reference_peaks)
 broad_overlaps <- GenomicRanges::findOverlaps(broad_peaks, reference_peaks)
 
+narrow_peaks$category <- "Non-overlapping"
+narrow_peaks$category[S4Vectors::queryHits(narrow_overlaps)] <- "Overlapping with reference"
+score_df <- data.frame(
+    score = narrow_peaks$score,
+    category = narrow_peaks$category,
+    dataset = "241010Bel"
+)
+
+pdf(file.path(output_dir, "narrow_peaks_peak_score_dsitribution_by_reference_overlap.pdf"))
+ggplot(score_df, aes(x = score, fill = category)) +
+    geom_density(alpha = 0.5) +
+    facet_wrap(~dataset) +
+    theme_minimal() +
+    labs(title = "Peak Score Distribution by Reference Overlap")
+dev.off()
+
 overlap_stats <- data.frame(
     Dataset = c("With_Control", "No_Control"),
     Total_Peaks = c(length(narrow_peaks), length(broad_peaks)),
@@ -260,3 +277,4 @@ print(peak_stats)
 print(chr_stats_narrow)
 print(chr_stats_broad)
 print(overlap_stats)
+
