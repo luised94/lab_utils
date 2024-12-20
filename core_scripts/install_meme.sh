@@ -32,7 +32,10 @@ python --version >> ~/lab_utils/meme_install_log.txt
 perl --version >> ~/lab_utils/meme_install_log.txt
 
 # Create conda environment
-# 
+# Was encountering an HTTP error (https://stackoverflow.com/questions/68507862/how-to-solve-condahttperror-http-000-connection-failed-error-in-wsl)
+# Required shutting down wsl from windows powershell.
+# wsl --shutdown
+# wsl
 conda create -n meme_env python=3.8 -y
 check_command "Created conda environment"
 
@@ -47,7 +50,7 @@ sudo apt-get install -y build-essential wget perl python zlib1g-dev libxml2-dev
 check_command "Installed system dependencies"
 
 # Document installed package versions
-dpkg -l build-essential wget perl python zlib1g-dev libxml2-dev >> meme_install_log.txt
+dpkg -l build-essential wget perl zlib1g-dev libxml2-dev >> meme_install_log.txt
 
 # Create installation directory
 mkdir -p $HOME/meme_install
@@ -81,7 +84,8 @@ make install
 check_command "Installed MEME Suite"
 
 # Set up environment
-echo 'export PATH="$HOME/meme/bin:$PATH"' >> ~/.bashrc
+#echo 'export PATH="$HOME/meme/bin:$PATH"' >> ~/.bashrc
+export PATH=$HOME/meme/bin:$HOME/meme/libexec/meme-5.3.3:$PATH
 source ~/.bashrc
 check_command "Updated PATH"
 
@@ -94,7 +98,7 @@ else
 fi
 
 # Export conda environment
-conda env export > meme_env.yml
+conda env export > ~/lab_utils/meme_env.yml
 check_command "Exported conda environment"
 
 # Clean up
