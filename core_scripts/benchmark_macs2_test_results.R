@@ -206,11 +206,25 @@ narrow_peaks_in_control <- rep(FALSE, length(narrow_peaks))
 narrow_peaks_in_control[S4Vectors::queryHits(narrow_overlaps)] <- TRUE
 narrow_peak_df <- data.frame(Peak = seq_along(narrow_peaks), InControl = narrow_peaks_in_control)
 
+narrow_peak_df$InControl <- as.character(narrow_peak_df$InControl)
+
+# Create a list of sets for UpSetR
+peak_sets <- list(
+    "In Control" = narrow_peak_df$Peak[narrow_peak_df$InControl == "TRUE"],
+    "Not In Control" = narrow_peak_df$Peak[narrow_peak_df$InControl == "FALSE"]
+)
+
+# Create the UpSetR plot
 pdf(file.path(output_dir, "narrow_peaks_upset.pdf"))
-UpSetR::upset(narrow_peak_df, sets = "InControl", main.bar.color = "#CC0000",
-      sets.bar.color = "#CC0000", matrix.color = "#CC0000",
-      mainbar.y.label = "Number of Peaks", sets.x.label = "Total Number of Peaks",
-      text.scale = c(1.5, 1.5, 1.3, 1, 1, 0.75))
+UpSetR::upset(
+    fromList(peak_sets),
+    main.bar.color = "#CC0000",
+    sets.bar.color = "#CC0000",
+    matrix.color = "#CC0000",
+    mainbar.y.label = "Number of Peaks",
+    sets.x.label = "Total Number of Peaks",
+    text.scale = c(1.5, 1.5, 1.3, 1, 1, 0.75)
+)
 dev.off()
 
 # UpSet plot for overlap visualization (Broad Peaks)
@@ -239,11 +253,6 @@ UpSetR::upset(
     text.scale = c(1.5, 1.5, 1.3, 1, 1, 0.75)
 )
 dev.off()
-
-UpSetR::upset(broad_peak_df, sets = "InControl", main.bar.color = "#CC0000",
-      sets.bar.color = "#CC0000", matrix.color = "#CC0000",
-      mainbar.y.label = "Number of Peaks", sets.x.label = "Total Number of Peaks",
-      text.scale = c(1.5, 1.5, 1.3, 1, 1, 0.75))
 
 # Print results
 message("Results summary:")
