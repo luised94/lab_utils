@@ -1,6 +1,13 @@
 # Verify required libraries are available.
+# Environment validation
+if (system("hostname", intern = TRUE) == "luria") {
+    message("universalmotif package is used in this script. To install universalmotif, some packages\n")
+    message("are not available on luria.")
+    stop("This script should not be run on luria cluster")
+}
+
 library(ggplot2)
-required_packages <- c("GenomeInfoDb", "IRanges", "GenomicRanges", "rtracklayer", "ggplot2", "Gviz", "TxDb.Scerevisiae.UCSC.sacCer3.sgdGene", "UpSetR")
+required_packages <- c("GenomeInfoDb", "IRanges", "GenomicRanges", "rtracklayer", "ggplot2", "Gviz", "TxDb.Scerevisiae.UCSC.sacCer3.sgdGene", "UpSetR", "universalmotif")
 # add cosmo after manually installing
 for (pkg in required_packages) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
@@ -109,12 +116,4 @@ ranges <- GenomicRanges::GRanges(
     strand = "*"
 )
 seqs <- Biostrings::getSeq(genome_data, ranges)
-
-# Cosmo analysis
-message("Running Cosmo motif analysis...")
-cosmo_results <- cosmo::cosmo(
-    sequences = overlap_seqs,
-    min.length = MOTIF_MIN_LENGTH,
-    max.length = MOTIF_MAX_LENGTH
-)
 
