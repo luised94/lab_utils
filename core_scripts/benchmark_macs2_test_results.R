@@ -18,9 +18,18 @@ INPUT_FILES <- list(
         file.path(Sys.getenv("HOME"), "data", "feature_files"),
         pattern = "eaton_peaks",
         full.names = TRUE
+    )[1],
+    ref_genome_file <- list.files(
+        file.path(Sys.getenv("HOME"), "data", "REFGENS"),
+        pattern = "S288C_refgenome.fna",
+        full.names = TRUE,
+        recursive = TRUE
     )[1]
 )
 output_dir <- "~/macs2_test_results"
+PEAK_WIDTH <- 100  # Width for sequence extraction
+MOTIF_MIN_LENGTH <- 6
+MOTIF_MAX_LENGTH <- 12
 
 # Create output directory if it doesn't exist
 if (!dir.exists(output_dir)) {
@@ -67,18 +76,11 @@ region_end <- origin_end + view_window
 ################################################################################
 # Load reference genome
 ################################################################################
-ref_genome_file <- list.files(
-    file.path(Sys.getenv("HOME"), "data", "REFGENS"),
-    pattern = "S288C_refgenome.fna",
-    full.names = TRUE,
-    recursive = TRUE
-)[1]
-
 stopifnot(
     "No reference genome found. One expected." = length(ref_genome_file) == 1
 )
 
-genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
+genome_data <- Biostrings::readDNAStringSet(INPUT_FILES$ref_genome_file)
 
 # Convert genome data to required format
 genome_info <- data.frame(
@@ -97,9 +99,8 @@ stopifnot(
 )
 
 ################################################################################
-# 2. Basic Statistics
+# Genomic Tracks, Peak intersections, and some basic statistics
 ################################################################################
-
 message("Calculating basic statistics...")
 peak_stats <- data.frame(
     Dataset = c("With_Control", "No_Control"),
@@ -188,6 +189,7 @@ message("Calculating overlaps...")
 narrow_overlaps <- GenomicRanges::findOverlaps(narrow_peaks, reference_peaks)
 broad_overlaps <- GenomicRanges::findOverlaps(broad_peaks, reference_peaks)
 
+# Plot score distribution for non-overlapping and overlapping peaks.
 narrow_peaks$category <- "Non-overlapping"
 narrow_peaks$category[S4Vectors::queryHits(narrow_overlaps)] <- "Overlapping with reference"
 score_df <- data.frame(
@@ -197,6 +199,22 @@ score_df <- data.frame(
 )
 
 pdf(file.path(output_dir, "narrow_peaks_peak_score_dsitribution_by_reference_overlap.pdf"))
+ggplot(score_df, aes(x = score, fill = category)) +
+    geom_density(alpha = 0.5) +
+    facet_wrap(~dataset) +
+    theme_minimal() +
+    labs(title = "Peak Score Distribution by Reference Overlap")
+dev.off()
+
+broad_peaks$category <- "Non-overlapping"
+broad_peaks$category[S4Vectors::queryHits(broad_overlaps)] <- "Overlapping with reference"
+score_df <- data.frame(
+    score = broad_peaks$score,
+    category = broad_peaks$category,
+    dataset = "241010Bel"
+)
+
+pdf(file.path(output_dir, "broad_peaks_peak_score_dsitribution_by_reference_overlap.pdf"))
 ggplot(score_df, aes(x = score, fill = category)) +
     geom_density(alpha = 0.5) +
     facet_wrap(~dataset) +
@@ -277,4 +295,24 @@ print(peak_stats)
 print(chr_stats_narrow)
 print(chr_stats_broad)
 print(overlap_stats)
+
+################################################################################
+# Motif Analysis
+################################################################################
+# Extract sequences
+peak_centers <- narrow_peaks@ranges@start + narrow_peaks@ranges@width %/% 2
+ranges <- GenomicRanges::GRanges(
+    GenomicRanges::seqnames(narrow_peaks),
+    IRanges::IRanges(peak_centers - (PEAK_WIDTH %/% 2), peak_centers + (PEAK_WIDTH %/% 2)),
+    strand = "*"
+)
+seqs <- Biostrings::getSeq(genome_data, ranges)
+
+# Cosmo analysis
+message("Running Cosmo motif analysis...")
+cosmo_results <- cosmo::cosmo(
+    sequences = overlap_seqs,
+    min.length = MOTIF_MIN_LENGTH,
+    max.length = MOTIF_MAX_LENGTH
+)
 
