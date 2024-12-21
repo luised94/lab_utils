@@ -69,14 +69,14 @@ DEBUG_CONFIG <- list(
     enabled = FALSE,
     verbose = TRUE,
     interactive = TRUE,
-    dry_run = TRUE
+    dry_run = FALSE
 )
 
 ################################################################################
 # Experiment ID Validation
 ################################################################################
 # !! Update experiment ID
-experiment_id <- "100303Bel"
+experiment_id <- "241122Bel"
 stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
     "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
@@ -93,10 +93,12 @@ if (!file.exists(bootstrap_path)) {
 }
 source(bootstrap_path)
 
+# !! Update the path and the file accordingly.
+config_path <- "~/bmc_config.R"
 # Define required dependencies
 required_modules <- list(
     list(
-        path = "~/lab_utils/core_scripts/bmc_config.R",
+        path = config_path,
         description = "BMC Configuration",
         required = TRUE
     )
