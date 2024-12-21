@@ -3,6 +3,7 @@ treestructure*.txt
 **/bmc_config.R
 slurm-*.out
 test.log
+memerun.log
 Rplots.pdf
 *.pdf
 *.png
