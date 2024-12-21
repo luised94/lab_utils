@@ -57,8 +57,10 @@ output_dir <- file.path(Sys.getenv("HOME"), "macs2_test_results")
 meme_overlap_dir <- file.path(output_dir, "meme_overlap_output")
 meme_ref_dir <- file.path(output_dir, "meme_reference_output")
 meme_all_dir <- file.path(output_dir, "meme_all_output")
+meme_top100_dir <- file.path(output_dir, "meme_top100_output")
+meme_referencetop100_dir <- file.path(output_dir, "meme_referencetop100_output")
 
-for (dir in c(meme_overlap_dir, meme_ref_dir)) {
+for (dir in c(meme_overlap_dir, meme_ref_dir, meme_all_dir, meme_top100_dir, meme_referencetop100_dir)) {
     if (!dir.exists(dir)) {
         dir.create(dir)
     }
@@ -144,6 +146,12 @@ get_centered_sequences <- function(peaks, width = PEAK_WIDTH) {
 overlapping_seqs <- get_centered_sequences(overlapping_peaks)
 reference_seqs <- get_centered_sequences(reference_peaks)
 all_peaks_seqs <- get_centered_sequences(narrow_peaks)
+# Modify peak selection to use top 100 peaks by score
+top_peaks <- narrow_peaks[order(narrow_peaks$score, decreasing = TRUE)][1:100]
+top_seqs <- get_centered_sequences(top_peaks)
+reference_top_peaks <- reference_peaks[order(reference_peaks$score, decreasing = TRUE)][1:100]
+reference_top_seqs <- get_centered_sequences(reference_peaks)
+
 
 ################################################################################
 # MEME Motif Discovery
@@ -192,6 +200,32 @@ meme_results_overlap <- run_meme(
     revcomp = TRUE,
     readsites = TRUE,
     verbose = 2
+)
+
+# Run MEME on top peaks first
+meme_results_top <- run_meme(
+    top_seqs,
+    output = meme_top100_dir,
+    overwrite.dir = TRUE,
+    minw = MEME_PARAMS$minw,
+    maxw = MEME_PARAMS$maxw,
+    nmotifs = 1,  # Focus on primary motif first
+    mod = MEME_PARAMS$mod,
+    markov_order = 4,  # Paper uses 4th-order Markov chain
+    revcomp = TRUE
+)
+
+# Run MEME on top peaks first
+meme_results_top <- run_meme(
+    reference_top_seqs,
+    output = meme_referencetop100_dir,
+    overwrite.dir = TRUE,
+    minw = MEME_PARAMS$minw,
+    maxw = MEME_PARAMS$maxw,
+    nmotifs = 1,  # Focus on primary motif first
+    mod = MEME_PARAMS$mod,
+    markov_order = 4,  # Paper uses 4th-order Markov chain
+    revcomp = TRUE
 )
 
 # Check MEME output files
@@ -249,7 +283,7 @@ message("MEME output generated: ", length(meme_all_dir), " files")
 
 # Read MEME results using universalmotif
 meme_motifs <- universalmotif::read_meme(
-    file.path(meme_allf_dir, "meme.txt")
+    file.path(meme_all_dir, "meme.txt")
 )
 
 # Basic validation of motif discovery
@@ -261,6 +295,78 @@ if (length(meme_motifs) == 0) {
 
 # Save motif plots
 pdf(file.path(output_dir, "allpeaks_discovered_motifs.pdf"))
+universalmotif::view_motifs(
+    meme_motifs,
+    show.positions = TRUE
+)
+dev.off()
+
+# Check MEME output files
+meme_output_files <- list.files(meme_ref_dir, full.names = TRUE)
+message("MEME output generated: ", length(meme_ref_dir), " files")
+
+# Read MEME results using universalmotif
+meme_motifs <- universalmotif::read_meme(
+    file.path(meme_ref_dir, "meme.txt")
+)
+
+# Basic validation of motif discovery
+if (length(meme_motifs) == 0) {
+    warning("No motifs were discovered")
+} else {
+    message("Successfully discovered ", length(meme_motifs), " motifs")
+}
+
+# Save motif plots
+pdf(file.path(output_dir, "reference_discovered_motifs.pdf"))
+universalmotif::view_motifs(
+    meme_motifs,
+    show.positions = TRUE
+)
+dev.off()
+
+# Check MEME output files
+meme_output_files <- list.files(meme_top100_dir, full.names = TRUE)
+message("MEME output generated: ", length(meme_top100_dir), " files")
+
+# Read MEME results using universalmotif
+meme_motifs <- universalmotif::read_meme(
+    file.path(meme_top100_dir, "meme.txt")
+)
+
+# Basic validation of motif discovery
+if (length(meme_motifs) == 0) {
+    warning("No motifs were discovered")
+} else {
+    message("Successfully discovered ", length(meme_motifs), " motifs")
+}
+
+# Save motif plots
+pdf(file.path(output_dir, "narrowpeaks_top100_discovered_motifs.pdf"))
+universalmotif::view_motifs(
+    meme_motifs,
+    show.positions = TRUE
+)
+dev.off()
+
+# Check MEME output files
+meme_output_files <- list.files(meme_referencetop100_dir, full.names = TRUE)
+message("MEME output generated: ", length(meme_referencetop100_dir), " files")
+
+# Read MEME results using universalmotif
+meme_motifs <- universalmotif::read_meme(
+    file.path(meme_referencetop100_dir, "meme.txt")
+)
+
+# Basic validation of motif discovery
+if (length(meme_motifs) == 0) {
+    warning("No motifs were discovered")
+} else {
+    message("Successfully discovered ", length(meme_motifs), " motifs")
+}
+
+# Save motif plots
+pdf(file.path(output_dir, "referencepeaks_top100_discovered_motifs.pdf"))
 universalmotif::view_motifs(
     meme_motifs,
     show.positions = TRUE
