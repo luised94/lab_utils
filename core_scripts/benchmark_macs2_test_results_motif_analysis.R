@@ -1,3 +1,14 @@
+path_to_meme_binary <- file.path(Sys.getenv("HOME"), "meme/bin/meme")
+options(meme.bin = path_to_meme_binary)
+system("export PATH=$HOME/meme/bin:$HOME/meme/libexec/meme-5.3.3:$PATH")
+# Test MEME installation and setup
+meme_test <- system("meme -version", intern = TRUE)
+message("MEME version: ", meme_test)
+
+# Verify MEME setup
+if (is.null(getOption("meme.bin"))) {
+    stop("MEME binary location not set. Use options(meme.bin = path_to_meme)")
+}
 # Verify required libraries are available.
 # Environment validation
 if (system("hostname", intern = TRUE) == "luria") {
@@ -6,7 +17,15 @@ if (system("hostname", intern = TRUE) == "luria") {
     stop("This script should not be run on luria cluster")
 }
 
-library(ggplot2)
+# MEME parameters specific for ORC analysis
+MEME_PARAMS <- list(
+    minw = 8,          # ORC binding sites typically 8-15bp
+    maxw = 15,
+    nmotifs = 3,       # Start with top 3 motifs
+    mod = "zoops",     # Zero or one occurrence per sequence
+    markov_order = 2   # Background model order
+)
+
 required_packages <- c("GenomeInfoDb", "IRanges", "GenomicRanges", "rtracklayer", "ggplot2", "Gviz", "TxDb.Scerevisiae.UCSC.sacCer3.sgdGene", "UpSetR", "universalmotif")
 # add cosmo after manually installing
 for (pkg in required_packages) {
@@ -14,7 +33,7 @@ for (pkg in required_packages) {
         stop(sprintf("Package '%s' is missing", pkg))
     }
 }
-
+library(universalmotif)
 # File paths and configuration
 INPUT_FILES <- list(
     narrow_peaks = "~/macs2_test_results/macs2_test_241010Bel_peaks.narrowPeak",
@@ -26,7 +45,7 @@ INPUT_FILES <- list(
         pattern = "eaton_peaks",
         full.names = TRUE
     )[1],
-    ref_genome_file <- list.files(
+    ref_genome_file = list.files(
         file.path(Sys.getenv("HOME"), "data", "REFGENS"),
         pattern = "S288C_refgenome.fna",
         full.names = TRUE,
@@ -34,9 +53,6 @@ INPUT_FILES <- list(
     )[1]
 )
 output_dir <- "~/macs2_test_results"
-PEAK_WIDTH <- 100  # Width for sequence extraction
-MOTIF_MIN_LENGTH <- 6
-MOTIF_MAX_LENGTH <- 12
 
 # Create output directory if it doesn't exist
 if (!dir.exists(output_dir)) {
@@ -68,23 +84,11 @@ if (!is.null(reference_peaks)) {
     )
 }
 
-# Find a reference origin on chrX for focused view
-chromosome_to_plot <- "chrX"
-chrX_refs <- reference_peaks[GenomicRanges::seqnames(reference_peaks) == chromosome_to_plot]
-example_origin <- chrX_refs[1]
-origin_start <- example_origin@ranges@start
-origin_end <- origin_start + example_origin@ranges@width
-
-# Expand region around origin for visualization
-view_window <- 5000  # 5kb window
-region_start <- max(0, origin_start - view_window)
-region_end <- origin_end + view_window
-
 ################################################################################
 # Load reference genome
 ################################################################################
 stopifnot(
-    "No reference genome found. One expected." = length(ref_genome_file) == 1
+    "No reference genome found. One expected." = length(INPUT_FILES$ref_genome_file) == 1
 )
 
 genome_data <- Biostrings::readDNAStringSet(INPUT_FILES$ref_genome_file)
@@ -106,14 +110,59 @@ stopifnot(
 )
 
 ################################################################################
-# Motif Analysis
+# Sequence Preparation for Motif Analysis
 ################################################################################
-# Extract sequences
-peak_centers <- narrow_peaks@ranges@start + narrow_peaks@ranges@width %/% 2
-ranges <- GenomicRanges::GRanges(
-    GenomicRanges::seqnames(narrow_peaks),
-    IRanges::IRanges(peak_centers - (PEAK_WIDTH %/% 2), peak_centers + (PEAK_WIDTH %/% 2)),
-    strand = "*"
-)
-seqs <- Biostrings::getSeq(genome_data, ranges)
+PEAK_WIDTH <- 100  # Width for sequence extraction
 
+# Get overlapping peaks with reference
+narrow_overlaps <- GenomicRanges::findOverlaps(narrow_peaks, reference_peaks)
+overlapping_peaks <- narrow_peaks[S4Vectors::queryHits(narrow_overlaps)]
+
+message("Preparing sequences for motif analysis...")
+# Function to extract centered sequences
+get_centered_sequences <- function(peaks, width = PEAK_WIDTH) {
+    peak_centers <- peaks@ranges@start + peaks@ranges@width %/% 2
+    ranges <- GenomicRanges::GRanges(
+        GenomicRanges::seqnames(peaks),
+        IRanges::IRanges(peak_centers - (width %/% 2), peak_centers + (width %/% 2)),
+        strand = "*"
+    )
+    return(Biostrings::getSeq(genome_data, ranges))
+}
+
+# Extract sequences for different peak sets
+overlapping_seqs <- get_centered_sequences(overlapping_peaks)
+reference_seqs <- get_centered_sequences(reference_peaks)
+all_peaks_seqs <- get_centered_sequences(narrow_peaks)
+
+################################################################################
+# MEME Motif Discovery
+################################################################################
+message("Running MEME motif discovery...")
+
+# Run MEME on overlapping peaks (highest confidence)
+meme_results_overlap <- run_meme(
+    overlapping_seqs,
+    output = file.path(output_dir, "meme_overlap_output"),
+    minw = MEME_PARAMS$minw,
+    maxw = MEME_PARAMS$maxw,
+    nmotifs = MEME_PARAMS$nmotifs,
+    mod = MEME_PARAMS$mod,
+    markov_order = MEME_PARAMS$markov_order,
+    revcomp = TRUE,
+    readsites = TRUE,     ### ADDED - To read motif sites ###
+    verbose = 2           ### ADDED - More detailed output ###
+)
+
+# Run MEME on reference peaks for comparison
+meme_results_ref <- run_meme(
+    reference_seqs,
+    parse = TRUE,
+    output = file.path(output_dir, "meme_reference_output"),
+    minw = MEME_PARAMS$minw,
+    maxw = MEME_PARAMS$maxw,
+    nmotifs = MEME_PARAMS$nmotifs,
+    mod = MEME_PARAMS$mod,
+    markov_order = MEME_PARAMS$markov_order,
+    revcomp = TRUE
+)
