@@ -133,12 +133,26 @@ overlapping_peaks <- narrow_peaks[S4Vectors::queryHits(narrow_overlaps)]
 message("Preparing sequences for motif analysis...")
 # Function to extract centered sequences
 get_centered_sequences <- function(peaks, width = PEAK_WIDTH) {
+    # Get chromosome sizes from genome data
+    chrom_sizes <- GenomicRanges::width(genome_data)
+    names(chrom_sizes) <- names(genome_data)
+    
+    # Calculate centers
     peak_centers <- peaks@ranges@start + peaks@ranges@width %/% 2
+    
+    # Create ranges with boundary checking
+    start_pos <- pmax(1, peak_centers - (width %/% 2))  # Don't go below 1
+    end_pos <- pmin(
+        chrom_sizes[as.character(GenomicRanges::seqnames(peaks))],  # Don't exceed chromosome length
+        peak_centers + (width %/% 2)
+    )
+    
     ranges <- GenomicRanges::GRanges(
         GenomicRanges::seqnames(peaks),
-        IRanges::IRanges(peak_centers - (width %/% 2), peak_centers + (width %/% 2)),
+        IRanges::IRanges(start_pos, end_pos),
         strand = "*"
     )
+    
     return(Biostrings::getSeq(genome_data, ranges))
 }
 
@@ -372,3 +386,23 @@ universalmotif::view_motifs(
     show.positions = TRUE
 )
 dev.off()
+
+# Prepare sequences for scanning
+# Option 1: Scan peak regions with padding
+PADDING <- 100  # bases to add around peaks
+peak_regions <- get_centered_sequences(narrow_peaks, width = narrow_peaks@ranges@width + 2*PADDING)
+
+# Scan for motif matches
+scan_results <- universalmotif::scan_sequences(
+    motifs = meme_results_top[[1]],  # Use first (primary) motif
+    sequences = peak_regions,         # CHANGED: correct parameter name
+    threshold = 0.85,
+    threshold.type = "logodds",      # ADDED: specify threshold type
+    RC = TRUE,
+    verbose = 1,                     # ADDED: show progress
+    calc.pvals = TRUE                # ADDED: get p-values for matches
+)
+
+# Filter based on log-odds ratio
+threshold_score <- 4  # As specified in paper
+filtered_matches <- scan_results[scan_results$score >= threshold_score, ]
