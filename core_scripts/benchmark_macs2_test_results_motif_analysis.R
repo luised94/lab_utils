@@ -52,7 +52,17 @@ INPUT_FILES <- list(
         recursive = TRUE
     )[1]
 )
-output_dir <- "~/macs2_test_results"
+output_dir <- file.path(Sys.getenv("HOME"), "macs2_test_results")
+# Create MEME-specific output directories
+meme_overlap_dir <- file.path(output_dir, "meme_overlap_output")
+meme_ref_dir <- file.path(output_dir, "meme_reference_output")
+meme_all_dir <- file.path(output_dir, "meme_all_output")
+
+for (dir in c(meme_overlap_dir, meme_ref_dir)) {
+    if (!dir.exists(dir)) {
+        dir.create(dir)
+    }
+}
 
 # Create output directory if it doesn't exist
 if (!dir.exists(output_dir)) {
@@ -143,26 +153,116 @@ message("Running MEME motif discovery...")
 # Run MEME on overlapping peaks (highest confidence)
 meme_results_overlap <- run_meme(
     overlapping_seqs,
-    output = file.path(output_dir, "meme_overlap_output"),
+    output = meme_overlap_dir,
+    overwrite.dir = TRUE,
     minw = MEME_PARAMS$minw,
     maxw = MEME_PARAMS$maxw,
     nmotifs = MEME_PARAMS$nmotifs,
     mod = MEME_PARAMS$mod,
     markov_order = MEME_PARAMS$markov_order,
     revcomp = TRUE,
-    readsites = TRUE,     ### ADDED - To read motif sites ###
-    verbose = 2           ### ADDED - More detailed output ###
+    readsites = TRUE,
+    verbose = 2
 )
 
 # Run MEME on reference peaks for comparison
 meme_results_ref <- run_meme(
     reference_seqs,
-    parse = TRUE,
-    output = file.path(output_dir, "meme_reference_output"),
+    output = meme_ref_dir,
+    overwrite.dir = TRUE,
     minw = MEME_PARAMS$minw,
     maxw = MEME_PARAMS$maxw,
     nmotifs = MEME_PARAMS$nmotifs,
     mod = MEME_PARAMS$mod,
     markov_order = MEME_PARAMS$markov_order,
-    revcomp = TRUE
+    revcomp = TRUE,
+    readsites = TRUE,
+    verbose = 2
 )
+
+meme_results_overlap <- run_meme(
+    all_peaks_seqs,
+    output = meme_all_dir,
+    overwrite.dir = TRUE,
+    minw = MEME_PARAMS$minw,
+    maxw = MEME_PARAMS$maxw,
+    nmotifs = MEME_PARAMS$nmotifs,
+    mod = MEME_PARAMS$mod,
+    markov_order = MEME_PARAMS$markov_order,
+    revcomp = TRUE,
+    readsites = TRUE,
+    verbose = 2
+)
+
+# Check MEME output files
+meme_output_files <- list.files(meme_overlap_dir, full.names = TRUE)
+message("MEME output generated: ", length(meme_output_files), " files")
+
+# Read MEME results using universalmotif
+meme_motifs <- universalmotif::read_meme(
+    file.path(meme_overlap_dir, "meme.txt")
+)
+
+# Basic validation of motif discovery
+if (length(meme_motifs) == 0) {
+    warning("No motifs were discovered")
+} else {
+    message("Successfully discovered ", length(meme_motifs), " motifs")
+}
+
+# Save motif plots
+pdf(file.path(output_dir, "overlap_discovered_motifs.pdf"))
+universalmotif::view_motifs(
+    meme_motifs,
+    show.positions = TRUE
+)
+dev.off()
+
+
+# Check MEME output files
+meme_output_files <- list.files(meme_ref_dir, full.names = TRUE)
+message("MEME output generated: ", length(meme_ref_dir), " files")
+
+# Read MEME results using universalmotif
+meme_motifs <- universalmotif::read_meme(
+    file.path(meme_ref_dir, "meme.txt")
+)
+
+# Basic validation of motif discovery
+if (length(meme_motifs) == 0) {
+    warning("No motifs were discovered")
+} else {
+    message("Successfully discovered ", length(meme_motifs), " motifs")
+}
+
+# Save motif plots
+pdf(file.path(output_dir, "reference_discovered_motifs.pdf"))
+universalmotif::view_motifs(
+    meme_motifs,
+    show.positions = TRUE
+)
+dev.off()
+
+# Check MEME output files
+meme_output_files <- list.files(meme_all_dir, full.names = TRUE)
+message("MEME output generated: ", length(meme_all_dir), " files")
+
+# Read MEME results using universalmotif
+meme_motifs <- universalmotif::read_meme(
+    file.path(meme_allf_dir, "meme.txt")
+)
+
+# Basic validation of motif discovery
+if (length(meme_motifs) == 0) {
+    warning("No motifs were discovered")
+} else {
+    message("Successfully discovered ", length(meme_motifs), " motifs")
+}
+
+# Save motif plots
+pdf(file.path(output_dir, "allpeaks_discovered_motifs.pdf"))
+universalmotif::view_motifs(
+    meme_motifs,
+    show.positions = TRUE
+)
+dev.off()
