@@ -31,3 +31,11 @@ activate_macs2
 ## Validation
 
 Run the `validate_macs2_setup.sh` script to ensure all requirements are met before installation.
+
+## Usage in scripts
+Either add setup_conda_and_macs2.sh or:
+```{bash}
+export PATH="/home/lius/miniforge3/bin:$PATH"
+source /home/lius/miniforge3/etc/profile.d/conda.sh
+conda activate base  # or your specific environment
+```
