@@ -409,7 +409,6 @@ for (file in files_to_process) {
                 fdr = NORMR_CONFIG$fdr_threshold
             )
         }
-
     }, error = function(e) {
         message(sprintf("Error processing sample %s: %s",
                        chip_id,

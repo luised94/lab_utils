@@ -6,7 +6,6 @@
 # DATE: 2024-12-12
 # VERSION: 1.0.0
 #===============================================================================
-
 #-------------------------------------------------------------------------------
 # Setup SRA-tools
 #-------------------------------------------------------------------------------
@@ -178,7 +177,7 @@ for gsm in "${!gsm_groups[@]}"; do
 done
 
 echo "Consolidation completed"
-
 echo -e "\nTo sync data manually, run the following command:\n"
 echo "rsync -avzP LOCAL_DIR/ REMOTE_HOST:REMOTE_DIR/"
 echo -e "\nReplace:\nLOCAL_DIR with ${HOME}/data/100303Bel\nREMOTE_HOST with your Luria username@luria.mit.edu\nREMOTE_DIR with ~/data/100303Bel"
+echo "All consolidation completed successfully"
