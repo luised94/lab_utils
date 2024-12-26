@@ -141,22 +141,33 @@ fi
 
 # Generate output name
 SAMPLE_NAME=$(basename --suffix=.fastq "$FASTQ_PATH" )
-OUTPUT_FASTQ="${EXPERIMENT_DIR}/fastq/${SAMPLE_NAME}_to_S288C_sorted.bam"
+OUTPUT_FASTQ="${EXPERIMENT_DIR}/fastq/${SAMPLE_NAME}"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
 log_message "INFO" "Input: ${FASTQ_PATH}"
 log_message "INFO" "Output: ${OUTPUT_FASTQ}"
 
 # Alignment and sorting
-log_message "INFO" "Starting alignment and sorting"
-if measure_performance "fastp_filtering" \
-    ; then
+log_message "INFO" "Starting fastp filtering"
 
+if measure_performance "fastp_filtering" \
+    fastp \
+        --in1 "$FASTQ_PATH" \
+        --out1 "${FASTQ_DIR}/processed_${SAMPLE_NAME}.fastq" \
+        --cut_window_size 4 \
+        --cut_mean_quality 20 \
+        --n_base_limit 5 \
+        --average_qual "$QUALITY_THRESHOLD" \
+        --qualified_quality_phred "$QUALITY_THRESHOLD" \
+        --unqualified_percent_limit 50 \
+        --length_required "$LENGTH_REQUIRED" \
+        --thread "$SLURM_CPUS_PER_TASK" \
+        --compression 0 \
+        --json "${TASK_LOG_DIR}/${SAMPLE_NAME}_fastp.json" \
+        --html /dev/null; then
+    
     log_message "INFO" "Starting fastp filtering"
 else
-    log_message "ERROR" "Alignment/sorting failed for ${SAMPLE_NAME}"
+    log_message "ERROR" "Fastp filtering failed for ${SAMPLE_NAME}"
     exit 1
 fi
-
-# Log completion
-log_message "INFO" "Task completed successfully"
