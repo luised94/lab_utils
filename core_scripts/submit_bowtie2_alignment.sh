@@ -50,4 +50,4 @@ if [[ ! $confirm =~ ^[Yy]$ ]]; then
     exit 0
 fi
 # Submit job
-sbatch --array=1-${FASTQ_COUNT}%16 run_bowtie2_array_alignment.sh "$EXPERIMENT_DIR"
+sbatch --array=1-${FASTQ_COUNT}%16 "$HOME/lab_utils/core_scripts/run_bowtie2_array_alignment.sh" "$EXPERIMENT_DIR"

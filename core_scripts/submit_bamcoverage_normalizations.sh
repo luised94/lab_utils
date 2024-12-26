@@ -52,4 +52,4 @@ if [[ ! $confirm =~ ^[Yy]$ ]]; then
 fi
 
 # Submit job
-sbatch --array=1-${TOTAL_JOBS}%16 run_bamcoverage_normalizations.sh "$EXPERIMENT_DIR"
+sbatch --array=1-${TOTAL_JOBS}%16 "$HOME/lab_utils/core_scripts/run_bamcoverage_normalizations.sh" "$EXPERIMENT_DIR"
