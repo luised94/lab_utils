@@ -139,9 +139,10 @@ else
     log_message "INFO" "Using standard parameters: Q${QUALITY_THRESHOLD}, L${LENGTH_REQUIRED}"
 fi
 
-# Generate output name
-SAMPLE_NAME=$(basename --suffix=.fastq "$FASTQ_PATH" )
-OUTPUT_FASTQ="${EXPERIMENT_DIR}/fastq/${SAMPLE_NAME}"
+
+# Extract ID from consolidate_<id>_sequence.fastq pattern
+SAMPLE_ID=$(basename "$FASTQ_PATH" | sed 's/consolidate_\(.*\)_sequence.fastq/\1/')
+OUTPUT_FASTQ="${EXPERIMENT_DIR}/fastq/processed_${SAMPLE_ID}_sequence.fastq"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
 log_message "INFO" "Input: ${FASTQ_PATH}"
