@@ -139,10 +139,29 @@ else
     log_message "INFO" "Using standard parameters: Q${QUALITY_THRESHOLD}, L${LENGTH_REQUIRED}"
 fi
 
+# Extract and validate sample ID from filename
+FASTQ_BASENAME=$(basename "$FASTQ_PATH")
+if [[ ! "$FASTQ_BASENAME" =~ ^consolidate_.*_sequence\.fastq$ ]]; then
+    log_message "ERROR" "Invalid input filename format: ${FASTQ_BASENAME}"
+    log_message "ERROR" "Expected format: consolidate_<ID>_sequence.fastq"
+    exit 1
+fi
 
-# Extract ID from consolidate_<id>_sequence.fastq pattern
-SAMPLE_ID=$(basename "$FASTQ_PATH" | sed 's/consolidate_\(.*\)_sequence.fastq/\1/')
+# Extract ID using sed with validation
+SAMPLE_ID=$(echo "$FASTQ_BASENAME" | sed -n 's/consolidate_\(.*\)_sequence\.fastq/\1/p')
+if [ -z "$SAMPLE_ID" ]; then
+    log_message "ERROR" "Failed to extract sample ID from filename: ${FASTQ_BASENAME}"
+    exit 1
+fi
+
+# Construct output path
 OUTPUT_FASTQ="${EXPERIMENT_DIR}/fastq/processed_${SAMPLE_ID}_sequence.fastq"
+
+# Validate output path doesn't already exist (optional)
+if [ -f "$OUTPUT_FASTQ" ]; then
+    log_message "WARNING" "Output file already exists: ${OUTPUT_FASTQ}"
+    exit 1
+fi
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
 log_message "INFO" "Input: ${FASTQ_PATH}"
@@ -154,7 +173,7 @@ log_message "INFO" "Starting fastp filtering"
 if measure_performance "fastp_filtering" \
     fastp \
         --in1 "$FASTQ_PATH" \
-        --out1 "${FASTQ_DIR}/processed_${SAMPLE_NAME}.fastq" \
+        --out1 "$OUTPUT_FASTQ" \
         --cut_window_size 4 \
         --cut_mean_quality 20 \
         --n_base_limit 5 \
@@ -167,7 +186,7 @@ if measure_performance "fastp_filtering" \
         --json "${TASK_LOG_DIR}/${SAMPLE_NAME}_fastp.json" \
         --html /dev/null; then
     
-    log_message "INFO" "Starting fastp filtering"
+    log_message "INFO" "Performed fastp filtering."
 else
     log_message "ERROR" "Fastp filtering failed for ${SAMPLE_NAME}"
     exit 1
