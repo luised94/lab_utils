@@ -111,7 +111,7 @@ if [ $TOTAL_FILES -eq 0 ]; then
 fi
 
 # Validate array range
-if [ $SLURM_ARRAY_TASK_ID -gt $TOTAL_JOBS ]; then
+if [ $SLURM_ARRAY_TASK_ID -gt $TOTAL_FILES ]; then
     log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} exceeds number of jobs ${TOTAL_FILES}"
     exit 1
 fi
@@ -130,38 +130,44 @@ fi
 
 # Set output name
 SAMPLE_NAME=$(basename --suffix=_sorted.bam "$BAM_PATH" )
-OUTPUT_BIGWIG="${EXPERIMENT_DIR}/peak_calling/${SAMPLE_NAME}_${NORM_METHOD}.bw"
+OUTPUT_PEAK="${EXPERIMENT_DIR}/peak_calling/${SAMPLE_NAME}_"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
 log_message "INFO" "Normalization method: ${NORM_METHOD}"
 log_message "INFO" "Input: ${BAM_PATH}"
-log_message "INFO" "Output: ${OUTPUT_BIGWIG}"
+log_message "INFO" "Output: ${OUTPUT_PEAK}"
 
-# Build bamCoverage command with specific parameters for each method
-COMMON_PARAMS="--bam ${BAM_PATH} \
-    --outFileName ${OUTPUT_BIGWIG} \
-    --binSize ${BIN_SIZE} \
-    --minMappingQuality ${MIN_MAPPING_QUALITY} \
-    --ignoreDuplicates \
-    --normalizeUsing ${NORM_METHOD} \
-    --numberOfProcessors ${SLURM_CPUS_PER_TASK}"
-
-# Add RPGC-specific parameters
-if [ "${NORM_METHOD}" == "RPGC" ]; then
-    COMMON_PARAMS+=" --effectiveGenomeSize ${EFFECTIVE_GENOME_SIZE}"
-    log_message "INFO" "Added effectiveGenomeSize parameter for RPGC normalization"
-fi
+# Parameter explanation:
+# --nomodel : Skip the model building step
+# --extsize 147 : Typical yeast nucleosome size (~150bp)
+# --shift -73 : Half the fragment size (147/2)
+# --mfold 3 100 : Minimum fold enrichment of 3
+# --pvalue 1e-6 : Matches paper's significance threshold
+# --bdg : Generate bedGraph files for visualization
+# --SPMR : Normalize to signal per million reads
 
 # Execute bamCoverage
 log_message "INFO" "Starting bamCoverage processing"
-if measure_performance "bamcoverage" bamCoverage $COMMON_PARAMS; then
+if measure_performance "peak_calling" \
+    macs2 callpeak \
+        -t "$TEST_SAMPLE" \
+        -c "$INPUT_CONTROL" \
+        -n "${OUTPUT_PREFIX}_241010Bel" \
+        -g "1.2e7" \
+        --nomodel \
+        --extsize 147 \
+        --shift -73 \
+        --keep-dup auto \
+        --pvalue 1e-6 \
+        --mfold 3 100 \
+        --outdir "$OUTDIR" \
+        --bdg \
+        --SPMR; then
     log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
 else
     log_error "bamCoverage processing failed for ${SAMPLE_NAME}"
     exit 1
 fi
 
-log_message "INFO" "Parameters used:\n"
-log_message "INFO" "$COMMON_PARAMS"
 # Log completion
 log_message "INFO" "Task completed successfully"
