@@ -180,11 +180,23 @@ FASTQC_CONFIG$FILE_PATTERN <- list(
     REGEX = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
     EXPECTED_FORMAT = "consolidated_XXXXXX_sequence_fastqc_data.txt"  # For error messages
 )
-################################################################################
-# GENOME TRACK CONFIG
-################################################################################
-PLOT_CONFIG <- list(
 
+################################################################################
+# VISUALIZATION AND DISPLAY CONFIGURATIONS
+################################################################################
+VIEWER_CONFIG <- list(
+    base_dir = file.path(Sys.getenv("HOME"), "data"),
+    patterns = list(
+        svg = "\\.svg$",
+        timestamp = "^[0-9]{8}_[0-9]{6}",  # YYYYMMDD_HHMMSS
+        experiment = "^[0-9]{6}Bel"
+    ),
+    device = list(
+        width = 10,
+        height = 8
+    )
+)
+GENOME_TRACK_CONFIG <- list(
     # Basic plot settings
     dimensions = list(
         width = 10,
@@ -243,65 +255,15 @@ PLOT_CONFIG <- list(
         )
     )
 )
-
-PLOT_CONFIG <- list(
-    #width = 10,
+GENOME_TRACK_CONFIG <- list(
+    width = 10,
     height = 8,
     placeholder_color = "#cccccc",
     input_color ="#808080",
     track_name_format = "%s: %s - %s",
     placeholder_suffix = "(No data)",
     title_format = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
-)
-################################################################################
-# Peak Calling Configurations
-################################################################################
-NORMR_CONFIG <- list(
-    # Peak calling parameters
-    fdr_thresholds = c(0.01, 0.05, 0.1),
-    default_fdr = 0.000001,
-    bin_size = 100,  # Base pairs
-    min_mapq = 30,   # Minimum mapping quality
 
-    # S. cerevisiae ORC-specific parameters
-    expected_peak_range = list(
-        min = 100,
-        max = 500,
-        typical = 250:400
-    ),
-
-    # File patterns
-    bam_pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam$",
-    genome_pattern = "S288C_refgenome.fna",
-    # Output formatting
-    output_name_template = "%s_peaks_%s_vs_%s_%s.bed",  # timestamp, chip, input, package
-    region_file_template = "%s_regions_%s_vs_%s_%s.tsv",
-    bedgraph_template = "%s_enrichment_%s_vs_%s_%s.bedGraph",
-
-    # Genome requirements
-    expected_chromosomes = 16,
-    chromosome_prefix = "chr",
-
-    # Quality thresholds
-    min_enrichment_score = 1.5,
-    min_read_count = 10,
-
-    # Binning parameters
-    min_reads_per_bin = 1,
-    paired_end = FALSE,
-
-    # Count configuration
-    bin_size = 1000L,    # Reasonable bin size for yeast
-    min_mapq = 30L,      # High quality alignments
-    iterations = 10L,    # Number of EM iterations
-    processors = 1L,     # Number of processors to use
-
-    # Column specifications for region output
-    region_columns = c(
-        "chromosome", "start", "end",
-        "treatment_count", "control_count",
-        "enrichment", "qvalue", "peak_class"
-    )
 )
 
 ################################################################################
