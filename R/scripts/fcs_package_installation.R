@@ -1,5 +1,3 @@
-<<<<<<< HEAD:R/scripts/fcs_package_installation.R
-<<<<<<< HEAD:R/scripts/fcs_package_installation.R
 # May need to install run in command line because of systemfonts, textshaping, and ragg:
 # sudo apt-get install libharfbuzz-dev libfribidi-dev libfontconfig1-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libboost-all-dev build-essential
 renv::install(c("tidyverse", "R.utils", "ggplot2", "BiocManager", "remotes","devtools", "svglite"))
@@ -13,15 +11,7 @@ renv::install(c("tidyverse", "R.utils", "ggplot2", "BiocManager", "remotes","dev
 options(repos = BiocManager::repositories())
 
 library(flowCore)
-
 renv::snapshot()
-
-=======
-#STATUS:
->>>>>>> 83e3091 (Add status to all files while I go through them one by one.):001_setupR/001_packageInstallation.R
-=======
-#STATUS: REMOVE.
->>>>>>> 3530145 (Added status markers for removal or moving to hold folder.):001_setupR/001_packageInstallation.R
 # Installs R libraries to library_location.
 # Inside R source the file. 
 # This should be setup in 001_setupR/000_installingR4.2.0.sh
