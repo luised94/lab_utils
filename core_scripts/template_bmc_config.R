@@ -124,11 +124,14 @@ EXPERIMENT_CONFIG <- list(
 # Time Configurations
 ################################################################################
 TIME_CONFIG <- list(
-    timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
-    date_format = "%Y%m%d"               # YYYYMMDD
+    # Format specifications
+    timestamp_format = "%Y%m%d_%H%M%S",    # YYYYMMDD_HHMMSS
+    date_format = "%Y%m%d",                # YYYYMMDD
+    
+    # Current values
+    current_timestamp = format(Sys.time(), "%Y%m%d_%H%M%S"),
+    current_date = format(Sys.Date(), "%Y%m%d")
 )
-TIME_CONFIG$full <- format(Sys.time(), TIME_CONFIG$timestamp_format)
-TIME_CONFIG$date <- format(Sys.Date(), TIME_CONFIG$date_format)
 
 ################################################################################
 # DEBUG CONFIGURATIONS
@@ -173,12 +176,11 @@ FASTQC_CONFIG <- list(
         Sys.getenv("HOME"),
         "data",
         "fastqc_module_reference.rds"
+    ),
+    file_pattern = list(
+        REGEX = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
+        EXPECTED_FORMAT = "consolidated_XXXXXX_sequence_fastqc_data.txt"  # For error messages
     )
-)
-
-FASTQC_CONFIG$FILE_PATTERN <- list(
-    REGEX = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
-    EXPECTED_FORMAT = "consolidated_XXXXXX_sequence_fastqc_data.txt"  # For error messages
 )
 
 ################################################################################
@@ -196,6 +198,7 @@ VIEWER_CONFIG <- list(
         height = 8
     )
 )
+
 GENOME_TRACK_CONFIG <- list(
     # Basic plot settings
     dimensions = list(
@@ -255,32 +258,7 @@ GENOME_TRACK_CONFIG <- list(
         )
     )
 )
-GENOME_TRACK_CONFIG <- list(
-    width = 10,
-    height = 8,
-    placeholder_color = "#cccccc",
-    input_color ="#808080",
-    track_name_format = "%s: %s - %s",
-    placeholder_suffix = "(No data)",
-    title_format = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
 
-)
-
-################################################################################
-# Plot viewer configuration
-################################################################################
-VIEWER_CONFIG <- list(
-    base_dir = file.path(Sys.getenv("HOME"), "data"),
-    patterns = list(
-        svg = "\\.svg$",
-        timestamp = "^[0-9]{8}_[0-9]{6}",  # YYYYMMDD_HHMMSS
-        experiment = "^[0-9]{6}Bel"
-    ),
-    device = list(
-        width = 10,
-        height = 8
-    )
-)
 ################################################################################
 # Configuration Validation
 ################################################################################
