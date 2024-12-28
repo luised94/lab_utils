@@ -14,13 +14,6 @@
 #
 # !! ----> REQUIRED UPDATES:
 # !! experiment_id <- "241122Bel"
-# !! DEBUG_CONFIG <- list(
-# !!      enabled = FALSE,
-# !!      verbose = TRUE,
-# !!      interactive = TRUE,
-# !!      dry_run = FALSE
-# !!  )
-
 # INPUTS:
 #   - experiment_id: 9-character experiment identifier
 #   - bmc_config.R: External configuration defining experimental design
@@ -62,21 +55,8 @@
 #
 ################################################################################
 ################################################################################
-# Configuration and Debug Settings
-################################################################################
-# !! Review debug configuration
-DEBUG_CONFIG <- list(
-    enabled = FALSE,
-    verbose = TRUE,
-    interactive = TRUE,
-    dry_run = FALSE
-)
-
-################################################################################
 # Experiment ID Validation
 ################################################################################
-# !! Update experiment ID
-experiment_id <- "100303Bel"
 stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
     "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)

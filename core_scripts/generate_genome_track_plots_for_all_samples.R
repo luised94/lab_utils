@@ -1,42 +1,4 @@
 #!/usr/bin/env Rscript
-# Configuration
-#-----------------------------------------------------------------------------
-DEBUG_CONFIG <- list(
-    enabled = FALSE,           # TRUE for testing single group, FALSE for all
-    group = 10,               # Which group to process when in debug mode
-    samples_per_group = 4,    # Samples per plot
-    save_plots = FALSE,       # Whether to save plots to files
-    verbose = TRUE,           # Print debug information
-    chromosome = 10,
-    interactive = FALSE,
-    display_time = 2
-)
-
-
-# Time formatting configuration
-TIME_CONFIG <- list(
-    timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
-    date_format = "%Y%m%d"               # YYYYMMDD
-)
-
-# Generate timestamps once at script start
-TIMESTAMPS <- list(
-    full = format(Sys.time(), TIME_CONFIG$timestamp_format),
-    date = format(Sys.Date(), TIME_CONFIG$date_format)
-)
-
-PLOT_CONFIG <- list(
-    width = 10,
-    height = 8,
-    placeholder_color = "#cccccc",
-    input_color ="#808080",
-    track_name_format = "%s: %s - %s",
-    placeholder_suffix = "(No data)",
-    title_format = "%s\nChromosome %s (%d samples)\n%s\nNormalization: %s"
-
-)
-
-
 ################################################################################
 # Load Required Libraries
 ################################################################################

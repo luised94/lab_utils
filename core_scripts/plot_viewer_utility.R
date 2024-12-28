@@ -1,27 +1,4 @@
 #!/usr/bin/env Rscript
-
-# Plot Viewer Configuration
-#-----------------------------------------------------------------------------
-DEBUG_CONFIG <- list(
-    enabled = FALSE,          # Enable debug output
-    verbose = TRUE,           # Print processing details
-    display_time = 2,         # Seconds between auto-advance
-    interactive = TRUE        # Enable interactive viewing
-)
-
-VIEWER_CONFIG <- list(
-    base_dir = file.path(Sys.getenv("HOME"), "data"),
-    patterns = list(
-        svg = "\\.svg$",
-        timestamp = "^[0-9]{8}_[0-9]{6}",  # YYYYMMDD_HHMMSS
-        experiment = "^[0-9]{6}Bel"
-    ),
-    device = list(
-        width = 10,
-        height = 8
-    )
-)
-
 # Required Packages and Functions
 #-----------------------------------------------------------------------------
 required_packages <- c("rsvg", "magick")

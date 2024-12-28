@@ -60,52 +60,6 @@
 # VERSION: 1.0.0
 ################################################################################
 ################################################################################
-# Configuration and Debug Settings
-################################################################################
-DEBUG_CONFIG <- list( # !! UPDATE THIS
-    single_file_mode = FALSE,           # Test single file in main logic.
-    verbose = TRUE,           # Print processing details
-    interactive = TRUE,       # Allow interactive processing
-    dry_run = FALSE,         # Skip file writes
-    files_to_process_idx = 1  # Process specific files in debug mode
-)
-
-FASTQC_CONFIG <- list(
-    VERSION = "0.11.5",                    # Expected FastQC version
-    VERSION_PATTERN = "^##FastQC\\s+",     # Pattern to match version line
-    HEADER_PATTERN = "^##FastQC",          # Pattern to identify FastQC header
-    module_separator = ">>",
-    module_end = ">>END_MODULE",
-    header_prefix = "#",
-    fastqc_pattern = "fastqc_data",
-    output_suffix = ".tab",
-    qc_subdir = "quality_control",
-    existing_version_limit = 1,
-    module_names = character(0),
-    module_reference_file = file.path(
-        Sys.getenv("HOME"),
-        "data",
-        "fastqc_module_reference.rds"
-    )
-)
-
-FASTQC_CONFIG$FILE_PATTERN <- list(
-    REGEX = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
-    EXPECTED_FORMAT = "consolidated_XXXXXX_sequence_fastqc_data.txt"  # For error messages
-)
-
-TIME_CONFIG <- list(
-    timestamp_format = "%Y%m%d_%H%M%S",
-    date_format = "%Y%m%d"
-)
-
-# Generate timestamps
-TIMESTAMPS <- list(
-    full = format(Sys.time(), TIME_CONFIG$timestamp_format),
-    date = format(Sys.Date(), TIME_CONFIG$date_format)
-)
-
-################################################################################
 # Load and Validate Experiment Configuration
 ################################################################################
 # Bootstrap phase

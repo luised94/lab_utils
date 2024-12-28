@@ -10,30 +10,30 @@
 
 # Configuration
 #-----------------------------------------------------------------------------
-DEBUG_CONFIG <- list(
-    enabled = FALSE,           # TRUE for single group testing, FALSE for all groups
-    group = 1,                # Group to process in debug mode
-    samples_per_group = 4,    # Number of samples to show per plot
-    save_plots = TRUE,        # Save plots to files
-    verbose = TRUE,           # Print processing details
-    chromosome = 1,           # Default chromosome to visualize
-    interactive = TRUE,       # Enable interactive plot viewing
-    display_time = 2          # Seconds to display each plot in non-interactive mode
-)
 
-TIME_CONFIG <- list(
-    timestamp_format = "%Y%m%d_%H%M%S",  # Format for full timestamp
-    date_format = "%Y%m%d"               # Format for date only
-)
 
-PLOT_CONFIG <- list(
-    width = 10,                # Plot width in inches
-    height = 8,                # Plot height in inches
-    track_color = "#fd0036",   # Color for data tracks
-    placeholder_color = "#cccccc",  # Color for missing data
-    track_name_format = "%s (%s)",  # Format: sample_id (short_name)
-    placeholder_suffix = "(No data)"  # Suffix for placeholder tracks
-)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Required Packages
 #-----------------------------------------------------------------------------
