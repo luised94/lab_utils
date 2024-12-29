@@ -1,56 +1,28 @@
 ################################################################################
 # BMC Experiment Configuration
 ################################################################################
-#
 # PURPOSE:
 #   Defines and validates experimental design for BMC ChIP-seq experiments,
 #   including sample categories, valid combinations, and comparison groups.
-#
 # USAGE:
 #   1. Use '/!!' in vim/neovim to jump to required updates
 #   2. Modify METADATA section with experiment details
 #   3. Update CATEGORIES if experimental design changes
 #   4. Review INVALID_COMBINATIONS and EXPERIMENTAL_CONDITIONS
-#
 # !! ----> REQUIRED UPDATES:
 # !! EXPERIMENT_CONFIG$METADATA <- list(
 # !!     EXPERIMENT_ID = "241010Bel",
 # !!     EXPECTED_SAMPLES = 65,
 # !!     VERSION = "1.0.0"
 # !! )
-#
-# STRUCTURE:
-#   EXPERIMENT_CONFIG/
-#   +-- METADATA/
-#   |   +-- EXPERIMENT_ID    # Format: YYMMDD'Bel'
-#   |   +-- EXPECTED_SAMPLES # Total valid combinations
-#   |   +-- VERSION         # Configuration version
-#   +-- CATEGORIES/         # Valid values for each factor
-#   +-- INVALID_COMBINATIONS/# Excluded experimental combinations
-#   +-- EXPERIMENTAL_CONDITIONS/# Valid sample definitions
-#   +-- COMPARISONS/        # Analysis groupings
-#   +-- CONTROL_FACTORS/    # Control sample definitions
-#   +-- COLUMN_ORDER/       # Standard column arrangement
-#
-# VALIDATION:
-#   1. Category Values: Must be character vectors, unique
-#   2. Column References: All referenced columns must exist
-#   3. Column Order: Must include all category columns
-#   4. Sample Count: Must match EXPECTED_SAMPLES
-#
-# DEPENDENCIES:
-#   - R base packages only
-#   - functions_for_bmc_config_validation.R for validation functions
-#
+# DEPENDENCIES: R base packages only, functions_for_bmc_config_validation.R for validation functions
 # COMMON ISSUES:
 #   1. Mismatched EXPERIMENT_ID -> Check format YYMMDD'Bel'
 #   2. Wrong sample count -> Review INVALID_COMBINATIONS
 #   3. Missing categories -> Check CATEGORIES vs COLUMN_ORDER
-#
 # AUTHOR: Luis
 # DATE: 2024-11-27
 # VERSION: 2.0.0
-#
 ################################################################################
 # !! Update EXPERIMENT_CONFIG if starting a new experiment.
 EXPERIMENT_CONFIG <- list(
@@ -161,102 +133,91 @@ RUNTIME_CONFIG <- list(
 # Quality control configuration
 ################################################################################
 FASTQC_CONFIG <- list(
-    VERSION = "0.11.5",                    # Expected FastQC version
-    VERSION_PATTERN = "^##FastQC\\s+",     # Pattern to match version line
-    HEADER_PATTERN = "^##FastQC",          # Pattern to identify FastQC header
-    module_separator = ">>",
-    module_end = ">>END_MODULE",
-    header_prefix = "#",
-    fastqc_pattern = "fastqc_data",
-    output_suffix = ".tab",
-    qc_subdir = "quality_control",
-    existing_version_limit = 1,
-    module_names = character(0),
-    module_reference_file = file.path(
-        Sys.getenv("HOME"),
-        "data",
-        "fastqc_module_reference.rds"
-    ),
-    file_pattern = list(
-        REGEX = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
-        EXPECTED_FORMAT = "consolidated_XXXXXX_sequence_fastqc_data.txt"  # For error messages
-    )
+    # Version control
+    version_required = "0.11.5",
+    version_pattern = "^##FastQC\\s+",
+    version_max = 1,
+    
+    # Parsing patterns
+    parse_header = "^##FastQC",
+    parse_module_start = ">>",
+    parse_module_end = ">>END_MODULE",
+    parse_prefix = "#",
+    
+    # File handling
+    file_pattern = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
+    file_format = "consolidated_XXXXXX_sequence_fastqc_data.txt",
+    file_suffix = ".tab",
+    file_base = "fastqc_data",
+    
+    # Paths and references
+    path_qc_dir = "quality_control",
+    path_module_ref = file.path(Sys.getenv("HOME"), "data", "fastqc_module_reference.rds"),
+    
+    # Module configuration
+    module_list = character(0)
 )
 
 ################################################################################
 # VISUALIZATION AND DISPLAY CONFIGURATIONS
 ################################################################################
 VIEWER_CONFIG <- list(
-    base_dir = file.path(Sys.getenv("HOME"), "data"),
-    patterns = list(
-        svg = "\\.svg$",
-        timestamp = "^[0-9]{8}_[0-9]{6}",  # YYYYMMDD_HHMMSS
-        experiment = "^[0-9]{6}Bel"
-    ),
-    device = list(
-        width = 10,
-        height = 8
-    )
+    # Paths
+    path_base = file.path(Sys.getenv("HOME"), "data"),
+    
+    # Patterns
+    pattern_svg = "\\.svg$",
+    pattern_timestamp = "^[0-9]{8}_[0-9]{6}",  # YYYYMMDD_HHMMSS
+    pattern_experiment = "^[0-9]{6}Bel",
+    
+    # Display dimensions
+    display_width = 10,
+    display_height = 8
 )
 
 GENOME_TRACK_CONFIG <- list(
-    # Basic plot settings
-    dimensions = list(
-        width = 10,
-        height = 8
+    # Display dimensions
+    display_width = 10,
+    display_height = 8,
+    
+    # Track visual properties
+    track_width = 0.9,
+    track_fontface = 1,
+    track_size = 0.6,
+    track_background = "white",
+    track_fontcolor = "black",
+    track_border = "#E0E0E0",
+    
+    # Track colors
+    color_placeholder = "#cccccc",
+    color_input = "#808080",
+    
+    # Track naming
+    format_track = "%s: %s",
+    format_control = "%s: %s - %s",
+    format_placeholder = "(No data)",
+    
+    # Development mode title
+    title_dev_mode = "development",  # Enum: "development" | "publication"
+    title_dev_template = paste(
+        "%s",               # Title
+        "Comparison: %s",   # Comparison ID
+        "Chromosome %s (%d samples)", # Chr info
+        "%s",               # Additional info
+        "Normalization: %s", # Norm method
+        sep = "\n"
     ),
-
-    # Track configuration
-    tracks = list(
-        # Visual settings for all tracks
-        display = list(
-            width = 0.9,
-            fontface = 1,
-            cex = 0.6,
-            background = "white",
-            fontcolor = "black",
-            border_color = "#E0E0E0"
-        ),
-
-        # Track-specific colors
-        colors = list(
-            placeholder = "#cccccc",
-            input = "#808080"
-        ),
-
-        # Track name formatting
-        names = list(
-            format = "%s: %s",
-            control_format = "%s: %s - %s",
-            placeholder_suffix = "(No data)"
-        )
-    ),
-
-    # Main title configuration
-    main_title = list(
-        mode = "development",  # or "publication"
-        development = list(
-            format = paste(
-                "%s",
-                "Comparison: %s",
-                "Chromosome %s (%d samples)",
-                "%s",
-                "Normalization: %s",
-                sep = "\n"
-            ),
-            cex = 0.7,      # Size specific to main title
-            fontface = 2    # Bold for main title
-        ),
-        publication = list(
-            format = "%s: Chr%s (%s)",
-            cex = 1,
-            fontface = 2
-        ),
-        format = list(
-            max_width = 40,
-            max_lines = 5
-        )
-    )
+    title_dev_size = 0.7,
+    title_dev_style = 2,    # Bold
+    
+    # Publication mode title
+    title_pub_template = "%s: Chr%s (%s)",
+    title_pub_size = 1,
+    title_pub_style = 2,    # Bold
+    
+    # Title constraints
+    title_max_width = 40,
+    title_max_lines = 5
 )
 
 ################################################################################
