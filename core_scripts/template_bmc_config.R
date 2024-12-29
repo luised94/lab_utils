@@ -75,14 +75,14 @@ EXPERIMENT_CONFIG <- list(
              antibody == "ORC" |                    # no orc1-161 with ORC
              cell_cycle %in% c("async", "alpha"))      # no orc1-161 in async or alpha
         ),
-        
+
         # Group 2: ORC antibody restrictions
         orc_restrictions = quote(
             antibody == "ORC" & 
             (temperature == "23" |                  # no ORC at 23øC
              cell_cycle %in% c("alpha", "async"))      # no ORC in alpha or async
         ),
-        
+
         # Group 3: Nucleosome and temperature restrictions
         nucleosome_temp_restrictions = quote(
             (antibody == "Nucleosomes" & temperature == "23" & cell_cycle %in% c("alpha", "nocodazole")) | # no Nucleosomes at 23øC in alpha/nocodazole
@@ -127,7 +127,7 @@ TIME_CONFIG <- list(
     # Format specifications
     timestamp_format = "%Y%m%d_%H%M%S",    # YYYYMMDD_HHMMSS
     date_format = "%Y%m%d",                # YYYYMMDD
-    
+
     # Current values
     current_timestamp = format(Sys.time(), "%Y%m%d_%H%M%S"),
     current_date = format(Sys.Date(), "%Y%m%d")
@@ -137,24 +137,24 @@ TIME_CONFIG <- list(
 # DEBUG CONFIGURATIONS
 ################################################################################
 RUNTIME_CONFIG <- list(
-    # Runtime control
-    single_file_mode = FALSE,           # Test single file in main logic.
-    enabled = TRUE,
-    interactive = FALSE,
-    verbose = TRUE,
-    validate_config = TRUE,
-    
-    # Processing scope
-    comparison = "comp_1108forNoneAndWT",
-    chromosome = 10,
-    group = 10,
-    samples_per_group = 4,
-    files_to_process_idx = 1,  # Process specific files in debug mode
-    
+    # Core control flags
+    debug_enabled = TRUE,
+    debug_interactive = FALSE,
+    debug_verbose = TRUE,
+    debug_validate = TRUE,
+
+    # Processing control
+    process_single_file = FALSE,
+    process_comparison = "comp_1108forNoneAndWT",
+    process_chromosome = 10,
+    process_group = 10,
+    process_samples_per_group = 4,
+    process_file_index = 1,
+
     # Output control
-    save_plots = FALSE,
-    dry_run = TRUE,
-    display_time = 2
+    output_save_plots = FALSE,
+    output_dry_run = TRUE,
+    output_display_time = 2
 )
 
 ################################################################################
@@ -205,7 +205,7 @@ GENOME_TRACK_CONFIG <- list(
         width = 10,
         height = 8
     ),
-    
+
     # Track configuration
     tracks = list(
         # Visual settings for all tracks
@@ -217,13 +217,13 @@ GENOME_TRACK_CONFIG <- list(
             fontcolor = "black",
             border_color = "#E0E0E0"
         ),
-        
+
         # Track-specific colors
         colors = list(
             placeholder = "#cccccc",
             input = "#808080"
         ),
-        
+
         # Track name formatting
         names = list(
             format = "%s: %s",
@@ -231,7 +231,7 @@ GENOME_TRACK_CONFIG <- list(
             placeholder_suffix = "(No data)"
         )
     ),
-    
+
     # Main title configuration
     main_title = list(
         mode = "development",  # or "publication"
