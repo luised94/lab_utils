@@ -136,7 +136,7 @@ TIME_CONFIG <- list(
 ################################################################################
 # DEBUG CONFIGURATIONS
 ################################################################################
-DEBUG_CONFIG <- list(
+RUNTIME_CONFIG <- list(
     # Runtime control
     single_file_mode = FALSE,           # Test single file in main logic.
     enabled = TRUE,

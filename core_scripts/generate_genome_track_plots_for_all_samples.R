@@ -68,7 +68,7 @@ sorted_metadata <- metadata[do.call(
 # 6. Add sample IDs to metadata
 sorted_metadata$sample_id <- sample_ids
 
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$verbose) {
     message("Metadata processing summary:")
     message(sprintf("Found %d fastq files", length(fastq_files)))
     message(sprintf("Processed %d metadata rows", nrow(sorted_metadata)))
@@ -78,8 +78,8 @@ if (DEBUG_CONFIG$verbose) {
 # Create color scheme
 color_scheme <- create_color_scheme(
     config = list(
-        placeholder = PLOT_CONFIG$placeholder_color,
-        input = PLOT_CONFIG$input_color
+        placeholder = GENOME_TRACK_CONFIG$placeholder_color,
+        input = GENOME_TRACK_CONFIG$input_color
     ),
     categories = list(
         antibody = unique(sorted_metadata$antibody),
@@ -87,7 +87,7 @@ color_scheme <- create_color_scheme(
     )
 )
 
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$verbose) {
     message("\nColor scheme initialized:")
     message("Fixed colors:")
     print(color_scheme$fixed)
@@ -107,7 +107,7 @@ genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
 
 
 # Create chromosome range
-chromosome_to_plot <- DEBUG_CONFIG$chromosome
+chromosome_to_plot <- RUNTIME_CONFIG$chromosome
 chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
 chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
 
@@ -148,19 +148,19 @@ if (!is.null(feature_file)) {
 # Create sample groups
 sample_groups <- split(
     seq_len(nrow(sorted_metadata)),
-    ceiling(seq_len(nrow(sorted_metadata)) / DEBUG_CONFIG$samples_per_group)
+    ceiling(seq_len(nrow(sorted_metadata)) / RUNTIME_CONFIG$samples_per_group)
 )
 
 # Determine which groups to process
-groups_to_process <- if (DEBUG_CONFIG$enabled) {
-    DEBUG_CONFIG$group
+groups_to_process <- if (RUNTIME_CONFIG$enabled) {
+    RUNTIME_CONFIG$group
 } else {
     seq_along(sample_groups)
 }
 
 # Calculate global y-limits for all plots (before the plotting loop)
 #-----------------------------------------------------------------------------
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$verbose) {
     message("\nCalculating global range for all tracks...")
 }
 
@@ -168,7 +168,7 @@ limits_result <- calculate_track_limits(
     bigwig_files = bigwig_files,
     genome_range = genome_range,
     padding_fraction = 0.1,
-    verbose = DEBUG_CONFIG$verbose
+    verbose = RUNTIME_CONFIG$verbose
 )
 
 if (!limits_result$success) {
@@ -178,14 +178,14 @@ if (!limits_result$success) {
     y_limits <- limits_result$data
 }
 # Add after processing metadata but before track creation
-short_sample_ids <- create_minimal_identifiers(sorted_metadata$sample_id, verbose = DEBUG_CONFIG$verbose)
+short_sample_ids <- create_minimal_identifiers(sorted_metadata$sample_id, verbose = RUNTIME_CONFIG$verbose)
 
 # Create mapping between full and short IDs
 sample_id_mapping <- setNames(short_sample_ids, sorted_metadata$sample_id)
 
 # Process each group
 for (group_idx in groups_to_process) {
-    if (DEBUG_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$verbose) {
         message("\nProcessing group ", group_idx)
     }
 
@@ -209,7 +209,7 @@ for (group_idx in groups_to_process) {
         bigwig_file <- bigwig_files[grepl(sample_id, bigwig_files)][1]
 
         track_name <- sprintf(
-            PLOT_CONFIG$track_name_format,
+            GENOME_TRACK_CONFIG$track_name_format,
             sample_id_mapping[sample_id],
             current_samples$short_name[i],
             current_samples$antibody[i]
@@ -218,11 +218,11 @@ for (group_idx in groups_to_process) {
         placeholder_name <- sprintf(
             "%s %s",
             track_name,
-            PLOT_CONFIG$placeholder_suffix
+            GENOME_TRACK_CONFIG$placeholder_suffix
         )
 
         if (!is.na(bigwig_file) && file.exists(bigwig_file)) {
-            if (DEBUG_CONFIG$verbose) {
+            if (RUNTIME_CONFIG$verbose) {
                 message("Adding track for sample: ", sample_id)
             }
 
@@ -241,7 +241,7 @@ for (group_idx in groups_to_process) {
                 col = track_color
             )
         } else {
-            if (DEBUG_CONFIG$verbose) {
+            if (RUNTIME_CONFIG$verbose) {
                 message("Creating placeholder for sample: ", sample_id)
             }
 
@@ -281,7 +281,7 @@ for (group_idx in groups_to_process) {
     }
 
     plot_title <- sprintf(
-        PLOT_CONFIG$title_format,
+        GENOME_TRACK_CONFIG$title_format,
         experiment_id,
         chromosome_to_plot,
         nrow(current_samples),
@@ -316,7 +316,7 @@ for (group_idx in groups_to_process) {
     )
 
     # Save plot if needed
-    if (DEBUG_CONFIG$save_plots) {
+    if (RUNTIME_CONFIG$save_plots) {
         plot_filename <- sprintf(
                 "%s_%s_chr%s_n%d_group%d.svg",
                 TIMESTAMPS$full,
@@ -330,14 +330,14 @@ for (group_idx in groups_to_process) {
             plot_filename
         )
 
-        if (DEBUG_CONFIG$verbose) {
+        if (RUNTIME_CONFIG$verbose) {
             message(sprintf(
                 "Saving plot to: %s",
                 basename(plot_file)
             ))
         }
 
-        svg(plot_file, width = PLOT_CONFIG$width, height = PLOT_CONFIG$height)
+        svg(plot_file, width = GENOME_TRACK_CONFIG$width, height = GENOME_TRACK_CONFIG$height)
         Gviz::plotTracks(
             trackList = tracks,
             chromosome = chromosome_roman,
@@ -367,14 +367,14 @@ for (group_idx in groups_to_process) {
     }
 
     # Interactive viewing options
-    if (DEBUG_CONFIG$interactive) {
+    if (RUNTIME_CONFIG$interactive) {
         user_input <- readline(
             prompt = "Options: [Enter] next plot, 's' skip rest, 'q' quit: "
         )
         if (user_input == "q") break
-        if (user_input == "s") DEBUG_CONFIG$save_plots <- FALSE
+        if (user_input == "s") RUNTIME_CONFIG$save_plots <- FALSE
     } else {
-        Sys.sleep(DEBUG_CONFIG$display_time)  # Pause between plots
+        Sys.sleep(RUNTIME_CONFIG$display_time)  # Pause between plots
     }
 }
 

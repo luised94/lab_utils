@@ -19,11 +19,11 @@ files <- find_plot_files(
     experiment = "241007Bel",
     #timestamp = "20231116",  # Optional
     #pattern = "chr10",      # Optional
-    verbose = DEBUG_CONFIG$verbose
+    verbose = RUNTIME_CONFIG$verbose
 )
 
 if (length(files) > 0) {
-    if (DEBUG_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$verbose) {
         base::message("\nStarting plot display...")
     }
     
@@ -31,9 +31,9 @@ if (length(files) > 0) {
     display_plots(
         files = files,
         device_config = VIEWER_CONFIG$device,
-        interactive = DEBUG_CONFIG$interactive,
-        display_time = DEBUG_CONFIG$display_time,
-        verbose = DEBUG_CONFIG$verbose
+        interactive = RUNTIME_CONFIG$interactive,
+        display_time = RUNTIME_CONFIG$display_time,
+        verbose = RUNTIME_CONFIG$verbose
     )
 } else {
     base::message("No files found matching criteria")

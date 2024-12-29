@@ -93,7 +93,7 @@ stopifnot(
 
 # Load dependencies with status tracking
 load_status <- lapply(required_modules, function(module) {
-    if (DEBUG_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$verbose) {
         cat(sprintf("\n[LOADING] %s\n", module$description))
     }
 
@@ -119,7 +119,7 @@ load_status <- lapply(required_modules, function(module) {
 })
 
 # Display loading summary using ASCII
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$verbose) {
     cat("\n=== Module Loading Summary ===\n")
     invisible(lapply(load_status, function(status) {
         cat(sprintf(
@@ -131,8 +131,8 @@ if (DEBUG_CONFIG$verbose) {
     }))
 }
 
-if (DEBUG_CONFIG$verbose) {
-    print_config_settings(DEBUG_CONFIG)
+if (RUNTIME_CONFIG$verbose) {
+    print_config_settings(RUNTIME_CONFIG)
 }
 
 ################################################################################
@@ -199,7 +199,7 @@ sorted_metadata$sample_id <- sample_ids
 # Add after processing metadata but before track creation
 short_sample_ids <- create_minimal_identifiers(
     sorted_metadata$sample_id,
-    verbose = DEBUG_CONFIG$verbose
+    verbose = RUNTIME_CONFIG$verbose
 )
 
 # Create mapping between full and short IDs
@@ -281,7 +281,7 @@ track_name <- sprintf(
     sorted_metadata$short_name[control_idx],
     sorted_metadata$antibody[control_idx]
 )
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$verbose) {
     message(sprintf("Processing sample: %s", chip_id))
     message(sprintf("Track name for visualization: %s", track_name))
 }
@@ -304,18 +304,18 @@ output_filename <- sprintf(
     "normr"
 )
 output_path <- file.path(peak_dir, output_filename)
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$verbose) {
     message(sprintf("Output will be written to: %s", output_path))
 }
 # Perform peak calling
 tryCatch({
-    if (DEBUG_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$verbose) {
         message("\nStarting peak calling...")
         message(sprintf("Genome size: %d bp across %d chromosomes",
                     sum(genome_info$size),
                     nrow(genome_info)))
     }
-    if (DEBUG_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$verbose) {
         message("\nPre-processing count data...")
     }
     tryCatch({

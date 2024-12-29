@@ -9,7 +9,7 @@
 # USAGE:
 #   1. Use '/!!' in vim/neovim to jump to required updates
 #   2. Update experiment_id (format: YYMMDD'Bel', e.g., "241122Bel")
-#   3. Set DEBUG_CONFIG options as needed
+#   3. Set RUNTIME_CONFIG options as needed
 #   4. Source or run script
 #
 # !! ----> REQUIRED UPDATES:
@@ -36,9 +36,9 @@
 #      - [experiment_id]_bmc_config.R: Configuration snapshot
 #
 # CONTROLS:
-#   DEBUG_CONFIG$dry_run    = TRUE   # Preview without creating files
-#   DEBUG_CONFIG$verbose    = TRUE   # Show detailed progress
-#   DEBUG_CONFIG$interactive = TRUE  # Confirm before proceeding
+#   RUNTIME_CONFIG$dry_run    = TRUE   # Preview without creating files
+#   RUNTIME_CONFIG$verbose    = TRUE   # Show detailed progress
+#   RUNTIME_CONFIG$interactive = TRUE  # Confirm before proceeding
 #
 # DEPENDENCIES:
 #   - R base packages only
@@ -99,7 +99,7 @@ stopifnot(
 
 # Load dependencies with status tracking
 load_status <- lapply(required_modules, function(module) {
-    if (DEBUG_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$verbose) {
         cat(sprintf("\n[LOADING] %s\n", module$description))
     }
     
@@ -125,7 +125,7 @@ load_status <- lapply(required_modules, function(module) {
 })
 
 # Display loading summary using ASCII
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$verbose) {
     cat("\n=== Module Loading Summary ===\n")
     invisible(lapply(load_status, function(status) {
         cat(sprintf(
@@ -143,7 +143,7 @@ stopifnot("Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = exper
 # Directory Setup and User Confirmation
 ################################################################################
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
-if (DEBUG_CONFIG$interactive) {
+if (RUNTIME_CONFIG$interactive) {
     cat(sprintf("\nExperiment ID: %s\n", experiment_id))
     cat("Base directory will be:", base_dir, "\n")
 
@@ -174,11 +174,11 @@ data_directories <- c(
 # Create directory structure
 full_paths <- file.path(base_dir, data_directories)
 invisible(lapply(full_paths, function(path) {
-    if (DEBUG_CONFIG$dry_run) {
+    if (RUNTIME_CONFIG$dry_run) {
         cat(sprintf("[DRY RUN] Would create directory: %s\n", path))
     } else {
         dir_created <- dir.create(path, recursive = TRUE, showWarnings = FALSE)
-        if (DEBUG_CONFIG$verbose) {
+        if (RUNTIME_CONFIG$verbose) {
             status <- if (dir_created) "Created" else "Already exists"
             cat(sprintf("[%s] %s\n", status, path))
         }
@@ -186,8 +186,8 @@ invisible(lapply(full_paths, function(path) {
 }))
 
 # Report directory creation status
-if (DEBUG_CONFIG$verbose) {
-    mode <- if (DEBUG_CONFIG$dry_run) "DRY RUN" else "LIVE RUN"
+if (RUNTIME_CONFIG$verbose) {
+    mode <- if (RUNTIME_CONFIG$dry_run) "DRY RUN" else "LIVE RUN"
     cat(sprintf("\n[%s] Directory structure for experiment: %s\n", mode, experiment_id))
     cat(sprintf("[%s] Base directory: %s\n", mode, base_dir))
 }
@@ -362,7 +362,7 @@ bmc_experiment_config_path <- file.path(base_dir, "documentation",
                            paste0(experiment_id,"_", "bmc_config.R"))
 
 # Handle file writing with dry run checks
-if (DEBUG_CONFIG$dry_run) {
+if (RUNTIME_CONFIG$dry_run) {
     cat(sprintf("[DRY RUN] Would write sample grid to: %s\n", sample_grid_path))
     cat(sprintf("[DRY RUN] Would write BMC table to: %s\n", bmc_table_path))
     cat(sprintf("[DRY RUN] Would write BMC config script: %s\n", bmc_experiment_config_path))
@@ -372,7 +372,7 @@ if (DEBUG_CONFIG$dry_run) {
         data = metadata,
         path = sample_grid_path,
         write_fn = write.csv,
-        verbose = DEBUG_CONFIG$verbose,
+        verbose = RUNTIME_CONFIG$verbose,
         row.names = FALSE
     )
 
@@ -381,7 +381,7 @@ if (DEBUG_CONFIG$dry_run) {
         data = bmc_metadata,
         path = bmc_table_path,
         write_fn = write.table,
-        verbose = DEBUG_CONFIG$verbose,
+        verbose = RUNTIME_CONFIG$verbose,
         sep = "\t",
         row.names = FALSE,
         quote = FALSE
@@ -392,7 +392,7 @@ if (DEBUG_CONFIG$dry_run) {
         data = bmc_configuration_definition_path,
         path = bmc_experiment_config_path,
         write_fn = file.copy,
-        verbose = DEBUG_CONFIG$verbose,
+        verbose = RUNTIME_CONFIG$verbose,
         overwrite = TRUE
     )
 }
