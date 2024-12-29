@@ -138,7 +138,6 @@ RUNTIME_CONFIG <- list(
     process_group = 10,
     process_samples_per_group = 4,
     process_file_index = 1,
-
     # Output control
     output_save_plots = FALSE,
     output_dry_run = TRUE,

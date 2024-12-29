@@ -101,11 +101,7 @@ stopifnot(
 
 # Load dependencies with status tracking
 load_status <- lapply(required_modules, function(module) {
-<<<<<<< HEAD
-    if (DEBUG_CONFIG$verbose) {
-=======
     if (RUNTIME_CONFIG$debug_verbose) {
->>>>>>> config_consolidation
         cat(sprintf("\n[LOADING] %s\n", module$description))
     }
 
@@ -131,11 +127,7 @@ load_status <- lapply(required_modules, function(module) {
 })
 
 # Display loading summary using ASCII
-<<<<<<< HEAD
-if (DEBUG_CONFIG$verbose) {
-=======
-if (RUNTIME_CONFIG$debug_verbose) {
->>>>>>> config_consolidation
+if (RUNTIME_CONFIG$verbose) {
     cat("\n=== Module Loading Summary ===\n")
     invisible(lapply(load_status, function(status) {
         cat(sprintf(
@@ -147,13 +139,8 @@ if (RUNTIME_CONFIG$debug_verbose) {
     }))
 }
 
-<<<<<<< HEAD
-if (DEBUG_CONFIG$verbose) {
-    print_config_settings(DEBUG_CONFIG)
-=======
 if (RUNTIME_CONFIG$debug_verbose) {
     print_config_settings(RUNTIME_CONFIG)
->>>>>>> config_consolidation
 }
 
 ################################################################################
@@ -220,11 +207,7 @@ sorted_metadata$sample_id <- sample_ids
 # Add after processing metadata but before track creation
 short_sample_ids <- create_minimal_identifiers(
     sorted_metadata$sample_id,
-<<<<<<< HEAD
-    verbose = DEBUG_CONFIG$verbose
-=======
     verbose = RUNTIME_CONFIG$debug_verbose
->>>>>>> config_consolidation
 )
 
 # Create mapping between full and short IDs
@@ -306,11 +289,7 @@ track_name <- sprintf(
     sorted_metadata$short_name[control_idx],
     sorted_metadata$antibody[control_idx]
 )
-<<<<<<< HEAD
-if (DEBUG_CONFIG$verbose) {
-=======
 if (RUNTIME_CONFIG$debug_verbose) {
->>>>>>> config_consolidation
     message(sprintf("Processing sample: %s", chip_id))
     message(sprintf("Track name for visualization: %s", track_name))
 }
@@ -326,41 +305,25 @@ stopifnot(
 )
 # Generate output filename using short IDs
 output_filename <- sprintf(
-<<<<<<< HEAD
-    NORMR_CONFIG$output_name_template,
-=======
     "%s %s %s %s",
->>>>>>> config_consolidation
     TIMESTAMPS$full,
     sample_id_mapping[chip_id],
     "none",
     "normr"
 )
 output_path <- file.path(peak_dir, output_filename)
-<<<<<<< HEAD
-if (DEBUG_CONFIG$verbose) {
-=======
 if (RUNTIME_CONFIG$debug_verbose) {
->>>>>>> config_consolidation
     message(sprintf("Output will be written to: %s", output_path))
 }
 # Perform peak calling
 tryCatch({
-<<<<<<< HEAD
-    if (DEBUG_CONFIG$verbose) {
-=======
     if (RUNTIME_CONFIG$debug_verbose) {
->>>>>>> config_consolidation
         message("\nStarting peak calling...")
         message(sprintf("Genome size: %d bp across %d chromosomes",
                     sum(genome_info$size),
                     nrow(genome_info)))
     }
-<<<<<<< HEAD
-    if (DEBUG_CONFIG$verbose) {
-=======
     if (RUNTIME_CONFIG$debug_verbose) {
->>>>>>> config_consolidation
         message("\nPre-processing count data...")
     }
     tryCatch({

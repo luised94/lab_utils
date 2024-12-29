@@ -502,6 +502,9 @@ for (comparison_name in comparisons_to_process) {
     # Generate plot
     #-----------------------------------------------------------------------------
     if (RUNTIME_CONFIG$debug_verbose) {
+
+
+
         message("\nGenerating visualization...")
     }
 
@@ -554,7 +557,6 @@ for (comparison_name in comparisons_to_process) {
         svg(plot_file,
             width = GENOME_TRACK_CONFIG$display_width,
             height = GENOME_TRACK_CONFIG$display_height)
-
         Gviz::plotTracks(
             trackList = tracks,
             chromosome = chromosome_roman,
