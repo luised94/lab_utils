@@ -118,3 +118,38 @@ process_configs()
 Rerun the grep commands without outputting to file to confirm that files were rename and see counts.
 Was prepared to run git restore to rollback changes. Other options could have been to create an additional backup branch.
 Now rename the variables in the template_bmc_config.R file.
+
+3. Adding the template for argument parsing and validating presence of required configs.
+Created the functions to make scripts process arguments.
+Went to every script that needs to have the argument and config processing added and place #<SCRIPT_CONTROL> tag where I wanted to add the template block.
+Create the quickfix list with either a find command or with the SCRIPT_CONTROL tag.
+Create a new scratch buffer.
+```{vim}
+vimgrep /#<SCRIPT_CONTROL>/j ## " or a find command.
+new
+set buftype = nofile
+```
+
+Add the r code that we want to copy to the scratch buffer.
+
+```{r}
+# Source script control functions
+source("functions_for_script_control.R")
+
+# Parse arguments and validate configurations
+args <- parse_args(commandArgs(trailingOnly = TRUE))
+source(file.path("~/data", args[["experiment-id"]], "config/experiment_config.R"))
+validate_configs(c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG"))
+```
+
+```{vim}
+" Yank the entire thing into the plus register.
+gg"+yG
+" Then make a new buffer or in the same scratch buffer, record the macro.
+new
+" Go to SCRIPT_CONTROL, remove the line, paste the plus registers content, write.
+qq/#<SCRIPT_CONTROL><CR>dd"+p:w<CR>q
+" Use the quickfix list to perform the macro on all of the files.
+cfdo normal @q
+```
+
