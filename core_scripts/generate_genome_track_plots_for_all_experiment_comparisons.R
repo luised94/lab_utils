@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+#<SCRIPT_CONTROL>
 # Load required packages
 #-----------------------------------------------------------------------------
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")

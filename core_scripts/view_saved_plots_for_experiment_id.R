@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+#<SCRIPT_CONTROL>
 # Required Packages and Functions
 #-----------------------------------------------------------------------------
 required_packages <- c("rsvg", "magick")
