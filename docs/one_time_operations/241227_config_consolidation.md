@@ -270,3 +270,9 @@ end
 process_configs()
 ```
 
+Now, before merging into main, I created a branch for main as backup before merging.
+```{bash}
+git checkout main
+git checkout -b backup_main_250102_config_consolidation
+```
+This branch will contain the backup before merging the config_consolidation into main.
