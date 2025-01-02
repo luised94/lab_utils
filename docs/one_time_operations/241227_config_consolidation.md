@@ -127,7 +127,7 @@ Create a new scratch buffer.
 ```{vim}
 vimgrep /#<SCRIPT_CONTROL>/j ## " or a find command.
 new
-set buftype = nofile
+set buftype=nofile
 ```
 
 Add the r code that we want to copy to the scratch buffer.
@@ -151,5 +151,122 @@ new
 qq/#<SCRIPT_CONTROL><CR>dd"+p:w<CR>q
 " Use the quickfix list to perform the macro on all of the files.
 cfdo normal @q
+```
+
+4. Update calls to CONFIG variables by creating a mapping in lua with quickfix list and template_bmc_config as reference.
+```{vim}
+" Open scratch buffer
+new
+set buftype=nofile
+" Read in the variables that are referenced into the file.
+r !grep -r "_CONFIG\\\$" . --include="*.R" | perl -ne 'print "$1\n" if /_CONFIG\$(\w+)/' | sort -u
+
+" Insert the enclosing for the variable using lua syntax and add ="", to each line of the mapping.
+" Create the quickfix list.
+vimgrep /\w\+_CONFIG\$\w\+/j `find . -type f -name "*.R" ! \( -name "template_bmc_config.R" -o -name "all_functions.R" -o -name "benchmark_peak_calling_normR.R" -o -name "peak_call_normR.R" -o -name "extract_bmcIDmetadata_process.R" -o -name "comparison_analysis.R" -o -name "functions_*" \)`
+
+" Go through each instance and set the mapping according to your new config variable name.
+" Once you have set the mapping for the first time, you can remove all instances of mapping that you set.
+g/RUNTIME_CONFIG\$debug_enabled/delete
+
+" Complete the quickfix list.
+" If there are any leftover you can remove those lines.
+global/= "",/delete
+
+" Recreate the quickfix list.
+vimgrep /\w\+_CONFIG\$\w\+/j `find . -type f -name "*.R" ! \( -name "template_bmc_config.R" -o -name "all_functions.R" -o -name "benchmark_peak_calling_normR.R" -o -name "peak_call_normR.R" -o -name "extract_bmcIDmetadata_process.R" -o -name "comparison_analysis.R" -o -name "functions_*" \)`
+```
+
+Run the lua code again. It is interactive so each time you must confirm the change. Furthermore, it will try to correct all instances of the mapping in the line to your desired change. This will include, for example, function parameters such as verbose. You must skip this instances manually.
+
+```{lua}
+
+local config_renames = {
+CATEGORIES = "CATEGORIES",
+COLUMN_ORDER = "COLUMN_ORDER",
+COMPARISONS = "COMPARISONS",
+CONTROL_FACTORS = "CONTROL_FACTORS",
+EXPERIMENTAL_CONDITIONS = "EXPERIMENTAL_CONDITIONS",
+FILE_PATTERN = "FILE_PATTERN",
+HEADER_PATTERN = "parse_header",
+INVALID_COMBINATIONS = "INVALID_COMBINATIONS",
+METADATA = "METADATA",
+NORMALIZATION = "NORMALIZATION",
+SAMPLE_CLASSIFICATIONS = "SAMPLE_CLASSIFICATIONS",
+VERSION = "version_required",
+VERSION_PATTERN = "version_pattern",
+base_dir = "path_base",
+chromosome = "process_chromosome",
+comparison = "process_comparison",
+display_time = "output_display_time",
+dry_run = "output_dry_run",
+enabled = "debug_enabled",
+existing_version_limit = "version_max",
+fastqc_pattern = "file_pattern",
+files_to_process_idx = "process_file_index",
+group = "process_group",
+header_prefix = "parse_prefix",
+height = "display_height",
+interactive = "debug_interactive",
+module_end = "parse_module_end",
+module_names = "module_list",
+module_reference_file = "path_module_ref",
+module_separator = "parse_module_start",
+output_suffix = "file_suffix",
+patterns = "pattern_svg",
+placeholder_suffix = "format_placeholder",
+qc_subdir = "path_qc_dir",
+samples_per_group = "process_samples_per_group",
+save_plots = "output_save_plots",
+single_file_mode = "process_single_file",
+title_format = "title_dev_template",
+track_name_format = "format_track",
+validate_config = "debug_validate",
+verbose = "debug_verbose",
+width = "display_width",
+}
+
+
+local function process_configs()
+    local qf_list = vim.fn.getqflist()
+    if #qf_list == 0 then
+        print("No quickfix entries found!")
+        return
+    end
+
+    -- Save current buffer if modified
+    if vim.bo.modified then
+        vim.cmd('write')
+    end
+
+    for _, entry in ipairs(qf_list) do
+        -- Force load buffer if not loaded, handle unsaved changes
+        local filename = vim.fn.bufname(entry.bufnr)
+        vim.cmd('silent! edit ' .. filename)
+
+        if entry.bufnr and entry.lnum then
+            local lines = vim.api.nvim_buf_get_lines(entry.bufnr, entry.lnum-1, entry.lnum, false)
+            if #lines > 0 then
+                local line = lines[1]
+                for old_name, new_name in pairs(config_renames) do
+                    if line:match(old_name) then
+                        local cmd = string.format('buffer %d | %ds/%s/%s/gc',
+                            entry.bufnr,
+                            entry.lnum,
+                            old_name,
+                            new_name)
+                        print("Executing: " .. cmd)
+                        vim.cmd(cmd)
+                        -- Save changes immediately
+                        vim.cmd('update')
+                        break
+                    end
+                end
+            end
+        end
+    end
+end
+
+process_configs()
 ```
 
