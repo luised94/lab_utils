@@ -96,7 +96,7 @@ stopifnot(
 
 # Load dependencies with status tracking
 load_status <- lapply(required_modules, function(module) {
-    if (RUNTIME_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$debug_verbose) {
         cat(sprintf("\n[LOADING] %s\n", module$description))
     }
     
@@ -122,7 +122,7 @@ load_status <- lapply(required_modules, function(module) {
 })
 
 # Display loading summary using ASCII
-if (RUNTIME_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     cat("\n=== Module Loading Summary ===\n")
     invisible(lapply(load_status, function(status) {
         cat(sprintf(
@@ -139,7 +139,7 @@ if (RUNTIME_CONFIG$verbose) {
 ################################################################################
 experiment_id <- "241007Bel"  # !! UPDATE THIS
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
-qc_dir <- file.path(base_dir, FASTQC_CONFIG$qc_subdir)
+qc_dir <- file.path(base_dir, FASTQC_CONFIG$path_qc_dir)
 
 stopifnot(
     "Base directory does not exist" = dir.exists(base_dir),
@@ -151,7 +151,7 @@ stopifnot(
 ################################################################################
 fastqc_files <- list.files(
     qc_dir,
-    pattern = FASTQC_CONFIG$fastqc_pattern,
+    pattern = FASTQC_CONFIG$file_pattern,
     recursive = TRUE,
     full.names = TRUE
 )
@@ -164,7 +164,7 @@ stopifnot(
 fastqc_versions <- list()
 for (file_path in fastqc_files) {
     first_line <- readLines(file_path, n = 1)
-    if (grepl(FASTQC_CONFIG$HEADER_PATTERN, first_line)) {
+    if (grepl(FASTQC_CONFIG$parse_header, first_line)) {
         version <- gsub(FASTQC_CONFIG$VERSION_PATTERN, "", first_line)
         fastqc_versions[[basename(file_path)]] <- version
     } else {
@@ -174,7 +174,7 @@ for (file_path in fastqc_files) {
 }
 
 # Check if all versions match
-expected_version <- FASTQC_CONFIG$VERSION
+expected_version <- FASTQC_CONFIG$version_required
 version_check <- sapply(fastqc_versions, function(v) v == expected_version)
 
 if (!all(version_check)) {
@@ -189,7 +189,7 @@ if (!all(version_check)) {
     ))
 }
 
-if (RUNTIME_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     message("FastQC version check complete")
     message(sprintf("Number of files checked: %d", length(fastqc_versions)))
 }
@@ -200,7 +200,7 @@ invalid_format_files <- character(0)
 
 # Extract sample IDs with direct pattern matching
 sample_ids <- gsub(
-    pattern = FASTQC_CONFIG$FILE_PATTERN$REGEX,
+    pattern = FASTQC_CONFIG$file_pattern,
     replacement = "\\1",
     x = basename(fastqc_files)
 )
@@ -221,7 +221,7 @@ stopifnot(
     `Number of sample IDs must match number of files` = length(fastqc_files) == length(sample_ids)
 )
 
-if (RUNTIME_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     message("Sample ID validation passed:")
     print(data.frame(
         file = basename(fastqc_files),
@@ -233,8 +233,8 @@ if (RUNTIME_CONFIG$verbose) {
 ################################################################################
 # Process Files
 ################################################################################
-files_to_process <- if (RUNTIME_CONFIG$single_file_mode) {
-    RUNTIME_CONFIG$files_to_process_idx
+files_to_process <- if (RUNTIME_CONFIG$process_single_file) {
+    RUNTIME_CONFIG$process_file_index
 } else {
     seq_along(fastqc_files)
 }
@@ -247,7 +247,7 @@ stopifnot(
 for (file_idx in files_to_process) {
     current_file <- fastqc_files[file_idx]
     
-    if (RUNTIME_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$debug_verbose) {
         message(sprintf("\nProcessing file %d of %d: %s", 
                        file_idx, 
                        length(files_to_process), 
@@ -256,8 +256,8 @@ for (file_idx in files_to_process) {
     
     # Read and parse file
     lines <- readLines(current_file)
-    module_starts <- which(grepl(FASTQC_CONFIG$module_separator, lines))
-    module_ends <- which(grepl(FASTQC_CONFIG$module_end, lines))
+    module_starts <- which(grepl(FASTQC_CONFIG$parse_module_start, lines))
+    module_ends <- which(grepl(FASTQC_CONFIG$parse_module_end, lines))
     module_starts <- module_starts[!(module_starts %in% module_ends)]
     
     stopifnot(
@@ -269,7 +269,7 @@ for (file_idx in files_to_process) {
         #`Module must contain data lines` = all(module_ends - module_starts > 2)
     )
 
-    if (RUNTIME_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$debug_verbose) {
         message(sprintf("Found %d modules", length(module_starts)))
     }
     
@@ -278,21 +278,21 @@ for (file_idx in files_to_process) {
     
     # Process each module
     for (module_idx in seq_along(module_starts)) {
-        if (RUNTIME_CONFIG$verbose) {
+        if (RUNTIME_CONFIG$debug_verbose) {
             message(sprintf("\n  Processing module %d of %d", 
                           module_idx, 
                           length(module_starts)))
         }
         
         module_lines <- lines[module_starts[module_idx]:module_ends[module_idx]]
-        module_summary <- gsub(FASTQC_CONFIG$module_separator, "", module_lines[1])
+        module_summary <- gsub(FASTQC_CONFIG$parse_module_start, "", module_lines[1])
         fastqc_summary <- append(fastqc_summary, module_summary)
         
         # Parse module data
         module_name <- gsub(" ", "", strsplit(module_summary, "\t")[[1]][1])
-        FASTQC_CONFIG$module_names <- unique(c(FASTQC_CONFIG$names, module_name))
+        FASTQC_CONFIG$module_list <- unique(c(FASTQC_CONFIG$names, module_name))
 
-        if (RUNTIME_CONFIG$verbose) {
+        if (RUNTIME_CONFIG$debug_verbose) {
             message(sprintf("    Module name: %s", module_name))
             message(sprintf("    Module summary: %s", module_summary))
             message(sprintf("    Module lines: %d", length(module_lines)))
@@ -300,8 +300,8 @@ for (file_idx in files_to_process) {
         
         # Find potential headers
         module_data <- module_lines[2:(length(module_lines)-1)]
-        potential_headers <- which(grepl(paste0("^", FASTQC_CONFIG$header_prefix), module_data))
-        if (RUNTIME_CONFIG$verbose) {
+        potential_headers <- which(grepl(paste0("^", FASTQC_CONFIG$parse_prefix), module_data))
+        if (RUNTIME_CONFIG$debug_verbose) {
             message(sprintf("    Found %d potential headers", length(potential_headers)))
             if (length(potential_headers) > 0) {
                 message("    Headers content:")
@@ -321,18 +321,18 @@ for (file_idx in files_to_process) {
                 header_elements <- strsplit(module_data[header_idx], "\t")[[1]]
                 last_line_elements <- strsplit(module_data[last_potential_header], "\t")[[1]]
                 
-                if (RUNTIME_CONFIG$verbose) {
+                if (RUNTIME_CONFIG$debug_verbose) {
                     message(sprintf("    Checking header at line %d:", header_idx))
                     message(sprintf("      Header elements: %d", length(header_elements)))
                     message(sprintf("      Data line elements: %d", length(last_line_elements)))
                 }
                 
                 if(length(header_elements) == length(last_line_elements)) {
-                    if (RUNTIME_CONFIG$verbose) {
+                    if (RUNTIME_CONFIG$debug_verbose) {
                         message("    Found matching header structure")
                     }
                     
-                    header <- gsub(FASTQC_CONFIG$header_prefix, "", module_data[header_idx])
+                    header <- gsub(FASTQC_CONFIG$parse_prefix, "", module_data[header_idx])
                     # Adjust indexes to skip the module header line
                     data_start_idx <- header_idx + 1
                     data_end_idx <- length(module_data)
@@ -352,7 +352,7 @@ for (file_idx in files_to_process) {
                         )
                     }
                      
-                    if (RUNTIME_CONFIG$verbose) {
+                    if (RUNTIME_CONFIG$debug_verbose) {
                         message(sprintf("    Parsed data: %d rows, %d columns", 
                                         nrow(data), ncol(data)))
                         message(sprintf("\n    Data preview for module %s:", module_name))
@@ -370,14 +370,14 @@ for (file_idx in files_to_process) {
                     TIMESTAMPS$full,
                     sample_ids[file_idx],  # Add sample ID to filename
                     module_name,
-                    FASTQC_CONFIG$output_suffix)
+                    FASTQC_CONFIG$file_suffix)
         )
         # Save module data if we successfully parsed it
-        if (!is.null(data) && !RUNTIME_CONFIG$dry_run) {
+        if (!is.null(data) && !RUNTIME_CONFIG$output_dry_run) {
             existing_files <- find_timestamped_files(output_file)
             
-            if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit) {
-                if (RUNTIME_CONFIG$verbose) {
+            if (length(existing_files) >= FASTQC_CONFIG$version_max) {
+                if (RUNTIME_CONFIG$debug_verbose) {
                     cat("[SKIP] Analysis output limit reached. Existing versions:\n")
                     invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
                 }
@@ -386,7 +386,7 @@ for (file_idx in files_to_process) {
                     data = data,
                     path = output_file,
                     write_fn = write.table,
-                    verbose = RUNTIME_CONFIG$verbose,
+                    verbose = RUNTIME_CONFIG$debug_verbose,
                     interactive = FALSE,
                     sep = "\t",
                     row.names = FALSE,
@@ -404,7 +404,7 @@ for (file_idx in files_to_process) {
         sprintf("%s_%s_fastqc_summary%s",
                 TIMESTAMPS$full,
                 sample_ids[file_idx],  # Add sample ID to filename
-                FASTQC_CONFIG$output_suffix)
+                FASTQC_CONFIG$file_suffix)
     )
 
     summary_data <- read.table(
@@ -419,16 +419,16 @@ for (file_idx in files_to_process) {
         `Summary must have required columns` = all(c("Stat", "Value") %in% colnames(summary_data))
     )
 
-    if (RUNTIME_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$debug_verbose) {
         message("\n  Summary data:")
         print(head(summary_data))
     }
 
     # Save summary for this file
-    if (!RUNTIME_CONFIG$dry_run) {
+    if (!RUNTIME_CONFIG$output_dry_run) {
         existing_files <- find_timestamped_files(summary_file)
-        if (length(existing_files) >= FASTQC_CONFIG$existing_version_limit) {
-            if (RUNTIME_CONFIG$verbose) {
+        if (length(existing_files) >= FASTQC_CONFIG$version_max) {
+            if (RUNTIME_CONFIG$debug_verbose) {
                 cat("[SKIP] Analysis output limit reached. Existing versions:\n")
                 invisible(lapply(existing_files, function(f) cat(sprintf("  %s\n", basename(f)))))
             }
@@ -437,7 +437,7 @@ for (file_idx in files_to_process) {
                 data = data,
                 path = summary_file,
                 write_fn = write.table,
-                verbose = RUNTIME_CONFIG$verbose,
+                verbose = RUNTIME_CONFIG$debug_verbose,
                 interactive = FALSE,
                 sep = "\t",
                 row.names = FALSE,
@@ -445,7 +445,7 @@ for (file_idx in files_to_process) {
             )
         }
     } else {
-        if (RUNTIME_CONFIG$verbose) {
+        if (RUNTIME_CONFIG$debug_verbose) {
             message(sprintf("  Would write summary to: %s", basename(summary_file)))
         }
     }
@@ -453,13 +453,13 @@ for (file_idx in files_to_process) {
 
 message("\nProcessing complete")
 
-if (!RUNTIME_CONFIG$dry_run) {
-    if (!file.exists(FASTQC_CONFIG$module_reference_file)) {
+if (!RUNTIME_CONFIG$output_dry_run) {
+    if (!file.exists(FASTQC_CONFIG$path_module_ref)) {
         success <- safe_write_file(
-            data = FASTQC_CONFIG$module_names,
-            path = FASTQC_CONFIG$module_reference_file,
+            data = FASTQC_CONFIG$module_list,
+            path = FASTQC_CONFIG$path_module_ref,
             write_fn = saveRDS,
-            verbose = RUNTIME_CONFIG$verbose,
+            verbose = RUNTIME_CONFIG$debug_verbose,
             interactive = FALSE
         )
         
@@ -468,8 +468,8 @@ if (!RUNTIME_CONFIG$dry_run) {
         } else {
             # Simple validation
             tryCatch({
-                readRDS(FASTQC_CONFIG$module_reference_file)
-                if (RUNTIME_CONFIG$verbose) {
+                readRDS(FASTQC_CONFIG$path_module_ref)
+                if (RUNTIME_CONFIG$debug_verbose) {
                     message("FastQC module reference was read successfully")
                 }
             }, error = function(e) {
@@ -481,6 +481,6 @@ if (!RUNTIME_CONFIG$dry_run) {
     }
 }
 
-if (RUNTIME_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     print_config_settings(RUNTIME_CONFIG)
 }

@@ -22,26 +22,29 @@ source("~/lab_utils/core_scripts/functions_for_plotting_utilities.R")
 # Command line argument processing could be added here
 
 files <- find_plot_files(
-    base_dir = VIEWER_CONFIG$base_dir,
-    patterns = VIEWER_CONFIG$patterns,
+    base_dir = VIEWER_CONFIG$path_base,
+    patterns = VIEWER_CONFIG$pattern_svg,
     experiment = "241007Bel",
     #timestamp = "20231116",  # Optional
     #pattern = "chr10",      # Optional
-    verbose = RUNTIME_CONFIG$verbose
+    verbose = RUNTIME_CONFIG$debug_verbose
 )
 
 if (length(files) > 0) {
-    if (RUNTIME_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$debug_verbose) {
         base::message("\nStarting plot display...")
     }
     
     # Usage in main script
     display_plots(
         files = files,
-        device_config = VIEWER_CONFIG$device,
-        interactive = RUNTIME_CONFIG$interactive,
-        display_time = RUNTIME_CONFIG$display_time,
-        verbose = RUNTIME_CONFIG$verbose
+        device_config = list(
+            width = VIEWER_CONFIG$display_width,
+            height = VIEWER_CONFIG$display_height,
+        ),
+        interactive = RUNTIME_CONFIG$debug_interactive,
+        display_time = RUNTIME_CONFIG$output_display_time,
+        verbose = RUNTIME_CONFIG$debug_verbose
     )
 } else {
     base::message("No files found matching criteria")

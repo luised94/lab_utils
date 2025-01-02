@@ -101,7 +101,7 @@ stopifnot(
 
 # Load dependencies with status tracking
 load_status <- lapply(required_modules, function(module) {
-    if (RUNTIME_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$debug_verbose) {
         cat(sprintf("\n[LOADING] %s\n", module$description))
     }
 
@@ -127,7 +127,7 @@ load_status <- lapply(required_modules, function(module) {
 })
 
 # Display loading summary using ASCII
-if (RUNTIME_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     cat("\n=== Module Loading Summary ===\n")
     invisible(lapply(load_status, function(status) {
         cat(sprintf(
@@ -139,7 +139,7 @@ if (RUNTIME_CONFIG$verbose) {
     }))
 }
 
-if (RUNTIME_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     print_config_settings(RUNTIME_CONFIG)
 }
 
@@ -207,7 +207,7 @@ sorted_metadata$sample_id <- sample_ids
 # Add after processing metadata but before track creation
 short_sample_ids <- create_minimal_identifiers(
     sorted_metadata$sample_id,
-    verbose = RUNTIME_CONFIG$verbose
+    verbose = RUNTIME_CONFIG$debug_verbose
 )
 
 # Create mapping between full and short IDs
@@ -289,7 +289,7 @@ track_name <- sprintf(
     sorted_metadata$short_name[control_idx],
     sorted_metadata$antibody[control_idx]
 )
-if (RUNTIME_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     message(sprintf("Processing sample: %s", chip_id))
     message(sprintf("Track name for visualization: %s", track_name))
 }
@@ -305,25 +305,25 @@ stopifnot(
 )
 # Generate output filename using short IDs
 output_filename <- sprintf(
-    NORMR_CONFIG$output_name_template,
+    "%s %s %s %s",
     TIMESTAMPS$full,
     sample_id_mapping[chip_id],
     "none",
     "normr"
 )
 output_path <- file.path(peak_dir, output_filename)
-if (RUNTIME_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     message(sprintf("Output will be written to: %s", output_path))
 }
 # Perform peak calling
 tryCatch({
-    if (RUNTIME_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$debug_verbose) {
         message("\nStarting peak calling...")
         message(sprintf("Genome size: %d bp across %d chromosomes",
                     sum(genome_info$size),
                     nrow(genome_info)))
     }
-    if (RUNTIME_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$debug_verbose) {
         message("\nPre-processing count data...")
     }
     tryCatch({
