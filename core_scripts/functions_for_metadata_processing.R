@@ -22,7 +22,7 @@ find_control_sample <- function(experimental_sample, metadata, control_factors) 
     control_matches <- Reduce(`&`, control_conditions)
     
     if (sum(control_matches) == 0) {
-        if (DEBUG_CONFIG$verbose) {
+        if (RUNTIME_CONFIG$verbose) {
             message("No matching control found for sample: ", 
                    experimental_sample$sample_id)
         }

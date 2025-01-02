@@ -16,7 +16,7 @@
 ################################################################################
 # Configuration and Debug Settings
 ################################################################################
-DEBUG_CONFIG <- list(
+RUNTIME_CONFIG <- list(
     single_file_mode = TRUE,
     verbose = TRUE,
     dry_run = TRUE,
@@ -30,34 +30,28 @@ NORMR_CONFIG <- list(
     iterations = 10L,    # Number of EM iterations
     processors = 1L,     # Number of processors to use
     paired_end = FALSE,  # Specify single-end data
-    
     # Peak calling thresholds
     fdr_thresholds = c(0.01, 0.05, 0.1),  # For classification of peak strength
     default_fdr = 0.05,                    # Default threshold for significant peaks
     min_enrichment_score = 1.5,            # Minimum fold change
     min_reads_per_bin = 1,                 # Minimum reads required per bin
-    
     # S. cerevisiae ORC-specific parameters
     expected_peak_range = list(
         min = 100,
         max = 500,
         typical = 250:400
     ),
-    
     # Genome specifications
     expected_chromosomes = 16,
     chromosome_prefix = "chr",
     chromosome_adjustment = TRUE,  # Round chromosome sizes to bin size multiples
-    
     # File patterns and templates
     bam_pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam$",
     genome_pattern = "S288C_refgenome.fna",
-    
     # Output templates
     output_name_template = "%s_peaks_%s_vs_%s_%s.bed",        # timestamp, chip, input, package
     region_file_template = "%s_regions_%s_vs_%s_%s.tsv",
     bedgraph_template = "%s_enrichment_%s_vs_%s_%s.bedGraph",
-    
     # Output specifications
     region_columns = c(
         "chromosome", "start", "end",
@@ -103,7 +97,8 @@ config_path <- file.path(base_dir, "documentation", paste0(experiment_id, "_bmc_
 stopifnot(
     "Base directory does not exist" = dir.exists(base_dir),
     "BAM directory does not exist" = dir.exists(bam_dir),
-    "Metadata path file does not exist" = file.exists(metadata_path)
+    "Metadata path file does not exist" = file.exists(metadata_path),
+    "BAM directory does not exist" = dir.exists(bam_dir)
 )
 
 # Create output directory if it doesn't exist
@@ -150,7 +145,7 @@ stopifnot(
 
 # Load dependencies with status tracking
 load_status <- lapply(required_modules, function(module) {
-    if (DEBUG_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$verbose) {
         cat(sprintf("\n[LOADING] %s\n", module$description))
     }
 
@@ -176,7 +171,7 @@ load_status <- lapply(required_modules, function(module) {
 })
 
 # Display loading summary using ASCII
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$verbose) {
     cat("\n=== Module Loading Summary ===\n")
     invisible(lapply(load_status, function(status) {
         cat(sprintf(
@@ -241,7 +236,7 @@ sorted_metadata$sample_id <- sample_ids
 # Add after processing metadata but before track creation
 short_sample_ids <- create_minimal_identifiers(
     sorted_metadata$sample_id,
-    verbose = DEBUG_CONFIG$verbose
+    verbose = RUNTIME_CONFIG$verbose
 )
 
 # Create mapping between full and short IDs
@@ -282,8 +277,8 @@ stopifnot(
 ################################################################################
 # Process Files
 ################################################################################
-files_to_process <- if (DEBUG_CONFIG$single_file_mode) {
-    DEBUG_CONFIG$files_to_process_idx
+files_to_process <- if (RUNTIME_CONFIG$single_file_mode) {
+    RUNTIME_CONFIG$files_to_process_idx
 } else {
     seq_along(bam_files)
 }
@@ -300,7 +295,7 @@ for (file in files_to_process) {
     chip_id <- sorted_metadata[file, "sample_id"]
     input_id <- control_sample$sample_id
 
-    if (DEBUG_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$verbose) {
         message(sprintf("Processing sample: %s", chip_id))
         message(sprintf("Using control sample: %s", input_id))
     }
@@ -319,7 +314,7 @@ for (file in files_to_process) {
 
     # Check if using same file as treatment and control
     is_self_control <- identical(chip_bam, input_bam)
-    if (is_self_control && DEBUG_CONFIG$verbose) {
+    if (is_self_control && RUNTIME_CONFIG$verbose) {
         message("Note: Using same file as treatment and control - expect minimal/no enrichment")
     }
 
@@ -334,20 +329,20 @@ for (file in files_to_process) {
 
     output_path <- file.path(peak_dir, output_filename)
 
-    if (DEBUG_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$verbose) {
         message(sprintf("Output will be written to: %s", output_path))
     }
 
     # Perform peak calling
     tryCatch({
-        if (DEBUG_CONFIG$verbose) {
+        if (RUNTIME_CONFIG$verbose) {
             message("\nStarting peak calling...")
             message(sprintf("Genome size: %d bp across %d chromosomes",
                         sum(genome_info$size),
                         nrow(genome_info)))
         }
 
-        if (DEBUG_CONFIG$verbose) {
+        if (RUNTIME_CONFIG$verbose) {
             message("\nPre-processing count data...")
         }
 
@@ -359,7 +354,7 @@ for (file in files_to_process) {
             shift = 0  # No shift in 3' direction
         )
 
-        if (DEBUG_CONFIG$verbose) {
+        if (RUNTIME_CONFIG$verbose) {
             message("\nStarting enrichment analysis...")
             message(sprintf("Processing ChIP: %s", basename(chip_bam)))
             message(sprintf("Using Input: %s", basename(input_bam)))
@@ -373,7 +368,7 @@ for (file in files_to_process) {
             countConfig = count_config,
             iterations = NORMR_CONFIG$iterations,
             procs = NORMR_CONFIG$processors,
-            verbose = DEBUG_CONFIG$verbose
+            verbose = RUNTIME_CONFIG$verbose
         )
 
         ranges <- normr::getRanges(enrichment_results)
@@ -389,8 +384,7 @@ for (file in files_to_process) {
 
         # --- 4. Filter significant peaks ---
         significant_peaks <- ranges[!is.na(qvals) & qvals <= NORMR_CONFIG$default_fdr]
-        
-        if (DEBUG_CONFIG$verbose) {
+        if (RUNTIME_CONFIG$verbose) {
             message(sprintf("Number of significant peaks: %d", length(significant_peaks)))
             message(sprintf("FDR threshold used: %g", NORMR_CONFIG$fdr_threshold))
             if(length(significant_peaks) > 0) {
@@ -399,9 +393,8 @@ for (file in files_to_process) {
                                 counts$treatment[first_peak_index], counts$control[first_peak_index]))
             }
         }
-        
         # Export results if not in dry run mode
-        if (!DEBUG_CONFIG$dry_run) {
+        if (!RUNTIME_CONFIG$dry_run) {
             normr::exportR(
                 obj = enrichment_results,
                 filename = output_path,
@@ -416,6 +409,6 @@ for (file in files_to_process) {
     })
 }
 
-if (DEBUG_CONFIG$verbose) {
-    print_config_settings(DEBUG_CONFIG)
+if (RUNTIME_CONFIG$verbose) {
+    print_config_settings(RUNTIME_CONFIG)
 }

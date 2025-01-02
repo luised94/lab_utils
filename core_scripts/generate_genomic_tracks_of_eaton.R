@@ -16,70 +16,14 @@
 # VERSION: 1.0.0
 ################################################################################
 ################################################################################
-# Configuration and Debug Settings
-################################################################################
-DEBUG_CONFIG <- list(
-    single_file_mode = TRUE,
-    verbose = TRUE,
-    dry_run = TRUE,
-    files_to_process_idx = 7
-)
+source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
 
-NORMR_CONFIG <- list(
-    # Core analysis parameters
-    bin_size = 100L,    # Base pairs, adjusted for yeast genome
-    min_mapq = 30L,      # Minimum mapping quality for high-quality alignments
-    iterations = 10L,    # Number of EM iterations
-    processors = 1L,     # Number of processors to use
-    paired_end = FALSE,  # Specify single-end data
-    
-    # Peak calling thresholds
-    default_fdr = 10^-6,                    # Default threshold for significant peaks
-    min_enrichment_score = 1.5,            # Minimum fold change
-    min_reads_per_bin = 1,                 # Minimum reads required per bin
-    
-    # S. cerevisiae ORC-specific parameters
-    expected_peak_range = list(
-        min = 100,
-        max = 500,
-        typical = 250:400
-    ),
-    
-    # Genome specifications
-    expected_chromosomes = 16,
-    chromosome_prefix = "chr",
-    chromosome_adjustment = TRUE,  # Round chromosome sizes to bin size multiples
-    
-    # File patterns and templates
-    bam_pattern = "consolidated_([0-9]{5,6})_sequence_to_S288C_sorted\\.bam$",
-    genome_pattern = "S288C_refgenome.fna",
-    
-    # Output templates
-    output_name_template = "%s_peaks_%s_vs_%s_%s.bed",        # timestamp, chip, input, package
-    region_file_template = "%s_regions_%s_vs_%s_%s.tsv",
-    bedgraph_template = "%s_enrichment_%s_vs_%s_%s.bedGraph",
-    
-    # Output specifications
-    region_columns = c(
-        "chromosome", "start", "end",
-        "treatment_count", "control_count",
-        "enrichment", "qvalue", "peak_class"
-    )
-)
-
-# Time formatting configuration
-TIME_CONFIG <- list(
-    timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
-    date_format = "%Y%m%d"               # YYYYMMDD
-)
-
-# Generate timestamps once at script start
-TIMESTAMPS <- list(
-    full = format(Sys.time(), TIME_CONFIG$timestamp_format),
-    date = format(Sys.Date(), TIME_CONFIG$date_format)
-)
-
-################################################################################
+# Parse arguments and validate configurations
+args <- parse_args(commandArgs(trailingOnly = TRUE))
+experiment_id <- args[["experiment-id"]]
+source(file.path("~/data", experiment_id, "documentation", 
+                paste0(experiment_id, "_bmc_config.R")))
+validate_configs(c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG"))
 # Load Required Libraries
 ################################################################################
 required_packages <- c("IRanges", "normr", "GenomicRanges", "rtracklayer", "ggplot2", "Gviz", "stats", "boot")
@@ -157,7 +101,11 @@ stopifnot(
 
 # Load dependencies with status tracking
 load_status <- lapply(required_modules, function(module) {
+<<<<<<< HEAD
     if (DEBUG_CONFIG$verbose) {
+=======
+    if (RUNTIME_CONFIG$debug_verbose) {
+>>>>>>> config_consolidation
         cat(sprintf("\n[LOADING] %s\n", module$description))
     }
 
@@ -183,7 +131,11 @@ load_status <- lapply(required_modules, function(module) {
 })
 
 # Display loading summary using ASCII
+<<<<<<< HEAD
 if (DEBUG_CONFIG$verbose) {
+=======
+if (RUNTIME_CONFIG$debug_verbose) {
+>>>>>>> config_consolidation
     cat("\n=== Module Loading Summary ===\n")
     invisible(lapply(load_status, function(status) {
         cat(sprintf(
@@ -195,8 +147,13 @@ if (DEBUG_CONFIG$verbose) {
     }))
 }
 
+<<<<<<< HEAD
 if (DEBUG_CONFIG$verbose) {
     print_config_settings(DEBUG_CONFIG)
+=======
+if (RUNTIME_CONFIG$debug_verbose) {
+    print_config_settings(RUNTIME_CONFIG)
+>>>>>>> config_consolidation
 }
 
 ################################################################################
@@ -263,7 +220,11 @@ sorted_metadata$sample_id <- sample_ids
 # Add after processing metadata but before track creation
 short_sample_ids <- create_minimal_identifiers(
     sorted_metadata$sample_id,
+<<<<<<< HEAD
     verbose = DEBUG_CONFIG$verbose
+=======
+    verbose = RUNTIME_CONFIG$debug_verbose
+>>>>>>> config_consolidation
 )
 
 # Create mapping between full and short IDs
@@ -345,7 +306,11 @@ track_name <- sprintf(
     sorted_metadata$short_name[control_idx],
     sorted_metadata$antibody[control_idx]
 )
+<<<<<<< HEAD
 if (DEBUG_CONFIG$verbose) {
+=======
+if (RUNTIME_CONFIG$debug_verbose) {
+>>>>>>> config_consolidation
     message(sprintf("Processing sample: %s", chip_id))
     message(sprintf("Track name for visualization: %s", track_name))
 }
@@ -361,25 +326,41 @@ stopifnot(
 )
 # Generate output filename using short IDs
 output_filename <- sprintf(
+<<<<<<< HEAD
     NORMR_CONFIG$output_name_template,
+=======
+    "%s %s %s %s",
+>>>>>>> config_consolidation
     TIMESTAMPS$full,
     sample_id_mapping[chip_id],
     "none",
     "normr"
 )
 output_path <- file.path(peak_dir, output_filename)
+<<<<<<< HEAD
 if (DEBUG_CONFIG$verbose) {
+=======
+if (RUNTIME_CONFIG$debug_verbose) {
+>>>>>>> config_consolidation
     message(sprintf("Output will be written to: %s", output_path))
 }
 # Perform peak calling
 tryCatch({
+<<<<<<< HEAD
     if (DEBUG_CONFIG$verbose) {
+=======
+    if (RUNTIME_CONFIG$debug_verbose) {
+>>>>>>> config_consolidation
         message("\nStarting peak calling...")
         message(sprintf("Genome size: %d bp across %d chromosomes",
                     sum(genome_info$size),
                     nrow(genome_info)))
     }
+<<<<<<< HEAD
     if (DEBUG_CONFIG$verbose) {
+=======
+    if (RUNTIME_CONFIG$debug_verbose) {
+>>>>>>> config_consolidation
         message("\nPre-processing count data...")
     }
     tryCatch({

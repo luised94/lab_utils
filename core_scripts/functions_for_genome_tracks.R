@@ -190,8 +190,8 @@ create_plot_title <- function(metadata, comparison_name, plot_info,
     # Format title according to configuration
     formatted_title <- format_title_text(
         title,
-        max_width = PLOT_CONFIG$title$format$max_width,
-        max_lines = PLOT_CONFIG$title$format$max_lines
+        max_width = GENOME_TRACK_CONFIG$title$format$max_width,
+        max_lines = GENOME_TRACK_CONFIG$title$format$max_lines
     )
     
     return(formatted_title)
@@ -233,17 +233,17 @@ format_title_text <- function(text, max_width = 40, max_lines = NULL) {
 #antibody_colors <- generate_distinct_colors(length(unique_antibodies))
 #names(antibody_colors) <- unique_antibodies
 #
-## Update PLOT_CONFIG with dynamic colors
-#PLOT_CONFIG$track_colors <- list(
+## Update GENOME_TRACK_CONFIG with dynamic colors
+#GENOME_TRACK_CONFIG$track_colors <- list(
 #    antibody = antibody_colors,
-#    placeholder = PLOT_CONFIG$placeholder_color  # Maintain consistent placeholder
+#    placeholder = GENOME_TRACK_CONFIG$placeholder_color  # Maintain consistent placeholder
 #)
 
 # Create color legend text
 #legend_text <- sprintf(
 #    "Track Colors:\n%s\n%s",
-#    paste("?", names(PLOT_CONFIG$track_colors$antibody), 
-#          sprintf("(%s)", PLOT_CONFIG$track_colors$antibody), 
+#    paste("?", names(GENOME_TRACK_CONFIG$track_colors$antibody), 
+#          sprintf("(%s)", GENOME_TRACK_CONFIG$track_colors$antibody), 
 #          collapse = "\n"),
-#    sprintf("? No Data (%s)", PLOT_CONFIG$placeholder_color)
+#    sprintf("? No Data (%s)", GENOME_TRACK_CONFIG$placeholder_color)
 #)

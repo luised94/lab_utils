@@ -1,4 +1,3 @@
-
 #!/usr/bin/env Rscript
 
 # Script: genome_track_visualization.R
@@ -7,33 +6,6 @@
 # Dependencies: rtracklayer, GenomicRanges, Gviz
 # Author: [AUTHOR]
 # Date: [DATE]
-
-# Configuration
-#-----------------------------------------------------------------------------
-DEBUG_CONFIG <- list(
-    enabled = FALSE,           # TRUE for single group testing, FALSE for all groups
-    group = 1,                # Group to process in debug mode
-    samples_per_group = 4,    # Number of samples to show per plot
-    save_plots = TRUE,        # Save plots to files
-    verbose = TRUE,           # Print processing details
-    chromosome = 1,           # Default chromosome to visualize
-    interactive = TRUE,       # Enable interactive plot viewing
-    display_time = 2          # Seconds to display each plot in non-interactive mode
-)
-
-TIME_CONFIG <- list(
-    timestamp_format = "%Y%m%d_%H%M%S",  # Format for full timestamp
-    date_format = "%Y%m%d"               # Format for date only
-)
-
-PLOT_CONFIG <- list(
-    width = 10,                # Plot width in inches
-    height = 8,                # Plot height in inches
-    track_color = "#fd0036",   # Color for data tracks
-    placeholder_color = "#cccccc",  # Color for missing data
-    track_name_format = "%s (%s)",  # Format: sample_id (short_name)
-    placeholder_suffix = "(No data)"  # Suffix for placeholder tracks
-)
 
 # Required Packages
 #-----------------------------------------------------------------------------
@@ -49,13 +21,6 @@ for (pkg in required_packages) {
 # MODIFY PATHS AS NEEDED
 source("path/to/config.R")     # Load experiment configurations
 #source("path/to/functions.R")  # Load custom functions if needed
-
-# Initialize Timestamps
-#-----------------------------------------------------------------------------
-TIMESTAMPS <- list(
-    full = format(Sys.time(), TIME_CONFIG$timestamp_format),
-    date = format(Sys.Date(), TIME_CONFIG$date_format)
-)
 
 # File Paths and Directory Setup
 #-----------------------------------------------------------------------------
@@ -132,7 +97,7 @@ sorted_metadata <- metadata[do.call(order, metadata[EXPERIMENT_CONFIG$COLUMN_ORD
 sorted_metadata$sample_id <- sample_ids
 
 # Print processing summary if verbose
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     message("\nMetadata Processing Summary:")
     message(sprintf("- Found %d fastq files", length(fastq_files)))
     message(sprintf("- Processed %d metadata rows", nrow(sorted_metadata)))
@@ -156,7 +121,7 @@ if (is.na(ref_genome_file)) {
 
 # Load genome and create range
 genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
-chromosome_to_plot <- DEBUG_CONFIG$chromosome
+chromosome_to_plot <- RUNTIME_CONFIG$process_chromosome
 chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
 chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
 
@@ -207,17 +172,17 @@ if (!is.null(feature_file)) {
 # Create sample groups for visualization
 sample_groups <- split(
     seq_len(nrow(sorted_metadata)),
-    ceiling(seq_len(nrow(sorted_metadata)) / DEBUG_CONFIG$samples_per_group)
+    ceiling(seq_len(nrow(sorted_metadata)) / RUNTIME_CONFIG$process_samples_per_group)
 )
 
 # Determine processing scope based on debug configuration
-groups_to_process <- if (DEBUG_CONFIG$enabled) {
-    DEBUG_CONFIG$group
+groups_to_process <- if (RUNTIME_CONFIG$debug_enabled) {
+    RUNTIME_CONFIG$process_group
 } else {
     seq_along(sample_groups)
 }
 
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     message("\nProcessing Configuration:")
     message(sprintf("- Total groups: %d", length(sample_groups)))
     message(sprintf("- Processing groups: %s", 
@@ -226,7 +191,7 @@ if (DEBUG_CONFIG$verbose) {
 
 # Calculate Global Y-axis Limits
 #-----------------------------------------------------------------------------
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     message("\nCalculating global range for tracks...")
 }
 
@@ -249,7 +214,7 @@ for (bigwig_file in bigwig_files) {
                 }
             }
         }, error = function(e) {
-            if (DEBUG_CONFIG$verbose) {
+            if (RUNTIME_CONFIG$debug_verbose) {
                 message("Skipping ", basename(bigwig_file), ": ", e$message)
             }
         })
@@ -269,14 +234,14 @@ y_limits <- if (length(all_track_values) > 0) {
     c(0, 1)  # Default limits if no data
 }
 
-if (DEBUG_CONFIG$verbose) {
+if (RUNTIME_CONFIG$debug_verbose) {
     message(sprintf("Global y-limits: [%.2f, %.2f]", y_limits[1], y_limits[2]))
 }
 
 # Track Creation and Visualization
 #-----------------------------------------------------------------------------
 for (group_idx in groups_to_process) {
-    if (DEBUG_CONFIG$verbose) {
+    if (RUNTIME_CONFIG$debug_verbose) {
         message(sprintf("\nProcessing group %d of %d", 
                        group_idx, max(groups_to_process)))
     }
@@ -295,7 +260,7 @@ for (group_idx in groups_to_process) {
     for (i in seq_len(nrow(current_samples))) {
         sample_id <- current_samples$sample_id[i]
         track_name <- sprintf(
-            PLOT_CONFIG$track_name_format,
+            GENOME_TRACK_CONFIG$format_track,
             sample_id,
             current_samples$short_name[i]
         )
@@ -304,7 +269,7 @@ for (group_idx in groups_to_process) {
         bigwig_file <- bigwig_files[grepl(sample_id, bigwig_files)][1]
         
         if (!is.na(bigwig_file) && file.exists(bigwig_file)) {
-            if (DEBUG_CONFIG$verbose) {
+            if (RUNTIME_CONFIG$debug_verbose) {
                 message("Creating track for: ", track_name)
             }
             
@@ -317,10 +282,10 @@ for (group_idx in groups_to_process) {
                 track_data,
                 name = track_name,
                 type = "l",
-                col = PLOT_CONFIG$track_color
+                col = GENOME_TRACK_CONFIG$track_color
             )
         } else {
-            if (DEBUG_CONFIG$verbose) {
+            if (RUNTIME_CONFIG$debug_verbose) {
                 message("Creating placeholder for: ", track_name)
             }
             
@@ -337,9 +302,9 @@ for (group_idx in groups_to_process) {
             
             tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
                 empty_ranges,
-                name = paste(track_name, PLOT_CONFIG$placeholder_suffix),
+                name = paste(track_name, GENOME_TRACK_CONFIG$format_placeholder),
                 type = "l",
-                col = PLOT_CONFIG$placeholder_color,
+                col = GENOME_TRACK_CONFIG$placeholder_color,
                 chromosome = chromosome_roman
             )
         }
@@ -372,7 +337,7 @@ for (group_idx in groups_to_process) {
     )
     
     # Save plot if configured
-    if (DEBUG_CONFIG$save_plots) {
+    if (RUNTIME_CONFIG$output_save_plots) {
         plot_file <- file.path(
             paths$plots,
             sprintf(
@@ -384,11 +349,11 @@ for (group_idx in groups_to_process) {
             )
         )
         
-        if (DEBUG_CONFIG$verbose) {
+        if (RUNTIME_CONFIG$debug_verbose) {
             message(sprintf("Saving plot to: %s", basename(plot_file)))
         }
         
-        svg(plot_file, width = PLOT_CONFIG$width, height = PLOT_CONFIG$height)
+        svg(plot_file, width = GENOME_TRACK_CONFIG$width, height = GENOME_TRACK_CONFIG$display_height)
         Gviz::plotTracks(
             tracks,
             chromosome = chromosome_roman,
@@ -401,14 +366,14 @@ for (group_idx in groups_to_process) {
     }
     
     # Handle interactive viewing
-    if (DEBUG_CONFIG$interactive) {
+    if (RUNTIME_CONFIG$debug_interactive) {
         user_input <- readline(
             prompt = "Options: [Enter] next plot, 's' skip rest, 'q' quit: "
         )
         if (user_input == "q") break
-        if (user_input == "s") DEBUG_CONFIG$save_plots <- FALSE
+        if (user_input == "s") RUNTIME_CONFIG$output_save_plots <- FALSE
     } else {
-        Sys.sleep(DEBUG_CONFIG$display_time)
+        Sys.sleep(RUNTIME_CONFIG$output_display_time)
     }
 }
 

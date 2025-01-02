@@ -1,24 +1,20 @@
 ################################################################################
 # BMC Experiment Configuration
 ################################################################################
-#
 # PURPOSE:
 #   Defines and validates experimental design for BMC ChIP-seq experiments,
 #   including sample categories, valid combinations, and comparison groups.
-#
 # USAGE:
 #   1. Use '/!!' in vim/neovim to jump to required updates
 #   2. Modify METADATA section with experiment details
 #   3. Update CATEGORIES if experimental design changes
 #   4. Review INVALID_COMBINATIONS and EXPERIMENTAL_CONDITIONS
-#
 # !! ----> REQUIRED UPDATES:
 # !! EXPERIMENT_CONFIG$METADATA <- list(
 # !!     EXPERIMENT_ID = "241010Bel",
 # !!     EXPECTED_SAMPLES = 65,
 # !!     VERSION = "1.0.0"
 # !! )
-#
 # STRUCTURE:
 #   EXPERIMENT_CONFIG/
 #   +-- METADATA/
@@ -37,20 +33,14 @@
 #   2. Column References: All referenced columns must exist
 #   3. Column Order: Must include all category columns
 #   4. Sample Count: Must match EXPECTED_SAMPLES
-#
-# DEPENDENCIES:
-#   - R base packages only
-#   - functions_for_bmc_config_validation.R for validation functions
-#
+# DEPENDENCIES: R base packages only, functions_for_bmc_config_validation.R for validation functions
 # COMMON ISSUES:
 #   1. Mismatched EXPERIMENT_ID -> Check format YYMMDD'Bel'
 #   2. Wrong sample count -> Review INVALID_COMBINATIONS
 #   3. Missing categories -> Check CATEGORIES vs COLUMN_ORDER
-#
 # AUTHOR: Luis
 # DATE: 2024-11-27
 # VERSION: 2.0.0
-#
 ################################################################################
 # !! Update EXPERIMENT_CONFIG if starting a new experiment.
 EXPERIMENT_CONFIG <- list(
@@ -75,14 +65,12 @@ EXPERIMENT_CONFIG <- list(
              antibody == "ORC" |                    # no orc1-161 with ORC
              cell_cycle %in% c("async", "alpha"))      # no orc1-161 in async or alpha
         ),
-        
         # Group 2: ORC antibody restrictions
         orc_restrictions = quote(
             antibody == "ORC" & 
             (temperature == "23" |                  # no ORC at 23øC
              cell_cycle %in% c("alpha", "async"))      # no ORC in alpha or async
         ),
-        
         # Group 3: Nucleosome and temperature restrictions
         nucleosome_temp_restrictions = quote(
             (antibody == "Nucleosomes" & temperature == "23" & cell_cycle %in% c("alpha", "nocodazole")) | # no Nucleosomes at 23øC in alpha/nocodazole
@@ -121,8 +109,142 @@ EXPERIMENT_CONFIG <- list(
 )
 
 ################################################################################
+# Time Configurations
+################################################################################
+TIME_CONFIG <- list(
+    # Format specifications
+    timestamp_format = "%Y%m%d_%H%M%S",    # YYYYMMDD_HHMMSS
+    date_format = "%Y%m%d",                # YYYYMMDD
+
+    # Current values
+    current_timestamp = format(Sys.time(), "%Y%m%d_%H%M%S"),
+    current_date = format(Sys.Date(), "%Y%m%d")
+)
+
+################################################################################
+# DEBUG CONFIGURATIONS
+################################################################################
+RUNTIME_CONFIG <- list(
+    # Core control flags
+    debug_enabled = TRUE,
+    debug_interactive = FALSE,
+    debug_verbose = TRUE,
+    debug_validate = TRUE,
+
+    # Processing control
+    process_single_file = FALSE,
+    process_comparison = "comp_1108forNoneAndWT",
+    process_chromosome = 10,
+    process_group = 10,
+    process_samples_per_group = 4,
+    process_file_index = 1,
+
+    # Output control
+    output_save_plots = FALSE,
+    output_dry_run = TRUE,
+    output_display_time = 2
+)
+
+################################################################################
+# Quality control configuration
+################################################################################
+FASTQC_CONFIG <- list(
+    # Version control
+    version_required = "0.11.5",
+    version_pattern = "^##FastQC\\s+",
+    version_max = 1,
+    
+    # Parsing patterns
+    parse_header = "^##FastQC",
+    parse_module_start = ">>",
+    parse_module_end = ">>END_MODULE",
+    parse_prefix = "#",
+    
+    # File handling
+    file_pattern = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
+    file_format = "consolidated_XXXXXX_sequence_fastqc_data.txt",
+    file_suffix = ".tab",
+    file_base = "fastqc_data",
+    
+    # Paths and references
+    path_qc_dir = "quality_control",
+    path_module_ref = file.path(Sys.getenv("HOME"), "data", "fastqc_module_reference.rds"),
+    
+    # Module configuration
+    module_list = character(0)
+)
+
+################################################################################
+# VISUALIZATION AND DISPLAY CONFIGURATIONS
+################################################################################
+VIEWER_CONFIG <- list(
+    # Paths
+    path_base = file.path(Sys.getenv("HOME"), "data"),
+    
+    # Patterns
+    pattern_svg = "\\.svg$",
+    pattern_timestamp = "^[0-9]{8}_[0-9]{6}",  # YYYYMMDD_HHMMSS
+    pattern_experiment = "^[0-9]{6}Bel",
+    
+    # Display dimensions
+    display_width = 10,
+    display_height = 8
+)
+
+GENOME_TRACK_CONFIG <- list(
+    # Display dimensions
+    display_width = 10,
+    display_height = 8,
+    
+    # Track visual properties
+    track_width = 0.9,
+    track_fontface = 1,
+    track_size = 0.6,
+    track_background = "white",
+    track_fontcolor = "black",
+    track_border = "#E0E0E0",
+    
+    # Track colors
+    color_placeholder = "#cccccc",
+    color_input = "#808080",
+    
+    # Track naming
+    format_track = "%s: %s",
+    format_control = "%s: %s - %s",
+    format_placeholder = "(No data)",
+    
+    # Development mode title
+    title_dev_mode = "development",  # Enum: "development" | "publication"
+    title_dev_template = paste(
+        "%s",               # Title
+        "Comparison: %s",   # Comparison ID
+        "Chromosome %s (%d samples)", # Chr info
+        "%s",               # Additional info
+        "Normalization: %s", # Norm method
+        sep = "\n"
+    ),
+    title_dev_size = 0.7,
+    title_dev_style = 2,    # Bold
+    
+    # Publication mode title
+    title_pub_template = "%s: Chr%s (%s)",
+    title_pub_size = 1,
+    title_pub_style = 2,    # Bold
+    
+    # Title constraints
+    title_max_width = 40,
+    title_max_lines = 5
+)
+
+################################################################################
 # Configuration Validation
 ################################################################################
+experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+stopifnot(
+    "Experiment ID must be a character string" = is.character(experiment_id),
+    "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
+)
+>>>>>>> config_consolidation
 source("~/lab_utils/core_scripts/functions_for_bmc_config_validation.R")
 
 # !! Update if you want thourough messages during validation.
