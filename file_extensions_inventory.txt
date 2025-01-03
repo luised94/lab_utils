@@ -1,0 +1,63 @@
+    168 bam
+    152 svg
+    119 fastq
+    103 R
+     90 txt
+     72 py
+     62 json
+     61 bai
+     60 bw
+     59 r
+     57 png
+     56 pdf
+     56 html
+     56 bed
+     51 zip
+     51 out
+     50 xls
+     46 sh
+     20 md
+     19 Rmd
+     18 bt2
+     16 fasta
+     14 tsv
+     14 pdb
+      9 tab
+      8 js
+      8 gff3
+      8 a3m
+      7 qmd
+      7 pml
+      5 xlsx
+      5 lock
+      5 fa
+      5 css
+      5 aln
+      5 Rproj
+      5 3gp
+      4 vtt
+      4 gz
+      4 csv
+      3 docx
+      3 cif
+      2 tex
+      2 rst
+      2 m8
+      2 fsa
+      2 cfg
+      2 bibtex
+      1 woff
+      1 srt
+      1 praln
+      1 md5
+      1 mc
+      1 jpg
+      1 fai
+      1 bib
+      1 /mnt/c/Users/Luised94/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/typescript
+      1 /mnt/c/Users/Luised94/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/prompts/thesis-intro-slide-ideas
+      1 /mnt/c/Users/Luised94/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/extra_code_to_revise/Code/weird-errors/#pdf_not_read
+      1 /mnt/c/Users/Luised94/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/extra_code_to_revise/Code/command-line/script_trials
+      1 /mnt/c/Users/Luised94/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/extra_code_to_revise/Code/command-line/renaming-files
+      1 /mnt/c/Users/Luised94/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/extra_code_to_revise/Code/command-line/reformat-fasta-anvi
+      1 /mnt/c/Users/Luised94/Dropbox (MIT)/Lab/Projects/automate-the-boring-stuff/extra_code_to_revise/Code/Example_Markdown_File
