@@ -15,7 +15,6 @@
 # DATE: [Current Date]
 # VERSION: 1.0.0
 ################################################################################
-################################################################################
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
 
 # Parse arguments and validate configurations
@@ -24,6 +23,7 @@ experiment_id <- args[["experiment-id"]]
 source(file.path("~/data", experiment_id, "documentation", 
                 paste0(experiment_id, "_bmc_config.R")))
 validate_configs(c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG"))
+################################################################################
 # Load Required Libraries
 ################################################################################
 required_packages <- c("IRanges", "normr", "GenomicRanges", "rtracklayer", "ggplot2", "Gviz", "stats", "boot")

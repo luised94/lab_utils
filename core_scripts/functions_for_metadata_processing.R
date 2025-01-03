@@ -9,7 +9,7 @@ generate_distinct_colors <- function(n) {
 }
 
 # Function to find matching control sample
-find_control_sample <- function(experimental_sample, metadata, control_factors) {
+find_control_sample <- function(experimental_sample, metadata, control_factors, verbose) {
     # Create matching conditions for control
     control_conditions <- lapply(control_factors$genotype, function(factor) {
         metadata[[factor]] == experimental_sample[[factor]]
@@ -22,7 +22,7 @@ find_control_sample <- function(experimental_sample, metadata, control_factors) 
     control_matches <- Reduce(`&`, control_conditions)
     
     if (sum(control_matches) == 0) {
-        if (RUNTIME_CONFIG$verbose) {
+        if (verbose) {
             message("No matching control found for sample: ", 
                    experimental_sample$sample_id)
         }

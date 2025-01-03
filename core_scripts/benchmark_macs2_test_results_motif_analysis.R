@@ -1,3 +1,14 @@
+path_to_meme_binary <- file.path(Sys.getenv("HOME"), "meme/bin/meme")
+options(meme.bin = path_to_meme_binary)
+system("export PATH=$HOME/meme/bin:$HOME/meme/libexec/meme-5.3.3:$PATH")
+# Test MEME installation and setup
+meme_test <- system("meme -version", intern = TRUE)
+message("MEME version: ", meme_test)
+
+# Verify MEME setup
+if (is.null(getOption("meme.bin"))) {
+    stop("MEME binary location not set. Use options(meme.bin = path_to_meme)")
+}
 # Verify required libraries are available.
 # Environment validation
 if (system("hostname", intern = TRUE) == "luria") {
@@ -7,6 +18,15 @@ if (system("hostname", intern = TRUE) == "luria") {
 }
 
 library(ggplot2)
+# MEME parameters specific for ORC analysis
+MEME_PARAMS <- list(
+    minw = 8,          # ORC binding sites typically 8-15bp
+    maxw = 15,
+    nmotifs = 3,       # Start with top 3 motifs
+    mod = "zoops",     # Zero or one occurrence per sequence
+    markov_order = 2   # Background model order
+)
+
 required_packages <- c("GenomeInfoDb", "IRanges", "GenomicRanges", "rtracklayer", "ggplot2", "Gviz", "TxDb.Scerevisiae.UCSC.sacCer3.sgdGene", "UpSetR", "universalmotif")
 # add cosmo after manually installing
 for (pkg in required_packages) {
@@ -14,7 +34,7 @@ for (pkg in required_packages) {
         stop(sprintf("Package '%s' is missing", pkg))
     }
 }
-
+library(universalmotif)
 # File paths and configuration
 INPUT_FILES <- list(
     narrow_peaks = "~/macs2_test_results/macs2_test_241010Bel_peaks.narrowPeak",
@@ -93,7 +113,7 @@ region_end <- origin_end + view_window
 # Load reference genome
 ################################################################################
 stopifnot(
-    "No reference genome found. One expected." = length(ref_genome_file) == 1
+    "No reference genome found. One expected." = length(INPUT_FILES$ref_genome_file) == 1
 )
 
 genome_data <- Biostrings::readDNAStringSet(INPUT_FILES$ref_genome_file)
@@ -116,6 +136,7 @@ stopifnot(
 
 ################################################################################
 # Motif Analysis
+# Sequence Preparation for Motif Analysis
 ################################################################################
 PEAK_WIDTH <- 100  # Width for sequence extraction
 
@@ -132,6 +153,26 @@ get_centered_sequences <- function(peaks, width = PEAK_WIDTH) {
         IRanges::IRanges(peak_centers - (width %/% 2), peak_centers + (width %/% 2)),
         strand = "*"
     )
+    # Get chromosome sizes from genome data
+    chrom_sizes <- GenomicRanges::width(genome_data)
+    names(chrom_sizes) <- names(genome_data)
+    
+    # Calculate centers
+    peak_centers <- peaks@ranges@start + peaks@ranges@width %/% 2
+    
+    # Create ranges with boundary checking
+    start_pos <- pmax(1, peak_centers - (width %/% 2))  # Don't go below 1
+    end_pos <- pmin(
+        chrom_sizes[as.character(GenomicRanges::seqnames(peaks))],  # Don't exceed chromosome length
+        peak_centers + (width %/% 2)
+    )
+    
+    ranges <- GenomicRanges::GRanges(
+        GenomicRanges::seqnames(peaks),
+        IRanges::IRanges(start_pos, end_pos),
+        strand = "*"
+    )
+    
     return(Biostrings::getSeq(genome_data, ranges))
 }
 
@@ -366,3 +407,23 @@ universalmotif::view_motifs(
     show.positions = TRUE
 )
 dev.off()
+
+# Prepare sequences for scanning
+# Option 1: Scan peak regions with padding
+PADDING <- 100  # bases to add around peaks
+peak_regions <- get_centered_sequences(narrow_peaks, width = narrow_peaks@ranges@width + 2*PADDING)
+
+# Scan for motif matches
+scan_results <- universalmotif::scan_sequences(
+    motifs = meme_results_top[[1]],  # Use first (primary) motif
+    sequences = peak_regions,         # CHANGED: correct parameter name
+    threshold = 0.85,
+    threshold.type = "logodds",      # ADDED: specify threshold type
+    RC = TRUE,
+    verbose = 1,                     # ADDED: show progress
+    calc.pvals = TRUE                # ADDED: get p-values for matches
+)
+
+# Filter based on log-odds ratio
+threshold_score <- 4  # As specified in paper
+filtered_matches <- scan_results[scan_results$score >= threshold_score, ]
