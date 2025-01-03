@@ -187,7 +187,6 @@ if (!limits_result$success) {
 }
 # Add after processing metadata but before track creation
 short_sample_ids <- create_minimal_identifiers(sorted_metadata$sample_id, verbose = RUNTIME_CONFIG$debug_verbose)
-
 # Create mapping between full and short IDs
 sample_id_mapping <- setNames(short_sample_ids, sorted_metadata$sample_id)
 

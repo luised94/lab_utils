@@ -1,10 +1,8 @@
 ################################################################################
-# Plot eaton genomic tracks
+# Peak Calling using normR for ChIP-seq Analysis
 ################################################################################
-# PURPOSE: View control data using same few to see noise.
-# Conclusion: See HM1108 of Eaton 2010 paper to see noise and alignment to reference bed file. Files are misordered. Correct file index is 4.
-# Doesnt look particularly different but less noise definitely although mine seem to have more signal.
-# USAGE: 
+# PURPOSE: Perform peak calling on ChIP-seq data using normR
+# USAGE: source("peak_calling_normr.R")
 # !! ----> REQUIRED UPDATES: experiment_id, input files paths
 # STRUCTURE: Configuration -> Validation -> Processing -> Output
 # VALIDATION: Input file existence, format compatibility, memory requirements
@@ -16,18 +14,19 @@
 # VERSION: 1.0.0
 ################################################################################
 ################################################################################
-source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
+# Configuration and Debug Settings
+################################################################################
+DEBUG_CONFIG <- list(
+    single_file_mode = TRUE,
+    verbose = TRUE,
+    dry_run = TRUE,
+    files_to_process_idx = 1
+)
 
-# Parse arguments and validate configurations
-args <- parse_args(commandArgs(trailingOnly = TRUE))
-experiment_id <- args[["experiment-id"]]
-source(file.path("~/data", experiment_id, "documentation", 
-                paste0(experiment_id, "_bmc_config.R")))
-validate_configs(c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG"))
+################################################################################
 # Load Required Libraries
 ################################################################################
-required_packages <- c("IRanges", "normr", "GenomicRanges", "rtracklayer", "ggplot2", "Gviz", "stats", "boot")
-# add cosmo after manually installing
+required_packages <- c("normr", "GenomicRanges", "rtracklayer")
 for (pkg in required_packages) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
         stop(sprintf("Package '%s' is missing", pkg))
@@ -37,7 +36,7 @@ for (pkg in required_packages) {
 ################################################################################
 # Directory Setup
 ################################################################################
-experiment_id <- "100303Bel"  # !! UPDATE THIS
+experiment_id <- "241010Bel"  # !! UPDATE THIS
 base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
 bam_dir <- file.path(base_dir, "alignment")
 peak_dir <- file.path(base_dir, "peak")
@@ -81,11 +80,6 @@ required_modules <- list(
         required = TRUE
     ),
     list(
-        path = "~/lab_utils/core_scripts/functions_for_peak_calling.R",
-        description = "Load functions required for peak calling and benchmarking script",
-        required = TRUE
-    ),
-    list(
         path = config_path,
         description = "Load EXPERIMENT CONFIG object.",
         required = TRUE
@@ -101,7 +95,7 @@ stopifnot(
 
 # Load dependencies with status tracking
 load_status <- lapply(required_modules, function(module) {
-    if (RUNTIME_CONFIG$debug_verbose) {
+    if (DEBUG_CONFIG$verbose) {
         cat(sprintf("\n[LOADING] %s\n", module$description))
     }
 
@@ -127,7 +121,7 @@ load_status <- lapply(required_modules, function(module) {
 })
 
 # Display loading summary using ASCII
-if (RUNTIME_CONFIG$verbose) {
+if (DEBUG_CONFIG$verbose) {
     cat("\n=== Module Loading Summary ===\n")
     invisible(lapply(load_status, function(status) {
         cat(sprintf(
@@ -137,10 +131,6 @@ if (RUNTIME_CONFIG$verbose) {
             status$path
         ))
     }))
-}
-
-if (RUNTIME_CONFIG$debug_verbose) {
-    print_config_settings(RUNTIME_CONFIG)
 }
 
 ################################################################################
@@ -160,19 +150,8 @@ sample_ids <- gsub(
     x = basename(bam_files)
 )
 
-# Find bigwig files
-bigwig_pattern <- sprintf("_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
-bigwig_files <- list.files(
-    file.path(base_dir, "coverage"),
-    pattern = bigwig_pattern,
-    full.names = TRUE
-)
-normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1",
-                          basename(bigwig_files[1]))
-
 stopifnot(
     "No BAM files found" = length(bam_files) > 0,
-    "No bigwig files found" = length(bigwig_files) > 0,
     "No sample_ids found" = length(sample_ids) > 0,
     "Number of sample ids must match number of files" = length(bam_files) == length(sample_ids)
 )
@@ -207,7 +186,7 @@ sorted_metadata$sample_id <- sample_ids
 # Add after processing metadata but before track creation
 short_sample_ids <- create_minimal_identifiers(
     sorted_metadata$sample_id,
-    verbose = RUNTIME_CONFIG$debug_verbose
+    verbose = DEBUG_CONFIG$verbose
 )
 
 # Create mapping between full and short IDs
@@ -246,113 +225,142 @@ stopifnot(
 )
 
 ################################################################################
-# Load feature file (annotation)
+# Process Files
 ################################################################################
-feature_file <- list.files(
-    file.path(Sys.getenv("HOME"), "data", "feature_files"),
-    pattern = "eaton_peaks",
-    full.names = TRUE
-)[1]
-
-if (!is.null(feature_file)) {
-    features <- rtracklayer::import(feature_file)
-    # Convert to chrRoman format
-    GenomeInfoDb::seqlevels(features) <- paste0(
-        "chr",
-        utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
+files_to_process <- if (DEBUG_CONFIG$single_file_mode) {
+    DEBUG_CONFIG$files_to_process_idx
+} else {
+    seq_along(bam_files)
+}
+stop("this is the strategic breakpoint.")
+for (file in files_to_process) {
+    # Find control sample
+    control_sample <- find_control_sample(
+        experimental_sample = sorted_metadata[file, ],
+        metadata = sorted_metadata,
+        control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS
     )
-}
 
-################################################################################
-# Process given control file.
-################################################################################
-# Set the appropriate control for the given experiment.
-# Eaton data is misordered compared to metadata I remembered. The correct number is 4.
-control_idx <- 4
-chromosome_to_plot <- 10
-chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
-chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
-#TODO: Add interactive that displays the chosen control to confirm benchmarking.
-print("Sample information as positive control")
-print(sorted_metadata[control_idx, ])
-# Find control sample
-#control_sample <- find_control_sample(
-#    experimental_sample = sorted_metadata[control_idx, ],
-#    metadata = sorted_metadata,
-#    control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS
-#)
-# Get sample IDs
-chip_id <- sorted_metadata[control_idx, "sample_id"]
-track_name <- sprintf(
-    "%s: %s - %s",
-    sample_id_mapping[chip_id],
-    sorted_metadata$short_name[control_idx],
-    sorted_metadata$antibody[control_idx]
-)
-if (RUNTIME_CONFIG$debug_verbose) {
-    message(sprintf("Processing sample: %s", chip_id))
-    message(sprintf("Track name for visualization: %s", track_name))
-}
-# Find BAM files using grepl for more robust matching
-chip_bam <- bam_files[grepl(paste0("consolidated_", chip_id, "_sequence_to_S288C_sorted\\.bam$"), bam_files)]
-bigwig_file <- bigwig_files[grepl(chip_id, bigwig_files)][1]
+    # Get sample IDs
+    chip_id <- sorted_metadata[file, "sample_id"]
+    input_id <- control_sample$sample_id
 
-# Validate BAM files
-stopifnot(
-    "ChIP BAM file not found" = length(chip_bam) == 1,
-    "ChIP BAM file does not exist" = file.exists(chip_bam),
-    "ChIP bigwig file does not exist" = file.exists(bigwig_file)
-)
-# Generate output filename using short IDs
-output_filename <- sprintf(
-    "%s %s %s %s",
-    TIMESTAMPS$full,
-    sample_id_mapping[chip_id],
-    "none",
-    "normr"
-)
-output_path <- file.path(peak_dir, output_filename)
-if (RUNTIME_CONFIG$debug_verbose) {
-    message(sprintf("Output will be written to: %s", output_path))
-}
-# Perform peak calling
-tryCatch({
-    if (RUNTIME_CONFIG$debug_verbose) {
-        message("\nStarting peak calling...")
-        message(sprintf("Genome size: %d bp across %d chromosomes",
-                    sum(genome_info$size),
-                    nrow(genome_info)))
+    if (DEBUG_CONFIG$verbose) {
+        message(sprintf("Processing sample: %s", chip_id))
+        message(sprintf("Using control sample: %s", input_id))
     }
-    if (RUNTIME_CONFIG$debug_verbose) {
-        message("\nPre-processing count data...")
+
+    # Find BAM files using grepl for more robust matching
+    chip_bam <- bam_files[grepl(paste0("consolidated_", chip_id, "_sequence_to_S288C_sorted\\.bam$"), bam_files)]
+    input_bam <- bam_files[grepl(paste0("consolidated_", input_id, "_sequence_to_S288C_sorted\\.bam$"), bam_files)]
+
+    # Validate BAM files
+    stopifnot(
+        "ChIP BAM file not found" = length(chip_bam) == 1,
+        "Input BAM file not found" = length(input_bam) == 1,
+        "ChIP BAM file does not exist" = file.exists(chip_bam),
+        "Input BAM file does not exist" = file.exists(input_bam)
+    )
+
+    # Check if using same file as treatment and control
+    is_self_control <- identical(chip_bam, input_bam)
+    if (is_self_control && DEBUG_CONFIG$verbose) {
+        message("Note: Using same file as treatment and control - expect minimal/no enrichment")
     }
+
+    # Generate output filename using short IDs
+    output_filename <- sprintf(
+        NORMR_CONFIG$output_name_template,
+        TIMESTAMPS$full,
+        sample_id_mapping[chip_id],
+        sample_id_mapping[input_id],
+        "normr"
+    )
+
+    output_path <- file.path(peak_dir, output_filename)
+
+    if (DEBUG_CONFIG$verbose) {
+        message(sprintf("Output will be written to: %s", output_path))
+    }
+
+    # Perform peak calling
     tryCatch({
+        if (DEBUG_CONFIG$verbose) {
+            message("\nStarting peak calling...")
+            message(sprintf("Genome size: %d bp across %d chromosomes",
+                        sum(genome_info$size),
+                        nrow(genome_info)))
+        }
 
-    track_data <- rtracklayer::import(bigwig_file)
+        if (DEBUG_CONFIG$verbose) {
+            message("\nPre-processing count data...")
+        }
 
-    filtered_tracks <- list(
-        Gviz::GenomeAxisTrack(),
-        Gviz::DataTrack(
-            track_data[GenomicRanges::seqnames(track_data) == chromosome_roman], 
-            name = track_name, 
-            type = "l"
-        ),
-        Gviz::AnnotationTrack(
-            features, 
-            name = "eaton peaks"
+        # Create count configuration for single-end data
+        count_config <- normr::countConfigSingleEnd(
+            binsize = NORMR_CONFIG$bin_size,
+            mapq = NORMR_CONFIG$min_mapq,
+            filteredFlag = 1024,  # Filter duplicates
+            shift = 0  # No shift in 3' direction
         )
-    )
-    png("my_plot_track.png")
-    Gviz::plotTracks(
-        filtered_tracks,
-        chromosome = chromosome_roman,
-    )
-    dev.off()
+
+        if (DEBUG_CONFIG$verbose) {
+            message("\nStarting enrichment analysis...")
+            message(sprintf("Processing ChIP: %s", basename(chip_bam)))
+            message(sprintf("Using Input: %s", basename(input_bam)))
+        }
+
+        # Run normR enrichR with count configuration
+        enrichment_results <- normr::enrichR(
+            treatment = chip_bam,
+            control = input_bam,
+            genome = genome_info,
+            countConfig = count_config,
+            iterations = NORMR_CONFIG$iterations,
+            procs = NORMR_CONFIG$processors,
+            verbose = DEBUG_CONFIG$verbose
+        )
+
+        ranges <- normr::getRanges(enrichment_results)
+        stopifnot(class(ranges) == "GRanges")
+        counts <- normr::getCounts(enrichment_results)
+        stopifnot(is.list(counts))
+        qvals <- normr::getQvalues(enrichment_results)
+        stopifnot(is.numeric(qvals) | is.null(qvals))
+        enrichment_scores <- normr::getEnrichment(enrichment_results)
+        stopifnot(is.numeric(enrichment_scores))
+        peak_classes <- normr::getClasses(enrichment_results)
+        stopifnot(is.numeric(peak_classes) | is.null(peak_classes))
+
+        # --- 4. Filter significant peaks ---
+        significant_peaks <- ranges[!is.na(qvals) & qvals <= NORMR_CONFIG$default_fdr]
+        
+        if (DEBUG_CONFIG$verbose) {
+            message(sprintf("Number of significant peaks: %d", length(significant_peaks)))
+            message(sprintf("FDR threshold used: %g", NORMR_CONFIG$fdr_threshold))
+            if(length(significant_peaks) > 0) {
+                first_peak_index <- which(GenomicRanges::ranges(ranges) == GenomicRanges::ranges(significant_peaks[1]))
+                message(sprintf("First significant peak - Treatment count: %d, Control count: %d", 
+                                counts$treatment[first_peak_index], counts$control[first_peak_index]))
+            }
+        }
+        
+        # Export results if not in dry run mode
+        if (!DEBUG_CONFIG$dry_run) {
+            normr::exportR(
+                obj = enrichment_results,
+                filename = output_path,
+                type = "bed",
+                fdr = NORMR_CONFIG$fdr_threshold
+            )
+        }
     }, error = function(e) {
-      print(paste("Error plotting tracks:", e$message))
+        message(sprintf("Error processing sample %s: %s",
+                       chip_id,
+                       e$message))
     })
-}, error = function(e) {
-    message(sprintf("Error processing sample %s: %s",
-                    chip_id,
-                    e$message))
-})
+}
+
+if (DEBUG_CONFIG$verbose) {
+    print_config_settings(DEBUG_CONFIG)
+}
