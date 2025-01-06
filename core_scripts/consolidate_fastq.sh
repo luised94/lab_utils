@@ -40,9 +40,8 @@ if [[ "$confirm" != "y" ]]; then
 fi
 
 # Process each unique ID
-for id in $unique_ids; do
+for id in ${unique_ids[@]}; do
     echo "Processing ID: $id"
-
     # Find all files matching the specific pattern
     # Using more strict pattern matching to avoid false matches
     files=$(ls *"D24-${id}-"*_sequence.fastq 2>/dev/null || true)
@@ -62,7 +61,7 @@ for id in $unique_ids; do
     # Create output filename
     output_file="consolidated_${id}_sequence.fastq"
 
-    echo "Successfully created $output_file"
+    #echo "Successfully created $output_file"
     # Consolidate files
     if cat $files > "$output_file"; then
         echo "Successfully created $output_file"
