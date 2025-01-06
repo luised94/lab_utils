@@ -20,18 +20,16 @@ validate_fastq() {
 # Extract unique IDs using delimiter-based approach
 # This specifically extracts the ID between the first and second dash after 'D24'
 readarray -t unique_ids < <(ls *_sequence.fastq | awk -F'D24-' '{print $2}' | cut -d'-' -f1 | sort -u)
-
 # Verify we found some IDs
-if [ -z "$unique_ids" ]; then
+if [ ${#unique_ids[@]} -eq 0 ]; then
     echo "Error: No valid IDs found in fastq files"
     exit 1
 fi
-
+echo "Number of unique IDs: ${#unique_ids[@]}"
 echo "Found the following unique IDs:"
 echo "----------------"
 printf '%s\n' "${unique_ids[@]}" | xargs -n6 | sed 's/^/    /' | column -t
 echo "----------------"
-echo "Number of unique IDs: ${#unique_ids[@]}"
 read -p "Proceed with job submission? (y/n): " confirm
 confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
 if [[ "$confirm" != "y" ]]; then
