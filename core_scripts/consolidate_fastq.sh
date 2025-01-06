@@ -17,6 +17,18 @@ validate_fastq() {
     fi
 }
 
+# Validate cleanup state with single consolidated check
+if [ "$(find . -mindepth 1 -type d | wc -l)" -gt 0 ] || \
+   [ "$(find . -type f ! -name "*.fastq" | wc -l)" -gt 0 ] || \
+   [ "$(find . -maxdepth 1 -type f -name "*.fastq" | wc -l)" -eq 0 ]; then
+    echo "ERROR: Directory not properly cleaned up. Please ensure:
+- No subdirectories exist
+- Only FASTQ files remain
+- FASTQ files are in current directory" >&2
+    echo "Run ~/lab_utils/core_scripts/cleanup_bmc_directory.sh."
+    exit 1
+fi
+
 # Extract unique IDs using delimiter-based approach
 # This specifically extracts the ID between the first and second dash after 'D24'
 readarray -t unique_ids < <(ls *_sequence.fastq | awk -F'D24-' '{print $2}' | cut -d'-' -f1 | sort -u)
