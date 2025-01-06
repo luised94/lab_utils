@@ -117,7 +117,8 @@ module load samtools
 
 # Find fastq files
 FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
-mapfile -t FASTQ_FILES < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "processed*.fastq" | sort)
+mapfile -t FASTQ_FILES < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "consolidated*.fastq" | sort)
+#mapfile -t FASTQ_FILES < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "processed*.fastq" | sort)
 TOTAL_FILES=${#FASTQ_FILES[@]}
 
 if [ $TOTAL_FILES -eq 0 ]; then
