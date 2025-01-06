@@ -27,7 +27,8 @@ if [ "$#" -ne 1 ]; then
 fi
 
 # Parse arguments
-EXPERIMENT_DIR="$1"
+EXPERIMENT_DIR=$(realpath "$1")
+
 
 # Validate SLURM_ARRAY_TASK_ID
 if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
