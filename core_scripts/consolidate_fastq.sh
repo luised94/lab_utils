@@ -1,4 +1,5 @@
 #!/bin/bash
+# Dependencies: Assumes fastq files where transfered to appropriate ~/data/<experiment_id> directory 
 
 # Strict error handling
 set -euo pipefail
@@ -16,23 +17,41 @@ validate_fastq() {
     fi
 }
 
-# Extract unique IDs using delimiter-based approach
-# This specifically extracts the ID between the first and second dash after 'D24'
-unique_ids=$(ls *_sequence.fastq | awk -F'D24-' '{print $2}' | cut -d'-' -f1 | sort -u)
-
-# Verify we found some IDs
-if [ -z "$unique_ids" ]; then
-    echo "Error: No valid IDs found in fastq files"
+# Validate cleanup state with single consolidated check
+if [ "$(find . -mindepth 1 -type d | wc -l)" -gt 0 ] || \
+   [ "$(find . -type f ! -name "*.fastq" | wc -l)" -gt 0 ] || \
+   [ "$(find . -maxdepth 1 -type f -name "*.fastq" | wc -l)" -eq 0 ]; then
+    echo "ERROR: Directory not properly cleaned up. Please ensure:
+- No subdirectories exist
+- Only FASTQ files remain
+- FASTQ files are in current directory" >&2
+    echo "Run ~/lab_utils/core_scripts/cleanup_bmc_directory.sh."
     exit 1
 fi
 
+# Extract unique IDs using delimiter-based approach
+# This specifically extracts the ID between the first and second dash after 'D24'
+readarray -t unique_ids < <(ls *_sequence.fastq | awk -F'D24-' '{print $2}' | cut -d'-' -f1 | sort -u)
+# Verify we found some IDs
+if [ ${#unique_ids[@]} -eq 0 ]; then
+    echo "Error: No valid IDs found in fastq files"
+    exit 1
+fi
+echo "Number of unique IDs: ${#unique_ids[@]}"
 echo "Found the following unique IDs:"
-echo "$unique_ids" | xargs -n6 | sed 's/^/    /'
+echo "----------------"
+printf '%s\n' "${unique_ids[@]}" | xargs -n6 | sed 's/^/    /' | column -t
+echo "----------------"
+read -p "Proceed with job submission? (y/n): " confirm
+confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
+if [[ "$confirm" != "y" ]]; then
+    echo "Job submission cancelled"
+    exit 0
+fi
 
 # Process each unique ID
-for id in $unique_ids; do
+for id in ${unique_ids[@]}; do
     echo "Processing ID: $id"
-
     # Find all files matching the specific pattern
     # Using more strict pattern matching to avoid false matches
     files=$(ls *"D24-${id}-"*_sequence.fastq 2>/dev/null || true)
@@ -52,7 +71,7 @@ for id in $unique_ids; do
     # Create output filename
     output_file="consolidated_${id}_sequence.fastq"
 
-    echo "Successfully created $output_file"
+    #echo "Successfully created $output_file"
     # Consolidate files
     if cat $files > "$output_file"; then
         echo "Successfully created $output_file"
