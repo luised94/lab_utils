@@ -1,4 +1,7 @@
 #!/bin/bash
+# Dependencies: Requires fastq files downloaded to the appropriate experiment fastq directory. Follow instructions in email with subject * Data Ready from the BMC personnel.
+# srun rsync -av /net/bmc-pub17/data/bmc/public/Bell/241122Bel ~/data/my_target_dir
+# Usage: Run each line manually. Not worth it to automate currently.
 
 # Strict error handling
 set -euo pipefail
