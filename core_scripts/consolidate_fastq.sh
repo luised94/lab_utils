@@ -1,4 +1,5 @@
 #!/bin/bash
+# Dependencies: Assumes fastq files where transfered to appropriate ~/data/<experiment_id> directory 
 
 # Strict error handling
 set -euo pipefail
@@ -18,7 +19,7 @@ validate_fastq() {
 
 # Extract unique IDs using delimiter-based approach
 # This specifically extracts the ID between the first and second dash after 'D24'
-unique_ids=$(ls *_sequence.fastq | awk -F'D24-' '{print $2}' | cut -d'-' -f1 | sort -u)
+readarray -t unique_ids < <(ls *_sequence.fastq | awk -F'D24-' '{print $2}' | cut -d'-' -f1 | sort -u)
 
 # Verify we found some IDs
 if [ -z "$unique_ids" ]; then
@@ -27,7 +28,16 @@ if [ -z "$unique_ids" ]; then
 fi
 
 echo "Found the following unique IDs:"
-echo "$unique_ids" | xargs -n6 | sed 's/^/    /'
+echo "----------------"
+printf '%s\n' "${unique_ids[@]}" | xargs -n6 | sed 's/^/    /' | column -t
+echo "----------------"
+echo "Number of unique IDs: ${#unique_ids[@]}"
+read -p "Proceed with job submission? (y/n): " confirm
+confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
+if [[ "$confirm" != "y" ]]; then
+    echo "Job submission cancelled"
+    exit 0
+fi
 
 # Process each unique ID
 for id in $unique_ids; do
