@@ -276,3 +276,37 @@ git checkout main
 git checkout -b backup_main_250102_config_consolidation
 ```
 This branch will contain the backup before merging the config_consolidation into main.
+
+## Updating the config files for other experiments
+I have updated the config file and done most of the updates I expected. Now I have to test the new module and that the configs are loaded and processed properly.
+
+```{bash}
+# Copied the documentation to the directories. These have the same samples and are repeats.
+cp ~/data/241122Bel/documentation/* ~/data/241007Bel/documentation/
+
+# Rename the files
+
+# Directory path
+DOC_DIR="$HOME/data/241007Bel/documentation"
+
+# First, preview changes (dry run)
+echo "Preview of changes to be made:"
+find "$DOC_DIR" -type f -name "*241122Bel*" -exec bash -c '
+    for file; do
+        new_name="${file//241122Bel/241007Bel}"
+        echo "Will rename:"
+        echo "  FROM: $file"
+        echo "  TO:   $new_name"
+    done
+' bash {} +
+
+find "$DOC_DIR" -type f -name "*241122Bel*" -exec bash -c '
+    for file; do
+        new_name="${file//241122Bel/241007Bel}"
+        mv -v "$file" "$new_name"
+    done
+' bash {} +
+# Manually update the experiment id in the config files
+nvim ~/data/*Bel/documentation/*bmc_config.R ~/lab_utils/core_scripts/template_bmc_config.R
+```
+Copy paste the config variables to each bmc_config.R.
