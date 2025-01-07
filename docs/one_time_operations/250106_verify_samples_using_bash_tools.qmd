@@ -1,0 +1,63 @@
+# Verify fastq samples using bash
+I was performing the alignment for my third repeat in the ORC ATP hydrolysis studies and noticed from bowtie2 metrics that low amounts of reads were being aligned to the reference genome. The amount of samples that had very low percentage indicates that for some reason the third repeat was a catastrophic failure.
+I decided to verify this by looking at some of the supplementary files I receive from the Biomicrocenter before I look at the tracts. I also performed the same checks for the previous experiments as double check the files using the same methods.
+The purpose of this document is to write down the commands I used for future reference, reusability and documentation.
+
+```{bash}
+# This section loads the data to the local directory so that we can view the html file.
+# Repeat for other experiment IDs 241122Bel and 241007Bel
+rsync -av --exclude='*.fastq.gz' --exclude="*.json" --exclude="*.zip" myusername@luria.mit.edu:/net/bmc-pub17/data/bmc/public/Bell/241010Bel ~/data/241010Bel/quality_control
+cd ~/data/241007Bel/quality_control/
+# Move the files out of nested directories for simplicities.
+find . -type f -name "*.html" -exec mv {} . \;
+find . -type f -name "*.txt" -exec mv {} . \;
+```
+
+Now I can open the html files in browser of my choice and see the text contamination report. The html is produced by fastqc and the text is produced by aligning a 100k sampled reads from each file to a variety of reference genomes.
+
+
+```{bash}
+# See the content of the text file.
+cat ~/data/241007Bel/quality_control/*003-1_NA_sequence_contam_report.txt
+```
+At this stage I noticed that for the third repeat, 241122Bel, the contam reports for all files that are numbered -1 all show that the files dont align. Now I wanted to see them all for the different experiments.
+
+```{bash}
+grep "s_cerevisiae" ~/data/241122Bel/quality_control/*_NA_sequence_contam_report.txt
+```
+
+Now I wanted to do have see some statistics that I can record and reaccess for when I talk to Steve or just want to see them.
+
+```{bash}
+# Find S. cerevisiae alignments < 10%
+for exp in 241007Bel 241010Bel 241122Bel; do
+    echo "Experiment: $exp"
+    find ~/data/$exp/quality_control -name "*_NA_sequence_contam_report.txt" | 
+    xargs grep "s_cerevisiae" | 
+    awk '$2 < 10 {print $0}'
+done
+
+# Find S. cerevisiae alignments > 70%
+for exp in 241007Bel 241010Bel 241122Bel; do
+    echo "Experiment: $exp"
+    find ~/data/$exp/quality_control -name "*_NA_sequence_contam_report.txt" | 
+    xargs grep "s_cerevisiae" | 
+    awk '$2 > 70 {print $0}'
+done
+# Find hg19 alignments < 10%
+for exp in 241007Bel 241010Bel 241122Bel; do
+    echo "Experiment: $exp"
+    find ~/data/$exp/quality_control -name "*_NA_sequence_contam_report.txt" | 
+    xargs grep "hg19" | 
+    awk '$2 < 10 {print $0}'
+done
+
+# Find hg19 alignments > 30%
+for exp in 241007Bel 241010Bel 241122Bel; do
+    echo "Experiment: $exp"
+    find ~/data/$exp/quality_control -name "*_NA_sequence_contam_report.txt" | 
+    xargs grep "hg19" | 
+    awk '$2 > 30 {print $0}'
+done
+
+```

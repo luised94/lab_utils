@@ -175,3 +175,11 @@ I plotted eaton and it looked ok. Furthremore, there is no input data so I cant 
 I think I need to plot particular regions, see if I can install macs2 manually, use another R package and finally complete the quality control.
 I received the new repeat, so I can analyze that as well.
 Need to reach out to an expert to see if they can help me.
+
+## 2025-01-06
+Came back from vacation to catastrophic tragedy. As alignment was occuring, I looked at logs and it seemed like the aignments were completing quickly.
+After verification, a very small percentage of the reads were aligning to the reference genome.
+After a discussion with shandon, she suggested I talk to the BMC to consult on possibilities.
+I think I can still continue with the previous two repeats and check in with the BMC.
+Need to ask about the numbered files as well. (245001-1 and 245001-2)
+
