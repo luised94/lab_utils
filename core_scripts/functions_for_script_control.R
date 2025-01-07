@@ -34,7 +34,13 @@ validate_configs <- function(required_configs) {
     invisible(TRUE)
 }
 
-parse_common_arguments <- function(description = "Script description") {
+#' Parse common command line arguments for experiment scripts
+#' @param description Character string describing the script's purpose
+#' @param prog Character string of program name (optional)
+#' @return List of validated arguments
+#' @examples
+#' args <- parse_common_arguments("Align sequencing reads to reference genome")
+parse_common_arguments <- function(description = "Script description", prog = NULL) {
     option_list <- list(
         make_option(
             "--experiment-id",
@@ -44,31 +50,39 @@ parse_common_arguments <- function(description = "Script description") {
             metavar = "ID"
         ),
         make_option(
-            "--config-only",
+            "--confirmation-only",
             action = "store_true",
-            default = FALSE,
+            default = TRUE,
             help = "Only validate and display configuration, then exit",
-            dest = "config_only"
+            dest = "confirmation_only"
         )
     )
 
-    opt_parser <- OptionParser(option_list = option_list, description = description)
+    # Create parser with optional program name
+    opt_parser <- OptionParser(
+        option_list = option_list,
+        description = description,
+        prog = prog
+    )
 
+    # Parse arguments with enhanced error handling
     args <- tryCatch(
         parse_args(opt_parser),
         error = function(e) {
-            cat("\nArgument parsing failed:\n", file = stderr())
+            cat("\nERROR: Argument parsing failed\n", file = stderr())
             cat(as.character(e), "\n\n", file = stderr())
             print_help(opt_parser)
-            quit(status = 1)
+            quit(status = 1, save = "no")
         }
     )
 
+    # Validate required argument
     if (is.null(args$experiment_id)) {
         print_help(opt_parser)
         stop("Missing required argument: --experiment-id")
     }
 
+    # Validate experiment ID format
     if (!grepl("^\\d{6}Bel$", args$experiment_id, perl = TRUE)) {
         stop(sprintf(
             "Invalid experiment-id format.\nExpected: YYMMDD'Bel'\nReceived: %s",
