@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+library(argparse)
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
 # Parse arguments and validate configurations
 args <- parse_args(commandArgs(trailingOnly = TRUE))
@@ -83,5 +84,4 @@ validate_configs(required_configs)
 invisible(lapply(required_configs, function(config) {
     print_config_settings(get(config), title = config)
 }))
-
 
