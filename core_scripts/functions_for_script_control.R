@@ -101,3 +101,37 @@ parse_args <- function(args) {
     
     args_list
 }
+
+#' Prompt for interactive configuration confirmation
+#' @return Logical indicating whether to proceed
+#' @examples
+#' if (!confirm_configuration()) {
+#'     stop("Script terminated by user")
+#' }
+confirm_configuration <- function() {
+    if (!interactive()) {
+        stop("This script requires interactive confirmation")
+    }
+    
+    cat("\nPlease review the configuration settings above carefully.\n")
+    
+    while (TRUE) {
+        response <- readline("Proceed with these settings? [y/N]: ")
+        
+        # Default to No on empty input
+        if (response == "") {
+            message("Configuration rejected (default: No)")
+            return(FALSE)
+        }
+        
+        # Check response
+        if (tolower(response) %in% c("y", "yes")) {
+            return(TRUE)
+        } else if (tolower(response) %in% c("n", "no")) {
+            message("Configuration rejected by user")
+            return(FALSE)
+        }
+        
+        message("Invalid input. Please answer 'yes' or 'no' (or 'y' or 'n')")
+    }
+}
