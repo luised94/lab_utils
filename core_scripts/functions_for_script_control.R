@@ -90,6 +90,18 @@ parse_common_arguments <- function(description = "Script description", prog = NU
         ))
     }
 
+    # Validate experiment directory existence
+    experiment_dir <- file.path(Sys.getenv("HOME"), "data", args$experiment_id)
+    if (!dir.exists(experiment_dir)) {
+        stop(sprintf(
+            "Experiment directory not found:\n%s\nPlease ensure the directory exists and the experiment-id is correct.",
+            experiment_dir
+        ))
+    }
+
+    # Store the experiment directory path in the args list for easy access later
+    args$experiment_dir <- experiment_dir
+
     return(args)
 }
 
@@ -135,7 +147,7 @@ handle_configuration_checkpoint <- function(
             "\n", separator,
             sep = ""
         ))
-        quit(status = 0)
+        quit(status = 0, save = "no")
     }
     
     message(paste(
@@ -147,3 +159,4 @@ handle_configuration_checkpoint <- function(
     
     invisible(NULL)
 }
+

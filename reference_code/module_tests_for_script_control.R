@@ -5,7 +5,8 @@ description <- "Script for testing all modules."
 args <- parse_common_arguments(description = description)
 experiment_id <- args$experiment_id
 accept_configuration <- args$accept_configuration
-config_path <- file.path(Sys.getenv("HOME"), "data", experiment_id, "documentation", paste0(experiment_id, "_bmc_config.R"))
+experiment_dir <- args$experiment_dir
+config_path <- file.path(experiment_dir, "documentation", paste0(experiment_id, "_bmc_config.R"))
 
 ################################################################################
 # Load and Validate Experiment Configuration and Dependencies
@@ -90,3 +91,5 @@ handle_configuration_checkpoint(
     accept_configuration = accept_configuration,
     experiment_id = experiment_id
 )
+
+
