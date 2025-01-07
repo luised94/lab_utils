@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+#REPLACE
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
 
 # Parse arguments and validate configurations

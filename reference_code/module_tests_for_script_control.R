@@ -1,5 +1,14 @@
 #!/usr/bin/env Rscript
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
+################################################################################
+# Load Required Libraries
+################################################################################
+required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
+check_required_packages(required_packages, verbose = TRUE)
+
+################################################################################
+# Handle script arguments
+################################################################################
 # Parse arguments and validate configurations
 description <- "Script for testing all modules."
 args <- parse_common_arguments(description = description)
@@ -81,7 +90,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
     }))
 }
 
-required_configs <- c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG")
+required_configs <- c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG", "GENOME_TRACK_CONFIG")
 validate_configs(required_configs)
 invisible(lapply(required_configs, function(config) {
     print_config_settings(get(config), title = config)
@@ -91,10 +100,3 @@ handle_configuration_checkpoint(
     accept_configuration = accept_configuration,
     experiment_id = experiment_id
 )
-
-
-################################################################################
-# Load Required Libraries
-################################################################################
-required_packages <- c("rtracklayer", "GenomicRanges", "Gviz", "potato")
-check_required_packages(required_packages, verbose = RUNTIME_CONFIG$debug_verbose)
