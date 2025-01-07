@@ -182,4 +182,4 @@ After verification, a very small percentage of the reads were aligning to the re
 After a discussion with shandon, she suggested I talk to the BMC to consult on possibilities.
 I think I can still continue with the previous two repeats and check in with the BMC.
 Need to ask about the numbered files as well. (245001-1 and 245001-2)
-
+todo: Create the genomic tracks, finish the test module, update configs for the previous two repeats, prepare strategy and questions for BMC.
