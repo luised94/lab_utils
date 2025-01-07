@@ -86,9 +86,7 @@ invisible(lapply(required_configs, function(config) {
     print_config_settings(get(config), title = config)
 }))
 
-if(!accept_configuration) {
-    message("Script configured for configuration confirmaion only.")
-    stop("Run script with --accept-configuration")
-}
-
-message("Configuration confirmed. Continuing with script.")
+handle_configuration_checkpoint(
+    accept_configuration = accept_configuration,
+    experiment_id = experiment_id
+)

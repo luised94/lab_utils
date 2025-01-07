@@ -26,7 +26,7 @@ get_script_path <- function() {
         return(normalizePath(sys.frames()[[1]]$ofile))
     }
     
-    log_warning("Unable to determine script path")
+    message("Unable to determine script path")
     return("interactive")
 }
 
