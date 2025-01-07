@@ -1,16 +1,7 @@
-#
 validate_configs <- function(required_configs) {
     missing <- required_configs[!sapply(required_configs, exists)]
     if (length(missing) > 0) {
         stop("Missing required configs: ", paste(missing, collapse=", "))
-    }
-    
-    invisible(lapply(required_configs, function(config) {
-        print_config_settings(get(config))
-    }))
-    
-    if (tolower(readline("Continue? [y/N]: ")) != "y") {
-        stop("Aborted by user")
     }
 }
 
