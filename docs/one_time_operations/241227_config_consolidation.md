@@ -310,3 +310,9 @@ find "$DOC_DIR" -type f -name "*241122Bel*" -exec bash -c '
 nvim ~/data/*Bel/documentation/*bmc_config.R ~/lab_utils/core_scripts/template_bmc_config.R
 ```
 Copy paste the config variables to each bmc_config.R.
+Now I had to update the reference to the bmc functions referenced in the config file.
+```{vim}
+vimgrep /failsafe/ ##
+" Use # instead of slashes in the cases of dealing with file paths.
+cfdo %s#failsafe#core#g | update
+```
