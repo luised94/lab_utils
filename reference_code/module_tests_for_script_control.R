@@ -4,7 +4,7 @@ source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for
 description <- "Script for testing all modules."
 args <- parse_common_arguments(description = description)
 experiment_id <- args$experiment_id
-confirmation_only <- args$confirmation_only
+accept_configuration <- args$accept_configuration
 config_path <- file.path(Sys.getenv("HOME"), "data", experiment_id, "documentation", paste0(experiment_id, "_bmc_config.R"))
 
 ################################################################################
@@ -86,9 +86,9 @@ invisible(lapply(required_configs, function(config) {
     print_config_settings(get(config), title = config)
 }))
 
-if(confirmation_only) {
+if(!accept_configuration) {
     message("Script configured for configuration confirmaion only.")
-    stop("Run script with --confirmation-only=FALSE")
+    stop("Run script with --accept-configuration")
 }
 
 message("Configuration confirmed. Continuing with script.")

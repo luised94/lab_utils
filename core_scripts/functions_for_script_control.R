@@ -50,11 +50,11 @@ parse_common_arguments <- function(description = "Script description", prog = NU
             metavar = "ID"
         ),
         make_option(
-            "--confirmation-only",
+            "--accept-configuration",
             action = "store_true",
-            default = TRUE,
+            default = FALSE,
             help = "Only validate and display configuration, then exit",
-            dest = "confirmation_only"
+            dest = "accept_configuration"
         )
     )
 
