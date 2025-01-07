@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-library(argparse)
+library(optparse)
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
 # Parse arguments and validate configurations
 args <- parse_args(commandArgs(trailingOnly = TRUE))
