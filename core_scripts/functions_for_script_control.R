@@ -160,3 +160,59 @@ handle_configuration_checkpoint <- function(
     invisible(NULL)
 }
 
+#' Validate and report required package availability
+#' @param packages Character vector of required package names
+#' @param verbose Logical, whether to display detailed status messages (defaults to TRUE)
+#' @return Invisible list of package status
+#' @examples
+#' validate_packages(c("rtracklayer", "GenomicRanges", "Gviz"))
+check_required_packages <- function(packages, verbose = TRUE) {  # verbose now defaults to TRUE
+    if (!is.character(packages) || length(packages) == 0) {
+        stop("packages must be a non-empty character vector")
+    }
+
+    status <- list(
+        total = length(packages),
+        available = 0,
+        missing = character(0)
+    )
+
+    if (verbose) { # Use verbose instead of quietly
+        message("\nValidating required packages:")
+        message(paste(rep("-", 50), collapse = ""))
+    }
+
+    for (pkg in packages) {
+        if (verbose) cat(sprintf("  %-25s : ", pkg))
+
+        if (requireNamespace(pkg, quietly = TRUE)) {
+            status$available <- status$available + 1
+            if (verbose) cat("OK\n")
+        } else {
+            status$missing <- c(status$missing, pkg)
+            if (verbose) cat("MISSING\n")
+        }
+    }
+
+    if (length(status$missing) > 0) {
+        missing_pkgs_str <- paste(paste0("   ", status$missing), collapse = "\n")
+        install_cmd <- paste0("install.packages(c('", paste(status$missing, collapse = "', '"), "'))")
+        bioc_install_cmd <- paste0("BiocManager::install(c('", paste(status$missing, collapse = "', '"), "'))")
+        stop(sprintf(
+            "\nMissing required packages (%d of %d):\n%s\n\nPlease install them using one of the following commands:\n%s%sIf you are on a cluster, you may need to use your cluster's package installation mechanism.\n", # Corrected sprintf
+            length(status$missing),
+            status$total,
+            missing_pkgs_str,
+            if (bioc_install_cmd != ""){paste0("Install from Bioconductor (if applicable):\n    ", bioc_install_cmd, "\n")} else {""},
+            paste0("Install from CRAN: \n    ", install_cmd, "\n")
+        ))
+    }
+
+    if (verbose) {
+        message(paste(rep("-", 50), collapse = ""))
+        message(sprintf("All required packages available (%d/%d)\n", status$available, status$total))
+    }
+
+    invisible(status)
+}
+

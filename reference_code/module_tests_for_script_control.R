@@ -93,3 +93,8 @@ handle_configuration_checkpoint(
 )
 
 
+################################################################################
+# Load Required Libraries
+################################################################################
+required_packages <- c("rtracklayer", "GenomicRanges", "Gviz", "potato")
+check_required_packages(required_packages, verbose = RUNTIME_CONFIG$debug_verbose)
