@@ -1,8 +1,35 @@
 validate_configs <- function(required_configs) {
+    # 1. Input Validation
+    stopifnot(
+        "required_configs must be a character vector" = 
+            is.character(required_configs),
+        "required_configs cannot be empty" = 
+            length(required_configs) > 0,
+        "required_configs cannot contain NA values" = 
+            !any(is.na(required_configs)),
+        "required_configs cannot contain empty strings" = 
+            !any(required_configs == ""),
+        "required_configs must be unique" = 
+            !any(duplicated(required_configs))
+    )
+
+    # 2. Ensure each item ends with "_CONFIG"
+    invalid_pattern <- grep(".*_CONFIG$", required_configs, invert = TRUE, value = TRUE)
+    if (length(invalid_pattern) > 0) {
+        stop(
+          "All required_configs must end with '_CONFIG'. Invalid entries: ",
+          paste(invalid_pattern, collapse = ", ")
+        )
+    }
+    
+    # 3. Verify each one actually exists in the environment
     missing <- required_configs[!sapply(required_configs, exists)]
     if (length(missing) > 0) {
-        stop("Missing required configs: ", paste(missing, collapse=", "))
+        stop("Missing required configs: ", paste(missing, collapse = ", "))
     }
+    
+    # If we get here, all checks have passed
+    invisible(TRUE)
 }
 
 #

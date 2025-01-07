@@ -81,5 +81,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
 required_configs <- c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG")
 validate_configs(required_configs)
 invisible(lapply(required_configs, function(config) {
-    print_config_settings(get(config))
+    print_config_settings(get(config), title = config)
 }))
+
+
