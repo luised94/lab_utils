@@ -1,9 +1,10 @@
 #!/usr/bin/env Rscript
-library(optparse)
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
 # Parse arguments and validate configurations
-args <- parse_args(commandArgs(trailingOnly = TRUE))
-experiment_id <- args[["experiment-id"]]
+description <- "Script for testing all modules."
+args <- parse_common_arguments(description = description)
+#args <- parse_args(commandArgs(trailingOnly = TRUE))
+experiment_id <- args$experiment_id
 config_path <- file.path(Sys.getenv("HOME"), "data", experiment_id, "documentation", paste0(experiment_id, "_bmc_config.R"))
 
 ################################################################################

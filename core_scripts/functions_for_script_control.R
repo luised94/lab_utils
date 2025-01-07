@@ -34,3 +34,47 @@ validate_configs <- function(required_configs) {
     invisible(TRUE)
 }
 
+parse_common_arguments <- function(description = "Script description") {
+    option_list <- list(
+        make_option(
+            "--experiment-id",
+            type = "character",
+            help = "Experiment ID (format: YYMMDD'Bel', e.g., 241228Bel)",
+            dest = "experiment_id",
+            metavar = "ID"
+        ),
+        make_option(
+            "--config-only",
+            action = "store_true",
+            default = FALSE,
+            help = "Only validate and display configuration, then exit",
+            dest = "config_only"
+        )
+    )
+
+    opt_parser <- OptionParser(option_list = option_list, description = description)
+
+    args <- tryCatch(
+        parse_args(opt_parser),
+        error = function(e) {
+            cat("\nArgument parsing failed:\n", file = stderr())
+            cat(as.character(e), "\n\n", file = stderr())
+            print_help(opt_parser)
+            quit(status = 1)
+        }
+    )
+
+    if (is.null(args$experiment_id)) {
+        print_help(opt_parser)
+        stop("Missing required argument: --experiment-id")
+    }
+
+    if (!grepl("^\\d{6}Bel$", args$experiment_id, perl = TRUE)) {
+        stop(sprintf(
+            "Invalid experiment-id format.\nExpected: YYMMDD'Bel'\nReceived: %s",
+            args$experiment_id
+        ))
+    }
+
+    return(args)
+}
