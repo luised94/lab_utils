@@ -290,3 +290,93 @@ create_color_scheme <- function(config, categories, verbose = FALSE) {
     
     return(color_scheme)
 }
+
+#' Load and process experiment metadata
+#'
+#' This function loads metadata from a CSV file and processes it by converting specified columns to factors,
+#' reordering rows based on specified columns, and optionally assigning custom sample IDs.
+#'
+#' @param metadata_path Path to the metadata CSV file.
+#' @param categories A named list of factor levels for specific columns (optional).
+#' @param column_order A character vector of column names to order rows by (optional).
+#' @param sample_ids A character vector of sample IDs to assign (optional).
+#' @param stop_on_missing_columns If TRUE, stops execution if specified columns are missing; otherwise, issues a warning (default: TRUE).
+#' @return A data frame containing the processed metadata.
+#' @examples
+#' \dontrun{
+#' # Basic usage
+#' metadata <- load_and_process_experiment_metadata("metadata.csv")
+#'
+#' # With categories and column order
+#' categories <- list(condition = c("control", "treatment"))
+#' column_order <- c("condition", "replicate")
+#' metadata <- load_and_process_experiment_metadata("metadata.csv", categories = categories, column_order = column_order)
+#'
+#' # With custom sample IDs
+#' sample_ids <- paste0("sample_", 1:10)
+#' metadata <- load_and_process_experiment_metadata("metadata.csv", sample_ids = sample_ids)
+#' }
+load_and_process_experiment_metadata <- function(metadata_path, 
+                                                 categories = NULL, 
+                                                 column_order = NULL, 
+                                                 sample_ids = NULL,
+                                                 stop_on_missing_columns = TRUE) {
+
+    # Input validation
+    stopifnot(
+        "metadata_path must be a character string" = is.character(metadata_path) && length(metadata_path) == 1,
+        "metadata_path must be a valid file path" = file.exists(metadata_path),
+        "categories must be a named list of factor levels (optional)" = is.null(categories) || is.list(categories),
+        "column_order must be a character vector (optional)" = is.null(column_order) || is.character(column_order),
+        "sample_ids must be a character vector (optional)" = is.null(sample_ids) || is.character(sample_ids),
+        "stop_on_missing_columns must be a logical value" = is.logical(stop_on_missing_columns)
+    )
+
+    # Load metadata
+    metadata <- read.csv(metadata_path, stringsAsFactors = FALSE)
+
+    # Process categories
+    if (!is.null(categories)) {
+        missing_category_cols <- setdiff(names(categories), colnames(metadata))
+        if (length(missing_category_cols) > 0) {
+            msg <- sprintf("The following category columns are missing from the metadata: %s",
+                           paste(missing_category_cols, collapse = ", "))
+            if (stop_on_missing_columns) {
+                stop(msg)
+            } else {
+                warning(msg)
+            }
+        }
+        for (col_name in intersect(names(categories), colnames(metadata))) {
+            metadata[[col_name]] <- factor(metadata[[col_name]], levels = categories[[col_name]], ordered = TRUE)
+        }
+    }
+
+    # Process column order
+    if (!is.null(column_order)) {
+        missing_order_cols <- setdiff(column_order, colnames(metadata))
+        if (length(missing_order_cols) > 0) {
+            msg <- sprintf("The following columns specified for ordering are missing from the metadata: %s",
+                           paste(missing_order_cols, collapse = ", "))
+            if (stop_on_missing_columns) {
+                stop(msg)
+            } else {
+                warning(msg)
+            }
+        }
+        metadata <- metadata[do.call(order, metadata[intersect(column_order, colnames(metadata))]), ]
+    }
+
+    # Assign sample IDs
+    if (!is.null(sample_ids)) {
+        if (length(sample_ids) != nrow(metadata)) {
+            stop("Length of sample_ids must match the number of rows in the metadata.")
+        }
+        if (any(duplicated(sample_ids))) {
+            warning("Duplicate sample IDs detected. This may cause issues in downstream analysis.")
+        }
+        metadata$sample_id <- sample_ids
+    }
+
+    return(metadata)
+}

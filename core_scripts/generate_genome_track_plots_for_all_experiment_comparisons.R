@@ -46,7 +46,7 @@ dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
 # 2. Find fastq files and extract sample IDs
 fastq_files <- list.files(
     path = file.path(base_dir, "fastq"),
-    pattern = "consolidated_.*_sequence\\.fastq$",
+    pattern = GENOME_TRACK_CONFIG$file_pattern,
     full.names = FALSE
 )
 
@@ -56,7 +56,7 @@ if (length(fastq_files) == 0) {
 
 # Extract sample IDs from fastq filenames
 sample_ids <- gsub(
-    pattern = "consolidated_([0-9]{5,6})_sequence\\.fastq",
+    pattern = GENOME_TRACK_CONFIG$file_sample_id,
     replacement = "\\1",
     x = fastq_files
 )

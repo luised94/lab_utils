@@ -61,3 +61,9 @@ for exp in 241007Bel 241010Bel 241122Bel; do
 done
 
 ```
+
+I met with Noelani and Stuart and we came to the following conclusions:
+Lane 1 had a technical error, unclear what.
+There are still enough reads aligned for the samples that they are usable. Have to check whether negative controls are the samples with very low reads aligned.
+I have to trim the adaptors myself. I thought they removed them.
+

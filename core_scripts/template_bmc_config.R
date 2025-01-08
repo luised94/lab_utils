@@ -217,6 +217,12 @@ GENOME_TRACK_CONFIG <- list(
     format_track = "%s: %s",
     format_control = "%s: %s - %s",
     format_placeholder = "(No data)",
+
+    # File handling
+    file_pattern = "consolidated_.*_sequence\\.fastq$",
+    file_sample_id = "consolidated_([0-9]{5,6})_sequence\\.fastq",
+    file_suffix = ".tab",
+    file_base = "fastqc_data",
     
     # Development mode title
     title_dev_mode = "development",  # Enum: "development" | "publication"

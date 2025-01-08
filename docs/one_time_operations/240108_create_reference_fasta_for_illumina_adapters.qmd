@@ -1,0 +1,132 @@
+# Creating reference fasta for fastp adapter trimming
+Fastq files have adapters that must be removed for proper analysis. In this repository, I use fastp, which can either detect adapters automatically or you can provide a reference fasta file.
+
+This document outlines how I created the reference fasta file.
+The adapters are indicated by the kit used to prepare the library. If you do not know, the fastqc file lets you know what adapters were used but you can ask the core institution if they prepare the library for you.
+
+I found the file at https://eurofinsgenomics.eu/media/1610545/illumina-adapter-sequences.pdf.
+I copied the following into a fasta file.
+
+```{txt}
+TruSeq Universal Adapter
+5' AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT
+TruSeq Index Adapters (Index 1-27)
+Index numbers 17, 24, and 26 are reserved.
+TruSeq Adapter, Index 1
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACATCACGATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 2
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACCGATGTATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 3
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACTTAGGCATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 4
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACTGACCAATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 5
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACACAGTGATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 6
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACGCCAATATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 7
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACCAGATCATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 8
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACACTTGAATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 9
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACGATCAGATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 10
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACTAGCTTATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 11
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACGGCTACATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 12
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACCTTGTAATCTCGTATGCCGTCTTCTGCTTG
+Illumina Adapter Sequences
+Document # 1000000002694 v01 20
+February 2016
+TruSeq Adapter, Index 13
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACAGTCAACAATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 14
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACAGTTCCGTATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 15
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACATGTCAGAATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 16
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACCCGTCCCGATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 18
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACGTCCGCACATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 19
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACGTGAAACGATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 20
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACGTGGCCTTATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 21
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACGTTTCGGAATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 22
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACCGTACGTAATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 23
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACGAGTGGATATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 25
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACACTGATATATCTCGTATGCCGTCTTCTGCTTG
+TruSeq Adapter, Index 27
+5' GATCGGAAGAGCACACGTCTGAACTCCAGTCACATTCCTTTATCTCGTATGCCGTCTTCTGCTTG
+```
+
+Then I processed the file in vim. I manually removed some of the lines.
+
+```{vim}
+%s/Tru/>Tru/g
+%s/5' //g
+%s/ /_/g
+%s/,//g
+```
+
+I also asked an LLM for other suggestions but I did not test them.
+```{bash}
+
+cat input.txt | sed -e 's/^Tru/\>Tru/' \
+                     -e 's/^5'"'"' //' \
+                     -e 's/ /_/g' \
+                     -e 's/,//g' > output.fasta
+
+awk '/^Tru/ {gsub(" ", "_"); print ">" $0; next} 
+     /^5'"'"'/ {sub("^5'"'"' ", ""); print $0}' input.txt > output.fasta
+
+perl -pe 's/^Tru/\>Tru/; s/5\' //; s/ /_/g; s/,//g' input.txt > output.fasta
+```
+
+Then there are a few options to validate the final file.
+```{bash}
+# Check basic structure
+awk '/^>/ {header=1; count++} /^[ATCGN]+$/ {seq=1} 
+     header && seq {print "Valid entry: " $0; header=0; seq=0}' truseq_illumina_adapters.fasta
+
+
+#!/bin/bash
+# Strict FASTA Validation
+validate_fasta() {
+    local file=$1
+    # Check header starts with '>'
+    if ! grep -q "^>" "$file"; then
+        echo "Error: No FASTA headers found"
+        return 1
+    fi
+    
+    # Check sequence lines contain only valid nucleotides
+    if grep -q -v "^>" "$file" | grep -q -E '[^ATCGN]'; then
+        echo "Error: Invalid characters in sequence"
+        return 1
+    fi
+    
+    # Count headers and sequences
+    headers=$(grep -c "^>" "$file")
+    sequences=$(grep -v "^>" "$file" | wc -l)
+    
+    if [ "$headers" -ne "$sequences" ]; then
+        echo "Warning: Unequal number of headers and sequences"
+        return 2
+    fi
+    
+    echo "FASTA file appears valid"
+    return 0
+}
+
+validate_fasta truseq_illumina_adapters.fasta
+```
+I moved the file to the data directory under the adapter subdirectory.
+
+## References
+-250108_Task_Work_bash/fasta/illumina_XXX: Create the truseq adapter sequence fasta files. Archived. https://www.perplexity.ai/search/i-am-trying-to-process-some-te-EEwrAuOfS2aYGQhZTCbqHg
