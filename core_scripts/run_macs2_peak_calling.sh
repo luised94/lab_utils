@@ -53,6 +53,9 @@ mkdir -p "${EXPERIMENT_DIR}/peak_calling"
 
 
 # Logging functions
+source $HOME/lab_utils/core_scripts/functions_for_logging.sh
+readonly TOOL_NAME="REPLACE_ME"
+eval "$(setup_logging ${TOOL_NAME})"
 log_message() {
     local level=$1
     local message=$2
