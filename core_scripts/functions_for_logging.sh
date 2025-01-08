@@ -55,14 +55,24 @@ validate_array_range() {
     fi
 }
 
-# Logging setup
-readonly CURRENT_MONTH=$(date +%Y-%m)
-readonly LOG_ROOT="$HOME/logs"
-readonly MONTH_DIR="${LOG_ROOT}/${CURRENT_MONTH}"
-readonly TOOL_DIR="${MONTH_DIR}/bowtie2_alignment"
-readonly JOB_LOG_DIR="${TOOL_DIR}/job_${SLURM_ARRAY_JOB_ID}"
-readonly TASK_LOG_DIR="${JOB_LOG_DIR}/task_${SLURM_ARRAY_TASK_ID}"
-readonly TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-readonly MAIN_LOG="${TASK_LOG_DIR}/main_${TIMESTAMP}.log"
-readonly ERROR_LOG="${TASK_LOG_DIR}/error_${TIMESTAMP}.log"
-readonly PERFORMANCE_LOG="${TASK_LOG_DIR}/performance_${TIMESTAMP}.log"
+setup_logging() {
+    local tool_name="$1"
+    local log_root="$HOME/logs"
+    local current_month=$(date +%Y-%m)
+    local month_dir="${log_root}/${current_month}"
+    local tool_dir="${month_dir}/${tool_name}"
+    local job_log_dir="${tool_dir}/job_${SLURM_ARRAY_JOB_ID}"
+    local task_log_dir="${job_log_dir}/task_${SLURM_ARRAY_TASK_ID}"
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+
+    # Optional: Create directories
+    mkdir -p "$task_log_dir"
+
+    # Return variables
+    printf "MAIN_LOG='%s'\n" "${task_log_dir}/main_${timestamp}.log"
+    printf "ERROR_LOG='%s'\n" "${task_log_dir}/error_${timestamp}.log"
+    printf "PERFORMANCE_LOG='%s'\n" "${task_log_dir}/performance_${timestamp}.log"
+    printf "TASK_LOG_DIR='%s'\n" "${task_log_dir}"
+    printf "JOB_LOG_DIR='%s'\n" "${job_log_dir}"
+    printf "TOOL_DIR='%s'\n" "${tool_dir}"
+}
