@@ -216,3 +216,57 @@ check_required_packages <- function(packages, verbose = TRUE) {  # verbose now d
     invisible(status)
 }
 
+#' Setup standard experiment directories
+#'
+#' This function sets up standard directories for an experiment, including required input directories
+#' and an output directory. It validates the existence of input directories (as dependencies) and
+#' creates the output directory if it doesn't exist.
+#'
+#' @param experiment_dir Base experiment directory (must exist).
+#' @param output_dir_name Name of the output directory (default: "output").
+#' @param required_input_dirs Vector of required input directory names (default: c("fastq", "documentation")).
+#' @return A named list of directory paths.
+#' @examples
+#' \dontrun{
+#' # Basic usage
+#' dirs <- setup_experiment_dirs("my_experiment")
+#' print(dirs)
+#'
+#' # Custom output directory name
+#' dirs <- setup_experiment_dirs("my_experiment", output_dir_name = "results")
+#' print(dirs)
+#' }
+setup_experiment_dirs <- function(experiment_dir, output_dir_name = "output", required_input_dirs = c("fastq", "documentation")) {
+
+    # Input Validation
+    stopifnot(
+        "experiment_dir must be a character string" = is.character(experiment_dir) && length(experiment_dir) == 1,
+        "experiment_dir must be an existing directory" = dir.exists(experiment_dir),
+        "output_dir_name must be a non-empty character string" = is.character(output_dir_name) && nchar(output_dir_name) > 0
+        # "output_dir_name must be a valid path" = { # More complex validation, may be overkill
+        #     tryCatch({
+        #         normalizePath(file.path(".", output_dir_name)) # Check if it can be normalized
+        #         TRUE
+        #     }, error = function(e) FALSE)
+        # }
+    )
+
+    experiment_dir <- normalizePath(experiment_dir)
+    dirs <- list()
+
+    # Check for required input directories
+    for (dir_name in required_input_dirs) {
+        full_path <- file.path(experiment_dir, dir_name)
+        if (!dir.exists(full_path)) {
+            stop(sprintf("Required experiment subdirectory '%s' not found: %s", dir_name, full_path))
+        }
+        dirs[[dir_name]] <- full_path
+    }
+
+    # Construct and create the output directory
+    output_dir <- file.path(experiment_dir, output_dir_name)
+    dirs[[output_dir_name]] <- output_dir # More descriptive name
+    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+    return(dirs)
+}

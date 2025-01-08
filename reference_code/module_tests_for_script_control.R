@@ -16,6 +16,8 @@ experiment_id <- args$experiment_id
 accept_configuration <- args$accept_configuration
 experiment_dir <- args$experiment_dir
 config_path <- file.path(experiment_dir, "documentation", paste0(experiment_id, "_bmc_config.R"))
+metadata_path <- file.path(experiment_dir, "documentation", paste0(experiment_id, "_sample_grid.csv"))
+
 
 ################################################################################
 # Load and Validate Experiment Configuration and Dependencies
@@ -100,3 +102,30 @@ handle_configuration_checkpoint(
     accept_configuration = accept_configuration,
     experiment_id = experiment_id
 )
+
+required_directories <- c("fastq", "documentation")
+dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
+    output_dir_name = "plots",
+    required_input_dirs = required_directories
+)
+dirs$output_dir <- file.path(dirs$plots, "genome_tracks", "overview")
+dir.create(dirs$output_dir, recursive = TRUE, showWarnings = FALSE)
+
+metadata <- load_and_process_experiment_metadata(
+    metadata_path = metadata_path,
+    categories = EXPERIMENT_CONFIG$CATEGORIES,
+    column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
+    sample_ids = NULL,
+    stop_on_missing_columns = TRUE
+)
+
+if (RUNTIME_CONFIG$debug_verbose) {
+    message("\nExperiment Setup Summary:")
+    message(paste(rep("-", 50), collapse = ""))
+    #message(sprintf("Input files found  : %d", length(fastq_files)))
+    message(sprintf("Metadata rows      : %d", nrow(metadata)))
+    message(sprintf("Output directory   : %s", dirs$output_dir))
+    message(sprintf("Factor columns     : %s", 
+                   paste(names(EXPERIMENT_CONFIG$CATEGORIES), collapse = ", ")))
+    message(paste(rep("-", 50), collapse = ""))
+}
