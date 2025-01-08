@@ -57,7 +57,22 @@ validate_array_range() {
 
 setup_logging() {
     local tool_name="$1"
-    local log_root="$HOME/logs"
+
+    if [[ -z "$tool_name" || ! "$tool_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        if [[ -z "$tool_name" ]]; then
+            echo "Error: Tool name cannot be empty" >&2
+        else
+            echo "Error: Invalid tool name. Must contain only alphanumeric characters, underscores, and hyphens." >&2
+        fi
+        return 1
+    fi
+
+    if [[ ${#tool_name} -gt 50 ]]; then
+        echo "Error: Tool name too long (max 50 characters)" >&2
+        return 1
+    fi
+
+    local log_root="$HOME/logs" # Or get from config/env var
     local current_month=$(date +%Y-%m)
     local month_dir="${log_root}/${current_month}"
     local tool_dir="${month_dir}/${tool_name}"
@@ -65,14 +80,12 @@ setup_logging() {
     local task_log_dir="${job_log_dir}/task_${SLURM_ARRAY_TASK_ID}"
     local timestamp=$(date +%Y%m%d_%H%M%S)
 
-    # Optional: Create directories
-    mkdir -p "$task_log_dir"
+    if ! mkdir -p "$task_log_dir"; then
+        echo "Error: Failed to create log directory: $task_log_dir" >&2
+        return 1
+    fi
 
-    # Return variables
-    printf "MAIN_LOG='%s'\n" "${task_log_dir}/main_${timestamp}.log"
-    printf "ERROR_LOG='%s'\n" "${task_log_dir}/error_${timestamp}.log"
-    printf "PERFORMANCE_LOG='%s'\n" "${task_log_dir}/performance_${timestamp}.log"
-    printf "TASK_LOG_DIR='%s'\n" "${task_log_dir}"
-    printf "JOB_LOG_DIR='%s'\n" "${job_log_dir}"
-    printf "TOOL_DIR='%s'\n" "${tool_dir}"
+    printf "MAIN_LOG='%s'\nERROR_LOG='%s'\nPERFORMANCE_LOG='%s'\nTASK_LOG_DIR='%s'\nJOB_LOG_DIR='%s'\nTOOL_DIR='%s'\n" \
+           "${task_log_dir}/main_${timestamp}.log" "${task_log_dir}/error_${timestamp}.log" "${task_log_dir}/performance_${timestamp}.log" \
+           "${task_log_dir}" "${job_log_dir}" "${tool_dir}"
 }
