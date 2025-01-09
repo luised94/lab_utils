@@ -164,3 +164,4 @@ else
     log_message "ERROR" "Fastp filtering failed for ${SAMPLE_ID}"
     exit 1
 fi
+# Run rsync -nav username@luria.mit.edu:~/logs/* ~/logs/ to grab the html files and json.
