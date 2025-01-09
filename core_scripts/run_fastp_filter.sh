@@ -130,12 +130,13 @@ readonly OVERREPRESENTATION_SAMPLING=50
 readonly DUPLICATION_CALC_ACCURACY=3
 
 # Performance Parameters
-readonly COMPRESSION_LEVEL=0
+#readonly COMPRESSION_LEVEL=0
 readonly CPU_THREADS="$SLURM_CPUS_PER_TASK"
 
 # Options are not available in fastp 0.20.0 version available in the linux cluster.
 #--dedup \
 #--dup_calc_accuracy "$DUPLICATION_CALC_ACCURACY" \
+#--compression "$COMPRESSION_LEVEL" \
 if measure_performance "fastp_filtering" \
     fastp \
         --in1 "$FASTQ_PATH" \
@@ -154,7 +155,6 @@ if measure_performance "fastp_filtering" \
         --thread "$CPU_THREADS" \
         --overrepresentation_analysis \
         --overrepresentation_sampling "$OVERREPRESENTATION_SAMPLING" \
-        --compression "$COMPRESSION_LEVEL" \
         --json "${TASK_LOG_DIR}/${SAMPLE_ID}_fastp.json" \
         --html "${TASK_LOG_DIR}/${SAMPLE_ID}_fastp.html"; then
     
