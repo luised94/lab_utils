@@ -21,7 +21,6 @@ display_usage() {
     exit 1
 }
 
-
 # Validate input arguments
 if [ "$#" -ne 1 ]; then
     display_usage
@@ -72,32 +71,16 @@ if [ -z "$FASTQ_PATH" ]; then
     exit 1
 fi
 
-# Extract experiment ID from directory path
-EXPERIMENT_ID=$(basename "$EXPERIMENT_DIR")
-
-# Set quality parameters based on experiment ID
-if [[ "$EXPERIMENT_ID" == "100303Bel" ]]; then
-    # Legacy experiment from 2010
-    QUALITY_THRESHOLD=20
-    LENGTH_REQUIRED=20
-    log_message "INFO" "Using legacy parameters for 2010 experiment: Q${QUALITY_THRESHOLD}, L${LENGTH_REQUIRED}"
-else
-    # Modern experiments
-    QUALITY_THRESHOLD=30
-    LENGTH_REQUIRED=50
-    log_message "INFO" "Using standard parameters: Q${QUALITY_THRESHOLD}, L${LENGTH_REQUIRED}"
-fi
-
 # Extract and validate sample ID from filename
 FASTQ_BASENAME=$(basename "$FASTQ_PATH")
-if [[ ! "$FASTQ_BASENAME" =~ ^consolidate_.*_sequence\.fastq$ ]]; then
+if [[ ! "$FASTQ_BASENAME" =~ ^consolidated_.*_sequence\.fastq$ ]]; then
     log_message "ERROR" "Invalid input filename format: ${FASTQ_BASENAME}"
     log_message "ERROR" "Expected format: consolidate_<ID>_sequence.fastq"
     exit 1
 fi
 
 # Extract ID using sed with validation
-SAMPLE_ID=$(echo "$FASTQ_BASENAME" | sed -n 's/consolidate_\(.*\)_sequence\.fastq/\1/p')
+SAMPLE_ID=$(echo "$FASTQ_BASENAME" | sed -n 's/consolidated_\(.*\)_sequence\.fastq/\1/p')
 if [ -z "$SAMPLE_ID" ]; then
     log_message "ERROR" "Failed to extract sample ID from filename: ${FASTQ_BASENAME}"
     exit 1
@@ -119,21 +102,62 @@ log_message "INFO" "Output: ${OUTPUT_FASTQ}"
 # Alignment and sorting
 log_message "INFO" "Starting fastp filtering"
 
+# Extract experiment ID from directory path
+EXPERIMENT_ID=$(basename "$EXPERIMENT_DIR")
+
+# Set quality parameters based on experiment ID
+if [[ "$EXPERIMENT_ID" == "100303Bel" ]]; then
+    # Legacy experiment from 2010
+    MINIMUM_BASE_QUALITY=20
+    MINIMUM_READ_LENGTH=20
+    log_message "INFO" "Using legacy parameters for 2010 experiment: Q${MINIMUM_BASE_QUALITY}, L${MINIMUM_READ_LENGTH}"
+else
+    # Modern experiments
+    MINIMUM_BASE_QUALITY=20
+    MINIMUM_READ_LENGTH=50
+    log_message "INFO" "Using standard parameters: Q${MINIMUM_BASE_QUALITY}, L${MINIMUM_READ_LENGTH}"
+fi
+
+# Quality Filtering Parameters
+readonly MAXIMUM_UNQUALIFIED_BASE_PERCENT=50
+readonly MAXIMUM_N_BASE_COUNT=5
+
+# Read Length Parameters
+readonly MAXIMUM_READ_LENGTH=150
+
+# Complexity Filtering
+readonly COMPLEXITY_WINDOW_SIZE=4
+#readonly COMPLEXITY_THRESHOLD=30
+readonly OVERREPRESENTATION_SAMPLING=50
+readonly DUPLICATION_CALC_ACCURACY=3
+
+# Performance Parameters
+readonly COMPRESSION_LEVEL=0
+readonly CPU_THREADS="$SLURM_CPUS_PER_TASK"
+
 if measure_performance "fastp_filtering" \
     fastp \
         --in1 "$FASTQ_PATH" \
         --out1 "$OUTPUT_FASTQ" \
-        --cut_window_size 4 \
-        --cut_mean_quality 20 \
-        --n_base_limit 5 \
-        --average_qual "$QUALITY_THRESHOLD" \
-        --qualified_quality_phred "$QUALITY_THRESHOLD" \
-        --unqualified_percent_limit 50 \
-        --length_required "$LENGTH_REQUIRED" \
-        --thread "$SLURM_CPUS_PER_TASK" \
-        --compression 0 \
+        --adapter_sequence auto \
+        --cut_window_size "$COMPLEXITY_WINDOW_SIZE" \
+        --cut_mean_quality "$MINIMUM_BASE_QUALITY" \
+        --cut_front \
+        --cut_tail \
+        --cut_right \
+        --n_base_limit "$MAXIMUM_N_BASE_COUNT" \
+        --average_qual "$MINIMUM_BASE_QUALITY" \
+        --qualified_quality_phred "$MINIMUM_BASE_QUALITY" \
+        --unqualified_percent_limit "$MAXIMUM_UNQUALIFIED_BASE_PERCENT" \
+        --length_required "$MINIMUM_READ_LENGTH" \
+        --thread "$CPU_THREADS" \
+        --dedup \
+        --dup_calc_accuracy "$DUPLICATION_CALC_ACCURACY" \
+        --overrepresentation_analysis \
+        --overrepresentation_sampling "$OVERREPRESENTATION_SAMPLING" \
+        --compression "$COMPRESSION_LEVEL" \
         --json "${TASK_LOG_DIR}/${SAMPLE_NAME}_fastp.json" \
-        --html /dev/null; then
+        --html "${TASK_LOG_DIR}/${SAMPLE_NAME}_fastp.html"; then
     
     log_message "INFO" "Performed fastp filtering."
 else
