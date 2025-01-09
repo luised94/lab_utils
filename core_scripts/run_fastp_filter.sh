@@ -97,9 +97,8 @@ log_message "INFO" "Processing sample: ${SAMPLE_ID}"
 log_message "INFO" "Input: ${FASTQ_PATH}"
 log_message "INFO" "Output: ${OUTPUT_FASTQ}"
 
-# Alignment and sorting
-log_message "INFO" "Starting fastp filtering"
 
+log_message "INFO" "Setting the fastp parameters."
 # Extract experiment ID from directory path
 EXPERIMENT_ID=$(basename "$EXPERIMENT_DIR")
 
@@ -133,6 +132,8 @@ readonly DUPLICATION_CALC_ACCURACY=3
 #readonly COMPRESSION_LEVEL=0
 readonly CPU_THREADS="$SLURM_CPUS_PER_TASK"
 
+# Fastp filtering
+log_message "INFO" "Starting fastp filtering"
 # Options are not available in fastp 0.20.0 version available in the linux cluster.
 #--dedup \
 #--dup_calc_accuracy "$DUPLICATION_CALC_ACCURACY" \
