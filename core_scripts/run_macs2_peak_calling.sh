@@ -35,54 +35,12 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     exit 1
 fi
 
-# Logging setup
-readonly CURRENT_MONTH=$(date +%Y-%m)
-readonly LOG_ROOT="$HOME/logs"
-readonly MONTH_DIR="${LOG_ROOT}/${CURRENT_MONTH}"
-readonly TOOL_DIR="${MONTH_DIR}/peak_calling"
-readonly JOB_LOG_DIR="${TOOL_DIR}/job_${SLURM_ARRAY_JOB_ID}"
-readonly TASK_LOG_DIR="${JOB_LOG_DIR}/task_${SLURM_ARRAY_TASK_ID}"
-readonly TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-readonly MAIN_LOG="${TASK_LOG_DIR}/main_${TIMESTAMP}.log"
-readonly ERROR_LOG="${TASK_LOG_DIR}/error_${TIMESTAMP}.log"
-readonly PERFORMANCE_LOG="${TASK_LOG_DIR}/performance_${TIMESTAMP}.log"
-
-# Create log directories
-mkdir -p "${TASK_LOG_DIR}"
-mkdir -p "${EXPERIMENT_DIR}/peak_calling"
-
-
 # Logging functions
-log_message() {
-    local level=$1
-    local message=$2
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[${timestamp}] [${level}] [Task ${SLURM_ARRAY_TASK_ID}] ${message}" | tee -a "${MAIN_LOG}"
-}
+source $HOME/lab_utils/core_scripts/functions_for_logging.sh
+readonly TOOL_NAME="macs2"
+eval "$(setup_logging ${TOOL_NAME})"
 
-log_error() {
-    log_message "ERROR" "$1" >&2
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" >> "${ERROR_LOG}"
-}
-
-log_performance() {
-    local stage=$1
-    local duration=$2
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[${timestamp}] ${stage}: ${duration} seconds" >> "${PERFORMANCE_LOG}"
-}
-
-measure_performance() {
-    local stage=$1
-    shift
-    local start_time=$(date +%s)
-    "$@" 2>> "${ERROR_LOG}"
-    local status=$?
-    local end_time=$(date +%s)
-    local duration=$((end_time - start_time))
-    log_performance "${stage}" "${duration}"
-    return $status
-}
+mkdir -p "${EXPERIMENT_DIR}/peak_calling"
 
 # Log script start
 log_message "INFO" "Starting bamCoverage process for experiment: ${EXPERIMENT_DIR}"

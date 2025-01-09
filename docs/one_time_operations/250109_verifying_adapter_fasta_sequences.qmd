@@ -1,0 +1,183 @@
+# Verifying adapter fasta sequences with sample fastq file.
+After a meeting with BMC core, I realized I have to manually remove the adapter sequences.
+I was wondering how to best remove them in the context of the fastp command.
+I can provide the fasta sequences or let fastp detect them automatically.
+I constructed the fasta myself as documented in this [doc](~/lab_utils/docs/one_time_operations/240108_create_reference_fasta_for_illumina_adapters.qmd)
+However, I can use simple bash commands to verify the fasta file. Depending on the output, I can just go with the automatic detection by fastp.
+
+```{bash}
+mapfile -t FASTQ_PATHS < <(find $HOME/data/241010Bel/fastq/ -type f -name "*.fastq")
+echo ${FASTQ_PATHS[0]}
+
+# Extract first few reads from FASTQ (using shuf for random sampling)
+#awk 'NR%4==1 {if (rand() <= 100/NR) print; else next;} NR%4==2 {print; getline; print; getline; print;}' "${FASTQ_PATH[0]}" > $HOME/sample_reads.fastq
+#shuf -n 100 "${FASTQ_PATHS[0]}" | head -n 400 > $HOME/sample_reads.fastq
+
+# Hybrid Approach
+awk 'BEGIN {
+    srand(); 
+    max_reads=1000;  # Adjust as needed
+    sample_rate=0.1  # 10% sampling
+}
+NR%4==1 {
+    if (rand() < sample_rate && count < max_reads) {
+        p=1; 
+        count++; 
+        print; 
+        next
+    } else {
+        p=0; 
+        next
+    }
+}
+p==1 && (NR%4==2 || NR%4==3 || NR%4==0) {print}' "${FASTQ_PATHS[0]}" > $HOME/sample_reads.fastq
+
+# Verify the fastq file contents
+cat $HOME/sample_reads.fastq | less
+
+# Verify adapter sequences (using grep -F for fixed strings and word boundaries)
+while read -r line; do
+    if [[ "$line" == ">"* ]]; then # Check if it's a header line
+        adapter=$(echo "$line" | sed 's/>//g')
+        read -r seq # Read the next line (the sequence)
+        if [[ -z "$seq" ]]; then
+            echo "Warning: No sequence found for adapter: $adapter" >&2
+            continue
+        fi
+
+        echo "Checking Adapter: $adapter"
+        count=$(grep -owF "$seq" $HOME/sample_reads.fastq | wc -l) # Count exact matches
+        echo "Found $count occurrences of $seq in sample reads."
+
+        if (( count > 0 )); then
+            echo "Adapter $adapter found in sample reads."
+        else
+            echo "Adapter $adapter NOT found in sample reads."
+        fi
+    fi
+done < $HOME/data/adapters/truseq_illumina_adapters.fasta
+
+rm sample_reads.fastq # Clean up the temporary file
+```
+
+After running this snippet from the command line, apparently none of the sequences were in the sample fastq reads. Something could be wrong with the file but unclear.
+I decided to try one more thing: Determine if a substring appears. I went with 5 nucleotides since these first 5 are part of all the indices I think, and 20 nucleotides which includes a unique section. I could be wrong about the 20 but, if I am wrong, then they will show up in all.
+
+```{bash}
+while read -r line; do
+    if [[ "$line" == ">"* ]]; then
+        adapter=$(echo "$line" | sed 's/>//g')
+        read -r seq
+        if [[ -z "$seq" ]]; then
+            echo "Warning: No sequence found for adapter: $adapter" >&2
+            continue
+        fi
+
+        echo "Checking Adapter: $adapter"
+
+        # Check for 5-mer match
+        five_mer="${seq:0:5}"
+        count5=$(grep -owF "$five_mer" sample_reads.fastq | wc -l)
+        echo "Found $count5 occurrences of 5-mer ($five_mer) in sample reads."
+
+        # Check for 20-mer match (if sequence is long enough)
+        if [[ ${#seq} -ge 20 ]]; then
+            twenty_mer="${seq:0:20}"
+            count20=$(grep -owF "$twenty_mer" sample_reads.fastq | wc -l)
+            echo "Found $count20 occurrences of 20-mer ($twenty_mer) in sample reads."
+        else
+          echo "Adapter sequence is too short for a 20-mer check."
+        fi
+    fi
+done < ~/data/adapters/truseq_illumina_adapters.fasta
+
+# Alternative
+
+# Systematic multi-length grep matching
+# Looks for substring in throughout the string.
+lengths=(5 10 15 20)
+for len in "${lengths[@]}"; do
+    grep -Ff <(sed -n '/^>/!p' ~/data/adapters/truseq_illumina_adapters.fasta | awk -v l="$len" '{print substr($0,1,l)}') "${FASTQ_PATHS[0]}"
+done
+```
+
+Now I forgot if adapter is at 3' end and if I should be searching for the reverse complement as well.
+
+```{bash}
+# Function to get the reverse complement of a sequence
+reverse_complement() {
+    rev=$(rev <<< "$1")
+    echo "$rev" | tr 'ACGTacgt' 'TGCAtgca'
+}
+
+# Verify adapter sequences (checking for partial matches at 3' and reverse complement)
+while read -r line; do
+    if [[ "$line" == ">"* ]]; then
+        adapter=$(echo "$line" | sed 's/>//g')
+        read -r seq
+        if [[ -z "$seq" ]]; then
+            echo "Warning: No sequence found for adapter: $adapter" >&2
+            continue
+        fi
+
+        echo "Checking Adapter: $adapter"
+
+        # Check for 5-mer and 20-mer matches at 3' end AND reverse complement
+        for mer_len in 5 20; do
+            if [[ ${#seq} -ge "$mer_len" ]]; then
+                mer="${seq:$((${#seq} - mer_len))}" # Extract from the end
+                rc_mer=$(reverse_complement "$mer")
+
+                count_fwd=$(grep -owF "$mer" sample_reads.fastq | wc -l)
+                count_rev=$(grep -owF "$rc_mer" sample_reads.fastq | wc -l)
+                total_count=$((count_fwd + count_rev))
+
+                echo "Found $count_fwd occurrences of ${mer_len}-mer ($mer) (forward)"
+                echo "Found $count_rev occurrences of ${mer_len}-mer ($rc_mer) (reverse complement)"
+                echo "Found $total_count total occurrences of ${mer_len}-mer (forward and reverse complement)"
+
+            else
+                echo "Adapter sequence is too short for a ${mer_len}-mer check."
+            fi
+        done
+    fi
+done < ~/data/adapters/truseq_illumina_adapters.fasta
+
+
+while read -r line; do
+    if [[ "$line" == ">"* ]]; then
+        adapter=$(echo "$line" | sed 's/>//g')
+        read -r seq
+
+        if [[ -z "$seq" ]]; then
+            printf "WARNING: No sequence for adapter: %s\n" "$adapter" >&2
+            continue
+        fi
+
+        if [[ ${#seq} -ge 20 ]]; then
+            five_mer="${seq:0:5}"
+            twenty_mer="${seq:0:20}"
+            thirty_mer="${seq:0:30}"
+
+            printf "Adapter: %s\n" "$adapter"
+            printf "  5-mer   [Start: %3d] [Throughout: %3d]\n" \
+                "$(grep -cP "^${five_mer}" sample_reads.fastq)" \
+                "$(grep -cF "${five_mer}" sample_reads.fastq)"
+            printf "  20-mer  [Start: %3d] [Throughout: %3d] [RevComp: %3d]\n" \
+                "$(grep -cP "^${twenty_mer}" sample_reads.fastq)" \
+                "$(grep -cF "${twenty_mer}" sample_reads.fastq)" \
+                "$(echo "$twenty_mer" | tr 'ATCG' 'TAGC' | rev | grep -cF sample_reads.fastq)"
+            printf "  30-mer  [Start: %3d] [Throughout: %3d] [RevComp: %3d]\n" \
+                "$(grep -cP "^${thirty_mer}" sample_reads.fastq)" \
+                "$(grep -cF "${thirty_mer}" sample_reads.fastq)" \
+                "$(echo "$thirty_mer" | tr 'ATCG' 'TAGC' | rev | grep -cF sample_reads.fastq)"
+        else
+            printf "SKIPPED: %s (Sequence too short for 20-mer)\n" "$adapter"
+        fi
+    fi
+done < ~/data/adapters/truseq_illumina_adapters.fasta
+```
+
+All adapters are showing up. I think either my fasta file is incorrect, there is something wrong with my fastq samples, etcetera.
+I double checked the fasta file and it seems to be correct.
+I think I should go with automatic detection.

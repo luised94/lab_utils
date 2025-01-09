@@ -23,58 +23,18 @@ if [[ -z "${SLURM_ARRAY_TASK_ID:-}" ]]; then
     exit 1
 fi
 
-# Logging configuration
-readonly CURRENT_MONTH=$(date +%Y-%m)
-readonly LOG_ROOT="${HOME}/logs"
-readonly MONTH_DIR="${LOG_ROOT}/${CURRENT_MONTH}"
-readonly TOOL_DIR="${MONTH_DIR}/bam_qc"
-readonly JOB_LOG_DIR="${TOOL_DIR}/job_${SLURM_ARRAY_JOB_ID}"
-readonly TASK_LOG_DIR="${JOB_LOG_DIR}/task_${SLURM_ARRAY_TASK_ID}"
-readonly TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-
-# Log file paths
-readonly MAIN_LOG="${TASK_LOG_DIR}/main_${TIMESTAMP}.log"
-readonly ERROR_LOG="${TASK_LOG_DIR}/error_${TIMESTAMP}.log"
-readonly PERFORMANCE_LOG="${TASK_LOG_DIR}/performance_${TIMESTAMP}.log"
+# Logging functions
+source $HOME/lab_utils/core_scripts/functions_for_logging.sh
+readonly TOOL_NAME="bamqc"
+eval "$(setup_logging ${TOOL_NAME})"
 
 # Quality Control Configuration
 readonly MIN_MAPPING_QUALITY=20
 readonly MIN_INSERT_SIZE=0
 readonly MAX_INSERT_SIZE=1000
 
-# Create log and output directories
-mkdir -p "${TASK_LOG_DIR}"
 readonly QUALITY_CONTROL_DIR="${EXPERIMENT_DIR}/quality_control/bam"
 mkdir -p "${QUALITY_CONTROL_DIR}"
-
-# Logging functions
-log_message() {
-    local level="$1"
-    local message="$2"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[${timestamp}] [${level}] [Task ${SLURM_ARRAY_TASK_ID}] ${message}" | tee -a "${MAIN_LOG}"
-}
-
-# Performance logging functions
-log_performance() {
-    local stage="$1"
-    local duration="$2"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[${timestamp}] ${stage}: ${duration} seconds" >> "${PERFORMANCE_LOG}"
-}
-
-# Measure command execution time
-measure_performance() {
-    local stage="$1"
-    shift
-    local start_time=$(date +%s)
-    "$@" 2>> "${ERROR_LOG}"
-    local status=$?
-    local end_time=$(date +%s)
-    local duration=$((end_time - start_time))
-    log_performance "${stage}" "${duration}"
-    return $status
-}
 
 # Find BAM files
 BAM_DIR="${EXPERIMENT_DIR}/${BAM_SUBDIR}"
