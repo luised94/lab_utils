@@ -133,6 +133,9 @@ readonly DUPLICATION_CALC_ACCURACY=3
 readonly COMPRESSION_LEVEL=0
 readonly CPU_THREADS="$SLURM_CPUS_PER_TASK"
 
+# Options are not available in fastp 0.20.0 version available in the linux cluster.
+#--dedup \
+#--dup_calc_accuracy "$DUPLICATION_CALC_ACCURACY" \
 if measure_performance "fastp_filtering" \
     fastp \
         --in1 "$FASTQ_PATH" \
@@ -149,8 +152,6 @@ if measure_performance "fastp_filtering" \
         --unqualified_percent_limit "$MAXIMUM_UNQUALIFIED_BASE_PERCENT" \
         --length_required "$MINIMUM_READ_LENGTH" \
         --thread "$CPU_THREADS" \
-        --dedup \
-        --dup_calc_accuracy "$DUPLICATION_CALC_ACCURACY" \
         --overrepresentation_analysis \
         --overrepresentation_sampling "$OVERREPRESENTATION_SAMPLING" \
         --compression "$COMPRESSION_LEVEL" \
