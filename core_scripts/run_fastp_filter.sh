@@ -41,8 +41,6 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     exit 1
 fi
 
-mkdir -p "${EXPERIMENT_DIR}/alignment"
-
 # Log script start
 log_message "INFO" "Starting alignment process for experiment: ${EXPERIMENT_DIR}"
 log_message "INFO" "Job ID: ${SLURM_ARRAY_JOB_ID}, Task ID: ${SLURM_ARRAY_TASK_ID}"
