@@ -93,7 +93,7 @@ if [ -f "$OUTPUT_FASTQ" ]; then
     exit 1
 fi
 
-log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
+log_message "INFO" "Processing sample: ${SAMPLE_ID}"
 log_message "INFO" "Input: ${FASTQ_PATH}"
 log_message "INFO" "Output: ${OUTPUT_FASTQ}"
 
@@ -154,11 +154,11 @@ if measure_performance "fastp_filtering" \
         --overrepresentation_analysis \
         --overrepresentation_sampling "$OVERREPRESENTATION_SAMPLING" \
         --compression "$COMPRESSION_LEVEL" \
-        --json "${TASK_LOG_DIR}/${SAMPLE_NAME}_fastp.json" \
-        --html "${TASK_LOG_DIR}/${SAMPLE_NAME}_fastp.html"; then
+        --json "${TASK_LOG_DIR}/${SAMPLE_ID}_fastp.json" \
+        --html "${TASK_LOG_DIR}/${SAMPLE_ID}_fastp.html"; then
     
     log_message "INFO" "Performed fastp filtering."
 else
-    log_message "ERROR" "Fastp filtering failed for ${SAMPLE_NAME}"
+    log_message "ERROR" "Fastp filtering failed for ${SAMPLE_ID}"
     exit 1
 fi
