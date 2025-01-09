@@ -34,6 +34,11 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     exit 1
 fi
 
+# Logging functions
+source $HOME/lab_utils/core_scripts/functions_for_logging.sh
+readonly TOOL_NAME="REPLACE_ME"
+eval "$(setup_logging ${TOOL_NAME})"
+
 # Normalization methods array
 declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
 
@@ -42,57 +47,8 @@ BIN_SIZE=10
 EFFECTIVE_GENOME_SIZE=12157105
 MIN_MAPPING_QUALITY=20
 
-
-
-
-
-
-
-
-
-
-
-
-
 # Create log directories
-mkdir -p "${TASK_LOG_DIR}"
 mkdir -p "${EXPERIMENT_DIR}/coverage"
-
-
-# Logging functions
-source $HOME/lab_utils/core_scripts/functions_for_logging.sh
-readonly TOOL_NAME="REPLACE_ME"
-eval "$(setup_logging ${TOOL_NAME})"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # Log script start
 log_message "INFO" "Starting bamCoverage process for experiment: ${EXPERIMENT_DIR}"

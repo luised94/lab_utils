@@ -35,57 +35,12 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     exit 1
 fi
 
-
-
-
-
-
-
-
-
-
-
-
-
-# Create log directories
-mkdir -p "${TASK_LOG_DIR}"
-mkdir -p "${EXPERIMENT_DIR}/peak_calling"
-
-
 # Logging functions
 source $HOME/lab_utils/core_scripts/functions_for_logging.sh
 readonly TOOL_NAME="REPLACE_ME"
 eval "$(setup_logging ${TOOL_NAME})"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+mkdir -p "${EXPERIMENT_DIR}/peak_calling"
 
 # Log script start
 log_message "INFO" "Starting bamCoverage process for experiment: ${EXPERIMENT_DIR}"

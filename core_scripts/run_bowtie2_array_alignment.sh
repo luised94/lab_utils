@@ -29,7 +29,6 @@ fi
 # Parse arguments
 EXPERIMENT_DIR=$(realpath "$1")
 
-
 # Validate SLURM_ARRAY_TASK_ID
 if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     echo "Error: This script must be run as a SLURM array job"
@@ -37,72 +36,16 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     exit 1
 fi
 
-# Function to validate array range
-validate_array_range() {
-    local total_files=$1
-    local array_start=$(echo $SLURM_ARRAY_TASK_MIN)
-    local array_end=$(echo $SLURM_ARRAY_TASK_MAX)
-    log_message "Validating array range..."
-    log_message "Total fastq files: $total_files"
-    log_message "Array range: $array_start-$array_end"
-    if [ $array_end -gt $total_files ]; then
-        log_message "WARNING: Array range ($array_end) exceeds number of fastq files ($total_files)"
-        log_message "Suggestion: Use --array=1-${total_files}%16"
-    fi
-}
-
-# Constants
-GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
-GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Create log directories
-mkdir -p "${TASK_LOG_DIR}"
-mkdir -p "${EXPERIMENT_DIR}/alignment"
-
 # Function to log messages
 source $HOME/lab_utils/core_scripts/functions_for_logging.sh
 readonly TOOL_NAME="REPLACE_ME"
 eval "$(setup_logging ${TOOL_NAME})"
 
+# Constants
+GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
+GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
 
-
-
-
-
-
-# Function to log performance metrics
-
-
-
-
-
-
-
-# Function to measure command execution time
-
-
-
-
-
-
-
-
-
-
-
-
+mkdir -p "${EXPERIMENT_DIR}/alignment"
 
 if [ ! -f "${GENOME_INDEX}.1.bt2" ]; then
     log_message "Error: Genome index not found: $GENOME_INDEX"
@@ -130,7 +73,6 @@ if [ $TOTAL_FILES -eq 0 ]; then
     exit 1
 fi
 
-# Validate array range against number of files
 #validate_array_range $TOTAL_FILES
 
 # Get current fastq file

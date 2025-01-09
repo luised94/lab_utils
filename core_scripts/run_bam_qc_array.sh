@@ -23,61 +23,18 @@ if [[ -z "${SLURM_ARRAY_TASK_ID:-}" ]]; then
     exit 1
 fi
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Logging functions
+source $HOME/lab_utils/core_scripts/functions_for_logging.sh
+readonly TOOL_NAME="REPLACE_ME"
+eval "$(setup_logging ${TOOL_NAME})"
 
 # Quality Control Configuration
 readonly MIN_MAPPING_QUALITY=20
 readonly MIN_INSERT_SIZE=0
 readonly MAX_INSERT_SIZE=1000
 
-# Create log and output directories
-mkdir -p "${TASK_LOG_DIR}"
 readonly QUALITY_CONTROL_DIR="${EXPERIMENT_DIR}/quality_control/bam"
 mkdir -p "${QUALITY_CONTROL_DIR}"
-
-# Logging functions
-source $HOME/lab_utils/core_scripts/functions_for_logging.sh
-readonly TOOL_NAME="REPLACE_ME"
-eval "$(setup_logging ${TOOL_NAME})"
-
-
-
-
-
-
-
-# Performance logging functions
-
-
-
-
-
-
-
-# Measure command execution time
-
-
-
-
-
-
-
-
-
-
-
 
 # Find BAM files
 BAM_DIR="${EXPERIMENT_DIR}/${BAM_SUBDIR}"

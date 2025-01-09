@@ -21,55 +21,16 @@ display_usage() {
     exit 1
 }
 
-# Function to log messages
-source $HOME/lab_utils/core_scripts/functions_for_logging.sh
-readonly TOOL_NAME="REPLACE_ME"
-eval "$(setup_logging ${TOOL_NAME})"
-
-
-
-
-
-
-
-# Function to log performance metrics
-
-
-
-
-
-
-
-# Function to measure command execution time
-
-
-
-
-
-
-
-
-
-
-
-
-# Function to validate array range
-
-
-
-
-
-
-
-
-
-
-
 
 # Validate input arguments
 if [ "$#" -ne 1 ]; then
     display_usage
 fi
+
+# Function to log messages
+source $HOME/lab_utils/core_scripts/functions_for_logging.sh
+readonly TOOL_NAME="REPLACE_ME"
+eval "$(setup_logging ${TOOL_NAME})"
 
 # Parse arguments
 EXPERIMENT_DIR="$1"
@@ -81,10 +42,6 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     exit 1
 fi
 
-
-
-# Create log directories
-mkdir -p "${TASK_LOG_DIR}"
 mkdir -p "${EXPERIMENT_DIR}/alignment"
 
 # Log script start

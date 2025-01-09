@@ -4,14 +4,6 @@
 # Author: Luis
 # Date: 2025-01-08
 
-# Function to display usage
-display_usage() {
-    echo "Usage: sbatch --array=1-N%16 $0 <experiment_directory>"
-    echo "Example: sbatch --array=1-10%16 $0 /home/user/data/240304Bel"
-    echo "Note: Array range should not exceed the number of fastq files"
-    exit 1
-}
-
 # Function to log messages
 log_message() {
     local level=$1

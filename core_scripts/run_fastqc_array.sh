@@ -31,56 +31,13 @@ if [[ -z "${SLURM_ARRAY_TASK_ID:-}" ]]; then
     exit 1
 fi
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Create log directories
-mkdir -p "${TASK_LOG_DIR}"
-readonly QUALITY_CONTROL_DIR="${EXPERIMENT_DIR}/quality_control"
-mkdir -p "${QUALITY_CONTROL_DIR}"
-
 # Logging functions
 source $HOME/lab_utils/core_scripts/functions_for_logging.sh
 readonly TOOL_NAME="REPLACE_ME"
 eval "$(setup_logging ${TOOL_NAME})"
 
-
-
-
-
-
-
-# Function to log performance metrics
-
-
-
-
-
-
-
-# Function to measure command execution time
-
-
-
-
-
-
-
-
-
-
-
+readonly QUALITY_CONTROL_DIR="${EXPERIMENT_DIR}/quality_control"
+mkdir -p "${QUALITY_CONTROL_DIR}"
 
 # Find FASTQ files
 FASTQ_DIR="${EXPERIMENT_DIR}/${FASTQ_SUBDIR}"
