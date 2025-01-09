@@ -38,7 +38,7 @@ fi
 
 # Function to log messages
 source $HOME/lab_utils/core_scripts/functions_for_logging.sh
-readonly TOOL_NAME="REPLACE_ME"
+readonly TOOL_NAME="bowtie2"
 eval "$(setup_logging ${TOOL_NAME})"
 
 # Constants

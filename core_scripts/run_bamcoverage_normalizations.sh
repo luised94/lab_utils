@@ -36,7 +36,7 @@ fi
 
 # Logging functions
 source $HOME/lab_utils/core_scripts/functions_for_logging.sh
-readonly TOOL_NAME="REPLACE_ME"
+readonly TOOL_NAME="coverage"
 eval "$(setup_logging ${TOOL_NAME})"
 
 # Normalization methods array
