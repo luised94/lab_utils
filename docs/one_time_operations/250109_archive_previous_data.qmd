@@ -1,0 +1,52 @@
+# Archive previously referenced data
+I got fastp working. I performed some analysis on the files before realizing that I had to remove the adapter sequences.
+Since I have looked at those files, I want to archive them instead of deleting them.
+
+```{bash}
+# Define experiment directories
+readonly EXPERIMENTS=(241007Bel 241010Bel)
+readonly BASE_DIR="$HOME/data"
+readonly ARCHIVE_ROOT="$HOME/data/archive/$(date +%Y%m%d)"
+
+# Create archive directory with timestamp
+mkdir -p "$ARCHIVE_ROOT"
+
+# Strategic archiving with verbose logging
+for exp in "${EXPERIMENTS[@]}"; do
+    exp_path="${BASE_DIR}/${exp}"
+    archive_exp_path="${ARCHIVE_ROOT}/${exp}"
+
+    # Debug print for current experiment
+    printf "Processing experiment: %s\n" "$exp"
+    printf "Source directory: %s\n" "$exp_path"
+    printf "Archive destination: %s\n" "$archive_exp_path"
+
+    # Create experiment-specific archive directory
+    mkdir -p "$archive_exp_path"
+
+    # Archive directories with tar, preserving permissions
+    for subdir in alignment coverage plots; do
+        source_dir="${exp_path}/${subdir}"
+        archive_file="${archive_exp_path}/${subdir}.tar.gz"
+
+        if [[ -d "$source_dir" ]]; then
+            printf "Archiving %s...\n" "$subdir"
+            tar -czf "$archive_file" -C "$exp_path" "$subdir"
+            
+            # Verify archive creation
+            if [[ $? -eq 0 ]]; then
+                printf "! Successfully archived %s\n" "$subdir"
+            else
+                printf "? Failed to archive %s\n" "$subdir" >&2
+            fi
+        else
+            printf "Warning: %s directory not found\n" "$source_dir" >&2
+        fi
+    done
+
+    printf "\n"
+done
+
+# Final summary
+printf "Archive complete. Total archives created in %s\n" "$ARCHIVE_ROOT"
+```
