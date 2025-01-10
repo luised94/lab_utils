@@ -105,3 +105,38 @@ calculate_track_limits <- function(bigwig_files, genome_range,
     return(result)
 }
 
+#' @title Calculate Global Y-limits for Bigwig Tracks
+#' @description Calculates global y-axis limits from multiple bigwig files with padding
+#' @param bigwig_files character vector of bigwig file paths
+#' @param genome_range GRanges object specifying genomic region
+#' @param padding_fraction numeric Fraction for range padding (default: 0.1)
+#' @param verbose logical Print processing information
+#' @return list containing {success, data, error} where data has y_limits
+#' @importFrom rtracklayer import
+#' @importFrom GenomicRanges values
+create_placeholder_track <- function(sample_rate = 100, chromosome_width = NULL, track_color, type = "h", chromosome_name, placeholder_format_name, ... ) {
+
+    num_points <- ceiling(chromosome_width / sampling_rate)
+    placeholder_name <- sprintf(placeholder_format_name, ...)
+    # Create proper placeholder track with genome coordinates
+    empty_ranges <- GenomicRanges::GRanges(
+        seqnames = chromosome_name,
+        ranges = IRanges::IRanges(
+            # Create evenly spaced points across chromosome
+            start = seq(1, chromosome_width, length.out = num_points),
+            width = 1
+        ),
+        score = rep(0, num_points),  # One score per position
+        strand = "*"
+    )
+    
+    empty_track <- Gviz::DataTrack(
+        empty_ranges,
+        name = placeholder_name,
+        type = "l",
+        col = track_color,
+        chromosome = chromosome_name
+    )
+    return(empty_track)
+}
+

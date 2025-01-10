@@ -155,8 +155,6 @@ if (RUNTIME_CONFIG$debug_verbose) {
     message(sprintf("Factor columns     : %s", 
                    paste(names(EXPERIMENT_CONFIG$CATEGORIES), collapse = ", ")))
     message(paste(rep("-", 50), collapse = ""))
-    message(paste(rep("-", 50), collapse = ""))
-    head(metadata)
+    print(head(metadata))
     message(paste(rep("-", 50), collapse = ""))
 }
-
