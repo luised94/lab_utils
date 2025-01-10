@@ -103,6 +103,7 @@ handle_configuration_checkpoint(
     experiment_id = experiment_id
 )
 
+# Setup directories
 required_directories <- c("fastq", "documentation")
 dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
     output_dir_name = "plots",
@@ -111,11 +112,31 @@ dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
 dirs$output_dir <- file.path(dirs$plots, "genome_tracks", "overview")
 dir.create(dirs$output_dir, recursive = TRUE, showWarnings = FALSE)
 
+
+
+# Find fastq files and extract sample IDs
+fastq_files <- list.files(
+    path = dirs$fastq,
+    pattern = GENOME_TRACK_CONFIG$file_pattern,
+    full.names = FALSE
+)
+
+if (length(fastq_files) == 0) {
+    stop("No fastq files found in specified directory")
+}
+
+# Extract sample IDs from fastq filenames
+sample_ids <- gsub(
+    pattern = GENOME_TRACK_CONFIG$file_sample_id,
+    replacement = "\\1",
+    x = fastq_files
+)
+
 metadata <- load_and_process_experiment_metadata(
     metadata_path = metadata_path,
     categories = EXPERIMENT_CONFIG$CATEGORIES,
     column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
-    sample_ids = NULL,
+    sample_ids = sample_ids,
     stop_on_missing_columns = TRUE
 )
 
@@ -129,3 +150,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
                    paste(names(EXPERIMENT_CONFIG$CATEGORIES), collapse = ", ")))
     message(paste(rep("-", 50), collapse = ""))
 }
+message(paste(rep("-", 50), collapse = ""))
+head(metadata)
+message(paste(rep("-", 50), collapse = ""))
+
