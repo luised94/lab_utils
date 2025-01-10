@@ -15,8 +15,15 @@ args <- parse_common_arguments(description = description)
 experiment_id <- args$experiment_id
 accept_configuration <- args$accept_configuration
 experiment_dir <- args$experiment_dir
-config_path <- file.path(experiment_dir, "documentation", paste0(experiment_id, "_bmc_config.R"))
-metadata_path <- file.path(experiment_dir, "documentation", paste0(experiment_id, "_sample_grid.csv"))
+if (args$is_template) {
+    config_path <- file.path(args$experiment_dir, "template_bmc_config.R")
+    metadata_path <- file.path(args$experiment_dir, "template_sample_grid.csv")
+} else {
+    config_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_bmc_config.R"))
+    metadata_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_sample_grid.csv"))
+}
+#config_path <- file.path(experiment_dir, "documentation", paste0(experiment_id, "_bmc_config.R"))
+#metadata_path <- file.path(experiment_dir, "documentation", paste0(experiment_id, "_sample_grid.csv"))
 
 
 ################################################################################
@@ -132,6 +139,7 @@ sample_ids <- gsub(
     x = fastq_files
 )
 
+print(metadata_path)
 metadata <- load_and_process_experiment_metadata(
     metadata_path = metadata_path,
     categories = EXPERIMENT_CONFIG$CATEGORIES,
