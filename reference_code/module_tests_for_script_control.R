@@ -120,8 +120,6 @@ dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
 dirs$output_dir <- file.path(dirs$plots, "genome_tracks", "overview")
 dir.create(dirs$output_dir, recursive = TRUE, showWarnings = FALSE)
 
-
-
 # Find fastq files and extract sample IDs
 fastq_files <- list.files(
     path = dirs$fastq,

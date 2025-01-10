@@ -267,7 +267,10 @@ GENOME_TRACK_CONFIG <- list(
     
     # Title constraints
     title_max_width = 40,
-    title_max_lines = 5
+    title_max_lines = 5,
+
+    # Interactive mode
+    interactive_prompt = "Options: [Enter] next plot, 's' skip rest, 'q' quit: "
 )
 
 ################################################################################
