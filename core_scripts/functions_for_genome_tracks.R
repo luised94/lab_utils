@@ -135,7 +135,7 @@ create_placeholder_track <- function(
     sampling_rate = 100,
     chromosome_width = NULL,
     track_color,
-    type = "l",
+    track_type = "l",
     chromosome_name,
     placeholder_format_name,
     ...
@@ -173,12 +173,39 @@ create_placeholder_track <- function(
     Gviz::DataTrack(
         empty_ranges,
         name = placeholder_name,
-        type = type,
+        type = track_type,
         col = track_color,
         chromosome = chromosome_name
     )
 }
 
+create_sample_track <- function(
+    bigwig_file_path,
+    track_format_name,
+    sample_track_name,
+    track_color,
+    track_type,
+    genomic_range,
+    ...
+) {
+    stopifnot()
+    if(!is.na(bigwig_file_path) && file.exists(bigwig_file)){
+
+    track_data <- rtracklayer::import(bigwig_file, which = genomic_range)
+    track_name <- sprintf(track_format_name, ...)
+
+    return(Gviz::DataTrack(
+        track_data,
+        name = track_name,
+        type = "l",
+        col = track_color
+    ))
+    } else {
+        # Not sure if it should be logical, null, string, etcetera.
+        return(NULL)
+    }
+
+}
 #' Apply standard visual properties to genome tracks
 #' @param tracks List of Gviz track objects
 #' @param config List of visual properties from GENOME_TRACK_CONFIG

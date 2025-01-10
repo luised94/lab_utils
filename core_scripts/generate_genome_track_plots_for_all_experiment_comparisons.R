@@ -502,9 +502,6 @@ for (comparison_name in comparisons_to_process) {
     # Generate plot
     #-----------------------------------------------------------------------------
     if (RUNTIME_CONFIG$debug_verbose) {
-
-
-
         message("\nGenerating visualization...")
     }
 
