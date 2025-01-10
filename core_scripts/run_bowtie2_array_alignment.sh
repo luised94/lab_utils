@@ -101,19 +101,21 @@ log_message "INFO" "Output: ${OUTPUT_BAM}"
 # Read gap open, extend penalties
 # Reference gap open, extend penalties
 # Alignment score threshold
+#--rdg 5,1 \
+#--rfg 5,1 \
+#--score-min L,0,-0.3 \
+#--ma 2 \
 log_message "INFO" "Starting alignment and sorting"
 if measure_performance "alignment_and_sorting" \
     bowtie2 -x "$GENOME_INDEX" \
             -U "$FASTQ_PATH" \
             -p "$SLURM_CPUS_PER_TASK" \
-            --very-sensitive \
+            --sensitive \
             -k 1 \
-            --ma 2 \
+            -D 15 \
+            -R 2 \
             --mp 4 \
             --np 1 \
-            --rdg 5,1 \
-            --rfg 5,1 \
-            --score-min L,0,-0.3 \
             2>> "${ERROR_LOG}" | \
     samtools view -@ "$SLURM_CPUS_PER_TASK" -bS - 2>> "${ERROR_LOG}" | \
     samtools sort -@ "$SLURM_CPUS_PER_TASK" -o "$OUTPUT_BAM" - 2>> "${ERROR_LOG}"; then
