@@ -201,6 +201,11 @@ GENOME_TRACK_CONFIG <- list(
     display_width = 10,
     display_height = 8,
     
+    # Track Creation
+    track_points_default = 1000,
+    track_type = "h", # l, h, etc
+    track_show_title = TRUE,
+
     # Track visual properties
     track_width = 0.9,
     track_fontface = 1,
@@ -208,6 +213,11 @@ GENOME_TRACK_CONFIG <- list(
     track_background = "white",
     track_fontcolor = "black",
     track_border = "#E0E0E0",
+
+    # Track defaults
+    track_axis_name_template = "Chr %s Axis",
+    track_ylim = c(0, 100),  # Default y-limits, adjust as needed
+    track_sampling_rate = 100,  # Points per base pair for empty tracks
     
     # Track colors
     color_placeholder = "#cccccc",
@@ -218,6 +228,11 @@ GENOME_TRACK_CONFIG <- list(
     format_control = "%s: %s - %s",
     format_placeholder = "(No data)",
 
+    # Labels
+    label_always_show = "antibody",
+    label_never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
+    label_separator = "-",
+
     # File handling
     file_pattern = "consolidated_.*_sequence\\.fastq$",
     file_sample_id = "consolidated_([0-9]{5,6})_sequence\\.fastq",
@@ -227,6 +242,10 @@ GENOME_TRACK_CONFIG <- list(
     file_genome_directory = file.path(Sys.getenv("HOME"), "data", "REFGENS"),
     file_feature_path = file.path(Sys.getenv("HOME"), "data", "feature_files"),
     file_genome_pattern = "eaton_peaks",
+
+    # File Names
+    filename_format_group_template = "%s_%s_chr%s_n%d_group%d.svg",
+    filename_format_comparison_template = "%s_%s_chr%s_%s.svg",
     
     # Development mode title
     title_dev_mode = "development",  # Enum: "development" | "publication"
