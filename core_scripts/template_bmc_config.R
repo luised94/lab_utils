@@ -249,7 +249,15 @@ GENOME_TRACK_CONFIG <- list(
     
     # Development mode title
     title_dev_mode = "development",  # Enum: "development" | "publication"
-    title_dev_template = paste(
+    title_group_template = paste(
+        "%s",               # Title
+        "Group: %s",   # Comparison ID
+        "Chromosome %s (%d samples)", # Chr info
+        "%s",               # Additional info
+        "Normalization: %s", # Norm method
+        sep = "\n"
+    ),
+    title_comparison_template = paste(
         "%s",               # Title
         "Comparison: %s",   # Comparison ID
         "Chromosome %s (%d samples)", # Chr info
