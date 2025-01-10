@@ -178,3 +178,17 @@ create_placeholder_track <- function(
         chromosome = chromosome_name
     )
 }
+
+#' Apply standard visual properties to genome tracks
+#' @param tracks List of Gviz track objects
+#' @param config List of visual properties from GENOME_TRACK_CONFIG
+#' @return List of tracks with standardized properties
+standardize_track_properties <- function(tracks, config) {
+    lapply(tracks, function(track) {
+        track@showTitle <- TRUE
+        track@background.title <- config$track_background
+        track@fontcolor.title <- config$track_fontcolor
+        track@cex.title <- config$title_dev_size
+        track
+    })
+}
