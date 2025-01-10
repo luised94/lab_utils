@@ -245,6 +245,88 @@ create_sample_track <- function(
     })
 }
 
+#' Create control track for genome visualization
+#' @title Create Control Track
+#' @description Creates a DataTrack from control sample bigwig file
+#'
+#' @param bigwig_file_path character Path to bigwig file
+#' @param track_format_name character Format string for track name
+#' @param format_args character vector Arguments for track name formatting
+#' @param track_color character Color for track visualization
+#' @param track_type character Track type (default: 'l' for line)
+#' @param genomic_range GRanges object for data subsetting (optional)
+#' @param control_type character Type of control (default: "Input")
+#'
+#' @return List containing success, data, and error information
+create_control_track <- function(
+    bigwig_file_path,
+    track_format_name,
+    format_args,
+    track_color,
+    track_type = "l",
+    genomic_range = NULL
+    #control_type = "Input"
+) {
+    stopifnot(
+        "bigwig_file_path must be character" = 
+            is.character(bigwig_file_path) && length(bigwig_file_path) == 1,
+        "track_format_name must be character" = 
+            is.character(track_format_name) && length(track_format_name) == 1,
+        "format_args must be character vector" = 
+            is.character(format_args),
+        "track_color must be character" = 
+            is.character(track_color) && length(track_color) == 1,
+        "track_type must be character" = 
+            is.character(track_type) && length(track_type) == 1
+        #"control_type must be character" = 
+        #    is.character(control_type) && length(control_type) == 1
+    )
+
+    # Check file existence
+    if (is.na(bigwig_file_path) || !file.exists(bigwig_file_path)) {
+        return(list(
+            success = FALSE,
+            data = NULL,
+            error = sprintf("Control bigwig file not found: %s", bigwig_file_path)
+        ))
+    }
+
+    # Try to create track
+    tryCatch({
+        # Import data
+        track_data <- if (is.null(genomic_range)) {
+            rtracklayer::import(bigwig_file_path)
+        } else {
+            rtracklayer::import(bigwig_file_path, which = genomic_range)
+        }
+
+        # Create track name
+        track_name <- do.call(sprintf, c(list(track_format_name), format_args))
+
+        # Create track with control-specific settings
+        track <- Gviz::DataTrack(
+            track_data,
+            name = track_name,
+            type = track_type,
+            col = track_color,
+            chromosome = genomic_range$seqnames[1],
+            showTitle = TRUE
+        )
+
+        list(
+            success = TRUE,
+            data = track,
+            error = NULL
+        )
+    }, error = function(e) {
+        list(
+            success = FALSE,
+            data = NULL,
+            error = sprintf("Error creating control track: %s", as.character(e))
+        )
+    })
+}
+
 #' Apply standard visual properties to genome tracks
 #' @param tracks List of Gviz track objects
 #' @param config List of visual properties from GENOME_TRACK_CONFIG
