@@ -23,8 +23,7 @@ fi
 
 
 # Count fastq files
-FASTQ_COUNT=$(find "${EXPERIMENT_DIR}/fastq" -maxdepth 1 -type f -name "consolidated*.fastq" | wc -l)
-#FASTQ_COUNT=$(find "${EXPERIMENT_DIR}/fastq" -maxdepth 1 -type f -name "processed*.fastq" | wc -l)
+FASTQ_COUNT=$(find "${EXPERIMENT_DIR}/fastq" -maxdepth 1 -type f -name "processed*.fastq" | wc -l)
 echo "Found ${FASTQ_COUNT} fastq files"
 
 if [ $FASTQ_COUNT -eq 0 ]; then
@@ -35,7 +34,7 @@ fi
 # Format file listing with columns and headers
 echo -e "\nFASTQ files found:"
 echo "----------------"
-find "${EXPERIMENT_DIR}/fastq" -maxdepth 1 -type f -name "consolidated*.fastq" -exec basename {} \; | \
+find "${EXPERIMENT_DIR}/fastq" -maxdepth 1 -type f -name "processed*.fastq" -exec basename {} \; | \
     pr -3 -t -w 100 | \
     column -t
 echo "----------------"

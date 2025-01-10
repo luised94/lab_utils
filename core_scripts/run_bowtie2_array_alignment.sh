@@ -64,8 +64,7 @@ module load samtools
 
 # Find fastq files
 FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
-mapfile -t FASTQ_FILES < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "consolidated*.fastq" | sort)
-#mapfile -t FASTQ_FILES < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "processed*.fastq" | sort)
+mapfile -t FASTQ_FILES < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "processed*.fastq" | sort)
 TOTAL_FILES=${#FASTQ_FILES[@]}
 
 if [ $TOTAL_FILES -eq 0 ]; then
@@ -93,15 +92,32 @@ log_message "INFO" "Input: ${FASTQ_PATH}"
 log_message "INFO" "Output: ${OUTPUT_BAM}"
 
 # Alignment and sorting
+# Most sensitive alignment mode
+# Report only the best alignment
+# Limit seed attempts
+# Match bonus
+# Maximum penalty for mismatch
+# Penalty for ambiguous bases
+# Read gap open, extend penalties
+# Reference gap open, extend penalties
+# Alignment score threshold
 log_message "INFO" "Starting alignment and sorting"
 if measure_performance "alignment_and_sorting" \
     bowtie2 -x "$GENOME_INDEX" \
             -U "$FASTQ_PATH" \
-            -p "$SLURM_CPUS_PER_TASK" 2>> "${ERROR_LOG}" | \
+            -p "$SLURM_CPUS_PER_TASK" \
+            --very-sensitive \
+            -k 1 \
+            --max-seeds 20 \
+            --ma 2 \
+            --mp 4 \
+            --np 1 \
+            --rdg 5,1 \
+            --rfg 5,1 \
+            --score-min L,0,-0.3 \
+            2>> "${ERROR_LOG}" | \
     samtools view -@ "$SLURM_CPUS_PER_TASK" -bS - 2>> "${ERROR_LOG}" | \
     samtools sort -@ "$SLURM_CPUS_PER_TASK" -o "$OUTPUT_BAM" - 2>> "${ERROR_LOG}"; then
-# "-q --mp 4 --met-stderr"
-
     log_message "INFO" "Starting BAM indexing"
     if measure_performance "indexing" samtools index "$OUTPUT_BAM"; then
         log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
