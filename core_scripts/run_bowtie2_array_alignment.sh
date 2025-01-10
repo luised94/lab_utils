@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=50G
+#SBATCH --mem-per-cpu=90G
 #SBATCH --nice=10000
 #SBATCH --exclude=c[5-22]
 #SBATCH --mail-type=ALL
@@ -108,7 +108,6 @@ if measure_performance "alignment_and_sorting" \
             -p "$SLURM_CPUS_PER_TASK" \
             --very-sensitive \
             -k 1 \
-            --max-seeds 20 \
             --ma 2 \
             --mp 4 \
             --np 1 \
