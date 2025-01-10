@@ -327,6 +327,168 @@ create_control_track <- function(
     })
 }
 
+#' Create configuration for genome track visualization
+#' @title Create Track Plot Configuration
+#' @description Creates a configuration list for Gviz plotTracks with sensible defaults
+#'
+#' @param tracks List of Gviz track objects
+#' @param chromosome Character, chromosome identifier
+#' @param from Numeric, start position (default: 1)
+#' @param to Numeric, end position
+#' @param ylim Numeric vector of length 2, y-axis limits
+#' @param title Character, plot title (optional)
+#' @param visualization_params List of visual parameters to override defaults
+#'
+#' @return List of parameters for plotTracks
+#' 
+#' @examples
+#' create_track_plot_config(
+#'   tracks = tracks,
+#'   chromosome = "chrI",
+#'   to = 1000,
+#'   ylim = c(0, 100),
+#'   visualization_params = list(fontcolor = "blue")
+#' )
+create_track_plot_config <- function(
+    tracks,
+    chromosome,
+    from = 1,
+    to,
+    ylim,
+    title = NULL,
+    visualization_params = list()
+) {
+    # Input validation
+    stopifnot(
+        "tracks must be a list" = is.list(tracks),
+        "tracks cannot be empty" = length(tracks) > 0,
+        "chromosome must be character" = is.character(chromosome),
+        "from must be numeric" = is.numeric(from),
+        "to must be numeric" = is.numeric(to),
+        "ylim must be numeric vector of length 2" = is.numeric(ylim) && length(ylim) == 2,
+        "visualization_params must be a list" = is.list(visualization_params)
+    )
+
+    # Validate all tracks are Gviz track objects
+    valid_tracks <- all(sapply(tracks, inherits, "GdObject"))
+    if (!valid_tracks) {
+        stop("All elements in 'tracks' must be valid Gviz track objects (inherit from GdObject)")
+    }
+
+    # Hardcoded defaults
+    default_params <- list(
+        fontcolor = "black",           # Track name text color
+        background.title = "white",    # Track name background
+        col.border.title = "#E0E0E0",  # Border around track names
+        cex.main = 1,                  # Main title size
+        cex.axis = 0.8,               # Axis text size
+        col.axis = "black",           # Axis color
+        margin = 15,                  # Outer margin
+        innerMargin = 5,              # Inner margin
+        showTitle = TRUE              # Show track titles
+    )
+    
+    # Merge with provided parameters
+    viz_params <- modifyList(default_params, visualization_params)
+    
+    # Construct plot configuration
+    c(
+        list(
+            trackList = tracks,
+            chromosome = chromosome,
+            from = from,
+            to = to,
+            ylim = ylim,
+            main = title
+        ),
+        viz_params
+    )
+}
+
+#' Execute track plotting with optional saving
+#' @title Execute Track Plot
+#' @description Displays and optionally saves a genome track plot
+#'
+#' @param plot_config List of plotting parameters from create_track_plot_config
+#' @param save_path Character, path to save plot (optional)
+#' @param save_params List of saving parameters (optional)
+#' @return Invisible NULL
+#'
+#' @examples
+#' execute_track_plot(
+#'   plot_config = plot_config,
+#'   save_path = "plot.svg",
+#'   save_params = list(width = 10, height = 8)
+#' )
+execute_track_plot <- function(
+    plot_config,
+    save_path = NULL,
+    save_params = list()
+) {
+    # Validate inputs
+    stopifnot(
+        "plot_config must be a list" = is.list(plot_config),
+        "plot_config must contain trackList" = !is.null(plot_config$trackList),
+        "save_params must be a list" = is.list(save_params)
+    )
+
+    # Validate save_path if provided
+    if (!is.null(save_path)) {
+        tryCatch({
+            # Check if directory exists and is writable
+            save_dir <- dirname(save_path)
+            if (!dir.exists(save_dir)) {
+                stop("Directory does not exist: ", save_dir)
+            }
+            if (file.access(save_dir, mode = 2) != 0) {
+                stop("Directory is not writable: ", save_dir)
+            }
+            # Normalize path
+            save_path <- normalizePath(save_path, mustWork = FALSE)
+        }, error = function(e) {
+            stop("Invalid save path: ", e$message)
+        })
+    }
+
+    # Default save parameters
+    default_save_params <- list(
+        width = 10,
+        height = 8,
+        device = "svg"
+    )
+    
+    # Function to perform the actual plotting
+    do_plot <- function() {
+        do.call(Gviz::plotTracks, plot_config)
+    }
+    
+    # If saving, handle device
+    if (!is.null(save_path)) {
+        # Merge save parameters
+        save_params <- modifyList(default_save_params, save_params)
+        
+        # Open device based on file extension
+        if (grepl("\\.svg$", save_path)) {
+            svg(save_path, 
+                width = save_params$width,
+                height = save_params$height)
+        } else if (grepl("\\.pdf$", save_path)) {
+            pdf(save_path,
+                width = save_params$width,
+                height = save_params$height)
+        } else {
+            stop("Unsupported file format. Use .svg or .pdf")
+        }
+        
+        do_plot()
+        dev.off()
+    }
+    
+    # Always plot to current device
+    do_plot()
+    
+    invisible(NULL)
+}
 
 #' Apply standard visual properties to genome tracks
 #' @param tracks List of Gviz track objects
