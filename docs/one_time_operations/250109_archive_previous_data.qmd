@@ -50,3 +50,10 @@ done
 # Final summary
 printf "Archive complete. Total archives created in %s\n" "$ARCHIVE_ROOT"
 ```
+
+Then I just went to the directories to double check the files and just delete them with find.
+
+```{bash}
+find . -maxdepth 1 -type f -name "*.bam*" -delete
+find . -maxdepth 1 -type f -name "*.bw" -delete
+```
