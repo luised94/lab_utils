@@ -161,7 +161,7 @@ sample_groups <- split(
 )
 
 # Determine which groups to process
-groups_to_process <- if (RUNTIME_CONFIG$debug_enabled) {
+groups_to_process <- if (RUNTIME_CONFIG$process_single_file) {
     RUNTIME_CONFIG$process_group
 } else {
     seq_along(sample_groups)

@@ -111,6 +111,7 @@ handle_configuration_checkpoint(
 )
 
 # Setup directories
+# !! Add directories here.
 required_directories <- c("fastq", "documentation")
 dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
     output_dir_name = "plots",
@@ -139,7 +140,6 @@ sample_ids <- gsub(
     x = fastq_files
 )
 
-print(metadata_path)
 metadata <- load_and_process_experiment_metadata(
     metadata_path = metadata_path,
     categories = EXPERIMENT_CONFIG$CATEGORIES,
@@ -157,8 +157,8 @@ if (RUNTIME_CONFIG$debug_verbose) {
     message(sprintf("Factor columns     : %s", 
                    paste(names(EXPERIMENT_CONFIG$CATEGORIES), collapse = ", ")))
     message(paste(rep("-", 50), collapse = ""))
+    message(paste(rep("-", 50), collapse = ""))
+    head(metadata)
+    message(paste(rep("-", 50), collapse = ""))
 }
-message(paste(rep("-", 50), collapse = ""))
-head(metadata)
-message(paste(rep("-", 50), collapse = ""))
 

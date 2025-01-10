@@ -223,6 +223,10 @@ GENOME_TRACK_CONFIG <- list(
     file_sample_id = "consolidated_([0-9]{5,6})_sequence\\.fastq",
     file_suffix = ".tab",
     file_base = "fastqc_data",
+    file_genome_pattern = "S288C_refgenome.fna",
+    file_genome_directory = file.path(Sys.getenv("HOME"), "data", "REFGENS"),
+    file_feature_path = file.path(Sys.getenv("HOME"), "data", "feature_files"),
+    file_genome_pattern = "eaton_peaks",
     
     # Development mode title
     title_dev_mode = "development",  # Enum: "development" | "publication"
