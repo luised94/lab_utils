@@ -288,6 +288,15 @@ for (group_idx in groups_to_process) {
         )
     }
 
+   # viz_params <- if (GENOME_TRACK_CONFIG$use_custom_visualization) {
+   #     list(
+   #         fontcolor = GENOME_TRACK_CONFIG$track_fontcolor,
+   #         background.title = GENOME_TRACK_CONFIG$track_background
+   #         # Other parameters...
+   #     )
+   # } else {
+   #     list()  # Empty list will use all defaults
+   # }
     plot_title <- sprintf(
         GENOME_TRACK_CONFIG$title_dev_template,
         experiment_id,

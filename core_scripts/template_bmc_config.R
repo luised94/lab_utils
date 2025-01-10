@@ -197,6 +197,8 @@ VIEWER_CONFIG <- list(
 )
 
 GENOME_TRACK_CONFIG <- list(
+    use_custom_visualization = FALSE,  # Control flag
+
     # Display dimensions
     display_width = 10,
     display_height = 8,

@@ -327,6 +327,7 @@ create_control_track <- function(
     })
 }
 
+
 #' Apply standard visual properties to genome tracks
 #' @param tracks List of Gviz track objects
 #' @param config List of visual properties from GENOME_TRACK_CONFIG
