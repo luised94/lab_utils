@@ -104,39 +104,77 @@ calculate_track_limits <- function(bigwig_files, genome_range,
     
     return(result)
 }
+#' Create placeholder track for genome visualization
+#' @title Create Placeholder Genomic Track
+#' @description Creates an empty DataTrack with evenly spaced zero values across
+#'   a specified chromosome range
+#'
+#' @param sampling_rate numeric Number of base pairs per data point
+#' @param chromosome_width numeric Total width of chromosome in base pairs
+#' @param track_color character Color for track visualization
+#' @param type character Track type ('l' for line, 'h' for histogram, etc.)
+#' @param chromosome_name character Chromosome identifier
+#' @param placeholder_format_name character Format string for track name
+#' @param ... Additional arguments passed to sprintf for track naming
+#'
+#' @return Gviz DataTrack object with placeholder data
+#'
+#' @examples
+#' create_placeholder_track(
+#'   sampling_rate = 100,
+#'   chromosome_width = 1000,
+#'   track_color = "#CCCCCC",
+#'   chromosome_name = "chrI",
+#'   placeholder_format_name = "%s (No data)"
+#' )
+#'
+#' @importFrom GenomicRanges GRanges
+#' @importFrom IRanges IRanges
+#' @importFrom Gviz DataTrack
+create_placeholder_track <- function(
+    sampling_rate = 100,
+    chromosome_width = NULL,
+    track_color,
+    type = "l",
+    chromosome_name,
+    placeholder_format_name,
+    ...
+) {
+    # Input validation
+    stopifnot(
+        "sampling_rate must be positive numeric" = 
+            is.numeric(sampling_rate) && sampling_rate > 0,
+        "chromosome_width must be positive numeric" = 
+            is.numeric(chromosome_width) && chromosome_width > 0,
+        "track_color must be character" = 
+            is.character(track_color) && length(track_color) == 1,
+        "type must be valid track type" = 
+            type %in% c("l", "h", "p", "g"),
+        "chromosome_name must be character" = 
+            is.character(chromosome_name) && length(chromosome_name) == 1,
+        "placeholder_format_name must be character" = 
+            is.character(placeholder_format_name)
+    )
 
-#' @title Calculate Global Y-limits for Bigwig Tracks
-#' @description Calculates global y-axis limits from multiple bigwig files with padding
-#' @param bigwig_files character vector of bigwig file paths
-#' @param genome_range GRanges object specifying genomic region
-#' @param padding_fraction numeric Fraction for range padding (default: 0.1)
-#' @param verbose logical Print processing information
-#' @return list containing {success, data, error} where data has y_limits
-#' @importFrom rtracklayer import
-#' @importFrom GenomicRanges values
-create_placeholder_track <- function(sample_rate = 100, chromosome_width = NULL, track_color, type = "h", chromosome_name, placeholder_format_name, ... ) {
-
+    # Create placeholder track (your existing logic)
     num_points <- ceiling(chromosome_width / sampling_rate)
     placeholder_name <- sprintf(placeholder_format_name, ...)
-    # Create proper placeholder track with genome coordinates
+
     empty_ranges <- GenomicRanges::GRanges(
         seqnames = chromosome_name,
         ranges = IRanges::IRanges(
-            # Create evenly spaced points across chromosome
             start = seq(1, chromosome_width, length.out = num_points),
             width = 1
         ),
-        score = rep(0, num_points),  # One score per position
+        score = rep(0, num_points),
         strand = "*"
     )
     
-    empty_track <- Gviz::DataTrack(
+    Gviz::DataTrack(
         empty_ranges,
         name = placeholder_name,
-        type = "l",
+        type = type,
         col = track_color,
         chromosome = chromosome_name
     )
-    return(empty_track)
 }
-
