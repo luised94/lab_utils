@@ -106,8 +106,7 @@ calculate_track_limits <- function(bigwig_files, genome_range,
 }
 #' Create placeholder track for genome visualization
 #' @title Create Placeholder Genomic Track
-#' @description Creates an empty DataTrack with evenly spaced zero values across
-#'   a specified chromosome range
+#' @description Creates an empty DataTrack with evenly spaced zero values
 #'
 #' @param sampling_rate numeric Number of base pairs per data point
 #' @param chromosome_width numeric Total width of chromosome in base pairs
@@ -115,32 +114,18 @@ calculate_track_limits <- function(bigwig_files, genome_range,
 #' @param type character Track type ('l' for line, 'h' for histogram, etc.)
 #' @param chromosome_name character Chromosome identifier
 #' @param placeholder_format_name character Format string for track name
-#' @param ... Additional arguments passed to sprintf for track naming
+#' @param format_args character vector Arguments for track name formatting
 #'
 #' @return Gviz DataTrack object with placeholder data
-#'
-#' @examples
-#' create_placeholder_track(
-#'   sampling_rate = 100,
-#'   chromosome_width = 1000,
-#'   track_color = "#CCCCCC",
-#'   chromosome_name = "chrI",
-#'   placeholder_format_name = "%s (No data)"
-#' )
-#'
-#' @importFrom GenomicRanges GRanges
-#' @importFrom IRanges IRanges
-#' @importFrom Gviz DataTrack
 create_placeholder_track <- function(
     sampling_rate = 100,
     chromosome_width = NULL,
     track_color,
-    track_type = "l",
+    type = "l",
     chromosome_name,
     placeholder_format_name,
-    ...
+    format_args
 ) {
-    # Input validation
     stopifnot(
         "sampling_rate must be positive numeric" = 
             is.numeric(sampling_rate) && sampling_rate > 0,
@@ -153,12 +138,13 @@ create_placeholder_track <- function(
         "chromosome_name must be character" = 
             is.character(chromosome_name) && length(chromosome_name) == 1,
         "placeholder_format_name must be character" = 
-            is.character(placeholder_format_name)
+            is.character(placeholder_format_name),
+        "format_args must be character vector" = 
+            is.character(format_args)
     )
 
-    # Create placeholder track (your existing logic)
     num_points <- ceiling(chromosome_width / sampling_rate)
-    placeholder_name <- sprintf(placeholder_format_name, ...)
+    placeholder_name <- do.call(sprintf, c(list(placeholder_format_name), format_args))
 
     empty_ranges <- GenomicRanges::GRanges(
         seqnames = chromosome_name,
@@ -173,39 +159,92 @@ create_placeholder_track <- function(
     Gviz::DataTrack(
         empty_ranges,
         name = placeholder_name,
-        type = track_type,
+        type = type,
         col = track_color,
         chromosome = chromosome_name
     )
 }
 
+#' Create genomic data track for sample
+#' @title Create Sample Track
+#' @description Creates a DataTrack from bigwig file for sample visualization
+#'
+#' @param bigwig_file_path character Path to bigwig file
+#' @param track_format_name character Format string for track name
+#' @param format_args character vector Arguments for track name formatting
+#' @param track_color character Color for track visualization
+#' @param track_type character Track type (default: 'l' for line)
+#' @param genomic_range GRanges object for data subsetting (optional)
+#'
+#' @return List containing:
+#'   - success: logical indicating if track was created
+#'   - data: DataTrack object if successful, NULL if not
+#'   - error: error message if any
 create_sample_track <- function(
     bigwig_file_path,
     track_format_name,
-    sample_track_name,
+    format_args,
     track_color,
-    track_type,
-    genomic_range,
-    ...
+    track_type = "l",
+    genomic_range = NULL
 ) {
-    stopifnot()
-    if(!is.na(bigwig_file_path) && file.exists(bigwig_file)){
+    # Input validation
+    stopifnot(
+        "bigwig_file_path must be character" = 
+            is.character(bigwig_file_path) && length(bigwig_file_path) == 1,
+        "track_format_name must be character" = 
+            is.character(track_format_name) && length(track_format_name) == 1,
+        "format_args must be character vector" = 
+            is.character(format_args),
+        "track_color must be character" = 
+            is.character(track_color) && length(track_color) == 1,
+        "track_type must be character" = 
+            is.character(track_type) && length(track_type) == 1
+    )
 
-    track_data <- rtracklayer::import(bigwig_file, which = genomic_range)
-    track_name <- sprintf(track_format_name, ...)
-
-    return(Gviz::DataTrack(
-        track_data,
-        name = track_name,
-        type = "l",
-        col = track_color
-    ))
-    } else {
-        # Not sure if it should be logical, null, string, etcetera.
-        return(NULL)
+    # Check file existence
+    if (is.na(bigwig_file_path) || !file.exists(bigwig_file_path)) {
+        return(list(
+            success = FALSE,
+            data = NULL,
+            error = "Bigwig file not found"
+        ))
     }
 
+    # Try to create track
+    tryCatch({
+        # Import data
+        track_data <- if (is.null(genomic_range)) {
+            rtracklayer::import(bigwig_file_path)
+        } else {
+            rtracklayer::import(bigwig_file_path, which = genomic_range)
+        }
+
+        # Create track name
+        track_name <- do.call(sprintf, c(list(track_format_name), format_args))
+
+        # Create track
+        track <- Gviz::DataTrack(
+            track_data,
+            name = track_name,
+            type = track_type,
+            col = track_color
+        )
+
+        list(
+            success = TRUE,
+            data = track,
+            error = NULL
+        )
+    }, error = function(e) {
+        list(
+            success = FALSE,
+            data = NULL,
+            error = as.character(e)
+        )
+    })
 }
+
 #' Apply standard visual properties to genome tracks
 #' @param tracks List of Gviz track objects
 #' @param config List of visual properties from GENOME_TRACK_CONFIG
