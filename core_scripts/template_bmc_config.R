@@ -217,7 +217,6 @@ GENOME_TRACK_CONFIG <- list(
     track_border = "#E0E0E0",
 
     # Track defaults
-    track_axis_name_template = "Chr %s Axis",
     track_ylim = c(0, 100),  # Default y-limits, adjust as needed
     track_sampling_rate = 100,  # Points per base pair for empty tracks
     
@@ -227,9 +226,10 @@ GENOME_TRACK_CONFIG <- list(
     
     # Track naming
     format_track = "%s: %s",
-    format_control = "%s: %s - %s",
-    format_placeholder = "(No data)",
+    format_control_name = "%s: %s - %s",
+    format_placeholder_name = "%s %s",
     format_suffix = "(No data)",
+    format_genome_axis_track_name = "Chr %s Axis",
 
     # Labels
     label_always_show = "antibody",
