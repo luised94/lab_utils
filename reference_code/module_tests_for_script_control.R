@@ -243,10 +243,9 @@ for (group_idx in groups_to_process) {
         #bigwig_file_path <- bigwig_files[grepl(sample_id, bigwig_files)][1]
 
         track_name <- sprintf(
-            GENOME_TRACK_CONFIG$format_track,
+            GENOME_TRACK_CONFIG$format_sample_track_name,
             sample_id_mapping[sample_id],
-            row_samples_to_visualize$short_name[i],
-            row_samples_to_visualize$antibody[i]
+            track_labels[i]
         )
 
         placeholder_name <- sprintf(
@@ -259,14 +258,19 @@ for (group_idx in groups_to_process) {
         } else {
             color_scheme$get_color("antibody", current_antibody)
         }
-        plot_title <- sprintf(
-            GENOME_TRACK_CONFIG$title_dev_template,
-            experiment_id,
-            chromosome_to_plot,
-            nrow(row_samples_to_visualize),
-            TIMESTAMPS$full,
-            normalization_method
-        )
+        print(track_name)
+    }
+    plot_title <- sprintf(
+        GENOME_TRACK_CONFIG$title_group_template,
+        "Plot by groups of four",
+        experiment_id,
+        chromosome_to_plot,
+        nrow(row_samples_to_visualize),
+        TIME_CONFIG$current_timestamp,
+        EXPERIMENT_CONFIG$NORMALIZATION$active
+    )
+    print(plot_title)
+}
         #track_creation_result <- create_sample_track(
         #    bigwig_file_path,
         #    track_format_name = GENOME_TRACK_CONFIG$format_control,
@@ -301,14 +305,6 @@ for (group_idx in groups_to_process) {
    # } else {
    #     list()  # Empty list will use all defaults
    # }
-    plot_title <- sprintf(
-        GENOME_TRACK_CONFIG$title_dev_template,
-        experiment_id,
-        chromosome_to_plot,
-        nrow(row_samples_to_visualize),
-        TIMESTAMPS$full,
-        normalization_method
-    )
     #plot_config <- create_track_plot_config(
     #    tracks = tracks,
     #    chromosome = chromosome_roman,
@@ -357,8 +353,6 @@ for (group_idx in groups_to_process) {
     #} else {
     #    Sys.sleep(RUNTIME_CONFIG$output_display_time)  # Pause between plots
     #}
-    }
-}
 ## Create visualization parameters (if using custom settings)
 #viz_params <- if (GENOME_TRACK_CONFIG$use_custom_visualization) {
 #    list(
