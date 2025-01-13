@@ -229,6 +229,7 @@ GENOME_TRACK_CONFIG <- list(
     format_track = "%s: %s",
     format_control = "%s: %s - %s",
     format_placeholder = "(No data)",
+    format_suffix = "(No data)",
 
     # Labels
     label_always_show = "antibody",

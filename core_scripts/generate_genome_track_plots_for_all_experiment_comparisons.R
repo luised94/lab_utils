@@ -272,19 +272,25 @@ for (comparison_name in comparisons_to_process) {
         sorted_metadata,
         EXPERIMENT_CONFIG$CONTROL_FACTORS
     )
+    
 
     # Add single control track (real or placeholder)
     if (!is.null(control_sample)) {
-        control_bigwig <- bigwig_files[grepl(control_sample$sample_id,
+
+        control_bigwig_file_path <- bigwig_files[grepl(control_sample$sample_id,
                                            bigwig_files)]
-        if (length(control_bigwig) > 0 && file.exists(control_bigwig[1])) {
+        #track_creation_result <- create_control_track(
+        #    bigwig_file_path = control_bigwig_file_path,
+        #    track_format_name = 
+
+        if (length(control_bigwig_file_path) > 0 && file.exists(control_bigwig_file_path[1])) {
             if (RUNTIME_CONFIG$debug_verbose) {
                 message(sprintf("Adding control track: %s",
                               control_sample$sample_id))
             }
 
             control_track_data <- rtracklayer::import(
-                control_bigwig[1],
+                control_bigwig_file_path[1],
                 which = genome_range
             )
 
@@ -370,7 +376,7 @@ for (comparison_name in comparisons_to_process) {
     # Add sample tracks
     for (i in seq_len(nrow(row_samples_to_visualize))) {
         sample_id <- row_samples_to_visualize$sample_id[i]
-        sample_bigwig <- bigwig_files[grepl(sample_id, bigwig_files)]
+        sample_bigwig_file_path <- bigwig_files[grepl(sample_id, bigwig_files)]
         current_antibody <- row_samples_to_visualize$antibody[i]
 
         track_name <- sprintf(
@@ -383,7 +389,7 @@ for (comparison_name in comparisons_to_process) {
             message(sprintf("Creating track: %s", track_name))
         }
 
-        if (length(sample_bigwig) > 0 && file.exists(sample_bigwig[1])) {
+        if (length(sample_bigwig_file_path) > 0 && file.exists(sample_bigwig_file_path[1])) {
             if (RUNTIME_CONFIG$debug_verbose) {
                 message(sprintf("Adding track for sample: %s", sample_id))
             }
@@ -396,7 +402,7 @@ for (comparison_name in comparisons_to_process) {
             }
 
             track_data <- rtracklayer::import(
-                sample_bigwig[1],
+                sample_bigwig_file_path[1],
                 which = genome_range
             )
 
