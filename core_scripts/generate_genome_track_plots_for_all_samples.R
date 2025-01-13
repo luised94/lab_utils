@@ -197,21 +197,33 @@ for (group_idx in groups_to_process) {
         message("\nProcessing group ", group_idx)
     }
 
+    #===============================================================================
+    # 1. Metadata Processing and Sample Selection
+    #===============================================================================
+
     # Get current group's samples
-    current_samples <- sorted_metadata[sample_groups[[group_idx]], ]
+    row_samples_to_visualize <- sorted_metadata[sample_groups[[group_idx]], ]
+
+    label_result <- create_track_labels(
+        samples = row_samples_to_visualize,
+        always_show = "antibody",
+        never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
+        separator = "-",
+        verbose = TRUE
+    )
 
     # Initialize tracks list with chromosome axis
 
     tracks <- list(
         Gviz::GenomeAxisTrack(
-            name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
+            name = sprintf(track_axis_name_template, chromosome_to_plot)
         )
     )
 
     # Add tracks for each sample
-    for (i in seq_len(nrow(current_samples))) {
-        sample_id <- current_samples$sample_id[i]
-        current_antibody <- current_samples$antibody[i]
+    for (i in seq_len(nrow(row_samples_to_visualize))) {
+        sample_id <- row_samples_to_visualize$sample_id[i]
+        current_antibody <- row_samples_to_visualize$antibody[i]
 
         # Find matching bigwig file
         bigwig_file <- bigwig_files[grepl(sample_id, bigwig_files)][1]
@@ -219,8 +231,8 @@ for (group_idx in groups_to_process) {
         track_name <- sprintf(
             GENOME_TRACK_CONFIG$format_track,
             sample_id_mapping[sample_id],
-            current_samples$short_name[i],
-            current_samples$antibody[i]
+            row_samples_to_visualize$short_name[i],
+            row_samples_to_visualize$antibody[i]
         )
 
         placeholder_name <- sprintf(
@@ -301,7 +313,7 @@ for (group_idx in groups_to_process) {
         GENOME_TRACK_CONFIG$title_dev_template,
         experiment_id,
         chromosome_to_plot,
-        nrow(current_samples),
+        nrow(row_samples_to_visualize),
         TIMESTAMPS$full,
         normalization_method
     )
@@ -339,7 +351,7 @@ for (group_idx in groups_to_process) {
                 TIMESTAMPS$full,
                 experiment_id,
                 chromosome_to_plot,
-                nrow(current_samples),
+                nrow(row_samples_to_visualize),
                 group_idx
         )
         plot_file <- file.path(
