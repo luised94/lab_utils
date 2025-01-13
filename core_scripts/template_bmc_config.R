@@ -141,8 +141,10 @@ RUNTIME_CONFIG <- list(
     process_single_file = FALSE,
     process_comparison = "comp_1108forNoneAndWT",
     process_chromosome = 10,
-    process_group = 10,
-    process_samples_per_group = 4,
+    #process_group = 10,
+    process_batch = 10,
+    process_samples_per_batch = 4,
+    #process_samples_per_group = 4,
     process_file_index = 1,
     # Output control
     output_save_plots = FALSE,
@@ -243,7 +245,7 @@ GENOME_TRACK_CONFIG <- list(
     file_base = "fastqc_data",
     file_genome_pattern = "S288C_refgenome.fna",
     file_genome_directory = file.path(Sys.getenv("HOME"), "data", "REFGENS"),
-    file_feature_path = file.path(Sys.getenv("HOME"), "data", "feature_files"),
+    file_feature_directory = file.path(Sys.getenv("HOME"), "data", "feature_files"),
     file_genome_pattern = "eaton_peaks",
 
     # File Names
