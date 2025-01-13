@@ -225,9 +225,9 @@ GENOME_TRACK_CONFIG <- list(
     color_input = "#808080",
     
     # Track naming
-    format_track = "%s: %s",
-    format_control_name = "%s: %s - %s",
-    format_placeholder_name = "%s %s",
+    format_sample_track_name = "%s: %s",
+    format_control_track_name = "%s: %s - %s",
+    format_placeholder_track_name = "%s %s",
     format_suffix = "(No data)",
     format_genome_axis_track_name = "Chr %s Axis",
 
