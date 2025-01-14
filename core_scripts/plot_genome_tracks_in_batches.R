@@ -318,7 +318,6 @@ for (group_idx in groups_to_process) {
         } else {
             color_scheme$get_color("antibody", current_antibody)
         }
-
         track_creation_result <- create_sample_track(
             bigwig_file_path = bigwig_file_path,
             track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
@@ -328,11 +327,10 @@ for (group_idx in groups_to_process) {
             genomic_range = genomic_range
 
         )
-
         if (track_creation_result$success) {
             tracks[[length(tracks) + 1]] <- track_creation_result$data
         } else {
-            placeholder_track_creation_result <- create_placeholder_track(
+            tracks[[length(tracks) + 1]] <- create_placeholder_track(
                 sampling_rate = 100,
                 chromosome_width = chromosome_width,
                 track_color = track_color,
@@ -341,23 +339,15 @@ for (group_idx in groups_to_process) {
                 placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
                 format_args = placeholder_name_arguments
             )
-            if (placeholder_track_creation_result$success) {
-                if (RUNTIME_CONFIG$debug_verbose) {
-                    message("Created placeholder for sample: ", sample_id)
-                }
-                tracks[[length(tracks) + 1]] <- placeholder_track_creation_result$data
-            } else {
-                stop(sprintf("Placeholder track creation failed for sample id %s.", sample_id))
-            }
         }
     }
-#    # Add feature track if available
-#    if (exists("features")) {
-#        tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
-#            features,
-#            name = "Features"
-#        )
-#    }
+    # Add feature track if available
+    if (exists("features")) {
+        tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
+            features,
+            name = "Features"
+        )
+    }
 #    plot_title <- sprintf(
 #        GENOME_TRACK_CONFIG$title_dev_template,
 #        experiment_id,
@@ -381,7 +371,7 @@ for (group_idx in groups_to_process) {
 #
 #    #)
 #    #if (RUNTIME_CONFIG$output_save_plots) {
-#   # 
+#   #
 #   #     plot_filename <- sprintf(
 #   #             "%s_%s_chr%s_n%d_group%d.svg",
 #   #             TIMESTAMPS$full,
