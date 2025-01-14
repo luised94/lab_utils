@@ -431,25 +431,6 @@ for (group_idx in groups_to_process) {
         save_params = list()
     )
 #    #if (RUNTIME_CONFIG$output_save_plots) {
-#   #
-#   #     plot_filename <- sprintf(
-#   #             "%s_%s_chr%s_n%d_group%d.svg",
-#   #             TIME_CONFIG$current_timestamp,
-#   #             experiment_id,
-#   #             chromosome_to_plot,
-#   #             nrow(row_samples_to_visualize),
-#   #             group_idx
-#   #     )
-#   #     plot_file <- file.path(
-#   #         plots_dir,
-#   #         plot_filename
-#   #     )
-#        #if (RUNTIME_CONFIG$debug_verbose) {
-#        #    message(sprintf(
-#        #        "Saving plot to: %s",
-#        #        basename(plot_file)
-#        #    ))
-#        #}
 #    #    execute_track_plot(
 #    #        plot_config,
 #    #        save_path = plot_file,
