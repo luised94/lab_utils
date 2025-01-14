@@ -302,12 +302,12 @@ for (group_idx in groups_to_process) {
         # Find matching bigwig file
         bigwig_file_path <- bigwig_files[grepl(sample_id, bigwig_files)][1]
 
-        track_name <- sprintf(
-            GENOME_TRACK_CONFIG$format_track,
-            sample_id_mapping[sample_id],
-            row_samples_to_visualize$short_name[i],
-            row_samples_to_visualize$antibody[i]
-        )
+        #track_name <- sprintf(
+        #    GENOME_TRACK_CONFIG$format_track,
+        #    sample_id_mapping[sample_id],
+        #    row_samples_to_visualize$short_name[i],
+        #    row_samples_to_visualize$antibody[i]
+        #)
         track_name_arguments <- c(
             sample_id_mapping[sample_id],
             row_samples_to_visualize$short_name[i],
@@ -326,7 +326,7 @@ for (group_idx in groups_to_process) {
         }
         track_creation_result <- create_sample_track(
             bigwig_file_path = bigwig_file_path,
-            track_format_name = ,
+            track_format_name = GENOME_TRACK_CONFIG$format_control_track_name,
             format_args = track_name_arguments,
             track_color = track_color,
             track_type = GENOME_TRACK_CONFIG$track_type,
