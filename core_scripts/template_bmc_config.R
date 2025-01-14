@@ -131,6 +131,22 @@ TIME_CONFIG <- list(
 # DEBUG CONFIGURATIONS
 ################################################################################
 RUNTIME_CONFIG <- list(
+    # Execution Mode
+    #test_single_iteration = TRUE,  # (formerly debug_enabled/process_single_file)
+    #show_debug_output = TRUE,      # (formerly debug_verbose)
+    #require_confirmation = FALSE,   # (formerly debug_interactive)
+    #validate_extensively = TRUE,    # (formerly debug_validate)
+
+    ## Processing Scope
+    #target_comparison = "comp_1108forNoneAndWT",
+    #target_chromosome = 10,
+    #target_batch = 10,
+    #samples_per_batch = 4,
+
+    ## Output Control
+    #dry_run = TRUE,
+    #plot_display_duration = 2
+
     # Core control flags
     debug_enabled = TRUE,
     debug_interactive = FALSE,
@@ -246,7 +262,7 @@ GENOME_TRACK_CONFIG <- list(
     file_genome_pattern = "S288C_refgenome.fna",
     file_genome_directory = file.path(Sys.getenv("HOME"), "data", "REFGENS"),
     file_feature_directory = file.path(Sys.getenv("HOME"), "data", "feature_files"),
-    file_genome_pattern = "eaton_peaks",
+    file_feature_pattern = "eaton_peaks",
 
     # File Names
     filename_format_group_template = "%s_%s_chr%s_n%d_group%d.svg",

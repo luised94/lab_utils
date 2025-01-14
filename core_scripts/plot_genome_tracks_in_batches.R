@@ -124,3 +124,97 @@ dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
 )
 dirs$output_dir <- file.path(dirs$plots, "genome_tracks", "overview")
 dir.create(dirs$output_dir, recursive = TRUE, showWarnings = FALSE)
+# Find fastq files and extract sample IDs
+fastq_files <- list.files(
+    path = dirs$fastq,
+    pattern = GENOME_TRACK_CONFIG$file_pattern,
+    full.names = FALSE
+)
+
+if (length(fastq_files) == 0) {
+    stop("No fastq files found in specified directory")
+}
+
+# Extract sample IDs from fastq filenames
+sample_ids <- gsub(
+    pattern = GENOME_TRACK_CONFIG$file_sample_id,
+    replacement = "\\1",
+    x = fastq_files
+)
+
+# Find bigwig files
+bigwig_pattern <- sprintf("_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
+bigwig_files <- list.files(
+    dirs$coverage,
+    pattern = bigwig_pattern,
+    full.names = TRUE
+)
+normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1",
+                          basename(bigwig_files[1]))
+
+metadata <- load_and_process_experiment_metadata(
+    metadata_path = metadata_path,
+    categories = EXPERIMENT_CONFIG$CATEGORIES,
+    column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
+    sample_ids = sample_ids,
+    stop_on_missing_columns = TRUE
+)
+
+# Create color scheme
+color_scheme <- create_color_scheme(
+    config = list(
+        placeholder = GENOME_TRACK_CONFIG$color_placeholder,
+        input = GENOME_TRACK_CONFIG$color_input
+    ),
+    categories = list(
+        antibody = unique(metadata$antibody),
+        rescue_allele = unique(metadata$rescue_allele)
+    )
+)
+
+# Add after processing metadata but before track creation
+short_sample_ids <- create_minimal_identifiers(metadata$sample_id, verbose = RUNTIME_CONFIG$debug_verbose)
+# Create mapping between full and short IDs
+sample_id_mapping <- setNames(short_sample_ids, metadata$sample_id)
+
+if (RUNTIME_CONFIG$debug_verbose) {
+    message("\nColor scheme initialized:")
+    message("Fixed colors:")
+    print(color_scheme$fixed)
+    message("Category colors:")
+    print(color_scheme$categories)
+}
+
+################################################################################
+# Setup genome and feature files
+################################################################################
+# Load reference genome
+ref_genome_file <- list.files(
+    GENOME_TRACK_CONFIG$file_genome_directory,
+    pattern = GENOME_TRACK_CONFIG$file_genome_pattern,
+    full.names = TRUE,
+    recursive = TRUE
+)[1]
+genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
+
+# Create chromosome range
+chromosome_to_plot <- RUNTIME_CONFIG$process_chromosome
+chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
+chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
+
+
+# Load feature file (annotation)
+feature_file <- list.files(
+    GENOME_TRACK_CONFIG$file_feature_directory,
+    pattern = GENOME_TRACK_CONFIG$file_feature_pattern,
+    full.names = TRUE
+)[1]
+
+if (!is.null(feature_file)) {
+    features <- rtracklayer::import(feature_file)
+    # Convert to chrRoman format
+    GenomeInfoDb::seqlevels(features) <- paste0(
+        "chr",
+        utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
+    )
+}
