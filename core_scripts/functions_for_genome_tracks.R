@@ -300,9 +300,9 @@ create_sample_track <- function(
             type = track_type,
             col = track_color,
             showTitle = TRUE,         # Ensure title is shown
-            background.title = "white", # Make title background visible
-            fontcolor.title = "black", # Ensure title text is visible
-            cex.title = 0.8          # Set title size
+            #background.title = "white", # Make title background visible
+            fontcolor.title = "black" # Ensure title text is visible
+            #cex.title = 0.8          # Set title size
         )
 
         list(

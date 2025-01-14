@@ -223,16 +223,7 @@ GENOME_TRACK_CONFIG <- list(
     
     # Track Creation
     track_points_default = 1000,
-    track_type = "h", # l, h, etc
     track_show_title = TRUE,
-
-    # Track visual properties
-    track_width = 0.9,
-    track_fontface = 1,
-    track_size = 0.6,
-    track_background = "white",
-    track_fontcolor = "black",
-    track_border = "#E0E0E0",
 
     # Track defaults
     track_ylim = c(0, 100),  # Default y-limits, adjust as needed
@@ -288,7 +279,6 @@ GENOME_TRACK_CONFIG <- list(
         "Normalization: %s", # Norm method
         sep = "\n"
     ),
-    title_dev_size = 0.7,
     title_dev_style = 2,    # Bold
     
     # Publication mode title
@@ -301,7 +291,33 @@ GENOME_TRACK_CONFIG <- list(
     title_max_lines = 5,
 
     # Interactive mode
-    interactive_prompt = "Options: [Enter] next plot, 's' skip rest, 'q' quit: "
+    interactive_prompt = "Options: [Enter] next plot, 's' skip rest, 'q' quit: ",
+
+    track_defaults = list(
+        showAxis = TRUE,
+        showTitle = TRUE,
+        type = "h",
+        size = 0.6,
+        background.title = "white",
+        fontcolor.title = "black",
+        col.border.title = "#E0E0E0",
+        cex.title = 0.7,
+        fontface = 1,
+        title.width = 0.9
+    ),
+    
+    # New Plot Defaults
+    plot_defaults = list(
+        margin = 15,
+        innerMargin = 5,
+        spacing = 10,
+        extend.left = 0,
+        extend.right = 0,
+        col.axis = "black",
+        cex.axis = 0.8,
+        background.panel = "transparent"
+    )
+
 )
 
 ################################################################################
