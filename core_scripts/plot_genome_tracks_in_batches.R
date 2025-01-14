@@ -356,24 +356,37 @@ for (group_idx in groups_to_process) {
         TIME_CONFIG$current_timestamp,
         normalization_method
     )
+    plot_filename <- sprintf(
+             GENOME_TRACK_CONFIG$filename_format_group_template,
+             TIMESTAMPS$full,
+             experiment_id,
+             chromosome_to_plot,
+             nrow(row_samples_to_visualize),
+             group_idx
+     )
+     plot_file <- file.path(
+         dirs$output_dir,
+         plot_filename
+     )
+
     if (RUNTIME_CONFIG$debug_verbose) {
-            message(sprintf(
-                "Saving plot to: %s",
-                basename(plot_file)
-            ))
-        }
-#   #     plot_filename <- sprintf(
-#   #             "%s_%s_chr%s_n%d_group%d.svg",
-#   #             TIMESTAMPS$full,
-#   #             experiment_id,
-#   #             chromosome_to_plot,
-#   #             nrow(row_samples_to_visualize),
-#   #             group_idx
-#   #     )
-#   #     plot_file <- file.path(
-#   #         plots_dir,
-#   #         plot_filename
-#   #     )
+        message(paste(rep("-", 80), collapse = ""))
+        message("\nPlot Generation Details:")
+        message(sprintf("  Title Components:"))
+        message(sprintf("    Experiment: %s", experiment_id))
+        message(sprintf("    Chromosome: %s", chromosome_to_plot))
+        message(sprintf("    Sample Count: %d", nrow(row_samples_to_visualize)))
+        message(sprintf("    Timestamp: %s", TIME_CONFIG$current_timestamp))
+        message(sprintf("    Normalization: %s", normalization_method))
+        
+        message("\n  Output Configuration:")
+        message(sprintf("    Plot Directory: %s", dirs$output_dir))
+        message(sprintf("    Filename: %s", basename(plot_file)))
+        message(sprintf("    Full Path: %s", plot_file))
+        
+        # Visual separator for readability in log
+        message(paste(rep("-", 80), collapse = ""))
+    }
     #plot_config <- create_track_plot_config(
     #    tracks = tracks,
     #    chromosome = chromosome_roman,
