@@ -327,7 +327,6 @@ for (group_idx in groups_to_process) {
             genomic_range = genome_range
 
         )
-        print(track_creation_result)
         if (track_creation_result$success) {
             if (RUNTIME_CONFIG$debug_verbose) {
                 message(sprintf("  Successfully created track for sample: %s", sample_id))
