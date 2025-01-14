@@ -517,27 +517,23 @@ execute_track_plot <- function(
     plot_config,
     save_path = NULL,
     save_params = list(),
-    display_plot = FALSE,  # New parameter to control display
+    plot_params = list(),  # New parameter for plot settings
+    display_plot = FALSE,
     verbose = TRUE
 ) {
+
     # Validate inputs
     stopifnot(
         "plot_config must be a list" = is.list(plot_config),
         "plot_config must contain trackList" = !is.null(plot_config$trackList),
-        "save_params must be a list" = is.list(save_params)
+        "save_params must be a list" = is.list(save_params),
+        "plot_params must be a list" = is.list(plot_params)
     )
 
+    
+    # Debug output
     if (verbose) {
-        message("\nGraphics Device Status:")
-        message(sprintf("  Current device: %d", dev.cur()))
-        message(sprintf("  Interactive session: %s", interactive()))
-        message("\nPlot Operation:")
-        message(sprintf("  Display Plot: %s", display_plot))
-        message(sprintf("  Save Plot: %s", !is.null(save_path)))
-        if (!is.null(save_path)) {
-            message(sprintf("  Save Path: %s", save_path))
-        }
-        message("\nPlot Execution:")
+        message("\nPlot Configuration:")
         message(sprintf("  Number of tracks: %d", length(plot_config$trackList)))
         message("  Track types:")
         invisible(lapply(plot_config$trackList, function(track) {
@@ -545,22 +541,36 @@ execute_track_plot <- function(
                           class(track)[1], 
                           track@name))
         }))
+        
+        if (length(plot_params) > 0) {
+            message("\nPlot Parameters:")
+            invisible(lapply(names(plot_params), function(param) {
+                message(sprintf("    %s: %s", 
+                              param, 
+                              paste(plot_params[[param]], collapse = ", ")))
+            }))
+        }
+
+        message("\nDevice Information:")
+        message(sprintf("  Display Plot: %s", display_plot))
+        message(sprintf("  Save Plot: %s", !is.null(save_path)))
+        message(sprintf("  Current device: %d", dev.cur()))
+        message(sprintf("  Interactive session: %s", interactive()))
     }
 
     
-    # Modify plot function to be more explicit
+    # Create plotting function
     do_plot <- function() {
         if (verbose) message("\nExecuting plot...")
         
-        # Ensure basic parameters are set
-        plot_params <- c(plot_config, list(
-            background.title = "white",
-            showTitle = TRUE,
-            cex.title = 1
-        ))
+        # Merge plot parameters
+        final_params <- c(
+            plot_config,
+            plot_params  # Add custom plot parameters
+        )
         
         tryCatch({
-            do.call(Gviz::plotTracks, plot_params)
+            do.call(Gviz::plotTracks, final_params)
             if (verbose) message("  Plot execution successful")
         }, error = function(e) {
             message("  Plot execution failed:")
@@ -569,21 +579,10 @@ execute_track_plot <- function(
         })
     }
 
-    # Validate save_path if provided
-    if (!is.null(save_path)) {
-    }
-
-    # Default save parameters
-    default_save_params <- list(
-        width = 10,
-        height = 8,
-        device = "svg"
-    )
-    
-    # If saving, handle device
+    # Handle saving
     if (!is.null(save_path)) {
         tryCatch({
-            # Check if directory exists and is writable
+            # Validate save directory
             save_dir <- dirname(save_path)
             if (!dir.exists(save_dir)) {
                 stop("Directory does not exist: ", save_dir)
@@ -591,29 +590,44 @@ execute_track_plot <- function(
             if (file.access(save_dir, mode = 2) != 0) {
                 stop("Directory is not writable: ", save_dir)
             }
-            # Normalize path
             save_path <- normalizePath(save_path, mustWork = FALSE)
+            
+            # Merge save parameters with defaults
+            default_save_params <- list(
+                width = 10,
+                height = 8,
+                device = "svg"
+            )
+            save_params <- modifyList(default_save_params, save_params)
+            
+            if (verbose) {
+                message("\nSaving plot:")
+                message(sprintf("  Path: %s", save_path))
+                message(sprintf("  Width: %d", save_params$width))
+                message(sprintf("  Height: %d", save_params$height))
+            }
+            
+            # Handle different file formats
+            if (grepl("\\.svg$", save_path)) {
+                svg(save_path, 
+                    width = save_params$width, 
+                    height = save_params$height)
+                do_plot()
+                dev.off()
+            } else if (grepl("\\.pdf$", save_path)) {
+                pdf(save_path, 
+                    width = save_params$width, 
+                    height = save_params$height)
+                do_plot()
+                dev.off()
+            } else {
+                stop("Unsupported file format. Use .svg or .pdf")
+            }
         }, error = function(e) {
-            stop("Invalid save path: ", e$message)
+            stop("Failed to save plot: ", e$message)
         })
-        # Merge save parameters
-        save_params <- modifyList(default_save_params, save_params)
-        
-        if (verbose) message("\nSaving plot...")
-        # Open device based on file extension
-        
-        if (grepl("\\.svg$", save_path)) {
-            svg(save_path, width = save_params$width, height = save_params$height)
-            do_plot()
-            dev.off()
-        } else if (grepl("\\.pdf$", save_path)) {
-            pdf(save_path, width = save_params$width, height = save_params$height)
-            do_plot()
-            dev.off()
-        } else {
-            stop("Unsupported file format. Use .svg or .pdf")
-        }
     }
+
     # Handle display
     if (display_plot) {
         if (verbose) message("\nDisplaying plot...")
