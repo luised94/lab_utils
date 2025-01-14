@@ -401,12 +401,12 @@ for (group_idx in groups_to_process) {
         title = plot_title,
         visualization_params = viz_params
     )
-    #execute_track_plot(
-    #    plot_config = plot_config,
-    #    save_path = NULL,
-    #    save_params = list()
-#
-#    #)
+
+    execute_track_plot(
+        plot_config = plot_config,
+        save_path = NULL,
+        save_params = list()
+    )
 #    #if (RUNTIME_CONFIG$output_save_plots) {
 #   #
 #   #     plot_filename <- sprintf(
