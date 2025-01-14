@@ -440,14 +440,14 @@ for (group_idx in groups_to_process) {
 #    #        )
 #    #    )
 #    #}
-    ## Interactive viewing options
-    #if (RUNTIME_CONFIG$debug_interactive) {
-    #    user_input <- readline(
-    #        prompt = GENOME_TRACK_CONFIG$interactive_prompt
-    #    )
-    #    if (user_input == "q") break
-    #    if (user_input == "s") RUNTIME_CONFIG$output_save_plots <- FALSE
-    #} else {
-    #    Sys.sleep(RUNTIME_CONFIG$output_display_time)  # Pause between plots
-    #}
+    # Interactive viewing options
+    if (RUNTIME_CONFIG$debug_interactive) {
+        user_input <- readline(
+            prompt = GENOME_TRACK_CONFIG$interactive_prompt
+        )
+        if (user_input == "q") break
+        if (user_input == "s") RUNTIME_CONFIG$output_save_plots <- FALSE
+    } else {
+        Sys.sleep(RUNTIME_CONFIG$output_display_time)  # Pause between plots
+    }
 }
