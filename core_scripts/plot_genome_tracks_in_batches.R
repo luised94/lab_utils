@@ -264,7 +264,6 @@ if (!limits_result$success) {
 for (group_idx in groups_to_process) {
 
     row_samples_to_visualize <- metadata[sample_groups[[group_idx]], ]
-
     label_result <- create_track_labels(
         samples = row_samples_to_visualize,
         always_show = "antibody",
