@@ -33,7 +33,7 @@ fi
 #
 # Format file listing with columns and headers
 echo -e "\nBAM files found:"
-mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*_sorted.bam" -exec basename {} \;)
+mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "processed*_sorted.bam" -exec basename {} \;)
 printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
 printf '%s\n' "${unique_files[@]}" | column -c "${COLUMNS:-$(tput cols)}"
 printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
