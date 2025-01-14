@@ -261,152 +261,152 @@ if (!limits_result$success) {
     y_limits <- limits_result$data
 }
 
-for (group_idx in groups_to_process) {
-
-    row_samples_to_visualize <- sorted_metadata[sample_groups[[group_idx]], ]
-
-    label_result <- create_track_labels(
-        samples = row_samples_to_visualize,
-        always_show = "antibody",
-        never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
-        separator = "-",
-        verbose = TRUE
-    )
-
-    if (!label_result$success) {
-        warning("Failed to create track labels for comparison %s: %s", comparison_name, label_result$error)
-        track_labels <- row_samples_to_visualize$short_name  # Fallback to sample_id
-    } else {
-        track_labels <- label_result$data$labels
-    }
-
-    if (nrow(row_samples_to_visualize) == 0) {
-        warning(sprintf("No samples found for comparison: %s", comparison_name))
-        next
-    }
-
-    if (RUNTIME_CONFIG$debug_verbose) {
-        message(sprintf("Found %d samples for comparison", nrow(row_samples_to_visualize)))
-    }
-
-    # Initialize tracks list with chromosome axis
-    tracks <- list(
-        Gviz::GenomeAxisTrack(
-            name = sprintf(track_axis_name_template, chromosome_to_plot)
-        )
-    )
-
-    for (i in seq_len(nrow(row_samples_to_visualize))) {
-        sample_id <- row_samples_to_visualize$sample_id[i]
-        current_antibody <- row_samples_to_visualize$antibody[i]
-        # Find matching bigwig file
-        bigwig_file_path <- bigwig_files[grepl(sample_id, bigwig_files)][1]
-
-        track_name <- sprintf(
-            GENOME_TRACK_CONFIG$format_track,
-            sample_id_mapping[sample_id],
-            row_samples_to_visualize$short_name[i],
-            row_samples_to_visualize$antibody[i]
-        )
-        track_name_arguments <- c(
-            sample_id_mapping[sample_id],
-            row_samples_to_visualize$short_name[i],
-            row_samples_to_visualize$antibody[i]
-        )
-
-        placeholder_name <- sprintf(
-            "%s %s",
-            track_name,
-            GENOME_TRACK_CONFIG$format_placeholder
-        )
-        track_color <- if (current_antibody == "Input") {
-            color_scheme$fixed$input
-        } else {
-            color_scheme$get_color("antibody", current_antibody)
-        }
-        track_creation_result <- create_sample_track(
-            bigwig_file_path = bigwig_file_path,
-            track_format_name = ,
-            format_args = track_name_arguments,
-            track_color = track_color,
-            track_type = GENOME_TRACK_CONFIG$track_type,
-            genomic_range = genomic_range
-
-        )
-        if (track_creation_result$success) {
-            tracks[[length(tracks) + 1]] <- track_creation_result$data
-        } else {
-            track_name_arguments <- c(
-                sample_id_mapping[sample_id],
-                GENOME_TRACK_CONFIG$format_suffix
-            )
-            placeholder_track_creation_result <- create_placeholder_track(
-                sampling_rate = 100,
-                chromosome_width = chromosome_width,
-                track_color = track_color,
-                type = GENOME_TRACK_CONFIG$track_type,
-                chromosome_name = chromosome_roman,
-                placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
-                format_args = track_name_arguments
-            )
-        }
-    }
-    # Add feature track if available
-    if (exists("features")) {
-        tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
-            features,
-            name = "Features"
-        )
-    }
-    plot_title <- sprintf(
-        GENOME_TRACK_CONFIG$title_dev_template,
-        experiment_id,
-        chromosome_to_plot,
-        nrow(row_samples_to_visualize),
-        TIMESTAMPS$full,
-        normalization_method
-    )
-    #plot_config <- create_track_plot_config(
-    #    tracks = tracks,
-    #    chromosome = chromosome_roman,
-    #    to = chromosome_width,
-    #    ylim = y_limits,
-    #    title = plot_title,
-    #    visualization_params = viz_params
-    #)
-    #execute_track_plot(
-    #    plot_config = plot_config,
-    #    save_path = NULL,
-    #    save_params = list()
-
-    #)
-    #if (RUNTIME_CONFIG$output_save_plots) {
-   # 
-   #     plot_filename <- sprintf(
-   #             "%s_%s_chr%s_n%d_group%d.svg",
-   #             TIMESTAMPS$full,
-   #             experiment_id,
-   #             chromosome_to_plot,
-   #             nrow(row_samples_to_visualize),
-   #             group_idx
-   #     )
-   #     plot_file <- file.path(
-   #         plots_dir,
-   #         plot_filename
-   #     )
-        #if (RUNTIME_CONFIG$debug_verbose) {
-        #    message(sprintf(
-        #        "Saving plot to: %s",
-        #        basename(plot_file)
-        #    ))
-        #}
-    #    execute_track_plot(
-    #        plot_config,
-    #        save_path = plot_file,
-    #        save_params = list(
-    #            width = GENOME_TRACK_CONFIG$display_width,
-    #            height = GENOME_TRACK_CONFIG$display_height
-    #        )
-    #    )
-    #}
-}
+#for (group_idx in groups_to_process) {
+#
+#    row_samples_to_visualize <- sorted_metadata[sample_groups[[group_idx]], ]
+#
+#    label_result <- create_track_labels(
+#        samples = row_samples_to_visualize,
+#        always_show = "antibody",
+#        never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
+#        separator = "-",
+#        verbose = TRUE
+#    )
+#
+#    if (!label_result$success) {
+#        warning("Failed to create track labels for comparison %s: %s", comparison_name, label_result$error)
+#        track_labels <- row_samples_to_visualize$short_name  # Fallback to sample_id
+#    } else {
+#        track_labels <- label_result$data$labels
+#    }
+#
+#    if (nrow(row_samples_to_visualize) == 0) {
+#        warning(sprintf("No samples found for comparison: %s", comparison_name))
+#        next
+#    }
+#
+#    if (RUNTIME_CONFIG$debug_verbose) {
+#        message(sprintf("Found %d samples for comparison", nrow(row_samples_to_visualize)))
+#    }
+#
+#    # Initialize tracks list with chromosome axis
+#    tracks <- list(
+#        Gviz::GenomeAxisTrack(
+#            name = sprintf(track_axis_name_template, chromosome_to_plot)
+#        )
+#    )
+#
+#    for (i in seq_len(nrow(row_samples_to_visualize))) {
+#        sample_id <- row_samples_to_visualize$sample_id[i]
+#        current_antibody <- row_samples_to_visualize$antibody[i]
+#        # Find matching bigwig file
+#        bigwig_file_path <- bigwig_files[grepl(sample_id, bigwig_files)][1]
+#
+#        track_name <- sprintf(
+#            GENOME_TRACK_CONFIG$format_track,
+#            sample_id_mapping[sample_id],
+#            row_samples_to_visualize$short_name[i],
+#            row_samples_to_visualize$antibody[i]
+#        )
+#        track_name_arguments <- c(
+#            sample_id_mapping[sample_id],
+#            row_samples_to_visualize$short_name[i],
+#            row_samples_to_visualize$antibody[i]
+#        )
+#
+#        placeholder_name <- sprintf(
+#            "%s %s",
+#            track_name,
+#            GENOME_TRACK_CONFIG$format_placeholder
+#        )
+#        track_color <- if (current_antibody == "Input") {
+#            color_scheme$fixed$input
+#        } else {
+#            color_scheme$get_color("antibody", current_antibody)
+#        }
+#        track_creation_result <- create_sample_track(
+#            bigwig_file_path = bigwig_file_path,
+#            track_format_name = ,
+#            format_args = track_name_arguments,
+#            track_color = track_color,
+#            track_type = GENOME_TRACK_CONFIG$track_type,
+#            genomic_range = genomic_range
+#
+#        )
+#        if (track_creation_result$success) {
+#            tracks[[length(tracks) + 1]] <- track_creation_result$data
+#        } else {
+#            track_name_arguments <- c(
+#                sample_id_mapping[sample_id],
+#                GENOME_TRACK_CONFIG$format_suffix
+#            )
+#            placeholder_track_creation_result <- create_placeholder_track(
+#                sampling_rate = 100,
+#                chromosome_width = chromosome_width,
+#                track_color = track_color,
+#                type = GENOME_TRACK_CONFIG$track_type,
+#                chromosome_name = chromosome_roman,
+#                placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
+#                format_args = track_name_arguments
+#            )
+#        }
+#    }
+#    # Add feature track if available
+#    if (exists("features")) {
+#        tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
+#            features,
+#            name = "Features"
+#        )
+#    }
+#    plot_title <- sprintf(
+#        GENOME_TRACK_CONFIG$title_dev_template,
+#        experiment_id,
+#        chromosome_to_plot,
+#        nrow(row_samples_to_visualize),
+#        TIMESTAMPS$full,
+#        normalization_method
+#    )
+#    #plot_config <- create_track_plot_config(
+#    #    tracks = tracks,
+#    #    chromosome = chromosome_roman,
+#    #    to = chromosome_width,
+#    #    ylim = y_limits,
+#    #    title = plot_title,
+#    #    visualization_params = viz_params
+#    #)
+#    #execute_track_plot(
+#    #    plot_config = plot_config,
+#    #    save_path = NULL,
+#    #    save_params = list()
+#
+#    #)
+#    #if (RUNTIME_CONFIG$output_save_plots) {
+#   # 
+#   #     plot_filename <- sprintf(
+#   #             "%s_%s_chr%s_n%d_group%d.svg",
+#   #             TIMESTAMPS$full,
+#   #             experiment_id,
+#   #             chromosome_to_plot,
+#   #             nrow(row_samples_to_visualize),
+#   #             group_idx
+#   #     )
+#   #     plot_file <- file.path(
+#   #         plots_dir,
+#   #         plot_filename
+#   #     )
+#        #if (RUNTIME_CONFIG$debug_verbose) {
+#        #    message(sprintf(
+#        #        "Saving plot to: %s",
+#        #        basename(plot_file)
+#        #    ))
+#        #}
+#    #    execute_track_plot(
+#    #        plot_config,
+#    #        save_path = plot_file,
+#    #        save_params = list(
+#    #            width = GENOME_TRACK_CONFIG$display_width,
+#    #            height = GENOME_TRACK_CONFIG$display_height
+#    #        )
+#    #    )
+#    #}
+#}
