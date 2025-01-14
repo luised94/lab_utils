@@ -350,7 +350,7 @@ for (group_idx in groups_to_process) {
             }
         
             # Create placeholder with error handling
-            placeholder_track <- create_placeholder_track(
+            placeholder_track_creation_result <- create_placeholder_track(
                 sampling_rate = 100,
                 chromosome_width = chromosome_width,
                 track_color = track_color,
@@ -359,8 +359,13 @@ for (group_idx in groups_to_process) {
                 placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
                 format_args = placeholder_name_arguments
             )
+
+            if (!placeholder_track_creation_result$success) {
+                stop(sprintf("Failed to create placeholder track: %s", placeholder_track_creation_result$error))
+            } else {
+                tracks[[length(tracks) + 1]] <- placeholder_track_creation_result$data
+            }
             
-            tracks[[length(tracks) + 1]] <- placeholder_track
         }
     }
     # Add feature track if available
