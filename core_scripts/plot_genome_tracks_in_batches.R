@@ -261,41 +261,41 @@ if (!limits_result$success) {
     y_limits <- limits_result$data
 }
 
-#for (group_idx in groups_to_process) {
-#
-#    row_samples_to_visualize <- metadata[sample_groups[[group_idx]], ]
-#
-#    label_result <- create_track_labels(
-#        samples = row_samples_to_visualize,
-#        always_show = "antibody",
-#        never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
-#        separator = "-",
-#        verbose = TRUE
-#    )
-#
-#    if (!label_result$success) {
-#        warning("Failed to create track labels for comparison %s: %s", comparison_name, label_result$error)
-#        track_labels <- row_samples_to_visualize$short_name  # Fallback to sample_id
-#    } else {
-#        track_labels <- label_result$data$labels
-#    }
-#
-#    if (nrow(row_samples_to_visualize) == 0) {
-#        warning(sprintf("No samples found for comparison: %s", comparison_name))
-#        next
-#    }
-#
-#    if (RUNTIME_CONFIG$debug_verbose) {
-#        message(sprintf("Found %d samples for comparison", nrow(row_samples_to_visualize)))
-#    }
-#
-#    # Initialize tracks list with chromosome axis
-#    tracks <- list(
-#        Gviz::GenomeAxisTrack(
-#            name = sprintf(track_axis_name_template, chromosome_to_plot)
-#        )
-#    )
-#
+for (group_idx in groups_to_process) {
+
+    row_samples_to_visualize <- metadata[sample_groups[[group_idx]], ]
+
+    label_result <- create_track_labels(
+        samples = row_samples_to_visualize,
+        always_show = "antibody",
+        never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
+        separator = "-",
+        verbose = TRUE
+    )
+
+    if (!label_result$success) {
+        warning("Failed to create track labels for comparison %s: %s", comparison_name, label_result$error)
+        track_labels <- row_samples_to_visualize$short_name  # Fallback to sample_id
+    } else {
+        track_labels <- label_result$data$labels
+    }
+
+    if (nrow(row_samples_to_visualize) == 0) {
+        warning(sprintf("No samples found for comparison: %s", comparison_name))
+        next
+    }
+
+    if (RUNTIME_CONFIG$debug_verbose) {
+        message(sprintf("Found %d samples for comparison", nrow(row_samples_to_visualize)))
+    }
+
+    # Initialize tracks list with chromosome axis
+    tracks <- list(
+        Gviz::GenomeAxisTrack(
+            name = sprintf(track_axis_name_template, chromosome_to_plot)
+        )
+    )
+
 #    for (i in seq_len(nrow(row_samples_to_visualize))) {
 #        sample_id <- row_samples_to_visualize$sample_id[i]
 #        current_antibody <- row_samples_to_visualize$antibody[i]
@@ -427,4 +427,4 @@ if (!limits_result$success) {
     #} else {
     #    Sys.sleep(RUNTIME_CONFIG$output_display_time)  # Pause between plots
     #}
-#}
+}
