@@ -447,7 +447,8 @@ for (group_idx in groups_to_process) {
         to = chromosome_width,
         ylim = y_limits,
         title = plot_title,
-        visualization_params = GENOME_TRACK_CONFIG$plot_defaults
+        visualization_params = GENOME_TRACK_CONFIG$plot_defaults,
+        verbose = RUNTIME_CONFIG$debug_verbose
     )
 
     if (RUNTIME_CONFIG$output_dry_run) {

@@ -449,7 +449,8 @@ create_track_plot_config <- function(
     to,
     ylim,
     title = NULL,
-    visualization_params = list()
+    visualization_params = list(),
+    verbose = FALSE
 ) {
     # Input validation
     stopifnot(
@@ -458,44 +459,51 @@ create_track_plot_config <- function(
         "chromosome must be character" = is.character(chromosome),
         "from must be numeric" = is.numeric(from),
         "to must be numeric" = is.numeric(to),
-        "ylim must be numeric vector of length 2" = is.numeric(ylim) && length(ylim) == 2,
+        "ylim must be numeric vector of length 2" = 
+            is.numeric(ylim) && length(ylim) == 2,
         "visualization_params must be a list" = is.list(visualization_params)
     )
 
-    # Validate all tracks are Gviz track objects
-    valid_tracks <- all(sapply(tracks, inherits, "GdObject"))
-    if (!valid_tracks) {
-        stop("All elements in 'tracks' must be valid Gviz track objects (inherit from GdObject)")
+    if (verbose) {
+        message("\nCreating Plot Configuration:")
+        message(sprintf("  Tracks: %d", length(tracks)))
+        message(sprintf("  Chromosome: %s", chromosome))
+        message(sprintf("  Range: %d-%d", from, to))
+        message(sprintf("  Y-limits: %s", paste(ylim, collapse="-")))
     }
 
-    # Hardcoded defaults
-    default_params <- list(
-        fontcolor = "black",           # Track name text color
-        background.title = "white",    # Track name background
-        col.border.title = "#E0E0E0",  # Border around track names
-        cex.main = 1,                  # Main title size
-        cex.axis = 0.8,               # Axis text size
-        col.axis = "black",           # Axis color
-        margin = 15,                  # Outer margin
-        innerMargin = 5,              # Inner margin
-        showTitle = TRUE              # Show track titles
+    # Validate tracks
+    valid_tracks <- all(sapply(tracks, inherits, "GdObject"))
+    if (!valid_tracks) {
+        stop("All elements in 'tracks' must be valid Gviz track objects")
+    }
+
+    # Create base configuration
+    base_config <- list(
+        trackList = tracks,
+        chromosome = chromosome,
+        from = from,
+        to = to,
+        ylim = ylim,
+        main = title
     )
-    
-    # Merge with provided parameters
-    viz_params <- modifyList(default_params, visualization_params)
-    
-    # Construct plot configuration
-    c(
-        list(
-            trackList = tracks,
-            chromosome = chromosome,
-            from = from,
-            to = to,
-            ylim = ylim,
-            main = title
-        ),
-        viz_params
-    )
+
+    # Merge with visualization parameters
+    final_config <- modifyList(base_config, visualization_params)
+
+    if (verbose) {
+        message("\nConfiguration Parameters:")
+        message("  Base parameters:")
+        invisible(lapply(names(base_config), function(param) {
+            message(sprintf("    %s", param))
+        }))
+        message("  Visualization parameters:")
+        invisible(lapply(names(visualization_params), function(param) {
+            message(sprintf("    %s", param))
+        }))
+    }
+
+    final_config
 }
 
 #' Execute track plotting with optional saving
@@ -564,7 +572,7 @@ execute_track_plot <- function(
         if (verbose) message("\nExecuting plot...")
         
         # Merge plot parameters
-        final_params <- c(
+        final_params <- modifyList(
             plot_config,
             plot_params  # Add custom plot parameters
         )
