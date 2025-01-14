@@ -435,24 +435,15 @@ for (group_idx in groups_to_process) {
         save_path = NULL,
         save_params = list()
     )
-#    #if (RUNTIME_CONFIG$output_save_plots) {
-#    #    execute_track_plot(
-#    #        plot_config,
-#    #        save_path = plot_file,
-#    #        save_params = list(
-#    #            width = GENOME_TRACK_CONFIG$display_width,
-#    #            height = GENOME_TRACK_CONFIG$display_height
-#    #        )
-#    #    )
-#    #}
-    # Interactive viewing options
-    if (RUNTIME_CONFIG$debug_interactive) {
-        user_input <- readline(
-            prompt = GENOME_TRACK_CONFIG$interactive_prompt
+
+    if (!RUNTIME_CONFIG$output_dry_run) {
+        execute_track_plot(
+            plot_config,
+            save_path = plot_file,
+            save_params = list(
+                width = GENOME_TRACK_CONFIG$display_width,
+                height = GENOME_TRACK_CONFIG$display_height
+            )
         )
-        if (user_input == "q") break
-        if (user_input == "s") RUNTIME_CONFIG$output_save_plots <- FALSE
-    } else {
-        Sys.sleep(RUNTIME_CONFIG$output_display_time)  # Pause between plots
     }
 }
