@@ -1,0 +1,9 @@
+# Common issues when using this repository
+
+## Config files version misaligned.
+Most of the time, the config files arent updated to the latest version.
+You can open all of them in neovim and update them manually.
+```{bash}
+nvim ~/data/*Bel/documentation/*_bmc_config.R ~/lab_utils/core_scripts/template_bmc_config.R
+```
+
