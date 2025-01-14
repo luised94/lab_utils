@@ -330,10 +330,27 @@ for (group_idx in groups_to_process) {
         )
         print(track_creation_result)
         if (track_creation_result$success) {
-            
+            if (RUNTIME_CONFIG$debug_verbose) {
+                message(sprintf("  Successfully created track for sample: %s", sample_id))
+            }
             tracks[[length(tracks) + 1]] <- track_creation_result$data
         } else {
-            tracks[[length(tracks) + 1]] <- create_placeholder_track(
+            # Report the error
+            message(sprintf("\nTrack creation failed for sample %s:", sample_id))
+            message(sprintf("  Error: %s", track_creation_result$error))
+            message("  Creating placeholder track instead")
+            
+            if (RUNTIME_CONFIG$debug_verbose) {
+                # Add context about the failure
+                message("  Context:")
+                message(sprintf("    Genomic Range: %s", 
+                               if(exists("genomic_range")) "Present" else "Missing"))
+                message(sprintf("    Chromosome: %s", chromosome_roman))
+                message(sprintf("    Width: %d", chromosome_width))
+            }
+        
+            # Create placeholder with error handling
+            placeholder_track <- create_placeholder_track(
                 sampling_rate = 100,
                 chromosome_width = chromosome_width,
                 track_color = track_color,
@@ -342,6 +359,8 @@ for (group_idx in groups_to_process) {
                 placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
                 format_args = placeholder_name_arguments
             )
+            
+            tracks[[length(tracks) + 1]] <- placeholder_track
         }
     }
     # Add feature track if available
