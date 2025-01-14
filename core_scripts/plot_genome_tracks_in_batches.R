@@ -348,26 +348,44 @@ for (group_idx in groups_to_process) {
             name = "Features"
         )
     }
-#    plot_title <- sprintf(
-#        GENOME_TRACK_CONFIG$title_dev_template,
-#        experiment_id,
-#        chromosome_to_plot,
-#        nrow(row_samples_to_visualize),
-#        TIMESTAMPS$full,
-#        normalization_method
-#    )
-#    #plot_config <- create_track_plot_config(
-#    #    tracks = tracks,
-#    #    chromosome = chromosome_roman,
-#    #    to = chromosome_width,
-#    #    ylim = y_limits,
-#    #    title = plot_title,
-#    #    visualization_params = viz_params
-#    #)
-#    #execute_track_plot(
-#    #    plot_config = plot_config,
-#    #    save_path = NULL,
-#    #    save_params = list()
+    plot_title <- sprintf(
+        GENOME_TRACK_CONFIG$title_group_template,
+        experiment_id,
+        chromosome_to_plot,
+        nrow(row_samples_to_visualize),
+        TIME_CONFIG$current_timestamp,
+        normalization_method
+    )
+    if (RUNTIME_CONFIG$debug_verbose) {
+            message(sprintf(
+                "Saving plot to: %s",
+                basename(plot_file)
+            ))
+        }
+#   #     plot_filename <- sprintf(
+#   #             "%s_%s_chr%s_n%d_group%d.svg",
+#   #             TIMESTAMPS$full,
+#   #             experiment_id,
+#   #             chromosome_to_plot,
+#   #             nrow(row_samples_to_visualize),
+#   #             group_idx
+#   #     )
+#   #     plot_file <- file.path(
+#   #         plots_dir,
+#   #         plot_filename
+#   #     )
+    #plot_config <- create_track_plot_config(
+    #    tracks = tracks,
+    #    chromosome = chromosome_roman,
+    #    to = chromosome_width,
+    #    ylim = y_limits,
+    #    title = plot_title,
+    #    visualization_params = viz_params
+    #)
+    #execute_track_plot(
+    #    plot_config = plot_config,
+    #    save_path = NULL,
+    #    save_params = list()
 #
 #    #)
 #    #if (RUNTIME_CONFIG$output_save_plots) {
