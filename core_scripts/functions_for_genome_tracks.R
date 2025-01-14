@@ -124,45 +124,99 @@ create_placeholder_track <- function(
     type = "l",
     chromosome_name,
     placeholder_format_name,
-    format_args
+    format_args,
+    verbose = FALSE
 ) {
-    stopifnot(
-        "sampling_rate must be positive numeric" = 
-            is.numeric(sampling_rate) && sampling_rate > 0,
-        "chromosome_width must be positive numeric" = 
-            is.numeric(chromosome_width) && chromosome_width > 0,
-        "track_color must be character" = 
-            is.character(track_color) && length(track_color) == 1,
-        "type must be valid track type" = 
-            type %in% c("l", "h", "p", "g"),
-        "chromosome_name must be character" = 
-            is.character(chromosome_name) && length(chromosome_name) == 1,
-        "placeholder_format_name must be character" = 
-            is.character(placeholder_format_name),
-        "format_args must be character vector" = 
-            is.character(format_args)
-    )
+    if (verbose) {
+        message("\nCreating Placeholder Track:")
+        message(sprintf("  Chromosome: %s", chromosome_name))
+        message(sprintf("  Width: %d", chromosome_width))
+        message(sprintf("  Points: %d", ceiling(chromosome_width / sampling_rate)))
+    }
 
-    num_points <- ceiling(chromosome_width / sampling_rate)
-    placeholder_name <- do.call(sprintf, c(list(placeholder_format_name), format_args))
+    # Input validation
+    tryCatch({
+        stopifnot(
+            "sampling_rate must be positive numeric" = 
+                is.numeric(sampling_rate) && sampling_rate > 0,
+            "chromosome_width must be positive numeric" = 
+                is.numeric(chromosome_width) && chromosome_width > 0,
+            "track_color must be character" = 
+                is.character(track_color) && length(track_color) == 1,
+            "type must be valid track type" = 
+                type %in% c("l", "h", "p", "g"),
+            "chromosome_name must be character" = 
+                is.character(chromosome_name) && length(chromosome_name) == 1,
+            "placeholder_format_name must be character" = 
+                is.character(placeholder_format_name),
+            "format_args must be character vector" = 
+                is.character(format_args)
+        )
 
-    empty_ranges <- GenomicRanges::GRanges(
-        seqnames = chromosome_name,
-        ranges = IRanges::IRanges(
-            start = seq(1, chromosome_width, length.out = num_points),
-            width = 1
-        ),
-        score = rep(0, num_points),
-        strand = "*"
-    )
-    
-    Gviz::DataTrack(
-        empty_ranges,
-        name = placeholder_name,
-        type = type,
-        col = track_color,
-        chromosome = chromosome_name
-    )
+        if (verbose) message("  Input validation successful")
+
+        # Create placeholder track
+        num_points <- ceiling(chromosome_width / sampling_rate)
+        
+        if (verbose) message("  Creating track name...")
+        placeholder_name <- tryCatch({
+            do.call(sprintf, c(list(placeholder_format_name), format_args))
+        }, error = function(e) {
+            stop(sprintf("Failed to create placeholder name: %s", e$message))
+        })
+
+        if (verbose) message("  Creating empty ranges...")
+        empty_ranges <- tryCatch({
+            GenomicRanges::GRanges(
+                seqnames = chromosome_name,
+                ranges = IRanges::IRanges(
+                    start = seq(1, chromosome_width, length.out = num_points),
+                    width = 1
+                ),
+                score = rep(0, num_points),
+                strand = "*"
+            )
+        }, error = function(e) {
+            stop(sprintf("Failed to create genomic ranges: %s", e$message))
+        })
+        
+        if (verbose) message("  Creating DataTrack...")
+        track <- tryCatch({
+            Gviz::DataTrack(
+                empty_ranges,
+                name = placeholder_name,
+                type = type,
+                col = track_color,
+                chromosome = chromosome_name
+            )
+        }, error = function(e) {
+            stop(sprintf("Failed to create DataTrack: %s", e$message))
+        })
+
+        if (verbose) {
+            message("  Placeholder track created successfully:")
+            message(sprintf("    Name: %s", placeholder_name))
+            message(sprintf("    Points: %d", num_points))
+        }
+
+        list(
+            success = TRUE,
+            data = track,
+            error = NULL
+        )
+
+    }, error = function(e) {
+        if (verbose) {
+            message("  ERROR creating placeholder track:")
+            message(sprintf("    %s", e$message))
+        }
+        
+        list(
+            success = FALSE,
+            data = NULL,
+            error = as.character(e)
+        )
+    })
 }
 
 #' Create genomic data track for sample
