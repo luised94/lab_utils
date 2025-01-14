@@ -395,8 +395,8 @@ for (group_idx in groups_to_process) {
         tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
             features,
             name = "Features",
-            size = 0.3,
-            background.title = "white",
+            size = 0.5,
+            background.title = "lightgray",
             fontcolor.title = "black",
             cex.title = 0.6
         )
