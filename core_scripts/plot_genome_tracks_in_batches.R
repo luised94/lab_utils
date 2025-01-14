@@ -318,13 +318,14 @@ for (group_idx in groups_to_process) {
         } else {
             color_scheme$get_color("antibody", current_antibody)
         }
+
         track_creation_result <- create_sample_track(
             bigwig_file_path = bigwig_file_path,
             track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
             format_args = track_name_arguments,
             track_color = track_color,
             track_type = GENOME_TRACK_CONFIG$track_type,
-            genomic_range = genomic_range
+            genomic_range = genome_range
 
         )
         print(track_creation_result)

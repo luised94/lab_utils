@@ -459,6 +459,39 @@ execute_track_plot <- function(
                           track@name))
         }))
     }
+    
+    # Check graphics device
+    if (verbose) {
+        message("\nGraphics Device Status:")
+        message(sprintf("  Current device: %d", dev.cur()))
+        message(sprintf("  Interactive session: %s", interactive()))
+    }
+    # Ensure we have a graphics device
+    if (dev.cur() == 1) {
+        if (verbose) message("  Opening new graphics device")
+        X11() # or quartz() on Mac, windows() on Windows
+    }
+    
+    # Modify plot function to be more explicit
+    do_plot <- function() {
+        if (verbose) message("\nExecuting plot...")
+        
+        # Ensure basic parameters are set
+        plot_params <- c(plot_config, list(
+            background.title = "white",
+            showTitle = TRUE,
+            cex.title = 1
+        ))
+        
+        tryCatch({
+            do.call(Gviz::plotTracks, plot_params)
+            if (verbose) message("  Plot execution successful")
+        }, error = function(e) {
+            message("  Plot execution failed:")
+            message(sprintf("    %s", as.character(e)))
+            stop(e)
+        })
+    }
 
     # Validate save_path if provided
     if (!is.null(save_path)) {
@@ -484,11 +517,6 @@ execute_track_plot <- function(
         height = 8,
         device = "svg"
     )
-    
-    # Function to perform the actual plotting
-    do_plot <- function() {
-        do.call(Gviz::plotTracks, plot_config)
-    }
     
     # If saving, handle device
     if (!is.null(save_path)) {
