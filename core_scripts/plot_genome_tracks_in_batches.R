@@ -130,17 +130,6 @@ fastq_files <- list.files(
     full.names = FALSE
 )
 
-if (length(fastq_files) == 0) {
-    stop("No fastq files found in specified directory")
-}
-
-# Extract sample IDs from fastq filenames
-sample_ids <- gsub(
-    pattern = GENOME_TRACK_CONFIG$file_sample_id,
-    replacement = "\\1",
-    x = fastq_files
-)
-
 # Find bigwig files
 bigwig_pattern <- sprintf("_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
 bigwig_files <- list.files(
@@ -149,11 +138,29 @@ bigwig_files <- list.files(
     full.names = TRUE
 )
 normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1",
-                          basename(bigwig_files[1]))
-
+    basename(bigwig_files[1]))
 if (length(bigwig_files) == 0) {
     stop("No bigwig files found in specified directory")
 }
+
+if (length(fastq_files) == 0) {
+    warning("No fastq files found in specified directory")
+    message("Attempting to use bigwig files to find sample_ids")
+    # Extract sample IDs from fastq filenames
+    sample_ids <- gsub(
+        pattern = GENOME_TRACK_CONFIG$file_sample_id_from_bigwig,
+        replacement = "\\1",
+        x = bigwig_files
+    )
+} else {
+    # Extract sample IDs from fastq filenames
+    sample_ids <- gsub(
+        pattern = GENOME_TRACK_CONFIG$file_sample_id,
+        replacement = "\\1",
+        x = fastq_files
+    )
+}
+print(sample_ids)
 
 metadata <- load_and_process_experiment_metadata(
     metadata_path = metadata_path,
@@ -218,6 +225,16 @@ ref_genome_file <- list.files(
     full.names = TRUE,
     recursive = TRUE
 )[1]
+
+if (length(ref_genome_file) == 0) {
+    stop(sprintf("No reference genome files found matching pattern '%s' in: %s", 
+                GENOME_TRACK_CONFIG$file_genome_pattern,
+                GENOME_TRACK_CONFIG$file_genome_directory))
+}
+
+if (!file.exists(ref_genome_file)) {
+    stop(sprintf("Reference genome file not accessible: %s", ref_genome_file[1]))
+}
 genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
 
 # Create chromosome range
@@ -237,6 +254,12 @@ feature_file <- list.files(
     pattern = GENOME_TRACK_CONFIG$file_feature_pattern,
     full.names = TRUE
 )[1]
+
+if (length(feature_file) == 0) {
+    warning(sprintf("No feature files found matching pattern '%s' in: %s", 
+                   GENOME_TRACK_CONFIG$file_feature_pattern,
+                   GENOME_TRACK_CONFIG$file_feature_directory))
+}
 
 if (!is.null(feature_file)) {
     features <- rtracklayer::import(feature_file)

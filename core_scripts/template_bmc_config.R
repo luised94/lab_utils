@@ -257,6 +257,8 @@ GENOME_TRACK_CONFIG <- list(
     # File handling
     file_pattern = "consolidated_.*_sequence\\.fastq$",
     file_sample_id = "consolidated_([0-9]{5,6})_sequence\\.fastq",
+    file_sample_id_from_bigwig = "processed_([0-9]{5,6})_sequence_to_S288C_(RPKM|CPM|BPM|RPGC)\\.bw",
+
     file_suffix = ".tab",
     file_base = "fastqc_data",
     file_genome_pattern = "S288C_refgenome.fna",
