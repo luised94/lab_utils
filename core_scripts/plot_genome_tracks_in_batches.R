@@ -302,44 +302,36 @@ for (group_idx in groups_to_process) {
         # Find matching bigwig file
         bigwig_file_path <- bigwig_files[grepl(sample_id, bigwig_files)][1]
 
-        #track_name <- sprintf(
-        #    GENOME_TRACK_CONFIG$format_track,
-        #    sample_id_mapping[sample_id],
-        #    row_samples_to_visualize$short_name[i],
-        #    row_samples_to_visualize$antibody[i]
-        #)
         track_name_arguments <- c(
-            sample_id_mapping[sample_id],
-            row_samples_to_visualize$short_name[i],
-            row_samples_to_visualize$antibody[i]
+            sample_id_mapping[sample_id],  # Mapped ID
+            track_labels[i]                # Generated label from create_track_labels
         )
 
-        placeholder_name <- sprintf(
-            GENOME_TRACK_CONFIG$format_placeholder_track_name,
-            track_name,
+        placeholder_name_arguments <- c(
+            sample_id_mapping[sample_id],
+            track_labels[i],
             GENOME_TRACK_CONFIG$format_suffix
         )
+
         track_color <- if (current_antibody == "Input") {
             color_scheme$fixed$input
         } else {
             color_scheme$get_color("antibody", current_antibody)
         }
+
         track_creation_result <- create_sample_track(
             bigwig_file_path = bigwig_file_path,
-            track_format_name = GENOME_TRACK_CONFIG$format_control_track_name,
+            track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
             format_args = track_name_arguments,
             track_color = track_color,
             track_type = GENOME_TRACK_CONFIG$track_type,
             genomic_range = genomic_range
 
         )
+
         if (track_creation_result$success) {
             tracks[[length(tracks) + 1]] <- track_creation_result$data
         } else {
-            track_name_arguments <- c(
-                sample_id_mapping[sample_id],
-                GENOME_TRACK_CONFIG$format_suffix
-            )
             placeholder_track_creation_result <- create_placeholder_track(
                 sampling_rate = 100,
                 chromosome_width = chromosome_width,
@@ -347,9 +339,9 @@ for (group_idx in groups_to_process) {
                 type = GENOME_TRACK_CONFIG$track_type,
                 chromosome_name = chromosome_roman,
                 placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
-                format_args = track_name_arguments
+                format_args = placeholder_name_arguments
             )
-            if(placeholder_track_creation_result$success) {
+            if (placeholder_track_creation_result$success) {
                 if (RUNTIME_CONFIG$debug_verbose) {
                     message("Created placeholder for sample: ", sample_id)
                 }

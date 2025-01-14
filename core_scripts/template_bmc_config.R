@@ -245,7 +245,7 @@ GENOME_TRACK_CONFIG <- list(
     # Track naming
     format_sample_track_name = "%s: %s",
     format_control_track_name = "%s: %s - %s",
-    format_placeholder_track_name = "%s %s",
+    format_placeholder_track_name = "%s: %s - %s",
     format_suffix = "(No data)",
     format_genome_axis_track_name = "Chr %s Axis",
 
