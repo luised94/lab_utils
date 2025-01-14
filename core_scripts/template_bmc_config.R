@@ -297,13 +297,13 @@ GENOME_TRACK_CONFIG <- list(
         showAxis = TRUE,
         showTitle = TRUE,
         type = "h",
-        size = 0.6,
+        size = 1.2,
         background.title = "white",
         fontcolor.title = "black",
         col.border.title = "#E0E0E0",
-        cex.title = 0.7,
+        cex.title = 0.6,
         fontface = 1,
-        title.width = 0.9
+        title.width = 1.2
     ),
     
     # New Plot Defaults
@@ -315,9 +315,10 @@ GENOME_TRACK_CONFIG <- list(
         extend.right = 0,
         col.axis = "black",
         cex.axis = 0.8,
+        cex.main = 0.8,
+        fontface.main = 2,
         background.panel = "transparent"
     )
-
 )
 
 ################################################################################

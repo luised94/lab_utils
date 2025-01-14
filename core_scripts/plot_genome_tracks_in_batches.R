@@ -394,8 +394,16 @@ for (group_idx in groups_to_process) {
     if (exists("features")) {
         tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
             features,
-            name = "Features"
+            name = "Features",
+            size = 0.3,
+            background.title = "white",
+            fontcolor.title = "black",
+            cex.title = 0.6
         )
+        #tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
+        #    features,
+        #    name = "Features"
+        #)
     }
 
     plot_title <- sprintf(
