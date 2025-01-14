@@ -34,11 +34,7 @@ fi
 # Format file listing with columns and headers
 echo -e "\nBAM files found:"
 echo "----------------"
-mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "sorted*.bam" -exec basename {} \;)
-#unique_files=$(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "sorted*.bam" -exec basename {} \;)
-find "${EXPERIMENT_DIR}/alignment" -maxdepth 1 -type f -name "*_sorted.bam" -exec basename {} \; | \
-    pr -3 -t -w 100 | \
-    column -t
+mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*_sorted.bam" -exec basename {} \;)
 printf '%s\n' "${unique_files[@]}" | column -c $(tput cols)
 echo "----------------"
 echo -e "\nWill submit array job with following parameters:"
