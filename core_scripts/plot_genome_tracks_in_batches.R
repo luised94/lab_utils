@@ -348,6 +348,7 @@ for (group_idx in groups_to_process) {
             name = "Features"
         )
     }
+
     plot_title <- sprintf(
         GENOME_TRACK_CONFIG$title_group_template,
         experiment_id,
@@ -357,14 +358,16 @@ for (group_idx in groups_to_process) {
         TIME_CONFIG$current_timestamp,
         normalization_method
     )
+
     plot_filename <- sprintf(
              GENOME_TRACK_CONFIG$filename_format_group_template,
-             TIMESTAMPS$full,
+             TIME_CONFIG$current_timestamp,
              experiment_id,
              chromosome_to_plot,
              nrow(row_samples_to_visualize),
              group_idx
      )
+
      plot_file <- file.path(
          dirs$output_dir,
          plot_filename
@@ -406,7 +409,7 @@ for (group_idx in groups_to_process) {
 #   #
 #   #     plot_filename <- sprintf(
 #   #             "%s_%s_chr%s_n%d_group%d.svg",
-#   #             TIMESTAMPS$full,
+#   #             TIME_CONFIG$current_timestamp,
 #   #             experiment_id,
 #   #             chromosome_to_plot,
 #   #             nrow(row_samples_to_visualize),
