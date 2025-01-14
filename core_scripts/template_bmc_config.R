@@ -223,7 +223,7 @@ GENOME_TRACK_CONFIG <- list(
     
     # Track Creation
     track_points_default = 1000,
-    track_show_title = TRUE,
+    #track_show_title = TRUE,
 
     # Track defaults
     track_ylim = c(0, 100),  # Default y-limits, adjust as needed
@@ -249,9 +249,6 @@ GENOME_TRACK_CONFIG <- list(
     file_pattern = "consolidated_.*_sequence\\.fastq$",
     file_sample_id = "consolidated_([0-9]{5,6})_sequence\\.fastq",
     file_sample_id_from_bigwig = "processed_([0-9]{5,6})_sequence_to_S288C_(RPKM|CPM|BPM|RPGC)\\.bw",
-
-    file_suffix = ".tab",
-    file_base = "fastqc_data",
     file_genome_pattern = "S288C_refgenome.fna",
     file_genome_directory = file.path(Sys.getenv("HOME"), "data", "REFGENS"),
     file_feature_directory = file.path(Sys.getenv("HOME"), "data", "feature_files"),
@@ -261,8 +258,6 @@ GENOME_TRACK_CONFIG <- list(
     filename_format_group_template = "%s_%s_chr%s_n%d_group%d.svg",
     filename_format_comparison_template = "%s_%s_chr%s_%s.svg",
     
-    # Development mode title
-    title_dev_mode = "development",  # Enum: "development" | "publication"
     title_group_template = paste(
         "%s",               # Title
         "Group: %s",   # Comparison ID
@@ -279,19 +274,18 @@ GENOME_TRACK_CONFIG <- list(
         "Normalization: %s", # Norm method
         sep = "\n"
     ),
-    title_dev_style = 2,    # Bold
-    
-    # Publication mode title
-    title_pub_template = "%s: Chr%s (%s)",
-    title_pub_size = 1,
-    title_pub_style = 2,    # Bold
-    
-    # Title constraints
-    title_max_width = 40,
-    title_max_lines = 5,
-
+    # Development mode title
+    #title_dev_mode = "development",  # Enum: "development" | "publication"
+    #title_dev_style = 2,    # Bold
+    ## Publication mode title
+    #title_pub_template = "%s: Chr%s (%s)",
+    #title_pub_size = 1,
+    #title_pub_style = 2,    # Bold
+    ## Title constraints
+    #title_max_width = 40,
+    #title_max_lines = 5,
     # Interactive mode
-    interactive_prompt = "Options: [Enter] next plot, 's' skip rest, 'q' quit: ",
+    #interactive_prompt = "Options: [Enter] next plot, 's' skip rest, 'q' quit: ",
 
     track_defaults = list(
         showAxis = TRUE,

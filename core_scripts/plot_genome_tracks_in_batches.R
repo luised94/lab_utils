@@ -278,7 +278,7 @@ limits_result <- calculate_track_limits(
 
 if (!limits_result$success) {
     warning("Failed to calculate y-limits: ", limits_result$error)
-    y_limits <- c(0, 1000)  # Default fallback
+    y_limits <- GENOME_TRACK_CONFIG$track_ylim  # Default fallback
 } else {
     y_limits <- limits_result$data
 }
@@ -288,9 +288,9 @@ for (group_idx in groups_to_process) {
     row_samples_to_visualize <- metadata[sample_groups[[group_idx]], ]
     label_result <- create_track_labels(
         samples = row_samples_to_visualize,
-        always_show = "antibody",
-        never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
-        separator = "-",
+        always_show = GENOME_TRACK_CONFIG$label_always_show,
+        never_show = GENOME_TRACK_CONFIG$label_never_show,
+        separator = GENOME_TRACK_CONFIG$label_separator,
         verbose = TRUE
     )
 
@@ -373,7 +373,7 @@ for (group_idx in groups_to_process) {
         
             # Create placeholder with error handling
             placeholder_track_creation_result <- create_placeholder_track(
-                sampling_rate = 100,
+                sampling_rate = GENOME_TRACK_CONFIG$track_sampling_rate,
                 chromosome_width = chromosome_width,
                 track_color = track_color,
                 type = GENOME_TRACK_CONFIG$track_type,
