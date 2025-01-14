@@ -494,6 +494,7 @@ execute_track_plot <- function(
     plot_config,
     save_path = NULL,
     save_params = list(),
+    display_plot = FALSE,  # New parameter to control display
     verbose = TRUE
 ) {
     # Validate inputs
