@@ -296,69 +296,69 @@ for (group_idx in groups_to_process) {
         )
     )
 
-#    for (i in seq_len(nrow(row_samples_to_visualize))) {
-#        sample_id <- row_samples_to_visualize$sample_id[i]
-#        current_antibody <- row_samples_to_visualize$antibody[i]
-#        # Find matching bigwig file
-#        bigwig_file_path <- bigwig_files[grepl(sample_id, bigwig_files)][1]
-#
-#        track_name <- sprintf(
-#            GENOME_TRACK_CONFIG$format_track,
-#            sample_id_mapping[sample_id],
-#            row_samples_to_visualize$short_name[i],
-#            row_samples_to_visualize$antibody[i]
-#        )
-#        track_name_arguments <- c(
-#            sample_id_mapping[sample_id],
-#            row_samples_to_visualize$short_name[i],
-#            row_samples_to_visualize$antibody[i]
-#        )
-#
-#        placeholder_name <- sprintf(
-#            "%s %s",
-#            track_name,
-#            GENOME_TRACK_CONFIG$format_placeholder
-#        )
-#        track_color <- if (current_antibody == "Input") {
-#            color_scheme$fixed$input
-#        } else {
-#            color_scheme$get_color("antibody", current_antibody)
-#        }
-#        track_creation_result <- create_sample_track(
-#            bigwig_file_path = bigwig_file_path,
-#            track_format_name = ,
-#            format_args = track_name_arguments,
-#            track_color = track_color,
-#            track_type = GENOME_TRACK_CONFIG$track_type,
-#            genomic_range = genomic_range
-#
-#        )
-#        if (track_creation_result$success) {
-#            tracks[[length(tracks) + 1]] <- track_creation_result$data
-#        } else {
-#            track_name_arguments <- c(
-#                sample_id_mapping[sample_id],
-#                GENOME_TRACK_CONFIG$format_suffix
-#            )
-#            placeholder_track_creation_result <- create_placeholder_track(
-#                sampling_rate = 100,
-#                chromosome_width = chromosome_width,
-#                track_color = track_color,
-#                type = GENOME_TRACK_CONFIG$track_type,
-#                chromosome_name = chromosome_roman,
-#                placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
-#                format_args = track_name_arguments
-#            )
-#            if(placeholder_track_creation_result$success) {
-                 #if (RUNTIME_CONFIG$debug_verbose) {
-                 #    message("Created placeholder for sample: ", sample_id)
-                 #}
-#            tracks[[length(tracks) + 1]] <- placeholder_track_creation_result$data
-#           } else {
-#                stop(sprintf("Placeholder track creation failed for sample id %s.", sample_id))
-#           }
-#        }
-#    }
+    for (i in seq_len(nrow(row_samples_to_visualize))) {
+        sample_id <- row_samples_to_visualize$sample_id[i]
+        current_antibody <- row_samples_to_visualize$antibody[i]
+        # Find matching bigwig file
+        bigwig_file_path <- bigwig_files[grepl(sample_id, bigwig_files)][1]
+
+        track_name <- sprintf(
+            GENOME_TRACK_CONFIG$format_track,
+            sample_id_mapping[sample_id],
+            row_samples_to_visualize$short_name[i],
+            row_samples_to_visualize$antibody[i]
+        )
+        track_name_arguments <- c(
+            sample_id_mapping[sample_id],
+            row_samples_to_visualize$short_name[i],
+            row_samples_to_visualize$antibody[i]
+        )
+
+        placeholder_name <- sprintf(
+            GENOME_TRACK_CONFIG$format_placeholder_track_name,
+            track_name,
+            GENOME_TRACK_CONFIG$format_suffix
+        )
+        track_color <- if (current_antibody == "Input") {
+            color_scheme$fixed$input
+        } else {
+            color_scheme$get_color("antibody", current_antibody)
+        }
+        track_creation_result <- create_sample_track(
+            bigwig_file_path = bigwig_file_path,
+            track_format_name = ,
+            format_args = track_name_arguments,
+            track_color = track_color,
+            track_type = GENOME_TRACK_CONFIG$track_type,
+            genomic_range = genomic_range
+
+        )
+        if (track_creation_result$success) {
+            tracks[[length(tracks) + 1]] <- track_creation_result$data
+        } else {
+            track_name_arguments <- c(
+                sample_id_mapping[sample_id],
+                GENOME_TRACK_CONFIG$format_suffix
+            )
+            placeholder_track_creation_result <- create_placeholder_track(
+                sampling_rate = 100,
+                chromosome_width = chromosome_width,
+                track_color = track_color,
+                type = GENOME_TRACK_CONFIG$track_type,
+                chromosome_name = chromosome_roman,
+                placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
+                format_args = track_name_arguments
+            )
+            if(placeholder_track_creation_result$success) {
+                if (RUNTIME_CONFIG$debug_verbose) {
+                    message("Created placeholder for sample: ", sample_id)
+                }
+                tracks[[length(tracks) + 1]] <- placeholder_track_creation_result$data
+            } else {
+                stop(sprintf("Placeholder track creation failed for sample id %s.", sample_id))
+            }
+        }
+    }
 #    # Add feature track if available
 #    if (exists("features")) {
 #        tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
