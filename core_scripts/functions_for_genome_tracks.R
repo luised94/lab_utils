@@ -504,6 +504,15 @@ execute_track_plot <- function(
     )
 
     if (verbose) {
+        message("\nGraphics Device Status:")
+        message(sprintf("  Current device: %d", dev.cur()))
+        message(sprintf("  Interactive session: %s", interactive()))
+        message("\nPlot Operation:")
+        message(sprintf("  Display Plot: %s", display_plot))
+        message(sprintf("  Save Plot: %s", !is.null(save_path)))
+        if (!is.null(save_path)) {
+            message(sprintf("  Save Path: %s", save_path))
+        }
         message("\nPlot Execution:")
         message(sprintf("  Number of tracks: %d", length(plot_config$trackList)))
         message("  Track types:")
@@ -513,18 +522,7 @@ execute_track_plot <- function(
                           track@name))
         }))
     }
-    
-    # Check graphics device
-    if (verbose) {
-        message("\nGraphics Device Status:")
-        message(sprintf("  Current device: %d", dev.cur()))
-        message(sprintf("  Interactive session: %s", interactive()))
-    }
-    # Ensure we have a graphics device
-    if (dev.cur() == 1) {
-        if (verbose) message("  Opening new graphics device")
-        X11() # or quartz() on Mac, windows() on Windows
-    }
+
     
     # Modify plot function to be more explicit
     do_plot <- function() {
@@ -549,6 +547,17 @@ execute_track_plot <- function(
 
     # Validate save_path if provided
     if (!is.null(save_path)) {
+    }
+
+    # Default save parameters
+    default_save_params <- list(
+        width = 10,
+        height = 8,
+        device = "svg"
+    )
+    
+    # If saving, handle device
+    if (!is.null(save_path)) {
         tryCatch({
             # Check if directory exists and is writable
             save_dir <- dirname(save_path)
@@ -563,39 +572,35 @@ execute_track_plot <- function(
         }, error = function(e) {
             stop("Invalid save path: ", e$message)
         })
-    }
-
-    # Default save parameters
-    default_save_params <- list(
-        width = 10,
-        height = 8,
-        device = "svg"
-    )
-    
-    # If saving, handle device
-    if (!is.null(save_path)) {
         # Merge save parameters
         save_params <- modifyList(default_save_params, save_params)
         
+        if (verbose) message("\nSaving plot...")
         # Open device based on file extension
+        
         if (grepl("\\.svg$", save_path)) {
-            svg(save_path, 
-                width = save_params$width,
-                height = save_params$height)
+            svg(save_path, width = save_params$width, height = save_params$height)
+            do_plot()
+            dev.off()
         } else if (grepl("\\.pdf$", save_path)) {
-            pdf(save_path,
-                width = save_params$width,
-                height = save_params$height)
+            pdf(save_path, width = save_params$width, height = save_params$height)
+            do_plot()
+            dev.off()
         } else {
             stop("Unsupported file format. Use .svg or .pdf")
         }
+    }
+    # Handle display
+    if (display_plot) {
+        if (verbose) message("\nDisplaying plot...")
+        
+        if (dev.cur() == 1) {
+            if (verbose) message("  Opening new graphics device")
+            X11() # or quartz() on Mac, windows() on Windows
+        }
         
         do_plot()
-        dev.off()
     }
-    
-    # Always plot to current device
-    do_plot()
     
     invisible(NULL)
 }

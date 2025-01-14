@@ -429,20 +429,24 @@ for (group_idx in groups_to_process) {
         visualization_params = viz_params
     )
 
-    execute_track_plot(
-        plot_config = plot_config,
-        save_path = NULL,
-        save_params = list()
-    )
-
-    if (!RUNTIME_CONFIG$output_dry_run) {
+    if (RUNTIME_CONFIG$output_dry_run) {
+        # Just display the plot
         execute_track_plot(
-            plot_config,
+            plot_config = plot_config,
+            display_plot = TRUE,
+            verbose = RUNTIME_CONFIG$debug_verbose
+        )
+    } else {
+        # Save the plot
+        execute_track_plot(
+            plot_config = plot_config,
             save_path = plot_file,
             save_params = list(
                 width = GENOME_TRACK_CONFIG$display_width,
                 height = GENOME_TRACK_CONFIG$display_height
-            )
+            ),
+            display_plot = FALSE,  # Don't display when saving
+            verbose = RUNTIME_CONFIG$debug_verbose
         )
     }
 }
