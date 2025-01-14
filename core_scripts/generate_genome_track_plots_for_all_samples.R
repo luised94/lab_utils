@@ -230,7 +230,6 @@ for (group_idx in groups_to_process) {
     }
 
     # Initialize tracks list with chromosome axis
-
     tracks <- list(
         Gviz::GenomeAxisTrack(
             name = sprintf(track_axis_name_template, chromosome_to_plot)
@@ -273,7 +272,6 @@ for (group_idx in groups_to_process) {
         #)
         #if(track_creation_result$success) {
         #    tracks[[length(tracks) + 1]] <- track_result$data
-
         #} else {
         #    # Create placeholder
         #    tracks[[length(tracks) + 1]] <- create_placeholder_track(
