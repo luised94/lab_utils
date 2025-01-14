@@ -241,8 +241,10 @@ create_sample_track <- function(
     track_color,
     track_type = "l",
     genomic_range = NULL,
+    track_params = list(),
     verbose = TRUE
 ) {
+    
     # Input validation
     stopifnot(
         "bigwig_file_path must be character" = 
@@ -254,14 +256,25 @@ create_sample_track <- function(
         "track_color must be character" = 
             is.character(track_color) && length(track_color) == 1,
         "track_type must be character" = 
-            is.character(track_type) && length(track_type) == 1
+            is.character(track_type) && length(track_type) == 1,
+        "track_params must be a list" = 
+            is.list(track_params)
     )
-    
+
     if (verbose) {
         message("\nTrack Creation Attempt:")
         message(sprintf("  Bigwig path: %s", bigwig_file_path))
-        message(sprintf("  File exists: %s", file.exists(bigwig_file_path)))
         message(sprintf("  Is NA: %s", is.na(bigwig_file_path)))
+        message(sprintf("  File exists: %s", file.exists(bigwig_file_path)))
+        message(sprintf("  Track type: %s", track_type))
+        if (length(track_params) > 0) {
+            message("  Track parameters:")
+            invisible(lapply(names(track_params), function(param) {
+                message(sprintf("    %s: %s", 
+                              param, 
+                              paste(track_params[[param]], collapse = ", ")))
+            }))
+        }
     }
 
     # Modify file check to be more explicit
@@ -293,17 +306,23 @@ create_sample_track <- function(
         # Create track name
         track_name <- do.call(sprintf, c(list(track_format_name), format_args))
 
-        # Create track
-        track <- Gviz::DataTrack(
-            track_data,
-            name = track_name,
-            type = track_type,
-            col = track_color,
-            showTitle = TRUE,         # Ensure title is shown
-            #background.title = "white", # Make title background visible
-            fontcolor.title = "black" # Ensure title text is visible
-            #cex.title = 0.8          # Set title size
+        if (verbose) message(sprintf("  Creating track: %s", track_name))
+
+        # Merge default parameters with provided ones
+        track_args <- c(
+            list(
+                track_data,
+                name = track_name,
+                type = track_type,
+                col = track_color
+            ),
+            track_params
         )
+
+        # Create track with all parameters
+        track <- do.call(Gviz::DataTrack, track_args)
+
+        if (verbose) message("  Track creation successful")
 
         list(
             success = TRUE,
