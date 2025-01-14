@@ -150,7 +150,7 @@ if (length(fastq_files) == 0) {
     sample_ids <- gsub(
         pattern = GENOME_TRACK_CONFIG$file_sample_id_from_bigwig,
         replacement = "\\1",
-        x = bigwig_files
+        x = basename(bigwig_files)
     )
 } else {
     # Extract sample IDs from fastq filenames
@@ -160,7 +160,6 @@ if (length(fastq_files) == 0) {
         x = fastq_files
     )
 }
-print(sample_ids)
 
 metadata <- load_and_process_experiment_metadata(
     metadata_path = metadata_path,
@@ -210,7 +209,7 @@ sample_groups <- split(
 
 # Determine which groups to process
 groups_to_process <- if (RUNTIME_CONFIG$process_single_file) {
-    RUNTIME_CONFIG$process_group
+    RUNTIME_CONFIG$process_batch
 } else {
     seq_along(sample_groups)
 }
