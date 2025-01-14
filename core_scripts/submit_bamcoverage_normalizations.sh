@@ -33,10 +33,10 @@ fi
 #
 # Format file listing with columns and headers
 echo -e "\nBAM files found:"
-echo "----------------"
 mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*_sorted.bam" -exec basename {} \;)
-printf '%s\n' "${unique_files[@]}" | column -c $(tput cols)
-echo "----------------"
+printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
+printf '%s\n' "${unique_files[@]}" | column -c "${COLUMNS:-$(tput cols)}"
+printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
 echo -e "\nWill submit array job with following parameters:"
 echo "Array size: 1-${BAM_COUNT}"
 echo "Max simultaneous jobs: 16"
