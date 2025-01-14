@@ -292,7 +292,7 @@ for (group_idx in groups_to_process) {
     # Initialize tracks list with chromosome axis
     tracks <- list(
         Gviz::GenomeAxisTrack(
-            name = sprintf(track_axis_name_template, chromosome_to_plot)
+            name = sprintf(GENOME_TRACK_CONFIG$format_genome_axis_track_name, chromosome_to_plot)
         )
     )
 
