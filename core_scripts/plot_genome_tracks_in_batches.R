@@ -197,8 +197,8 @@ if (RUNTIME_CONFIG$debug_verbose) {
 
 # Create sample groups
 sample_groups <- split(
-    seq_len(nrow(sorted_metadata)),
-    ceiling(seq_len(nrow(sorted_metadata)) / RUNTIME_CONFIG$process_samples_per_batch)
+    seq_len(nrow(metadata)),
+    ceiling(seq_len(nrow(metadata)) / RUNTIME_CONFIG$process_samples_per_batch)
 )
 
 # Determine which groups to process
@@ -263,7 +263,7 @@ if (!limits_result$success) {
 
 #for (group_idx in groups_to_process) {
 #
-#    row_samples_to_visualize <- sorted_metadata[sample_groups[[group_idx]], ]
+#    row_samples_to_visualize <- metadata[sample_groups[[group_idx]], ]
 #
 #    label_result <- create_track_labels(
 #        samples = row_samples_to_visualize,
@@ -349,6 +349,14 @@ if (!limits_result$success) {
 #                placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
 #                format_args = track_name_arguments
 #            )
+#            if(placeholder_track_creation_result$success) {
+                 #if (RUNTIME_CONFIG$debug_verbose) {
+                 #    message("Created placeholder for sample: ", sample_id)
+                 #}
+#            tracks[[length(tracks) + 1]] <- placeholder_track_creation_result$data
+#           } else {
+#                stop(sprintf("Placeholder track creation failed for sample id %s.", sample_id))
+#           }
 #        }
 #    }
 #    # Add feature track if available
@@ -409,4 +417,14 @@ if (!limits_result$success) {
 #    #        )
 #    #    )
 #    #}
+    ## Interactive viewing options
+    #if (RUNTIME_CONFIG$debug_interactive) {
+    #    user_input <- readline(
+    #        prompt = GENOME_TRACK_CONFIG$interactive_prompt
+    #    )
+    #    if (user_input == "q") break
+    #    if (user_input == "s") RUNTIME_CONFIG$output_save_plots <- FALSE
+    #} else {
+    #    Sys.sleep(RUNTIME_CONFIG$output_display_time)  # Pause between plots
+    #}
 #}
