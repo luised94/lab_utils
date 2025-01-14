@@ -1,13 +1,35 @@
 #!/usr/bin/env Rscript
-# Required Packages and Functions
+## Required Packages and Functions
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
 
-# Parse arguments and validate configurations
-args <- parse_args(commandArgs(trailingOnly = TRUE))
-experiment_id <- args[["experiment-id"]]
-source(file.path("~/data", experiment_id, "documentation", 
-                paste0(experiment_id, "_bmc_config.R")))
-validate_configs(c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG"))
+# At script start
+required_variables <- c(
+    "experiment_id",
+    "chromosome_to_plot",
+    "samples_per_batch"
+)
+
+# Check and guide
+missing_vars <- required_variables[!sapply(required_variables, exists)]
+if (length(missing_vars) > 0) {
+    message("\nMissing required variables:")
+    message(paste(" -", missing_vars, collapse = "\n"))
+    message("\nPlease set these variables and re-source the script:")
+    message("Example:")
+    message('experiment_id <- "241010Bel"')
+    message("chromosome_to_plot <- 10")
+    message("samples_per_batch <- 4")
+    message("\nThen:")
+    message('source("plot_genome_tracks_in_batches.R")')
+    return(invisible(NULL))
+}
+#
+## Parse arguments and validate configurations
+#args <- parse_args(commandArgs(trailingOnly = TRUE))
+#experiment_id <- args[["experiment-id"]]
+#source(file.path("~/data", experiment_id, "documentation", 
+#                paste0(experiment_id, "_bmc_config.R")))
+#validate_configs(c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG"))
 #-----------------------------------------------------------------------------
 required_packages <- c("rsvg", "magick")
 for (pkg in required_packages) {
