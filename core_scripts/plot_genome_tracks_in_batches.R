@@ -213,7 +213,7 @@ groups_to_process <- if (RUNTIME_CONFIG$process_single_file) {
 ################################################################################
 # Load reference genome
 ref_genome_file <- list.files(
-    GENOME_TRACK_CONFIG$file_genome_directory,
+    path = GENOME_TRACK_CONFIG$file_genome_directory,
     pattern = GENOME_TRACK_CONFIG$file_genome_pattern,
     full.names = TRUE,
     recursive = TRUE
@@ -233,7 +233,7 @@ genome_range <- GenomicRanges::GRanges(
 
 # Load feature file (annotation)
 feature_file <- list.files(
-    GENOME_TRACK_CONFIG$file_feature_directory,
+    path = GENOME_TRACK_CONFIG$file_feature_directory,
     pattern = GENOME_TRACK_CONFIG$file_feature_pattern,
     full.names = TRUE
 )[1]
