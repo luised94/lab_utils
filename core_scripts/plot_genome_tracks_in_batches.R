@@ -351,6 +351,7 @@ for (group_idx in groups_to_process) {
     plot_title <- sprintf(
         GENOME_TRACK_CONFIG$title_group_template,
         experiment_id,
+        group_idx,
         chromosome_to_plot,
         nrow(row_samples_to_visualize),
         TIME_CONFIG$current_timestamp,
