@@ -20,23 +20,27 @@ if [ ! -d "$EXPERIMENT_DIR" ]; then
     echo "Usage: $0 <experiment_directory>"
     exit 1
 fi
+FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
 
 
 # Count fastq files
-FASTQ_COUNT=$(find "${EXPERIMENT_DIR}/fastq" -maxdepth 1 -type f -name "consolidated*.fastq" | wc -l)
+FASTQ_COUNT=$(find "${FASTQ_DIR}" -maxdepth 1 -type f -name "consolidated*.fastq" | wc -l)
 echo "Found ${FASTQ_COUNT} fastq files"
 
 if [ $FASTQ_COUNT -eq 0 ]; then
-    echo "Error: No fastq files found in ${EXPERIMENT_DIR}/fastq"
+    echo "Error: No fastq files found in ${FASTQ_DIR}"
     exit 1
 fi
 
 # Format file listing with columns and headers
 echo -e "\nFASTQ files found:"
 echo "----------------"
-find "${EXPERIMENT_DIR}/fastq" -maxdepth 1 -type f -name "consolidated*.fastq" -exec basename {} \; | \
+#unique_files=$(find "${FASTQ_DIR}" -maxdepth 1 -type f -name "consolidated*.fastq" -exec basename {} \;)
+find "${FASTQ_DIR}" -maxdepth 1 -type f -name "consolidated*.fastq" -exec basename {} \; | \
     pr -3 -t -w 100 | \
     column -t
+
+#printf '%s\n' "${unique_ids[@]}" | column -c $(tput cols)
 echo "----------------"
 echo -e "\nWill submit array job with following parameters:"
 echo "Array size: 1-${FASTQ_COUNT}"
