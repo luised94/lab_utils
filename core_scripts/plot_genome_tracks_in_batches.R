@@ -327,7 +327,9 @@ for (group_idx in groups_to_process) {
             genomic_range = genomic_range
 
         )
+        
         if (track_creation_result$success) {
+            
             tracks[[length(tracks) + 1]] <- track_creation_result$data
         } else {
             tracks[[length(tracks) + 1]] <- create_placeholder_track(
@@ -391,6 +393,7 @@ for (group_idx in groups_to_process) {
         # Visual separator for readability in log
         message(paste(rep("-", 80), collapse = ""))
     }
+
     viz_params <- list()
 
     plot_config <- create_track_plot_config(

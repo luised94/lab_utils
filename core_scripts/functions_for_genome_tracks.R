@@ -186,7 +186,8 @@ create_sample_track <- function(
     format_args,
     track_color,
     track_type = "l",
-    genomic_range = NULL
+    genomic_range = NULL,
+    verbose = TRUE
 ) {
     # Input validation
     stopifnot(
@@ -201,13 +202,28 @@ create_sample_track <- function(
         "track_type must be character" = 
             is.character(track_type) && length(track_type) == 1
     )
+    
+    if (verbose) {
+        message("\nTrack Creation Attempt:")
+        message(sprintf("  Bigwig path: %s", bigwig_file_path))
+        message(sprintf("  File exists: %s", file.exists(bigwig_file_path)))
+        message(sprintf("  Is NA: %s", is.na(bigwig_file_path)))
+    }
 
-    # Check file existence
-    if (is.na(bigwig_file_path) || !file.exists(bigwig_file_path)) {
+    # Modify file check to be more explicit
+    if (is.na(bigwig_file_path)) {
         return(list(
             success = FALSE,
             data = NULL,
-            error = "Bigwig file not found"
+            error = "Bigwig file path is NA"
+        ))
+    }
+    
+    if (!file.exists(bigwig_file_path)) {
+        return(list(
+            success = FALSE,
+            data = NULL,
+            error = sprintf("Bigwig file not found: %s", bigwig_file_path)
         ))
     }
 
@@ -423,7 +439,8 @@ create_track_plot_config <- function(
 execute_track_plot <- function(
     plot_config,
     save_path = NULL,
-    save_params = list()
+    save_params = list(),
+    verbose = TRUE
 ) {
     # Validate inputs
     stopifnot(
@@ -431,6 +448,17 @@ execute_track_plot <- function(
         "plot_config must contain trackList" = !is.null(plot_config$trackList),
         "save_params must be a list" = is.list(save_params)
     )
+
+    if (verbose) {
+        message("\nPlot Execution:")
+        message(sprintf("  Number of tracks: %d", length(plot_config$trackList)))
+        message("  Track types:")
+        invisible(lapply(plot_config$trackList, function(track) {
+            message(sprintf("    - %s: %s", 
+                          class(track)[1], 
+                          track@name))
+        }))
+    }
 
     # Validate save_path if provided
     if (!is.null(save_path)) {
