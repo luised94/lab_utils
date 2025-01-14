@@ -327,7 +327,7 @@ for (group_idx in groups_to_process) {
             genomic_range = genomic_range
 
         )
-        
+        print(track_creation_result)
         if (track_creation_result$success) {
             
             tracks[[length(tracks) + 1]] <- track_creation_result$data
