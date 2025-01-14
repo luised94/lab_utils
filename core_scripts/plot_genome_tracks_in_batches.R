@@ -391,14 +391,16 @@ for (group_idx in groups_to_process) {
         # Visual separator for readability in log
         message(paste(rep("-", 80), collapse = ""))
     }
-    #plot_config <- create_track_plot_config(
-    #    tracks = tracks,
-    #    chromosome = chromosome_roman,
-    #    to = chromosome_width,
-    #    ylim = y_limits,
-    #    title = plot_title,
-    #    visualization_params = viz_params
-    #)
+    viz_params <- list()
+
+    plot_config <- create_track_plot_config(
+        tracks = tracks,
+        chromosome = chromosome_roman,
+        to = chromosome_width,
+        ylim = y_limits,
+        title = plot_title,
+        visualization_params = viz_params
+    )
     #execute_track_plot(
     #    plot_config = plot_config,
     #    save_path = NULL,
