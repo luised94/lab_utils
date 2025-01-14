@@ -226,7 +226,7 @@ GENOME_TRACK_CONFIG <- list(
     #track_show_title = TRUE,
 
     # Track defaults
-    track_ylim = c(0, 100),  # Default y-limits, adjust as needed
+    track_ylim = c(0, 1000),  # Default y-limits, adjust as needed
     track_sampling_rate = 100,  # Points per base pair for empty tracks
     
     # Track colors
