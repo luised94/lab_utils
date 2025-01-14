@@ -34,8 +34,9 @@ fi
 # Format file listing with columns and headers
 echo -e "\nBAM files found:"
 echo "----------------"
-unique_files=$(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "sorted*.bam" -exec basename {} \;)
-find "${EXPERIMENT_DIR}/alignment" -maxdepth 1 -type f -name "*_sorted.bam" -exec basename {} \; \
+mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "sorted*.bam" -exec basename {} \;)
+#unique_files=$(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "sorted*.bam" -exec basename {} \;)
+find "${EXPERIMENT_DIR}/alignment" -maxdepth 1 -type f -name "*_sorted.bam" -exec basename {} \; | \
     pr -3 -t -w 100 | \
     column -t
 printf '%s\n' "${unique_files[@]}" | column -c $(tput cols)
