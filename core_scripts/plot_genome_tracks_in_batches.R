@@ -345,10 +345,12 @@ for (group_idx in groups_to_process) {
             track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
             format_args = track_name_arguments,
             track_color = track_color,
-            track_type = GENOME_TRACK_CONFIG$track_type,
-            genomic_range = genome_range
-
+            track_type = GENOME_TRACK_CONFIG$track_defaults$type,
+            genomic_range = genome_range,
+            track_params = GENOME_TRACK_CONFIG$track_defaults,
+            verbose = RUNTIME_CONFIG$debug_verbose
         )
+
         if (track_creation_result$success) {
             if (RUNTIME_CONFIG$debug_verbose) {
                 message(sprintf("  Successfully created track for sample: %s", sample_id))
@@ -439,26 +441,25 @@ for (group_idx in groups_to_process) {
         message(paste(rep("-", 80), collapse = ""))
     }
 
-    viz_params <- list()
-
     plot_config <- create_track_plot_config(
         tracks = tracks,
         chromosome = chromosome_roman,
         to = chromosome_width,
         ylim = y_limits,
         title = plot_title,
-        visualization_params = viz_params
+        visualization_params = GENOME_TRACK_CONFIG$plot_defaults
     )
 
     if (RUNTIME_CONFIG$output_dry_run) {
-        # Just display the plot
+        # Display only
         execute_track_plot(
             plot_config = plot_config,
+            plot_params = GENOME_TRACK_CONFIG$plot_defaults,
             display_plot = TRUE,
             verbose = RUNTIME_CONFIG$debug_verbose
         )
     } else {
-        # Save the plot
+        # Save plot
         execute_track_plot(
             plot_config = plot_config,
             save_path = plot_file,
@@ -466,7 +467,8 @@ for (group_idx in groups_to_process) {
                 width = GENOME_TRACK_CONFIG$display_width,
                 height = GENOME_TRACK_CONFIG$display_height
             ),
-            display_plot = FALSE,  # Don't display when saving
+            plot_params = GENOME_TRACK_CONFIG$plot_defaults,
+            display_plot = FALSE,
             verbose = RUNTIME_CONFIG$debug_verbose
         )
     }
