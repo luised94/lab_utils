@@ -6,6 +6,11 @@ You can open all of them in neovim and update them manually.
 ```{bash}
 nvim ~/data/*Bel/documentation/*_bmc_config.R ~/lab_utils/core_scripts/template_bmc_config.R
 ```
+Add it as an alias to the bashrc.
+```{bash}
+# Alias to quickly edit configuration files for BMC experiments
+alias edit_bmc_configs='nvim ~/data/*Bel/documentation/*_bmc_config.R core_scripts/template_bmc_config.R'
+```
 
 Then something that is useful to bulk update the configurations is the following macros:
 ```{vim}
