@@ -7,3 +7,40 @@ You can open all of them in neovim and update them manually.
 nvim ~/data/*Bel/documentation/*_bmc_config.R ~/lab_utils/core_scripts/template_bmc_config.R
 ```
 
+Then something that is useful to bulk update the configurations is the following macros:
+```{vim}
+" Delete section
+" Record macro
+qq
+/ Time Configuration " Top of section
+" Depend on comment structure
+-
+Ctrl+q
+" Go to the last section
+/ Configuration Validation
+$d
+q
+" Use macro on files manually or
+bufdo execute "normal @q" | write
+" Alternativelly use args or quick fix list to get the files you want to perform the operation on.
+" Yank the section you want to transfer.
+" Use similar strategy
+
+" Go to place to proper location and put text
+qq
+gg
+/ EXPERIMENT_CONFIG
+" Use search movement, do appropriate number of times.
+n
+$%
+<CR>
+put
+" This will add a lot of white space.
+" From the section you want to delete whitespace from.
+qq
+Ctrl+q
+}{
+'<,'>d
+q
+```
+
