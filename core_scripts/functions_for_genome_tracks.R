@@ -117,6 +117,7 @@ calculate_track_limits <- function(bigwig_files, genome_range,
 #' @param format_args character vector Arguments for track name formatting
 #'
 #' @return Gviz DataTrack object with placeholder data
+
 create_placeholder_track <- function(
     sampling_rate = 100,
     chromosome_width = NULL,
@@ -133,6 +134,14 @@ create_placeholder_track <- function(
         message(sprintf("  Chromosome: %s", chromosome_name))
         message(sprintf("  Width: %d", chromosome_width))
         message(sprintf("  Points: %d", ceiling(chromosome_width / sampling_rate)))
+        if (length(track_params) > 0) {
+            message("  Track Parameters:")
+            invisible(lapply(names(track_params), function(param) {
+                message(sprintf("    %s: %s", 
+                              param, 
+                              paste(track_params[[param]], collapse = ", ")))
+            }))
+        }
     }
 
     # Input validation
@@ -189,12 +198,19 @@ create_placeholder_track <- function(
                 empty_ranges,
                 name = placeholder_name,
                 type = track_type,
-                col = track_color
+                col = track_color,
+                chromosome = chromosome_name  # Added explicit chromosome
             ),
             track_params
         )
 
-        if (verbose) message("  Creating DataTrack...")
+        if (verbose) {
+            message("  Creating DataTrack with parameters:")
+            message(sprintf("    Type: %s", track_type))
+            message(sprintf("    Color: %s", track_color))
+            message(sprintf("    Additional params: %d", length(track_params)))
+        }
+
         track <- tryCatch({
             do.call(Gviz::DataTrack, track_args)
         }, error = function(e) {
@@ -205,6 +221,8 @@ create_placeholder_track <- function(
             message("  Placeholder track created successfully:")
             message(sprintf("    Name: %s", placeholder_name))
             message(sprintf("    Points: %d", num_points))
+            message(sprintf("    Track size: %s", 
+                          track@size %||% "default"))  # Show final track size
         }
 
         list(
