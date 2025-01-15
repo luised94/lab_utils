@@ -49,3 +49,11 @@ Ctrl+q
 q
 ```
 
+## Files missing for analysis
+Scripts should always include input validation to make sure files are present.
+Easy solution is to rsync the files from the linux cluster (requires vpn if not working in the MIT campus).
+Refer to download scripts to download from scratch.
+
+```{bash}
+rsync -nav username@luria.mit.edu:~/data/REFGENS/* ~/data/REFGENS/
+```
