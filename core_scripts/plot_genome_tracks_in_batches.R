@@ -457,7 +457,7 @@ for (group_idx in groups_to_process) {
             track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
             format_args = track_name_arguments,
             track_color = track_color,
-            track_type = GENOME_TRACK_CONFIG$track_defaults$type,
+            track_type = GENOME_TRACK_CONFIG$track_defaults_sample$type,
             genomic_range = genome_range,
             track_params = GENOME_TRACK_CONFIG$track_defaults_sample,
             verbose = RUNTIME_CONFIG$debug_verbose
@@ -489,8 +489,8 @@ for (group_idx in groups_to_process) {
                 type = GENOME_TRACK_CONFIG$track_type,
                 chromosome_name = chromosome_roman,
                 placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
-                format_args = placeholder_name_arguments
-                track_params = GENOME_TRACK_CONFIG$track_defaults_placeholder
+                format_args = placeholder_name_arguments,
+                track_params = GENOME_TRACK_CONFIG$track_defaults_placeholder,
                 verbose = RUNTIME_CONFIG$debug_verbose
             )
 
