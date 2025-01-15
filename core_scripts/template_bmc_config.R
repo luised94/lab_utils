@@ -288,8 +288,8 @@ GENOME_TRACK_CONFIG <- list(
     #interactive_prompt = "Options: [Enter] next plot, 's' skip rest, 'q' quit: ",
 
     track_defaults_sample = list(
-        showaxis = true,
-        showtitle = true,
+        showaxis = TRUE,
+        showtitle = TRUE,
         type = "h",
         size = 1.2,
         background.title = "white",
@@ -301,8 +301,8 @@ GENOME_TRACK_CONFIG <- list(
     ),
 
     track_defaults_placeholder = list(
-        showaxis = true,
-        showtitle = true,
+        showaxis = TRUE,
+        showtitle = TRUE,
         type = "h",
         size = 0.8,
         background.title = "white",
@@ -313,12 +313,12 @@ GENOME_TRACK_CONFIG <- list(
         fontface = 1,
         title.width = 0.9,
         alpha = 0.5,
-        grid = false
+        grid = FALSE
         #ylim = c(0, 1)                  # fixed range for empty tracks
     ),
     track_defaults_control = list(
-        showaxis = true,
-        showtitle = true,
+        showaxis = TRUE,
+        showtitle = TRUE,
         type = "h",
         size = 0.8,
         background.title = "white",
@@ -331,8 +331,8 @@ GENOME_TRACK_CONFIG <- list(
         #alpha = 0.8
     ),
     track_defaults_feature = list(
-        showaxis = false,
-        showtitle = true,
+        showaxis = FALSE,
+        showtitle = TRUE,
         size = 0.5,
         background.title = "white",
         background.panel = "#8b7355",

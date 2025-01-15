@@ -485,11 +485,13 @@ for (group_idx in groups_to_process) {
             placeholder_track_creation_result <- create_placeholder_track(
                 sampling_rate = GENOME_TRACK_CONFIG$track_sampling_rate,
                 chromosome_width = chromosome_width,
-                track_color = track_color,
+                track_color = GENOME_TRACK_CONFIG$color_placeholder,
                 type = GENOME_TRACK_CONFIG$track_type,
                 chromosome_name = chromosome_roman,
                 placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
                 format_args = placeholder_name_arguments
+                track_params = GENOME_TRACK_CONFIG$track_defaults_placeholder
+                verbose = RUNTIME_CONFIG$debug_verbose
             )
 
             if (!placeholder_track_creation_result$success) {
