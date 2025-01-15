@@ -137,6 +137,7 @@ bigwig_files <- list.files(
     pattern = bigwig_pattern,
     full.names = TRUE
 )
+
 normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1",
     basename(bigwig_files[1]))
 if (length(bigwig_files) == 0) {
@@ -159,6 +160,36 @@ if (length(fastq_files) == 0) {
         replacement = "\\1",
         x = fastq_files
     )
+}
+
+if (RUNTIME_CONFIG$debug_verbose) {
+    message("\nFile Processing:")
+    message("  Directories:")
+    message(sprintf("    FASTQ: %s", dirs$fastq))
+    message(sprintf("    Coverage: %s", dirs$coverage))
+    
+    message("\n  Pattern Matching:")
+    message(sprintf("    FASTQ pattern: %s", GENOME_TRACK_CONFIG$file_pattern))
+    message(sprintf("    Bigwig pattern: %s", bigwig_pattern))
+    
+    message("\n  File Discovery:")
+    message(sprintf("    FASTQ files found: %d", length(fastq_files)))
+    if (length(fastq_files) > 0) {
+        message("    First few FASTQ files:")
+        invisible(lapply(head(fastq_files, 3), function(f) message("      ", f)))
+    }
+    
+    message(sprintf("\n    Bigwig files found: %d", length(bigwig_files)))
+    if (length(bigwig_files) > 0) {
+        message("    First few Bigwig files:")
+        invisible(lapply(head(bigwig_files, 3), function(f) message("      ", basename(f))))
+        message(sprintf("\n    Normalization: %s", normalization_method))
+    }
+    
+    message("\n  Sample IDs:")
+    message(sprintf("    Total found: %d", length(sample_ids)))
+    message("    First few IDs:")
+    invisible(lapply(head(sample_ids, 3), function(id) message("      ", id)))
 }
 
 metadata <- load_and_process_experiment_metadata(
@@ -194,11 +225,45 @@ sample_id_mapping <- setNames(
 )
 
 if (RUNTIME_CONFIG$debug_verbose) {
-    message("\nColor scheme initialized:")
-    message("Fixed colors:")
-    print(color_scheme$fixed)
-    message("Category colors:")
-    print(color_scheme$categories)
+    message("\n=== Metadata and Color Scheme Initialization ===")
+    
+    # Metadata Loading
+    message("\nMetadata Processing:")
+    message(sprintf("  Source: %s", basename(metadata_path)))
+    message(sprintf("  Rows: %d", nrow(metadata)))
+    message(sprintf("  Columns: %d", ncol(metadata)))
+    message("  Required columns present:")
+    invisible(lapply(EXPERIMENT_CONFIG$COLUMN_ORDER, function(col) {
+        message(sprintf("    %s: %s", col, col %in% colnames(metadata)))
+    }))
+    
+    # Sample ID Mapping
+    message("\nSample ID Processing:")
+    message(sprintf("  Total IDs: %d", length(sample_ids)))
+    message("  ID Mapping Examples (first 3):")
+    head_ids <- head(names(sample_id_mapping), 3)
+    invisible(lapply(head_ids, function(id) {
+        message(sprintf("    %s -> %s", id, sample_id_mapping[id]))
+    }))
+    
+    # Color Scheme
+    message("\nColor Scheme Configuration:")
+    message("  Fixed Colors:")
+    message(sprintf("    Placeholder: %s", GENOME_TRACK_CONFIG$color_placeholder))
+    message(sprintf("    Input: %s", GENOME_TRACK_CONFIG$color_input))
+    
+    message("\n  Category Colors:")
+    message("    Antibody:")
+    invisible(lapply(unique(metadata$antibody), function(ab) {
+        message(sprintf("      %s: %s", ab, color_scheme$get_color("antibody", ab)))
+    }))
+    
+    message("    Rescue Allele:")
+    invisible(lapply(unique(metadata$rescue_allele), function(ra) {
+        message(sprintf("      %s: %s", ra, color_scheme$get_color("rescue_allele", ra)))
+    }))
+    
+    message("\n=== Initialization Complete ===")
 }
 
 # Create sample groups
@@ -284,32 +349,47 @@ if (!limits_result$success) {
 }
 
 for (group_idx in groups_to_process) {
+    if (RUNTIME_CONFIG$debug_verbose) {
+        message("\n=== Processing Group ", group_idx, " ===")
+        message(sprintf("Time: %s", format(Sys.time(), "%H:%M:%S")))
+    }
 
     row_samples_to_visualize <- metadata[sample_groups[[group_idx]], ]
+    
+    if (RUNTIME_CONFIG$debug_verbose) {
+        message("\nSample Selection:")
+        message(sprintf("  Group Index: %d/%d", group_idx, length(groups_to_process)))
+        message(sprintf("  Samples in group: %d", nrow(row_samples_to_visualize)))
+        if (nrow(row_samples_to_visualize) > 0) {
+            message("  Sample IDs:")
+            invisible(lapply(row_samples_to_visualize$sample_id, 
+                           function(id) message("    - ", id)))
+        }
+    }
+
     label_result <- create_track_labels(
         samples = row_samples_to_visualize,
         always_show = GENOME_TRACK_CONFIG$label_always_show,
         never_show = GENOME_TRACK_CONFIG$label_never_show,
         separator = GENOME_TRACK_CONFIG$label_separator,
-        verbose = TRUE
+        verbose = RUNTIME_CONFIG$debug_verbose
     )
 
     if (!label_result$success) {
-        warning("Failed to create track labels for comparison %s: %s", comparison_name, label_result$error)
-        track_labels <- row_samples_to_visualize$short_name  # Fallback to sample_id
+        warning("Failed to create track labels for group ", group_idx, ": ", label_result$error)
+        track_labels <- row_samples_to_visualize$short_name
+        if (RUNTIME_CONFIG$debug_verbose) {
+            message("  Using fallback labels (short_name)")
+        }
     } else {
         track_labels <- label_result$data$labels
+        if (RUNTIME_CONFIG$debug_verbose) {
+            message("\nTrack Labels Created:")
+            invisible(mapply(function(id, label) {
+                message(sprintf("  %s -> %s", id, label))
+            }, row_samples_to_visualize$sample_id, track_labels))
+        }
     }
-
-    if (nrow(row_samples_to_visualize) == 0) {
-        warning(sprintf("No samples found for comparison: %s", comparison_name))
-        next
-    }
-
-    if (RUNTIME_CONFIG$debug_verbose) {
-        message(sprintf("Found %d samples for comparison", nrow(row_samples_to_visualize)))
-    }
-
     # Initialize tracks list with chromosome axis
     tracks <- list(
         Gviz::GenomeAxisTrack(
@@ -320,9 +400,41 @@ for (group_idx in groups_to_process) {
     for (i in seq_len(nrow(row_samples_to_visualize))) {
         sample_id <- row_samples_to_visualize$sample_id[i]
         current_antibody <- row_samples_to_visualize$antibody[i]
-        # Find matching bigwig file
         bigwig_file_path <- bigwig_files[grepl(sample_id, bigwig_files)][1]
+        if (RUNTIME_CONFIG$debug_verbose) {
+            message("\nBigwig File Matching:")
+            message(sprintf("  Sample ID: %s", sample_id))
+            message("  Available files:")
+            invisible(lapply(bigwig_files, function(f) message("    ", basename(f))))
+            message("  Pattern matches:")
+            matches <- grepl(sample_id, bigwig_files)
+            message(sprintf("    Matches found: %d", sum(matches)))
+            if (sum(matches) > 0) {
+                message("    Matching files:")
+                invisible(lapply(bigwig_files[matches], function(f) 
+                    message("      ", basename(f))))
+            }
+        }
 
+        if (RUNTIME_CONFIG$debug_verbose) {
+            message(sprintf("\nProcessing Sample %d/%d:", 
+                          i, nrow(row_samples_to_visualize)))
+            message(sprintf("  Sample ID: %s", sample_id))
+            message(sprintf("  Antibody: %s", current_antibody))
+            message(sprintf("  Track Label: %s", track_labels[i]))
+            message(sprintf("  Bigwig file: %s", bigwig_file_path))
+        }
+
+
+        if (RUNTIME_CONFIG$debug_verbose) {
+            message("\nTrack Creation Parameters:")
+            message(sprintf("  Bigwig file: %s", 
+                          if(is.na(bigwig_file_path)) "NOT FOUND" 
+                          else basename(bigwig_file_path)))
+            message("  Name arguments:")
+            message(sprintf("    ID: %s", sample_id_mapping[sample_id]))
+            message(sprintf("    Label: %s", track_labels[i]))
+        }
         track_name_arguments <- c(
             sample_id_mapping[sample_id],  # Mapped ID
             track_labels[i]                # Generated label from create_track_labels
@@ -361,16 +473,14 @@ for (group_idx in groups_to_process) {
             message(sprintf("\nTrack creation failed for sample %s:", sample_id))
             message(sprintf("  Error: %s", track_creation_result$error))
             message("  Creating placeholder track instead")
-            
             if (RUNTIME_CONFIG$debug_verbose) {
                 # Add context about the failure
                 message("  Context:")
                 message(sprintf("    Genomic Range: %s", 
-                               if(exists("genomic_range")) "Present" else "Missing"))
+                               if(exists("genome_range")) "Present" else "Missing"))
                 message(sprintf("    Chromosome: %s", chromosome_roman))
                 message(sprintf("    Width: %d", chromosome_width))
             }
-        
             # Create placeholder with error handling
             placeholder_track_creation_result <- create_placeholder_track(
                 sampling_rate = GENOME_TRACK_CONFIG$track_sampling_rate,
@@ -387,7 +497,6 @@ for (group_idx in groups_to_process) {
             } else {
                 tracks[[length(tracks) + 1]] <- placeholder_track_creation_result$data
             }
-            
         }
     }
     # Add feature track if available

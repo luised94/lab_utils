@@ -121,7 +121,7 @@ create_placeholder_track <- function(
     sampling_rate = 100,
     chromosome_width = NULL,
     track_color,
-    type = "l",
+    type = "h",
     chromosome_name,
     placeholder_format_name,
     format_args,
