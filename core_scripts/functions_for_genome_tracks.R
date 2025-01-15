@@ -121,10 +121,11 @@ create_placeholder_track <- function(
     sampling_rate = 100,
     chromosome_width = NULL,
     track_color,
-    type = "h",
+    track_type = "h",
     chromosome_name,
     placeholder_format_name,
     format_args,
+    track_params = list(),
     verbose = FALSE
 ) {
     if (verbose) {
@@ -143,14 +144,16 @@ create_placeholder_track <- function(
                 is.numeric(chromosome_width) && chromosome_width > 0,
             "track_color must be character" = 
                 is.character(track_color) && length(track_color) == 1,
-            "type must be valid track type" = 
-                type %in% c("l", "h", "p", "g"),
+            "track_type must be valid track type" = 
+                track_type %in% c("l", "h", "p", "g"),
             "chromosome_name must be character" = 
                 is.character(chromosome_name) && length(chromosome_name) == 1,
             "placeholder_format_name must be character" = 
                 is.character(placeholder_format_name),
             "format_args must be character vector" = 
-                is.character(format_args)
+                is.character(format_args),
+            "track_params must be a list" = 
+                is.list(track_params)
         )
 
         if (verbose) message("  Input validation successful")
@@ -180,15 +183,20 @@ create_placeholder_track <- function(
             stop(sprintf("Failed to create genomic ranges: %s", e$message))
         })
         
-        if (verbose) message("  Creating DataTrack...")
-        track <- tryCatch({
-            Gviz::DataTrack(
+        # Merge default parameters with provided ones
+        track_args <- c(
+            list(
                 empty_ranges,
                 name = placeholder_name,
-                type = type,
-                col = track_color,
-                chromosome = chromosome_name
-            )
+                type = track_type,
+                col = track_color
+            ),
+            track_params
+        )
+
+        if (verbose) message("  Creating DataTrack...")
+        track <- tryCatch({
+            do.call(Gviz::DataTrack, track_args)
         }, error = function(e) {
             stop(sprintf("Failed to create DataTrack: %s", e$message))
         })
