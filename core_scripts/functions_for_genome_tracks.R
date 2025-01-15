@@ -117,7 +117,6 @@ calculate_track_limits <- function(bigwig_files, genome_range,
 #' @param format_args character vector Arguments for track name formatting
 #'
 #' @return Gviz DataTrack object with placeholder data
-
 create_placeholder_track <- function(
     sampling_rate = 100,
     chromosome_width = NULL,
@@ -217,14 +216,15 @@ create_placeholder_track <- function(
             stop(sprintf("Failed to create DataTrack: %s", e$message))
         })
 
+
         if (verbose) {
             message("  Placeholder track created successfully:")
             message(sprintf("    Name: %s", placeholder_name))
             message(sprintf("    Points: %d", num_points))
             message(sprintf("    Track size: %s", 
-                          track@size %||% "default"))  # Show final track size
+                          if(is.null(track@size)) "default" else track@size))
         }
-
+        
         list(
             success = TRUE,
             data = track,
@@ -383,36 +383,60 @@ create_control_track <- function(
     format_args,
     track_color,
     track_type = "l",
-    genomic_range = NULL
-    #control_type = "Input"
+    genomic_range = NULL,
+    track_params = list(),
+    verbose = FALSE
 ) {
-    stopifnot(
-        "bigwig_file_path must be character" = 
-            is.character(bigwig_file_path) && length(bigwig_file_path) == 1,
-        "track_format_name must be character" = 
-            is.character(track_format_name) && length(track_format_name) == 1,
-        "format_args must be character vector" = 
-            is.character(format_args),
-        "track_color must be character" = 
-            is.character(track_color) && length(track_color) == 1,
-        "track_type must be character" = 
-            is.character(track_type) && length(track_type) == 1
-        #"control_type must be character" = 
-        #    is.character(control_type) && length(control_type) == 1
-    )
-
-    # Check file existence
-    if (is.na(bigwig_file_path) || !file.exists(bigwig_file_path)) {
-        return(list(
-            success = FALSE,
-            data = NULL,
-            error = sprintf("Control bigwig file not found: %s", bigwig_file_path)
-        ))
+    if (verbose) {
+        message("\nCreating Control Track:")
+        message(sprintf("  Bigwig path: %s", bigwig_file_path))
+        message(sprintf("  File exists: %s", file.exists(bigwig_file_path)))
+        if (!is.null(genomic_range)) {
+            message(sprintf("  Range: %s:%d-%d",
+                          GenomicRanges::seqnames(genomic_range),
+                          GenomicRanges::start(genomic_range),
+                          GenomicRanges::end(genomic_range)))
+        }
+        if (length(track_params) > 0) {
+            message("  Track Parameters:")
+            invisible(lapply(names(track_params), function(param) {
+                message(sprintf("    %s: %s", 
+                              param, 
+                              paste(track_params[[param]], collapse = ", ")))
+            }))
+        }
     }
 
-    # Try to create track
+    # Input validation
     tryCatch({
+        stopifnot(
+            "bigwig_file_path must be character" = 
+                is.character(bigwig_file_path) && length(bigwig_file_path) == 1,
+            "track_format_name must be character" = 
+                is.character(track_format_name) && length(track_format_name) == 1,
+            "format_args must be character vector" = 
+                is.character(format_args),
+            "track_color must be character" = 
+                is.character(track_color) && length(track_color) == 1,
+            "track_type must be character" = 
+                is.character(track_type) && length(track_type) == 1,
+            "track_params must be a list" = 
+                is.list(track_params)
+        )
+
+        if (verbose) message("  Input validation successful")
+
+        # Check file existence
+        if (is.na(bigwig_file_path) || !file.exists(bigwig_file_path)) {
+            return(list(
+                success = FALSE,
+                data = NULL,
+                error = sprintf("Control bigwig file not found: %s", bigwig_file_path)
+            ))
+        }
+
         # Import data
+        if (verbose) message("  Importing bigwig data...")
         track_data <- if (is.null(genomic_range)) {
             rtracklayer::import(bigwig_file_path)
         } else {
@@ -420,28 +444,71 @@ create_control_track <- function(
         }
 
         # Create track name
-        track_name <- do.call(sprintf, c(list(track_format_name), format_args))
+        if (verbose) message("  Creating track name...")
+        track_name <- tryCatch({
+            do.call(sprintf, c(list(track_format_name), format_args))
+        }, error = function(e) {
+            stop(sprintf("Failed to create track name: %s", e$message))
+        })
 
-        # Create track with control-specific settings
-        track <- Gviz::DataTrack(
-            track_data,
-            name = track_name,
-            type = track_type,
-            col = track_color,
-            chromosome = genomic_range$seqnames[1],
-            showTitle = TRUE
+        # Merge default parameters with provided ones
+        track_args <- c(
+            list(
+                track_data,
+                name = track_name,
+                type = track_type,
+                col = track_color,
+                chromosome = if (!is.null(genomic_range)) 
+                    as.character(GenomicRanges::seqnames(genomic_range)[1]) 
+                else NULL
+            ),
+            track_params
         )
+
+        if (verbose) {
+            message("  Creating DataTrack with parameters:")
+            message(sprintf("    Type: %s", track_type))
+            message(sprintf("    Color: %s", track_color))
+            message(sprintf("    Additional params: %d", length(track_params)))
+        }
+
+        # Create track
+        track <- tryCatch({
+            do.call(Gviz::DataTrack, track_args)
+        }, error = function(e) {
+            stop(sprintf("Failed to create DataTrack: %s", e$message))
+        })
+
+
+        if (verbose) {
+            message("  Control track created successfully:")
+            message(sprintf("    Name: %s", track_name))
+            message(sprintf("    Data points: %d", length(track_data)))
+            message(sprintf("    Track size: %s", 
+                          if(is.null(track@size)) "default" else track@size))
+            if (!is.null(track_data)) {
+                message(sprintf("    Data range: %.2f - %.2f",
+                              min(track_data$score),
+                              max(track_data$score)))
+            }
+        }
 
         list(
             success = TRUE,
             data = track,
             error = NULL
         )
+
     }, error = function(e) {
+        if (verbose) {
+            message("  ERROR creating control track:")
+            message(sprintf("    %s", e$message))
+        }
+        
         list(
             success = FALSE,
             data = NULL,
-            error = sprintf("Error creating control track: %s", as.character(e))
+            error = as.character(e)
         )
     })
 }
