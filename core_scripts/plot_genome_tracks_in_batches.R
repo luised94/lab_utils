@@ -459,7 +459,7 @@ for (group_idx in groups_to_process) {
             track_color = track_color,
             track_type = GENOME_TRACK_CONFIG$track_defaults$type,
             genomic_range = genome_range,
-            track_params = GENOME_TRACK_CONFIG$track_defaults,
+            track_params = GENOME_TRACK_CONFIG$track_defaults_sample,
             verbose = RUNTIME_CONFIG$debug_verbose
         )
 

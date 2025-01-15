@@ -287,17 +287,62 @@ GENOME_TRACK_CONFIG <- list(
     # Interactive mode
     #interactive_prompt = "Options: [Enter] next plot, 's' skip rest, 'q' quit: ",
 
-    track_defaults = list(
-        showAxis = TRUE,
-        showTitle = TRUE,
+    track_defaults_sample = list(
+        showaxis = true,
+        showtitle = true,
         type = "h",
         size = 1.2,
         background.title = "white",
         fontcolor.title = "black",
-        col.border.title = "#E0E0E0",
+        col.border.title = "#e0e0e0",
         cex.title = 0.6,
         fontface = 1,
         title.width = 1.2
+    ),
+
+    track_defaults_placeholder = list(
+        showaxis = true,
+        showtitle = true,
+        type = "h",
+        size = 0.8,
+        background.title = "white",
+        background.panel = "#f5f5f5",    # light gray to indicate "empty"
+        fontcolor.title = "black",
+        col.border.title = "#e0e0e0",
+        cex.title = 0.7,
+        fontface = 1,
+        title.width = 0.9,
+        alpha = 0.5,
+        grid = false
+        #ylim = c(0, 1)                  # fixed range for empty tracks
+    ),
+    track_defaults_control = list(
+        showaxis = true,
+        showtitle = true,
+        type = "h",
+        size = 0.8,
+        background.title = "white",
+        background.panel = "white",
+        fontcolor.title = "black",
+        col.border.title = "#e0e0e0",
+        cex.title = 0.7,
+        fontface = 1,
+        title.width = 0.9
+        #alpha = 0.8
+    ),
+    track_defaults_feature = list(
+        showaxis = false,
+        showtitle = true,
+        size = 0.5,
+        background.title = "white",
+        background.panel = "#8b7355",
+        fontcolor.title = "black",
+        col.border.title = "#e0e0e0",
+        cex.title = 0.7,
+        fontface = 1,
+        title.width = 0.9,
+        fill = "#8b4513",
+        col = "#8b4513"
     ),
     
     # New Plot Defaults
