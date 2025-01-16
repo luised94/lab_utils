@@ -531,9 +531,8 @@ for (group_idx in groups_to_process) {
              GENOME_TRACK_CONFIG$filename_format_group_template,
              TIME_CONFIG$current_timestamp,
              experiment_id,
-             chromosome_to_plot,
-             nrow(row_samples_to_visualize),
-             group_idx
+             group_idx,
+             chromosome_to_plot
      )
 
      plot_file <- file.path(
