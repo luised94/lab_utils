@@ -7,8 +7,22 @@
 #' @return list containing {success, data, error} where data has y_limits
 #' @importFrom rtracklayer import
 #' @importFrom GenomicRanges values
-calculate_track_limits <- function(bigwig_files, genome_range, 
-                                 padding_fraction = 0.1, verbose = FALSE) {
+calculate_track_limits <- function(
+    bigwig_files, 
+    genome_range, 
+    padding_fraction = 0.1, 
+    verbose = FALSE
+) {
+    if (verbose) {
+        message("\nCalculating Track Limits:")
+        message(sprintf("  Files to process: %d", length(bigwig_files)))
+        message(sprintf("  Genome range: %s:%d-%d",
+                       GenomicRanges::seqnames(genome_range),
+                       GenomicRanges::start(genome_range),
+                       GenomicRanges::end(genome_range)))
+        message(sprintf("  Padding: %.1f%%", padding_fraction * 100))
+    }
+
     result <- tryCatch({
         # Input validation
         stopifnot(
@@ -17,25 +31,22 @@ calculate_track_limits <- function(bigwig_files, genome_range,
             "genome_range must be GRanges" = inherits(genome_range, "GRanges"),
             "padding_fraction must be numeric" = is.numeric(padding_fraction),
             "padding_fraction must be between 0 and 1" = 
-                padding_fraction >= 0 && padding_fraction <= 1,
-            "verbose must be logical" = is.logical(verbose)
+                padding_fraction >= 0 && padding_fraction <= 1
         )
         
-        if (verbose) {
-            message(sprintf("\nProcessing %d bigwig files for y-limits...", 
-                          length(bigwig_files)))
-        }
-        
-        # Initialize storage for values
+        # Initialize storage
         all_track_values <- c()
         processed_files <- 0
         skipped_files <- 0
         
-        # Process each bigwig file
+        # Process files
         for (bigwig_file in bigwig_files) {
+            if (verbose) {
+                message(sprintf("\n  Processing: %s", basename(bigwig_file)))
+            }
+
             if (file.exists(bigwig_file)) {
                 tryCatch({
-                    # Import data for specific chromosome
                     track_data <- rtracklayer::import(
                         bigwig_file,
                         which = genome_range
@@ -46,36 +57,48 @@ calculate_track_limits <- function(bigwig_files, genome_range,
                         if (length(values) > 0) {
                             all_track_values <- c(all_track_values, values)
                             processed_files <- processed_files + 1
+                            
+                            if (verbose) {
+                                message(sprintf("    Data points: %d", length(values)))
+                                message(sprintf("    Range: %.2f - %.2f",
+                                              min(values),
+                                              max(values)))
+                            }
                         }
                     }
                 }, error = function(e) {
                     if (verbose) {
-                        message("Skipping ", basename(bigwig_file), ": ", e$message)
+                        message("    ERROR: ", e$message)
                     }
                     skipped_files <- skipped_files + 1
                 })
             } else {
                 if (verbose) {
-                    message("File not found: ", basename(bigwig_file))
+                    message("    File not found")
                 }
                 skipped_files <- skipped_files + 1
             }
         }
         
-        # Calculate limits if we have values
+        # Calculate limits
         if (length(all_track_values) > 0) {
             y_min <- min(all_track_values, na.rm = TRUE)
             y_max <- max(all_track_values, na.rm = TRUE)
             y_range <- y_max - y_min
             y_limits <- c(
-                y_min - (y_range * padding_fraction),
+                max(0, y_min - (y_range * padding_fraction)),
                 y_max + (y_range * padding_fraction)
             )
             
             if (verbose) {
-                message(sprintf("Processed %d files successfully", processed_files))
-                message(sprintf("Skipped %d files", skipped_files))
-                message(sprintf("Y-limits: [%.2f, %.2f]", y_limits[1], y_limits[2]))
+                message("\nLimit Calculation Summary:")
+                message(sprintf("  Files processed: %d", processed_files))
+                message(sprintf("  Files skipped: %d", skipped_files))
+                message(sprintf("  Total data points: %d", 
+                              length(all_track_values)))
+                message(sprintf("  Raw range: [%.2f, %.2f]", y_min, y_max))
+                message(sprintf("  Padded limits: [%.2f, %.2f]", 
+                              y_limits[1], y_limits[2]))
             }
             
             list(
@@ -85,7 +108,9 @@ calculate_track_limits <- function(bigwig_files, genome_range,
             )
         } else {
             if (verbose) {
-                message("No valid track data found for y-limit calculation")
+                message("\nNo valid track data found")
+                message(sprintf("  Files processed: %d", processed_files))
+                message(sprintf("  Files skipped: %d", skipped_files))
             }
             
             list(
@@ -95,6 +120,11 @@ calculate_track_limits <- function(bigwig_files, genome_range,
             )
         }
     }, error = function(e) {
+        if (verbose) {
+            message("\nERROR in limit calculation:")
+            message(sprintf("  %s", e$message))
+        }
+        
         list(
             success = FALSE,
             data = NULL,
@@ -104,6 +134,7 @@ calculate_track_limits <- function(bigwig_files, genome_range,
     
     return(result)
 }
+
 #' Create placeholder track for genome visualization
 #' @title Create Placeholder Genomic Track
 #' @description Creates an empty DataTrack with evenly spaced zero values
