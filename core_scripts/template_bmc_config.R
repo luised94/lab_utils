@@ -144,7 +144,6 @@ RUNTIME_CONFIG <- list(
     #samples_per_batch = 4,
 
     ## Output Control
-    #dry_run = TRUE,
     #plot_display_duration = 2
 
     # Core control flags

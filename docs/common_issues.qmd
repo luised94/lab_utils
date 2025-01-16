@@ -49,6 +49,14 @@ Ctrl+q
 q
 ```
 
+## Quickly updating configs
+Sometimes you want to see the value of the configs quickly. Instead of running the script to see the configuration using the print_config function, you can use the edit_bmc_configs function to open the files. Then use a quickfixlist to find the locations and see them quickly by opening it or cycling through.
+
+```{vim}
+bufdo if bufname('%') !=# '' | vimgrepadd /dry_run/ % | endif
+bufdo if filereadable(expand('%:p')) | vimgrepadd /dry_run/ % | endif
+
+```
 ## Files missing for analysis
 Scripts should always include input validation to make sure files are present.
 Easy solution is to rsync the files from the linux cluster (requires vpn if not working in the MIT campus).
