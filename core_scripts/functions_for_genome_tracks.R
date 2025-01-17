@@ -571,7 +571,7 @@ create_track_plot_config <- function(
     chromosome,
     from = 1,
     to,
-    ylim,
+    #ylim,
     title = NULL,
     visualization_params = list(),
     verbose = FALSE
@@ -583,8 +583,8 @@ create_track_plot_config <- function(
         "chromosome must be character" = is.character(chromosome),
         "from must be numeric" = is.numeric(from),
         "to must be numeric" = is.numeric(to),
-        "ylim must be numeric vector of length 2" = 
-            is.numeric(ylim) && length(ylim) == 2,
+       ## "ylim must be numeric vector of length 2" = 
+       ##     is.numeric(ylim) && length(ylim) == 2,
         "visualization_params must be a list" = is.list(visualization_params)
     )
 
@@ -593,7 +593,7 @@ create_track_plot_config <- function(
         message(sprintf("  Tracks: %d", length(tracks)))
         message(sprintf("  Chromosome: %s", chromosome))
         message(sprintf("  Range: %d-%d", from, to))
-        message(sprintf("  Y-limits: %s", paste(ylim, collapse="-")))
+        #message(sprintf("  Y-limits: %s", paste(ylim, collapse="-")))
     }
 
     # Validate tracks
@@ -608,7 +608,7 @@ create_track_plot_config <- function(
         chromosome = chromosome,
         from = from,
         to = to,
-        ylim = ylim,
+        #ylim = ylim,
         main = title
     )
 

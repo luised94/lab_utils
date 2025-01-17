@@ -347,7 +347,7 @@ global_limits_result <- calculate_track_limits(
 
 if (!global_limits_result$success) {
     warning("Failed to calculate global y-limits: ", global_limits_result$error)
-    global_limits <- GENOME_TRACK_CONFIG$ylim_defaults
+    global_limits <- GENOME_TRACK_CONFIG$track_ylim
 } else {
     global_limits <- global_limits_result$data
 }
@@ -519,6 +519,15 @@ for (group_idx in groups_to_process) {
         )
     }
 
+    plot_title <- sprintf(
+        GENOME_TRACK_CONFIG$title_group_template,
+        experiment_id,
+        group_idx,
+        chromosome_to_plot,
+        nrow(row_samples_to_visualize),
+        TIME_CONFIG$current_timestamp,
+        normalization_method
+    )
     plot_config <- create_track_plot_config(
         tracks = tracks,
         chromosome = chromosome_roman,
@@ -543,6 +552,7 @@ for (group_idx in groups_to_process) {
              dirs$output_dir,
              plot_filename
          )
+
         if (RUNTIME_CONFIG$debug_verbose) {
             message(paste(rep("-", 80), collapse = ""))
             message(sprintf("\nScaling mode: %s", mode))
@@ -566,11 +576,15 @@ for (group_idx in groups_to_process) {
             plot_config$ylim <- global_limits
         } else if (mode == "local") {
             # Calculate limits for this group's files
-            group_files <- bigwig_files[bigwig_files %in% row_samples_to_visualize$bigwig_file]
+            group_files <- bigwig_files[grepl(
+                paste(row_samples_to_visualize$sample_id, collapse = "|"),
+                bigwig_files
+            )]
             local_limits_result <- calculate_track_limits(
                 bigwig_files = group_files,
                 genome_range = genome_range,
-                padding_fraction = GENOME_TRACK_CONFIG$ylim_padding,
+                padding_fraction = .1,
+                #padding_fraction = GENOME_TRACK_CONFIG$ylim_padding,
                 verbose = RUNTIME_CONFIG$debug_verbose
             )
             plot_config$ylim <- if (local_limits_result$success) 
@@ -578,8 +592,6 @@ for (group_idx in groups_to_process) {
         } else {  # individual
             plot_config$ylim <- NULL  # Let tracks scale independently
         }
-
-        o
 
         if (RUNTIME_CONFIG$output_dry_run) {
             # Display only
