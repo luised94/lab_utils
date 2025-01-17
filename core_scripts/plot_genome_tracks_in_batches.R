@@ -282,6 +282,10 @@ groups_to_process <- if (RUNTIME_CONFIG$process_single_file) {
 ################################################################################
 # Setup genome and feature files
 ################################################################################
+stopifnot(
+    "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
+    "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)
+)
 # Load reference genome
 ref_genome_file <- list.files(
     path = GENOME_TRACK_CONFIG$file_genome_directory,
@@ -334,19 +338,22 @@ if (!is.null(feature_file)) {
     )
 }
 
-limits_result <- calculate_track_limits(
+global_limits_result <- calculate_track_limits(
     bigwig_files = bigwig_files,
     genome_range = genome_range,
     padding_fraction = 0.1,
     verbose = RUNTIME_CONFIG$debug_verbose
 )
 
-if (!limits_result$success) {
-    warning("Failed to calculate y-limits: ", limits_result$error)
-    y_limits <- GENOME_TRACK_CONFIG$track_ylim  # Default fallback
+if (!global_limits_result$success) {
+    warning("Failed to calculate global y-limits: ", global_limits_result$error)
+    global_limits <- GENOME_TRACK_CONFIG$ylim_defaults
 } else {
-    y_limits <- limits_result$data
+    global_limits <- global_limits_result$data
 }
+
+# Process each group with all scaling modes
+scaling_modes <- c("global", "local", "individual")
 
 for (group_idx in groups_to_process) {
     if (RUNTIME_CONFIG$debug_verbose) {
@@ -517,15 +524,15 @@ for (group_idx in groups_to_process) {
         #)
     }
 
-    plot_title <- sprintf(
-        GENOME_TRACK_CONFIG$title_group_template,
-        experiment_id,
-        group_idx,
-        chromosome_to_plot,
-        nrow(row_samples_to_visualize),
-        TIME_CONFIG$current_timestamp,
-        normalization_method
+    plot_config <- create_track_plot_config(
+        tracks = tracks,
+        chromosome = chromosome_roman,
+        to = chromosome_width,
+        title = plot_title,
+        visualization_params = GENOME_TRACK_CONFIG$plot_defaults,
+        verbose = RUNTIME_CONFIG$debug_verbose
     )
+
 
     plot_filename <- sprintf(
              GENOME_TRACK_CONFIG$filename_format_group_template,
@@ -559,36 +566,57 @@ for (group_idx in groups_to_process) {
         message(paste(rep("-", 80), collapse = ""))
     }
 
-    plot_config <- create_track_plot_config(
-        tracks = tracks,
-        chromosome = chromosome_roman,
-        to = chromosome_width,
-        ylim = y_limits,
-        title = plot_title,
-        visualization_params = GENOME_TRACK_CONFIG$plot_defaults,
-        verbose = RUNTIME_CONFIG$debug_verbose
-    )
 
-    if (RUNTIME_CONFIG$output_dry_run) {
-        # Display only
-        execute_track_plot(
-            plot_config = plot_config,
-            plot_params = GENOME_TRACK_CONFIG$plot_defaults,
-            display_plot = TRUE,
-            verbose = RUNTIME_CONFIG$debug_verbose
+for (mode in scaling_modes) {
+        # Create filename for this mode
+        plot_file <- sprintf(
+            GENOME_TRACK_CONFIG$filename_templates[[mode]],
+            TIME_CONFIG$current_timestamp,
+            experiment_id,
+            group_idx,
+            chromosome_to_plot
         )
-    } else {
-        # Save plot
-        execute_track_plot(
-            plot_config = plot_config,
-            save_path = plot_file,
-            save_params = list(
-                width = GENOME_TRACK_CONFIG$display_width,
-                height = GENOME_TRACK_CONFIG$display_height
-            ),
-            plot_params = GENOME_TRACK_CONFIG$plot_defaults,
-            display_plot = FALSE,
-            verbose = RUNTIME_CONFIG$debug_verbose
-        )
+        
+        # Set y-limits based on mode
+        if (mode == "global") {
+            plot_config$ylim <- global_limits
+        } else if (mode == "local") {
+            # Calculate limits for this group's files
+            group_files <- bigwig_files[bigwig_files %in% 
+                row_samples_to_visualize$bigwig_file]
+            local_limits_result <- calculate_track_limits(
+                bigwig_files = group_files,
+                genome_range = genome_range,
+                padding_fraction = GENOME_TRACK_CONFIG$ylim_padding,
+                verbose = RUNTIME_CONFIG$debug_verbose
+            )
+            plot_config$ylim <- if (local_limits_result$success) 
+                local_limits_result$data else GENOME_TRACK_CONFIG$ylim_defaults
+        } else {  # individual
+            plot_config$ylim <- NULL  # Let tracks scale independently
+        }
+        
+        if (RUNTIME_CONFIG$output_dry_run) {
+            # Display only
+            execute_track_plot(
+                plot_config = plot_config,
+                plot_params = GENOME_TRACK_CONFIG$plot_defaults,
+                display_plot = TRUE,
+                verbose = RUNTIME_CONFIG$debug_verbose
+            )
+        } else {
+            # Save plot
+            execute_track_plot(
+                plot_config = plot_config,
+                save_path = plot_file,
+                save_params = list(
+                    width = GENOME_TRACK_CONFIG$display_width,
+                    height = GENOME_TRACK_CONFIG$display_height
+                ),
+                plot_params = GENOME_TRACK_CONFIG$plot_defaults,
+                display_plot = FALSE,
+                verbose = RUNTIME_CONFIG$debug_verbose
+            )
+        }
     }
 }
