@@ -167,25 +167,25 @@ if (RUNTIME_CONFIG$debug_verbose) {
     message("  Directories:")
     message(sprintf("    FASTQ: %s", dirs$fastq))
     message(sprintf("    Coverage: %s", dirs$coverage))
-    
+
     message("\n  Pattern Matching:")
     message(sprintf("    FASTQ pattern: %s", GENOME_TRACK_CONFIG$file_pattern))
     message(sprintf("    Bigwig pattern: %s", bigwig_pattern))
-    
+
     message("\n  File Discovery:")
     message(sprintf("    FASTQ files found: %d", length(fastq_files)))
     if (length(fastq_files) > 0) {
         message("    First few FASTQ files:")
         invisible(lapply(head(fastq_files, 3), function(f) message("      ", f)))
     }
-    
+
     message(sprintf("\n    Bigwig files found: %d", length(bigwig_files)))
     if (length(bigwig_files) > 0) {
         message("    First few Bigwig files:")
         invisible(lapply(head(bigwig_files, 3), function(f) message("      ", basename(f))))
         message(sprintf("\n    Normalization: %s", normalization_method))
     }
-    
+
     message("\n  Sample IDs:")
     message(sprintf("    Total found: %d", length(sample_ids)))
     message("    First few IDs:")
@@ -226,7 +226,7 @@ sample_id_mapping <- setNames(
 
 if (RUNTIME_CONFIG$debug_verbose) {
     message("\n=== Metadata and Color Scheme Initialization ===")
-    
+
     # Metadata Loading
     message("\nMetadata Processing:")
     message(sprintf("  Source: %s", basename(metadata_path)))
@@ -236,7 +236,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
     invisible(lapply(EXPERIMENT_CONFIG$COLUMN_ORDER, function(col) {
         message(sprintf("    %s: %s", col, col %in% colnames(metadata)))
     }))
-    
+
     # Sample ID Mapping
     message("\nSample ID Processing:")
     message(sprintf("  Total IDs: %d", length(sample_ids)))
@@ -245,24 +245,24 @@ if (RUNTIME_CONFIG$debug_verbose) {
     invisible(lapply(head_ids, function(id) {
         message(sprintf("    %s -> %s", id, sample_id_mapping[id]))
     }))
-    
+
     # Color Scheme
     message("\nColor Scheme Configuration:")
     message("  Fixed Colors:")
     message(sprintf("    Placeholder: %s", GENOME_TRACK_CONFIG$color_placeholder))
     message(sprintf("    Input: %s", GENOME_TRACK_CONFIG$color_input))
-    
+
     message("\n  Category Colors:")
     message("    Antibody:")
     invisible(lapply(unique(metadata$antibody), function(ab) {
         message(sprintf("      %s: %s", ab, color_scheme$get_color("antibody", ab)))
     }))
-    
+
     message("    Rescue Allele:")
     invisible(lapply(unique(metadata$rescue_allele), function(ra) {
         message(sprintf("      %s: %s", ra, color_scheme$get_color("rescue_allele", ra)))
     }))
-    
+
     message("\n=== Initialization Complete ===")
 }
 
@@ -362,7 +362,7 @@ for (group_idx in groups_to_process) {
     }
 
     row_samples_to_visualize <- metadata[sample_groups[[group_idx]], ]
-    
+
     if (RUNTIME_CONFIG$debug_verbose) {
         message("\nSample Selection:")
         message(sprintf("  Group Index: %d/%d", group_idx, length(groups_to_process)))
@@ -431,7 +431,6 @@ for (group_idx in groups_to_process) {
             message(sprintf("  Track Label: %s", track_labels[i]))
             message(sprintf("  Bigwig file: %s", bigwig_file_path))
         }
-
 
         if (RUNTIME_CONFIG$debug_verbose) {
             message("\nTrack Creation Parameters:")
@@ -518,10 +517,6 @@ for (group_idx in groups_to_process) {
             fontcolor.title = "black",
             cex.title = 0.6
         )
-        #tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
-        #    features,
-        #    name = "Features"
-        #)
     }
 
     plot_config <- create_track_plot_config(
@@ -533,57 +528,45 @@ for (group_idx in groups_to_process) {
         verbose = RUNTIME_CONFIG$debug_verbose
     )
 
-
-    plot_filename <- sprintf(
-             GENOME_TRACK_CONFIG$filename_format_group_template,
-             TIME_CONFIG$current_timestamp,
-             experiment_id,
-             group_idx,
-             chromosome_to_plot
-     )
-
-     plot_file <- file.path(
-         dirs$output_dir,
-         plot_filename
-     )
-
-    if (RUNTIME_CONFIG$debug_verbose) {
-        message(paste(rep("-", 80), collapse = ""))
-        message("\nPlot Generation Details:")
-        message(sprintf("  Title Components:"))
-        message(sprintf("    Experiment: %s", experiment_id))
-        message(sprintf("    Chromosome: %s", chromosome_to_plot))
-        message(sprintf("    Sample Count: %d", nrow(row_samples_to_visualize)))
-        message(sprintf("    Timestamp: %s", TIME_CONFIG$current_timestamp))
-        message(sprintf("    Normalization: %s", normalization_method))
-        
-        message("\n  Output Configuration:")
-        message(sprintf("    Plot Directory: %s", dirs$output_dir))
-        message(sprintf("    Filename: %s", basename(plot_file)))
-        message(sprintf("    Full Path: %s", plot_file))
-        
-        # Visual separator for readability in log
-        message(paste(rep("-", 80), collapse = ""))
-    }
-
-
-for (mode in scaling_modes) {
+    for (mode in scaling_modes) {
         # Create filename for this mode
-        plot_file <- sprintf(
-            GENOME_TRACK_CONFIG$filename_templates[[mode]],
+        plot_filename <- sprintf(
+            GENOME_TRACK_CONFIG$filename_format_group_template,
             TIME_CONFIG$current_timestamp,
             experiment_id,
             group_idx,
-            chromosome_to_plot
-        )
-        
+            chromosome_to_plot,
+            mode
+         )
+
+         plot_file <- file.path(
+             dirs$output_dir,
+             plot_filename
+         )
+        if (RUNTIME_CONFIG$debug_verbose) {
+            message(paste(rep("-", 80), collapse = ""))
+            message(sprintf("\nScaling mode: %s", mode))
+            message("\nPlot Generation Details:")
+            message(sprintf("  Title Components:"))
+            message(sprintf("    Experiment: %s", experiment_id))
+            message(sprintf("    Chromosome: %s", chromosome_to_plot))
+            message(sprintf("    Sample Count: %d", nrow(row_samples_to_visualize)))
+            message(sprintf("    Timestamp: %s", TIME_CONFIG$current_timestamp))
+            message(sprintf("    Normalization: %s", normalization_method))
+            message("\n  Output Configuration:")
+            message(sprintf("    Plot Directory: %s", dirs$output_dir))
+            message(sprintf("    Filename: %s", basename(plot_file)))
+            message(sprintf("    Full Path: %s", plot_file))
+            # Visual separator for readability in log
+            message(paste(rep("-", 80), collapse = ""))
+        }
+
         # Set y-limits based on mode
         if (mode == "global") {
             plot_config$ylim <- global_limits
         } else if (mode == "local") {
             # Calculate limits for this group's files
-            group_files <- bigwig_files[bigwig_files %in% 
-                row_samples_to_visualize$bigwig_file]
+            group_files <- bigwig_files[bigwig_files %in% row_samples_to_visualize$bigwig_file]
             local_limits_result <- calculate_track_limits(
                 bigwig_files = group_files,
                 genome_range = genome_range,
@@ -595,7 +578,9 @@ for (mode in scaling_modes) {
         } else {  # individual
             plot_config$ylim <- NULL  # Let tracks scale independently
         }
-        
+
+        o
+
         if (RUNTIME_CONFIG$output_dry_run) {
             # Display only
             execute_track_plot(
