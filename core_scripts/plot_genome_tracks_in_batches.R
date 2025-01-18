@@ -131,7 +131,7 @@ fastq_files <- list.files(
 )
 
 # Find bigwig files
-bigwig_pattern <- sprintf("_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
+bigwig_pattern <- sprintf("processed_.*_sequence_to_S288C_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
 bigwig_files <- list.files(
     dirs$coverage,
     pattern = bigwig_pattern,
