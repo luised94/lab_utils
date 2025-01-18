@@ -37,8 +37,16 @@ print_config_settings <- function(config, title = NULL, verbose = TRUE) {
             "NULL"
         } else if (is.list(value)) {
             "LIST"  # Could expand this for nested configs if needed
+        } else if (is.vector(value) & length(value) > 0) {
+            # Handle vectors (like column order) specially
+            paste0("[", paste(value, collapse = ", "), "]")
         } else {
-            as.character(value)
+            stop(sprintf(
+                "Unsupported configuration value type for setting '%s':\n  Type: %s\n  Value: %s",
+                setting,
+                class(value)[1],
+                deparse(value)
+            ))
         }
         
         # Format the line

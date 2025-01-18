@@ -221,13 +221,16 @@ for (comparison_name in comparisons_to_process) {
         message(sprintf("\nProcessing comparison: %s", comparison_name))
     }
 
+    #===============================================================================
+    # 1. Metadata Processing and Sample Selection
+    #===============================================================================
     # Get comparison expression and filter metadata
     comparison_expression <- EXPERIMENT_CONFIG$COMPARISONS[[comparison_name]]
-    comparison_samples <- sorted_metadata[eval(comparison_expression,
+    row_samples_to_visualize <- sorted_metadata[eval(comparison_expression,
                                              envir = sorted_metadata), ]
 
     label_result <- create_track_labels(
-        samples = comparison_samples,
+        samples = row_samples_to_visualize,
         always_show = "antibody",
         never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
         separator = "-",
@@ -236,24 +239,25 @@ for (comparison_name in comparisons_to_process) {
 
     if (!label_result$success) {
         warning("Failed to create track labels for comparison %s: %s", comparison_name, label_result$error)
-        track_labels <- comparison_samples$short_name  # Fallback to sample_id
+        track_labels <- row_samples_to_visualize$short_name  # Fallback to sample_id
     } else {
         track_labels <- label_result$data$labels
     }
 
-    if (nrow(comparison_samples) == 0) {
+    if (nrow(row_samples_to_visualize) == 0) {
         warning(sprintf("No samples found for comparison: %s", comparison_name))
         next
     }
 
     if (RUNTIME_CONFIG$debug_verbose) {
-        message(sprintf("Found %d samples for comparison", nrow(comparison_samples)))
+        message(sprintf("Found %d samples for comparison", nrow(row_samples_to_visualize)))
     }
 
     # Initialize track list with genome axis
     tracks <- list(
         Gviz::GenomeAxisTrack(
-            name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
+           # name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
+            name = sprintf(track_axis_name_template, chromosome_to_plot)
         )
     )
 
@@ -264,23 +268,29 @@ for (comparison_name in comparisons_to_process) {
 
     # Try to find control for first available sample
     control_sample <- find_control_sample(
-        comparison_samples[1, ],
+        row_samples_to_visualize[1, ],
         sorted_metadata,
         EXPERIMENT_CONFIG$CONTROL_FACTORS
     )
+    
 
     # Add single control track (real or placeholder)
     if (!is.null(control_sample)) {
-        control_bigwig <- bigwig_files[grepl(control_sample$sample_id,
+
+        control_bigwig_file_path <- bigwig_files[grepl(control_sample$sample_id,
                                            bigwig_files)]
-        if (length(control_bigwig) > 0 && file.exists(control_bigwig[1])) {
+        #track_creation_result <- create_control_track(
+        #    bigwig_file_path = control_bigwig_file_path,
+        #    track_format_name = 
+
+        if (length(control_bigwig_file_path) > 0 && file.exists(control_bigwig_file_path[1])) {
             if (RUNTIME_CONFIG$debug_verbose) {
                 message(sprintf("Adding control track: %s",
                               control_sample$sample_id))
             }
 
             control_track_data <- rtracklayer::import(
-                control_bigwig[1],
+                control_bigwig_file_path[1],
                 which = genome_range
             )
 
@@ -364,10 +374,10 @@ for (comparison_name in comparisons_to_process) {
     }
 
     # Add sample tracks
-    for (i in seq_len(nrow(comparison_samples))) {
-        sample_id <- comparison_samples$sample_id[i]
-        sample_bigwig <- bigwig_files[grepl(sample_id, bigwig_files)]
-        current_antibody <- comparison_samples$antibody[i]
+    for (i in seq_len(nrow(row_samples_to_visualize))) {
+        sample_id <- row_samples_to_visualize$sample_id[i]
+        sample_bigwig_file_path <- bigwig_files[grepl(sample_id, bigwig_files)]
+        current_antibody <- row_samples_to_visualize$antibody[i]
 
         track_name <- sprintf(
             GENOME_TRACK_CONFIG$format_track,
@@ -379,7 +389,7 @@ for (comparison_name in comparisons_to_process) {
             message(sprintf("Creating track: %s", track_name))
         }
 
-        if (length(sample_bigwig) > 0 && file.exists(sample_bigwig[1])) {
+        if (length(sample_bigwig_file_path) > 0 && file.exists(sample_bigwig_file_path[1])) {
             if (RUNTIME_CONFIG$debug_verbose) {
                 message(sprintf("Adding track for sample: %s", sample_id))
             }
@@ -392,7 +402,7 @@ for (comparison_name in comparisons_to_process) {
             }
 
             track_data <- rtracklayer::import(
-                sample_bigwig[1],
+                sample_bigwig_file_path[1],
                 which = genome_range
             )
 
@@ -465,7 +475,7 @@ for (comparison_name in comparisons_to_process) {
 
     # Create shared characteristics text
     shared_values <- sapply(shared_categories, function(col) {
-        values <- unique(comparison_samples[[col]])
+        values <- unique(row_samples_to_visualize[[col]])
         if (length(values) == 1) {
             sprintf("%s: %s", col, values)
         } else {
@@ -494,7 +504,7 @@ for (comparison_name in comparisons_to_process) {
         experiment_id,
         sub("^comp_", "", comparison_name),
         chromosome_to_plot,
-        nrow(comparison_samples),
+        nrow(row_samples_to_visualize),
         format(Sys.time(), "%Y-%m-%d %H:%M"),
         normalization_method
     )
@@ -502,9 +512,6 @@ for (comparison_name in comparisons_to_process) {
     # Generate plot
     #-----------------------------------------------------------------------------
     if (RUNTIME_CONFIG$debug_verbose) {
-
-
-
         message("\nGenerating visualization...")
     }
 

@@ -7,8 +7,22 @@
 #' @return list containing {success, data, error} where data has y_limits
 #' @importFrom rtracklayer import
 #' @importFrom GenomicRanges values
-calculate_track_limits <- function(bigwig_files, genome_range, 
-                                 padding_fraction = 0.1, verbose = FALSE) {
+calculate_track_limits <- function(
+    bigwig_files, 
+    genome_range, 
+    padding_fraction = 0.1, 
+    verbose = FALSE
+) {
+    if (verbose) {
+        message("\nCalculating Track Limits:")
+        message(sprintf("  Files to process: %d", length(bigwig_files)))
+        message(sprintf("  Genome range: %s:%d-%d",
+                       GenomicRanges::seqnames(genome_range),
+                       GenomicRanges::start(genome_range),
+                       GenomicRanges::end(genome_range)))
+        message(sprintf("  Padding: %.1f%%", padding_fraction * 100))
+    }
+
     result <- tryCatch({
         # Input validation
         stopifnot(
@@ -17,25 +31,22 @@ calculate_track_limits <- function(bigwig_files, genome_range,
             "genome_range must be GRanges" = inherits(genome_range, "GRanges"),
             "padding_fraction must be numeric" = is.numeric(padding_fraction),
             "padding_fraction must be between 0 and 1" = 
-                padding_fraction >= 0 && padding_fraction <= 1,
-            "verbose must be logical" = is.logical(verbose)
+                padding_fraction >= 0 && padding_fraction <= 1
         )
         
-        if (verbose) {
-            message(sprintf("\nProcessing %d bigwig files for y-limits...", 
-                          length(bigwig_files)))
-        }
-        
-        # Initialize storage for values
+        # Initialize storage
         all_track_values <- c()
         processed_files <- 0
         skipped_files <- 0
         
-        # Process each bigwig file
+        # Process files
         for (bigwig_file in bigwig_files) {
+            if (verbose) {
+                message(sprintf("\n  Processing: %s", basename(bigwig_file)))
+            }
+
             if (file.exists(bigwig_file)) {
                 tryCatch({
-                    # Import data for specific chromosome
                     track_data <- rtracklayer::import(
                         bigwig_file,
                         which = genome_range
@@ -46,36 +57,48 @@ calculate_track_limits <- function(bigwig_files, genome_range,
                         if (length(values) > 0) {
                             all_track_values <- c(all_track_values, values)
                             processed_files <- processed_files + 1
+                            
+                            if (verbose) {
+                                message(sprintf("    Data points: %d", length(values)))
+                                message(sprintf("    Range: %.2f - %.2f",
+                                              min(values),
+                                              max(values)))
+                            }
                         }
                     }
                 }, error = function(e) {
                     if (verbose) {
-                        message("Skipping ", basename(bigwig_file), ": ", e$message)
+                        message("    ERROR: ", e$message)
                     }
                     skipped_files <- skipped_files + 1
                 })
             } else {
                 if (verbose) {
-                    message("File not found: ", basename(bigwig_file))
+                    message("    File not found")
                 }
                 skipped_files <- skipped_files + 1
             }
         }
         
-        # Calculate limits if we have values
+        # Calculate limits
         if (length(all_track_values) > 0) {
             y_min <- min(all_track_values, na.rm = TRUE)
             y_max <- max(all_track_values, na.rm = TRUE)
             y_range <- y_max - y_min
             y_limits <- c(
-                y_min - (y_range * padding_fraction),
+                max(0, y_min - (y_range * padding_fraction)),
                 y_max + (y_range * padding_fraction)
             )
             
             if (verbose) {
-                message(sprintf("Processed %d files successfully", processed_files))
-                message(sprintf("Skipped %d files", skipped_files))
-                message(sprintf("Y-limits: [%.2f, %.2f]", y_limits[1], y_limits[2]))
+                message("\nLimit Calculation Summary:")
+                message(sprintf("  Files processed: %d", processed_files))
+                message(sprintf("  Files skipped: %d", skipped_files))
+                message(sprintf("  Total data points: %d", 
+                              length(all_track_values)))
+                message(sprintf("  Raw range: [%.2f, %.2f]", y_min, y_max))
+                message(sprintf("  Padded limits: [%.2f, %.2f]", 
+                              y_limits[1], y_limits[2]))
             }
             
             list(
@@ -85,7 +108,9 @@ calculate_track_limits <- function(bigwig_files, genome_range,
             )
         } else {
             if (verbose) {
-                message("No valid track data found for y-limit calculation")
+                message("\nNo valid track data found")
+                message(sprintf("  Files processed: %d", processed_files))
+                message(sprintf("  Files skipped: %d", skipped_files))
             }
             
             list(
@@ -95,6 +120,11 @@ calculate_track_limits <- function(bigwig_files, genome_range,
             )
         }
     }, error = function(e) {
+        if (verbose) {
+            message("\nERROR in limit calculation:")
+            message(sprintf("  %s", e$message))
+        }
+        
         list(
             success = FALSE,
             data = NULL,
@@ -105,145 +135,656 @@ calculate_track_limits <- function(bigwig_files, genome_range,
     return(result)
 }
 
-#' @title Create Plot Title Using Category Information
-create_plot_title <- function(metadata, comparison_name, plot_info, 
-                            label_result = NULL, mode = "development") {
-    # Input validation
-    stopifnot(
-        "metadata must be data.frame" = is.data.frame(metadata),
-        "comparison_name must be character" = is.character(comparison_name),
-        "plot_info must be list" = is.list(plot_info),
-        "mode must be development or publication" = mode %in% c("development", "publication"),
-        "label_result must contain required components" = is.list(label_result) &&       all(c("labels", "categories") %in% names(label_result$data))
-    )
-    
-    # Use existing label information
-    distinguishing_cats <- label_result$data$categories$distinguishing
-    varying_cats <- label_result$data$categories$varying
-    all_cats <- label_result$data$categories$all_available
-    
-    # Find shared characteristics using existing categorization
-    shared_columns <- setdiff(all_cats, c(distinguishing_cats, "sample_id"))
-    # Get shared values
-    shared_values <- sapply(shared_columns, function(col) {
-        values <- unique(metadata[[col]])
-        if (length(values) == 1) {
-            sprintf("%s: %s", col, values)
-        } else {
-            NULL
+#' Create placeholder track for genome visualization
+#' @title Create Placeholder Genomic Track
+#' @description Creates an empty DataTrack with evenly spaced zero values
+#'
+#' @param sampling_rate numeric Number of base pairs per data point
+#' @param chromosome_width numeric Total width of chromosome in base pairs
+#' @param track_color character Color for track visualization
+#' @param type character Track type ('l' for line, 'h' for histogram, etc.)
+#' @param chromosome_name character Chromosome identifier
+#' @param placeholder_format_name character Format string for track name
+#' @param format_args character vector Arguments for track name formatting
+#'
+#' @return Gviz DataTrack object with placeholder data
+create_placeholder_track <- function(
+    sampling_rate = 100,
+    chromosome_width = NULL,
+    track_color,
+    track_type = "h",
+    chromosome_name,
+    placeholder_format_name,
+    format_args,
+    track_params = list(),
+    verbose = FALSE
+) {
+    if (verbose) {
+        message("\nCreating Placeholder Track:")
+        message(sprintf("  Chromosome: %s", chromosome_name))
+        message(sprintf("  Width: %d", chromosome_width))
+        message(sprintf("  Points: %d", ceiling(chromosome_width / sampling_rate)))
+        if (length(track_params) > 0) {
+            message("  Track Parameters:")
+            invisible(lapply(names(track_params), function(param) {
+                message(sprintf("    %s: %s", 
+                              param, 
+                              paste(track_params[[param]], collapse = ", ")))
+            }))
         }
-    })
-    shared_values <- unlist(shared_values[!sapply(shared_values, is.null)])
-    
-    # Create title based on mode
-    
-    if (mode == "development") {
-        # Create columns with explicit line breaks and fixed width
-        col1 <- sprintf(
-            "%-35s\n%-35s\n%-35s\n%-35s\n%-35s",
-            sprintf("Experiment: %s", plot_info$experiment_id),
-            sprintf("Comparison: %s", comparison_name),
-            sprintf("Chromosome: %s", plot_info$chromosome),
-            sprintf("Samples: %d", nrow(metadata)),
-            sprintf("Norm: %s", plot_info$normalization)
+    }
+
+    # Input validation
+    tryCatch({
+        stopifnot(
+            "sampling_rate must be positive numeric" = 
+                is.numeric(sampling_rate) && sampling_rate > 0,
+            "chromosome_width must be positive numeric" = 
+                is.numeric(chromosome_width) && chromosome_width > 0,
+            "track_color must be character" = 
+                is.character(track_color) && length(track_color) == 1,
+            "track_type must be valid track type" = 
+                track_type %in% c("l", "h", "p", "g"),
+            "chromosome_name must be character" = 
+                is.character(chromosome_name) && length(chromosome_name) == 1,
+            "placeholder_format_name must be character" = 
+                is.character(placeholder_format_name),
+            "format_args must be character vector" = 
+                is.character(format_args),
+            "track_params must be a list" = 
+                is.list(track_params)
         )
+
+        if (verbose) message("  Input validation successful")
+
+        # Create placeholder track
+        num_points <- ceiling(chromosome_width / sampling_rate)
         
-        # Format shared properties
-        shared_props <- sapply(shared_categories, function(col) {
-            values <- unique(metadata[[col]])
-            if (length(values) == 1) {
-                sprintf("%s: %s", col, values[1])
-            }
+        if (verbose) message("  Creating track name...")
+        placeholder_name <- tryCatch({
+            do.call(sprintf, c(list(placeholder_format_name), format_args))
+        }, error = function(e) {
+            stop(sprintf("Failed to create placeholder name: %s", e$message))
         })
-        shared_props <- shared_props[!sapply(shared_props, is.null)]
+
+        if (verbose) message("  Creating empty ranges...")
+        empty_ranges <- tryCatch({
+            GenomicRanges::GRanges(
+                seqnames = chromosome_name,
+                ranges = IRanges::IRanges(
+                    start = seq(1, chromosome_width, length.out = num_points),
+                    width = 1
+                ),
+                score = rep(0, num_points),
+                strand = "*"
+            )
+        }, error = function(e) {
+            stop(sprintf("Failed to create genomic ranges: %s", e$message))
+        })
         
-        col2 <- sprintf(
-            "Shared Properties:\n%s",
-            paste(strwrap(paste(shared_props, collapse = ", "), width = 35), 
-                  collapse = "\n")
+        # Merge default parameters with provided ones
+        track_args <- c(
+            list(
+                empty_ranges,
+                name = placeholder_name,
+                type = track_type,
+                col = track_color,
+                chromosome = chromosome_name  # Added explicit chromosome
+            ),
+            track_params
         )
+
+        if (verbose) {
+            message("  Creating DataTrack with parameters:")
+            message(sprintf("    Type: %s", track_type))
+            message(sprintf("    Color: %s", track_color))
+            message(sprintf("    Additional params: %d", length(track_params)))
+        }
+
+        track <- tryCatch({
+            do.call(Gviz::DataTrack, track_args)
+        }, error = function(e) {
+            stop(sprintf("Failed to create DataTrack: %s", e$message))
+        })
+
+
+        if (verbose) {
+            message("  Placeholder track created successfully:")
+            message(sprintf("    Name: %s", placeholder_name))
+            message(sprintf("    Points: %d", num_points))
+            message(sprintf("    Track size: %s", 
+                          if(is.null(track@size)) "default" else track@size))
+        }
         
-        col3 <- sprintf(
-            "%-35s\n%-35s",
-            format(Sys.time(), "%Y-%m-%d %H:%M"),
-            sprintf("Y-range: [%.2f, %.2f]", plot_info$y_limits[1], plot_info$y_limits[2])
+        list(
+            success = TRUE,
+            data = track,
+            error = NULL
         )
+
+    }, error = function(e) {
+        if (verbose) {
+            message("  ERROR creating placeholder track:")
+            message(sprintf("    %s", e$message))
+        }
         
-        # Combine with explicit column separators
-        title <- paste(
-            col1,
-            "|",
-            col2,
-            "|",
-            col3,
-            sep = "  "
+        list(
+            success = FALSE,
+            data = NULL,
+            error = as.character(e)
         )
-    } else {
-        title <- sprintf(
-            "%s: %s\nChr %s",
-            plot_info$experiment_id,
-            sub("^comp_", "", comparison_name),
-            plot_info$chromosome
-        )
-    }
-    
-    # Format title according to configuration
-    formatted_title <- format_title_text(
-        title,
-        max_width = GENOME_TRACK_CONFIG$title$format$max_width,
-        max_lines = GENOME_TRACK_CONFIG$title$format$max_lines
-    )
-    
-    return(formatted_title)
+    })
 }
 
-format_title_text <- function(text, max_width = 40, max_lines = NULL) {
+#' Create genomic data track for sample
+#' @title Create Sample Track
+#' @description Creates a DataTrack from bigwig file for sample visualization
+#'
+#' @param bigwig_file_path character Path to bigwig file
+#' @param track_format_name character Format string for track name
+#' @param format_args character vector Arguments for track name formatting
+#' @param track_color character Color for track visualization
+#' @param track_type character Track type (default: 'l' for line)
+#' @param genomic_range GRanges object for data subsetting (optional)
+#'
+#' @return List containing:
+#'   - success: logical indicating if track was created
+#'   - data: DataTrack object if successful, NULL if not
+#'   - error: error message if any
+create_sample_track <- function(
+    bigwig_file_path,
+    track_format_name,
+    format_args,
+    track_color,
+    track_type = "l",
+    genomic_range = NULL,
+    track_params = list(),
+    verbose = TRUE
+) {
+    
     # Input validation
     stopifnot(
-        "text must be character" = is.character(text),
-        "max_width must be positive number" = is.numeric(max_width) && max_width > 0,
-        "max_lines must be NULL or positive number" = 
-            is.null(max_lines) || (is.numeric(max_lines) && max_lines > 0)
+        "bigwig_file_path must be character" = 
+            is.character(bigwig_file_path) && length(bigwig_file_path) == 1,
+        "track_format_name must be character" = 
+            is.character(track_format_name) && length(track_format_name) == 1,
+        "format_args must be character vector" = 
+            is.character(format_args),
+        "track_color must be character" = 
+            is.character(track_color) && length(track_color) == 1,
+        "track_type must be character" = 
+            is.character(track_type) && length(track_type) == 1,
+        "track_params must be a list" = 
+            is.list(track_params)
     )
-    
-    # Split into lines
-    lines <- strsplit(text, "\n")[[1]]
-    
-    # Truncate or wrap each line
-    formatted_lines <- sapply(lines, function(line) {
-        if (nchar(line) > max_width) {
-            paste0(substr(line, 1, max_width - 3), "...")
-        } else {
-            line
+
+    if (verbose) {
+        message("\nTrack Creation Attempt:")
+        message(sprintf("  Bigwig path: %s", bigwig_file_path))
+        message(sprintf("  Is NA: %s", is.na(bigwig_file_path)))
+        message(sprintf("  File exists: %s", file.exists(bigwig_file_path)))
+        message(sprintf("  Track type: %s", track_type))
+        if (length(track_params) > 0) {
+            message("  Track parameters:")
+            invisible(lapply(names(track_params), function(param) {
+                message(sprintf("    %s: %s", 
+                              param, 
+                              paste(track_params[[param]], collapse = ", ")))
+            }))
         }
-    })
-    
-    # Limit number of lines if specified
-    if (!is.null(max_lines) && length(formatted_lines) > max_lines) {
-        formatted_lines <- c(
-            formatted_lines[1:(max_lines - 1)],
-            "..."
-        )
+    }
+
+    # Modify file check to be more explicit
+    if (is.na(bigwig_file_path)) {
+        return(list(
+            success = FALSE,
+            data = NULL,
+            error = "Bigwig file path is NA"
+        ))
     }
     
-    paste(formatted_lines, collapse = "\n")
-}
-## Create color mapping for antibodies
-#unique_antibodies <- unique(sorted_metadata$antibody)
-#antibody_colors <- generate_distinct_colors(length(unique_antibodies))
-#names(antibody_colors) <- unique_antibodies
-#
-## Update GENOME_TRACK_CONFIG with dynamic colors
-#GENOME_TRACK_CONFIG$track_colors <- list(
-#    antibody = antibody_colors,
-#    placeholder = GENOME_TRACK_CONFIG$placeholder_color  # Maintain consistent placeholder
-#)
+    if (!file.exists(bigwig_file_path)) {
+        return(list(
+            success = FALSE,
+            data = NULL,
+            error = sprintf("Bigwig file not found: %s", bigwig_file_path)
+        ))
+    }
 
-# Create color legend text
-#legend_text <- sprintf(
-#    "Track Colors:\n%s\n%s",
-#    paste("?", names(GENOME_TRACK_CONFIG$track_colors$antibody), 
-#          sprintf("(%s)", GENOME_TRACK_CONFIG$track_colors$antibody), 
-#          collapse = "\n"),
-#    sprintf("? No Data (%s)", GENOME_TRACK_CONFIG$placeholder_color)
-#)
+    # Try to create track
+    tryCatch({
+        # Import data
+        track_data <- if (is.null(genomic_range)) {
+            rtracklayer::import(bigwig_file_path)
+        } else {
+            rtracklayer::import(bigwig_file_path, which = genomic_range)
+        }
+
+        # Create track name
+        track_name <- do.call(sprintf, c(list(track_format_name), format_args))
+
+        if (verbose) message(sprintf("  Creating track: %s", track_name))
+
+        # Merge default parameters with provided ones
+        track_args <- c(
+            list(
+                track_data,
+                name = track_name,
+                type = track_type,
+                col = track_color
+            ),
+            track_params
+        )
+
+        # Create track with all parameters
+        track <- do.call(Gviz::DataTrack, track_args)
+
+        if (verbose) message("  Track creation successful")
+
+        list(
+            success = TRUE,
+            data = track,
+            error = NULL
+        )
+    }, error = function(e) {
+        list(
+            success = FALSE,
+            data = NULL,
+            error = as.character(e)
+        )
+    })
+}
+
+#' Create control track for genome visualization
+#' @title Create Control Track
+#' @description Creates a DataTrack from control sample bigwig file
+#'
+#' @param bigwig_file_path character Path to bigwig file
+#' @param track_format_name character Format string for track name
+#' @param format_args character vector Arguments for track name formatting
+#' @param track_color character Color for track visualization
+#' @param track_type character Track type (default: 'l' for line)
+#' @param genomic_range GRanges object for data subsetting (optional)
+#' @param control_type character Type of control (default: "Input")
+#'
+#' @return List containing success, data, and error information
+create_control_track <- function(
+    bigwig_file_path,
+    track_format_name,
+    format_args,
+    track_color,
+    track_type = "l",
+    genomic_range = NULL,
+    track_params = list(),
+    verbose = FALSE
+) {
+    if (verbose) {
+        message("\nCreating Control Track:")
+        message(sprintf("  Bigwig path: %s", bigwig_file_path))
+        message(sprintf("  File exists: %s", file.exists(bigwig_file_path)))
+        if (!is.null(genomic_range)) {
+            message(sprintf("  Range: %s:%d-%d",
+                          GenomicRanges::seqnames(genomic_range),
+                          GenomicRanges::start(genomic_range),
+                          GenomicRanges::end(genomic_range)))
+        }
+        if (length(track_params) > 0) {
+            message("  Track Parameters:")
+            invisible(lapply(names(track_params), function(param) {
+                message(sprintf("    %s: %s", 
+                              param, 
+                              paste(track_params[[param]], collapse = ", ")))
+            }))
+        }
+    }
+
+    # Input validation
+    tryCatch({
+        stopifnot(
+            "bigwig_file_path must be character" = 
+                is.character(bigwig_file_path) && length(bigwig_file_path) == 1,
+            "track_format_name must be character" = 
+                is.character(track_format_name) && length(track_format_name) == 1,
+            "format_args must be character vector" = 
+                is.character(format_args),
+            "track_color must be character" = 
+                is.character(track_color) && length(track_color) == 1,
+            "track_type must be character" = 
+                is.character(track_type) && length(track_type) == 1,
+            "track_params must be a list" = 
+                is.list(track_params)
+        )
+
+        if (verbose) message("  Input validation successful")
+
+        # Check file existence
+        if (is.na(bigwig_file_path) || !file.exists(bigwig_file_path)) {
+            return(list(
+                success = FALSE,
+                data = NULL,
+                error = sprintf("Control bigwig file not found: %s", bigwig_file_path)
+            ))
+        }
+
+        # Import data
+        if (verbose) message("  Importing bigwig data...")
+        track_data <- if (is.null(genomic_range)) {
+            rtracklayer::import(bigwig_file_path)
+        } else {
+            rtracklayer::import(bigwig_file_path, which = genomic_range)
+        }
+
+        # Create track name
+        if (verbose) message("  Creating track name...")
+        track_name <- tryCatch({
+            do.call(sprintf, c(list(track_format_name), format_args))
+        }, error = function(e) {
+            stop(sprintf("Failed to create track name: %s", e$message))
+        })
+
+        # Merge default parameters with provided ones
+        track_args <- c(
+            list(
+                track_data,
+                name = track_name,
+                type = track_type,
+                col = track_color,
+                chromosome = if (!is.null(genomic_range)) 
+                    as.character(GenomicRanges::seqnames(genomic_range)[1]) 
+                else NULL
+            ),
+            track_params
+        )
+
+        if (verbose) {
+            message("  Creating DataTrack with parameters:")
+            message(sprintf("    Type: %s", track_type))
+            message(sprintf("    Color: %s", track_color))
+            message(sprintf("    Additional params: %d", length(track_params)))
+        }
+
+        # Create track
+        track <- tryCatch({
+            do.call(Gviz::DataTrack, track_args)
+        }, error = function(e) {
+            stop(sprintf("Failed to create DataTrack: %s", e$message))
+        })
+
+
+        if (verbose) {
+            message("  Control track created successfully:")
+            message(sprintf("    Name: %s", track_name))
+            message(sprintf("    Data points: %d", length(track_data)))
+            message(sprintf("    Track size: %s", 
+                          if(is.null(track@size)) "default" else track@size))
+            if (!is.null(track_data)) {
+                message(sprintf("    Data range: %.2f - %.2f",
+                              min(track_data$score),
+                              max(track_data$score)))
+            }
+        }
+
+        list(
+            success = TRUE,
+            data = track,
+            error = NULL
+        )
+
+    }, error = function(e) {
+        if (verbose) {
+            message("  ERROR creating control track:")
+            message(sprintf("    %s", e$message))
+        }
+        
+        list(
+            success = FALSE,
+            data = NULL,
+            error = as.character(e)
+        )
+    })
+}
+
+#' Create configuration for genome track visualization
+#' @title Create Track Plot Configuration
+#' @description Creates a configuration list for Gviz plotTracks with sensible defaults
+#'
+#' @param tracks List of Gviz track objects
+#' @param chromosome Character, chromosome identifier
+#' @param from Numeric, start position (default: 1)
+#' @param to Numeric, end position
+#' @param ylim Numeric vector of length 2, y-axis limits
+#' @param title Character, plot title (optional)
+#' @param visualization_params List of visual parameters to override defaults
+#'
+#' @return List of parameters for plotTracks
+#' 
+#' @examples
+#' create_track_plot_config(
+#'   tracks = tracks,
+#'   chromosome = "chrI",
+#'   to = 1000,
+#'   ylim = c(0, 100),
+#'   visualization_params = list(fontcolor = "blue")
+#' )
+create_track_plot_config <- function(
+    tracks,
+    chromosome,
+    from = 1,
+    to,
+    #ylim,
+    title = NULL,
+    visualization_params = list(),
+    verbose = FALSE
+) {
+    # Input validation
+    stopifnot(
+        "tracks must be a list" = is.list(tracks),
+        "tracks cannot be empty" = length(tracks) > 0,
+        "chromosome must be character" = is.character(chromosome),
+        "from must be numeric" = is.numeric(from),
+        "to must be numeric" = is.numeric(to),
+       ## "ylim must be numeric vector of length 2" = 
+       ##     is.numeric(ylim) && length(ylim) == 2,
+        "visualization_params must be a list" = is.list(visualization_params)
+    )
+
+    if (verbose) {
+        message("\nCreating Plot Configuration:")
+        message(sprintf("  Tracks: %d", length(tracks)))
+        message(sprintf("  Chromosome: %s", chromosome))
+        message(sprintf("  Range: %d-%d", from, to))
+        #message(sprintf("  Y-limits: %s", paste(ylim, collapse="-")))
+    }
+
+    # Validate tracks
+    valid_tracks <- all(sapply(tracks, inherits, "GdObject"))
+    if (!valid_tracks) {
+        stop("All elements in 'tracks' must be valid Gviz track objects")
+    }
+
+    # Create base configuration
+    base_config <- list(
+        trackList = tracks,
+        chromosome = chromosome,
+        from = from,
+        to = to,
+        #ylim = ylim,
+        main = title
+    )
+
+    # Merge with visualization parameters
+    final_config <- modifyList(base_config, visualization_params)
+
+    if (verbose) {
+        message("\nConfiguration Parameters:")
+        message("  Base parameters:")
+        invisible(lapply(names(base_config), function(param) {
+            message(sprintf("    %s", param))
+        }))
+        message("  Visualization parameters:")
+        invisible(lapply(names(visualization_params), function(param) {
+            message(sprintf("    %s", param))
+        }))
+    }
+
+    final_config
+}
+
+#' Execute track plotting with optional saving
+#' @title Execute Track Plot
+#' @description Displays and optionally saves a genome track plot
+#'
+#' @param plot_config List of plotting parameters from create_track_plot_config
+#' @param save_path Character, path to save plot (optional)
+#' @param save_params List of saving parameters (optional)
+#' @return Invisible NULL
+#'
+#' @examples
+#' execute_track_plot(
+#'   plot_config = plot_config,
+#'   save_path = "plot.svg",
+#'   save_params = list(width = 10, height = 8)
+#' )
+execute_track_plot <- function(
+    plot_config,
+    save_path = NULL,
+    save_params = list(),
+    plot_params = list(),  # New parameter for plot settings
+    display_plot = FALSE,
+    verbose = TRUE
+) {
+
+    # Validate inputs
+    stopifnot(
+        "plot_config must be a list" = is.list(plot_config),
+        "plot_config must contain trackList" = !is.null(plot_config$trackList),
+        "save_params must be a list" = is.list(save_params),
+        "plot_params must be a list" = is.list(plot_params)
+    )
+
+    
+    # Debug output
+    if (verbose) {
+        message("\nPlot Configuration:")
+        message(sprintf("  Number of tracks: %d", length(plot_config$trackList)))
+        message("  Track types:")
+        invisible(lapply(plot_config$trackList, function(track) {
+            message(sprintf("    - %s: %s", 
+                          class(track)[1], 
+                          track@name))
+        }))
+        
+        if (length(plot_params) > 0) {
+            message("\nPlot Parameters:")
+            invisible(lapply(names(plot_params), function(param) {
+                message(sprintf("    %s: %s", 
+                              param, 
+                              paste(plot_params[[param]], collapse = ", ")))
+            }))
+        }
+
+        message("\nDevice Information:")
+        message(sprintf("  Display Plot: %s", display_plot))
+        message(sprintf("  Save Plot: %s", !is.null(save_path)))
+        message(sprintf("  Current device: %d", dev.cur()))
+        message(sprintf("  Interactive session: %s", interactive()))
+    }
+
+    
+    # Create plotting function
+    do_plot <- function() {
+        if (verbose) message("\nExecuting plot...")
+        
+        # Merge plot parameters
+        final_params <- modifyList(
+            plot_config,
+            plot_params  # Add custom plot parameters
+        )
+        
+        tryCatch({
+            do.call(Gviz::plotTracks, final_params)
+            if (verbose) message("  Plot execution successful")
+        }, error = function(e) {
+            message("  Plot execution failed:")
+            message(sprintf("    %s", as.character(e)))
+            stop(e)
+        })
+    }
+
+    # Handle saving
+    if (!is.null(save_path)) {
+        tryCatch({
+            # Validate save directory
+            save_dir <- dirname(save_path)
+            if (!dir.exists(save_dir)) {
+                stop("Directory does not exist: ", save_dir)
+            }
+            if (file.access(save_dir, mode = 2) != 0) {
+                stop("Directory is not writable: ", save_dir)
+            }
+            save_path <- normalizePath(save_path, mustWork = FALSE)
+            
+            # Merge save parameters with defaults
+            default_save_params <- list(
+                width = 10,
+                height = 8,
+                device = "svg"
+            )
+            save_params <- modifyList(default_save_params, save_params)
+            
+            if (verbose) {
+                message("\nSaving plot:")
+                message(sprintf("  Path: %s", save_path))
+                message(sprintf("  Width: %d", save_params$width))
+                message(sprintf("  Height: %d", save_params$height))
+            }
+            
+            # Handle different file formats
+            if (grepl("\\.svg$", save_path)) {
+                svg(save_path, 
+                    width = save_params$width, 
+                    height = save_params$height)
+                do_plot()
+                dev.off()
+            } else if (grepl("\\.pdf$", save_path)) {
+                pdf(save_path, 
+                    width = save_params$width, 
+                    height = save_params$height)
+                do_plot()
+                dev.off()
+            } else {
+                stop("Unsupported file format. Use .svg or .pdf")
+            }
+        }, error = function(e) {
+            stop("Failed to save plot: ", e$message)
+        })
+    }
+
+    # Handle display
+    if (display_plot) {
+        if (verbose) message("\nDisplaying plot...")
+        
+        if (dev.cur() == 1) {
+            if (verbose) message("  Opening new graphics device")
+            X11() # or quartz() on Mac, windows() on Windows
+        }
+        
+        do_plot()
+    }
+    
+    invisible(NULL)
+}
+
+#' Apply standard visual properties to genome tracks
+#' @param tracks List of Gviz track objects
+#' @param config List of visual properties from GENOME_TRACK_CONFIG
+#' @return List of tracks with standardized properties
+standardize_track_properties <- function(tracks, config) {
+    lapply(tracks, function(track) {
+        track@showTitle <- TRUE
+        track@background.title <- config$track_background
+        track@fontcolor.title <- config$track_fontcolor
+        track@cex.title <- config$title_dev_size
+        track
+    })
+}

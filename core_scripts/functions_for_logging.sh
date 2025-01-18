@@ -81,3 +81,32 @@ setup_logging() {
            "${task_log_dir}/main_${timestamp}.log" "${task_log_dir}/error_${timestamp}.log" "${task_log_dir}/performance_${timestamp}.log" \
            "${task_log_dir}" "${job_log_dir}" "${tool_dir}"
 }
+
+
+#print_args_with_separators() {
+#  local args=("${@}")
+#
+#  if [[ ${#args[@]} -eq 0 ]]; then
+#    printf "\e[31mError: No arguments provided.\e[0m\n" >&2
+#    return 1
+#  fi
+#
+#  local cols
+#    if ! cols=$(tput cols 2>/dev/null); then
+#        cols=80
+#    fi
+#
+#  printf '%*s\n' "$cols" '' | tr ' ' -
+#
+#  # Prepare truncated arguments for column
+#  local truncated_args=()
+#  local max_width=$((cols - 2))
+#  for arg in "${args[@]}"; do
+#    truncated_args+=("${arg:0:$max_width}")
+#  done
+#
+#  # Use printf to format the truncated arguments into a single string
+#  printf '%s\n' "${truncated_args[@]}" | column -c "$cols"
+#
+#  printf '%*s\n' "$cols" '' | tr ' ' -
+#}

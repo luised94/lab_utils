@@ -34,6 +34,10 @@ fi
 # Format file listing with columns and headers
 echo -e "\nFASTQ files found:"
 echo "----------------"
+#mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*_sorted.bam" -exec basename {} \;)
+#printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
+#printf '%s\n' "${unique_files[@]}" | column -c "${COLUMNS:-$(tput cols)}"
+#printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
 find "${EXPERIMENT_DIR}/fastq" -maxdepth 1 -type f -name "processed*.fastq" -exec basename {} \; | \
     pr -3 -t -w 100 | \
     column -t

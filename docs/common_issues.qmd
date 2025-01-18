@@ -1,0 +1,67 @@
+# Common issues when using this repository
+
+## Config files version misaligned.
+Most of the time, the config files arent updated to the latest version.
+You can open all of them in neovim and update them manually.
+```{bash}
+nvim ~/data/*Bel/documentation/*_bmc_config.R ~/lab_utils/core_scripts/template_bmc_config.R
+```
+Add it as an alias to the bashrc.
+```{bash}
+# Alias to quickly edit configuration files for BMC experiments
+alias edit_bmc_configs='nvim ~/data/*Bel/documentation/*_bmc_config.R core_scripts/template_bmc_config.R'
+```
+
+Then something that is useful to bulk update the configurations is the following macros:
+```{vim}
+" Delete section
+" Record macro
+qq
+/ Time Configuration " Top of section
+" Depend on comment structure
+-
+Ctrl+q
+" Go to the last section
+/ Configuration Validation
+$d
+q
+" Use macro on files manually or
+bufdo execute "normal @q" | write
+" Alternativelly use args or quick fix list to get the files you want to perform the operation on.
+" Yank the section you want to transfer.
+" Use similar strategy
+
+" Go to place to proper location and put text
+qq
+gg
+/ EXPERIMENT_CONFIG
+" Use search movement, do appropriate number of times.
+n
+$%
+<CR>
+put
+" This will add a lot of white space.
+" From the section you want to delete whitespace from.
+qq
+Ctrl+q
+}{
+'<,'>d
+q
+```
+
+## Quickly updating configs
+Sometimes you want to see the value of the configs quickly. Instead of running the script to see the configuration using the print_config function, you can use the edit_bmc_configs function to open the files. Then use a quickfixlist to find the locations and see them quickly by opening it or cycling through.
+
+```{vim}
+bufdo if bufname('%') !=# '' | vimgrepadd /dry_run/ % | endif
+bufdo if filereadable(expand('%:p')) | vimgrepadd /dry_run/ % | endif
+
+```
+## Files missing for analysis
+Scripts should always include input validation to make sure files are present.
+Easy solution is to rsync the files from the linux cluster (requires vpn if not working in the MIT campus).
+Refer to download scripts to download from scratch.
+
+```{bash}
+rsync -nav username@luria.mit.edu:~/data/REFGENS/* ~/data/REFGENS/
+```

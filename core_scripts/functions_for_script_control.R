@@ -83,24 +83,27 @@ parse_common_arguments <- function(description = "Script description", prog = NU
     }
 
     # Validate experiment ID format
-    if (!grepl("^\\d{6}Bel$", args$experiment_id, perl = TRUE)) {
+    if (!grepl("^\\d{6}Bel$", args$experiment_id, perl = TRUE) && args$experiment_id != "template") {
         stop(sprintf(
-            "Invalid experiment-id format.\nExpected: YYMMDD'Bel'\nReceived: %s",
+            "Invalid experiment-id format.\nExpected: YYMMDD'Bel' or 'template'\nReceived: %s",
             args$experiment_id
         ))
     }
-
-    # Validate experiment directory existence
-    experiment_dir <- file.path(Sys.getenv("HOME"), "data", args$experiment_id)
-    if (!dir.exists(experiment_dir)) {
-        stop(sprintf(
-            "Experiment directory not found:\n%s\nPlease ensure the directory exists and the experiment-id is correct.",
-            experiment_dir
-        ))
+    if (args$experiment_id == "template") {
+        args$experiment_dir <- file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts")
+        args$is_template <- TRUE
+    } else {
+        args$experiment_dir <- file.path(Sys.getenv("HOME"), "data", args$experiment_id)
+        args$is_template <- FALSE
+        
+        # Validate experiment directory existence (only for non-template)
+        if (!dir.exists(args$experiment_dir)) {
+            stop(sprintf(
+                "Experiment directory not found:\n%s\nPlease ensure the directory exists and the experiment-id is correct.",
+                args$experiment_dir
+            ))
+        }
     }
-
-    # Store the experiment directory path in the args list for easy access later
-    args$experiment_dir <- experiment_dir
 
     return(args)
 }

@@ -100,18 +100,18 @@ validate_function_existence <- function() {
 }
 
 # Function to check dependencies
-validate_dependencies <- function() {
-    missing_deps <- lapply(names(FUNCTION_DEPENDENCIES), function(func) {
-        deps <- FUNCTION_DEPENDENCIES[[func]]
-        missing <- deps[!sapply(deps, exists)]
-        if (length(missing) > 0) {
-            return(list(function = func, missing = missing))
-        }
-        return(NULL)
-    })
-    missing_deps <- missing_deps[!sapply(missing_deps, is.null)]
-    if (length(missing_deps) > 0) {
-        stop("Unmet dependencies found")
-    }
-    return(TRUE)
-}
+#validate_dependencies <- function() {
+#    missing_deps <- lapply(names(FUNCTION_DEPENDENCIES), function(func) {
+#        deps <- FUNCTION_DEPENDENCIES[[func]]
+#        missing <- deps[!sapply(deps, exists)]
+#        if (length(missing) > 0) {
+#            return(list(function = func, missing = missing))
+#        }
+#        return(NULL)
+#    })
+#    missing_deps <- missing_deps[!sapply(missing_deps, is.null)]
+#    if (length(missing_deps) > 0) {
+#        stop("Unmet dependencies found")
+#    }
+#    return(TRUE)
+#}
