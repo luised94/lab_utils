@@ -11,28 +11,84 @@ library(crayon)         # For colored output, if desired
 flog.threshold(DEBUG)  # Ensure all log levels (DEBUG, INFO, etc.) are shown
 
 # 3. Structured Logging Function
-structured_log_info <- function(message, step = NULL) {
-  # Retrieve the call stack
-  calls <- sys.calls()
-  # The second-to-last call typically corresponds to the function that invoked
-  # structured_log_info (i.e., user-level code).
-  caller_call <- calls[[length(calls) - 1]]
-  function_context <- as.character(caller_call)
+
+library(futile.logger)
+structured_log_info <- function(
+  message,
+  step = NULL,
+  skip_functions = c("eval", "envir", "source", "withVisible", "structured_log_info"),
+  log_level = "INFO"
+) {
+  # --------------------------------------------------------------------------
+  # 1. Input Validation
+  # --------------------------------------------------------------------------
+  if (!is.character(message) || length(message) != 1) {
+    stop("`message` must be a single character string.")
+  }
+  if (!is.null(step) && (!is.character(step) || length(step) != 1)) {
+    stop("`step`, if provided, must be a single character string.")
+  }
+  if (!is.character(skip_functions)) {
+    stop("`skip_functions` must be a character vector of function names to ignore.")
+  }
+  if (!is.character(log_level) || length(log_level) != 1) {
+    stop("`log_level` must be a single character string (e.g., \"INFO\", \"DEBUG\").")
+  }
   
-  # Build a timestamp
+  # --------------------------------------------------------------------------
+  # 2. Capture & Prune the Call Stack
+  # --------------------------------------------------------------------------
+  calls <- sys.calls()
+  
+  # Pull out the function names from each call
+  call_names <- sapply(calls, function(a_call) {
+    func_part <- a_call[[1]]
+    as.character(func_part)
+  })
+  
+  # Reverse the vector so the most recent call is first
+  reversed_names <- rev(call_names)
+  
+  # Identify the first user-defined call by skipping known base / wrapper calls
+  idx_user_call <- which(!reversed_names %in% skip_functions)[1]
+  function_context <- "unknown_function"
+  if (!is.na(idx_user_call)) {
+    # Convert index in reversed array to index in original array
+    actual_index <- length(reversed_names) - idx_user_call + 1
+    function_context <- call_names[actual_index]
+  }
+  
+  # --------------------------------------------------------------------------
+  # 3. Construct the Log Message
+  # --------------------------------------------------------------------------
   timestamp <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ")
   
-  # Build a logfmt-like message for easy parsing with grep, sed, awk, etc.
+  # Build a logfmt-like message for easy grep/sed/awk usage
+  # If you prefer JSON, you could build a JSON string here.
   structured_message <- paste0(
-    "level=INFO ",
+    "level=", log_level, " ",
     "time=", timestamp, " ",
     "function=", function_context, " ",
     if (!is.null(step)) paste0("step=", step, " ") else "",
-    'message="', message, '"'
+    "message=\"", message, "\""
   )
   
-  # Log the message using futile.logger
-  flog.info(structured_message)
+  # --------------------------------------------------------------------------
+  # 4. Log Using the Appropriate Level
+  # --------------------------------------------------------------------------
+  # We can dispatch based on `log_level` to use flog.debug(), flog.info(), etc.,
+  # or we can always use flog.info and rely on the textual level.  
+  # Here we match the actual futile.logger function to the parameter.
+  
+  switch(
+    toupper(log_level),
+    "DEBUG" = flog.debug(structured_message),
+    "INFO"  = flog.info(structured_message),
+    "WARN"  = flog.warn(structured_message),
+    "ERROR" = flog.error(structured_message),
+    # Default if unrecognized log level
+    flog.info(structured_message)
+  )
 }
 
 # 4. Example Utility Functions
