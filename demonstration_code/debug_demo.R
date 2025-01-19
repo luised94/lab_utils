@@ -54,3 +54,179 @@ structured_log_info("Now calling f1", step = "main")
 f1()
 
 structured_log_info("Demonstration script complete", step = "main")
+
+debug_info <- 
+    list(
+    title = "System Diagnostics",
+    "system.hostname" = Sys.info()["nodename"],
+    "r.version" = R.version.string,
+    "r.platform" = R.version$platform,
+    "os.type" = .Platform$OS.type,
+    "current.directory" = getwd(),
+    "session.timezone" = Sys.timezone(),
+    "memory.limit" = memory.limit(),
+    "cpu.cores" = parallel::detectCores(),
+    "user" = Sys.getenv("USER"),
+    "git.branch" = tryCatch({
+        system("git rev-parse --abbrev-ref HEAD", intern = TRUE)
+    }, error = function(e) "git_not_available")
+)
+
+print_debug_info(debug_info)
+log_system_diagnostics <- function() {
+    return(
+        list(
+            title = "System Diagnostics",
+            "system.hostname" = Sys.info()["nodename"],
+            "r.version" = R.version.string,
+            "r.platform" = R.version$platform,
+            "os.type" = .Platform$OS.type,
+            "current.directory" = getwd(),
+            "session.timezone" = Sys.timezone(),
+            "memory.limit" = memory.limit(),
+            "cpu.cores" = parallel::detectCores(),
+            "user" = Sys.getenv("USER"),
+            "git.branch" = tryCatch({
+                system("git rev-parse --abbrev-ref HEAD", intern = TRUE)
+            }, error = function(e) "git_not_available")
+        )
+    )
+}
+log_session_info <- function() {
+    list(
+        title = "Session Summary",
+        "total_objects" = length(ls(envir = globalenv())),
+        "loaded_packages" = names(sessionInfo()$loadedOnly),
+        "functions" = ls(envir = globalenv())[
+            sapply(ls(envir = globalenv()), 
+                   function(x) is.function(get(x, envir = globalenv())))
+        ],
+        "session_start_time" = Sys.time(),
+        "r_version" = R.version.string,
+        "r_platform" = R.version$platform
+    )
+}
+
+# Usage
+session_debug_info <- log_session_info()
+print_debug_info(session_debug_info)
+log_session_info <- function(log_file = NULL) {
+    # Capture all objects in global environment
+    all_objects <- ls(envir = globalenv())
+    
+    # Categorize objects
+    object_summary <- lapply(all_objects, function(obj) {
+        obj_value <- get(obj, envir = globalenv())
+        list(
+            type = class(obj_value)[1],
+            length = length(obj_value),
+            memory_size = object.size(obj_value)
+        )
+    })
+    names(object_summary) <- all_objects
+    
+    # Capture loaded packages
+    loaded_packages <- sessionInfo()$loadedOnly
+    
+    # Capture function names
+    functions <- all_objects[sapply(all_objects, function(x) is.function(get(x, envir = globalenv())))]
+    
+    # Comprehensive session info
+    session_info <- list(
+        title = "Session Summary",
+        "total_objects" = length(all_objects),
+        "objects" = object_summary,
+        "loaded_packages" = names(loaded_packages),
+        "functions" = functions,
+        "session_start_time" = Sys.time(),
+        "r_session_info" = capture.output(sessionInfo())
+    )
+    
+    # Option to log to file
+    if (!is.null(log_file)) {
+        writeLines(
+            paste(
+                "SESSION SUMMARY\n",
+                "Total Objects:", length(all_objects), "\n",
+                "Loaded Packages:", paste(names(loaded_packages), collapse = ", "), "\n",
+                "Functions:", paste(functions, collapse = ", ")
+            ), 
+            log_file
+        )
+    }
+    
+    return(session_info)
+}
+
+# Usage at end of script
+session_summary <- log_session_info()
+
+
+print_debug_info(session_summary)
+
+
+log_system_diagnostics <- function() {
+    # Consider adding these useful diagnostics:
+    list(
+        title = "System Diagnostics",
+        # ... existing items ...
+            "system.hostname" = Sys.info()["nodename"],
+            "r.version" = R.version.string,
+            "r.platform" = R.version$platform,
+            "os.type" = .Platform$OS.type,
+            "current.directory" = getwd(),
+            "session.timezone" = Sys.timezone(),
+            "memory.limit" = memory.limit(),
+            "cpu.cores" = parallel::detectCores(),
+            "user" = Sys.getenv("USER"),
+            "git.branch" = tryCatch({
+                system("git rev-parse --abbrev-ref HEAD", intern = TRUE)
+            }, error = function(e) "git_not_available"),
+        
+        # Additional useful diagnostics:
+        "locale" = Sys.getlocale(),
+        "temp_dir" = tempdir(),
+        "ram_free" = tryCatch({
+            as.numeric(system("free -g | grep Mem:", intern = TRUE))
+        }, error = function(e) "not_available"),
+        "disk_free" = tryCatch({
+            system("df -h . | tail -1", intern = TRUE)
+        }, error = function(e) "not_available")
+    )
+}
+
+log_session_info <- function() {  # Remove log_file parameter
+    # Get environment objects
+    all_objects <- ls(envir = globalenv())
+    
+    # More efficient object summary
+    object_summary <- sapply(all_objects, function(obj) {
+        obj_value <- get(obj, envir = globalenv())
+        c(
+            type = class(obj_value)[1],
+            size = format(object.size(obj_value), units = "auto")
+        )
+    }, simplify = FALSE)
+    
+    list(
+        title = "Session Summary",
+        "total_objects" = length(all_objects),
+        "objects" = object_summary,
+        "loaded_packages" = names(sessionInfo()$loadedOnly),
+        "attached_packages" = names(sessionInfo()$otherPkgs),
+        "functions" = all_objects[sapply(all_objects, 
+            function(x) is.function(get(x, envir = globalenv())))],
+        "session_time" = Sys.time()
+    )
+}
+full_diagnostics <- list(
+    title = "Complete Diagnostics",
+    log_session_info()
+)
+
+diagnostics <- log_system_diagnostics()
+# Use with print_debug_info
+print_debug_info(diagnostics)
+session_info <- log_session_info()
+print_debug_info(session_info)
+
