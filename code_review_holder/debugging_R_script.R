@@ -1,4 +1,3 @@
-
 # Ensure required packages are installed
 for (pkg in c("stringi", "jsonlite", "microbenchmark")) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
