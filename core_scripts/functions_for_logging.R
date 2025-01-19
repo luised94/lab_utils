@@ -416,3 +416,47 @@ get_script_name <- function() {
         }
     }, error = function(e) "unknown_script")
 }
+setup_logging <- function(
+    tool_name, 
+    job_id = NULL, 
+    task_id = NULL,
+    log_dir = file.path(Sys.getenv("HOME", "~"), "logs")
+) {
+    # Input validation
+    if (missing(tool_name) || 
+        !grepl("^[a-zA-Z0-9_-]+$", tool_name) || 
+        nchar(tool_name) > 50) {
+        stop("Invalid tool name. Must be 1-50 alphanumeric characters.")
+    }
+
+    # Determine job and task IDs
+    if (is.null(job_id)) {
+        job_id <- Sys.getenv("SLURM_ARRAY_JOB_ID", as.character(round(runif(1, 1000, 9999))))
+    }
+    
+    if (is.null(task_id)) {
+        task_id <- Sys.getenv("SLURM_ARRAY_TASK_ID", "1")
+    }
+    
+    # Create log directory structure
+    timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+    current_month <- format(Sys.Date(), "%Y-%m")
+    month_dir <- file.path(log_dir, current_month)
+    tool_dir <- file.path(month_dir, tool_name)
+    
+    # Generate log path
+    task_log_dir <- file.path(tool_dir, paste0("job_", job_id), paste0("task_", task_id))
+    log_file <- file.path(task_log_dir, paste0(timestamp, "_", tool_name, ".log"))
+
+    # Ensure log directory exists
+    dir.create(task_log_dir, recursive = TRUE, showWarnings = FALSE)
+
+    return(log_file)
+}
+
+# Usage Example
+#if (logging_enabled) {
+#    log_file <- setup_logging("my_tool")
+#    flog.appender(appender.file(log_file))
+#    flog.threshold(INFO)
+#}

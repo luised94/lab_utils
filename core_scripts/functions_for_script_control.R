@@ -1,5 +1,42 @@
 library(optparse)
 
+# Define analysis-focused override presets
+OVERRIDE_PRESETS <- list(
+    inspect_pipeline = list(  # For checking pipeline behavior
+        debug_enabled = TRUE,
+        debug_interactive = TRUE,
+        debug_verbose = TRUE,
+        debug_validate = TRUE,
+        process_single_file = TRUE,
+        output_save_plots = TRUE,
+        output_dry_run = FALSE
+    ),
+    full_analysis = list(  # For complete ChIP-seq analysis
+        debug_enabled = FALSE,
+        debug_interactive = FALSE,
+        debug_verbose = FALSE,
+        debug_validate = FALSE,
+        process_single_file = FALSE,
+        output_save_plots = TRUE,
+        output_dry_run = FALSE
+    ),
+    test_pipeline = list(  # For quick pipeline validation
+        debug_enabled = TRUE,
+        debug_verbose = TRUE,
+        debug_validate = TRUE,
+        process_single_file = TRUE,
+        process_samples_per_batch = 2,
+        output_display_time = 5
+    ),
+    check_single_sample = list(  # For investigating specific sample issues
+        debug_enabled = TRUE,
+        debug_verbose = TRUE,
+        output_dry_run = TRUE,
+        process_single_file = TRUE,
+        process_file_index = 1
+    )
+)
+
 validate_configs <- function(required_configs) {
     # 1. Input Validation
     stopifnot(
@@ -55,6 +92,24 @@ parse_common_arguments <- function(description = "Script description", prog = NU
             default = FALSE,
             help = "Accept configuration and continue with execution (default: stop after config display)",
             dest = "accept_configuration"
+        ),
+        make_option(
+            "--log-to-file",
+            action = "store_true",
+            default = FALSE,
+            help = "Enable logging to file (default: FALSE)",
+            dest = "log_to_file"
+        ),
+        make_option(
+            "--override",
+            type = "character",
+            help = paste(
+                "Override runtime configuration.",
+                "Values: ", paste(names(OVERRIDE_PRESETS), collapse = ", "),
+                "(default: NULL)"
+            ),
+            dest = "override",
+            metavar = "MODE"
         )
     )
 
@@ -272,4 +327,33 @@ setup_experiment_dirs <- function(experiment_dir, output_dir_name = "output", re
     dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
     return(dirs)
+}
+
+apply_runtime_override <- function(config, preset_name, preset_list) {
+    # Input validation
+    if (!is.list(config)) {
+        stop("config must be a list")
+    }
+    if (!is.character(preset_name) || length(preset_name) != 1) {
+        stop("preset_name must be a single string")
+    }
+    if (!is.list(preset_list)) {
+        stop("preset_list must be a list of presets")
+    }
+    
+    # Validate preset exists
+    if (!preset_name %in% names(preset_list)) {
+        stop(sprintf(
+            "Invalid preset name.\nExpected one of: %s\nReceived: %s",
+            paste(names(preset_list), collapse = ", "),
+            preset_name
+        ))
+    }
+    
+    # Return override info
+    list(
+        mode = preset_name,
+        original = config,
+        modified = modifyList(config, preset_list[[preset_name]])
+    )
 }
