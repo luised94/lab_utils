@@ -347,3 +347,57 @@ structured_log_info <- function(
     )
 }
 
+log_system_diagnostics <- function() {
+    # Get memory info based on OS
+    mem_info <- if (.Platform$OS.type == "windows") {
+        memory.limit()
+    } else {
+        tryCatch({
+            as.numeric(system("free -g | awk '/^Mem:/{print $2}'", intern = TRUE))
+        }, error = function(e) "not_available")
+    }
+
+    list(
+        title = "System Diagnostics",
+        "system.hostname" = Sys.info()["nodename"],
+        "r.version" = R.version.string,
+        "r.platform" = R.version$platform,
+        "os.type" = .Platform$OS.type,
+        "current.directory" = getwd(),
+        "session.timezone" = Sys.timezone(),
+        "memory" = mem_info,
+        "cpu.cores" = parallel::detectCores(),
+        "user" = Sys.getenv("USER"),
+        "disk_free" = tryCatch({
+            system("df -h . | tail -1", intern = TRUE)
+        }, error = function(e) "not_available"),
+        "git.branch" = tryCatch({
+            system("git rev-parse --abbrev-ref HEAD", intern = TRUE)
+        }, error = function(e) "git_not_available")
+    )
+}
+
+log_session_info <- function() {
+    all_objects <- ls(envir = globalenv())
+    
+    # Better named object summary
+    object_summary <- list()
+    for (obj_name in all_objects) {
+        obj_value <- get(obj_name, envir = globalenv())
+        object_summary[[paste0("object.", obj_name)]] <- sprintf(
+            "%s (%s)", 
+            class(obj_value)[1],
+            format(object.size(obj_value), units = "auto")
+        )
+    }
+    
+    list(
+        title = "Session Summary",
+        "total_objects" = length(all_objects),
+        "loaded_packages" = names(sessionInfo()$loadedOnly),
+        "functions" = all_objects[sapply(all_objects, 
+            function(x) is.function(get(x, envir = globalenv())))],
+        "session_time" = Sys.time()
+    ) |> 
+        c(object_summary)  # Append object summaries at same level
+}
