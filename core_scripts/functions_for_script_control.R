@@ -105,7 +105,7 @@ parse_common_arguments <- function(description = "Script description", prog = NU
             type = "character",
             help = paste(
                 "Override runtime configuration.",
-                "Values: ", paste(names(OVERRIDE_PRESETS), collapse = ", "),
+                "Values:", paste(names(OVERRIDE_PRESETS), collapse = ", "),
                 "(default: NULL)"
             ),
             dest = "override",
@@ -131,10 +131,26 @@ parse_common_arguments <- function(description = "Script description", prog = NU
         }
     )
 
-    # Validate required argument
+    # Validate all arguments
     if (is.null(args$experiment_id)) {
         print_help(opt_parser)
-        stop("Missing required argument: --experiment-id")
+        stop("Missing required argument: --experiment-id\nUse -h or --help for usage information")
+    }
+
+    # Validate argument types
+    if (!is.logical(args$log_to_file)) {
+        stop("--log-to-file must be logical value")
+    }
+
+    if (!is.logical(args$accept_configuration)) {
+        stop("--accept-configuration must be logical value")
+    }
+
+    if (!is.null(args$override) && !args$override %in% names(OVERRIDE_PRESETS)) {
+        stop(sprintf(
+            "--override must be one of: %s",
+            paste(names(OVERRIDE_PRESETS), collapse = ", ")
+        ))
     }
 
     # Validate experiment ID format
@@ -144,6 +160,8 @@ parse_common_arguments <- function(description = "Script description", prog = NU
             args$experiment_id
         ))
     }
+
+    # Set up experiment directory
     if (args$experiment_id == "template") {
         args$experiment_dir <- file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts")
         args$is_template <- TRUE
@@ -151,7 +169,6 @@ parse_common_arguments <- function(description = "Script description", prog = NU
         args$experiment_dir <- file.path(Sys.getenv("HOME"), "data", args$experiment_id)
         args$is_template <- FALSE
         
-        # Validate experiment directory existence (only for non-template)
         if (!dir.exists(args$experiment_dir)) {
             stop(sprintf(
                 "Experiment directory not found:\n%s\nPlease ensure the directory exists and the experiment-id is correct.",
@@ -330,7 +347,7 @@ setup_experiment_dirs <- function(experiment_dir, output_dir_name = "output", re
 }
 
 apply_runtime_override <- function(config, preset_name, preset_list) {
-    # Input validation
+    # Current input validation
     if (!is.list(config)) {
         stop("config must be a list")
     }
@@ -350,10 +367,36 @@ apply_runtime_override <- function(config, preset_name, preset_list) {
         ))
     }
     
+    preset <- preset_list[[preset_name]]
+    
+    # Validate preset keys
+    invalid_keys <- setdiff(names(preset), names(config))
+    if (length(invalid_keys) > 0) {
+        stop(sprintf(
+            "Preset '%s' contains invalid keys: %s\nValid keys: %s",
+            preset_name,
+            paste(invalid_keys, collapse = ", "),
+            paste(names(config), collapse = ", ")
+        ))
+    }
+    
+    # Validate value types
+    for (key in names(preset)) {
+        if (!identical(class(preset[[key]]), class(config[[key]]))) {
+            stop(sprintf(
+                "Type mismatch in preset '%s' for key '%s':\nExpected: %s\nReceived: %s",
+                preset_name,
+                key,
+                class(config[[key]]),
+                class(preset[[key]])
+            ))
+        }
+    }
+    
     # Return override info
     list(
         mode = preset_name,
         original = config,
-        modified = modifyList(config, preset_list[[preset_name]])
+        modified = modifyList(config, preset)
     )
 }

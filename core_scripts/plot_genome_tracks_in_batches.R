@@ -114,11 +114,35 @@ invisible(lapply(required_configs, function(config) {
     print_config_settings(get(config), title = config)
 }))
 
+
+# Handle configuration override (independent)
+#if (!is.null(args$override)) {
+#    override_result <- apply_runtime_override(
+#        config = RUNTIME_CONFIG,
+#        preset_name = args$override,
+#        preset_list = OVERRIDE_PRESETS
+#    )
+#    RUNTIME_CONFIG <- override_result$modified
+#    
+# print_debug_info(modifyList(
+#     list(
+#         title = "Final Configuration",
+#         "override.mode" = override_result$mode
+#     ),
+#     RUNTIME_CONFIG  # Flat list of current settings
+# ))
+#}
 handle_configuration_checkpoint(
     accept_configuration = accept_configuration,
     experiment_id = experiment_id
 )
 
+# Setup logging if requested (independent)
+#if (args$log_to_file) {
+#    log_file <- setup_logging("chip_peak_analysis")
+#    flog.appender(appender.file(log_file))
+#    flog.threshold(INFO)
+#}
 ################################################################################
 # Setup directories, variables and metadata
 ################################################################################
