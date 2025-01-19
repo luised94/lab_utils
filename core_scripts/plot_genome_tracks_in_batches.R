@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_logging.R"))
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
 ################################################################################
 # Load Required Libraries
@@ -23,6 +24,14 @@ if (args$is_template) {
     metadata_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_sample_grid.csv"))
 }
 
+
+args_info <- list(
+    title = "Script Configuration",
+    "script.name" = get_script_name(),
+    "script.description" = description
+)
+print_debug_info(modifyList(args_info, args))
+
 ################################################################################
 # Load and Validate Experiment Configuration and Dependencies
 ################################################################################
@@ -38,18 +47,13 @@ safe_source(config_path)
 # Define required dependencies
 required_modules <- list(
     list(
-        path = "~/lab_utils/core_scripts/functions_for_logging.R",
-        description = "Logging functions",
-        required = TRUE
-    ),
-    list(
         path = "~/lab_utils/core_scripts/functions_for_metadata_processing.R",
         description = "Process metadata grid for downstream analysis.",
         required = TRUE
     ),
     list(
         path = "~/lab_utils/core_scripts/functions_for_genome_tracks.R",
-        description = "Process metadata grid for downstream analysis.",
+        description = "Functions to load genome track objects for plotting",
         required = TRUE
     )
 )
@@ -62,46 +66,49 @@ stopifnot(
 )
 
 # Load dependencies with status tracking
+# Process module loading
 load_status <- lapply(required_modules, function(module) {
-    if (RUNTIME_CONFIG$debug_verbose) {
-        cat(sprintf("\n[LOADING] %s\n", module$description))
-    }
-
     success <- safe_source(module$path, verbose = TRUE)
-
     if (!success && module$required) {
-        stop(sprintf(
-            "[FATAL] Failed to load required module: %s\n  Path: %s",
-            module$description, module$path
-        ))
+        stop(sprintf("Failed to load required module: %s\n  Path: %s",
+            module$description, module$path))
     } else if (!success) {
-        warning(sprintf(
-            "[WARNING] Optional module not loaded: %s\n  Path: %s",
-            module$description, module$path
-        ))
+        warning(sprintf("Optional module not loaded: %s\n  Path: %s",
+            module$description, module$path))
     }
-
-    return(list(
+    list(
         module = module$description,
         path = module$path,
-        loaded = success
-    ))
+        loaded = success,
+        required = module$required
+    )
 })
 
-# Display loading summary using ASCII
-if (RUNTIME_CONFIG$debug_verbose) {
-    cat("\n=== Module Loading Summary ===\n")
-    invisible(lapply(load_status, function(status) {
-        cat(sprintf(
-            "[%s] %s\n    Path: %s\n",
-            if(status$loaded) "+" else "-",
-            status$module,
-            status$path
-        ))
-    }))
+# Create debug info structure
+module_info <- list(
+    title = "Module Loading Status",
+    "total_modules" = length(required_modules),
+    "required_modules" = sum(sapply(required_modules, `[[`, "required"))
+)
+
+# Add status for each module
+# Add status for each module
+for (status in load_status) {
+    module_key <- paste0(
+        if(status$required) "required." else "optional.",
+        gsub(" ", "_", tolower(status$module))
+    )
+    module_info[[module_key]] <- sprintf(
+        "%s (%s)", 
+        status$module,  # Now showing description
+        if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
+    )
 }
 
-required_configs <- c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG", "GENOME_TRACK_CONFIG")
+# Display using print_debug_info
+print_debug_info(module_info)
+
+required_configs <- c("EXPERIMENT_CONFIG", "GENOME_TRACK_CONFIG", "RUNTIME_CONFIG")
 validate_configs(required_configs)
 invisible(lapply(required_configs, function(config) {
     print_config_settings(get(config), title = config)

@@ -373,6 +373,9 @@ log_system_diagnostics <- function() {
         }, error = function(e) "not_available"),
         "git.branch" = tryCatch({
             system("git rev-parse --abbrev-ref HEAD", intern = TRUE)
+        }, error = function(e) "git_not_available"),
+        "git.commit" = tryCatch({
+            system("git rev-parse HEAD", intern = TRUE)
         }, error = function(e) "git_not_available")
     )
 }
@@ -400,4 +403,16 @@ log_session_info <- function() {
         "session_time" = Sys.time()
     ) |> 
         c(object_summary)  # Append object summaries at same level
+}
+
+get_script_name <- function() {
+    tryCatch({
+        cmd_args <- commandArgs(trailingOnly = FALSE)
+        file_arg <- grep("--file=", cmd_args, value = TRUE)
+        if (length(file_arg) > 0) {
+            basename(sub("--file=", "", file_arg))
+        } else {
+            ifelse(interactive(), "interactive_session", "batch_session")
+        }
+    }, error = function(e) "unknown_script")
 }

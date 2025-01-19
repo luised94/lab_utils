@@ -129,12 +129,12 @@ handle_configuration_checkpoint <- function(
     }
     
     # Common formatting elements
-    separator <- strrep("=", 80)
+    separator <- create_separator()
     format_section <- function(title) {
         paste(
             "\n", separator,
             "\n", title,
-            "\n", separator, "\n"
+            "\n", separator, "\n", sep = ""
         )
     }
     
