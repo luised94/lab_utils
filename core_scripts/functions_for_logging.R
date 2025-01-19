@@ -79,7 +79,9 @@ print_debug_info <- function(
         if (key == "title") next  # Skip processing for the title
 
         value <- debug_info[[key]]
-        indent_level <- stri_count_fixed(key, ".")
+        #indent_level <- stri_count_fixed(key, "^.")
+        indent_level <- nchar(gsub("[^.].*$", "", key))
+
         indent <- stri_dup(indent_char, indent_level)
         clean_key <- stri_replace_all_regex(key, "^[.]+", "")
 
@@ -344,3 +346,4 @@ structured_log_info <- function(
         flog.info(structured_message)
     )
 }
+
