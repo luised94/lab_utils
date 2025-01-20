@@ -47,7 +47,8 @@ EXPERIMENT_CONFIG <- list(
     METADATA = list(
         EXPERIMENT_ID = "100303Bel",
         EXPECTED_SAMPLES = 5,
-        VERSION = "1.0.0"
+        VERSION = "1.0.0",
+        PROJECT_ID = "project_001"
     ),
 
     CATEGORIES = list(
