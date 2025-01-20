@@ -228,9 +228,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
         ".Width" = chromosome_width,
         
         "Feature Processing" = NULL,
-        ". Feature Search Pattern" = GENOME_TRACK_CONFIG$file_feature_pattern,
-        ". Feature Found File" = if(length(feature_file) > 0) feature_file else "None",
-        ". Feature File Accessible" = if(!is.null(feature_file) && length(feature_file) > 0) 
+        ".Feature Search Pattern" = GENOME_TRACK_CONFIG$file_feature_pattern,
+        ".Feature Found File" = if(length(feature_file) > 0) feature_file else "None",
+        ".Feature File Accessible" = if(!is.null(feature_file) && length(feature_file) > 0) 
             file.exists(feature_file) else FALSE
     )
     
@@ -242,3 +242,4 @@ if (RUNTIME_CONFIG$debug_verbose) {
     
     print_debug_info(debug_info)
 }
+

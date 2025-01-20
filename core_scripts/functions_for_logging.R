@@ -74,16 +74,31 @@ print_debug_info <- function(
     # Prepare output lines
     output_lines <- c()
 
-    # Process each item in the list, excluding "title"
+    # Track seen keys and their counts
+    key_counts <- list()
+    
+    # Process all non-title entries
     for (key in names(debug_info)) {
-        if (key == "title") next  # Skip processing for the title
+        if (key == "title") next  # Skip title for now
+        
+        # Track duplicate keys
+        if (exists(key, key_counts)) {
+            key_counts[[key]] <- key_counts[[key]] + 1
+            # Warn on first duplicate
+            if (key_counts[[key]] == 2) {
+                warning(sprintf("Duplicate key found in debug_info: '%s'", key))
+            }
+            # Append count to key for display
+            display_key <- sprintf("%s_%d", key, key_counts[[key]] - 1)
+        } else {
+            key_counts[[key]] <- 1
+            display_key <- key
+        }
 
         value <- debug_info[[key]]
-        #indent_level <- stri_count_fixed(key, "^.")
-        indent_level <- nchar(gsub("[^.].*$", "", key))
-
+        indent_level <- nchar(gsub("[^.].*$", "", display_key))
         indent <- stri_dup(indent_char, indent_level)
-        clean_key <- stri_replace_all_regex(key, "^[.]+", "")
+        clean_key <- stri_replace_all_regex(display_key, "^[.]+", "")
 
         if (is.null(value)) {
             line <- sprintf("%s%s:", indent, clean_key)
@@ -93,6 +108,25 @@ print_debug_info <- function(
 
         output_lines <- c(output_lines, line)
     }
+    # Process each item in the list, excluding "title"
+    #for (key in names(debug_info)) {
+    #    if (key == "title") next  # Skip processing for the title
+
+    #    value <- debug_info[[key]]
+    #    #indent_level <- stri_count_fixed(key, "^.")
+    #    indent_level <- nchar(gsub("[^.].*$", "", key))
+
+    #    indent <- stri_dup(indent_char, indent_level)
+    #    clean_key <- stri_replace_all_regex(key, "^[.]+", "")
+
+    #    if (is.null(value)) {
+    #        line <- sprintf("%s%s:", indent, clean_key)
+    #    } else {
+    #        line <- sprintf("%s%s: %s", indent, clean_key, as.character(value))
+    #    }
+
+    #    output_lines <- c(output_lines, line)
+    #}
 
     # Calculate longest line length for box drawing
     #max_line_length <- max(nchar(normalized_matrix_rows))
