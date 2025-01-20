@@ -559,6 +559,7 @@ for (group_idx in groups_to_process) {
         TIME_CONFIG$current_timestamp,
         normalization_method
     )
+
     plot_config <- create_track_plot_config(
         tracks = tracks,
         chromosome = chromosome_roman,
