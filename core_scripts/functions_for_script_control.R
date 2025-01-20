@@ -110,6 +110,13 @@ parse_common_arguments <- function(description = "Script description", prog = NU
             ),
             dest = "override",
             metavar = "MODE"
+        ),
+        make_option(
+            "--skip-validation",
+            action = "store_true",
+            default = TRUE,  # Change to TRUE
+            help = "Skip validation for presence of required R packages (default: TRUE). Set to FALSE to force validation.",
+            dest = "skip_validation"
         )
     )
 
@@ -270,7 +277,18 @@ handle_configuration_checkpoint <- function(
 #' @return Invisible list of package status
 #' @examples
 #' validate_packages(c("rtracklayer", "GenomicRanges", "Gviz"))
-check_required_packages <- function(packages, verbose = TRUE) {  # verbose now defaults to TRUE
+check_required_packages <- function(
+    packages,
+    verbose = TRUE,
+    skip_validation = FALSE
+) {  # verbose now defaults to TRUE
+    if (skip_validation) {
+        if (verbose) {
+            structured_log_info("Package validation skipped. Use --skip-validation=FALSE to force validation.")
+        }
+        return(invisible(NULL))
+    }
+
     if (!is.character(packages) || length(packages) == 0) {
         stop("packages must be a non-empty character vector")
     }

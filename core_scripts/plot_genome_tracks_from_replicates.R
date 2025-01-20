@@ -1,11 +1,6 @@
 #!/usr/bin/env Rscript
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_logging.R"))
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
-################################################################################
-# Load Required Libraries
-################################################################################
-required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
-check_required_packages(required_packages, verbose = TRUE)
 
 ################################################################################
 # Handle script arguments
@@ -13,6 +8,11 @@ check_required_packages(required_packages, verbose = TRUE)
 # Parse arguments and validate configurations
 description <- "Plot tracks from different experiments in same plot."
 args <- parse_common_arguments(description = description)
+
+# Proceed if packages are installed. Can be disable.
+required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
+check_required_packages(required_packages, verbose = TRUE, skip_validation = args$skip_validation)
+
 experiment_id <- args$experiment_id
 accept_configuration <- args$accept_configuration
 experiment_dir <- args$experiment_dir
@@ -42,8 +42,8 @@ if (!file.exists(bootstrap_path)) {
     stop(sprintf("[FATAL] Bootstrap file not found: %s", bootstrap_path))
 }
 source(bootstrap_path)
-print(config_path)
-safe_source(config_path)
+#todo:Create function that sources but reassigns EXPERIMENT_CONFIG to another name. Would need to update all references or find some way to update that. However, the settings should remain the same for the most part and I can include a safe_source call inside the for loop just in case.
+sapply(config_path[1], safe_source)
 
 # Define required dependencies
 required_modules <- list(
