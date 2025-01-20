@@ -60,13 +60,13 @@ validate_configs <- function(required_configs) {
           paste(invalid_pattern, collapse = ", ")
         )
     }
-    
+
     # 3. Verify each one actually exists in the environment
     missing <- required_configs[!sapply(required_configs, exists)]
     if (length(missing) > 0) {
         stop("Missing required configs: ", paste(missing, collapse = ", "))
     }
-    
+
     # If we get here, all checks have passed
     invisible(TRUE)
 }
@@ -153,29 +153,58 @@ parse_common_arguments <- function(description = "Script description", prog = NU
         ))
     }
 
-    # Validate experiment ID format
-    if (!grepl("^\\d{6}Bel$", args$experiment_id, perl = TRUE) && args$experiment_id != "template") {
+
+    # Replace the existing validation section with:
+    if (grepl(",", args$experiment_id)) {
+        # Split and clean the IDs
+        experiment_ids <- stri_split_fixed(args$experiment_id, ",")[[1]]
+        experiment_ids <- trimws(experiment_ids)  # Remove any whitespace
+        experiment_ids <- experiment_ids[experiment_ids != ""]  # Remove empty elements
+
+        # Check for duplicates
+        if (length(unique(experiment_ids)) != length(experiment_ids)) {
+            stop("Duplicate experiment IDs detected")
+        }
+
+        # Validate format of each ID
+        invalid_ids <- experiment_ids[!grepl("^\\d{6}Bel$", experiment_ids, perl = TRUE)]
+        if (length(invalid_ids) > 0) {
+            stop(sprintf(
+                "Invalid experiment-id format(s):\n%s\nExpected format: YYMMDD'Bel'",
+                paste(invalid_ids, collapse = ", ")
+            ))
+        }
+
+        args$experiment_id <- experiment_ids
+    } else if (!grepl("^\\d{6}Bel$", args$experiment_id, perl = TRUE) && 
+               args$experiment_id != "template") {
         stop(sprintf(
-            "Invalid experiment-id format.\nExpected: YYMMDD'Bel' or 'template'\nReceived: %s",
+            "Invalid experiment-id format.\nExpected: YYMMDD'Bel' or 'template' or '<exp_id1>,<exp_id2>,...'\nReceived: %s",
             args$experiment_id
         ))
     }
 
     # Set up experiment directory
-    if (args$experiment_id == "template") {
+    # Modify the directory check section
+    if (args$experiment_id[1] == "template") {
         args$experiment_dir <- file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts")
         args$is_template <- TRUE
     } else {
-        args$experiment_dir <- file.path(Sys.getenv("HOME"), "data", args$experiment_id)
+        args$experiment_dir <- sapply(args$experiment_id, function(id) {
+            file.path(Sys.getenv("HOME"), "data", id)
+        })
         args$is_template <- FALSE
-        
-        if (!dir.exists(args$experiment_dir)) {
+
+        # Check all directories exist
+        missing_dirs <- args$experiment_dir[!dir.exists(args$experiment_dir)]
+        if (length(missing_dirs) > 0) {
             stop(sprintf(
-                "Experiment directory not found:\n%s\nPlease ensure the directory exists and the experiment-id is correct.",
-                args$experiment_dir
+                "The following experiment directories were not found:\n%s",
+                paste(missing_dirs, collapse = "\n")
             ))
         }
     }
+
 
     return(args)
 }
@@ -199,7 +228,7 @@ handle_configuration_checkpoint <- function(
     if (!is.character(experiment_id) || length(experiment_id) != 1 || is.na(experiment_id)) {
         stop("experiment_id must be a single character string")
     }
-    
+
     # Common formatting elements
     separator <- create_separator()
     format_section <- function(title) {
@@ -209,7 +238,7 @@ handle_configuration_checkpoint <- function(
             "\n", separator, "\n", sep = ""
         )
     }
-    
+
     if (!accept_configuration) {
         message(paste(
             format_section("CONFIGURATION CHECKPOINT"),
@@ -224,14 +253,14 @@ handle_configuration_checkpoint <- function(
         ))
         quit(status = 0, save = "no")
     }
-    
+
     message(paste(
         format_section("CONFIGURATION CONFIRMED"),
         "\nContinuing with script execution...",
         "\n", separator,
         sep = ""
     ))
-    
+
     invisible(NULL)
 }
 
@@ -357,7 +386,7 @@ apply_runtime_override <- function(config, preset_name, preset_list) {
     if (!is.list(preset_list)) {
         stop("preset_list must be a list of presets")
     }
-    
+
     # Validate preset exists
     if (!preset_name %in% names(preset_list)) {
         stop(sprintf(
@@ -366,9 +395,9 @@ apply_runtime_override <- function(config, preset_name, preset_list) {
             preset_name
         ))
     }
-    
+
     preset <- preset_list[[preset_name]]
-    
+
     # Validate preset keys
     invalid_keys <- setdiff(names(preset), names(config))
     if (length(invalid_keys) > 0) {
@@ -379,7 +408,7 @@ apply_runtime_override <- function(config, preset_name, preset_list) {
             paste(names(config), collapse = ", ")
         ))
     }
-    
+
     # Validate value types
     for (key in names(preset)) {
         if (!identical(class(preset[[key]]), class(config[[key]]))) {
@@ -392,7 +421,7 @@ apply_runtime_override <- function(config, preset_name, preset_list) {
             ))
         }
     }
-    
+
     # Return override info
     list(
         mode = preset_name,
