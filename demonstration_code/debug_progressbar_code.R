@@ -108,6 +108,9 @@ progress_tracker <- function(current, total, description = "", min_update_interv
         assign("start_time", Sys.time(), envir = environment(progress_tracker))
     }
     
+    # Ensure current does not exceed total
+    current <- min(current, total)
+    
     # Check if enough time has passed since the last update
     current_time <- Sys.time()
     time_since_last_update <- as.numeric(current_time - get("last_update_time", envir = environment(progress_tracker)))
@@ -137,13 +140,15 @@ progress_tracker <- function(current, total, description = "", min_update_interv
         }
     } else ""
     
-    # Create progress bar with blocks
+    # Create progress bar with blocks (ensure no negative values)
     filled_blocks <- round(progress_bar_width * current / total)
+    empty_blocks <- max(0, progress_bar_width - filled_blocks - 1L)
+    
     progress_bar <- paste0(
         "[",
-        strrep("#", filled_blocks),
-        if (current < total) "=" else "#",
-        strrep("-", progress_bar_width - filled_blocks - 1L),
+        strrep("#", filled_blocks),  # Use '#' for filled blocks
+        if (current < total) "=" else "#",  # Use '=' for the current block
+        strrep("-", empty_blocks),  # Use '-' for empty blocks (clamped to 0)
         "]"
     )
     
@@ -159,6 +164,8 @@ progress_tracker <- function(current, total, description = "", min_update_interv
     
     # Update console with progress message
     cat(progress_message)
+    
+    # Finalize progress bar if current >= total
     if (current >= total) {
         cat("\n")  # Move to a new line after completion
     }
@@ -173,4 +180,13 @@ total <- 50
 for(i in 1:total) {
     progress_tracker(i, total, "Processing items")
     Sys.sleep(0.1)  # Simulate work
+}
+total_items <- 50
+batch_size <- 5
+
+for (i in seq(1, total_items, by = batch_size)) {
+    current <- min(i + batch_size - 1, total_items)  # Ensure current <= total
+    progress_tracker(current, total_items, description = "Processing items")
+    cat("Processing item", i, "with some additional details...\n")
+    Sys.sleep(0.5)  # Simulate work being done
 }
