@@ -343,37 +343,36 @@ for (path in config_path) {
         print_debug_info(debug_info)
     }
 
-#    
-#    metadata <- load_and_process_experiment_metadata(
-#        metadata_path = metadata_path,
-#        categories = EXPERIMENT_CONFIG$CATEGORIES,
-#        column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
-#        sample_ids = sample_ids,
-#        stop_on_missing_columns = TRUE
-#    )
-#    
-#    # Create color scheme
-#    color_scheme <- create_color_scheme(
-#        config = list(
-#            placeholder = GENOME_TRACK_CONFIG$color_placeholder,
-#            input = GENOME_TRACK_CONFIG$color_input
-#        ),
-#        categories = list(
-#            antibody = unique(metadata$antibody),
-#            rescue_allele = unique(metadata$rescue_allele)
-#        )
-#    )
-#    
-#    # Add after processing metadata but before track creation
-#    short_sample_ids <- create_minimal_identifiers(
-#        metadata$sample_id,
-#        verbose = RUNTIME_CONFIG$debug_verbose
-#    )
-#    
-#    # Create mapping between full and short IDs
-#    sample_id_mapping <- setNames(
-#        short_sample_ids,
-#        metadata$sample_id
-#    )
-#
+    metadata <- load_and_process_experiment_metadata(
+        metadata_path = metadata_path,
+        categories = EXPERIMENT_CONFIG$CATEGORIES,
+        column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
+        sample_ids = sample_ids,
+        stop_on_missing_columns = TRUE
+    )
+
+    # Create color scheme
+    color_scheme <- create_color_scheme(
+        config = list(
+            placeholder = GENOME_TRACK_CONFIG$color_placeholder,
+            input = GENOME_TRACK_CONFIG$color_input
+        ),
+        categories = list(
+            antibody = unique(metadata$antibody),
+            rescue_allele = unique(metadata$rescue_allele)
+        )
+    )
+
+    # Add after processing metadata but before track creation
+    short_sample_ids <- create_minimal_identifiers(
+        metadata$sample_id,
+        verbose = RUNTIME_CONFIG$debug_verbose
+    )
+
+    # Create mapping between full and short IDs
+    sample_id_mapping <- setNames(
+        short_sample_ids,
+        metadata$sample_id
+    )
+
 }
