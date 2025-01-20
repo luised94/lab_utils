@@ -364,21 +364,53 @@ for (path in config_path) {
 
 }
 
-if (nrow(metadata) == 0) {
+if (nrow(project_metadata) == 0) {
     stop("No metadata entries found after merging all experiments")
 }
-if (any(duplicated(metadata$sample_id))) {
-    warning("Duplicate sample IDs found in merged metadata")
+if (any(duplicated(project_metadata$sample_id))) {
+    warning("Duplicate sample IDs found in merged project_metadata")
 }
 if (nrow(project_metadata) != total_expected_rows) {
     stop(sprintf(
-        "Metadata merge error: Expected %d rows but got %d rows",
+        "project_metadata merge error: Expected %d rows but got %d rows",
         total_expected_rows,
         nrow(project_metadata)
     ))
 }
 if (length(unique(project_metadata$experiment_id)) != length(config_path)) {
     warning("Number of unique experiment IDs doesn't match number of config files processed")
+}
+if(RUNTIME_CONFIG$debug_verbose) {
+    debug_info <- list(
+        "title" = "Metadata Summary",
+        
+        "Dataset Metrics" = NULL,
+        ".Samples" = sprintf("%d samples, %d columns", nrow(project_metadata), ncol(project_metadata)),
+        ".Experiment" = unique(project_metadata$experiment_id),
+        
+        "Sample Categories" = NULL,
+        ".Types" = sprintf(
+            "Input: %d, Positive: %d, Negative: %d",
+            sum(project_metadata$sample_type == "input"),
+            sum(project_metadata$sample_type == "positive"),
+            sum(project_metadata$sample_type == "negative")
+        ),
+        
+        "Experimental Conditions" = NULL,
+        ".Rescue Alleles" = paste(unique(project_metadata$rescue_allele), collapse = ", "),
+        ".Antibodies" = paste(unique(project_metadata$antibody), collapse = ", "),
+        ".Treatments" = sprintf(
+            "Auxin (Yes/No): %d/%d",
+            sum(project_metadata$auxin_treatment == "YES"),
+            sum(project_metadata$auxin_treatment == "NO")
+        ),
+        
+        "ID Validation" = NULL,
+        ".Sample ID Range" = sprintf("%s - %s", min(project_metadata$sample_id), max(project_metadata$sample_id)),
+        ".Name Format" = sprintf("Example: %s  %s", project_metadata$full_name[1], project_metadata$short_name[1])
+    )
+    print_debug_info(debug_info)
+
 }
 
 # Create color scheme
