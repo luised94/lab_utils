@@ -389,20 +389,34 @@ if(RUNTIME_CONFIG$debug_verbose) {
         ".Experiment" = unique(project_metadata$experiment_id),
         
         "Sample Categories" = NULL,
-        ".Types" = sprintf(
-            "Input: %d, Positive: %d, Negative: %d",
-            sum(project_metadata$sample_type == "input"),
-            sum(project_metadata$sample_type == "positive"),
-            sum(project_metadata$sample_type == "negative")
+        ".Types" = paste(
+            sprintf("%s: %d", 
+            names(table(project_metadata$sample_type)),
+            table(project_metadata$sample_type)
+            ),
+            collapse = ", "
         ),
-        
+        ".Antibodies" = paste(
+            sprintf("%s: %d", 
+                   names(table(project_metadata$antibody)), 
+                   table(project_metadata$antibody)
+            ), 
+            collapse = ", "
+        ),
         "Experimental Conditions" = NULL,
-        ".Rescue Alleles" = paste(unique(project_metadata$rescue_allele), collapse = ", "),
-        ".Antibodies" = paste(unique(project_metadata$antibody), collapse = ", "),
-        ".Treatments" = sprintf(
-            "Auxin (Yes/No): %d/%d",
-            sum(project_metadata$auxin_treatment == "YES"),
-            sum(project_metadata$auxin_treatment == "NO")
+        ".Rescue Alleles" = paste(
+            sprintf("%s: %d", 
+                   names(table(project_metadata$rescue_allele)), 
+                   table(project_metadata$rescue_allele)
+            ), 
+            collapse = ", "
+        ),
+        ".Treatments" = paste(
+            sprintf("%s: %d", 
+            names(table(project_metadata$auxin_treatment)),
+            table(project_metadata$auxin_treatment)
+            ),
+            collapse = ", "
         ),
         
         "ID Validation" = NULL,
