@@ -77,6 +77,7 @@ validate_configs <- function(required_configs) {
 #' @return List of validated arguments
 #' @examples
 #' args <- parse_common_arguments("Align sequencing reads to reference genome")
+#todo: Add a --track-statistics to measure different stats from the main logic to track certain actions for debugging.
 parse_common_arguments <- function(description = "Script description", prog = NULL) {
     option_list <- list(
         make_option(

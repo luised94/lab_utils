@@ -382,7 +382,7 @@ log_system_diagnostics <- function() {
 
 log_session_info <- function() {
     all_objects <- ls(envir = globalenv())
-    
+
     # Better named object summary
     object_summary <- list()
     for (obj_name in all_objects) {
@@ -393,7 +393,7 @@ log_session_info <- function() {
             format(object.size(obj_value), units = "auto")
         )
     }
-    
+
     list(
         title = "Session Summary",
         "total_objects" = length(all_objects),
@@ -433,17 +433,17 @@ setup_logging <- function(
     if (is.null(job_id)) {
         job_id <- Sys.getenv("SLURM_ARRAY_JOB_ID", as.character(round(runif(1, 1000, 9999))))
     }
-    
+
     if (is.null(task_id)) {
         task_id <- Sys.getenv("SLURM_ARRAY_TASK_ID", "1")
     }
-    
+
     # Create log directory structure
     timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
     current_month <- format(Sys.Date(), "%Y-%m")
     month_dir <- file.path(log_dir, current_month)
     tool_dir <- file.path(month_dir, tool_name)
-    
+
     # Generate log path
     task_log_dir <- file.path(tool_dir, paste0("job_", job_id), paste0("task_", task_id))
     log_file <- file.path(task_log_dir, paste0(timestamp, "_", tool_name, ".log"))
