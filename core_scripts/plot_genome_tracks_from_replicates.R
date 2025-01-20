@@ -204,6 +204,17 @@ if (!is.null(feature_file)) {
     )
 }
 
+reference_bigwig <- "~/data/100303Bel/coverage/processed_034475_sequence_to_S288C_CPM.bw"
+if (!is.null(reference_bigwig)) {
+    reference_grange <- rtracklayer::import(reference_bigwig)
+    #print(reference_grange)
+    ## Convert to chrRoman format
+    #GenomeInfoDb::seqlevels(features) <- paste0(
+    #    "chr",
+    #    utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
+    #)
+}
+
 if (RUNTIME_CONFIG$debug_verbose) {
     debug_info <- list(
         "title" = "Genome and Feature Loading Status",
@@ -449,3 +460,36 @@ sample_id_mapping <- setNames(
     short_sample_ids,
     project_metadata$sample_id
 )
+
+if (!is.null(args$override)) {
+    structured_log_info("Reoverriding for sample processing")
+    override_result <- apply_runtime_override(
+        config = RUNTIME_CONFIG,
+        preset_name = args$override,
+        preset_list = OVERRIDE_PRESETS
+    )
+    RUNTIME_CONFIG <- override_result$modified
+
+ print_debug_info(modifyList(
+     list(
+         title = "Final Configuration",
+         "override.mode" = override_result$mode
+     ),
+     RUNTIME_CONFIG  # Flat list of current settings
+ ))
+}
+
+# Determine which groups to process
+unique_short_names <- unique(project_metadata$short_name)
+short_name_to_process <- if (RUNTIME_CONFIG$process_single_file) {
+    RUNTIME_CONFIG$process_file_index
+} else {
+    seq_along(unique_short_names)
+}
+
+for (short_name_idx in short_name_to_process) {
+    row_samples_to_visualize <- project_metadata[grepl(unique_short_names[short_name_idx], project_metadata$short_name), ]
+    #print(grepl(short_name, project_metadata$short_name))
+    print(head(row_samples_to_visualize))
+    
+}
