@@ -246,6 +246,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
 # Load the metadata dataframe with all experiments.
 #####################
 project_id <- c()
+project_bigwig_files <- c()
+project_metadata <- data.frame()
+total_expected_rows <- 0
 for (path in config_path) {
     safe_source(path, verbose = FALSE)
     experiment_dir <- dirname(dirname(path))
@@ -260,7 +263,10 @@ for (path in config_path) {
         required_input_dirs = required_directories
     )
     project_id <- c(project_id, EXPERIMENT_CONFIG$METADATA$PROJECT_ID)
-    print(length(unique(project_id)) == 1)
+    if (length(unique(project_id)) != 1) {
+        warning("All experiments must belong to the same project. Found projects: ",
+             paste(unique(project_ids), collapse = ", "))
+    }
     output_dir <- file.path(Sys.getenv("HOME"), "data", unique(project_id), "plots", "genome_tracks", "replicates")
     dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
     # Find fastq files and extract sample IDs
@@ -350,29 +356,50 @@ for (path in config_path) {
         sample_ids = sample_ids,
         stop_on_missing_columns = TRUE
     )
+    total_expected_rows <- total_expected_rows + nrow(metadata)
+    metadata$experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+    project_metadata <- rbind(project_metadata, metadata)
+    project_bigwig_files <- c(project_bigwig_files, bigwig_files)
 
-    # Create color scheme
-    color_scheme <- create_color_scheme(
-        config = list(
-            placeholder = GENOME_TRACK_CONFIG$color_placeholder,
-            input = GENOME_TRACK_CONFIG$color_input
-        ),
-        categories = list(
-            antibody = unique(metadata$antibody),
-            rescue_allele = unique(metadata$rescue_allele)
-        )
-    )
-
-    # Add after processing metadata but before track creation
-    short_sample_ids <- create_minimal_identifiers(
-        metadata$sample_id,
-        verbose = RUNTIME_CONFIG$debug_verbose
-    )
-
-    # Create mapping between full and short IDs
-    sample_id_mapping <- setNames(
-        short_sample_ids,
-        metadata$sample_id
-    )
 
 }
+
+if (nrow(metadata) == 0) {
+    stop("No metadata entries found after merging all experiments")
+}
+if (any(duplicated(metadata$sample_id))) {
+    warning("Duplicate sample IDs found in merged metadata")
+}
+if (nrow(project_metadata) != total_expected_rows) {
+    stop(sprintf(
+        "Metadata merge error: Expected %d rows but got %d rows",
+        total_expected_rows,
+        nrow(project_metadata)
+    ))
+}
+if (length(unique(project_metadata$experiment_id)) != length(config_path)) {
+    warning("Number of unique experiment IDs doesn't match number of config files processed")
+}
+
+# Create color scheme
+color_scheme <- create_color_scheme(
+    config = list(
+        placeholder = GENOME_TRACK_CONFIG$color_placeholder,
+        input = GENOME_TRACK_CONFIG$color_input
+    ),
+    categories = list(
+        antibody = unique(project_metadata$antibody),
+        rescue_allele = unique(project_metadata$rescue_allele)
+    )
+)
+
+# Add after processing metadata but before track creation
+short_sample_ids <- create_minimal_identifiers(
+    project_metadata$sample_id,
+    verbose = RUNTIME_CONFIG$debug_verbose
+)
+# Create mapping between full and short IDs
+sample_id_mapping <- setNames(
+    short_sample_ids,
+    project_metadata$sample_id
+)
