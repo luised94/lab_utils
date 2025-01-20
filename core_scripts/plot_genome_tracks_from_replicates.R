@@ -24,7 +24,6 @@ if (args$is_template) {
     metadata_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_sample_grid.csv"))
 }
 
-
 args_info <- list(
     title = "Script Configuration",
     "script.name" = get_script_name(),
@@ -125,7 +124,7 @@ if (!is.null(args$override)) {
         preset_list = OVERRIDE_PRESETS
     )
     RUNTIME_CONFIG <- override_result$modified
-    
+
  print_debug_info(modifyList(
      list(
          title = "Final Configuration",
@@ -208,7 +207,7 @@ if (!is.null(feature_file)) {
 if (RUNTIME_CONFIG$debug_verbose) {
     debug_info <- list(
         "title" = "Genome and Feature Loading Status",
-        
+
         "Directory Validation" = NULL,
         ".Genome Directory" = sprintf("%s (Exists: %s)", 
             GENOME_TRACK_CONFIG$file_genome_directory,
@@ -216,30 +215,165 @@ if (RUNTIME_CONFIG$debug_verbose) {
         ".Feature Directory" = sprintf("%s (Exists: %s)",
             GENOME_TRACK_CONFIG$file_feature_directory,
             dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)),
-            
+
         "Genome Processing" = NULL,
         ".Search Pattern" = GENOME_TRACK_CONFIG$file_genome_pattern,
         ".Found File" = if(length(ref_genome_file) > 0) ref_genome_file else "None",
         ".File Accessible" = if(length(ref_genome_file) > 0) file.exists(ref_genome_file) else FALSE,
-        
+
         "Chromosome Details" = NULL,
         ".Target" = chromosome_to_plot,
         ".Roman Notation" = chromosome_roman,
         ".Width" = chromosome_width,
-        
+
         "Feature Processing" = NULL,
         ".Feature Search Pattern" = GENOME_TRACK_CONFIG$file_feature_pattern,
         ".Feature Found File" = if(length(feature_file) > 0) feature_file else "None",
         ".Feature File Accessible" = if(!is.null(feature_file) && length(feature_file) > 0) 
             file.exists(feature_file) else FALSE
     )
-    
+
     # Add feature details if loaded
     if (exists("features") && !is.null(features)) {
         debug_info[[".Feature Count"]] <- length(features)
         debug_info[[".Sequence Levels"]] <- paste(GenomeInfoDb::seqlevels(features), collapse = ", ")
     }
-    
+
     print_debug_info(debug_info)
 }
 
+#####################
+# Load the metadata dataframe with all experiments.
+#####################
+project_id <- c()
+for (path in config_path) {
+    safe_source(path, verbose = FALSE)
+    experiment_dir <- dirname(dirname(path))
+    metadata_path <- file.path(
+        experiment_dir,
+        "documentation",
+        paste0(EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID, "_sample_grid.csv")
+    )
+    required_directories <- c("fastq", "documentation", "coverage")
+    dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
+        output_dir_name = "plots",
+        required_input_dirs = required_directories
+    )
+    project_id <- c(project_id, EXPERIMENT_CONFIG$METADATA$PROJECT_ID)
+    print(length(unique(project_id)) == 1)
+    output_dir <- file.path(Sys.getenv("HOME"), "data", unique(project_id), "plots", "genome_tracks", "replicates")
+    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+    # Find fastq files and extract sample IDs
+    fastq_files <- list.files(
+        path = dirs$fastq,
+        pattern = GENOME_TRACK_CONFIG$file_pattern,
+        full.names = FALSE
+    )
+
+    # Find bigwig files
+    bigwig_pattern <- sprintf("processed_.*_sequence_to_S288C_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
+    bigwig_files <- list.files(
+        dirs$coverage,
+        pattern = bigwig_pattern,
+        full.names = TRUE
+    )
+
+    if (length(bigwig_files) == 0) {
+        stop("No bigwig files found in specified directory")
+    }
+    normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1",
+        basename(bigwig_files[1]))
+
+    if (length(fastq_files) == 0) {
+        warning("No fastq files found in specified directory")
+        message("Attempting to use bigwig files to find sample_ids")
+        # Extract sample IDs from fastq filenames
+        sample_ids <- gsub(
+            pattern = GENOME_TRACK_CONFIG$file_sample_id_from_bigwig,
+            replacement = "\\1",
+            x = basename(bigwig_files)
+        )
+    } else {
+        # Extract sample IDs from fastq filenames
+        sample_ids <- gsub(
+            pattern = GENOME_TRACK_CONFIG$file_sample_id,
+            replacement = "\\1",
+            x = fastq_files
+        )
+    }
+    if (RUNTIME_CONFIG$debug_verbose) {
+        debug_info <- list(
+            "title" = "File Processing Debug Information",
+            "Directories" = NULL,
+            ".FASTQ" = dirs$fastq,
+            ".Coverage" = dirs$coverage,
+            "Pattern Matching" = NULL,
+            ".FASTQ Pattern" = GENOME_TRACK_CONFIG$file_pattern,
+            ".Bigwig Pattern" = bigwig_pattern,
+            "File Discovery" = NULL,
+            ".FASTQ Files" = sprintf("Found: %d", length(fastq_files))
+        )
+
+        # Add first few FASTQ files if any exist
+        if (length(fastq_files) > 0) {
+            for (i in seq_along(head(fastq_files, 3))) {
+                debug_info[[sprintf("..FASTQ File %d", i)]] <- fastq_files[i]
+            }
+        }
+
+        # Add Bigwig information
+        debug_info[[".Bigwig Files"]] <- sprintf("Found: %d", length(bigwig_files))
+        if (length(bigwig_files) > 0) {
+            for (i in seq_along(head(bigwig_files, 3))) {
+                debug_info[[sprintf("..Bigwig File %d", i)]] <- basename(bigwig_files[i])
+            }
+            debug_info[[".Normalization"]] <- normalization_method
+        }
+
+        # Add Sample IDs information
+        debug_info[["Sample Information"]] <- NULL
+        debug_info[[".Total IDs"]] <- sprintf("Found: %d", length(sample_ids))
+        if (length(sample_ids) > 0) {
+            for (i in seq_along(head(sample_ids, 3))) {
+                debug_info[[sprintf("..Sample ID %d", i)]] <- sample_ids[i]
+            }
+        }
+
+        # Print debug information using the new function
+        print_debug_info(debug_info)
+    }
+
+#    
+#    metadata <- load_and_process_experiment_metadata(
+#        metadata_path = metadata_path,
+#        categories = EXPERIMENT_CONFIG$CATEGORIES,
+#        column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
+#        sample_ids = sample_ids,
+#        stop_on_missing_columns = TRUE
+#    )
+#    
+#    # Create color scheme
+#    color_scheme <- create_color_scheme(
+#        config = list(
+#            placeholder = GENOME_TRACK_CONFIG$color_placeholder,
+#            input = GENOME_TRACK_CONFIG$color_input
+#        ),
+#        categories = list(
+#            antibody = unique(metadata$antibody),
+#            rescue_allele = unique(metadata$rescue_allele)
+#        )
+#    )
+#    
+#    # Add after processing metadata but before track creation
+#    short_sample_ids <- create_minimal_identifiers(
+#        metadata$sample_id,
+#        verbose = RUNTIME_CONFIG$debug_verbose
+#    )
+#    
+#    # Create mapping between full and short IDs
+#    sample_id_mapping <- setNames(
+#        short_sample_ids,
+#        metadata$sample_id
+#    )
+#
+}

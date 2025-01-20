@@ -114,7 +114,7 @@ EXPERIMENT_CONFIG <- list(
         active = "CPM"
     )
 )
-
+#todo: need to add guard statement around this section to prevent double loading of config objects when I run multi-experiment scripts. Also use default config with all values. Would need to adjust the parse arguments script as well. Pretty complex refactor.
 ################################################################################
 # Time Configurations
 ################################################################################
