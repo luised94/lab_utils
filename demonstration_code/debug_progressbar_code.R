@@ -190,3 +190,30 @@ for (i in seq(1, total_items, by = batch_size)) {
     cat("Processing item", i, "with some additional details...\n")
     Sys.sleep(0.5)  # Simulate work being done
 }
+
+# Function to clear the console (works on most terminals)
+clear_console <- function() {
+    cat("\033[2J")  # ANSI escape code to clear the screen
+}
+
+# Example usage
+total_items <- 10
+batch_size <- 1
+
+for (i in seq(1, total_items, by = batch_size)) {
+    current <- min(i + batch_size - 1, total_items)
+    
+    # Clear the console
+    clear_console()
+    
+    # Simulate a complicated print statement
+    cat("Processing item", i, "with some additional details...\n")
+    cat("Another line of detailed output...\n")
+    
+    # Update progress bar
+    progress_tracker(current, total_items, description = "Processing items\n")
+    
+    Sys.sleep(0.1)  # Simulate work being done
+}
+
+
