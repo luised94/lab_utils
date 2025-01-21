@@ -672,13 +672,32 @@ for (short_name_idx in short_name_to_process) {
             }
         }
     }
+
     if (exists("reference_grange")) {
-        tracks[[length(tracks) + 1]] <- Gviz::DataTrack(
-            reference_grange,
-            GENOME_TRACK_CONFIG$track_defaults_control
+        if (!is(reference_grange, "GRanges")) {
+            stop("reference_grange must be a GRanges object")
+        }
+        
+        track_args <- c(
+            list(
+                range = reference_grange,
+                name = "Reference"
+            ),
+            GENOME_TRACK_CONFIG$track_defaults_sample
+        )
+        
+        # Optional: Debug info
+        if (RUNTIME_CONFIG$debug_verbose) {
+            message("Creating reference track with arguments:")
+            #print(str(track_args))
+        }
+        
+        tracks[[length(tracks) + 1]] <- do.call(
+            Gviz::DataTrack,
+            track_args
         )
     }
-    # Add feature track if available
+
     if (exists("features")) {
         tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
             features,
@@ -689,6 +708,7 @@ for (short_name_idx in short_name_to_process) {
             cex.title = 0.6
         )
     }
+
     title_replicate_template <- paste(
         "Project_id: %s",
         "Replicate: %s",
@@ -752,9 +772,9 @@ for (short_name_idx in short_name_to_process) {
         # Set y-limits based on mode
         if (mode == "local") {
             # Calculate limits for this group's files
-            group_files <- bigwig_files[grepl(
+            group_files <- project_bigwig_files[grepl(
                 paste(row_samples_to_visualize$sample_id, collapse = "|"),
-                bigwig_files
+                project_bigwig_files
             )]
             local_limits_result <- calculate_track_limits(
                 bigwig_files = group_files,
