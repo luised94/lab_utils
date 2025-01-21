@@ -54,20 +54,31 @@
 #
 ################################################################################
 ################################################################################
+source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_logging.R"))
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
 
+################################################################################
+# Handle script arguments
+################################################################################
 # Parse arguments and validate configurations
-args <- parse_args(commandArgs(trailingOnly = TRUE))
-experiment_id <- args[["experiment-id"]]
-source(file.path("~/data", experiment_id, "documentation", 
-                paste0(experiment_id, "_bmc_config.R")))
-validate_configs(c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG"))
+description <- "Setup experiment directory."
+args <- parse_common_arguments(description = description)
+experiment_id <- args$experiment_id
+accept_configuration <- args$accept_configuration
+experiment_dir <- args$experiment_dir
+
+args_info <- list(
+    title = "Script Configuration",
+    "script.name" = get_script_name(),
+    "script.description" = description
+)
+print_debug_info(modifyList(args_info, args))
+
 ################################################################################
 # Experiment ID Validation
 ################################################################################
 stopifnot(
-    "Experiment ID must be a character string" = is.character(experiment_id),
-    "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
+    "Only one experiment id required for this script" = length(experiment_id) != 1,
 )
 
 ################################################################################
