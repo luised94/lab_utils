@@ -133,48 +133,138 @@ raw_data$bed_start <- pmin(raw_data$start, raw_data$end) - 1L
 raw_data$bed_end <- pmax(raw_data$start, raw_data$end)
 raw_data$bed_strand <- ifelse(raw_data$strand_code == "W", "+", "-")
 
-# Create BED structure
+cat("Resolving feature names...\n")
+
+# Create ORF name lookup based on shared identifiers (V1)
+orf_name_lookup <- raw_data[
+  raw_data$V2 == "ORF" & !is.na(raw_data$V4), 
+  c("V1", "V4")
+]
+colnames(orf_name_lookup) <- c("source_id", "canonical_name")
+
+merged_data <- merge(
+  raw_data,
+  orf_name_lookup,
+  by.x = "V1",
+  by.y = "source_id",
+  all.x = TRUE
+)
+
+merged_data$resolved_name <- dplyr::coalesce(
+  merged_data$V4,
+  merged_data$canonical_name,
+  paste0(merged_data$V1, "_", merged_data$V2)  # S000350094_CDS format
+)
+
 bed_data <- data.frame(
-  chrom = raw_data$chrom,
-  start = raw_data$bed_start,
-  end = raw_data$bed_end,
-  name = raw_data[[4]],
+  chrom = merged_data$chrom,
+  start = merged_data$bed_start,
+  end = merged_data$bed_end,
+  name = merged_data$resolved_name,
   score = 0,
-  strand = raw_data$bed_strand,
+  strand = merged_data$bed_strand,
   stringsAsFactors = FALSE
 )
+
 
 stopifnot(
   "Invalid BED coordinates (start >= end)" = all(bed_data$start < bed_data$end),
   "Missing chromosome names" = !any(is.na(bed_data$chrom)),
   "Empty feature names" = !any(is.na(bed_data$name) | bed_data$name == "")
 )
+cat("Checking for duplicate features...\n")
+duplicate_keys <- paste(bed_data$chrom, bed_data$start, bed_data$end, bed_data$name)
+if(any(duplicated(duplicate_keys))) {
+  dup_count <- sum(duplicated(duplicate_keys))
+  cat(sprintf("WARNING: Found %d duplicate features\n", dup_count))
+  print(head(bed_data[duplicated(duplicate_keys), ]))
+  cat("Consider adding feature type suffixes\n")
+  
+  # Add feature type disambiguation
+  bed_data$name <- paste0(bed_data$name, "_", merged_data$V2)
+}
 
 cat("\nWriting output files:\n")
 unique_types <- unique(feature_types)
 cat(sprintf("Found %d feature types: %s\n", 
             length(unique_types), paste(unique_types, collapse = ", ")))
 
-#for (feature_type in unique_types) {
-#  type_mask <- feature_types == feature_type
-#  type_count <- sum(type_mask)
-#  
-#  if (type_count == 0) {
-#    cat(sprintf("Skipping empty feature type: %s\n", feature_type))
-#    next
-#  }
-#  
-#  output_filename <- paste0(make.names(feature_type), ".bed")
-#  write.table(
-#    x = bed_data[type_mask, ],
-#    file = output_filename,
-#    sep = "\t",
-#    quote = FALSE,
-#    row.names = FALSE,
-#    col.names = FALSE
-#  )
-#  cat(sprintf(" - %-20s: %6d entries -> %s\n", 
-#              feature_type, type_count, output_filename))
-#}
-#
-#cat("\nProcessing complete. Verify output files in working directory.\n")
+output_directory <- normalizePath(
+  file.path("~", "data", "feature_files"),
+  mustWork = FALSE
+)
+dir.create(output_directory, showWarnings = FALSE, recursive = TRUE)
+
+# Verify directory creation
+stopifnot(
+  "Output directory creation failed" = dir.exists(output_directory),
+  "Output directory not writable" = file.access(output_directory, 2) == 0
+)
+
+sanitize_filename <- function(feature_type) {
+  # Convert to lowercase and replace special characters
+  clean_name <- tolower(feature_type)
+  # Replace all non-alphanumeric characters with underscores
+  clean_name <- gsub("[^a-z0-9_]+", "_", clean_name)
+  # Collapse multiple underscores
+  clean_name <- gsub("_+", "_", clean_name)
+  # Trim leading/trailing underscores
+  clean_name <- gsub("^_|_$", "", clean_name)
+  return(clean_name)
+}
+
+output_manifest <- list()
+used_names <- list()
+
+cat("\nGenerating file manifest...\n")
+unique_types <- unique(feature_types)
+for (feature_type in unique_types) {
+  # Generate base name
+  base_name <- sanitize_filename(feature_type)
+  file_name <- paste0(base_name, ".bed")
+  
+  # Handle duplicates
+  if (file_name %in% names(used_names)) {
+    dup_count <- used_names[[file_name]]
+    file_name <- sprintf("%s_%d.bed", base_name, dup_count + 1)
+    used_names[[base_name]] <- dup_count + 1
+  } else {
+    used_names[[file_name]] <- 1
+  }
+  
+  output_path <- file.path(output_directory, file_name)
+  
+  output_manifest[[feature_type]] <- list(
+    original_type = feature_type,
+    file_name = file_name,
+    output_path = output_path,
+    count = sum(feature_types == feature_type)
+  )
+}
+
+manifest_df <- do.call(rbind, lapply(output_manifest, as.data.frame))
+rownames(manifest_df) <- NULL
+
+
+# Interactive verification display
+cat("\n=== FILE MANIFEST (SANITIZED NAMES) ===\n")
+print(manifest_df[, c("original_type", "file_name", "count")])
+
+cat(sprintf("\nTotal features: %d | Output directory: %s\n",
+            sum(manifest_df$count), output_directory))
+
+# Duplicate resolution report
+duplicate_bases <- unique(gsub("_\\d+\\.bed$", "", manifest_df$file_name))
+if (length(duplicate_bases) < nrow(manifest_df)) {
+  cat("\nNOTE: Some features required numeric suffixes due to name conflicts:\n")
+  print(manifest_df[
+    grepl("_\\d+\\.bed$", manifest_df$file_name), 
+    c("original_type", "file_name")
+  ])
+}
+
+response <- tolower(readline(prompt = "\nProceed with writing files? (yes/no): "))
+if (!response %in% c("y", "yes")) {
+  cat("Aborting file write operation\n")
+  quit(save = "no", status = 1)
+}
