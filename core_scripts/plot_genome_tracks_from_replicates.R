@@ -510,6 +510,7 @@ for (short_name_idx in short_name_to_process) {
 
     # Use exact matching with the short name
     row_samples_to_visualize <- project_metadata[project_metadata$short_name == current_short_name, ]
+    row_samples_to_visualize <- row_samples_to_visualize[order(row_samples_to_visualize$experiment_id), ]
 
     if (nrow(row_samples_to_visualize) == 0) {
         warning(sprintf("No samples found for short name: %s", current_short_name))
@@ -533,8 +534,9 @@ for (short_name_idx in short_name_to_process) {
         separator = GENOME_TRACK_CONFIG$label_separator,
         verbose = RUNTIME_CONFIG$debug_verbose
     )
+
     if (!label_result$success) {
-        warning("Failed to create track labels for group ", group_idx, ": ", label_result$error)
+        warning("Failed to create track labels for group ", short_name_idx, ": ", label_result$error)
         track_labels <- row_samples_to_visualize$short_name
         if (RUNTIME_CONFIG$debug_verbose) {
             message("  Using fallback labels (short_name)")
@@ -549,6 +551,10 @@ for (short_name_idx in short_name_to_process) {
         }
     }
 
+    if (length(track_labels) != nrow(row_samples_to_visualize)){
+        warning("number of track labels does not match number of row samples")
+    }
+
     # Initialize tracks list with chromosome axis
     tracks <- list(
         Gviz::GenomeAxisTrack(
@@ -559,30 +565,31 @@ for (short_name_idx in short_name_to_process) {
     for (i in seq_len(nrow(row_samples_to_visualize))) {
         sample_id <- row_samples_to_visualize$sample_id[i]
         current_antibody <- row_samples_to_visualize$antibody[i]
+        track_label <- track_labels[i]
         bigwig_file_path <- project_bigwig_files[grepl(sample_id, project_bigwig_files)][1]
         if (RUNTIME_CONFIG$debug_verbose) {
             debug_info <- list(
                 "title" = "Sample Processing and Track Creation",
-                
+
                 "Processing Status" = NULL,
                 ".Progress" = sprintf("Sample %d/%d", i, nrow(row_samples_to_visualize)),
                 ".Sample ID" = sample_id,
                 ".Antibody" = current_antibody,
-                ".Track Label" = track_labels[i],
-                
+                ".Track Label" = track_label,
+
                 "Bigwig File Matching" = NULL,
                 ".Available Files" = sprintf("Total: %d", length(project_bigwig_files))
             )
-            
+
             # Add first few available files
             for (i in seq_along(head(project_bigwig_files, 3))) {
                 debug_info[[sprintf("..File %d", i)]] <- basename(project_bigwig_files[i])
             }
-            
+
             # Add matching results
             matches <- grepl(sample_id, project_bigwig_files)
             debug_info[[".Pattern Matches"]] <- sprintf("Found: %d", sum(matches))
-            
+
             # Add matching files if any
             if (sum(matches) > 0) {
                 debug_info[[".Matching Files"]] <- NULL
@@ -590,13 +597,13 @@ for (short_name_idx in short_name_to_process) {
                     debug_info[[sprintf("..Match %d", i)]] <- basename(project_bigwig_files[matches][i])
                 }
             }
-            
+
             # Track creation details
             debug_info[["Track Configuration"]] <- NULL
             debug_info[[".Bigwig Status"]] <- if(is.na(bigwig_file_path)) "NOT FOUND" else basename(bigwig_file_path)
             debug_info[[".Sample Mapping"]] <- sample_id_mapping[sample_id]
-            debug_info[[".Track Label"]] <- track_labels[i]
-            
+            debug_info[[". Second Verification Track Label"]] <- track_label
+
             print_debug_info(debug_info)
         }
 
@@ -608,15 +615,15 @@ for (short_name_idx in short_name_to_process) {
 
         track_name_arguments <- c(
             sample_id_mapping[sample_id],  # Mapped ID
-            track_labels[i]                # Generated label from create_track_labels
+            track_label                # Generated label from create_track_labels
         )
 
         placeholder_name_arguments <- c(
             sample_id_mapping[sample_id],
-            track_labels[i],
+            track_label,
             GENOME_TRACK_CONFIG$format_suffix
         )
-        #print(track_name_arguments)
+
         track_color <- if (current_antibody == "Input") {
             color_scheme$fixed$input
         } else {
@@ -677,7 +684,7 @@ for (short_name_idx in short_name_to_process) {
         if (!is(reference_grange, "GRanges")) {
             stop("reference_grange must be a GRanges object")
         }
-        
+
         track_args <- c(
             list(
                 range = reference_grange,
@@ -685,13 +692,13 @@ for (short_name_idx in short_name_to_process) {
             ),
             GENOME_TRACK_CONFIG$track_defaults_sample
         )
-        
+
         # Optional: Debug info
         if (RUNTIME_CONFIG$debug_verbose) {
             message("Creating reference track with arguments:")
             #print(str(track_args))
         }
-        
+
         tracks[[length(tracks) + 1]] <- do.call(
             Gviz::DataTrack,
             track_args
@@ -718,6 +725,7 @@ for (short_name_idx in short_name_to_process) {
         sep = "\n"
 
     )
+
     plot_title <- sprintf(
         title_replicate_template,
         unique(project_id),
@@ -726,6 +734,7 @@ for (short_name_idx in short_name_to_process) {
         TIME_CONFIG$current_timestamp,
         normalization_method
     )
+
     plot_config <- create_track_plot_config(
         tracks = tracks,
         chromosome = chromosome_roman,
@@ -734,6 +743,7 @@ for (short_name_idx in short_name_to_process) {
         visualization_params = GENOME_TRACK_CONFIG$plot_defaults,
         verbose = RUNTIME_CONFIG$debug_verbose
     )
+
     for (mode in scaling_modes) {
         # Create filename for this mode
         filename_format_comparison_templates <- "%s_%s_idx%02d_chr%s_%s.svg"
@@ -762,7 +772,7 @@ for (short_name_idx in short_name_to_process) {
             message(sprintf("    Timestamp: %s", TIME_CONFIG$current_timestamp))
             message(sprintf("    Normalization: %s", normalization_method))
             message("\n  Output Configuration:")
-            message(sprintf("    Plot Directory: %s",output_dir))
+            message(sprintf("    Plot Directory: %s", output_dir))
             message(sprintf("    Filename: %s", basename(plot_file)))
             message(sprintf("    Full Path: %s", plot_file))
             # Visual separator for readability in log
@@ -772,10 +782,23 @@ for (short_name_idx in short_name_to_process) {
         # Set y-limits based on mode
         if (mode == "local") {
             # Calculate limits for this group's files
-            group_files <- project_bigwig_files[grepl(
-                paste(row_samples_to_visualize$sample_id, collapse = "|"),
-                project_bigwig_files
-            )]
+            print(row_samples_to_visualize$sample_id)
+            #group_files <- project_bigwig_files[grepl(
+            #    paste(row_samples_to_visualize$sample_id, collapse = "|"),
+            #    project_bigwig_files
+            #)]
+            pattern <- sprintf("processed_(%s)_sequence_to_S288C_CPM\\.bw$", 
+                               paste(row_samples_to_visualize$sample_id, collapse = "|"))
+            group_files <- grep(pattern, project_bigwig_files, value = TRUE, perl = TRUE)
+            if (RUNTIME_CONFIG$debug_verbose) {
+                message("Selected sample IDs: ", paste(row_samples_to_visualize$sample_id, collapse=", "))
+                message("Found files: ", paste(basename(group_files), collapse=", "))
+                if (length(group_files) != nrow(row_samples_to_visualize)) {
+                    warning(sprintf("Number of files (%d) doesn't match number of samples (%d)",
+                            length(group_files), nrow(row_samples_to_visualize)))
+                }
+            }
+
             local_limits_result <- calculate_track_limits(
                 bigwig_files = group_files,
                 genome_range = genome_range,

@@ -3,6 +3,7 @@ template_sample_grid.csv
 treestructure*.txt
 **/bmc_config.R
 bmc_config.R
+override_configuration.R
 slurm-*.out
 test.log
 memerun.log
