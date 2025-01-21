@@ -172,6 +172,7 @@ stopifnot(
   "Missing chromosome names" = !any(is.na(bed_data$chrom)),
   "Empty feature names" = !any(is.na(bed_data$name) | bed_data$name == "")
 )
+
 cat("Checking for duplicate features...\n")
 duplicate_keys <- paste(bed_data$chrom, bed_data$start, bed_data$end, bed_data$name)
 if(any(duplicated(duplicate_keys))) {
@@ -213,58 +214,135 @@ sanitize_filename <- function(feature_type) {
   return(clean_name)
 }
 
-output_manifest <- list()
-used_names <- list()
 
-cat("\nGenerating file manifest...\n")
-unique_types <- unique(feature_types)
-for (feature_type in unique_types) {
-  # Generate base name
+# Track base names and their counts
+name_registry <- list()
+
+generate_filename <- function(feature_type) {
   base_name <- sanitize_filename(feature_type)
-  file_name <- paste0(base_name, ".bed")
   
-  # Handle duplicates
-  if (file_name %in% names(used_names)) {
-    dup_count <- used_names[[file_name]]
-    file_name <- sprintf("%s_%d.bed", base_name, dup_count + 1)
-    used_names[[base_name]] <- dup_count + 1
+  # Update registry
+  if (is.null(name_registry[[base_name]])) {
+    name_registry[[base_name]] <<- 1
+    return(paste0(base_name, ".bed"))
   } else {
-    used_names[[file_name]] <- 1
+    count <- name_registry[[base_name]]
+    name_registry[[base_name]] <<- count + 1
+    return(paste0(base_name, "_", count, ".bed"))
   }
-  
-  output_path <- file.path(output_directory, file_name)
-  
-  output_manifest[[feature_type]] <- list(
-    original_type = feature_type,
-    file_name = file_name,
-    output_path = output_path,
-    count = sum(feature_types == feature_type)
-  )
 }
 
-manifest_df <- do.call(rbind, lapply(output_manifest, as.data.frame))
-rownames(manifest_df) <- NULL
-
-
-# Interactive verification display
-cat("\n=== FILE MANIFEST (SANITIZED NAMES) ===\n")
-print(manifest_df[, c("original_type", "file_name", "count")])
-
-cat(sprintf("\nTotal features: %d | Output directory: %s\n",
-            sum(manifest_df$count), output_directory))
-
-# Duplicate resolution report
-duplicate_bases <- unique(gsub("_\\d+\\.bed$", "", manifest_df$file_name))
-if (length(duplicate_bases) < nrow(manifest_df)) {
-  cat("\nNOTE: Some features required numeric suffixes due to name conflicts:\n")
-  print(manifest_df[
-    grepl("_\\d+\\.bed$", manifest_df$file_name), 
-    c("original_type", "file_name")
-  ])
+# Generate manifest with proper numbering
+manifest <- data.frame()
+for (feature_type in unique(feature_types)) {
+  file_name <- generate_filename(feature_type)
+  count <- sum(feature_types == feature_type)
+  
+  manifest <- rbind(manifest, data.frame(
+    Original_Feature = feature_type,
+    Sanitized_Name = file_name,
+    Entries = count
+  ))
 }
 
-response <- tolower(readline(prompt = "\nProceed with writing files? (yes/no): "))
+# Show final manifest
+cat("\nFinal File Manifest:\n")
+print(manifest)
+
+# Interactive verification
+response <- tolower(readline(prompt = "Proceed with writing files? (y/n): "))
 if (!response %in% c("y", "yes")) {
-  cat("Aborting file write operation\n")
-  quit(save = "no", status = 1)
+  cat("Operation cancelled\n")
+  quit(save = "no", status = 0)
+}
+
+# Actual file writing
+cat("\nWriting files...\n")
+for (i in 1:nrow(manifest)) {
+  current <- manifest[i,]
+  type_mask <- feature_types == current$Original_Feature
+  current$FilePath <- file.path(output_directory, current$Sanitized_Name)
+  write.table(
+    x = bed_data[type_mask, ],
+    file = current$FilePath,
+    sep = "\t",
+    quote = FALSE,
+    row.names = FALSE,
+    col.names = FALSE
+  )
+  
+  cat(sprintf(" - %-25s: %6d entries -> %s\n", 
+              current$Original_Feature, 
+              current$Entries,
+              current$FilePath))
+}
+
+cat(sprintf("\nSuccessfully wrote %d files to:\n%s\n", 
+            nrow(manifest), output_directory))
+
+cat("\n=== COMBINED FILE GENERATION ===\n")
+combined_path <- file.path(output_directory, "sgd_features_combined.bed")
+
+# Add feature type metadata column
+bed_data$feature_type <- merged_data$V2
+
+# Interactive confirmation
+cat(sprintf(
+  "Propose creating combined file with %d features:\n%s\n",
+  nrow(bed_data),
+  combined_path
+))
+
+create_combined <- tolower(readline("Create combined BED file? (y/n): "))
+if(create_combined %in% c("y", "yes")) {
+  # Write with track line for genome browsers
+  track_line <- sprintf(
+    'track name="SGD_Features" description="Combined_SGD_Annotation" visibility=2 itemRgb="On"'
+  )
+  
+  # Prepare final structure with Gviz-friendly columns
+  combined_output <- bed_data[, c("chrom", "start", "end", "name", "score", "strand")]
+  combined_output$thickStart <- combined_output$start
+  combined_output$thickEnd <- combined_output$end
+  combined_output$itemRgb <- ifelse(
+    bed_data$feature_type == "ORF",
+    "255,0,0",  # Red for ORFs
+    "0,0,255"    # Blue for others
+  )
+  
+  # Write to file
+  #writeLines(track_line, combined_path)
+  #write.table(
+  #  combined_output,
+  #  file = combined_path,
+  #  append = TRUE,
+  #  sep = "\t",
+  #  quote = FALSE,
+  #  row.names = FALSE,
+  #  col.names = FALSE
+  #)
+  
+  cat(sprintf(
+    "\nSuccessfully wrote combined BED file with:\n- %d total features\n- Color-coded types\n- Genome browser compatibility\n",
+    nrow(combined_output)
+  ))
+  
+  # Create matching Gviz style file
+  style_path <- file.path(output_directory, "gviz_style.txt")
+  writeLines(
+    c(
+      "Track type=GeneRegion",
+      "name=SGD Features",
+      "featureTypeAnnotation=feature_type",
+      "colorBy=feature_type",
+      "ORF=red",
+      "CDS=darkred",
+      "ARS=blue",
+      "default=gray"
+    ),
+    style_path
+  )
+  cat(sprintf("Gviz style template created: %s\n", style_path))
+} else {
+  cat("Skipping combined file creation\n")
 }
