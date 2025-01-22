@@ -176,6 +176,25 @@ stopifnot("Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = exper
 #    cat("Proceeding with directory creation...\n\n")
 #}
 
+# Handle configuration override (independent)
+if (!is.null(args$override)) {
+    structured_log_info("Starting override")
+    override_result <- apply_runtime_override(
+        config = RUNTIME_CONFIG,
+        preset_name = args$override,
+        preset_list = OVERRIDE_PRESETS
+    )
+    RUNTIME_CONFIG <- override_result$modified
+
+ print_debug_info(modifyList(
+     list(
+         title = "Final Configuration",
+         "override.mode" = override_result$mode
+     ),
+     RUNTIME_CONFIG  # Flat list of current settings
+ ))
+}
+
 handle_configuration_checkpoint(
     accept_configuration = accept_configuration,
     experiment_id = experiment_id
@@ -244,6 +263,10 @@ metadata <- subset(metadata, !invalid_idx)
 n_samples <- nrow(metadata)
 expected <- EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
 if (n_samples != expected) {
+    terminal_width <- get_width()
+    # Set width to 200
+    options(width = terminal_width)
+
     # Print diagnostic information
     cat("\nDiagnostic Information:\n")
     cat("----------------------\n")
@@ -251,6 +274,7 @@ if (n_samples != expected) {
     cat("\nFull sample breakdown:\n")
     print(summary(metadata))         # Show all category distributions
     cat("\n")
+    #print(metadata[metadata$antibody == "V5", ])
 
     stop(sprintf("Expected %d samples, got %d", expected, n_samples))
 }
@@ -426,3 +450,4 @@ for (filename in filenames) {
         }
     }
 }
+#print(metadata)
