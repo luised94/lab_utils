@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 ################################################################################
 # BMC Experiment Setup Script
 ################################################################################
@@ -54,8 +55,16 @@
 #
 ################################################################################
 ################################################################################
-source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_logging.R"))
-source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
+# Bootstrap phase
+function_filenames <- c("logging", "script_control", "file_operations")
+for (function_filename in function_filenames) {
+    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
+    normalized_path <- normalizePath(function_filepath)
+    if (!file.exists(normalized_path)) {
+        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
+    }
+    source(normalized_path)
+}
 
 ################################################################################
 # Handle script arguments
@@ -73,27 +82,19 @@ args_info <- list(
     "script.description" = description
 )
 print_debug_info(modifyList(args_info, args))
-
 ################################################################################
 # Experiment ID Validation
 ################################################################################
 stopifnot(
-    "Only one experiment id required for this script" = length(experiment_id) != 1,
+    "Only one experiment id required for this script" = length(experiment_id) == 1
 )
 
 ################################################################################
 # Load and Validate Experiment Configuration
 ################################################################################
-# Bootstrap phase
-bootstrap_path <- normalizePath("~/lab_utils/core_scripts/functions_for_file_operations.R", 
-                              mustWork = FALSE)
-if (!file.exists(bootstrap_path)) {
-    stop(sprintf("[FATAL] Bootstrap file not found: %s", bootstrap_path))
-}
-source(bootstrap_path)
-
 # !! Update the path and the file accordingly.
-config_path <- "~/bmc_config.R"
+# bmc_config.R is ignored in the git repository as this file is changed to add new experiments.
+config_path <- "~/lab_utils/core_scripts/bmc_config.R"
 # Define required dependencies
 required_modules <- list(
     list(
@@ -116,63 +117,69 @@ stopifnot(
     }))
 )
 
-# Load dependencies with status tracking
 load_status <- lapply(required_modules, function(module) {
-    if (RUNTIME_CONFIG$debug_verbose) {
-        cat(sprintf("\n[LOADING] %s\n", module$description))
-    }
-    
     success <- safe_source(module$path, verbose = TRUE)
-    
     if (!success && module$required) {
-        stop(sprintf(
-            "[FATAL] Failed to load required module: %s\n  Path: %s",
-            module$description, module$path
-        ))
+        stop(sprintf("Failed to load required module: %s\n  Path: %s",
+            module$description, module$path))
     } else if (!success) {
-        warning(sprintf(
-            "[WARNING] Optional module not loaded: %s\n  Path: %s",
-            module$description, module$path
-        ))
+        warning(sprintf("Optional module not loaded: %s\n  Path: %s",
+            module$description, module$path))
     }
-    
-    return(list(
+    list(
         module = module$description,
         path = module$path,
-        loaded = success
-    ))
+        loaded = success,
+        required = module$required
+    )
 })
 
-# Display loading summary using ASCII
-if (RUNTIME_CONFIG$debug_verbose) {
-    cat("\n=== Module Loading Summary ===\n")
-    invisible(lapply(load_status, function(status) {
-        cat(sprintf(
-            "[%s] %s\n    Path: %s\n",
-            if(status$loaded) "+" else "-",
-            status$module,
-            status$path
-        ))
-    }))
-}
+# Create debug info structure
+module_info <- list(
+    title = "Module Loading Status",
+    "total_modules" = length(required_modules),
+    "required_modules" = sum(sapply(required_modules, `[[`, "required"))
+)
 
+for (status in load_status) {
+    module_key <- paste0(
+        if(status$required) "required." else "optional.",
+        gsub(" ", "_", tolower(status$module))
+    )
+    module_info[[module_key]] <- sprintf(
+        "%s (%s)", 
+        status$module,  # Now showing description
+        if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
+    )
+}
+# Display using print_debug_info
+print_debug_info(module_info)
+
+required_configs <- c("EXPERIMENT_CONFIG", "RUNTIME_CONFIG")
+validate_configs(required_configs)
+invisible(lapply(required_configs, function(config) {
+    print_config_settings(get(config), title = config)
+}))
 stopifnot("Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = experiment_id == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID)
 
 ################################################################################
 # Directory Setup and User Confirmation
 ################################################################################
-base_dir <- file.path(Sys.getenv("HOME"), "data", experiment_id)
-if (RUNTIME_CONFIG$debug_interactive) {
-    cat(sprintf("\nExperiment ID: %s\n", experiment_id))
-    cat("Base directory will be:", base_dir, "\n")
+#if (RUNTIME_CONFIG$debug_interactive) {
+#    cat(sprintf("\nExperiment ID: %s\n", experiment_id))
+#    cat("Base directory will be:", experiment_dir, "\n")
+#
+#    user_response <- readline("Continue with this experiment? (y/n): ")
+#    if (tolower(user_response) != "y") {
+#        stop("Script terminated by user")
+#    }
+#    cat("Proceeding with directory creation...\n\n")
+#}
 
-    user_response <- readline("Continue with this experiment? (y/n): ")
-    if (tolower(user_response) != "y") {
-        stop("Script terminated by user")
-    }
-    cat("Proceeding with directory creation...\n\n")
-}
-
+handle_configuration_checkpoint(
+    accept_configuration = accept_configuration,
+    experiment_id = experiment_id
+)
 ################################################################################
 # Directory Structure Definition and Creation
 ################################################################################
@@ -183,7 +190,7 @@ data_directories <- c(
     "fastq/processed",
     "quality_control",
     "alignment",
-    "bigwig",
+    "coverage",
     "plots/genome_tracks/overview",
     "plots/genome_tracks/experimental_comparisons",
     "documentation/dna_qc_traces",
@@ -191,7 +198,7 @@ data_directories <- c(
 )
 
 # Create directory structure
-full_paths <- file.path(base_dir, data_directories)
+full_paths <- file.path(experiment_dir, data_directories)
 invisible(lapply(full_paths, function(path) {
     if (RUNTIME_CONFIG$output_dry_run) {
         cat(sprintf("[DRY RUN] Would create directory: %s\n", path))
@@ -208,7 +215,7 @@ invisible(lapply(full_paths, function(path) {
 if (RUNTIME_CONFIG$debug_verbose) {
     mode <- if (RUNTIME_CONFIG$output_dry_run) "DRY RUN" else "LIVE RUN"
     cat(sprintf("\n[%s] Directory structure for experiment: %s\n", mode, experiment_id))
-    cat(sprintf("[%s] Base directory: %s\n", mode, base_dir))
+    cat(sprintf("[%s] Base directory: %s\n", mode, experiment_dir))
 }
 
 cat("Directories created successfully!\n")
@@ -370,48 +377,52 @@ bmc_metadata <- data.frame(
 ################################################################################
 # File Output Generation
 ################################################################################
-# Define output file paths
-sample_grid_path <- file.path(base_dir, "documentation",
-                             paste0(experiment_id,"_", "sample_grid.csv"))
-
-bmc_table_path <- file.path(base_dir, "documentation",
-                           paste0(experiment_id,"_", "bmc_table.tsv"))
-
-bmc_experiment_config_path <- file.path(base_dir, "documentation",
-                           paste0(experiment_id,"_", "bmc_config.R"))
-
-# Handle file writing with dry run checks
-if (RUNTIME_CONFIG$output_dry_run) {
-    cat(sprintf("[DRY RUN] Would write sample grid to: %s\n", sample_grid_path))
-    cat(sprintf("[DRY RUN] Would write BMC table to: %s\n", bmc_table_path))
-    cat(sprintf("[DRY RUN] Would write BMC config script: %s\n", bmc_experiment_config_path))
-} else {
-    # Write sample grid file
-    safe_write_file(
-        data = metadata,
-        path = sample_grid_path,
-        write_fn = write.csv,
-        verbose = RUNTIME_CONFIG$debug_verbose,
-        row.names = FALSE
-    )
-
-    # Write BMC table file
-    safe_write_file(
-        data = bmc_metadata,
-        path = bmc_table_path,
-        write_fn = write.table,
-        verbose = RUNTIME_CONFIG$debug_verbose,
-        sep = "\t",
-        row.names = FALSE,
-        quote = FALSE
-    )
-
-    # Copy BMC Experiment Config
-    safe_write_file(
-        data = bmc_configuration_definition_path,
-        path = bmc_experiment_config_path,
-        write_fn = file.copy,
-        verbose = RUNTIME_CONFIG$debug_verbose,
-        overwrite = TRUE
-    )
+filenames <- c("sample_grid.csv", "bmc_table.tsv", "bmc_config.R")
+# Loop through each filename to handle path assignment and file writing
+for (filename in filenames) {
+    # Construct the output file path
+    output_file_path <- file.path(experiment_dir, "documentation", paste0(experiment_id, "_", filename))
+    # Handle file writing with dry run checks
+    if (RUNTIME_CONFIG$output_dry_run) {
+        # Dry-run message
+        if (file.exists(output_file_path)) {
+            cat(sprintf("[DRY RUN] File exists: %s. Overwrite will occur if dry-run is disabled.\n", output_file_path))
+        } else {
+            cat(sprintf("[DRY RUN] Would write file to: %s\n", output_file_path))
+        }
+    } else {
+        # Determine the appropriate write function based on the file extension
+        if (endsWith(filename, ".csv")) {
+            safe_write_file(
+                data = metadata,
+                path = output_file_path,
+                write_fn = write.csv,
+                verbose = RUNTIME_CONFIG$debug_verbose,
+                interactive = interactive(),  # Use interactive() to detect if running interactively
+                row.names = FALSE
+            )
+        } else if (endsWith(filename, ".tsv")) {
+            safe_write_file(
+                data = bmc_metadata,
+                path = output_file_path,
+                write_fn = write.table,
+                verbose = RUNTIME_CONFIG$debug_verbose,
+                interactive = interactive(),
+                sep = "\t",
+                row.names = FALSE,
+                quote = FALSE
+            )
+        } else if (endsWith(filename, ".R")) {
+            safe_write_file(
+                data = bmc_configuration_definition_path,
+                path = output_file_path,
+                write_fn = file.copy,
+                verbose = RUNTIME_CONFIG$debug_verbose,
+                interactive = interactive(),
+                overwrite = TRUE
+            )
+        } else {
+            warning(sprintf("Unsupported file extension for file: %s", filename))
+        }
+    }
 }
