@@ -47,7 +47,7 @@ parse_common_arguments <- function(description = "Script description", prog = NU
         make_option(
             "--experiment-id",
             type = "character",
-            help = "Experiment ID (format: YYMMDD'Bel', e.g., 241228Bel)",
+            help = "Experiment ID (format: YYMMDD'Bel', e.g., 241228Bel) or comma separated ID1,ID2,ID3",
             dest = "experiment_id",
             metavar = "ID"
         ),
