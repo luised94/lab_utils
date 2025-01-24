@@ -54,7 +54,6 @@
 # VERSION: 2.0.0
 #
 ################################################################################
-################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
@@ -165,17 +164,6 @@ stopifnot("Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = exper
 ################################################################################
 # Directory Setup and User Confirmation
 ################################################################################
-#if (RUNTIME_CONFIG$debug_interactive) {
-#    cat(sprintf("\nExperiment ID: %s\n", experiment_id))
-#    cat("Base directory will be:", experiment_dir, "\n")
-#
-#    user_response <- readline("Continue with this experiment? (y/n): ")
-#    if (tolower(user_response) != "y") {
-#        stop("Script terminated by user")
-#    }
-#    cat("Proceeding with directory creation...\n\n")
-#}
-
 # Handle configuration override (independent)
 if (!is.null(args$override)) {
     structured_log_info("Starting override")

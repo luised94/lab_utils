@@ -649,19 +649,26 @@ execute_track_plot <- function(
     plot_config,
     save_path = NULL,
     save_params = list(),
-    plot_params = list(),  # New parameter for plot settings
+    plot_params = list(),
     display_plot = FALSE,
-    verbose = TRUE
+    verbose = TRUE,
+    output_format = "svg"  # New parameter for output format
 ) {
-
     # Validate inputs
     stopifnot(
         "plot_config must be a list" = is.list(plot_config),
         "plot_config must contain trackList" = !is.null(plot_config$trackList),
         "save_params must be a list" = is.list(save_params),
-        "plot_params must be a list" = is.list(plot_params)
+        "plot_params must be a list" = is.list(plot_params),
+        "output_format must be one of 'svg', 'pdf', or 'png'" = output_format %in% c("svg", "pdf", "png")
     )
 
+    # Check for svglite availability
+    svglite_available <- requireNamespace("svglite", quietly = TRUE)
+    
+    # Check for rsvg and magick availability
+    rsvg_available <- requireNamespace("rsvg", quietly = TRUE)
+    magick_available <- requireNamespace("magick", quietly = TRUE)
     
     # Debug output
     if (verbose) {
@@ -684,22 +691,19 @@ execute_track_plot <- function(
         }
 
         message("\nDevice Information:")
+        message(sprintf("  svglite available: %s", svglite_available))
+        message(sprintf("  rsvg available: %s", rsvg_available))
+        message(sprintf("  magick available: %s", magick_available))
+        message(sprintf("  Output format: %s", output_format))
         message(sprintf("  Display Plot: %s", display_plot))
         message(sprintf("  Save Plot: %s", !is.null(save_path)))
-        message(sprintf("  Current device: %d", dev.cur()))
-        message(sprintf("  Interactive session: %s", interactive()))
     }
 
-    
     # Create plotting function
     do_plot <- function() {
         if (verbose) message("\nExecuting plot...")
         
-        # Merge plot parameters
-        final_params <- modifyList(
-            plot_config,
-            plot_params  # Add custom plot parameters
-        )
+        final_params <- modifyList(plot_config, plot_params)
         
         tryCatch({
             do.call(Gviz::plotTracks, final_params)
@@ -724,11 +728,11 @@ execute_track_plot <- function(
             }
             save_path <- normalizePath(save_path, mustWork = FALSE)
             
-            # Merge save parameters with defaults
+            # Set default save parameters
             default_save_params <- list(
                 width = 10,
                 height = 8,
-                device = "svg"
+                device = ifelse(svglite_available, "svglite", "svg")
             )
             save_params <- modifyList(default_save_params, save_params)
             
@@ -737,23 +741,61 @@ execute_track_plot <- function(
                 message(sprintf("  Path: %s", save_path))
                 message(sprintf("  Width: %d", save_params$width))
                 message(sprintf("  Height: %d", save_params$height))
+                message(sprintf("  Device: %s", save_params$device))
             }
             
             # Handle different file formats
-            if (grepl("\\.svg$", save_path)) {
-                svg(save_path, 
-                    width = save_params$width, 
-                    height = save_params$height)
+            if (output_format == "svg") {
+                if (svglite_available && save_params$device == "svglite") {
+                    if (verbose) message("  Using svglite package for SVG output")
+                    svglite::svglite(save_path, 
+                                    width = save_params$width, 
+                                    height = save_params$height)
+                } else {
+                    if (verbose) message("  Using base SVG device")
+                    svg(save_path, 
+                       width = save_params$width, 
+                       height = save_params$height)
+                }
                 do_plot()
                 dev.off()
-            } else if (grepl("\\.pdf$", save_path)) {
+            } else if (output_format == "pdf") {
                 pdf(save_path, 
                     width = save_params$width, 
                     height = save_params$height)
                 do_plot()
                 dev.off()
+            } else if (output_format == "png") {
+                # Use rsvg or magick to convert SVG to PNG
+                if (rsvg_available || magick_available) {
+                    # Save as SVG first
+                    temp_svg <- tempfile(fileext = ".svg")
+                    if (svglite_available && save_params$device == "svglite") {
+                        svglite::svglite(temp_svg, 
+                                        width = save_params$width, 
+                                        height = save_params$height)
+                    } else {
+                        svg(temp_svg, 
+                           width = save_params$width, 
+                           height = save_params$height)
+                    }
+                    do_plot()
+                    dev.off()
+                    
+                    # Convert SVG to PNG
+                    if (rsvg_available) {
+                        if (verbose) message("  Using rsvg to convert SVG to PNG")
+                        rsvg::rsvg_png(temp_svg, save_path, width = save_params$width * 100, height = save_params$height * 100)
+                    } else if (magick_available) {
+                        if (verbose) message("  Using magick to convert SVG to PNG")
+                        magick::image_write(magick::image_read_svg(temp_svg), save_path, format = "png")
+                    }
+                    file.remove(temp_svg)  # Clean up temporary SVG file
+                } else {
+                    stop("Neither rsvg nor magick is available for PNG conversion. Please install one of them.")
+                }
             } else {
-                stop("Unsupported file format. Use .svg or .pdf")
+                stop("Unsupported output format. Use 'svg', 'pdf', or 'png'")
             }
         }, error = function(e) {
             stop("Failed to save plot: ", e$message)
@@ -766,7 +808,13 @@ execute_track_plot <- function(
         
         if (dev.cur() == 1) {
             if (verbose) message("  Opening new graphics device")
-            X11() # or quartz() on Mac, windows() on Windows
+            if (capabilities("aqua")) {
+                quartz()
+            } else if (.Platform$OS.type == "windows") {
+                windows()
+            } else {
+                X11()
+            }
         }
         
         do_plot()

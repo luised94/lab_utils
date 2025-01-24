@@ -1,5 +1,6 @@
 library(optparse)
 source("~/lab_utils/core_scripts/override_configuration.R")
+OUTPUT_FORMATS <- c("svg", "png", "pdf")
 
 validate_configs <- function(required_configs) {
     # 1. Input Validation
@@ -77,11 +78,20 @@ parse_common_arguments <- function(description = "Script description", prog = NU
             metavar = "MODE"
         ),
         make_option(
-            "--skip-validation",
+            opt_str = "--skip-validation",
             action = "store_true",
-            default = TRUE,  # Change to TRUE
+            default = FALSE,
             help = "Skip validation for presence of required R packages (default: TRUE). Set to FALSE to force validation.",
             dest = "skip_validation"
+        ),
+        make_option(
+            "--output-format",
+            type = "character",
+            help = paste(
+                "Control the filetype of the script output. ",
+                paste(OUTPUT_FORMATS, collapse = ", ")
+            ),
+            dest = "output_format"
         )
     )
 
@@ -122,6 +132,13 @@ parse_common_arguments <- function(description = "Script description", prog = NU
         stop(sprintf(
             "--override must be one of: %s",
             paste(names(OVERRIDE_PRESETS), collapse = ", ")
+        ))
+    }
+
+    if (!is.null(args$output_format) && !args$output_format %in% OUTPUT_FORMATS) {
+        stop(sprintf(
+            "--output_format must be one of: %s",
+            paste(OUTPUT_FORMATS, collapse = ", ")
         ))
     }
 
