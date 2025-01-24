@@ -1,6 +1,14 @@
 #!/usr/bin/env Rscript
-source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_logging.R"))
-source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
+# Bootstrap phase
+function_filenames <- c("logging", "script_control", "file_operations")
+for (function_filename in function_filenames) {
+    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
+    normalized_path <- normalizePath(function_filepath)
+    if (!file.exists(normalized_path)) {
+        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
+    }
+    source(normalized_path)
+}
 
 ################################################################################
 # Handle script arguments
