@@ -340,7 +340,11 @@ check_required_packages <- function(
 #' dirs <- setup_experiment_dirs("my_experiment", output_dir_name = "results")
 #' print(dirs)
 #' }
-setup_experiment_dirs <- function(experiment_dir, output_dir_name = "output", required_input_dirs = c("fastq", "documentation")) {
+setup_experiment_dirs <- function(
+    experiment_dir,
+    output_dir_name = "output",
+    required_input_dirs = c("fastq", "documentation")
+) {
 
     # Input Validation
     stopifnot(
@@ -375,7 +379,11 @@ setup_experiment_dirs <- function(experiment_dir, output_dir_name = "output", re
     return(dirs)
 }
 
-apply_runtime_override <- function(config, preset_name, preset_list) {
+apply_runtime_override <- function(
+    config,
+    preset_name,
+    preset_list
+) {
     # Current input validation
     if (!is.list(config)) {
         stop("config must be a list")
