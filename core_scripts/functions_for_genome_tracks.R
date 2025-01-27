@@ -8,9 +8,9 @@
 #' @importFrom rtracklayer import
 #' @importFrom GenomicRanges values
 calculate_track_limits <- function(
-    bigwig_files, 
-    genome_range, 
-    padding_fraction = 0.1, 
+    bigwig_files,
+    genome_range,
+    padding_fraction = 0.1,
     verbose = FALSE
 ) {
     if (verbose) {
@@ -30,15 +30,15 @@ calculate_track_limits <- function(
             "bigwig_files cannot be empty" = length(bigwig_files) > 0,
             "genome_range must be GRanges" = inherits(genome_range, "GRanges"),
             "padding_fraction must be numeric" = is.numeric(padding_fraction),
-            "padding_fraction must be between 0 and 1" = 
+            "padding_fraction must be between 0 and 1" =
                 padding_fraction >= 0 && padding_fraction <= 1
         )
-        
+
         # Initialize storage
         all_track_values <- c()
         processed_files <- 0
         skipped_files <- 0
-        
+
         # Process files
         for (bigwig_file in bigwig_files) {
             if (verbose) {
@@ -51,13 +51,13 @@ calculate_track_limits <- function(
                         bigwig_file,
                         which = genome_range
                     )
-                    
+
                     if (length(track_data) > 0) {
                         values <- GenomicRanges::values(track_data)$score
                         if (length(values) > 0) {
                             all_track_values <- c(all_track_values, values)
                             processed_files <- processed_files + 1
-                            
+
                             if (verbose) {
                                 message(sprintf("    Data points: %d", length(values)))
                                 message(sprintf("    Range: %.2f - %.2f",
@@ -79,7 +79,7 @@ calculate_track_limits <- function(
                 skipped_files <- skipped_files + 1
             }
         }
-        
+
         # Calculate limits
         if (length(all_track_values) > 0) {
             y_min <- min(all_track_values, na.rm = TRUE)
@@ -89,18 +89,18 @@ calculate_track_limits <- function(
                 max(0, y_min - (y_range * padding_fraction)),
                 y_max + (y_range * padding_fraction)
             )
-            
+
             if (verbose) {
                 message("\nLimit Calculation Summary:")
                 message(sprintf("  Files processed: %d", processed_files))
                 message(sprintf("  Files skipped: %d", skipped_files))
-                message(sprintf("  Total data points: %d", 
+                message(sprintf("  Total data points: %d",
                               length(all_track_values)))
                 message(sprintf("  Raw range: [%.2f, %.2f]", y_min, y_max))
-                message(sprintf("  Padded limits: [%.2f, %.2f]", 
+                message(sprintf("  Padded limits: [%.2f, %.2f]",
                               y_limits[1], y_limits[2]))
             }
-            
+
             list(
                 success = TRUE,
                 data = y_limits,
@@ -112,7 +112,7 @@ calculate_track_limits <- function(
                 message(sprintf("  Files processed: %d", processed_files))
                 message(sprintf("  Files skipped: %d", skipped_files))
             }
-            
+
             list(
                 success = FALSE,
                 data = NULL,
@@ -124,14 +124,14 @@ calculate_track_limits <- function(
             message("\nERROR in limit calculation:")
             message(sprintf("  %s", e$message))
         }
-        
+
         list(
             success = FALSE,
             data = NULL,
             error = e$message
         )
     })
-    
+
     return(result)
 }
 
@@ -167,8 +167,8 @@ create_placeholder_track <- function(
         if (length(track_params) > 0) {
             message("  Track Parameters:")
             invisible(lapply(names(track_params), function(param) {
-                message(sprintf("    %s: %s", 
-                              param, 
+                message(sprintf("    %s: %s",
+                              param,
                               paste(track_params[[param]], collapse = ", ")))
             }))
         }
@@ -177,21 +177,21 @@ create_placeholder_track <- function(
     # Input validation
     tryCatch({
         stopifnot(
-            "sampling_rate must be positive numeric" = 
+            "sampling_rate must be positive numeric" =
                 is.numeric(sampling_rate) && sampling_rate > 0,
-            "chromosome_width must be positive numeric" = 
+            "chromosome_width must be positive numeric" =
                 is.numeric(chromosome_width) && chromosome_width > 0,
-            "track_color must be character" = 
+            "track_color must be character" =
                 is.character(track_color) && length(track_color) == 1,
-            "track_type must be valid track type" = 
+            "track_type must be valid track type" =
                 track_type %in% c("l", "h", "p", "g"),
-            "chromosome_name must be character" = 
+            "chromosome_name must be character" =
                 is.character(chromosome_name) && length(chromosome_name) == 1,
-            "placeholder_format_name must be character" = 
+            "placeholder_format_name must be character" =
                 is.character(placeholder_format_name),
-            "format_args must be character vector" = 
+            "format_args must be character vector" =
                 is.character(format_args),
-            "track_params must be a list" = 
+            "track_params must be a list" =
                 is.list(track_params)
         )
 
@@ -199,7 +199,7 @@ create_placeholder_track <- function(
 
         # Create placeholder track
         num_points <- ceiling(chromosome_width / sampling_rate)
-        
+
         if (verbose) message("  Creating track name...")
         placeholder_name <- tryCatch({
             do.call(sprintf, c(list(placeholder_format_name), format_args))
@@ -221,7 +221,7 @@ create_placeholder_track <- function(
         }, error = function(e) {
             stop(sprintf("Failed to create genomic ranges: %s", e$message))
         })
-        
+
         # Merge default parameters with provided ones
         track_args <- c(
             list(
@@ -252,10 +252,10 @@ create_placeholder_track <- function(
             message("  Placeholder track created successfully:")
             message(sprintf("    Name: %s", placeholder_name))
             message(sprintf("    Points: %d", num_points))
-            message(sprintf("    Track size: %s", 
+            message(sprintf("    Track size: %s",
                           if(is.null(track@size)) "default" else track@size))
         }
-        
+
         list(
             success = TRUE,
             data = track,
@@ -267,7 +267,7 @@ create_placeholder_track <- function(
             message("  ERROR creating placeholder track:")
             message(sprintf("    %s", e$message))
         }
-        
+
         list(
             success = FALSE,
             data = NULL,
@@ -301,20 +301,20 @@ create_sample_track <- function(
     track_params = list(),
     verbose = TRUE
 ) {
-    
+
     # Input validation
     stopifnot(
-        "bigwig_file_path must be character" = 
+        "bigwig_file_path must be character" =
             is.character(bigwig_file_path) && length(bigwig_file_path) == 1,
-        "track_format_name must be character" = 
+        "track_format_name must be character" =
             is.character(track_format_name) && length(track_format_name) == 1,
-        "format_args must be character vector" = 
+        "format_args must be character vector" =
             is.character(format_args),
-        "track_color must be character" = 
+        "track_color must be character" =
             is.character(track_color) && length(track_color) == 1,
-        "track_type must be character" = 
+        "track_type must be character" =
             is.character(track_type) && length(track_type) == 1,
-        "track_params must be a list" = 
+        "track_params must be a list" =
             is.list(track_params)
     )
 
@@ -327,8 +327,8 @@ create_sample_track <- function(
         if (length(track_params) > 0) {
             message("  Track parameters:")
             invisible(lapply(names(track_params), function(param) {
-                message(sprintf("    %s: %s", 
-                              param, 
+                message(sprintf("    %s: %s",
+                              param,
                               paste(track_params[[param]], collapse = ", ")))
             }))
         }
@@ -342,7 +342,7 @@ create_sample_track <- function(
             error = "Bigwig file path is NA"
         ))
     }
-    
+
     if (!file.exists(bigwig_file_path)) {
         return(list(
             success = FALSE,
@@ -431,8 +431,8 @@ create_control_track <- function(
         if (length(track_params) > 0) {
             message("  Track Parameters:")
             invisible(lapply(names(track_params), function(param) {
-                message(sprintf("    %s: %s", 
-                              param, 
+                message(sprintf("    %s: %s",
+                              param,
                               paste(track_params[[param]], collapse = ", ")))
             }))
         }
@@ -441,17 +441,17 @@ create_control_track <- function(
     # Input validation
     tryCatch({
         stopifnot(
-            "bigwig_file_path must be character" = 
+            "bigwig_file_path must be character" =
                 is.character(bigwig_file_path) && length(bigwig_file_path) == 1,
-            "track_format_name must be character" = 
+            "track_format_name must be character" =
                 is.character(track_format_name) && length(track_format_name) == 1,
-            "format_args must be character vector" = 
+            "format_args must be character vector" =
                 is.character(format_args),
-            "track_color must be character" = 
+            "track_color must be character" =
                 is.character(track_color) && length(track_color) == 1,
-            "track_type must be character" = 
+            "track_type must be character" =
                 is.character(track_type) && length(track_type) == 1,
-            "track_params must be a list" = 
+            "track_params must be a list" =
                 is.list(track_params)
         )
 
@@ -489,8 +489,8 @@ create_control_track <- function(
                 name = track_name,
                 type = track_type,
                 col = track_color,
-                chromosome = if (!is.null(genomic_range)) 
-                    as.character(GenomicRanges::seqnames(genomic_range)[1]) 
+                chromosome = if (!is.null(genomic_range))
+                    as.character(GenomicRanges::seqnames(genomic_range)[1])
                 else NULL
             ),
             track_params
@@ -515,7 +515,7 @@ create_control_track <- function(
             message("  Control track created successfully:")
             message(sprintf("    Name: %s", track_name))
             message(sprintf("    Data points: %d", length(track_data)))
-            message(sprintf("    Track size: %s", 
+            message(sprintf("    Track size: %s",
                           if(is.null(track@size)) "default" else track@size))
             if (!is.null(track_data)) {
                 message(sprintf("    Data range: %.2f - %.2f",
@@ -535,7 +535,7 @@ create_control_track <- function(
             message("  ERROR creating control track:")
             message(sprintf("    %s", e$message))
         }
-        
+
         list(
             success = FALSE,
             data = NULL,
@@ -557,7 +557,7 @@ create_control_track <- function(
 #' @param visualization_params List of visual parameters to override defaults
 #'
 #' @return List of parameters for plotTracks
-#' 
+#'
 #' @examples
 #' create_track_plot_config(
 #'   tracks = tracks,
@@ -583,7 +583,7 @@ create_track_plot_config <- function(
         "chromosome must be character" = is.character(chromosome),
         "from must be numeric" = is.numeric(from),
         "to must be numeric" = is.numeric(to),
-       ## "ylim must be numeric vector of length 2" = 
+       ## "ylim must be numeric vector of length 2" =
        ##     is.numeric(ylim) && length(ylim) == 2,
         "visualization_params must be a list" = is.list(visualization_params)
     )
@@ -665,27 +665,27 @@ execute_track_plot <- function(
 
     # Check for svglite availability
     svglite_available <- requireNamespace("svglite", quietly = TRUE)
-    
+
     # Check for rsvg and magick availability
     rsvg_available <- requireNamespace("rsvg", quietly = TRUE)
     magick_available <- requireNamespace("magick", quietly = TRUE)
-    
+
     # Debug output
     if (verbose) {
         message("\nPlot Configuration:")
         message(sprintf("  Number of tracks: %d", length(plot_config$trackList)))
         message("  Track types:")
         invisible(lapply(plot_config$trackList, function(track) {
-            message(sprintf("    - %s: %s", 
-                          class(track)[1], 
+            message(sprintf("    - %s: %s",
+                          class(track)[1],
                           track@name))
         }))
-        
+
         if (length(plot_params) > 0) {
             message("\nPlot Parameters:")
             invisible(lapply(names(plot_params), function(param) {
-                message(sprintf("    %s: %s", 
-                              param, 
+                message(sprintf("    %s: %s",
+                              param,
                               paste(plot_params[[param]], collapse = ", ")))
             }))
         }
@@ -702,9 +702,9 @@ execute_track_plot <- function(
     # Create plotting function
     do_plot <- function() {
         if (verbose) message("\nExecuting plot...")
-        
+
         final_params <- modifyList(plot_config, plot_params)
-        
+
         tryCatch({
             do.call(Gviz::plotTracks, final_params)
             if (verbose) message("  Plot execution successful")
@@ -727,7 +727,7 @@ execute_track_plot <- function(
                 stop("Directory is not writable: ", save_dir)
             }
             save_path <- normalizePath(save_path, mustWork = FALSE)
-            
+
             # Set default save parameters
             default_save_params <- list(
                 width = 10,
@@ -735,7 +735,7 @@ execute_track_plot <- function(
                 device = ifelse(svglite_available, "svglite", "svg")
             )
             save_params <- modifyList(default_save_params, save_params)
-            
+
             if (verbose) {
                 message("\nSaving plot:")
                 message(sprintf("  Path: %s", save_path))
@@ -743,25 +743,25 @@ execute_track_plot <- function(
                 message(sprintf("  Height: %d", save_params$height))
                 message(sprintf("  Device: %s", save_params$device))
             }
-            
+
             # Handle different file formats
             if (output_format == "svg") {
                 if (svglite_available && save_params$device == "svglite") {
                     if (verbose) message("  Using svglite package for SVG output")
-                    svglite::svglite(save_path, 
-                                    width = save_params$width, 
+                    svglite::svglite(save_path,
+                                    width = save_params$width,
                                     height = save_params$height)
                 } else {
                     if (verbose) message("  Using base SVG device")
-                    svg(save_path, 
-                       width = save_params$width, 
+                    svg(save_path,
+                       width = save_params$width,
                        height = save_params$height)
                 }
                 do_plot()
                 dev.off()
             } else if (output_format == "pdf") {
-                pdf(save_path, 
-                    width = save_params$width, 
+                pdf(save_path,
+                    width = save_params$width,
                     height = save_params$height)
                 do_plot()
                 dev.off()
@@ -771,17 +771,17 @@ execute_track_plot <- function(
                     # Save as SVG first
                     temp_svg <- tempfile(fileext = ".svg")
                     if (svglite_available && save_params$device == "svglite") {
-                        svglite::svglite(temp_svg, 
-                                        width = save_params$width, 
+                        svglite::svglite(temp_svg,
+                                        width = save_params$width,
                                         height = save_params$height)
                     } else {
-                        svg(temp_svg, 
-                           width = save_params$width, 
+                        svg(temp_svg,
+                           width = save_params$width,
                            height = save_params$height)
                     }
                     do_plot()
                     dev.off()
-                    
+
                     # Convert SVG to PNG
                     if (rsvg_available) {
                         if (verbose) message("  Using rsvg to convert SVG to PNG")
@@ -805,7 +805,7 @@ execute_track_plot <- function(
     # Handle display
     if (display_plot) {
         if (verbose) message("\nDisplaying plot...")
-        
+
         if (dev.cur() == 1) {
             if (verbose) message("  Opening new graphics device")
             if (capabilities("aqua")) {
@@ -816,10 +816,10 @@ execute_track_plot <- function(
                 X11()
             }
         }
-        
+
         do_plot()
     }
-    
+
     invisible(NULL)
 }
 

@@ -108,7 +108,7 @@ for (status in load_status) {
         gsub(" ", "_", tolower(status$module))
     )
     module_info[[module_key]] <- sprintf(
-        "%s (%s)", 
+        "%s (%s)",
         status$module,  # Now showing description
         if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
     )
@@ -335,7 +335,7 @@ ref_genome_file <- list.files(
 )[1]
 
 if (length(ref_genome_file) == 0) {
-    stop(sprintf("No reference genome files found matching pattern '%s' in: %s", 
+    stop(sprintf("No reference genome files found matching pattern '%s' in: %s",
                 GENOME_TRACK_CONFIG$file_genome_pattern,
                 GENOME_TRACK_CONFIG$file_genome_directory))
 }
@@ -364,7 +364,7 @@ feature_file <- list.files(
 )[1]
 
 if (length(feature_file) == 0) {
-    warning(sprintf("No feature files found matching pattern '%s' in: %s", 
+    warning(sprintf("No feature files found matching pattern '%s' in: %s",
                    GENOME_TRACK_CONFIG$file_feature_pattern,
                    GENOME_TRACK_CONFIG$file_feature_directory))
 }
@@ -394,7 +394,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
         "title" = "Genome and Feature Loading Status",
 
         "Directory Validation" = NULL,
-        ".Genome Directory" = sprintf("%s (Exists: %s)", 
+        ".Genome Directory" = sprintf("%s (Exists: %s)",
             GENOME_TRACK_CONFIG$file_genome_directory,
             dir.exists(GENOME_TRACK_CONFIG$file_genome_directory)),
         ".Feature Directory" = sprintf("%s (Exists: %s)",
@@ -414,7 +414,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
         "Feature Processing" = NULL,
         ".Feature Search Pattern" = GENOME_TRACK_CONFIG$file_feature_pattern,
         ".Feature Found File" = if(length(feature_file) > 0) feature_file else "None",
-        ".Feature File Accessible" = if(!is.null(feature_file) && length(feature_file) > 0) 
+        ".Feature File Accessible" = if(!is.null(feature_file) && length(feature_file) > 0)
             file.exists(feature_file) else FALSE
     )
 
@@ -465,7 +465,7 @@ for (comparison_name in comparisons_to_process) {
     # Metadata processing and sample selection
     comparison_expression <- EXPERIMENT_CONFIG$COMPARISONS[[comparison_name]]
     row_samples_to_visualize <- sorted_metadata[eval(comparison_expression,
-                                             envir = sorted_metadata), ]
+        envir = sorted_metadata), ]
 
     # Try to find control for first available sample
     control_sample <- find_control_sample(
@@ -509,13 +509,76 @@ for (comparison_name in comparisons_to_process) {
         sorted_metadata,
         EXPERIMENT_CONFIG$CONTROL_FACTORS
     )
-    
+
     if(!is.null(control_sample)) {
-        sample_id <- control_sample$sample_id[i]
-        current_antibody <- control_sample$antibody[i]
-        track_label <- track_labels[i]
-        bigwig_file_path <- project_bigwig_files[grepl(sample_id, project_bigwig_files)][1]
+        sample_id <- control_sample$sample_id
+        current_antibody <- control_sample$antibody
+        track_label <- track_labels[length(track_labels)]
         control_bigwig_file_path <- bigwig_files[grepl(control_sample$sample_id,
-                                           bigwig_files)]
+            bigwig_files)]
+
+        track_name_arguments <- c(
+            sample_id_mapping[sample_id],
+            track_label
+        )
+
+        placeholder_name_arguments <- c(
+            sample_id_mapping[sample_id],
+            track_label,
+            GENOME_TRACK_CONFIG$format_suffix
+        )
+
+        track_color <- if (current_antibody == "Input") {
+            color_scheme$fixed$input
+        } else {
+            color_scheme$get_color("antibody", current_antibody)
+        }
+
+        control_track <- create_control_track(
+            bigwig_file_path = control_bigwig_file_path,
+            track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
+            format_args = track_name_arguments,
+            track_color = GENOME_TRACK_CONFIG$,
+            track_type = "h",
+            genomic_range = genome_range,
+            track_params = GENOME_TRACK_CONFIG$track_defaults_control,
+            verbose = RUNTIME_CONFIG$debug_verbose
+        )
+        if (control_track_creation_result$success) {
+            if (RUNTIME_CONFIG$debug_verbose) {
+                message(sprintf("  Successfully created track for sample: %s", sample_id))
+            }
+            tracks[[length(tracks) + 1]] <- control_track_creation_result$data
+        } else {
+            # Report the error
+            message(sprintf("\nTrack creation failed for sample %s:", sample_id))
+            message(sprintf("  Error: %s", control_track_creation_result$error))
+            message("  Creating placeholder track instead")
+            if (RUNTIME_CONFIG$debug_verbose) {
+                # Add context about the failure
+                message("  Context:")
+                message(sprintf("    Genomic Range: %s", 
+                               if(exists("genome_range")) "Present" else "Missing"))
+                message(sprintf("    Chromosome: %s", chromosome_roman))
+                message(sprintf("    Width: %d", chromosome_width))
+            }
+            # Create placeholder with error handling
+            placeholder_track_creation_result <- create_placeholder_track(
+                sampling_rate = GENOME_TRACK_CONFIG$track_sampling_rate,
+                chromosome_width = chromosome_width,
+                track_color = GENOME_TRACK_CONFIG$color_placeholder,
+                type = GENOME_TRACK_CONFIG$track_type,
+                chromosome_name = chromosome_roman,
+                placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
+                format_args = placeholder_name_arguments,
+                track_params = GENOME_TRACK_CONFIG$track_defaults_placeholder,
+                verbose = RUNTIME_CONFIG$debug_verbose
+            )
+            if (!placeholder_track_creation_result$success) {
+                stop(sprintf("Failed to create placeholder track: %s", placeholder_track_creation_result$error))
+            } else {
+                tracks[[length(tracks) + 1]] <- placeholder_track_creation_result$data
+            }
+        }
 
     }

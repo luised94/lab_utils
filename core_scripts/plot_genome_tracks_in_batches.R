@@ -101,7 +101,6 @@ module_info <- list(
 )
 
 # Add status for each module
-# Add status for each module
 for (status in load_status) {
     module_key <- paste0(
         if(status$required) "required." else "optional.",
