@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+# replace all sorted_metadata
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
@@ -19,20 +20,13 @@ args <- parse_common_arguments(description = description)
 experiment_id <- args$experiment_id
 accept_configuration <- args$accept_configuration
 experiment_dir <- args$experiment_dir
-if (args$is_template) {
-    config_path <- file.path(args$experiment_dir, "template_bmc_config.R")
-    metadata_path <- file.path(args$experiment_dir, "template_sample_grid.csv")
-} else {
-    config_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_bmc_config.R"))
-    metadata_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_sample_grid.csv"))
-}
+is_template <- args$is_template
 
-#is_template <- args$is_template
-#file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
-#file_identifier <- if (is_template) "template" else args$experiment_id
-#
-#config_path <- file.path(file_directory, paste0(file_identifier, "_bmc_config.R"))
-#metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
+file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
+file_identifier <- if (is_template) "template" else args$experiment_id
+
+config_path <- file.path(file_directory, paste0(file_identifier, "_bmc_config.R"))
+metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
 
 
 args_info <- list(
@@ -467,3 +461,61 @@ if (!limits_result$success) {
     y_limits <- limits_result$data
 }
 
+for (comparison_name in comparisons_to_process) {
+    # Metadata processing and sample selection
+    comparison_expression <- EXPERIMENT_CONFIG$COMPARISONS[[comparison_name]]
+    row_samples_to_visualize <- sorted_metadata[eval(comparison_expression,
+                                             envir = sorted_metadata), ]
+
+    # Try to find control for first available sample
+    control_sample <- find_control_sample(
+        row_samples_to_visualize[1, ],
+        sorted_metadata,
+        EXPERIMENT_CONFIG$CONTROL_FACTORS
+    )
+
+    # Combine the control sample to create the track labels.
+    label_result <- create_track_labels(
+        samples = rbind(row_samples_to_visualize, control_sample),
+        always_show = GENOME_TRACK_CONFIG$label_always_show,
+        never_show = GENOME_TRACK_CONFIG$label_never_show,
+        separator = GENOME_TRACK_CONFIG$label_separator,
+        verbose = RUNTIME_CONFIG$debug_verbose
+    )
+
+    if (!label_result$success) {
+        warning("Failed to create track labels for comparison %s: %s", comparison_name, label_result$error)
+        track_labels <- row_samples_to_visualize$short_name  # Fallback to sample_id
+    } else {
+        track_labels <- label_result$data$labels
+    }
+
+    if (nrow(row_samples_to_visualize) == 0) {
+        warning(sprintf("No samples found for comparison: %s", comparison_name))
+        next
+    }
+
+    # Initialize track list with genome axis
+    tracks <- list(
+        Gviz::GenomeAxisTrack(
+           # name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
+            name = sprintf(track_axis_name_template, chromosome_to_plot)
+        )
+    )
+
+    # Try to find control for first available sample
+    control_sample <- find_control_sample(
+        row_samples_to_visualize[1, ],
+        sorted_metadata,
+        EXPERIMENT_CONFIG$CONTROL_FACTORS
+    )
+    
+    if(!is.null(control_sample)) {
+        sample_id <- control_sample$sample_id[i]
+        current_antibody <- control_sample$antibody[i]
+        track_label <- track_labels[i]
+        bigwig_file_path <- project_bigwig_files[grepl(sample_id, project_bigwig_files)][1]
+        control_bigwig_file_path <- bigwig_files[grepl(control_sample$sample_id,
+                                           bigwig_files)]
+
+    }
