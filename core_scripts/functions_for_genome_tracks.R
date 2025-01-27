@@ -252,8 +252,8 @@ create_placeholder_track <- function(
             message("  Placeholder track created successfully:")
             message(sprintf("    Name: %s", placeholder_name))
             message(sprintf("    Points: %d", num_points))
-            message(sprintf("    Track size: %s",
-                          if(is.null(track@size)) "default" else track@size))
+            #message(sprintf("    Track size: %s",
+                          #if(is.null(track@size)) "default" else track@size))
         }
 
         list(
@@ -413,7 +413,7 @@ create_control_track <- function(
     track_format_name,
     format_args,
     track_color,
-    track_type = "l",
+    track_type = "h",
     genomic_range = NULL,
     track_params = list(),
     verbose = FALSE
@@ -515,8 +515,8 @@ create_control_track <- function(
             message("  Control track created successfully:")
             message(sprintf("    Name: %s", track_name))
             message(sprintf("    Data points: %d", length(track_data)))
-            message(sprintf("    Track size: %s",
-                          if(is.null(track@size)) "default" else track@size))
+            #message(sprintf("    Track size: %s",
+                          #if(is.null(track@size)) "default" else track@size))
             if (!is.null(track_data)) {
                 message(sprintf("    Data range: %.2f - %.2f",
                               min(track_data$score),

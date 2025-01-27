@@ -27,7 +27,6 @@ if (args$is_template) {
     metadata_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_sample_grid.csv"))
 }
 
-
 args_info <- list(
     title = "Script Configuration",
     "script.name" = get_script_name(),

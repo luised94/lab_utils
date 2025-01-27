@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# replace all sorted_metadata
+# replace all metadata
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
@@ -306,19 +306,6 @@ if (RUNTIME_CONFIG$debug_verbose) {
     message("\n=== Initialization Complete ===")
 }
 
-# Create sample groups
-sample_groups <- split(
-    seq_len(nrow(metadata)),
-    ceiling(seq_len(nrow(metadata)) / RUNTIME_CONFIG$process_samples_per_batch)
-)
-
-# Determine which groups to process
-groups_to_process <- if (RUNTIME_CONFIG$process_single_file) {
-    RUNTIME_CONFIG$process_batch
-} else {
-    seq_along(sample_groups)
-}
-
 ################################################################################
 # Setup genome and feature files
 ################################################################################
@@ -378,17 +365,6 @@ if (!is.null(feature_file)) {
     )
 }
 
-reference_bigwig <- "~/data/100303Bel/coverage/processed_034475_sequence_to_S288C_CPM.bw"
-if (!is.null(reference_bigwig)) {
-    reference_grange <- rtracklayer::import(reference_bigwig)
-    #print(reference_grange)
-    ## Convert to chrRoman format
-    #GenomeInfoDb::seqlevels(features) <- paste0(
-    #    "chr",
-    #    utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
-    #)
-}
-
 if (RUNTIME_CONFIG$debug_verbose) {
     debug_info <- list(
         "title" = "Genome and Feature Loading Status",
@@ -443,34 +419,38 @@ if (RUNTIME_CONFIG$debug_verbose) {
     message("- Comparisons: ", paste(comparisons_to_process, collapse = ", "))
 }
 
-if (RUNTIME_CONFIG$debug_verbose) {
-    message("\nCalculating global range for all tracks...")
-}
+#if (RUNTIME_CONFIG$debug_verbose) {
+#    message("\nCalculating global range for all tracks...")
+#}
 
-limits_result <- calculate_track_limits(
-    bigwig_files = bigwig_files,
-    genome_range = genome_range,
-    padding_fraction = 0.1,
-    verbose = RUNTIME_CONFIG$debug_verbose
-)
+#limits_result <- calculate_track_limits(
+#    bigwig_files = bigwig_files,
+#    genome_range = genome_range,
+#    padding_fraction = 0.1,
+#    verbose = RUNTIME_CONFIG$debug_verbose
+#)
+#
+#if (!limits_result$success) {
+#    warning("Failed to calculate y-limits: ", limits_result$error)
+#    y_limits <- c(0, 1000)  # Default fallback
+#} else {
+#    y_limits <- limits_result$data
+#}
 
-if (!limits_result$success) {
-    warning("Failed to calculate y-limits: ", limits_result$error)
-    y_limits <- c(0, 1000)  # Default fallback
-} else {
-    y_limits <- limits_result$data
-}
-
+################################################################################
+# Main script logic for plotting experiment comparisons of genomic tracks
+################################################################################
+scaling_modes <- c("local", "individual")
 for (comparison_name in comparisons_to_process) {
     # Metadata processing and sample selection
     comparison_expression <- EXPERIMENT_CONFIG$COMPARISONS[[comparison_name]]
-    row_samples_to_visualize <- sorted_metadata[eval(comparison_expression,
-        envir = sorted_metadata), ]
+    row_samples_to_visualize <- metadata[eval(comparison_expression,
+        envir = metadata), ]
 
     # Try to find control for first available sample
     control_sample <- find_control_sample(
         row_samples_to_visualize[1, ],
-        sorted_metadata,
+        metadata,
         EXPERIMENT_CONFIG$CONTROL_FACTORS
     )
 
@@ -499,14 +479,15 @@ for (comparison_name in comparisons_to_process) {
     tracks <- list(
         Gviz::GenomeAxisTrack(
            # name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
-            name = sprintf(track_axis_name_template, chromosome_to_plot)
+            name = sprintf(GENOME_TRACK_CONFIG$format_genome_axis_track_name, chromosome_to_plot)
         )
     )
 
+    #------------------------------
     # Try to find control for first available sample
     control_sample <- find_control_sample(
         row_samples_to_visualize[1, ],
-        sorted_metadata,
+        metadata,
         EXPERIMENT_CONFIG$CONTROL_FACTORS
     )
 
@@ -534,16 +515,17 @@ for (comparison_name in comparisons_to_process) {
             color_scheme$get_color("antibody", current_antibody)
         }
 
-        control_track <- create_control_track(
+        control_track_creation_result <- create_control_track(
             bigwig_file_path = control_bigwig_file_path,
             track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
             format_args = track_name_arguments,
-            track_color = GENOME_TRACK_CONFIG$,
+            track_color = track_color,
             track_type = "h",
             genomic_range = genome_range,
             track_params = GENOME_TRACK_CONFIG$track_defaults_control,
             verbose = RUNTIME_CONFIG$debug_verbose
         )
+
         if (control_track_creation_result$success) {
             if (RUNTIME_CONFIG$debug_verbose) {
                 message(sprintf("  Successfully created track for sample: %s", sample_id))
@@ -553,6 +535,112 @@ for (comparison_name in comparisons_to_process) {
             # Report the error
             message(sprintf("\nTrack creation failed for sample %s:", sample_id))
             message(sprintf("  Error: %s", control_track_creation_result$error))
+            message("  Creating placeholder track instead")
+            if (RUNTIME_CONFIG$debug_verbose) {
+                # Add context about the failure
+                message("  Context:")
+                message(sprintf("    Genomic Range: %s", 
+                               if(exists("genome_range")) "Present" else "Missing"))
+                message(sprintf("    Chromosome: %s", chromosome_roman))
+                message(sprintf("    Width: %d", chromosome_width))
+            }
+            # Create placeholder with error handling
+            placeholder_track_creation_result <- create_placeholder_track(
+                sampling_rate = GENOME_TRACK_CONFIG$track_sampling_rate,
+                chromosome_width = chromosome_width,
+                track_color = GENOME_TRACK_CONFIG$color_placeholder,
+                track_type = GENOME_TRACK_CONFIG$track_type,
+                chromosome_name = chromosome_roman,
+                placeholder_format_name = GENOME_TRACK_CONFIG$format_placeholder_track_name,
+                format_args = placeholder_name_arguments,
+                track_params = GENOME_TRACK_CONFIG$track_defaults_placeholder,
+                verbose = RUNTIME_CONFIG$debug_verbose
+            )
+            if (!placeholder_track_creation_result$success) {
+                stop(sprintf("Failed to create placeholder track: %s", placeholder_track_creation_result$error))
+            } else {
+                tracks[[length(tracks) + 1]] <- placeholder_track_creation_result$data
+            }
+        }
+    }
+    #------------------------------
+    for (i in seq_len(nrow(row_samples_to_visualize))) {
+        sample_id <- row_samples_to_visualize$sample_id[i]
+        current_antibody <- row_samples_to_visualize$antibody[i]
+        bigwig_file_path <- bigwig_files[grepl(sample_id, bigwig_files)]
+        short_sample_id <- sample_id_mapping[sample_id]  # Mapped ID
+        track_label <- track_labels[i]
+
+        if (RUNTIME_CONFIG$debug_verbose) {
+            message("\nBigwig File Matching:")
+            message(sprintf("  Sample ID: %s", sample_id))
+            message("  Available files:")
+            invisible(lapply(bigwig_files, function(f) message("    ", basename(f))))
+            message("  Pattern matches:")
+            matches <- grepl(sample_id, bigwig_files)
+            message(sprintf("    Matches found: %d", sum(matches)))
+            if (sum(matches) > 0) {
+                message("    Matching files:")
+                invisible(lapply(bigwig_files[matches], function(f) 
+                    message("      ", basename(f))))
+            }
+        }
+
+        if (RUNTIME_CONFIG$debug_verbose) {
+            message(sprintf("\nProcessing Sample %d/%d:", 
+                          i, nrow(row_samples_to_visualize)))
+            message(sprintf("  Sample ID: %s", sample_id))
+            message(sprintf("  Antibody: %s", current_antibody))
+            message(sprintf("  Track Label: %s", track_label))
+            message(sprintf("  Bigwig file: %s", bigwig_file_path))
+        }
+
+        if (RUNTIME_CONFIG$debug_verbose) {
+            message("\nTrack Creation Parameters:")
+            message(sprintf("  Bigwig file: %s", 
+                          if(is.na(bigwig_file_path)) "NOT FOUND" 
+                          else basename(bigwig_file_path)))
+            message("  Name arguments:")
+            message(sprintf("    ID: %s", sample_id_mapping[sample_id]))
+            message(sprintf("    Label: %s", track_label))
+        }
+        track_name_arguments <- c(
+            short_sample_id,
+            track_label
+        )
+
+        placeholder_name_arguments <- c(
+            short_sample_id,
+            track_label,
+            GENOME_TRACK_CONFIG$format_suffix
+        )
+
+        track_color <- if (current_antibody == "Input") {
+            color_scheme$fixed$input
+        } else {
+            color_scheme$get_color("antibody", current_antibody)
+        }
+
+        track_creation_result <- create_sample_track(
+            bigwig_file_path = bigwig_file_path,
+            track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
+            format_args = track_name_arguments,
+            track_color = track_color,
+            track_type = GENOME_TRACK_CONFIG$track_defaults_sample$type,
+            genomic_range = genome_range,
+            track_params = GENOME_TRACK_CONFIG$track_defaults_sample,
+            verbose = RUNTIME_CONFIG$debug_verbose
+        )
+
+        if (track_creation_result$success) {
+            if (RUNTIME_CONFIG$debug_verbose) {
+                message(sprintf("  Successfully created track for sample: %s", sample_id))
+            }
+            tracks[[length(tracks) + 1]] <- track_creation_result$data
+        } else {
+            # Report the error
+            message(sprintf("\nTrack creation failed for sample %s:", sample_id))
+            message(sprintf("  Error: %s", track_creation_result$error))
             message("  Creating placeholder track instead")
             if (RUNTIME_CONFIG$debug_verbose) {
                 # Add context about the failure
@@ -580,5 +668,130 @@ for (comparison_name in comparisons_to_process) {
                 tracks[[length(tracks) + 1]] <- placeholder_track_creation_result$data
             }
         }
-
     }
+    #------------------------------
+
+    # Add feature track if available
+    if (exists("features")) {
+        tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
+            features,
+            name = "Features",
+            size = 0.5,
+            background.title = "lightgray",
+            fontcolor.title = "black",
+            cex.title = 0.6
+        )
+    }
+                                                                                     
+    plot_title <- sprintf(
+        GENOME_TRACK_CONFIG$title_comparison_template,
+        experiment_id,
+        group_idx,
+        chromosome_to_plot,
+        nrow(row_samples_to_visualize),
+        TIME_CONFIG$current_timestamp,
+        normalization_method
+    )
+                                                                                     
+    plot_config <- create_track_plot_config(
+        tracks = tracks,
+        chromosome = chromosome_roman,
+        to = chromosome_width,
+        title = plot_title,
+        visualization_params = GENOME_TRACK_CONFIG$plot_defaults,
+        verbose = RUNTIME_CONFIG$debug_verbose
+    )
+                                                                                     
+    for (mode in scaling_modes) {
+        # Create filename for this mode
+        plot_filename <- sprintf(
+            GENOME_TRACK_CONFIG$title_comparison_template,
+            TIME_CONFIG$current_timestamp,
+            experiment_id,
+            group_idx,
+            chromosome_to_plot,
+            mode
+         )
+                                                                                     
+         plot_file <- file.path(
+             dirs$output_dir,
+             plot_filename
+         )
+                                                                                     
+        if (RUNTIME_CONFIG$debug_verbose) {
+            message(paste(rep("-", 80), collapse = ""))
+            message(sprintf("\nScaling mode: %s", mode))
+            message("\nPlot Generation Details:")
+            message(sprintf("  Title Components:"))
+            message(sprintf("    Experiment: %s", experiment_id))
+            message(sprintf("    Chromosome: %s", chromosome_to_plot))
+            message(sprintf("    Sample Count: %d", nrow(row_samples_to_visualize)))
+            message(sprintf("    Timestamp: %s", TIME_CONFIG$current_timestamp))
+            message(sprintf("    Normalization: %s", normalization_method))
+            message("\n  Output Configuration:")
+            message(sprintf("    Plot Directory: %s", dirs$output_dir))
+            message(sprintf("    Filename: %s", basename(plot_file)))
+            message(sprintf("    Full Path: %s", plot_file))
+            # Visual separator for readability in log
+            message(paste(rep("-", 80), collapse = ""))
+        }
+                                                                                     
+                                                                                     
+        # Set y-limits based on mode
+        if (mode == "local") {
+            # Calculate limits for this group's files
+            print(row_samples_to_visualize$sample_id)
+            #group_files <- project_bigwig_files[grepl(
+            #    paste(row_samples_to_visualize$sample_id, collapse = "|"),
+            #    project_bigwig_files
+            #)]
+            pattern <- sprintf("processed_(%s)_sequence_to_S288C_CPM\\.bw$", 
+                               paste(row_samples_to_visualize$sample_id, collapse = "|"))
+            group_files <- grep(pattern, project_bigwig_files, value = TRUE, perl = TRUE)
+            if (RUNTIME_CONFIG$debug_verbose) {
+                message("Selected sample IDs: ", paste(row_samples_to_visualize$sample_id, collapse=", "))
+                message("Found files: ", paste(basename(group_files), collapse=", "))
+                if (length(group_files) != nrow(row_samples_to_visualize)) {
+                    warning(sprintf("Number of files (%d) doesn't match number of samples (%d)",
+                            length(group_files), nrow(row_samples_to_visualize)))
+                }
+            }
+
+            local_limits_result <- calculate_track_limits(
+                bigwig_files = group_files,
+                genome_range = genome_range,
+                padding_fraction = .1,
+                #padding_fraction = GENOME_TRACK_CONFIG$ylim_padding,
+                verbose = RUNTIME_CONFIG$debug_verbose
+            )
+            plot_config$ylim <- if (local_limits_result$success) 
+                local_limits_result$data else GENOME_TRACK_CONFIG$ylim_defaults
+        } else {  # individual
+            plot_config$ylim <- NULL  # Let tracks scale independently
+        }
+
+        if (RUNTIME_CONFIG$output_dry_run) {
+            # Display only
+            execute_track_plot(
+                plot_config = plot_config,
+                plot_params = GENOME_TRACK_CONFIG$plot_defaults,
+                display_plot = TRUE,
+                verbose = RUNTIME_CONFIG$debug_verbose
+            )
+        } else {
+            # Save plot
+            execute_track_plot(
+                plot_config = plot_config,
+                save_path = plot_file,
+                save_params = list(
+                    width = GENOME_TRACK_CONFIG$display_width,
+                    height = GENOME_TRACK_CONFIG$display_height
+                ),
+                plot_params = GENOME_TRACK_CONFIG$plot_defaults,
+                display_plot = FALSE,
+                verbose = RUNTIME_CONFIG$debug_verbose
+            )
+        }
+    }
+
+}
