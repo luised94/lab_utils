@@ -80,7 +80,7 @@ parse_common_arguments <- function(description = "Script description", prog = NU
         make_option(
             opt_str = "--skip-validation",
             action = "store_true",
-            default = FALSE,
+            default = TRUE,
             help = "Skip validation for presence of required R packages (default: TRUE). Set to FALSE to force validation.",
             dest = "skip_validation"
         ),

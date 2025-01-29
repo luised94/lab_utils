@@ -133,7 +133,6 @@ TIME_CONFIG <- list(
 ################################################################################
 RUNTIME_CONFIG <- list(
     # Execution Mode
-    #test_single_iteration = TRUE,  # (formerly debug_enabled/process_single_file)
     #show_debug_output = TRUE,      # (formerly debug_verbose)
     #require_confirmation = FALSE,   # (formerly debug_interactive)
     #validate_extensively = TRUE,    # (formerly debug_validate)
@@ -148,7 +147,6 @@ RUNTIME_CONFIG <- list(
     #plot_display_duration = 2
 
     # Core control flags
-    debug_enabled = TRUE,
     debug_interactive = FALSE,
     debug_verbose = TRUE,
     debug_validate = TRUE,

@@ -176,7 +176,6 @@ sample_groups <- split(
 )
 
 # Determine processing scope based on debug configuration
-groups_to_process <- if (RUNTIME_CONFIG$debug_enabled) {
     RUNTIME_CONFIG$process_group
 } else {
     seq_along(sample_groups)
