@@ -253,8 +253,8 @@ GENOME_TRACK_CONFIG <- list(
     file_feature_pattern = "eaton_peaks",
 
     # File Names
-    filename_format_group_templates = "%s_%s_group%02d_chr%s_%s.svg",
-    filename_format_comparison_templates = "%s_%s_%s_chr%s_%s.svg",
+    filename_format_group_template = "%s_%s_group%02d_chr%s_%s.svg",
+    filename_format_comparison_template = "%s_%s_%s_chr%s_%s.svg",
     title_group_template = paste(
         "%s",               # Title
         "Group: %s",   # Comparison ID

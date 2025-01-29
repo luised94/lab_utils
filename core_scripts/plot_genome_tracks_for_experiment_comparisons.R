@@ -686,7 +686,7 @@ for (comparison_name in comparisons_to_process) {
     plot_title <- sprintf(
         GENOME_TRACK_CONFIG$title_comparison_template,
         experiment_id,
-        group_idx,
+        sub("^comp_", "", comparison_name),
         chromosome_to_plot,
         nrow(row_samples_to_visualize),
         TIME_CONFIG$current_timestamp,
@@ -705,10 +705,10 @@ for (comparison_name in comparisons_to_process) {
     for (mode in scaling_modes) {
         # Create filename for this mode
         plot_filename <- sprintf(
-            GENOME_TRACK_CONFIG$title_comparison_template,
+            GENOME_TRACK_CONFIG$filename_format_comparison_template,
             TIME_CONFIG$current_timestamp,
             experiment_id,
-            group_idx,
+            sub("^comp_", "", comparison_name),
             chromosome_to_plot,
             mode
          )
@@ -735,8 +735,6 @@ for (comparison_name in comparisons_to_process) {
             # Visual separator for readability in log
             message(paste(rep("-", 80), collapse = ""))
         }
-                                                                                     
-                                                                                     
         # Set y-limits based on mode
         if (mode == "local") {
             # Calculate limits for this group's files
@@ -747,7 +745,7 @@ for (comparison_name in comparisons_to_process) {
             #)]
             pattern <- sprintf("processed_(%s)_sequence_to_S288C_CPM\\.bw$", 
                                paste(row_samples_to_visualize$sample_id, collapse = "|"))
-            group_files <- grep(pattern, project_bigwig_files, value = TRUE, perl = TRUE)
+            group_files <- grep(pattern, bigwig_files, value = TRUE, perl = TRUE)
             if (RUNTIME_CONFIG$debug_verbose) {
                 message("Selected sample IDs: ", paste(row_samples_to_visualize$sample_id, collapse=", "))
                 message("Found files: ", paste(basename(group_files), collapse=", "))
@@ -761,7 +759,6 @@ for (comparison_name in comparisons_to_process) {
                 bigwig_files = group_files,
                 genome_range = genome_range,
                 padding_fraction = .1,
-                #padding_fraction = GENOME_TRACK_CONFIG$ylim_padding,
                 verbose = RUNTIME_CONFIG$debug_verbose
             )
             plot_config$ylim <- if (local_limits_result$success) 
