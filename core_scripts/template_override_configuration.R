@@ -5,6 +5,7 @@ OVERRIDE_PRESETS <- list(
         debug_verbose = TRUE,
         debug_validate = TRUE,
         process_single_file = TRUE,
+        process_single_comparison = TRUE,
         output_dry_run = FALSE
     ),
     full_analysis = list(  # For complete ChIP-seq analysis
@@ -25,7 +26,7 @@ OVERRIDE_PRESETS <- list(
         debug_verbose = TRUE,
         debug_validate = TRUE,
         process_single_file = FALSE,
-        process_samples_per_batch = 2,
+        process_single_comparison = TRUE,
         output_dry_run = TRUE
     ),
     check_single_sample = list(  # For investigating specific sample issues
@@ -33,6 +34,7 @@ OVERRIDE_PRESETS <- list(
         output_dry_run = TRUE,
         process_single_file = TRUE,
         process_comparison = "comp_1108forNoneAndWT",
+        process_single_comparison = FALSE,
         process_file_index = 58
     )
 )
