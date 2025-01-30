@@ -32,6 +32,7 @@ OVERRIDE_PRESETS <- list(
         debug_verbose = TRUE,
         output_dry_run = TRUE,
         process_single_file = TRUE,
+        process_comparison = "comp_1108forNoneAndWT",
         process_file_index = 58
     )
 )

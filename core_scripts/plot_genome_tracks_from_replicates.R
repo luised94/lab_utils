@@ -24,13 +24,13 @@ check_required_packages(required_packages, verbose = TRUE, skip_validation = arg
 experiment_id <- args$experiment_id
 accept_configuration <- args$accept_configuration
 experiment_dir <- args$experiment_dir
-if (args$is_template) {
-    config_path <- file.path(args$experiment_dir, "template_bmc_config.R")
-    metadata_path <- file.path(args$experiment_dir, "template_sample_grid.csv")
-} else {
-    config_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_bmc_config.R"))
-    metadata_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_sample_grid.csv"))
-}
+is_template <- args$is_template
+
+file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
+file_identifier <- if (is_template) "template" else args$experiment_id
+
+config_path <- file.path(file_directory, paste0(file_identifier, "_bmc_config.R"))
+metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
 
 args_info <- list(
     title = "Script Configuration",
@@ -42,14 +42,6 @@ print_debug_info(modifyList(args_info, args))
 ################################################################################
 # Load and Validate Experiment Configuration and Dependencies
 ################################################################################
-# Bootstrap phase
-bootstrap_path <- normalizePath("~/lab_utils/core_scripts/functions_for_file_operations.R",
-                              mustWork = FALSE)
-if (!file.exists(bootstrap_path)) {
-    stop(sprintf("[FATAL] Bootstrap file not found: %s", bootstrap_path))
-}
-source(bootstrap_path)
-#todo:Create function that sources but reassigns EXPERIMENT_CONFIG to another name. Would need to update all references or find some way to update that. However, the settings should remain the same for the most part and I can include a safe_source call inside the for loop just in case.
 sapply(config_path[1], safe_source)
 
 # Define required dependencies
@@ -375,6 +367,7 @@ for (path in config_path) {
         sample_ids = sample_ids,
         stop_on_missing_columns = TRUE
     )
+
     total_expected_rows <- total_expected_rows + nrow(metadata)
     metadata$experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
     project_metadata <- rbind(project_metadata, metadata)
@@ -385,9 +378,11 @@ for (path in config_path) {
 if (nrow(project_metadata) == 0) {
     stop("No metadata entries found after merging all experiments")
 }
+
 if (any(duplicated(project_metadata$sample_id))) {
     warning("Duplicate sample IDs found in merged project_metadata")
 }
+
 if (nrow(project_metadata) != total_expected_rows) {
     stop(sprintf(
         "project_metadata merge error: Expected %d rows but got %d rows",
@@ -395,9 +390,11 @@ if (nrow(project_metadata) != total_expected_rows) {
         nrow(project_metadata)
     ))
 }
+
 if (length(unique(project_metadata$experiment_id)) != length(config_path)) {
     warning("Number of unique experiment IDs doesn't match number of config files processed")
 }
+
 if(RUNTIME_CONFIG$debug_verbose) {
     debug_info <- list(
         "title" = "Metadata Summary",
@@ -462,6 +459,7 @@ short_sample_ids <- create_minimal_identifiers(
     project_metadata$sample_id,
     verbose = RUNTIME_CONFIG$debug_verbose
 )
+
 # Create mapping between full and short IDs
 sample_id_mapping <- setNames(
     short_sample_ids,

@@ -1,0 +1,131 @@
+#!/usr/bin/env Rscript
+# Bootstrap phase
+function_filenames <- c("logging", "script_control", "file_operations")
+for (function_filename in function_filenames) {
+    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
+    normalized_path <- normalizePath(function_filepath)
+    if (!file.exists(normalized_path)) {
+        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
+    }
+    source(normalized_path)
+}
+
+# Proceed if packages are installed. Can be disable.
+required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
+check_required_packages(required_packages, verbose = TRUE, skip_validation = FALSE)
+
+required_configs <- c("EXPERIMENT_CONFIG", "GENOME_TRACK_CONFIG", "RUNTIME_CONFIG")
+validate_configs(required_configs)
+invisible(lapply(required_configs, function(config) {
+    print_config_settings(get(config), title = config)
+}))
+
+
+################################################################################
+# Setup genome and feature files
+################################################################################
+stopifnot(
+    "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
+    "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)
+)
+# Load reference genome
+ref_genome_file <- list.files(
+    path = GENOME_TRACK_CONFIG$file_genome_directory,
+    pattern = GENOME_TRACK_CONFIG$file_genome_pattern,
+    full.names = TRUE,
+    recursive = TRUE
+)[1]
+
+if (length(ref_genome_file) == 0) {
+    stop(sprintf("No reference genome files found matching pattern '%s' in: %s", 
+                GENOME_TRACK_CONFIG$file_genome_pattern,
+                GENOME_TRACK_CONFIG$file_genome_directory))
+}
+
+if (!file.exists(ref_genome_file)) {
+    stop(sprintf("Reference genome file not accessible: %s", ref_genome_file[1]))
+}
+genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
+
+# Create chromosome range
+chromosome_to_plot <- RUNTIME_CONFIG$process_chromosome
+chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
+chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
+
+genome_range <- GenomicRanges::GRanges(
+    seqnames = chromosome_roman,
+    ranges = IRanges::IRanges(start = 1, end = chromosome_width),
+    strand = "*"
+)
+
+# Load feature file (annotation)
+feature_file <- list.files(
+    path = GENOME_TRACK_CONFIG$file_feature_directory,
+    pattern = GENOME_TRACK_CONFIG$file_feature_pattern,
+    full.names = TRUE
+)[1]
+
+if (length(feature_file) == 0) {
+    warning(sprintf("No feature files found matching pattern '%s' in: %s", 
+                   GENOME_TRACK_CONFIG$file_feature_pattern,
+                   GENOME_TRACK_CONFIG$file_feature_directory))
+}
+
+if (!is.null(feature_file)) {
+    features <- rtracklayer::import(feature_file)
+    # Convert to chrRoman format
+    GenomeInfoDb::seqlevels(features) <- paste0(
+        "chr",
+        utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
+    )
+}
+
+reference_bigwig <- "~/data/100303Bel/coverage/processed_034475_sequence_to_S288C_CPM.bw"
+if (!is.null(reference_bigwig)) {
+    reference_grange <- rtracklayer::import(reference_bigwig)
+    #print(reference_grange)
+    ## Convert to chrRoman format
+    #GenomeInfoDb::seqlevels(features) <- paste0(
+    #    "chr",
+    #    utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(features)))
+    #)
+}
+
+if (RUNTIME_CONFIG$debug_verbose) {
+    debug_info <- list(
+        "title" = "Genome and Feature Loading Status",
+
+        "Directory Validation" = NULL,
+        ".Genome Directory" = sprintf("%s (Exists: %s)", 
+            GENOME_TRACK_CONFIG$file_genome_directory,
+            dir.exists(GENOME_TRACK_CONFIG$file_genome_directory)),
+        ".Feature Directory" = sprintf("%s (Exists: %s)",
+            GENOME_TRACK_CONFIG$file_feature_directory,
+            dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)),
+
+        "Genome Processing" = NULL,
+        ".Search Pattern" = GENOME_TRACK_CONFIG$file_genome_pattern,
+        ".Found File" = if(length(ref_genome_file) > 0) ref_genome_file else "None",
+        ".File Accessible" = if(length(ref_genome_file) > 0) file.exists(ref_genome_file) else FALSE,
+
+        "Chromosome Details" = NULL,
+        ".Target" = chromosome_to_plot,
+        ".Roman Notation" = chromosome_roman,
+        ".Width" = chromosome_width,
+
+        "Feature Processing" = NULL,
+        ".Feature Search Pattern" = GENOME_TRACK_CONFIG$file_feature_pattern,
+        ".Feature Found File" = if(length(feature_file) > 0) feature_file else "None",
+        ".Feature File Accessible" = if(!is.null(feature_file) && length(feature_file) > 0) 
+            file.exists(feature_file) else FALSE
+    )
+
+    # Add feature details if loaded
+    if (exists("features") && !is.null(features)) {
+        debug_info[[".Feature Count"]] <- length(features)
+        debug_info[[".Sequence Levels"]] <- paste(GenomeInfoDb::seqlevels(features), collapse = ", ")
+    }
+
+    print_debug_info(debug_info)
+}
+
