@@ -14,14 +14,104 @@ for (function_filename in function_filenames) {
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 check_required_packages(required_packages, verbose = TRUE, skip_validation = FALSE)
 
+config_path <- "~/lab_utils/core_scripts/template_bmc_config.R"
+override_path <- "~/lab_utils/core_scripts/override_configuration.R"
+safe_source(config_path)
+safe_source(override_path)
+
+################################################################################
+# Load and Validate Experiment Configuration and Dependencies
+################################################################################
+# Define required dependencies
+required_modules <- list(
+    list(
+        path = "~/lab_utils/core_scripts/functions_for_metadata_processing.R",
+        description = "Process metadata grid for downstream analysis.",
+        required = TRUE
+    ),
+    list(
+        path = "~/lab_utils/core_scripts/functions_for_genome_tracks.R",
+        description = "Functions to load genome track objects for plotting",
+        required = TRUE
+    ),
+    list(
+        path = config_path,
+        description = "Functions to load genome track objects for plotting",
+        required = TRUE
+    )
+)
+
+# Validate module structure
+stopifnot(
+    "modules must have required fields" = all(sapply(required_modules, function(m) {
+        all(c("path", "description", "required") %in% names(m))
+    }))
+)
+
+# Load dependencies with status tracking
+# Process module loading
+load_status <- lapply(required_modules, function(module) {
+    success <- safe_source(module$path, verbose = TRUE)
+    if (!success && module$required) {
+        stop(sprintf("Failed to load required module: %s\n  Path: %s",
+            module$description, module$path))
+    } else if (!success) {
+        warning(sprintf("Optional module not loaded: %s\n  Path: %s",
+            module$description, module$path))
+    }
+    list(
+        module = module$description,
+        path = module$path,
+        loaded = success,
+        required = module$required
+    )
+})
+
+# Create debug info structure
+module_info <- list(
+    title = "Module Loading Status",
+    "total_modules" = length(required_modules),
+    "required_modules" = sum(sapply(required_modules, `[[`, "required"))
+)
+
+# Add status for each module
+for (status in load_status) {
+    module_key <- paste0(
+        if(status$required) "required." else "optional.",
+        gsub(" ", "_", tolower(status$module))
+    )
+    module_info[[module_key]] <- sprintf(
+        "%s (%s)",
+        status$module,  # Now showing description
+        if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
+    )
+}
+
+# Display using print_debug_info
+print_debug_info(module_info)
+
+#todo: Need to fix config requirements for ending with _CONFIG or modify the variable to end with _CONFIG
 required_configs <- c("EXPERIMENT_CONFIG", "GENOME_TRACK_CONFIG", "RUNTIME_CONFIG")
 validate_configs(required_configs)
 invisible(lapply(required_configs, function(config) {
     print_config_settings(get(config), title = config)
 }))
 
-config_path <- "~/lab_utils/core_scripts/template_bmc_config.R"
-safe_source(config_path)
+
+# Handle configuration override (independent)
+override_result <- apply_runtime_override(
+    config = RUNTIME_CONFIG,
+    preset_name = "full_inspect_pipeline",
+    preset_list = OVERRIDE_PRESETS
+)
+RUNTIME_CONFIG <- override_result$modified
+print_debug_info(modifyList(
+    list(
+        title = "Final Configuration",
+        "override.mode" = override_result$mode
+    ),
+    RUNTIME_CONFIG
+))
 
 ################################################################################
 # Setup genome and feature files
@@ -83,7 +173,7 @@ if (!is.null(feature_file)) {
     )
 }
 
-reference_bigwig <- "~/data/100303Bel/coverage/processed_034475_sequence_to_S288C_CPM.bw"
+reference_bigwig <- "~/data/100303Bel/coverage/processed_034475_sequence_to_S288C_RPKM.bw"
 stopifnot(
     "Reference bigwig does not exist." = file.exists(reference_bigwig)
 )
@@ -189,13 +279,13 @@ title_replicate_template <- paste(
 
 )
 
+title_plot_format <- "%s_%s_reference_chr%s_%s.svg"
 plot_title <- sprintf(
-    title_replicate_template,
-    unique(project_id),
-    current_short_name,
-    chromosome_to_plot,
+    title_plot_format,
     TIME_CONFIG$current_timestamp,
-    normalization_method
+    "100303Bel",
+    chromosome_to_plot,
+    "CPM"
 )
 
 plot_config <- create_track_plot_config(
@@ -207,18 +297,18 @@ plot_config <- create_track_plot_config(
     verbose = RUNTIME_CONFIG$debug_verbose
 )
 
-filename_format_comparison_templates <- "%s_%s_idx%02d_chr%s_%s.svg"
+mode <- "indiviadual"
+filename_format_reference_template <- "%s_%s_reference_chr%s_%s.svg"
 plot_filename <- sprintf(
-    filename_format_comparison_templates,
+    filename_format_reference_template,
     TIME_CONFIG$current_timestamp,
-    gsub("_", "", unique(project_id)),
-    short_name_idx,
+    "100303Bel",
     chromosome_to_plot,
     mode
  )
 
  plot_file <- file.path(
-     output_dir,
+     "~/",
      plot_filename
  )
 
