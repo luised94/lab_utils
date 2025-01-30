@@ -20,6 +20,8 @@ invisible(lapply(required_configs, function(config) {
     print_config_settings(get(config), title = config)
 }))
 
+config_path <- "~/lab_utils/core_scripts/template_bmc_config.R"
+safe_source(config_path)
 
 ################################################################################
 # Setup genome and feature files
@@ -28,6 +30,7 @@ stopifnot(
     "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
     "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)
 )
+
 # Load reference genome
 ref_genome_file <- list.files(
     path = GENOME_TRACK_CONFIG$file_genome_directory,
@@ -81,6 +84,9 @@ if (!is.null(feature_file)) {
 }
 
 reference_bigwig <- "~/data/100303Bel/coverage/processed_034475_sequence_to_S288C_CPM.bw"
+stopifnot(
+    "Reference bigwig does not exist." = file.exists(reference_bigwig)
+)
 if (!is.null(reference_bigwig)) {
     reference_grange <- rtracklayer::import(reference_bigwig)
     #print(reference_grange)
@@ -129,3 +135,101 @@ if (RUNTIME_CONFIG$debug_verbose) {
     print_debug_info(debug_info)
 }
 
+
+# Initialize tracks list with chromosome axis
+tracks <- list(
+    Gviz::GenomeAxisTrack(
+        name = sprintf(GENOME_TRACK_CONFIG$format_genome_axis_track_name, chromosome_to_plot)
+    )
+)
+
+if (exists("reference_grange")) {
+    if (!is(reference_grange, "GRanges")) {
+        stop("reference_grange must be a GRanges object")
+    }
+
+    track_args <- c(
+        list(
+            range = reference_grange,
+            name = "Reference"
+        ),
+        GENOME_TRACK_CONFIG$track_defaults_sample
+    )
+
+    # Optional: Debug info
+    if (RUNTIME_CONFIG$debug_verbose) {
+        message("Creating reference track with arguments:")
+        #print(str(track_args))
+    }
+
+    tracks[[length(tracks) + 1]] <- do.call(
+        Gviz::DataTrack,
+        track_args
+    )
+}
+
+if (exists("features")) {
+    tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
+        features,
+        name = "Features",
+        size = 0.5,
+        background.title = "lightgray",
+        fontcolor.title = "black",
+        cex.title = 0.6
+    )
+}
+
+title_replicate_template <- paste(
+    "Project_id: %s",
+    "Replicate: %s",
+    "Chromsome: %s",
+    "Time: %s",
+    "Normalization:%s",
+    sep = "\n"
+
+)
+
+plot_title <- sprintf(
+    title_replicate_template,
+    unique(project_id),
+    current_short_name,
+    chromosome_to_plot,
+    TIME_CONFIG$current_timestamp,
+    normalization_method
+)
+
+plot_config <- create_track_plot_config(
+    tracks = tracks,
+    chromosome = chromosome_roman,
+    to = chromosome_width,
+    title = plot_title,
+    visualization_params = GENOME_TRACK_CONFIG$plot_defaults,
+    verbose = RUNTIME_CONFIG$debug_verbose
+)
+
+filename_format_comparison_templates <- "%s_%s_idx%02d_chr%s_%s.svg"
+plot_filename <- sprintf(
+    filename_format_comparison_templates,
+    TIME_CONFIG$current_timestamp,
+    gsub("_", "", unique(project_id)),
+    short_name_idx,
+    chromosome_to_plot,
+    mode
+ )
+
+ plot_file <- file.path(
+     output_dir,
+     plot_filename
+ )
+
+execute_track_plot(
+    plot_config = plot_config,
+    save_path = plot_file,
+    save_params = list(
+        width = GENOME_TRACK_CONFIG$display_width,
+        height = GENOME_TRACK_CONFIG$display_height
+    ),
+    plot_params = GENOME_TRACK_CONFIG$plot_defaults,
+    display_plot = FALSE,
+    verbose = RUNTIME_CONFIG$debug_verbose
+)

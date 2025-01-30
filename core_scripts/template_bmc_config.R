@@ -154,7 +154,7 @@ RUNTIME_CONFIG <- list(
     # Processing control
     process_single_file = FALSE,
     process_comparison = "comp_1108forNoneAndWT",
-    process_chromosome = 10,
+    process_chromosome = 14,
     #process_group = 10,
     process_batch = 10,
     process_samples_per_batch = 4,
