@@ -1,5 +1,5 @@
 #!/bin/bash
-# run_bam_qc_array.sh
+# run_bam_qc_array.sbatch
 # Purpose: Execute BAM Quality Control using Samtools
 # Version: 1.1.0
 # Compatibility: Bash 4.2+, SLURM

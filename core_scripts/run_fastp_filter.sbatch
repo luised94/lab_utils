@@ -7,9 +7,9 @@
 #SBATCH --exclude=c[5-22]
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=luised94@mit.edu
-# Script: run_fastp_filter.sh
+# Script: run_fastp_filter.sbatch
 # Purpose: Executes fastp filter script logic.
-# Usage: sbatch --array=1-N%16 $HOME/lab_utils/core_scripts/run_fastp_filter.sh <experiment_directory>
+# Usage: sbatch --array=1-N%16 $HOME/lab_utils/core_scripts/run_fastp_filter.sbatch <experiment_directory>
 # Author: Luis
 # Date: 2024-12-26
 

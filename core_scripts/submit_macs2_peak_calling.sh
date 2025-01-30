@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script: submit_macs2_peak_calling
 # Purpose: Submits run_macs2_peak_calling via slurm
-# Usage: sbatch --array=1-N%16 run_bamcoverage_array.sh <experiment_directory>
+# Usage: sbatch --array=1-N%16 run_bamcoverage_array.sbatch <experiment_directory>
 # Dependencies: run_macs2_peak_calling, macs2, miniforge, slurm
 # Date: 2024-12-26
 # Usage: $./submit_macs2_peak_calling.sh $HOME/data/<experiment_directory>
@@ -49,7 +49,7 @@ echo "----------------"
 echo -e "\nWill submit array job with following parameters:"
 echo "Array size: 1-${BAM_COUNT}"
 echo "Max simultaneous jobs: 16"
-echo "Script: run_macs2_peak_calling.sh"
+echo "Script: run_macs2_peak_calling.sbatch"
 echo "Working directory: ${EXPERIMENT_DIR}"
 
 read -p "Proceed with job submission? (y/n): " confirm
@@ -59,4 +59,4 @@ if [[ ! $confirm =~ ^[Yy]$ ]]; then
 fi
 
 # Submit job
-sbatch --array=1-${BAM_COUNT}%16 "$HOME/lab_utils/core_scripts/run_macs2_peak_calling.sh" "$EXPERIMENT_DIR"
+sbatch --array=1-${BAM_COUNT}%16 "$HOME/lab_utils/core_scripts/run_macs2_peak_calling.sbatch" "$EXPERIMENT_DIR"

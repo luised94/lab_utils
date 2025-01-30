@@ -40,7 +40,7 @@ printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
 echo -e "\nWill submit array job with following parameters:"
 echo "Array size: 1-${BAM_COUNT}"
 echo "Max simultaneous jobs: 16"
-echo "Script: run_bamcoverage_normalizations.sh"
+echo "Script: run_bamcoverage_normalizations.sbatch"
 echo "Working directory: ${EXPERIMENT_DIR}"
 
 read -p "Proceed with job submission? (y/n): " confirm
@@ -50,4 +50,4 @@ if [[ ! $confirm =~ ^[Yy]$ ]]; then
 fi
 
 # Submit job
-sbatch --array=1-${TOTAL_JOBS}%16 "$HOME/lab_utils/core_scripts/run_bamcoverage_normalizations.sh" "$EXPERIMENT_DIR"
+sbatch --array=1-${TOTAL_JOBS}%16 "$HOME/lab_utils/core_scripts/run_bamcoverage_normalizations.sbatch" "$EXPERIMENT_DIR"

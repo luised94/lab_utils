@@ -45,7 +45,7 @@ echo "----------------"
 echo -e "\nWill submit array job with following parameters:"
 echo "Array size: 1-${FASTQ_COUNT}"
 echo "Max simultaneous jobs: 16"
-echo "Script: run_bowtie2_array_alignment.sh"
+echo "Script: run_bowtie2_array_alignment.sbatch"
 echo "Working directory: ${EXPERIMENT_DIR}"
 
 read -p "Proceed with job submission? (y/n): " confirm
@@ -54,4 +54,4 @@ if [[ ! $confirm =~ ^[Yy]$ ]]; then
     exit 0
 fi
 # Submit job
-sbatch --array=1-${FASTQ_COUNT}%16 "$HOME/lab_utils/core_scripts/run_bowtie2_array_alignment.sh" "$EXPERIMENT_DIR"
+sbatch --array=1-${FASTQ_COUNT}%16 "$HOME/lab_utils/core_scripts/run_bowtie2_array_alignment.sbatch" "$EXPERIMENT_DIR"
