@@ -404,7 +404,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
 }
 
 # Determine which comparisons to process
-comparisons_to_process <- if (RUNTIME_CONFIG$process_single_file) {
+comparisons_to_process <- if (RUNTIME_CONFIG$process_single_comparison) {
     if (!RUNTIME_CONFIG$process_comparison %in% names(EXPERIMENT_CONFIG$COMPARISONS)) {
         stop("Debug comparison not found in EXPERIMENT_CONFIG$COMPARISONS")
     }
@@ -683,10 +683,13 @@ for (comparison_name in comparisons_to_process) {
         )
     }
                                                                                      
+    base_comparison_name <- gsub("^comp_", "", comparison_name)  # Remove prefix
+    sanitized_comparison_name <- gsub("_", ".", base_comparison_name)      # Convert underscores
+
     plot_title <- sprintf(
         GENOME_TRACK_CONFIG$title_comparison_template,
         experiment_id,
-        sub("^comp_", "", comparison_name),
+        sanitized_comparison_name,
         chromosome_to_plot,
         nrow(row_samples_to_visualize),
         TIME_CONFIG$current_timestamp,
@@ -708,7 +711,7 @@ for (comparison_name in comparisons_to_process) {
             GENOME_TRACK_CONFIG$filename_format_comparison_template,
             TIME_CONFIG$current_timestamp,
             experiment_id,
-            sub("^comp_", "", comparison_name),
+            sanitized_comparison_name,
             chromosome_to_plot,
             mode
          )
