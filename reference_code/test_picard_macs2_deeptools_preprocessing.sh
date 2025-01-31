@@ -12,7 +12,13 @@ if [[ "$(hostname)" != "luria" ]]; then
 fi
 
 # Load required modules
-module load picard java samtools
+module load picard/2.18.26 java samtools
+export PICARD_JAR="/home/software/picard/picard-2.18.26/picard.jar"
+
+if [[ ! -f "$PICARD_JAR" ]]; then
+    echo "[ERROR] Picard JAR missing: $PICARD_JAR" 1>&2
+    exit 10
+fi
 
 # Initialize Conda and MACS2 environment
 source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh || exit 1
@@ -62,7 +68,7 @@ for sample_type in "${!SAMPLES[@]}"; do
 
     echo "Processing $sample_type sample..."
     
-    java -jar picard.jar MarkDuplicates \
+    java -jar $PICARD_JAR MarkDuplicates \
         I="$input_file" \
         O="$output_file" \
         M="$metrics_file" \
