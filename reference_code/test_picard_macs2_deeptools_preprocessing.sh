@@ -1,5 +1,8 @@
-
 #!/usr/bin/env bash
+#todo: Add blacklist processing
+#todo: Add quality control checks
+#todo: Create the R script to visualize the results of macs2 testing.
+
 set -euo pipefail
 
 # === Cluster Environment Setup ===
@@ -48,7 +51,6 @@ for sample_type in "${!SAMPLES[@]}"; do
 done
 
 (( missing_files )) && { echo "Aborting: Missing input files"; exit 1; }
-
 # Continue with rest of script if all files exist
 echo "All sample files verified successfully."
 
@@ -69,7 +71,7 @@ for sample_type in "${!SAMPLES[@]}"; do
     # Check command success
     if (( $? != 0 )); then
         echo "[ERROR] Failed processing ${sample_type} sample: $input_file" 1>&2
-        exit 2
+        #exit 2
     fi
 done
 
@@ -147,16 +149,33 @@ declare -A COVERAGE_PATHS=(
     ['reference']="${PROCESSED_BAMS[reference]}"
 )
 
+
+# Generate multiple normalization versions
+declare -a NORMALIZATION=("" "RPKM" "CPM")  # Raw, RPKM, and CPM
+
 for sample_type in "${!COVERAGE_PATHS[@]}"; do
-    bamCoverage \
-        -b "${COVERAGE_PATHS[$sample_type]}" \
-        -o "$OUTDIR/${sample_type}_coverage.bw" \
-        --binSize 50 \
-        --normalizeUsing RPGC \
-        --effectiveGenomeSize "$GENOME_SIZE" \
-        --smoothLength 150 \
-        --ignoreDuplicates \
-        --numberOfProcessors "$THREADS"
+    input_bam="${COVERAGE_PATHS[$sample_type]}"
+    
+    for norm_method in "${NORMALIZATION[@]}"; do
+        # Handle raw (unnormalized) case
+        if [[ -z "$norm_method" ]]; then
+            output_suffix="raw"
+            norm_flag=""
+        else
+            output_suffix="${norm_method,,}"
+            norm_flag="--normalizeUsing $norm_method"
+        fi
+
+        bamCoverage \
+            -b "$input_bam" \
+            -o "$OUTDIR/${sample_type}_${output_suffix}.bw" \
+            $norm_flag \
+            --binSize 25 \
+            --effectiveGenomeSize "$GENOME_SIZE" \
+            --smoothLength 75 \
+            --ignoreDuplicates \
+            --numberOfProcessors "$THREADS"
+    done
 done
 
 # === Peak Calling ===
@@ -189,13 +208,15 @@ for sample_type in 'test' 'reference'; do
     reads_in_peaks="$OUTDIR/${sample_type}_peaks/reads_in_peaks.txt"
     total_reads=$(samtools view -c "${PROCESSED_BAMS[$sample_type]}")
 
+    # Use raw coverage for FRiP calculation
     bedtools intersect \
         -a "$peaks" \
         -b "${PROCESSED_BAMS[$sample_type]}" \
-        -c > "$reads_in_peaks"
+        -c > "$reads_in_peaks" || { echo "[ERROR] bedtools intersect failed"; exit 4; }
 
-    frip=$(awk -v total="$total_reads" '{sum+=$NF} END{print sum/total}' "$reads_in_peaks")
-    echo "${sample_type^^} FRiP: $frip" > "$OUTDIR/${sample_type}_peaks/frip_score.txt"
+    # Add formatted float output
+    frip=$(awk -v total="$total_reads" '{sum+=$NF} END{printf "%.4f\n", sum/total}' "$reads_in_peaks")
+    echo "${sample_type^^} FRiP: $frip (using raw read counts)" > "$OUTDIR/${sample_type}_peaks/frip_score.txt"
 done
 
 # === Quality Control ===
@@ -217,11 +238,13 @@ bedtools intersect \
     -b "$OUTDIR/reference_peaks/${OUTPUT_PREFIX}_reference_peaks.narrowPeak" \
     -wa -wb > "$OUTDIR/peak_overlap.tsv"
 
+# === Sequence Extraction ===
 for sample_type in 'test' 'reference'; do
     bedtools getfasta \
         -fi "$GENOME_FASTA" \
-        -bed "$OUTDIR/${sample_type}_peaks/${OUTPUT_PREFIX}_${sample_type}_peaks.narrowPeak"
-        -fo "$OUTDIR/${sample_type}_peaks/peak_sequences.fa"
+        -bed "$OUTDIR/${sample_type}_peaks/${OUTPUT_PREFIX}_${sample_type}_peaks.narrowPeak" \
+        -fo "$OUTDIR/${sample_type}_peaks/peak_sequences.fa" \
+        -name
 done
 
 echo "Pipeline completed successfully. Results in: $OUTDIR"
