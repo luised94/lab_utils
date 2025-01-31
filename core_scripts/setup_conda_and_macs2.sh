@@ -7,8 +7,6 @@
 conda_init_failed=false
 INSTALL_REFERENCE="$HOME/lab_utils/core_scripts/install_macs2.sh"
 
-
-
 __conda_setup="$('/home/luised94/miniforge3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
 if [ $? -eq 0 ]; then
     eval "$__conda_setup"

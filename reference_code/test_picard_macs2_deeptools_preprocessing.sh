@@ -1,47 +1,53 @@
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+# === Cluster Environment Setup ===
 if [[ "$(hostname)" != "luria" ]]; then
-    echo "Error: This script must be run on luria cluster"
+    echo "Error: This script must be run on luria cluster" 1>&2
     exit 1
 fi
-module load picard
-module load java
-module load samtools
-MACS2_ENV="macs2_env"
+
+# Load required modules
+module load picard java samtools
+
+# Initialize Conda and MACS2 environment
+source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh || exit 1
+
+##############################################
+# Key Adjustable Parameters
+# - PVALUE=1e-6       : Peak calling significance
+# - BIN_SIZE=50       : Coverage track resolution
+# - SMOOTH_LEN=150    : Signal smoothing window
+# - MOTIF_LEN=8       : Expected motif size
+##############################################
 OUTDIR="macs2_test_results"
 OUTPUT_PREFIX="macs2_test"
-# S. cerevisiae genome size
 GENOME_SIZE="1.2e7"
-# Declare associative array for sample paths. Easy for loop access for validation and unified interface
-declare -A SAMPLES=(
-    # Core experimental samples
-    # 241010Bel is the timecourse arrest-and-release experiment for Chromatin Immunoprecipitation based assay of ORC, its atpase mutant and a suppressor.
-    # TEST_SAMPLE
-    ['test']="$HOME/data/241010Bel/alignment/processed_245018_sequence_to_S288C_sorted.bam"
-    # INPUT_CONTROL
-    ['input']="$HOME/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam"
+GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
+THREADS=8
+PVALUE=1e-6
 
-    # Reference sample notes:
-    # - From 100303Bel (2010 Eaton reference paper)
-    # - Original metadata mismatch: Fourth position in sample list contains HM1108 antibody
-    # REF_SAMPLE
+# === Configuration Parameters ===
+declare -A SAMPLES=(
+    ['test']="$HOME/data/241010Bel/alignment/processed_245018_sequence_to_S288C_sorted.bam"
+    ['input']="$HOME/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam"
     ['reference']="$HOME/data/100303Bel/alignment/consolidated_034475_sequence_to_S288C_sorted.bam"
 )
 
-# File verification check
-missing_files=0
+# === Pipeline Setup ===
+mkdir -p "$OUTDIR"/{test_peaks,reference_peaks,predictd_test,predictd_reference}
+
+# === File Verification ===
+declare -i missing_files=0
 for sample_type in "${!SAMPLES[@]}"; do
-    file_path="${SAMPLES[$sample_type]}"
-    
-    if [[ ! -e "$file_path" ]]; then
-        echo "[ERROR] Missing $sample_type sample: $file_path" 1>&2
+    if [[ ! -e "${SAMPLES[$sample_type]}" ]]; then
+        echo "[ERROR] Missing $sample_type file: ${SAMPLES[$sample_type]}" 1>&2
         missing_files=1
     fi
 done
 
-# Exit if any files are missing
-if (( missing_files )); then
-    echo "Aborting: Required sample files missing. Check paths and permissions." 1>&2
-    exit 1
-fi
+(( missing_files )) && { echo "Aborting: Missing input files"; exit 1; }
 
 # Continue with rest of script if all files exist
 echo "All sample files verified successfully."
@@ -69,93 +75,153 @@ done
 
 echo "All duplicates marked successfully."
 
+# After duplicate marking
+for sample_type in "${!SAMPLES[@]}"; do
+    input_file="${SAMPLES[$sample_type]}"
+    deduped_file="${input_file%.bam}_deduped.bam"
+    
+    # Optional sorting (uncomment if needed)
+    # sorted_file="${deduped_file%.bam}_sorted.bam"
+    # echo "Sorting $sample_type deduped BAM..."
+    # samtools sort "$deduped_file" -o "$sorted_file"
+    # deduped_file="$sorted_file"  # Update reference for indexing
 
-# Index all deduped BAMs
-samtools index "${TEST_SAMPLE%.bam}_deduped.bam"
-samtools index "${INPUT_CONTROL%.bam}_deduped.bam"
-samtools index "${REF_SAMPLE%.bam}_deduped.bam"
-macs2 predictd \
-  -i "${TEST_SAMPLE%.bam}_deduped.bam" \
-  -g "$GENOME_SIZE" \
-  --outdir "$OUTDIR/predictd_test"
+    echo "Indexing $sample_type deduped BAM..."
+    samtools index "$deduped_file"
+    
+    # Check indexing success
+    if (( $? != 0 )); then
+        echo "[ERROR] Failed indexing ${sample_type} sample: $deduped_file" 1>&2
+        exit 3
+    fi
+done
 
-f=$(grep "predicted fragment length" "$OUTDIR/predictd_test/cross_correlation.txt" | awk '{print $NF}')
-echo "Fragment size (test): $f bp"
 
-alignmentSieve \
-  -b "${TEST_SAMPLE%.bam}_deduped.bam" \
-  -o "${TEST_SAMPLE%.bam}_shifted.bam" \
-  --shiftToStart \
-  --offsetPlus $((f/2)) \
-  --offsetMinus -$((f/2)) \
-  --numberOfProcessors 8
+#declare -a FRAGMENT_SAMPLES=('test' 'reference')  # Samples needing fragment analysis
+# === Fragment Size Analysis ===
+declare -A FRAGMENTS=()
+for sample_type in 'test' 'reference'; do
+    deduped="${SAMPLES[$sample_type]%.bam}_deduped.bam"
+    outdir="$OUTDIR/predictd_${sample_type}"
+    cc_file="$outdir/cross_correlation.txt"
 
-samtools index "${TEST_SAMPLE%.bam}_shifted.bam"
+    # Run MACS2 predictd if missing results
+    [[ -s "$cc_file" ]] || macs2 predictd \
+        -i "$deduped" \
+        -g "$GENOME_SIZE" \
+        --outdir "$outdir"
 
-bamCoverage \
-  -b "${TEST_SAMPLE%.bam}_shifted.bam" \
-  -o "$OUTDIR/test_sample.bw" \
-  --binSize 50 \
-  --normalizeUsing RPGC \
-  --effectiveGenomeSize "$GENOME_SIZE" \
-  --smoothLength 50 \
-  --ignoreDuplicates
+    # Capture fragment size
+    if frag_size=$(awk '/predicted fragment length/{print $NF}' "$cc_file"); then
+        FRAGMENTS[$sample_type]=$frag_size
+        echo "Fragment size ($sample_type): ${frag_size}bp"
+    else
+        echo "[ERROR] Failed fragment analysis for $sample_type" 1>&2
+        exit 2
+    fi
+done
 
-bamCoverage \
-  -b "${INPUT_CONTROL%.bam}_deduped.bam" \
-  -o "$OUTDIR/input_control.bw" \
-  --binSize 50 \
-  --normalizeUsing RPGC \
-  --effectiveGenomeSize "$GENOME_SIZE" \
-  --smoothLength 50 \
-  --ignoreDuplicates
+# === Read Shifting ===
+declare -A PROCESSED_BAMS=()
+for sample_type in 'test' 'reference'; do
+    input="${SAMPLES[$sample_type]%.bam}_deduped.bam"
+    output="${input%.bam}_shifted.bam"
+    frag_size="${FRAGMENTS[$sample_type]}"
 
-bamCoverage \
-  -b "${REF_SAMPLE%.bam}_deduped.bam" \
-  -o "$OUTDIR/reference_sample.bw" \
-  --binSize 50 \
-  --normalizeUsing RPGC \
-  --effectiveGenomeSize "$GENOME_SIZE" \
-  --smoothLength 50 \
-  --ignoreDuplicates
+    alignmentSieve \
+        -b "$input" \
+        -o "$output" \
+        --shiftToStart \
+        --offsetPlus $((frag_size/2)) \
+        --offsetMinus -$((frag_size/2)) \
+        --numberOfProcessors "$THREADS"
 
-macs2 callpeak \
-  -t "${TEST_SAMPLE%.bam}_shifted.bam" \
-  -c "${INPUT_CONTROL%.bam}_deduped.bam" \
-  -n "${OUTPUT_PREFIX}_test" \
-  -g "$GENOME_SIZE" \
-  --nomodel \
-  --extsize "$f" \          # Single-end: extsize = fragment size
-  --pvalue 1e-6 \
-  --bdg \
-  --outdir "$OUTDIR/test_peaks" \
-  --SPMR
+    samtools index "$output"
+    PROCESSED_BAMS[$sample_type]="$output"
+done
 
-macs2 callpeak \
-  -t "${REF_SAMPLE%.bam}_deduped.bam" \
-  -n "${OUTPUT_PREFIX}_reference" \
-  -g "$GENOME_SIZE" \
-  --nomodel \
-  --extsize "$f" \          # Use the same f as test sample (or estimate separately)
-  --pvalue 1e-3 \           # Relax threshold due to no input control
-  --nolambda \              # Disables local background (use with caution)
-  --bdg \
-  --outdir "$OUTDIR/reference_peaks" \
-  --SPMR
+# === Coverage Track Generation ===
+declare -A COVERAGE_PATHS=(
+    ['test']="${PROCESSED_BAMS[test]}"
+    ['input']="${SAMPLES[input]%.bam}_deduped.bam"
+    ['reference']="${PROCESSED_BAMS[reference]}"
+)
 
-# Test vs. Input
+for sample_type in "${!COVERAGE_PATHS[@]}"; do
+    bamCoverage \
+        -b "${COVERAGE_PATHS[$sample_type]}" \
+        -o "$OUTDIR/${sample_type}_coverage.bw" \
+        --binSize 50 \
+        --normalizeUsing RPGC \
+        --effectiveGenomeSize "$GENOME_SIZE" \
+        --smoothLength 150 \
+        --ignoreDuplicates \
+        --numberOfProcessors "$THREADS"
+done
+
+# === Peak Calling ===
+declare -A MACS_PARAMS=(
+    ['test']="-t ${PROCESSED_BAMS[test]} -c ${COVERAGE_PATHS[input]}"
+    ['reference']="-t ${PROCESSED_BAMS[reference]}"
+)
+
+for sample_type in "${!MACS_PARAMS[@]}"; do
+    macs2 callpeak \
+        ${MACS_PARAMS[$sample_type]} \
+        -n "${OUTPUT_PREFIX}_${sample_type}" \
+        -g "$GENOME_SIZE" \
+        --nomodel \
+        --extsize "${FRAGMENTS[$sample_type]}" \
+        --pvalue "$PVALUE" \
+        --bdg \
+        --SPMR \
+        --outdir "$OUTDIR/${sample_type}_peaks" \
+        --keep-dup all
+
+    # Verify peak creation
+    peak_file="$OUTDIR/${sample_type}_peaks/${OUTPUT_PREFIX}_${sample_type}_peaks.narrowPeak"
+    [[ -s "$peak_file" ]] || { echo "[ERROR] No peaks found for $sample_type"; exit 3; }
+done
+
+# === FRiP Calculation ===
+for sample_type in 'test' 'reference'; do
+    peaks="$OUTDIR/${sample_type}_peaks/${OUTPUT_PREFIX}_${sample_type}_peaks.narrowPeak"
+    reads_in_peaks="$OUTDIR/${sample_type}_peaks/reads_in_peaks.txt"
+    total_reads=$(samtools view -c "${PROCESSED_BAMS[$sample_type]}")
+
+    bedtools intersect \
+        -a "$peaks" \
+        -b "${PROCESSED_BAMS[$sample_type]}" \
+        -c > "$reads_in_peaks"
+
+    frip=$(awk -v total="$total_reads" '{sum+=$NF} END{print sum/total}' "$reads_in_peaks")
+    echo "${sample_type^^} FRiP: $frip" > "$OUTDIR/${sample_type}_peaks/frip_score.txt"
+done
+
+# === Quality Control ===
 plotFingerprint \
-  -b "${TEST_SAMPLE%.bam}_shifted.bam" "${INPUT_CONTROL%.bam}_deduped.bam" \
-  --labels Test Input \
-  -o "$OUTDIR/fingerprint_test.png"
+    -b "${PROCESSED_BAMS[test]}" "${COVERAGE_PATHS[input]}" \
+    --labels Test Input \
+    -o "$OUTDIR/fingerprint_test_vs_input.png" \
+    --numberOfProcessors "$THREADS"
 
-# Reference Sample (no input)
 plotFingerprint \
-  -b "${REF_SAMPLE%.bam}_deduped.bam" \
-  --labels Reference \
-  -o "$OUTDIR/fingerprint_reference.png"
+    -b "${PROCESSED_BAMS[reference]}" \
+    --labels Reference \
+    -o "$OUTDIR/fingerprint_reference.png" \
+    --numberOfProcessors "$THREADS"
 
+# === Peak Comparison ===
 bedtools intersect \
-  -a "$OUTDIR/test_peaks/${OUTPUT_PREFIX}_test_peaks.narrowPeak" \
-  -b "$OUTDIR/reference_peaks/${OUTPUT_PREFIX}_reference_peaks.narrowPeak" \
-  -wa -wb > "$OUTDIR/peak_overlap.txt"
+    -a "$OUTDIR/test_peaks/${OUTPUT_PREFIX}_test_peaks.narrowPeak" \
+    -b "$OUTDIR/reference_peaks/${OUTPUT_PREFIX}_reference_peaks.narrowPeak" \
+    -wa -wb > "$OUTDIR/peak_overlap.tsv"
+
+for sample_type in 'test' 'reference'; do
+    bedtools getfasta \
+        -fi "$GENOME_FASTA" \
+        -bed "$OUTDIR/${sample_type}_peaks/${OUTPUT_PREFIX}_${sample_type}_peaks.narrowPeak"
+        -fo "$OUTDIR/${sample_type}_peaks/peak_sequences.fa"
+done
+
+echo "Pipeline completed successfully. Results in: $OUTDIR"
