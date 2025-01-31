@@ -2,37 +2,73 @@ if [[ "$(hostname)" != "luria" ]]; then
     echo "Error: This script must be run on luria cluster"
     exit 1
 fi
+module load picard
+module load java
+module load samtools
 MACS2_ENV="macs2_env"
 OUTDIR="macs2_test_results"
-GENOME_SIZE="1.2e7"  # S. cerevisiae genome size
-# From 241010Bel, any of the scripts to find appropriate files and set them manually. Should be 18 and 3. Input files were noisy and spiky relative to expected flat input.
-TEST_SAMPLE="/home/luised94/data/241010Bel/alignment/processed_245018_sequence_to_S288C_sorted.bam"
-INPUT_CONTROL="/home/luised94/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam"
-# From 100303Bel, file is from 2010 Eaton reference paper.
-# Samples are mismatched with the metadata order.
-# Correct index for HM1108 antibody is 4.
-REF_SAMPLE="/home/luised94/data/100303Bel/alignment/consolidated_034475_sequence_to_S288C_sorted.bam"
 OUTPUT_PREFIX="macs2_test"
+# S. cerevisiae genome size
+GENOME_SIZE="1.2e7"
+# Declare associative array for sample paths. Easy for loop access for validation and unified interface
+declare -A SAMPLES=(
+    # Core experimental samples
+    # 241010Bel is the timecourse arrest-and-release experiment for Chromatin Immunoprecipitation based assay of ORC, its atpase mutant and a suppressor.
+    # TEST_SAMPLE
+    ['test']="$HOME/data/241010Bel/alignment/processed_245018_sequence_to_S288C_sorted.bam"
+    # INPUT_CONTROL
+    ['input']="$HOME/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam"
 
-# For TEST_SAMPLE and INPUT_CONTROL
-java -jar picard.jar MarkDuplicates \
-  I="$TEST_SAMPLE" \
-  O="${TEST_SAMPLE%.bam}_deduped.bam" \
-  M=test_dup_metrics.txt \
-  REMOVE_DUPLICATES=true
+    # Reference sample notes:
+    # - From 100303Bel (2010 Eaton reference paper)
+    # - Original metadata mismatch: Fourth position in sample list contains HM1108 antibody
+    # REF_SAMPLE
+    ['reference']="$HOME/data/100303Bel/alignment/consolidated_034475_sequence_to_S288C_sorted.bam"
+)
 
-java -jar picard.jar MarkDuplicates \
-  I="$INPUT_CONTROL" \
-  O="${INPUT_CONTROL%.bam}_deduped.bam" \
-  M=input_dup_metrics.txt \
-  REMOVE_DUPLICATES=true
+# File verification check
+missing_files=0
+for sample_type in "${!SAMPLES[@]}"; do
+    file_path="${SAMPLES[$sample_type]}"
+    
+    if [[ ! -e "$file_path" ]]; then
+        echo "[ERROR] Missing $sample_type sample: $file_path" 1>&2
+        missing_files=1
+    fi
+done
 
-# For REF_SAMPLE (no input)
-java -jar picard.jar MarkDuplicates \
-  I="$REF_SAMPLE" \
-  O="${REF_SAMPLE%.bam}_deduped.bam" \
-  M=ref_dup_metrics.txt \
-  REMOVE_DUPLICATES=true
+# Exit if any files are missing
+if (( missing_files )); then
+    echo "Aborting: Required sample files missing. Check paths and permissions." 1>&2
+    exit 1
+fi
+
+# Continue with rest of script if all files exist
+echo "All sample files verified successfully."
+
+# After file verification step
+for sample_type in "${!SAMPLES[@]}"; do
+    input_file="${SAMPLES[$sample_type]}"
+    output_file="${input_file%.bam}_deduped.bam"
+    metrics_file="${sample_type}_dup_metrics.txt"
+
+    echo "Processing $sample_type sample..."
+    
+    java -jar picard.jar MarkDuplicates \
+        I="$input_file" \
+        O="$output_file" \
+        M="$metrics_file" \
+        REMOVE_DUPLICATES=true
+    
+    # Check command success
+    if (( $? != 0 )); then
+        echo "[ERROR] Failed processing ${sample_type} sample: $input_file" 1>&2
+        exit 2
+    fi
+done
+
+echo "All duplicates marked successfully."
+
 
 # Index all deduped BAMs
 samtools index "${TEST_SAMPLE%.bam}_deduped.bam"
