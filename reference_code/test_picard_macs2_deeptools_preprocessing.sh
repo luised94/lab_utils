@@ -145,14 +145,20 @@ declare -A PROCESSED_BAMS=()
 for sample_type in 'test' 'reference'; do
     input="${SAMPLES[$sample_type]%.bam}_deduped.bam"
     output="${input%.bam}_shifted.bam"
-    frag_size="${FRAGMENTS[$sample_type]}"
-
+    frag_var="FRAGMENT_${sample_type^^}"  # Creates "FRAGMENT_TEST" or "FRAGMENT_REFERENCE"
+    
+    # Validate fragment size exists
+    if [[ -z "${!frag_var}" ]]; then
+        echo "[ERROR] Missing fragment size for $sample_type" 1>&2
+        exit 5
+    fi
+  # Uses e.g. $FRAGMENT_TEST/2
     alignmentSieve \
         -b "$input" \
         -o "$output" \
         --shiftToStart \
-        --offsetPlus $((frag_size/2)) \
-        --offsetMinus -$((frag_size/2)) \
+        --offsetPlus $((${!frag_var}/2)) \
+        --offsetMinus -$((${!frag_var}/2)) \
         --numberOfProcessors "$THREADS"
 
     samtools index "$output"
