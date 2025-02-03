@@ -13,6 +13,7 @@
 
 # Load required modules
 module load picard/2.18.26 java samtools
+module load python/2.7.13 deeptools/3.0.1
 export PICARD_JAR="/home/software/picard/picard-2.18.26/picard.jar"
 
 if [[ ! -f "$PICARD_JAR" ]]; then
