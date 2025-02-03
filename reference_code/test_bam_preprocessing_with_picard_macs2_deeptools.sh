@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 echo "Starting script"
-set -euo pipefail
+#set -euo pipefail
 
 # === Cluster Environment Setup ===
 #if [[ "$(hostname)" != "luria" ]]; then
@@ -119,10 +119,10 @@ for sample_type in "${!SAMPLES[@]}"; do
     if [[ -f "$output" ]]; then
         echo "Skipping existing: $output"
     else
-        java -jar picard.jar MarkDuplicates \
+        java -jar $PICARD_JAR MarkDuplicates \
             I="$input" \
             O="$output" \
-            M="$OUTDIR/align/${sample_type}_dup_metrics.txt" \
+            M="$OUTDIR/${sample_type}_dup_metrics.txt" \
             REMOVE_DUPLICATES=true
     fi
 
