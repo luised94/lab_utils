@@ -199,7 +199,7 @@ for sample_type in "${!COVERAGE_PATHS[@]}"; do
             -o "$OUTDIR/${sample_type}_${output_suffix}.bw" \
             $norm_flag \
             --binSize 25 \
-            --effectiveGenomeSize "$GENOME_SIZE" \
+            --effectiveGenomeSize $GENOME_SIZE \
             --smoothLength 75 \
             --ignoreDuplicates \
             --numberOfProcessors "$THREADS"
