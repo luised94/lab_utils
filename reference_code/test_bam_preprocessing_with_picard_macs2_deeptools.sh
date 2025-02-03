@@ -130,9 +130,9 @@ for sample_type in "${!SAMPLES[@]}"; do
         echo "ERROR: Failed to create $output" >&2
         exit 1
     fi
-    echo -n "$sample_type Deduped Reads: "
+    echo "$sample_type Deduped Reads: "
     samtools view -c "$output"
-    echo -n "Inspect first few reads"
+    echo "Inspect first few reads"
     samtools view "$output" | head
 
     PROCESSED_BAMS[$sample_type]="$output"
