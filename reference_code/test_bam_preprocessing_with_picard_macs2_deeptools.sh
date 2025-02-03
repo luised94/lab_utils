@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+echo "Starting script"
 set -euo pipefail
 
 # === Cluster Environment Setup ===
