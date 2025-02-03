@@ -18,7 +18,27 @@ if [[ ! -f "$PICARD_JAR" ]]; then
 fi
 
 # Initialize Conda and MACS2 environment
-source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh || exit 1
+CONDA_ROOT=~/miniforge3
+
+if [[ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]]; then
+    . "$CONDA_ROOT/etc/profile.d/conda.sh"
+else
+    echo "ERROR: Conda not found at $CONDA_ROOT" >&2
+    exit 1
+fi
+
+# Activate MACS2 environment with validation
+conda activate macs2_env 2> /dev/null
+
+# Verify MACS2 installation
+if ! command -v macs2 &> /dev/null; then
+    echo "ERROR: MACS2 not installed. Install with:" >&2
+    echo "conda install -c bioconda macs2=2.2.7.1" >&2
+    exit 2
+fi
+
+echo "MACS2 environment ready in $(which python)"
+#source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh || exit 1
 
 ##############################################
 # Key Adjustable Parameters
