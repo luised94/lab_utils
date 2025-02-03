@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+#todo: Add blacklist processing
+#todo: Add quality control checks
+#todo: Create the R script to visualize the results of macs2 testing.
 
 #set -euo pipefail
 
