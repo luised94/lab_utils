@@ -33,7 +33,7 @@ source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh || exit 1
 ##############################################
 OUTDIR="macs2_test_results"
 OUTPUT_PREFIX="macs2_test"
-GENOME_SIZE="1.2e7"
+GENOME_SIZE=12000000
 GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
 THREADS=8
 PVALUE=1e-6
@@ -146,21 +146,26 @@ declare -A PROCESSED_BAMS=()
 for sample_type in 'test' 'reference'; do
     input="${SAMPLES[$sample_type]%.bam}_deduped.bam"
     output="${input%.bam}_shifted.bam"
-    frag_var="FRAGMENT_${sample_type^^}"  # Creates "FRAGMENT_TEST" or "FRAGMENT_REFERENCE"
-    
-    # Validate fragment size exists
+    frag_var="FRAGMENT_${sample_type^^}"
+
+    # Validate fragment size
     if [[ -z "${!frag_var}" ]]; then
         echo "[ERROR] Missing fragment size for $sample_type" 1>&2
         exit 5
     fi
-  # Uses e.g. $FRAGMENT_TEST/2
+
+    echo "Shifting $sample_type reads by ${!frag_var}/2 bp..."
     alignmentSieve \
         -b "$input" \
         -o "$output" \
-        --shiftToStart \
-        --offsetPlus $((${!frag_var}/2)) \
-        --offsetMinus -$((${!frag_var}/2)) \
-        --numberOfProcessors "$THREADS"
+        --shift $((${!frag_var}/2)) -$((${!frag_var}/2)) \
+        --numberOfProcessors "$THREADS" || exit 6
+
+    # Confirm output exists before indexing
+    if [[ ! -f "$output" ]]; then
+        echo "[ERROR] alignmentSieve failed for $sample_type" 1>&2
+        exit 7
+    fi
 
     samtools index "$output"
     PROCESSED_BAMS[$sample_type]="$output"
@@ -176,7 +181,6 @@ declare -A COVERAGE_PATHS=(
 
 # Generate multiple normalization versions
 declare -a NORMALIZATION=("" "RPKM" "CPM")  # Raw, RPKM, and CPM
-
 for sample_type in "${!COVERAGE_PATHS[@]}"; do
     input_bam="${COVERAGE_PATHS[$sample_type]}"
     
