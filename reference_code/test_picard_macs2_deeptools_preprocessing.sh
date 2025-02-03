@@ -3,13 +3,13 @@
 #todo: Add quality control checks
 #todo: Create the R script to visualize the results of macs2 testing.
 
-set -euo pipefail
+#set -euo pipefail
 
 # === Cluster Environment Setup ===
-if [[ "$(hostname)" != "luria" ]]; then
-    echo "Error: This script must be run on luria cluster" 1>&2
-    exit 1
-fi
+#if [[ "$(hostname)" != "luria" ]]; then
+#    echo "Error: This script must be run on luria cluster" 1>&2
+#    exit 1
+#fi
 
 # Load required modules
 module load picard/2.18.26 java samtools
@@ -111,22 +111,33 @@ declare -A FRAGMENTS=()
 for sample_type in 'test' 'reference'; do
     deduped="${SAMPLES[$sample_type]%.bam}_deduped.bam"
     outdir="$OUTDIR/predictd_${sample_type}"
-    cc_file="$outdir/cross_correlation.txt"
+    log_file="$outdir/predictd.log"
+    metric_file="$outdir/fragment_metrics.txt"
 
-    # Run MACS2 predictd if missing results
-    [[ -s "$cc_file" ]] || macs2 predictd \
+    # Ensure output directories exist
+    mkdir -p "$outdir"
+
+    echo "Calculating fragment size for ${sample_type}..."
+    macs2 predictd \
         -i "$deduped" \
         -g "$GENOME_SIZE" \
-        --outdir "$outdir"
+        --outdir "$outdir" 2> "$log_file"
 
-    # Capture fragment size
-    if frag_size=$(awk '/predicted fragment length/{print $NF}' "$cc_file"); then
-        FRAGMENTS[$sample_type]=$frag_size
-        echo "Fragment size ($sample_type): ${frag_size}bp"
+    # First try parsing fragment size from logs
+    if frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log_file"); then
+        declare -g "FRAGMENT_${sample_type^^}=$frag_size"
+        echo "$frag_size" > "$metric_file"
+    # Fallback to alternative output parsing
+    elif frag_size=$(grep -oP 'alt. fragment length\(s\) may be \K\d+' "$log_file"); then
+        declare -g "FRAGMENT_${sample_type^^}=$frag_size"
+        echo "$frag_size" > "$metric_file"
     else
-        echo "[ERROR] Failed fragment analysis for $sample_type" 1>&2
-        exit 2
+        echo "[ERROR] Fragment analysis failed for $sample_type" 1>&2
+        echo "Check log: $log_file" 1>&2
+        exit 4
     fi
+
+    echo "Fragment size ($sample_type): ${frag_size}bp"
 done
 
 # === Read Shifting ===
