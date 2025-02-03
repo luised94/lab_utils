@@ -143,6 +143,14 @@ for sample_type in 'test' 'reference'; do
 done
 
 # === Step 3: Read Shifting ===
+conda deactivate
+echo "Deactivated macs2 conda environment"
+if ! command -v macs2 &> /dev/null; then
+    echo "MACS2 not found in environment. Deactivation confirmed"
+fi
+
+module load python/2.7.13 deeptools/3.0.1
+echo "Activated python and deeptools"
 echo -e "\n=== Shifting Reads ==="
 declare -A SHIFTED_BAMS=()
 for sample_type in 'test' 'reference'; do
