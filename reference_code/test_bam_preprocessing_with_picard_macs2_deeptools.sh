@@ -59,7 +59,7 @@ GENOME_SIZE=12000000  # 1.2e7 in integer form
 GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
 
 # Output config
-OUTDIR="preprocessing_test"
+OUTDIR="$HOME/preprocessing_test"
 OUTPUT_PREFIX="test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
 
@@ -125,13 +125,32 @@ for sample_type in "${!SAMPLES[@]}"; do
             M="$OUTDIR/${sample_type}_dup_metrics.txt" \
             REMOVE_DUPLICATES=true
     fi
-
     # Validate output
     if [[ ! -s "$output" ]]; then
         echo "ERROR: Failed to create $output" >&2
         exit 1
     fi
     PROCESSED_BAMS[$sample_type]="$output"
+done
+# === Step 1b: Index Deduplicated BAMs ===
+echo -e "\n=== Indexing Deduplicated Files ==="
+for sample_type in "${!SAMPLES[@]}"; do
+    deduped_file=$(get_deduped_path "$sample_type")
+    index_file="${deduped_file}.bai"
+    echo "Indexing $sample_type deduped BAM..."
+    
+    if [[ -f "$index_file" ]]; then
+        echo "Index exists: $index_file"
+    else
+        echo "Indexing: $deduped_file"
+        samtools index "$deduped_file"
+        exit_code=$?
+        
+        [[ $exit_code -eq 0 ]] && [[ -f "$index_file" ]] || {
+            echo "[ERROR] Indexing failed for ${deduped_file} (exit $exit_code)" >&2
+            exit 3
+        }
+    fi
 done
 
 # === Step 2: Fragment Analysis ===
@@ -179,27 +198,42 @@ for sample_type in 'test' 'reference'; do
     frag_size=${FRAGMENTS[$sample_type]}
     
     echo "Shifting $sample_type by ${frag_size}bp..."
+    # Validate input before shifting
+    if [[ ! -s "$input" ]]; then
+        echo "ERROR: Missing input BAM for shifting: $input" >&2
+        exit 4
+    fi
     
     if [[ -f "$output" ]]; then
         echo "Skipping existing: $output"
     else
+        # Ensure output directory exists
+        mkdir -p "$(dirname "$output")"
+        
         alignmentSieve \
             -b "$input" \
             -o "$output" \
             --shift $(($frag_size/2)) -$(($frag_size/2)) \
-            --numberOfProcessors "$THREADS"
+            --numberOfProcessors "$THREADS" || {
+                echo "Shifting failed. Check:" >&2
+                echo "Input: $input (size: $(du -h "$input" | cut -f1))" >&2
+                echo "Fragments size used: $frag_size" >&2
+                exit 5
+            }
     fi
-
     # Post-shift validation
-    read_count=$(samtools view -c "$output")
-    echo "Shifted BAM contains $read_count reads"
-    
-    if (( read_count == 0 )); then
-        echo "ERROR: Empty shifted BAM: $output" >&2
-        exit 3
+    if [[ -s "$output" ]]; then
+        reads=$(samtools view -c "$output")
+        echo "Shifted BAM contains $reads reads"
+        SHIFTED_BAMS[$sample_type]="$output"
+    else
+        echo "[CRITICAL] Empty shifted BAM: $output" >&2 
+        exit 6
     fi
-    
-    SHIFTED_BAMS[$sample_type]="$output"
-done
 
-echo -e "\n=== Preprocessing Completed ==="
+    # Index shifted BAM
+    samtools index "$output" || {
+        echo "ERROR: Failed to index shifted BAM: $output" >&2
+        exit 7
+    }
+done
