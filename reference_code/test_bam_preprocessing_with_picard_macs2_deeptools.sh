@@ -130,8 +130,14 @@ for sample_type in "${!SAMPLES[@]}"; do
         echo "ERROR: Failed to create $output" >&2
         exit 1
     fi
+    echo -n "$sample_type Deduped Reads: "
+    samtools view -c "$output"
+    echo -n "Inspect first few reads"
+    samtools view "$output" | head
+
     PROCESSED_BAMS[$sample_type]="$output"
 done
+
 # === Step 1b: Index Deduplicated BAMs ===
 echo -e "\n=== Indexing Deduplicated Files ==="
 for sample_type in "${!SAMPLES[@]}"; do
@@ -211,15 +217,22 @@ for sample_type in 'test' 'reference'; do
         mkdir -p "$(dirname "$output")"
         
         alignmentSieve \
-            -b "$input" \
-            -o "$output" \
-            --shift $(($frag_size/2)) -$(($frag_size/2)) \
-            --numberOfProcessors "$THREADS" || {
-                echo "Shifting failed. Check:" >&2
-                echo "Input: $input (size: $(du -h "$input" | cut -f1))" >&2
-                echo "Fragments size used: $frag_size" >&2
-                exit 5
-            }
+          -b "$input" \
+          -o "$output" \
+          --shift $((frag_size/2)) -$((frag_size/2)) \
+          --verbose \
+          --numberOfProcessors "$THREADS" 2>&1 | tee ${OUTDIR}/shift.log
+        #alignmentSieve \
+        #    -b "$input" \
+        #    -o "$output" \
+        #    -v \
+        #    --shift $(($frag_size/2)) -$(($frag_size/2)) \
+        #    --numberOfProcessors "$THREADS" || {
+        #        echo "Shifting failed. Check:" >&2
+        #        echo "Input: $input (size: $(du -h "$input" | cut -f1))" >&2
+        #        echo "Fragments size used: $frag_size" >&2
+        #        exit 5
+        #    }
     fi
     # Post-shift validation
     if [[ -s "$output" ]]; then
