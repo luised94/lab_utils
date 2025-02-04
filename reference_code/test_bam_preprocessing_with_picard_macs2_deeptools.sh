@@ -182,59 +182,11 @@ shift_reads() {
     local chrom_sizes_file="$OUTDIR/chrom_sizes.tmp"
     printf "%s\t%s\n" "${!CHROM_SIZES[@]}" "${CHROM_SIZES[@]}" > "$chrom_sizes_file"
 
-    samtools view -h "$input" | awk -v shift="$shift_size" chrom_file="$chrom_sizes_file" '
-
-        BEGIN {
-            OFS = "\t"
-            #skipped = 0
-            # Load chromosome sizes into AWK array
-            while (getline < chrom_file ){
-                chrom_sizes[$1] = $2
-            }
-            close(chrom_file)
-        }
-
-        # Header lines
-        /^@/ { print; next }
-        # Skip reads with complex CIGAR operations
-        # $6 ~ /I|D/ { skipped++; next }
-
-        # Main processing
-        {
-            chrom = $3
-            orig_pos = $4
-            strand = (and($2, 16) ? "reverse" : "forward")
-
-            # Calculate new position
-            new_pos = (strand == "forward") ? orig_pos + shift : orig_pos - shift
-
-            # Clamping logic with debug checks
-            if (chrom in chrom_sizes) {
-                max_pos = chrom_sizes[chrom]
-                if (new_pos < 1) new_pos = 1
-                if (new_pos > max_pos) new_pos = max_pos
-                clamped = (new_pos != orig_pos ? "CLAMPED" : "")
-            } else {
-                max_pos = "N/A"
-                clamped = "NO_CHROM_DATA"
-            }
-
-            # Debug print every 100000th read
-            if (NR % 100000 == 0) {
-                printf "[AWK DEBUG] Read %d: %s:%d -> %s:%d (%s)\n", 
-                    NR, chrom, orig_pos, chrom, new_pos, clamped > "/dev/stderr"
-            }
-
-            $4 = new_pos
-            print
-        }
-        END {
-            print "Skipped " skipped " reads with indels" > "/dev/stderr" 
-        }' | samtools view -bS - > "$output" || {
-                echo "Shifting failed for $input" >&2
-                rm -f "$output" "$chrom_sizes_file"
-                return 1
-            }
+    samtools view -h "$input" | awk -v shift="$shift_size" chrom_file="$chrom_sizes_file" -f "$HOME/lab_utils/shift_reads.awk" | samtools view -bS - > "$output" || {
+        echo "Shifting failed for $input" >&2
+        rm -f "$output" "$chrom_sizes_file"
+        return 1
+    }
 
     # Cleanup and validation
     rm "$chrom_sizes_file"
