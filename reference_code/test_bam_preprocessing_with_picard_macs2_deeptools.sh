@@ -103,6 +103,77 @@ get_shifted_path() {
     echo "$OUTDIR/align/${sample_type}_shifted.bam"
 }
 
+get_chrom_sizes() {
+    local ref_fasta="$GENOME_FASTA"
+    local chrom_sizes_file="$OUTDIR/chrom.sizes"
+    
+    echo "=== Chromosome Size Generation ==="
+    
+    # Generate .fai if missing
+    if [[ ! -f "${ref_fasta}.fai" ]]; then
+        echo "Creating FASTA index for reference genome..."
+        samtools faidx "$ref_fasta" || {
+            echo "[ERROR] Failed to index reference FASTA" >&2
+            exit 10
+        }
+    fi
+
+    # Generate chrom.sizes if missing
+    if [[ ! -f "$chrom_sizes_file" ]]; then
+        echo -e "\nBuilding chromosome size file..."
+        mkdir -p "$OUTDIR"
+        
+        echo "Input FASTA: $(basename "$ref_fasta")"
+        echo "Output sizes: $chrom_sizes_file"
+        
+        awk '{print $1 "\t" $2}' "${ref_fasta}.fai" > "$chrom_sizes_file" || {
+            echo "[ERROR] Failed to create chrom.sizes" >&2
+            exit 11
+        }
+        
+        # Validate non-empty output
+        [[ -s "$chrom_sizes_file" ]] || {
+            echo "[ERROR] chrom.sizes file is empty" >&2
+            exit 12
+        }
+    fi
+
+    # Load into associative array with debug output
+    declare -gA CHROM_SIZES=()
+    echo -e "\nLoading chromosome sizes:"
+    while IFS=$'\t' read -r chrom size; do
+        [[ -z "$chrom" ]] && continue  # Skip empty lines
+        
+        # Trim additional fields after first tab
+        chrom="${chrom%%[[:space:]]*}"
+        
+        echo " - ${chrom}: ${size}bp"
+        CHROM_SIZES["$chrom"]="$size"
+    done < "$chrom_sizes_file"
+
+    echo -e "\nLoaded ${#CHROM_SIZES[@]} chromosomes"
+    echo "======================================="
+}
+
+shift_reads() {
+    local input=$1
+    local output=$2
+    local shift_size=$3
+
+    samtools view -h "$input" \
+    | awk -v shift="$shift_size" '
+        $0 ~ /^@/ {print; next}  # Print header lines unchanged
+        {
+            if ($2 % 16 == 0)  # Forward strand
+                $4 = $4 + shift;
+            else  # Reverse strand
+                $4 = $4 - shift;
+            if ($4 > 0) print;  # Only print if position is valid
+        }
+    ' \
+    | samtools view -bS - > "$output"
+}
+
 ##############################################
 # Preprocessing Workflow
 ##############################################
@@ -197,7 +268,17 @@ for sample_type in 'test' 'reference'; do
     echo -e "Fragment Size Analysis Complete\n  Sample: $sample_type\n  Size: ${frag_size}bp\n  Log: ${log_file/$OUTDIR/\$OUTDIR}\n"
 done
 
-# === Step 3: Read Shifting ===
+# === Step 3: Initializing chromosome lengths ===
+# In main workflow, after variable initialization
+echo -e "\n=== Chromosome Size Initialization ==="
+get_chrom_sizes
+echo -e "ChromDB status: Loaded ${#CHROM_SIZES[@]} chromosomes\n"
+
+# Example chromosome checks
+test_chr="chrI"
+echo "Debug: ${test_chr} length = ${CHROM_SIZES[$test_chr]:-UNDEFINED}"
+
+# === Step 4: Read Shifting ===
 conda deactivate
 echo "Deactivated macs2 conda environment"
 if ! command -v macs2 &> /dev/null; then
@@ -207,71 +288,51 @@ fi
 module load python/2.7.13 deeptools/3.0.1
 echo "Activated python and deeptools"
 echo -e "\n=== Shifting Reads ==="
-
-shift_reads() {
-    local input=$1
-    local output=$2
-    local shift_size=$3
-
-    samtools view -h "$input" \
-    | awk -v shift="$shift_size" '
-        $0 ~ /^@/ {print; next}  # Print header lines unchanged
-        {
-            if ($2 % 16 == 0)  # Forward strand
-                $4 = $4 + shift;
-            else  # Reverse strand
-                $4 = $4 - shift;
-            if ($4 > 0) print;  # Only print if position is valid
-        }
-    ' \
-    | samtools view -bS - > "$output"
-}
-
 declare -A SHIFTED_BAMS=()
-for sample_type in 'test' 'reference'; do
-    input=$(get_deduped_path "$sample_type")
-    output=$(get_shifted_path "$sample_type")
-    frag_size=${FRAGMENTS[$sample_type]}
-    shift_size=$((frag_size / 2))
-    echo "Shifting $sample_type by ${shift_size}bp..."
-
-    # Validate input before shifting
-    if [[ ! -s "$input" ]]; then
-        echo "ERROR: Missing input BAM for shifting: $input" >&2
-        exit 4
-    fi
-    
-    if [[ -f "$output" ]]; then
-        echo "Skipping existing: $output"
-    else
-        # Ensure output directory exists
-        mkdir -p "$(dirname "$output")"
-        shift_reads "$input" "$output" "$shift_size"
-        #alignmentSieve \
-        #    -b "$input" \
-        #    -o "$output" \
-        #    -v \
-        #    --shift $(($frag_size/2)) -$(($frag_size/2)) \
-        #    --numberOfProcessors "$THREADS" || {
-        #        echo "Shifting failed. Check:" >&2
-        #        echo "Input: $input (size: $(du -h "$input" | cut -f1))" >&2
-        #        echo "Fragments size used: $frag_size" >&2
-        #        exit 5
-        #    }
-    fi
-    # Post-shift validation
-    if [[ -s "$output" ]]; then
-        reads=$(samtools view -c "$output")
-        echo "Shifted BAM contains $reads reads"
-        SHIFTED_BAMS[$sample_type]="$output"
-    else
-        echo "[CRITICAL] Empty shifted BAM: $output" >&2 
-        exit 5
-    fi
-
-    # Index shifted BAM
-    samtools index "$output" || {
-        echo "ERROR: Failed to index shifted BAM: $output" >&2
-        exit 6
-    }
-done
+#for sample_type in 'test' 'reference'; do
+#    input=$(get_deduped_path "$sample_type")
+#    output=$(get_shifted_path "$sample_type")
+#    frag_size=${FRAGMENTS[$sample_type]}
+#    shift_size=$((frag_size / 2))
+#    echo "Shifting $sample_type by ${shift_size}bp..."
+#
+#    # Validate input before shifting
+#    if [[ ! -s "$input" ]]; then
+#        echo "ERROR: Missing input BAM for shifting: $input" >&2
+#        exit 4
+#    fi
+#    
+#    if [[ -f "$output" ]]; then
+#        echo "Skipping existing: $output"
+#    else
+#        # Ensure output directory exists
+#        mkdir -p "$(dirname "$output")"
+#        shift_reads "$input" "$output" "$shift_size"
+#        #alignmentSieve \
+#        #    -b "$input" \
+#        #    -o "$output" \
+#        #    -v \
+#        #    --shift $(($frag_size/2)) -$(($frag_size/2)) \
+#        #    --numberOfProcessors "$THREADS" || {
+#        #        echo "Shifting failed. Check:" >&2
+#        #        echo "Input: $input (size: $(du -h "$input" | cut -f1))" >&2
+#        #        echo "Fragments size used: $frag_size" >&2
+#        #        exit 5
+#        #    }
+#    fi
+#    # Post-shift validation
+#    if [[ -s "$output" ]]; then
+#        reads=$(samtools view -c "$output")
+#        echo "Shifted BAM contains $reads reads"
+#        SHIFTED_BAMS[$sample_type]="$output"
+#    else
+#        echo "[CRITICAL] Empty shifted BAM: $output" >&2 
+#        exit 5
+#    fi
+#
+#    # Index shifted BAM
+#    samtools index "$output" || {
+#        echo "ERROR: Failed to index shifted BAM: $output" >&2
+#        exit 6
+#    }
+#done
