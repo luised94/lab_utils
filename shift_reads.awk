@@ -31,7 +31,7 @@ BEGIN {
     chrom = $3
 
     # Skip unmapped reads
-    chrom == "*" { 
+    if (chrom == "*") { 
         unmapped_reads++
         # Output unmapped reads unchanged
         print
