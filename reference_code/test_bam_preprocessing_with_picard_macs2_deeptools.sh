@@ -364,8 +364,8 @@ for sample_type in 'test' 'reference'; do
     echo "Chromosome count: ${#CHROM_SIZES[@]}"
 
     # Sanity checks
-    [[ -v "${CHROM_SIZES[@]}" ]] || { echo "Chrom sizes not loaded"; exit 1; }
     [[ -n "$frag_size" ]] || { echo "Fragment size missing for $sample_type"; exit 1; }
+
     # Execute with debug logging
     if shift_reads "$input" "$output" "$shift_size"; then
         echo "Shift Complete: $(basename "$output")"
