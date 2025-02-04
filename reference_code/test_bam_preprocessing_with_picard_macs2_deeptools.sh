@@ -53,6 +53,7 @@ declare -A SAMPLES=(
     ['input']="$HOME/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam" 
     ['reference']="$HOME/data/100303Bel/alignment/processed_034475_sequence_to_S288C_sorted.bam"
 )
+declare -A CHROM_SIZES=()
 
 # Reference data
 GENOME_SIZE=12000000  # 1.2e7 in integer form
@@ -139,7 +140,6 @@ get_chrom_sizes() {
     fi
 
     # Load into associative array with debug output
-    declare -gA CHROM_SIZES=()
     echo -e "\nLoading chromosome sizes:"
     while IFS=$'\t' read -r chrom size; do
         [[ -z "$chrom" ]] && continue  # Skip empty lines
