@@ -9,6 +9,7 @@ BEGIN {
     clamped_min = 0
     clamped_max = 0
     no_chrom_data = 0
+    unmapped_reads = 0
     printf "SHIFT_STATS\t%s\n", strftime("%Y-%m-%d %H:%M:%S") >> log_file
     
     # Load chromosome sizes into AWK array
@@ -28,6 +29,15 @@ BEGIN {
 {
     total_reads++
     chrom = $3
+
+    # Skip unmapped reads
+    chrom == "*" { 
+        unmapped_reads++
+        # Output unmapped reads unchanged
+        print
+        next 
+    }
+
     orig_pos = $4
     strand = (and($2, 16) ? "reverse" : "forward")
     # Track strand statistics
@@ -76,6 +86,7 @@ END {
     printf "CLAMPED_MIN\t%d\t%.2f%%\n", clamped_min, (clamped_min/total_reads)*100 >> log_file
     printf "CLAMPED_MAX\t%d\t%.2f%%\n", clamped_max, (clamped_max/total_reads)*100 >> log_file
     printf "NO_CHROM_DATA\t%d\t%.2f%%\n", no_chrom_data, (no_chrom_data/total_reads)*100 >> log_file
+    printf "UNMAPPED_READS\t%d\t%.2f%%\n", unmapped_reads, (unmapped_reads/total_reads)*100 >> log_file
     printf "PER_CHROMOSOME_STATS\n" >> log_file
     for (chrom in reads_per_chrom) {
         printf "CHROM\t%s\t%d\t%.2f%%\n", 
