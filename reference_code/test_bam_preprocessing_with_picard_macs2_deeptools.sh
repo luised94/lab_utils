@@ -179,10 +179,10 @@ shift_reads() {
     echo "  ChromDB entries: ${#CHROM_SIZES[@]}"
 
     # Create chromosome size temp file for AWK
-    local chrom_sizes_file="$OUTDIR/chrom_sizes.tmp"
-    printf "%s\t%s\n" "${!CHROM_SIZES[@]}" "${CHROM_SIZES[@]}" > "$chrom_sizes_file"
+    #local chrom_sizes_file="$OUTDIR/chrom_sizes.tmp"
+    #printf "%s\t%s\n" "${!CHROM_SIZES[@]}" "${CHROM_SIZES[@]}" > "$chrom_sizes_file"
 
-    samtools view -h "$input" | awk -v shift="$shift_size" chrom_file="$chrom_sizes_file" -f "$HOME/lab_utils/shift_reads.awk" | samtools view -bS - > "$output" || {
+    samtools view -h "$input" | awk -v shift="$shift_size" chrom_file="$OUTDIR/chrom.sizes" -f "$HOME/lab_utils/shift_reads.awk" | samtools view -bS - > "$output" || {
         echo "Shifting failed for $input" >&2
         rm -f "$output" "$chrom_sizes_file"
         return 1
