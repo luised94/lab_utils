@@ -185,6 +185,7 @@ shift_reads() {
     samtools view -h "$input" | awk -v shift="$shift_size" '
         BEGIN {
             OFS = "\t"
+            skipped = 0
             # Load chromosome sizes into AWK array
             while (getline < "'"$chrom_sizes_file"'" > 0)
                 chrom_sizes[$1] = $2
@@ -192,6 +193,8 @@ shift_reads() {
 
         # Header lines
         /^@/ { print; next }
+        # Skip reads with complex CIGAR operations
+        $6 ~ /I|D/ { skipped++; next }
 
         # Main processing
         {
@@ -221,11 +224,14 @@ shift_reads() {
 
             $4 = new_pos
             print
-        }' | samtools view -bS - > "$output" || {
-            echo "Shifting failed for $input" >&2
-            rm -f "$output" "$chrom_sizes_file"
-            return 1
         }
+        END {
+            print "Skipped " skipped " reads with indels" > "/dev/stderr" 
+        }' | samtools view -bS - > "$output" || {
+                echo "Shifting failed for $input" >&2
+                rm -f "$output" "$chrom_sizes_file"
+                return 1
+            }
 
     # Cleanup and validation
     rm "$chrom_sizes_file"
@@ -369,10 +375,14 @@ for sample_type in 'test' 'reference'; do
     # Execute with debug logging
     if shift_reads "$input" "$output" "$shift_size"; then
         echo "Shift Complete: $(basename "$output")"
-        echo "Clamping Statistics:"
-        samtools view "$output" | awk '
-            $4 < 1 || $4 > chrom_sizes[$3] {count++} 
-            END {printf "Invalid positions: %d (%.2f%%)\n", count, (count/NR)*100}'
+        echo "=== Post-Shift Validation ==="
+        echo "Original reads: $(samtools view -c "$input")"
+        echo "Shifted reads: $(samtools view -c "$output")"
+        echo "Skipped reads: $(( $(samtools view -c "$input") - $(samtools view -c "$output") ))"
+        #echo "Clamping Statistics:"
+        #samtools view "$output" | awk '
+        #    $4 < 1 || $4 > chrom_sizes[$3] {count++} 
+        #    END {printf "Invalid positions: %d (%.2f%%)\n", count, (count/NR)*100}'
         #echo "Post-shift validation:"
         #samtools view -c "$output"
     else
