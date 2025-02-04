@@ -48,4 +48,3 @@ OFS = "\t"
 END {
         print "Skipped " skipped " reads with indels" > "/dev/stderr"
 }
-
