@@ -182,14 +182,17 @@ shift_reads() {
     #local chrom_sizes_file="$OUTDIR/chrom_sizes.tmp"
     #printf "%s\t%s\n" "${!CHROM_SIZES[@]}" "${CHROM_SIZES[@]}" > "$chrom_sizes_file"
 
-    samtools view -h "$input" | awk -v shift="$shift_size" -v chrom_file="$OUTDIR/chrom.sizes" -f "$HOME/lab_utils/shift_reads.awk" | samtools view -bS - > "$output" || {
+    samtools view -h "$input" | \
+        awk -v shift="$shift_size" -v chrom_file="$OUTDIR/chrom.sizes" -f "$HOME/lab_utils/shift_reads.awk" | \
+        samtools sort -@ $THREADS | \
+        samtools view -bS - > "$output" || {
         echo "Shifting failed for $input" >&2
-        rm -f "$output" "$chrom_sizes_file"
+        rm -f "$output"
         return 1
     }
 
     # Cleanup and validation
-    rm "$chrom_sizes_file"
+    #rm "$chrom_sizes_file"
     samtools index "$output"
     echo "Shift validation:"
     samtools idxstats "$output"
@@ -330,10 +333,10 @@ for sample_type in 'test' 'reference'; do
     # Execute with debug logging
     if shift_reads "$input" "$output" "$shift_size"; then
         echo "Shift Complete: $(basename "$output")"
-        echo "=== Post-Shift Validation ==="
-        echo "Original reads: $(samtools view -c "$input")"
-        echo "Shifted reads: $(samtools view -c "$output")"
-        echo "Skipped reads: $(( $(samtools view -c "$input") - $(samtools view -c "$output") ))"
+        #echo "=== Post-Shift Validation ==="
+        #echo "Original reads: $(samtools view -c "$input")"
+        #echo "Shifted reads: $(samtools view -c "$output")"
+        #echo "Skipped reads: $(( $(samtools view -c "$input") - $(samtools view -c "$output") ))"
         #echo "Clamping Statistics:"
         #samtools view "$output" | awk '
         #    $4 < 1 || $4 > chrom_sizes[$3] {count++} 
@@ -346,50 +349,3 @@ for sample_type in 'test' 'reference'; do
     fi
 done
 
-#for sample_type in 'test' 'reference'; do
-#    input=$(get_deduped_path "$sample_type")
-#    output=$(get_shifted_path "$sample_type")
-#    frag_size=${FRAGMENTS[$sample_type]}
-#    shift_size=$((frag_size / 2))
-#    echo "Shifting $sample_type by ${shift_size}bp..."
-#
-#    # Validate input before shifting
-#    if [[ ! -s "$input" ]]; then
-#        echo "ERROR: Missing input BAM for shifting: $input" >&2
-#        exit 4
-#    fi
-#    
-#    if [[ -f "$output" ]]; then
-#        echo "Skipping existing: $output"
-#    else
-#        # Ensure output directory exists
-#        mkdir -p "$(dirname "$output")"
-#        shift_reads "$input" "$output" "$shift_size"
-#        #alignmentSieve \
-#        #    -b "$input" \
-#        #    -o "$output" \
-#        #    -v \
-#        #    --shift $(($frag_size/2)) -$(($frag_size/2)) \
-#        #    --numberOfProcessors "$THREADS" || {
-#        #        echo "Shifting failed. Check:" >&2
-#        #        echo "Input: $input (size: $(du -h "$input" | cut -f1))" >&2
-#        #        echo "Fragments size used: $frag_size" >&2
-#        #        exit 5
-#        #    }
-#    fi
-#    # Post-shift validation
-#    if [[ -s "$output" ]]; then
-#        reads=$(samtools view -c "$output")
-#        echo "Shifted BAM contains $reads reads"
-#        SHIFTED_BAMS[$sample_type]="$output"
-#    else
-#        echo "[CRITICAL] Empty shifted BAM: $output" >&2 
-#        exit 5
-#    fi
-#
-#    # Index shifted BAM
-#    samtools index "$output" || {
-#        echo "ERROR: Failed to index shifted BAM: $output" >&2
-#        exit 6
-#    }
-#done

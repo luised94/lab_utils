@@ -1,38 +1,62 @@
 #!/usr/bin/awk -f
 
 BEGIN {
-OFS = "\t"
-#skipped = 0
+    OFS = "\t"
+    # Initialize counters
+    total_reads = 0
+    forward_reads = 0
+    reverse_reads = 0
+    clamped_min = 0
+    clamped_max = 0
+    no_chrom_data = 0
+    printf "SHIFT_STATS\t%s\n", strftime("%Y-%m-%d %H:%M:%S") >> log_file
+    
     # Load chromosome sizes into AWK array
     while (getline < chrom_file){
-            chrom_sizes[$1] = $2
+        chrom_sizes[$1] = $2
     }
     close(chrom_file)
+    
+    # Initialize per-chromosome counters
+    split("", reads_per_chrom)  # Empty associative array
 }
 
 # Header lines
 /^@/ { print; next }
-# Skip reads with complex CIGAR operations
-# $6 ~ /I|D/ { skipped++; next }
 
 # Main processing
 {
+    total_reads++
     chrom = $3
     orig_pos = $4
     strand = (and($2, 16) ? "reverse" : "forward")
+    # Track strand statistics
+    if (strand == "forward") {
+        forward_reads++
+    } else {
+        reverse_reads++
+    }
+
+    # Track per-chromosome counts
+    reads_per_chrom[chrom]++
 
     # Calculate new position
     new_pos = (strand == "forward") ? orig_pos + shift : orig_pos - shift
 
-    # Clamping logic with debug checks
+    # Clamping logic with statistics
     if (chrom in chrom_sizes) {
         max_pos = chrom_sizes[chrom]
-        if (new_pos < 1) new_pos = 1
-        if (new_pos > max_pos) new_pos = max_pos
-        clamped = (new_pos != orig_pos ? "CLAMPED" : "")
+        if (new_pos < 1) {
+            new_pos = 1
+            clamped_min++
+        }
+        if (new_pos > max_pos) {
+            new_pos = max_pos
+            clamped_max++
+        }
     } else {
         max_pos = "N/A"
-        clamped = "NO_CHROM_DATA"
+        no_chrom_data++
     }
 
     # Debug print every 100000th read
@@ -46,5 +70,18 @@ OFS = "\t"
 }
 
 END {
-        print "Skipped " skipped " reads with indels" > "/dev/stderr"
+    printf "TOTAL_READS\t%d\n", total_reads >> log_file
+    printf "FORWARD_READS\t%d\t%.2f%%\n", forward_reads, (forward_reads/total_reads)*100 >> log_file
+    printf "REVERSE_READS\t%d\t%.2f%%\n", reverse_reads, (reverse_reads/total_reads)*100 >> log_file
+    printf "CLAMPED_MIN\t%d\t%.2f%%\n", clamped_min, (clamped_min/total_reads)*100 >> log_file
+    printf "CLAMPED_MAX\t%d\t%.2f%%\n", clamped_max, (clamped_max/total_reads)*100 >> log_file
+    printf "NO_CHROM_DATA\t%d\t%.2f%%\n", no_chrom_data, (no_chrom_data/total_reads)*100 >> log_file
+    printf "PER_CHROMOSOME_STATS\n" >> log_file
+    for (chrom in reads_per_chrom) {
+        printf "CHROM\t%s\t%d\t%.2f%%\n", 
+            chrom, reads_per_chrom[chrom], 
+            (reads_per_chrom[chrom]/total_reads)*100 >> log_file
+    }
+    printf "END_STATS\n" >> log_file
+
 }
