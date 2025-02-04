@@ -197,13 +197,34 @@ fi
 module load python/2.7.13 deeptools/3.0.1
 echo "Activated python and deeptools"
 echo -e "\n=== Shifting Reads ==="
+
+shift_reads() {
+    local input=$1
+    local output=$2
+    local shift_size=$3
+
+    samtools view -h "$input" \
+    | awk -v shift="$shift_size" '
+        $0 ~ /^@/ {print; next}  # Print header lines unchanged
+        {
+            if ($2 % 16 == 0)  # Forward strand
+                $4 = $4 + shift;
+            else  # Reverse strand
+                $4 = $4 - shift;
+            if ($4 > 0) print;  # Only print if position is valid
+        }
+    ' \
+    | samtools view -bS - > "$output"
+}
+
 declare -A SHIFTED_BAMS=()
 for sample_type in 'test' 'reference'; do
     input=$(get_deduped_path "$sample_type")
     output=$(get_shifted_path "$sample_type")
     frag_size=${FRAGMENTS[$sample_type]}
-    
-    echo "Shifting $sample_type by ${frag_size}bp..."
+    shift_size=$((frag_size / 2))
+    echo "Shifting $sample_type by ${shift_size}bp..."
+
     # Validate input before shifting
     if [[ ! -s "$input" ]]; then
         echo "ERROR: Missing input BAM for shifting: $input" >&2
@@ -215,13 +236,7 @@ for sample_type in 'test' 'reference'; do
     else
         # Ensure output directory exists
         mkdir -p "$(dirname "$output")"
-        
-        alignmentSieve \
-          -b "$input" \
-          -o "$output" \
-          --shift $((frag_size/2)) -$((frag_size/2)) \
-          --verbose \
-          --numberOfProcessors "$THREADS" 2>&1 | tee ${OUTDIR}/shift.log
+        shift_reads "$input" "$output" "$shift_size"
         #alignmentSieve \
         #    -b "$input" \
         #    -o "$output" \
