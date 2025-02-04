@@ -11,42 +11,125 @@
 #    exit 1
 #fi
 
-# Load required modules
-module load picard/2.18.26 java samtools
-module load python/2.7.13 deeptools/3.0.1
-export PICARD_JAR="/home/software/picard/picard-2.18.26/picard.jar"
-
-if [[ ! -f "$PICARD_JAR" ]]; then
-    echo "[ERROR] Picard JAR missing: $PICARD_JAR" 1>&2
-    exit 10
-fi
-
-# Initialize Conda and MACS2 environment
-source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh || exit 1
 
 ##############################################
 # Key Adjustable Parameters
-# - PVALUE=1e-6       : Peak calling significance
-# - BIN_SIZE=50       : Coverage track resolution
-# - SMOOTH_LEN=150    : Signal smoothing window
-# - MOTIF_LEN=8       : Expected motif size
 ##############################################
-OUTDIR="macs2_test_results"
-OUTPUT_PREFIX="macs2_test"
-GENOME_SIZE=12000000
-GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
-THREADS=8
-PVALUE=1e-6
 
-# === Configuration Parameters ===
+# Cluster config
+THREADS=8
+
+# File paths
 declare -A SAMPLES=(
     ['test']="$HOME/data/241010Bel/alignment/processed_245018_sequence_to_S288C_sorted.bam"
-    ['input']="$HOME/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam"
-    ['reference']="$HOME/data/100303Bel/alignment/consolidated_034475_sequence_to_S288C_sorted.bam"
+    ['input']="$HOME/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam" 
+    ['reference']="$HOME/data/100303Bel/alignment/processed_034475_sequence_to_S288C_sorted.bam"
 )
+declare -A CHROM_SIZES=()
 
-# === Pipeline Setup ===
-mkdir -p "$OUTDIR"/{test_peaks,reference_peaks,predictd_test,predictd_reference}
+# Reference data
+GENOME_SIZE=12000000  # 1.2e7 in integer form
+GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
+if [[ ! -f $GENOME_FASTA ]]; then
+    echo "$GENOME_FASTA does not exist."
+    exit 1
+fi
+
+# Output config
+OUTDIR="$HOME/preprocessing_test"
+OUTPUT_PREFIX="test"
+SUB_DIRS=("align" "predictd" "peaks" "coverage")
+
+# Processing parameters
+PVALUE=1e-6
+BIN_SIZE=25
+SMOOTH_LEN=75
+MIN_FRAGMENT=20
+MAX_FRAGMENT=300
+
+
+##############################################
+# Helper functions
+##############################################
+# File path generators
+get_deduped_path() {
+    local sample_type=$1
+    echo "$OUTDIR/align/${sample_type}_deduped.bam"
+}
+
+get_shifted_path() {
+    local sample_type=$1
+    echo "$OUTDIR/align/${sample_type}_shifted.bam"
+}
+
+get_chrom_sizes() {
+    local ref_fasta="$GENOME_FASTA"
+    local chrom_sizes_file="$OUTDIR/chrom.sizes"
+
+    echo "=== Chromosome Size Generation ==="
+
+    # Generate .fai if missing
+    if [[ ! -f "${ref_fasta}.fai" ]]; then
+        echo "Creating FASTA index for reference genome..."
+        samtools faidx "$ref_fasta" || {
+            echo "[ERROR] Failed to index reference FASTA" >&2
+            exit 10
+        }
+    fi
+
+    # Generate chrom.sizes if missing
+    if [[ ! -f "$chrom_sizes_file" ]]; then
+        echo -e "\nBuilding chromosome size file..."
+        mkdir -p "$OUTDIR"
+
+        echo "Input FASTA: $(basename "$ref_fasta")"
+        echo "Output sizes: $chrom_sizes_file"
+
+        awk '{print $1 "\t" $2}' "${ref_fasta}.fai" > "$chrom_sizes_file" || {
+            echo "[ERROR] Failed to create chrom.sizes" >&2
+            exit 11
+        }
+
+        # Validate non-empty output
+        [[ -s "$chrom_sizes_file" ]] || {
+            echo "[ERROR] chrom.sizes file is empty" >&2
+            exit 12
+        }
+    fi
+
+    # Load into associative array with debug output
+    echo -e "\nLoading chromosome sizes:"
+    while IFS=$'\t' read -r chrom size; do
+        [[ -z "$chrom" ]] && continue  # Skip empty lines
+
+        # Trim additional fields after first tab
+        chrom="${chrom%%[[:space:]]*}"
+
+        echo " - ${chrom}: ${size}bp"
+        CHROM_SIZES["$chrom"]="$size"
+    done < "$chrom_sizes_file"
+
+    echo -e "\nLoaded ${#CHROM_SIZES[@]} chromosomes"
+    echo "======================================="
+}
+
+##############################################
+# Initialization & Validation
+##############################################
+
+# Create directory structure
+mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
+
+# Display parameter summary
+echo "=== Pipeline Configuration ==="
+echo "Genome Size: $GENOME_SIZE"
+echo "Output Directory: $OUTDIR"
+echo "Threads: $THREADS"
+echo "Samples:"
+for stype in "${!SAMPLES[@]}"; do
+    echo " - $stype: ${SAMPLES[$stype]}"
+done
+echo "=============================="
 
 # === File Verification ===
 declare -i missing_files=0
@@ -58,117 +141,28 @@ for sample_type in "${!SAMPLES[@]}"; do
 done
 
 (( missing_files )) && { echo "Aborting: Missing input files"; exit 1; }
+
 # Continue with rest of script if all files exist
 echo "All sample files verified successfully."
-
-# After file verification step
-for sample_type in "${!SAMPLES[@]}"; do
-    input_file="${SAMPLES[$sample_type]}"
-    output_file="${input_file%.bam}_deduped.bam"
-    metrics_file="${sample_type}_dup_metrics.txt"
-
-    echo "Processing $sample_type sample..."
-    
-    java -jar $PICARD_JAR MarkDuplicates \
-        I="$input_file" \
-        O="$output_file" \
-        M="$metrics_file" \
-        REMOVE_DUPLICATES=true
-    
-    # Check command success
-    if (( $? != 0 )); then
-        echo "[ERROR] Failed processing ${sample_type} sample: $input_file" 1>&2
-        #exit 2
-    fi
-done
-
-echo "All duplicates marked successfully."
-
-# After duplicate marking
-for sample_type in "${!SAMPLES[@]}"; do
-    input_file="${SAMPLES[$sample_type]}"
-    deduped_file="${input_file%.bam}_deduped.bam"
-    
-    # Optional sorting (uncomment if needed)
-    # sorted_file="${deduped_file%.bam}_sorted.bam"
-    # echo "Sorting $sample_type deduped BAM..."
-    # samtools sort "$deduped_file" -o "$sorted_file"
-    # deduped_file="$sorted_file"  # Update reference for indexing
-
-    echo "Indexing $sample_type deduped BAM..."
-    samtools index "$deduped_file"
-    
-    # Check indexing success
-    if (( $? != 0 )); then
-        echo "[ERROR] Failed indexing ${sample_type} sample: $deduped_file" 1>&2
-        exit 3
-    fi
-done
-
-
-#declare -a FRAGMENT_SAMPLES=('test' 'reference')  # Samples needing fragment analysis
-# === Fragment Size Analysis ===
-declare -A FRAGMENTS=()
-for sample_type in 'test' 'reference'; do
-    deduped="${SAMPLES[$sample_type]%.bam}_deduped.bam"
-    outdir="$OUTDIR/predictd_${sample_type}"
-    log_file="$outdir/predictd.log"
-    metric_file="$outdir/fragment_metrics.txt"
-
-    # Ensure output directories exist
-    mkdir -p "$outdir"
-
-    echo "Calculating fragment size for ${sample_type}..."
-    macs2 predictd \
-        -i "$deduped" \
-        -g "$GENOME_SIZE" \
-        --outdir "$outdir" 2> "$log_file"
-
-    # First try parsing fragment size from logs
-    if frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log_file"); then
-        declare -g "FRAGMENT_${sample_type^^}=$frag_size"
-        echo "$frag_size" > "$metric_file"
-    # Fallback to alternative output parsing
-    elif frag_size=$(grep -oP 'alt. fragment length\(s\) may be \K\d+' "$log_file"); then
-        declare -g "FRAGMENT_${sample_type^^}=$frag_size"
-        echo "$frag_size" > "$metric_file"
-    else
-        echo "[ERROR] Fragment analysis failed for $sample_type" 1>&2
-        echo "Check log: $log_file" 1>&2
-        exit 4
-    fi
-
-    echo "Fragment size ($sample_type): ${frag_size}bp"
-done
-
-# === Read Shifting ===
 declare -A PROCESSED_BAMS=()
-for sample_type in 'test' 'reference'; do
-    input="${SAMPLES[$sample_type]%.bam}_deduped.bam"
-    output="${input%.bam}_shifted.bam"
-    frag_var="FRAGMENT_${sample_type^^}"
+for sample_type in "${!SAMPLES[@]}"; do
+    input="${SAMPLES[$sample_type]}"
+    deduped_path=$(get_deduped_path "$sample_type")
 
-    # Validate fragment size
-    if [[ -z "${!frag_var}" ]]; then
-        echo "[ERROR] Missing fragment size for $sample_type" 1>&2
-        exit 5
+    echo "Processing $sample_type..."
+    echo "Input: $input"
+    echo "deduped: $deduped_path"
+
+    if [[ ! -f "$deduped_path" ]]; then
+        echo ""
     fi
+    # Validate output
+    #if [[ ! -s "$output" ]]; then
+    #    echo "ERROR: Failed to create $output" >&2
+    #    exit 2
+    #fi
 
-    echo "Shifting $sample_type reads by ${!frag_var}/2 bp..."
-    alignmentSieve \
-        -b "$input" \
-        -o "$output" \
-        --shift $((${!frag_var}/2)) -$((${!frag_var}/2)) \
-        --numberOfProcessors "$THREADS" || exit 6
-
-    # Confirm output exists before indexing
-    if [[ ! -f "$output" ]]; then
-        echo "[ERROR] alignmentSieve failed for $sample_type" 1>&2
-        exit 7
-    fi
-
-    samtools index "$output"
-    PROCESSED_BAMS[$sample_type]="$output"
+    PROCESSED_BAMS[$sample_type]="$deduped_path"
 done
 
 # === Coverage Track Generation ===
