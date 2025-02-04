@@ -182,19 +182,22 @@ shift_reads() {
     local chrom_sizes_file="$OUTDIR/chrom_sizes.tmp"
     printf "%s\t%s\n" "${!CHROM_SIZES[@]}" "${CHROM_SIZES[@]}" > "$chrom_sizes_file"
 
-    samtools view -h "$input" | awk -v shift="$shift_size" '
+    samtools view -h "$input" | awk -v shift="$shift_size" chrom_file="$chrom_sizes_file" '
+
         BEGIN {
             OFS = "\t"
-            skipped = 0
+            #skipped = 0
             # Load chromosome sizes into AWK array
-            while (getline < "'"$chrom_sizes_file"'" > 0)
+            while (getline < chrom_file ){
                 chrom_sizes[$1] = $2
+            }
+            close(chrom_file)
         }
 
         # Header lines
         /^@/ { print; next }
         # Skip reads with complex CIGAR operations
-        $6 ~ /I|D/ { skipped++; next }
+        # $6 ~ /I|D/ { skipped++; next }
 
         # Main processing
         {
