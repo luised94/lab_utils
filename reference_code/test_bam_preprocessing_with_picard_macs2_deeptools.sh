@@ -107,9 +107,9 @@ get_shifted_path() {
 get_chrom_sizes() {
     local ref_fasta="$GENOME_FASTA"
     local chrom_sizes_file="$OUTDIR/chrom.sizes"
-    
+
     echo "=== Chromosome Size Generation ==="
-    
+
     # Generate .fai if missing
     if [[ ! -f "${ref_fasta}.fai" ]]; then
         echo "Creating FASTA index for reference genome..."
@@ -123,15 +123,15 @@ get_chrom_sizes() {
     if [[ ! -f "$chrom_sizes_file" ]]; then
         echo -e "\nBuilding chromosome size file..."
         mkdir -p "$OUTDIR"
-        
+
         echo "Input FASTA: $(basename "$ref_fasta")"
         echo "Output sizes: $chrom_sizes_file"
-        
+
         awk '{print $1 "\t" $2}' "${ref_fasta}.fai" > "$chrom_sizes_file" || {
             echo "[ERROR] Failed to create chrom.sizes" >&2
             exit 11
         }
-        
+
         # Validate non-empty output
         [[ -s "$chrom_sizes_file" ]] || {
             echo "[ERROR] chrom.sizes file is empty" >&2
@@ -143,10 +143,10 @@ get_chrom_sizes() {
     echo -e "\nLoading chromosome sizes:"
     while IFS=$'\t' read -r chrom size; do
         [[ -z "$chrom" ]] && continue  # Skip empty lines
-        
+
         # Trim additional fields after first tab
         chrom="${chrom%%[[:space:]]*}"
-        
+
         echo " - ${chrom}: ${size}bp"
         CHROM_SIZES["$chrom"]="$size"
     done < "$chrom_sizes_file"
@@ -156,22 +156,82 @@ get_chrom_sizes() {
 }
 
 shift_reads() {
-    local input=$1
-    local output=$2
-    local shift_size=$3
+    local input=$1 output=$2 shift_size=$3
 
-    samtools view -h "$input" \
-    | awk -v shift="$shift_size" '
-        $0 ~ /^@/ {print; next}  # Print header lines unchanged
-        {
-            if ($2 % 16 == 0)  # Forward strand
-                $4 = $4 + shift;
-            else  # Reverse strand
-                $4 = $4 - shift;
-            if ($4 > 0) print;  # Only print if position is valid
+    # Validation checks
+    [[ "$input" =~ \.bam$ ]] || { echo "Input must be .bam: $input" >&2; return 1; }
+    [[ "$output" =~ \.bam$ ]] || { echo "Output must be .bam: $output" >&2; return 1; }
+    [[ -s "$input" ]] || { echo "Empty input BAM: $input" >&2; return 1; }
+
+    # Check if output already exists and is valid
+    if [[ -f "$output" ]] && samtools quickcheck -v "$output" &> /dev/null; then
+        echo "Skipping existing shifted BAM: $output"
+        return 0
+    fi
+
+    # Delete invalid existing output
+    [[ -f "$output" ]] && rm "$output"
+
+    # Process with error logging
+    echo "[[DEBUG]] Shifting parameters:"
+    echo "  Input: $input"
+    echo "  Shift: $shift_size bp"
+    echo "  ChromDB entries: ${#CHROM_SIZES[@]}"
+
+    # Create chromosome size temp file for AWK
+    local chrom_sizes_file="$OUTDIR/chrom_sizes.tmp"
+    printf "%s\t%s\n" "${!CHROM_SIZES[@]}" "${CHROM_SIZES[@]}" > "$chrom_sizes_file"
+
+    samtools view -h "$input" | awk -v shift="$shift_size" '
+        BEGIN {
+            OFS = "\t"
+            # Load chromosome sizes into AWK array
+            while (getline < "'"$chrom_sizes_file"'" > 0)
+                chrom_sizes[$1] = $2
         }
-    ' \
-    | samtools view -bS - > "$output"
+
+        # Header lines
+        /^@/ { print; next }
+
+        # Main processing
+        {
+            chrom = $3
+            orig_pos = $4
+            strand = (and($2, 16) ? "reverse" : "forward")
+
+            # Calculate new position
+            new_pos = (strand == "forward") ? orig_pos + shift : orig_pos - shift
+
+            # Clamping logic with debug checks
+            if (chrom in chrom_sizes) {
+                max_pos = chrom_sizes[chrom]
+                if (new_pos < 1) new_pos = 1
+                if (new_pos > max_pos) new_pos = max_pos
+                clamped = (new_pos != orig_pos ? "CLAMPED" : "")
+            } else {
+                max_pos = "N/A"
+                clamped = "NO_CHROM_DATA"
+            }
+
+            # Debug print every 100000th read
+            if (NR % 100000 == 0) {
+                printf "[AWK DEBUG] Read %d: %s:%d -> %s:%d (%s)\n", 
+                    NR, chrom, orig_pos, chrom, new_pos, clamped > "/dev/stderr"
+            }
+
+            $4 = new_pos
+            print
+        }' | samtools view -bS - > "$output" || {
+            echo "Shifting failed for $input" >&2
+            rm -f "$output" "$chrom_sizes_file"
+            return 1
+        }
+
+    # Cleanup and validation
+    rm "$chrom_sizes_file"
+    samtools index "$output"
+    echo "Shift validation:"
+    samtools idxstats "$output"
 }
 
 ##############################################
@@ -186,7 +246,7 @@ echo -e "\n=== Marking Duplicates ==="
 for sample_type in "${!SAMPLES[@]}"; do
     input="${SAMPLES[$sample_type]}"
     output=$(get_deduped_path "$sample_type")
-    
+
     echo "Processing $sample_type..."
     echo "Input: $input"
     echo "Output: $output"
@@ -219,14 +279,14 @@ for sample_type in "${!SAMPLES[@]}"; do
     deduped_file=$(get_deduped_path "$sample_type")
     index_file="${deduped_file}.bai"
     echo "Indexing $sample_type deduped BAM..."
-    
+
     if [[ -f "$index_file" ]]; then
         echo "Index exists: $index_file"
     else
         echo "Indexing: $deduped_file"
         samtools index "$deduped_file"
         exit_code=$?
-        
+
         [[ $exit_code -eq 0 ]] && [[ -f "$index_file" ]] || {
             echo "[ERROR] Indexing failed for ${deduped_file} (exit $exit_code)" >&2
             exit 3
@@ -289,6 +349,38 @@ module load python/2.7.13 deeptools/3.0.1
 echo "Activated python and deeptools"
 echo -e "\n=== Shifting Reads ==="
 declare -A SHIFTED_BAMS=()
+# Apply to samples
+for sample_type in 'test' 'reference'; do
+    input=$(get_deduped_path "$sample_type")
+    output=$(get_shifted_path "$sample_type")
+    frag_size=${FRAGMENTS[$sample_type]}
+    shift_size=$((frag_size / 2))
+
+    # Debug preamble
+    echo -e "\n=== Processing $sample_type ==="
+    echo "Input: $input (exists: ${input:+YES})"
+    echo "Fragment size: $frag_size"
+    echo "Shift amount: $shift_size"
+    echo "Chromosome count: ${#CHROM_SIZES[@]}"
+
+    # Sanity checks
+    [[ -v "CHROM_SIZES[@]" ]] || { echo "Chrom sizes not loaded"; exit 1; }
+    [[ -n "$frag_size" ]] || { echo "Fragment size missing for $sample_type"; exit 1; }
+    # Execute with debug logging
+    if shift_reads "$input" "$output" "$shift_size"; then
+        echo "Shift Complete: $(basename "$output")"
+        echo "Clamping Statistics:"
+        samtools view "$output" | awk '
+            $4 < 1 || $4 > chrom_sizes[$3] {count++} 
+            END {printf "Invalid positions: %d (%.2f%%)\n", count, (count/NR)*100}'
+        #echo "Post-shift validation:"
+        #samtools view -c "$output"
+    else
+        echo "Shift failed for $sample_type"
+        exit 1
+    fi
+done
+
 #for sample_type in 'test' 'reference'; do
 #    input=$(get_deduped_path "$sample_type")
 #    output=$(get_shifted_path "$sample_type")
