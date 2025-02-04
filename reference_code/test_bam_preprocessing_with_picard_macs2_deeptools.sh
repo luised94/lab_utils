@@ -57,6 +57,10 @@ declare -A SAMPLES=(
 # Reference data
 GENOME_SIZE=12000000  # 1.2e7 in integer form
 GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
+if [[ ! -f $GENOME_FASTA ]]; then
+    echo "$GENOME_FASTA does not exist."
+    exit 1
+fi
 
 # Output config
 OUTDIR="$HOME/preprocessing_test"
@@ -128,7 +132,7 @@ for sample_type in "${!SAMPLES[@]}"; do
     # Validate output
     if [[ ! -s "$output" ]]; then
         echo "ERROR: Failed to create $output" >&2
-        exit 1
+        exit 2
     fi
     echo "$sample_type Deduped Reads: "
     samtools view -c "$output"
@@ -170,21 +174,27 @@ for sample_type in 'test' 'reference'; do
     echo "Processing $sample_type..."
     mkdir -p "$outdir"
 
-    macs2 predictd \
-        -i "$input" \
-        -g "$GENOME_SIZE" \
-        --outdir "$outdir" 2> "$log_file"
-
-    # Extract fragment size
-    frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log_file")
-    
-    if [[ -z "$frag_size" ]]; then
-        echo "ERROR: Fragment analysis failed for $sample_type" >&2
-        exit 2
+    # Only run MACS2 if log is missing/incomplete
+    if [[ ! -f "$log_file" ]] || ! grep -q 'predicted fragment length is' "$log_file"; then
+        echo "Running fragment size prediction..."
+        macs2 predictd \
+            -i "$input" \
+            -g "$GENOME_SIZE" \
+            --outdir "$outdir" 2> "$log_file"
+    else
+        echo "Using existing prediction results in: $log_file"
     fi
-    
+
+    # Validate and extract fragment size
+    if ! frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log_file"); then
+        echo -e "\nERROR: Fragment analysis failed for $sample_type"
+        echo "Debug info:"
+        echo "Log file: $log_file"
+        [[ -f "$log_file" ]] && tail -n 20 "$log_file"
+        exit 4
+    fi
     FRAGMENTS[$sample_type]=$frag_size
-    echo "Fragment Size ($sample_type): ${frag_size}bp"
+    echo -e "Fragment Size Analysis Complete\n  Sample: $sample_type\n  Size: ${frag_size}bp\n  Log: ${log_file/$OUTDIR/\$OUTDIR}\n"
 done
 
 # === Step 3: Read Shifting ===
@@ -256,12 +266,12 @@ for sample_type in 'test' 'reference'; do
         SHIFTED_BAMS[$sample_type]="$output"
     else
         echo "[CRITICAL] Empty shifted BAM: $output" >&2 
-        exit 6
+        exit 5
     fi
 
     # Index shifted BAM
     samtools index "$output" || {
         echo "ERROR: Failed to index shifted BAM: $output" >&2
-        exit 7
+        exit 6
     }
 done
