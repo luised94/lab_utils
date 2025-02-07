@@ -185,8 +185,17 @@ parse_common_arguments <- function(description = "Script description", prog = NU
         args$is_template <- FALSE
 
         # Check all directories exist
+        script_name <- basename(commandArgs(trailing = FALSE)[grep("--file=", commandArgs(trailing = FALSE))])
         missing_dirs <- args$experiment_dir[!dir.exists(args$experiment_dir)]
-        if (length(missing_dirs) > 0) {
+        if (length(missing_dirs) > 0 & script_name == "setup_bmc_experiment.R") {
+            message("Running setup_bmc_experiment.R. Creating directories.")
+            message(sprintf(
+                "The following experiment directories were not found:\n%s",
+                paste(missing_dirs, collapse = "\n")
+            ))
+            invisible(lapply(missing_dirs, dir.create, showWarnings = FALSE))
+        } else if (length(missing_dirs) > 0) {
+            message("Directories should exist for the script.")
             stop(sprintf(
                 "The following experiment directories were not found:\n%s",
                 paste(missing_dirs, collapse = "\n")
