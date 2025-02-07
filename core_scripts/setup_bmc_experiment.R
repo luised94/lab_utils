@@ -381,7 +381,11 @@ bmc_metadata <- data.frame(
     SampleName = metadata$full_name,
     Vol_uL = 10,
     Conc = 0,
-    Type = "ChIP",
+    Type = ifelse(
+        metadata$antibody == "Input",
+        "Input",
+        "ChIP"
+    ),
     Genome = "Saccharomyces cerevisiae",
     Notes = ifelse(
         metadata$antibody == "Input",
