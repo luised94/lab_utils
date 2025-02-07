@@ -184,25 +184,54 @@ parse_common_arguments <- function(description = "Script description", prog = NU
         })
         args$is_template <- FALSE
 
-        # Check all directories exist
-        script_name <- basename(commandArgs(trailing = FALSE)[grep("--file=", commandArgs(trailing = FALSE))])
+        # Get command-line arguments once
+        cmd_args <- commandArgs(trailingOnly = FALSE)
+        
+        # Extract the script name from the --file argument
+        script_flag <- grep("--file=", cmd_args, value = TRUE)
+        script_name <- if (length(script_flag)) basename(sub("^--file=", "", script_flag)) else "UNKNOWN"
+        
+        # Define allowed setup scripts (expand this vector in the future as needed)
+        setup_scripts <- c("setup_bmc_experiment.R")
+        
+        # Identify missing experiment directories
         missing_dirs <- args$experiment_dir[!dir.exists(args$experiment_dir)]
-        if (length(missing_dirs) > 0 & script_name == "setup_bmc_experiment.R") {
-            message("Running setup_bmc_experiment.R. Creating directories.")
-            message(sprintf(
-                "The following experiment directories were not found:\n%s",
-                paste(missing_dirs, collapse = "\n")
-            ))
-            invisible(lapply(missing_dirs, dir.create, showWarnings = FALSE))
-        } else if (length(missing_dirs) > 0) {
-            message("Directories should exist for the script.")
+        
+        if (length(missing_dirs) > 0) {
+          
+          # Build a common message for missing directories
+          missing_msg <- sprintf(
+            "The following directories are missing:\n%s",
+            paste(missing_dirs, collapse = "\n")
+          )
+          
+          if (script_name %in% setup_scripts) {
+            message(sprintf("Running setup script '%s'. Creating experiment directories...", script_name))
+            message(sprintf("Creating the following directories:\n%s", paste(missing_dirs, collapse = "\n")))
+            invisible(lapply(missing_dirs, dir.create, showWarnings = FALSE, recursive = TRUE))
+            message("Experiment directories created successfully.")
+          } else if (script_name == "UNKNOWN") {
+                warning("Script name could not be determined. If you are running interactively, ensure directories exist.")
+                stop(missing_msg, call. = FALSE)
+          } else {
+            message("Directory existence check for non-setup script.")
             stop(sprintf(
-                "The following experiment directories were not found:\n%s",
-                paste(missing_dirs, collapse = "\n")
-            ))
+              paste(
+                "Error: Experiment directories are required for script '%s' to run.\n",
+                "%s\n",
+                "Please execute one of the setup scripts (%s) first to create these directories."
+              ),
+              script_name,
+              missing_msg,
+              paste(setup_scripts, collapse = ", ")
+            ), call. = FALSE)
+          }
+        } else {
+          if (!(script_name %in% setup_scripts)) {
+            message("All experiment directories exist. Continuing script execution.")
+          }
         }
     }
-
 
     return(args)
 }

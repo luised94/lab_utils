@@ -233,12 +233,15 @@ cat("Directories created successfully!\n")
 # Generate experimental combinations
 metadata <- do.call(expand.grid, EXPERIMENT_CONFIG$CATEGORIES)
 
-# Filter invalid combinations
-invalid_idx <- Reduce(
-    `|`,
-    lapply(EXPERIMENT_CONFIG$INVALID_COMBINATIONS, eval, envir = metadata)
-)
-metadata <- subset(metadata, !invalid_idx)
+# Filter invalid combinations if set.
+# Run without combination to see outputs.
+if (length(EXPERIMENT_CONFIG$INVALID_COMBINATIONS) > 0) {
+    invalid_idx <- Reduce(
+        `|`,
+        lapply(EXPERIMENT_CONFIG$INVALID_COMBINATIONS, eval, envir = metadata)
+    )
+    metadata <- subset(metadata, !invalid_idx)
+}
 
 # Apply experimental conditions
 #valid_idx <- Reduce(
@@ -262,6 +265,8 @@ if (n_samples != expected) {
     cat("\nFull sample breakdown:\n")
     print(summary(metadata))         # Show all category distributions
     cat("\n")
+    # Set this to a particular logic (or print entire table) to see the samples and determine how to remove them.
+    #print(metadata[metadata$antibody == "V5", ])
     #print(metadata[metadata$antibody == "V5", ])
 
     stop(sprintf("Expected %d samples, got %d", expected, n_samples))
@@ -285,7 +290,8 @@ for (type in names(sample_classifications)) {
 }
 
 # Create the final classification vector
-metadata$sample_type <- "treatment"  # Default classification
+# Default classification
+metadata$sample_type <- "treatment"
 for (type in names(sample_classifications)) {
     # Find rows where this classification is TRUE
     matching_rows <- classification_results[, type]
