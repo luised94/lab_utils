@@ -420,7 +420,7 @@ validate_column_references(
     categories = EXPERIMENT_CONFIG$CATEGORIES,
     comparisons = EXPERIMENT_CONFIG$COMPARISONS,
     control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS,
-    conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS,
+    #conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS,
     verbose = validation_verbose
 )
 

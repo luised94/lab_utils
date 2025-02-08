@@ -448,4 +448,4 @@ for (filename in filenames) {
         }
     }
 }
-#print(metadata)
+print(metadata)

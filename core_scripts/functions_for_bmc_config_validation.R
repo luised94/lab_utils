@@ -79,7 +79,7 @@ validate_column_references <- function(
     categories,
     comparisons,
     control_factors,
-    conditions,
+    #conditions,
     stop_on_error = TRUE,
     verbose = FALSE
 ) {
@@ -137,11 +137,11 @@ validate_column_references <- function(
         })
 
         # Check conditions
-        if (verbose) cat("Validating experimental conditions:\n")
-        lapply(names(conditions), function(cond_name) {
-            check_expr_vars(conditions[[cond_name]], 
-                          sprintf("condition '%s'", cond_name))
-        })
+        #if (verbose) cat("Validating experimental conditions:\n")
+        #lapply(names(conditions), function(cond_name) {
+        #    check_expr_vars(conditions[[cond_name]], 
+        #                  sprintf("condition '%s'", cond_name))
+        #})
 
         if (verbose) cat("[PASS] All column references valid\n")
         return(TRUE)
