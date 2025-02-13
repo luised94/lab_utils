@@ -34,6 +34,9 @@ if [[ ! -f $GENOME_FASTA ]]; then
     exit 1
 fi
 
+# Define normalization methods
+declare -a NORMALIZATION=("" "RPKM" "CPM")  # Raw, RPKM, and CPM
+
 # Output config
 OUTDIR="$HOME/preprocessing_test"
 OUTPUT_PREFIX="test"
@@ -45,7 +48,6 @@ BIN_SIZE=25
 SMOOTH_LEN=75
 MIN_FRAGMENT=20
 MAX_FRAGMENT=300
-
 
 ##############################################
 # Helper functions
@@ -59,6 +61,17 @@ get_deduped_path() {
 get_shifted_path() {
     local sample_type=$1
     echo "$OUTDIR/align/${sample_type}_shifted.bam"
+}
+
+# Function to generate BigWig name
+get_bigwig_name() {
+    local sample=$1
+    # 'raw', 'deduped', or 'shifted'
+    local bam_type=$2
+    local norm_method=$3
+    local suffix="raw"
+    [[ -n "$norm_method" ]] && suffix="${norm_method,,}"
+    echo "$OUTDIR/coverage/${sample}_${bam_type}_${suffix}.bw"
 }
 
 get_chrom_sizes() {
@@ -168,41 +181,100 @@ done
 
 echo "All sample files verified successfully."
 
-# === Coverage Track Generation ===
-#declare -A COVERAGE_PATHS=(
-#    ['test']="${PROCESSED_BAMS[test]}"
-#    ['input']="${SAMPLES[input]%.bam}_deduped.bam"
-#    ['reference']="${PROCESSED_BAMS[reference]}"
-#)
-#
-#
-## Generate multiple normalization versions
-#declare -a NORMALIZATION=("" "RPKM" "CPM")  # Raw, RPKM, and CPM
-#for sample_type in "${!COVERAGE_PATHS[@]}"; do
-#    input_bam="${COVERAGE_PATHS[$sample_type]}"
-#    
+module load python/2.7.13 deeptools/3.0.1
+# Process original BAMs
+echo "=== Generating coverage for original BAMs ==="
+for sample_type in "${!SAMPLES[@]}"; do
+    input="${SAMPLES[$sample_type]}"
+    echo "Processing: $input"
+    for norm_method in "${NORMALIZATION[@]}"; do
+        output=$(get_bigwig_name "$sample_type" "raw" "$norm_method")
+        echo "File will be output to: $output"
+        [[ -f "$output" ]] && {
+            echo "Skipping existing: $output"
+            continue
+        }
+
+        echo "Processing $sample_type (raw) with ${norm_method:-no} normalization"
+        norm_flag=""
+        [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
+        echo "Using norm flag: $norm_flag"
+        bamCoverage \
+            -b "$input" \
+            -o "$output" \
+            $norm_flag \
+            --binSize 25 \
+            --effectiveGenomeSize "$GENOME_SIZE" \
+            --smoothLength 75 \
+            --ignoreDuplicates \
+            --numberOfProcessors "$THREADS"
+    done
+done
+
+## Process deduped BAMs
+#echo -e "\n=== Generating coverage for deduplicated BAMs ==="
+#for sample_type in "${!DEDUPED_BAMS[@]}"; do
+#    input="${DEDUPED_BAMS[$sample_type]}"
+#    echo "Processing: $input"
 #    for norm_method in "${NORMALIZATION[@]}"; do
-#        # Handle raw (unnormalized) case
-#        if [[ -z "$norm_method" ]]; then
-#            output_suffix="raw"
-#            norm_flag=""
-#        else
-#            output_suffix="${norm_method,,}"
-#            norm_flag="--normalizeUsing $norm_method"
-#        fi
+#        output=$(get_bigwig_name "$sample_type" "deduped" "$norm_method")
+#        echo "File will be output to: $output"
+#        [[ -f "$output" ]] && {
+#            echo "Skipping existing: $output"
+#            continue
+#        }
 #
+#        echo "Processing $sample_type (deduped) with ${norm_method:-no} normalization"
+#        norm_flag=""
+#        [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
+#        echo "Using norm flag: $norm_flag"
 #        bamCoverage \
-#            -b "$input_bam" \
-#            -o "$OUTDIR/${sample_type}_${output_suffix}.bw" \
+#            -b "$input" \
+#            -o "$output" \
 #            $norm_flag \
 #            --binSize 25 \
-#            --effectiveGenomeSize $GENOME_SIZE \
+#            --effectiveGenomeSize "$GENOME_SIZE" \
 #            --smoothLength 75 \
 #            --ignoreDuplicates \
 #            --numberOfProcessors "$THREADS"
 #    done
 #done
 #
+## Process shifted BAMs (skip input)
+#echo -e "\n=== Generating coverage for shifted BAMs ==="
+#for sample_type in 'test' 'reference'; do
+#    input="${SHIFTED_BAMS[$sample_type]}"
+#    echo "Processing: $input"
+#    [[ -z "$input" ]] && continue  # Skip if no shifted BAM exists
+#    
+#    for norm_method in "${NORMALIZATION[@]}"; do
+#        output=$(get_bigwig_name "$sample_type" "shifted" "$norm_method")
+#        echo "File will be output to: $output"
+#        [[ -f "$output" ]] && {
+#            echo "Skipping existing: $output"
+#            continue
+#        }
+#
+#        echo "Processing $sample_type (shifted) with ${norm_method:-no} normalization"
+#        norm_flag=""
+#        [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
+#        echo "Using norm flag: $norm_flag"
+#        bamCoverage \
+#            -b "$input" \
+#            -o "$output" \
+#            $norm_flag \
+#            --binSize 25 \
+#            --effectiveGenomeSize "$GENOME_SIZE" \
+#            --smoothLength 75 \
+#            --ignoreDuplicates \
+#            --numberOfProcessors "$THREADS"
+#    done
+#done
+
+# Summary of generated files
+echo -e "\n=== Coverage Generation Summary ==="
+find "$OUTDIR/coverage" -name "*.bw" -exec basename {} \; | sort
+
 ## === Peak Calling ===
 #declare -A MACS_PARAMS=(
 #    ['test']="-t ${PROCESSED_BAMS[test]} -c ${COVERAGE_PATHS[input]}"
