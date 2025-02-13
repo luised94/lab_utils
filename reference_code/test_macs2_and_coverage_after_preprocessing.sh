@@ -159,10 +159,6 @@ for sample_type in "${!SAMPLES[@]}"; do
             missing_files=1
         fi
     fi
-    if [[ ! -e "$shifted_path" ]]; then
-        echo "Shifted file not present. Rerun test_bam_preprocessing_with_picard_macs2_deeptools.sh script."
-        missing_files=1
-    fi
 
     DEDUPED_BAMS[$sample_type]="$deduped_path"
     SHIFTED_BAMS[$sample_type]="$shifted_path"
