@@ -182,6 +182,7 @@ done
 echo "All sample files verified successfully."
 
 module load python/2.7.13 deeptools/3.0.1
+
 # Process original BAMs
 echo "=== Generating coverage for original BAMs ==="
 for sample_type in "${!SAMPLES[@]}"; do
@@ -211,65 +212,65 @@ for sample_type in "${!SAMPLES[@]}"; do
     done
 done
 
-## Process deduped BAMs
-#echo -e "\n=== Generating coverage for deduplicated BAMs ==="
-#for sample_type in "${!DEDUPED_BAMS[@]}"; do
-#    input="${DEDUPED_BAMS[$sample_type]}"
-#    echo "Processing: $input"
-#    for norm_method in "${NORMALIZATION[@]}"; do
-#        output=$(get_bigwig_name "$sample_type" "deduped" "$norm_method")
-#        echo "File will be output to: $output"
-#        [[ -f "$output" ]] && {
-#            echo "Skipping existing: $output"
-#            continue
-#        }
-#
-#        echo "Processing $sample_type (deduped) with ${norm_method:-no} normalization"
-#        norm_flag=""
-#        [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
-#        echo "Using norm flag: $norm_flag"
-#        bamCoverage \
-#            -b "$input" \
-#            -o "$output" \
-#            $norm_flag \
-#            --binSize 25 \
-#            --effectiveGenomeSize "$GENOME_SIZE" \
-#            --smoothLength 75 \
-#            --ignoreDuplicates \
-#            --numberOfProcessors "$THREADS"
-#    done
-#done
-#
-## Process shifted BAMs (skip input)
-#echo -e "\n=== Generating coverage for shifted BAMs ==="
-#for sample_type in 'test' 'reference'; do
-#    input="${SHIFTED_BAMS[$sample_type]}"
-#    echo "Processing: $input"
-#    [[ -z "$input" ]] && continue  # Skip if no shifted BAM exists
-#    
-#    for norm_method in "${NORMALIZATION[@]}"; do
-#        output=$(get_bigwig_name "$sample_type" "shifted" "$norm_method")
-#        echo "File will be output to: $output"
-#        [[ -f "$output" ]] && {
-#            echo "Skipping existing: $output"
-#            continue
-#        }
-#
-#        echo "Processing $sample_type (shifted) with ${norm_method:-no} normalization"
-#        norm_flag=""
-#        [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
-#        echo "Using norm flag: $norm_flag"
-#        bamCoverage \
-#            -b "$input" \
-#            -o "$output" \
-#            $norm_flag \
-#            --binSize 25 \
-#            --effectiveGenomeSize "$GENOME_SIZE" \
-#            --smoothLength 75 \
-#            --ignoreDuplicates \
-#            --numberOfProcessors "$THREADS"
-#    done
-#done
+# Process deduped BAMs
+echo -e "\n=== Generating coverage for deduplicated BAMs ==="
+for sample_type in "${!DEDUPED_BAMS[@]}"; do
+    input="${DEDUPED_BAMS[$sample_type]}"
+    echo "Processing: $input"
+    for norm_method in "${NORMALIZATION[@]}"; do
+        output=$(get_bigwig_name "$sample_type" "deduped" "$norm_method")
+        echo "File will be output to: $output"
+        [[ -f "$output" ]] && {
+            echo "Skipping existing: $output"
+            continue
+        }
+
+        echo "Processing $sample_type (deduped) with ${norm_method:-no} normalization"
+        norm_flag=""
+        [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
+        echo "Using norm flag: $norm_flag"
+        bamCoverage \
+            -b "$input" \
+            -o "$output" \
+            $norm_flag \
+            --binSize 25 \
+            --effectiveGenomeSize "$GENOME_SIZE" \
+            --smoothLength 75 \
+            --ignoreDuplicates \
+            --numberOfProcessors "$THREADS"
+    done
+done
+
+# Process shifted BAMs (skip input)
+echo -e "\n=== Generating coverage for shifted BAMs ==="
+for sample_type in 'test' 'reference'; do
+    input="${SHIFTED_BAMS[$sample_type]}"
+    echo "Processing: $input"
+    [[ -z "$input" ]] && continue  # Skip if no shifted BAM exists
+    
+    for norm_method in "${NORMALIZATION[@]}"; do
+        output=$(get_bigwig_name "$sample_type" "shifted" "$norm_method")
+        echo "File will be output to: $output"
+        [[ -f "$output" ]] && {
+            echo "Skipping existing: $output"
+            continue
+        }
+
+        echo "Processing $sample_type (shifted) with ${norm_method:-no} normalization"
+        norm_flag=""
+        [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
+        echo "Using norm flag: $norm_flag"
+        bamCoverage \
+            -b "$input" \
+            -o "$output" \
+            $norm_flag \
+            --binSize 25 \
+            --effectiveGenomeSize "$GENOME_SIZE" \
+            --smoothLength 75 \
+            --ignoreDuplicates \
+            --numberOfProcessors "$THREADS"
+    done
+done
 
 # Summary of generated files
 echo -e "\n=== Coverage Generation Summary ==="
