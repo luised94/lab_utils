@@ -363,7 +363,7 @@ done
 
 # Verify expected samples
 for required in 'test' 'reference'; do
-    echo "Verifying fragment size in FRAGMENTS array: $FRAGMENTS[$required]"
+    echo "Verifying fragment size in FRAGMENTS array: ${FRAGMENTS[$required]}"
     [[ -v "${FRAGMENTS[$required]}" ]] || {
         echo "[ERROR] Missing fragment size for $required sample" >&2
         exit 5
