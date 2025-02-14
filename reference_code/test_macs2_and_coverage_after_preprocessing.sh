@@ -276,6 +276,51 @@ done
 echo -e "\n=== Coverage Generation Summary ==="
 find "$OUTDIR/coverage" -name "*.bw" -exec basename {} \; | sort
 
+# Purge existing modules
+echo "Purging modules..."
+module purge
+
+# Initialize Conda
+CONDA_ROOT=~/miniforge3
+
+if [[ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]]; then
+    . "$CONDA_ROOT/etc/profile.d/conda.sh"
+else
+    echo "ERROR: Conda not found at $CONDA_ROOT" >&2
+    exit 1
+fi
+
+# Activate MACS2 environment
+echo "Activating MACS2 environment..."
+conda activate macs2_env 2> /dev/null
+
+# Verify MACS2 installation
+if ! command -v macs2 &> /dev/null; then
+    echo "ERROR: MACS2 not installed. Install with:" >&2
+    echo "conda install -c bioconda macs2=2.2.7.1" >&2
+    exit 2
+fi
+
+echo "MACS2 environment ready in $(which python)"
+
+# === Discover BigWig Files ===
+echo -e "\n=== Finding BigWig Files ==="
+
+# Create array of bigwig files
+declare -a BIGWIG_FILES
+mapfile -t BIGWIG_FILES < <(find "$OUTDIR/coverage" -name "*.bw" -exec basename {} \; | sort)
+
+# Validate array
+if [[ ${#BIGWIG_FILES[@]} -eq 0 ]]; then
+    echo "ERROR: No bigwig files found in $OUTDIR/coverage" >&2
+    exit 3
+fi
+
+# Display found files
+echo "Found ${#BIGWIG_FILES[@]} bigwig files:"
+for bw in "${BIGWIG_FILES[@]}"; do
+    echo "  $bw"
+done
 ## === Peak Calling ===
 #declare -A MACS_PARAMS=(
 #    ['test']="-t ${PROCESSED_BAMS[test]} -c ${COVERAGE_PATHS[input]}"
