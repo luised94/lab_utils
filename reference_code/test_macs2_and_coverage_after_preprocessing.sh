@@ -273,8 +273,24 @@ for sample_type in 'test' 'reference'; do
 done
 
 # Summary of generated files
-echo -e "\n=== Coverage Generation Summary ==="
-find "$OUTDIR/coverage" -name "*.bw" -exec basename {} \; | sort
+#echo -e "\n=== Coverage Generation Summary ==="
+#find "$OUTDIR/coverage" -name "*.bw" -exec basename {} \; | sort
+
+# Create array of bigwig files
+declare -a BIGWIG_FILES
+mapfile -t BIGWIG_FILES < <(find "$OUTDIR/coverage" -name "*.bw" | sort)
+
+# Validate array
+if [[ ${#BIGWIG_FILES[@]} -eq 0 ]]; then
+    echo "ERROR: No bigwig files found in $OUTDIR/coverage" >&2
+    exit 3
+fi
+
+# Display found files
+#echo "Found ${#BIGWIG_FILES[@]} bigwig files:"
+#for bw in "${BIGWIG_FILES[@]}"; do
+#    echo "  $bw"
+#done
 
 # Purge existing modules
 echo "Purging modules..."
@@ -303,24 +319,6 @@ fi
 
 echo "MACS2 environment ready in $(which python)"
 
-# === Discover BigWig Files ===
-echo -e "\n=== Finding BigWig Files ==="
-
-# Create array of bigwig files
-declare -a BIGWIG_FILES
-mapfile -t BIGWIG_FILES < <(find "$OUTDIR/coverage" -name "*.bw" -exec basename {} \; | sort)
-
-# Validate array
-if [[ ${#BIGWIG_FILES[@]} -eq 0 ]]; then
-    echo "ERROR: No bigwig files found in $OUTDIR/coverage" >&2
-    exit 3
-fi
-
-# Display found files
-echo "Found ${#BIGWIG_FILES[@]} bigwig files:"
-for bw in "${BIGWIG_FILES[@]}"; do
-    echo "  $bw"
-done
 ## === Peak Calling ===
 #declare -A MACS_PARAMS=(
 #    ['test']="-t ${PROCESSED_BAMS[test]} -c ${COVERAGE_PATHS[input]}"
