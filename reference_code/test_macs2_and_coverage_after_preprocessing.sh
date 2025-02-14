@@ -358,7 +358,7 @@ for log in "${FRAG_LOGS[@]}"; do
     
     # Store in associative array
     FRAGMENTS[$sample_type]=$frag_size
-}
+done
 
 # Verify expected samples
 for required in 'test' 'reference'; do
