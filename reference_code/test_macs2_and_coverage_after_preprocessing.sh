@@ -319,6 +319,61 @@ fi
 
 echo "MACS2 environment ready in $(which python)"
 
+echo -e "\n=== Read in fragment sizes for peak calls ==="
+# Read log file paths into array
+mapfile -t FRAG_LOGS < <(
+    find "$OUTDIR/predictd/" -type f -name "macs2.log"
+) || {
+    echo "[ERROR] Failed to find fragment size logs in $OUTDIR/predictd/" >&2
+    exit 1
+}
+
+# Validate number of log files
+[[ ${#FRAG_LOGS[@]} -eq 2 ]] || {
+    echo "[ERROR] Expected 2 fragment logs, found ${#FRAG_LOGS[@]}" >&2
+    echo "Found logs:" >&2
+    printf '%s\n' "${FRAG_LOGS[@]}" >&2
+    exit 2
+}
+
+# Initialize fragments associative array
+declare -A FRAGMENTS=()
+
+# Process each log file
+for log in "${FRAG_LOGS[@]}"; do
+    # Extract sample type from path
+    sample_type=$(basename "$(dirname "$log")" | sed 's/_predictd//')
+    
+    # Extract fragment size
+    frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log") || {
+        echo "[ERROR] Failed to extract fragment size from $log" >&2
+        exit 3
+    }
+    
+    # Validate fragment size
+    [[ "$frag_size" =~ ^[0-9]+$ ]] && (( frag_size > 0 )) || {
+        echo "[ERROR] Invalid fragment size ($frag_size) in $log" >&2
+        exit 4
+    }
+    
+    # Store in associative array
+    FRAGMENTS[$sample_type]=$frag_size
+}
+
+# Verify expected samples
+for required in 'test' 'reference'; do
+    [[ -v "FRAGMENTS[$required]" ]] || {
+        echo "[ERROR] Missing fragment size for $required sample" >&2
+        exit 5
+    }
+done
+
+# Debug output
+echo "=== Fragment Sizes ==="
+for sample in "${!FRAGMENTS[@]}"; do
+    echo "$sample: ${FRAGMENTS[$sample]}bp"
+done
+
 ## === Peak Calling ===
 #declare -A MACS_PARAMS=(
 #    ['test']="-t ${PROCESSED_BAMS[test]} -c ${COVERAGE_PATHS[input]}"
