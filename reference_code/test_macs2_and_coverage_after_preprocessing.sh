@@ -343,13 +343,13 @@ declare -A FRAGMENTS=()
 for log in "${FRAG_LOGS[@]}"; do
     # Extract sample type from path
     sample_type=$(basename "$(dirname "$log")" | sed 's/_predictd//')
-    echo "Sample type: $sample_type"
+    #echo "Sample type: $sample_type"
     # Extract fragment size
     frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log") || {
         echo "[ERROR] Failed to extract fragment size from $log" >&2
         exit 3
     }
-    echo "Read fragment size: $frag_size"
+    #echo "Read fragment size: $frag_size"
     
     # Validate fragment size
     [[ "$frag_size" =~ ^[0-9]+$ ]] && (( frag_size > 0 )) || {
@@ -363,7 +363,7 @@ done
 
 # Verify expected samples
 for required in 'test' 'reference'; do
-    echo "Verifying fragment size in FRAGMENTS array: ${FRAGMENTS[$required]}"
+    #echo "Verifying fragment size in FRAGMENTS array: ${FRAGMENTS[$required]}"
     [[ -n "${FRAGMENTS[$required]}" ]] || {
         echo "[ERROR] Missing fragment size for $required sample" >&2
         exit 5
