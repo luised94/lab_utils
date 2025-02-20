@@ -134,17 +134,46 @@ get_peak_name() {
 }
 
 process_bam_set() {
-    local -n bams=$1      # Reference to BAM array
+    local array_name=$1   # Name of the array to process
     local bam_type=$2     # raw/deduped/shifted
     local allow_input=$3  # true/false
     
     echo "=== Processing $bam_type BAMs ==="
-    echo "Number of BAMs to process: ${#bams[@]}"
-    echo "Available samples: ${!bams[@]}"
     
-    for sample in "${!bams[@]}"; do
+    # Get array contents using indirect reference
+    case $array_name in
+        "SAMPLES")
+            local -a keys=("${!SAMPLES[@]}")
+            local -a values=("${SAMPLES[@]}")
+            ;;
+        "DEDUPED_BAMS")
+            local -a keys=("${!DEDUPED_BAMS[@]}")
+            local -a values=("${DEDUPED_BAMS[@]}")
+            ;;
+        "SHIFTED_BAMS")
+            local -a keys=("${!SHIFTED_BAMS[@]}")
+            local -a values=("${SHIFTED_BAMS[@]}")
+            ;;
+        *)
+            echo "Unknown array: $array_name" >&2
+            return 1
+            ;;
+    esac
+    
+    echo "Number of BAMs to process: ${#keys[@]}"
+    echo "Available samples: ${keys[*]}"
+    
+    for sample in "${keys[@]}"; do
         echo -e "\nProcessing sample: $sample"
-        echo "Input BAM: ${bams[$sample]}"
+        
+        # Get BAM path from appropriate array
+        local bam_path
+        case $array_name in
+            "SAMPLES") bam_path="${SAMPLES[$sample]}" ;;
+            "DEDUPED_BAMS") bam_path="${DEDUPED_BAMS[$sample]}" ;;
+            "SHIFTED_BAMS") bam_path="${SHIFTED_BAMS[$sample]}" ;;
+        esac
+        echo "Input BAM: $bam_path"
         
         # Skip input sample for certain analyses
         if [[ "$sample" == "input" && "$bam_type" == "shifted" ]]; then
@@ -177,12 +206,12 @@ process_bam_set() {
             
             echo "  Running MACS2 without input control..."
             echo "  Parameters:"
-            echo "    - Treatment: ${bams[$sample]}"
+            echo "    - Treatment: $bam_path"
             echo "    - Mode: ${PEAK_MODES[$mode]}"
             echo "    - Fragment size param: $ext_size"
             
             macs2 callpeak \
-                -t "${bams[$sample]}" \
+                -t "$bam_path" \
                 -n "$out_prefix" \
                 ${CORE_PARAMS[@]} \
                 ${PEAK_MODES[$mode]} \
@@ -201,13 +230,13 @@ process_bam_set() {
                 
                 echo "  Running MACS2 with input control..."
                 echo "  Parameters:"
-                echo "    - Treatment: ${bams[$sample]}"
+                echo "    - Treatment: $bam_path"
                 echo "    - Control: ${DEDUPED_BAMS[input]}"
                 echo "    - Mode: ${PEAK_MODES[$mode]}"
                 echo "    - Fragment size param: $ext_size"
                 
                 macs2 callpeak \
-                    -t "${bams[$sample]}" \
+                    -t "$bam_path" \
                     -c "${DEDUPED_BAMS[input]}" \
                     -n "$out_prefix" \
                     ${CORE_PARAMS[@]} \
