@@ -183,7 +183,7 @@ shift_reads() {
     #printf "%s\t%s\n" "${!CHROM_SIZES[@]}" "${CHROM_SIZES[@]}" > "$chrom_sizes_file"
 
     samtools view -h "$input" | \
-        awk -v shift="$shift_size" -v chrom_file="$OUTDIR/chrom.sizes" -v log_file="$OUTDIR/shift_stats.log" -f "$HOME/lab_utils/shift_reads.awk" | \
+        awk -v shift="$shift_size" -v chrom_file="$OUTDIR/chrom.sizes" -v log_file="$OUTDIR/shift_stats.log" -f "$HOME/lab_utils/core_scripts/shift_reads.awk" | \
         samtools sort -@ $THREADS | \
         samtools view -bS - > "$output" || {
         echo "Shifting failed for $input" >&2
