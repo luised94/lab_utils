@@ -125,6 +125,100 @@ get_chrom_sizes() {
     echo "======================================="
 }
 
+get_peak_name() {
+    local sample=$1
+    local bam_type=$2
+    local mode=$3
+    local has_input=$4
+    echo "${OUTDIR}/peaks/${sample}_${bam_type}_${mode}_${has_input}_peaks"
+}
+
+process_bam_set() {
+    local -n bams=$1      # Reference to BAM array
+    local bam_type=$2     # raw/deduped/shifted
+    local allow_input=$3  # true/false
+    
+    echo "=== Processing $bam_type BAMs ==="
+    echo "Number of BAMs to process: ${#bams[@]}"
+    echo "Available samples: ${!bams[@]}"
+    
+    for sample in "${!bams[@]}"; do
+        echo -e "\nProcessing sample: $sample"
+        echo "Input BAM: ${bams[$sample]}"
+        
+        # Skip input sample for certain analyses
+        if [[ "$sample" == "input" && "$bam_type" == "shifted" ]]; then
+            echo "Skipping input sample for shifted analysis"
+            continue
+        fi
+        
+        # Get fragment size if available
+        local ext_size=""
+        if [[ -v "FRAGMENTS[$sample]" ]]; then
+            ext_size="--extsize ${FRAGMENTS[$sample]}"
+            echo "Using fragment size: ${FRAGMENTS[$sample]}"
+        else
+            echo "No fragment size available for $sample"
+        fi
+        
+        # Process each peak calling mode
+        for mode in "${!PEAK_MODES[@]}"; do
+            echo -e "\n  Peak calling mode: $mode"
+            
+            # Without input control
+            out_prefix=$(get_peak_name "$sample" "$bam_type" "$mode" "noInput")
+            echo "  Output prefix: $(basename "$out_prefix")"
+            
+            # Skip if output exists
+            if [[ -f "${out_prefix}.narrowPeak" || -f "${out_prefix}.broadPeak" ]]; then
+                echo "  Skipping existing output: $(basename "$out_prefix")*Peak"
+                continue
+            fi
+            
+            echo "  Running MACS2 without input control..."
+            echo "  Parameters:"
+            echo "    - Treatment: ${bams[$sample]}"
+            echo "    - Mode: ${PEAK_MODES[$mode]}"
+            echo "    - Fragment size param: $ext_size"
+            
+            macs2 callpeak \
+                -t "${bams[$sample]}" \
+                -n "$out_prefix" \
+                ${CORE_PARAMS[@]} \
+                ${PEAK_MODES[$mode]} \
+                $ext_size
+            
+            # With input control (if allowed and available)
+            if [[ "$allow_input" == true && "$sample" == "test" ]]; then
+                out_prefix=$(get_peak_name "$sample" "$bam_type" "$mode" "withInput")
+                echo -e "\n  Processing with input control"
+                echo "  Output prefix: $(basename "$out_prefix")"
+                
+                if [[ -f "${out_prefix}.narrowPeak" || -f "${out_prefix}.broadPeak" ]]; then
+                    echo "  Skipping existing output: $(basename "$out_prefix")*Peak"
+                    continue
+                fi
+                
+                echo "  Running MACS2 with input control..."
+                echo "  Parameters:"
+                echo "    - Treatment: ${bams[$sample]}"
+                echo "    - Control: ${DEDUPED_BAMS[input]}"
+                echo "    - Mode: ${PEAK_MODES[$mode]}"
+                echo "    - Fragment size param: $ext_size"
+                
+                macs2 callpeak \
+                    -t "${bams[$sample]}" \
+                    -c "${DEDUPED_BAMS[input]}" \
+                    -n "$out_prefix" \
+                    ${CORE_PARAMS[@]} \
+                    ${PEAK_MODES[$mode]} \
+                    $ext_size
+            fi
+        done
+    done
+    echo -e "\nCompleted processing $bam_type BAMs"
+}
+
 ##############################################
 # Initialization & Validation
 ##############################################
@@ -375,6 +469,42 @@ echo "=== Fragment Sizes ==="
 for sample in "${!FRAGMENTS[@]}"; do
     echo "$sample: ${FRAGMENTS[$sample]}bp"
 done
+
+# Core parameters used in all calls
+CORE_PARAMS=(
+    "-g $GENOME_SIZE"
+    "--SPMR"
+)
+
+# Analysis variants with significance thresholds
+declare -A PEAK_MODES=(
+    ['narrow_p']="--nomodel --call-summits --pvalue 1e-6"
+    ['narrow_q']="--nomodel --call-summits --qvalue 0.01"
+    ['broad_p']="--broad --broad-cutoff 0.1 --nomodel --pvalue 1e-6"
+    ['broad_q']="--broad --broad-cutoff 0.1 --nomodel --qvalue 0.01"
+    ['auto_p']="--fix-bimodal --call-summits --pvalue 1e-6"
+    ['auto_q']="--fix-bimodal --call-summits --qvalue 0.01"
+)
+
+echo -e "\n=== Starting Peak Calling Analysis ==="
+echo "Available BAM sets:"
+echo "Original BAMs: ${!SAMPLES[@]}"
+echo "Deduped BAMs: ${!DEDUPED_BAMS[@]}"
+echo "Shifted BAMs: ${!SHIFTED_BAMS[@]}"
+
+# Process original BAMs
+echo -e "\nProcessing original BAMs..."
+process_bam_set SAMPLES "raw" true
+
+# Process deduplicated BAMs
+echo -e "\nProcessing deduplicated BAMs..."
+process_bam_set DEDUPED_BAMS "deduped" true
+
+# Process shifted BAMs
+echo -e "\nProcessing shifted BAMs..."
+process_bam_set SHIFTED_BAMS "shifted" true
+
+echo -e "\n=== Peak Calling Analysis Complete ==="
 
 ## === Peak Calling ===
 #declare -A MACS_PARAMS=(
