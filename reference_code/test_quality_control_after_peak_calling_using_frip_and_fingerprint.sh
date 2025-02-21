@@ -130,7 +130,7 @@ for peak_file in "${PEAK_FILES[@]}"; do
         -b "$bam_file" \
         -c > "$reads_in_peaks" || {
             echo "[ERROR] bedtools intersect failed for $(basename "$bam_file")" >&2
-            return 1
+            continue
         }
     echo "reads_in_peaks output:"
     cat $reads_in_peaks | head -n 2
@@ -140,11 +140,9 @@ for peak_file in "${PEAK_FILES[@]}"; do
         {sum+=$NF} 
         END{printf "%.4f\n", sum/total}' "$reads_in_peaks")
 
-
-    # Save results
     # Define the output file
     output_file="$FRIP_OUTPUT_DIR/${file_output_prefix}_frip_score.txt"
-    
+
     # Save results if the file does not exist
     [[ ! -f "$output_file" ]] && {
             echo "BAM: $(basename "$bam_file")"
@@ -155,7 +153,7 @@ for peak_file in "${PEAK_FILES[@]}"; do
     } > "$output_file"
 
     echo "FRiP score: $frip"
-    echo "Results saved in: $output_dir"
+    echo "Results saved in: $output_file"
 done
 
 echo "=== FRiP Analysis Complete ==="
