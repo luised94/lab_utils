@@ -91,69 +91,93 @@ echo "Found ${#PEAK_FILES[@]} peak files"
 FRIP_OUTPUT_DIR="$OUTDIR/frip"
 mkdir -p "$FRIP_OUTPUT_DIR"
 
-# Process each peak file
+declare -A TOTAL_READS_CACHE
+
 for peak_file in "${PEAK_FILES[@]}"; do
     # Extract information from peak filename
     peak_filename=$(basename "$peak_file")
-    sample_type=${peak_filename%%_*}  # Extract sample type
-    #bam_type=$(echo "$filename" | grep -oP '(?<=_)[^_]+(?=_[^_]+_[^_]+_peaks)')  # raw/deduped/shifted
+    sample_type=${peak_filename%%_*}             # Extract sample type
     bam_type=$(echo "$peak_filename" | awk -F'_' '{print $2}')  # raw/deduped/shifted
     file_output_prefix=${peak_filename%_peaks*}
-
+    
     echo "Processing ${peak_filename}..."
     echo "  Sample type: $sample_type"
     echo "  Bam type: $bam_type"
     echo "  Filename prefix: $file_output_prefix"
-
+    
     # Select corresponding BAM file
     case $bam_type in
         "raw") bam_file="${SAMPLES[$sample_type]}" ;;
         "deduped") bam_file="${DEDUPED_BAMS[$sample_type]}" ;;
         "shifted") bam_file="${SHIFTED_BAMS[$sample_type]}" ;;
-        *) echo "Unknown BAM type: $bam_type" >&2; continue ;;
+        *)
+            echo "Unknown BAM type: $bam_type" >&2
+            continue
+            ;;
     esac
-
+    
     echo "Debug message before calculating frip:"
     echo "  BAM file: $bam_file"
-
+    
     # Verify BAM file exists
-    [[ -f "$bam_file" ]] || {
+    if [[ ! -f "$bam_file" ]]; then
         echo "ERROR: Missing BAM file: $bam_file" >&2
         continue
-    }
+    fi
 
-    total_reads=$(samtools view -c "$bam_file")
-    echo "Total reads: $total_reads"
-    reads_in_peaks="$FRIP_OUTPUT_DIR/reads_in_peaks.txt"
-    bedtools intersect \
-        -a "$peak_file" \
-        -b "$bam_file" \
-        -c > "$reads_in_peaks" || {
+    # Use a combined key to cache total_reads by sample and bam type
+    cache_key="${sample_type}_${bam_type}"
+    if [[ -z "${TOTAL_READS_CACHE[$cache_key]}" ]]; then
+        total_reads=$(samtools view -c "$bam_file")
+        TOTAL_READS_CACHE[$cache_key]=$total_reads
+        echo "Total reads: $total_reads"
+    else
+        total_reads=${TOTAL_READS_CACHE[$cache_key]}
+        echo "Total reads (cached): $total_reads"
+    fi
+
+    # Define unique filenames for bedtools and FRiP results
+    reads_in_peaks="$FRIP_OUTPUT_DIR/${file_output_prefix}_reads_in_peaks.txt"
+    frip_output="$FRIP_OUTPUT_DIR/${file_output_prefix}_frip_score.txt"
+
+    # Run bedtools intersect only if result is not already stored
+    if [[ ! -f "$reads_in_peaks" ]]; then
+        if ! bedtools intersect -a "$peak_file" -b "$bam_file" -c > "$reads_in_peaks"; then
             echo "[ERROR] bedtools intersect failed for $(basename "$bam_file")" >&2
             continue
-        }
+        fi
+    else
+        echo "Using cached bedtools intersection result for $peak_filename"
+    fi
+
     echo "reads_in_peaks output:"
-    cat $reads_in_peaks | head -n 2
+    head -n 2 "$reads_in_peaks"
+
+    # Skip FRiP calculation if output already exists
+    if [[ -f "$frip_output" ]]; then
+        echo "FRiP score already computed:"
+        grep 'FRiP score:' "$frip_output"
+        echo "Results saved in: $frip_output"
+        continue
+    fi
 
     # Calculate FRiP score
     frip=$(awk -v total="$total_reads" '
-        {sum+=$NF} 
-        END{printf "%.4f\n", sum/total}' "$reads_in_peaks")
+        { sum += $NF }
+        END { printf "%.4f\n", sum/total }
+    ' "$reads_in_peaks")
 
-    # Define the output file
-    output_file="$FRIP_OUTPUT_DIR/${file_output_prefix}_frip_score.txt"
-
-    # Save results if the file does not exist
-    [[ ! -f "$output_file" ]] && {
-            echo "BAM: $(basename "$bam_file")"
-            echo "Peaks: $(basename "$peak_file")"
-            echo "Total reads: $total_reads"
-            echo "FRiP score: $frip"
-            echo "Date: $(date)"
-    } > "$output_file"
+    # Write results to the output file
+    {
+        echo "BAM: $(basename "$bam_file")"
+        echo "Peaks: $(basename "$peak_file")"
+        echo "Total reads: $total_reads"
+        echo "FRiP score: $frip"
+        echo "Date: $(date)"
+    } > "$frip_output"
 
     echo "FRiP score: $frip"
-    echo "Results saved in: $output_file"
+    echo "Results saved in: $frip_output"
 done
 
 echo "=== FRiP Analysis Complete ==="
