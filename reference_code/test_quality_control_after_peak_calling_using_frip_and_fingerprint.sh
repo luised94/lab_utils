@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # === Configuration ===
-OUTDIR="preprocessing_test"
+OUTDIR="$HOME/preprocessing_test"
 THREADS=8
 
 # Load required modules
