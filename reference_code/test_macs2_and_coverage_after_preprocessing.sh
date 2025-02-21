@@ -130,7 +130,7 @@ get_peak_name() {
     local bam_type=$2
     local mode=$3
     local has_input=$4
-    echo "${OUTDIR}/peaks/${sample}_${bam_type}_${mode}_${has_input}_peaks"
+    echo "${OUTDIR}/peaks/${sample}_${bam_type}_${mode}_${has_input}"
 }
 
 process_bam_set() {
