@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+#set -euo pipefail
 
 # === Configuration ===
 OUTDIR="$HOME/preprocessing_test"
@@ -88,7 +88,7 @@ mapfile -t PEAK_FILES < <(find "$OUTDIR/peaks" -name "*_peaks.narrowPeak" -o -na
 
 echo "Found ${#PEAK_FILES[@]} peak files"
 # Create output directory
-FRIP_OUTPUT_DIR="$OUTDIR/frip/"
+FRIP_OUTPUT_DIR="$OUTDIR/frip"
 mkdir -p "$FRIP_OUTPUT_DIR"
 
 # Process each peak file
