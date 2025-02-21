@@ -124,7 +124,7 @@ for peak_file in "${PEAK_FILES[@]}"; do
 
     total_reads=$(samtools view -c "$bam_file")
     echo "Total reads: $total_reads"
-    local reads_in_peaks="$FRIP_OUTPUT_DIR/reads_in_peaks.txt"
+    reads_in_peaks="$FRIP_OUTPUT_DIR/reads_in_peaks.txt"
     bedtools intersect \
         -a "$peak_file" \
         -b "$bam_file" \
