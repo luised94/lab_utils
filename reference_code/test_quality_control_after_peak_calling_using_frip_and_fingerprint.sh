@@ -182,6 +182,80 @@ done
 
 echo "=== FRiP Analysis Complete ==="
 
+#!/bin/bash
+echo -e "\n=== FRIP Score Summary ==="
+
+# Define thresholds for quality assessment
+declare -A FRIP_THRESHOLDS=(
+    [excellent]=0.10  # >10%
+    [good]=0.05       # >5%
+    [moderate]=0.01   # >1%
+)
+
+# Collect all FRiP score entries once.
+# Each line will contain: <filename> <FRiP_score>
+frip_entries=$(find "$FRIP_OUTPUT_DIR" -name "*_frip_score.txt" -exec awk '/FRiP score:/ { print FILENAME, $NF }' {} \;)
+
+if [[ -z "$frip_entries" ]]; then
+    echo "No FRiP score files found in $FRIP_OUTPUT_DIR"
+    exit 1
+fi
+
+echo "Analyzing FRiP scores..."
+
+# --- Threshold-based Listing ---
+for threshold_name in "${!FRIP_THRESHOLDS[@]}"; do
+    threshold="${FRIP_THRESHOLDS[$threshold_name]}"
+    echo -e "\nSamples with $threshold_name FRiP scores (>${threshold}):"
+    echo "$frip_entries" | awk -v thr="$threshold" '$2 > thr { print $0 }' | sort -k2,2nr
+done
+
+# --- Overall Distribution Statistics ---
+echo -e "\nFRiP Score Distribution:"
+# Extract just the scores, sort them, and store in an array.
+readarray -t scores < <(echo "$frip_entries" | awk '{print $2}' | sort -n)
+n=${#scores[@]}
+
+if (( n > 0 )); then
+    sum=0
+    for score in "${scores[@]}"; do
+        sum=$(echo "$sum + $score" | bc -l)
+    done
+    min=${scores[0]}
+    max=${scores[$((n-1))]}
+    mean=$(echo "$sum / $n" | bc -l)
+
+    # Calculate median
+    if (( n % 2 == 1 )); then
+        median=${scores[$((n/2))]}
+    else
+        mid1=${scores[$((n/2 - 1))]}
+        mid2=${scores[$((n/2))]}
+        median=$(echo "($mid1 + $mid2) / 2" | bc -l)
+    fi
+
+    printf "Min: %.4f\n" "$min"
+    printf "Max: %.4f\n" "$max"
+    printf "Mean: %.4f\n" "$mean"
+    printf "Median: %.4f\n" "$median"
+fi
+
+# --- Analysis by BAM (Processing) Type ---
+echo -e "\nFRiP Scores by Processing Type:"
+for bam_type in "raw" "deduped" "shifted"; do
+    echo -e "\n$bam_type:"
+    # Filter the entries for the current bam type based on the filename.
+    type_entries=$(echo "$frip_entries" | grep -i "$bam_type")
+    count=$(echo "$type_entries" | wc -l)
+    if (( count > 0 )); then
+        sum_type=$(echo "$type_entries" | awk '{sum += $2} END {print sum}')
+        avg=$(echo "$sum_type / $count" | bc -l)
+        printf "Average: %.4f (%d samples)\n" "$avg" "$count"
+    else
+        echo "No samples found."
+    fi
+done
+
 ## === Quality Control ===
 #plotFingerprint \
 #    -b "${PROCESSED_BAMS[test]}" "${COVERAGE_PATHS[input]}" \
