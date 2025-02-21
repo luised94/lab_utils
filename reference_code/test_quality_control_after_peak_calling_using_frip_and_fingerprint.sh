@@ -121,6 +121,8 @@ for sample_type in "${!SAMPLES[@]}"; do
     SHIFTED_BAMS[$sample_type]="$shifted_path"
 done
 
+(( missing_files )) && { echo "Aborting: Missing files"; echo "Run test_bam_preprocessing_with_picard_macs2_deeptools.sh script." ; exit 1; }
+echo "=== All bam files found ==="
 
 # === Process Each Analysis Type ===
 echo "=== Starting FRiP Analysis ==="
@@ -140,7 +142,8 @@ for peak_file in "${PEAK_FILES[@]}"; do
     # Extract information from peak filename
     filename=$(basename "$peak_file")
     sample_type=${filename%%_*}  # Extract sample type
-    bam_type=$(echo "$filename" | grep -oP '(?<=_)[^_]+(?=_[^_]+_[^_]+_peaks)')  # raw/deduped/shifted
+    #bam_type=$(echo "$filename" | grep -oP '(?<=_)[^_]+(?=_[^_]+_[^_]+_peaks)')  # raw/deduped/shifted
+    bam_type=$(echo "$filename" | awk -F'_' '{print $2}')  # raw/deduped/shifted
 
     echo "Processing ${peak_file}..."
     echo "Filename: $input"
@@ -155,15 +158,15 @@ for peak_file in "${PEAK_FILES[@]}"; do
         *) echo "Unknown BAM type: $bam_type" >&2; continue ;;
     esac
     
+    echo "Debug message before calculating frip:"
+    echo "  BAM file: $bam_file"
+    echo "  Filename prefix: ${filename%_peaks*}"
+
     # Verify BAM file exists
     [[ -f "$bam_file" ]] || {
         echo "ERROR: Missing BAM file: $bam_file" >&2
         continue
     }
-
-    echo "Debug message before calculating frip:"
-    echo "  BAM file: $bam_file"
-    echo "  Filename prefix: ${filename%_peaks*}"
 
     ## Calculate FRiP
     #calculate_frip "$bam_file" "$peak_file" "${filename%_peaks*}"
