@@ -92,179 +92,179 @@ FRIP_OUTPUT_DIR="$OUTDIR/frip"
 mkdir -p "$FRIP_OUTPUT_DIR"
 
 declare -A TOTAL_READS_CACHE
-
-for peak_file in "${PEAK_FILES[@]}"; do
-    # Extract information from peak filename
-    peak_filename=$(basename "$peak_file")
-    sample_type=${peak_filename%%_*}             # Extract sample type
-    bam_type=$(echo "$peak_filename" | awk -F'_' '{print $2}')  # raw/deduped/shifted
-    file_output_prefix=${peak_filename%_peaks*}
-    
-    echo "Processing ${peak_filename}..."
-    echo "  Sample type: $sample_type"
-    echo "  Bam type: $bam_type"
-    echo "  Filename prefix: $file_output_prefix"
-    
-    # Select corresponding BAM file
-    case $bam_type in
-        "raw") bam_file="${SAMPLES[$sample_type]}" ;;
-        "deduped") bam_file="${DEDUPED_BAMS[$sample_type]}" ;;
-        "shifted") bam_file="${SHIFTED_BAMS[$sample_type]}" ;;
-        *)
-            echo "Unknown BAM type: $bam_type" >&2
-            continue
-            ;;
-    esac
-    
-    echo "Debug message before calculating frip:"
-    echo "  BAM file: $bam_file"
-    
-    # Verify BAM file exists
-    if [[ ! -f "$bam_file" ]]; then
-        echo "ERROR: Missing BAM file: $bam_file" >&2
-        continue
-    fi
-
-    # Use a combined key to cache total_reads by sample and bam type
-    cache_key="${sample_type}_${bam_type}"
-    if [[ -z "${TOTAL_READS_CACHE[$cache_key]}" ]]; then
-        total_reads=$(samtools view -c "$bam_file")
-        TOTAL_READS_CACHE[$cache_key]=$total_reads
-        echo "Total reads: $total_reads"
-    else
-        total_reads=${TOTAL_READS_CACHE[$cache_key]}
-        echo "Total reads (cached): $total_reads"
-    fi
-
-    # Define unique filenames for bedtools and FRiP results
-    reads_in_peaks="$FRIP_OUTPUT_DIR/${file_output_prefix}_reads_in_peaks.txt"
-    frip_output="$FRIP_OUTPUT_DIR/${file_output_prefix}_frip_score.txt"
-
-    # Run bedtools intersect only if result is not already stored
-    if [[ ! -f "$reads_in_peaks" ]]; then
-        if ! bedtools intersect -a "$peak_file" -b "$bam_file" -c > "$reads_in_peaks"; then
-            echo "[ERROR] bedtools intersect failed for $(basename "$bam_file")" >&2
-            continue
-        fi
-    else
-        echo "Using cached bedtools intersection result for $peak_filename"
-    fi
-
-    echo "reads_in_peaks output:"
-    head -n 2 "$reads_in_peaks"
-
-    # Skip FRiP calculation if output already exists
-    if [[ -f "$frip_output" ]]; then
-        echo "FRiP score already computed:"
-        grep 'FRiP score:' "$frip_output"
-        echo "Results saved in: $frip_output"
-        continue
-    fi
-
-    # Calculate FRiP score
-    frip=$(awk -v total="$total_reads" '
-        { sum += $NF }
-        END { printf "%.4f\n", sum/total }
-    ' "$reads_in_peaks")
-
-    # Write results to the output file
-    {
-        echo "BAM: $(basename "$bam_file")"
-        echo "Peaks: $(basename "$peak_file")"
-        echo "Total reads: $total_reads"
-        echo "FRiP score: $frip"
-        echo "Date: $(date)"
-    } > "$frip_output"
-
-    echo "FRiP score: $frip"
-    echo "Results saved in: $frip_output"
-done
-
-echo "=== FRiP Analysis Complete ==="
-
-#!/bin/bash
-echo -e "\n=== FRIP Score Summary ==="
-
-# Define thresholds for quality assessment
-declare -A FRIP_THRESHOLDS=(
-    [excellent]=0.10  # >10%
-    [good]=0.05       # >5%
-    [moderate]=0.01   # >1%
-)
-
-# Collect all FRiP score entries once.
-# Each line will contain: <filename> <FRiP_score>
-frip_entries=$(find "$FRIP_OUTPUT_DIR" -name "*_frip_score.txt" -exec awk '/FRiP score:/ { print FILENAME, $NF }' {} \;)
-
-if [[ -z "$frip_entries" ]]; then
-    echo "No FRiP score files found in $FRIP_OUTPUT_DIR"
-    exit 1
-fi
-
-echo "Analyzing FRiP scores..."
-
-# --- Threshold-based Listing ---
-for threshold_name in "${!FRIP_THRESHOLDS[@]}"; do
-    threshold="${FRIP_THRESHOLDS[$threshold_name]}"
-    echo -e "\nSamples with $threshold_name FRiP scores (>${threshold}):"
-    echo "$frip_entries" | awk -v thr="$threshold" '$2 > thr { print $0 }' | sort -k2,2nr
-done
-
-# --- Overall Distribution Statistics ---
-echo -e "\nFRiP Score Distribution:"
-# Extract just the scores, sort them, and store in an array.
-readarray -t scores < <(echo "$frip_entries" | awk '{print $2}' | sort -n)
-n=${#scores[@]}
-
-if (( n > 0 )); then
-    sum=0
-    for score in "${scores[@]}"; do
-        sum=$(echo "$sum + $score" | bc -l)
-    done
-    min=${scores[0]}
-    max=${scores[$((n-1))]}
-    mean=$(echo "$sum / $n" | bc -l)
-
-    # Calculate median
-    if (( n % 2 == 1 )); then
-        median=${scores[$((n/2))]}
-    else
-        mid1=${scores[$((n/2 - 1))]}
-        mid2=${scores[$((n/2))]}
-        median=$(echo "($mid1 + $mid2) / 2" | bc -l)
-    fi
-
-    printf "Min: %.4f\n" "$min"
-    printf "Max: %.4f\n" "$max"
-    printf "Mean: %.4f\n" "$mean"
-    printf "Median: %.4f\n" "$median"
-fi
-
-# --- Analysis by BAM (Processing) Type ---
-echo -e "\nFRiP Scores by Processing Type:"
-for bam_type in "raw" "deduped" "shifted"; do
-    echo -e "\n$bam_type:"
-    # Filter the entries for the current bam type based on the filename.
-    type_entries=$(echo "$frip_entries" | grep -i "$bam_type")
-    count=$(echo "$type_entries" | wc -l)
-    if (( count > 0 )); then
-        sum_type=$(echo "$type_entries" | awk '{sum += $2} END {print sum}')
-        avg=$(echo "$sum_type / $count" | bc -l)
-        printf "Average: %.4f (%d samples)\n" "$avg" "$count"
-    else
-        echo "No samples found."
-    fi
-done
-
-## === Quality Control ===
-#plotFingerprint \
-#    -b "${PROCESSED_BAMS[test]}" "${COVERAGE_PATHS[input]}" \
-#    --labels Test Input \
-#    -o "$OUTDIR/fingerprint_test_vs_input.png" \
-#    --numberOfProcessors "$THREADS"
 #
-#plotFingerprint \
-#    -b "${PROCESSED_BAMS[reference]}" \
-#    --labels Reference \
-#    -o "$OUTDIR/fingerprint_reference.png" \
-#    --numberOfProcessors "$THREADS"
+#for peak_file in "${PEAK_FILES[@]}"; do
+#    # Extract information from peak filename
+#    peak_filename=$(basename "$peak_file")
+#    sample_type=${peak_filename%%_*}             # Extract sample type
+#    bam_type=$(echo "$peak_filename" | awk -F'_' '{print $2}')  # raw/deduped/shifted
+#    file_output_prefix=${peak_filename%_peaks*}
+#    
+#    echo "Processing ${peak_filename}..."
+#    echo "  Sample type: $sample_type"
+#    echo "  Bam type: $bam_type"
+#    echo "  Filename prefix: $file_output_prefix"
+#    
+#    # Select corresponding BAM file
+#    case $bam_type in
+#        "raw") bam_file="${SAMPLES[$sample_type]}" ;;
+#        "deduped") bam_file="${DEDUPED_BAMS[$sample_type]}" ;;
+#        "shifted") bam_file="${SHIFTED_BAMS[$sample_type]}" ;;
+#        *)
+#            echo "Unknown BAM type: $bam_type" >&2
+#            continue
+#            ;;
+#    esac
+#    
+#    echo "Debug message before calculating frip:"
+#    echo "  BAM file: $bam_file"
+#    
+#    # Verify BAM file exists
+#    if [[ ! -f "$bam_file" ]]; then
+#        echo "ERROR: Missing BAM file: $bam_file" >&2
+#        continue
+#    fi
+#
+#    # Use a combined key to cache total_reads by sample and bam type
+#    cache_key="${sample_type}_${bam_type}"
+#    if [[ -z "${TOTAL_READS_CACHE[$cache_key]}" ]]; then
+#        total_reads=$(samtools view -c "$bam_file")
+#        TOTAL_READS_CACHE[$cache_key]=$total_reads
+#        echo "Total reads: $total_reads"
+#    else
+#        total_reads=${TOTAL_READS_CACHE[$cache_key]}
+#        echo "Total reads (cached): $total_reads"
+#    fi
+#
+#    # Define unique filenames for bedtools and FRiP results
+#    reads_in_peaks="$FRIP_OUTPUT_DIR/${file_output_prefix}_reads_in_peaks.txt"
+#    frip_output="$FRIP_OUTPUT_DIR/${file_output_prefix}_frip_score.txt"
+#
+#    # Run bedtools intersect only if result is not already stored
+#    if [[ ! -f "$reads_in_peaks" ]]; then
+#        if ! bedtools intersect -a "$peak_file" -b "$bam_file" -c > "$reads_in_peaks"; then
+#            echo "[ERROR] bedtools intersect failed for $(basename "$bam_file")" >&2
+#            continue
+#        fi
+#    else
+#        echo "Using cached bedtools intersection result for $peak_filename"
+#    fi
+#
+#    echo "reads_in_peaks output:"
+#    head -n 2 "$reads_in_peaks"
+#
+#    # Skip FRiP calculation if output already exists
+#    if [[ -f "$frip_output" ]]; then
+#        echo "FRiP score already computed:"
+#        grep 'FRiP score:' "$frip_output"
+#        echo "Results saved in: $frip_output"
+#        continue
+#    fi
+#
+#    # Calculate FRiP score
+#    frip=$(awk -v total="$total_reads" '
+#        { sum += $NF }
+#        END { printf "%.4f\n", sum/total }
+#    ' "$reads_in_peaks")
+#
+#    # Write results to the output file
+#    {
+#        echo "BAM: $(basename "$bam_file")"
+#        echo "Peaks: $(basename "$peak_file")"
+#        echo "Total reads: $total_reads"
+#        echo "FRiP score: $frip"
+#        echo "Date: $(date)"
+#    } > "$frip_output"
+#
+#    echo "FRiP score: $frip"
+#    echo "Results saved in: $frip_output"
+#done
+#
+#echo "=== FRiP Analysis Complete ==="
+#
+##!/bin/bash
+#echo -e "\n=== FRIP Score Summary ==="
+#
+## Define thresholds for quality assessment
+#declare -A FRIP_THRESHOLDS=(
+#    [excellent]=0.10  # >10%
+#    [good]=0.05       # >5%
+#    [moderate]=0.01   # >1%
+#)
+#
+## Collect all FRiP score entries once.
+## Each line will contain: <filename> <FRiP_score>
+#frip_entries=$(find "$FRIP_OUTPUT_DIR" -name "*_frip_score.txt" -exec awk '/FRiP score:/ { print FILENAME, $NF }' {} \;)
+#
+#if [[ -z "$frip_entries" ]]; then
+#    echo "No FRiP score files found in $FRIP_OUTPUT_DIR"
+#    exit 1
+#fi
+#
+#echo "Analyzing FRiP scores..."
+#
+## --- Threshold-based Listing ---
+#for threshold_name in "${!FRIP_THRESHOLDS[@]}"; do
+#    threshold="${FRIP_THRESHOLDS[$threshold_name]}"
+#    echo -e "\nSamples with $threshold_name FRiP scores (>${threshold}):"
+#    echo "$frip_entries" | awk -v thr="$threshold" '$2 > thr { print $0 }' | sort -k2,2nr
+#done
+#
+## --- Overall Distribution Statistics ---
+#echo -e "\nFRiP Score Distribution:"
+## Extract just the scores, sort them, and store in an array.
+#readarray -t scores < <(echo "$frip_entries" | awk '{print $2}' | sort -n)
+#n=${#scores[@]}
+#
+#if (( n > 0 )); then
+#    sum=0
+#    for score in "${scores[@]}"; do
+#        sum=$(echo "$sum + $score" | bc -l)
+#    done
+#    min=${scores[0]}
+#    max=${scores[$((n-1))]}
+#    mean=$(echo "$sum / $n" | bc -l)
+#
+#    # Calculate median
+#    if (( n % 2 == 1 )); then
+#        median=${scores[$((n/2))]}
+#    else
+#        mid1=${scores[$((n/2 - 1))]}
+#        mid2=${scores[$((n/2))]}
+#        median=$(echo "($mid1 + $mid2) / 2" | bc -l)
+#    fi
+#
+#    printf "Min: %.4f\n" "$min"
+#    printf "Max: %.4f\n" "$max"
+#    printf "Mean: %.4f\n" "$mean"
+#    printf "Median: %.4f\n" "$median"
+#fi
+#
+## --- Analysis by BAM (Processing) Type ---
+#echo -e "\nFRiP Scores by Processing Type:"
+#for bam_type in "raw" "deduped" "shifted"; do
+#    echo -e "\n$bam_type:"
+#    # Filter the entries for the current bam type based on the filename.
+#    type_entries=$(echo "$frip_entries" | grep -i "$bam_type")
+#    count=$(echo "$type_entries" | wc -l)
+#    if (( count > 0 )); then
+#        sum_type=$(echo "$type_entries" | awk '{sum += $2} END {print sum}')
+#        avg=$(echo "$sum_type / $count" | bc -l)
+#        printf "Average: %.4f (%d samples)\n" "$avg" "$count"
+#    else
+#        echo "No samples found."
+#    fi
+#done
+#
+### === Quality Control ===
+##plotFingerprint \
+##    -b "${PROCESSED_BAMS[test]}" "${COVERAGE_PATHS[input]}" \
+##    --labels Test Input \
+##    -o "$OUTDIR/fingerprint_test_vs_input.png" \
+##    --numberOfProcessors "$THREADS"
+##
+##plotFingerprint \
+##    -b "${PROCESSED_BAMS[reference]}" \
+##    --labels Reference \
+##    -o "$OUTDIR/fingerprint_reference.png" \
+##    --numberOfProcessors "$THREADS"
