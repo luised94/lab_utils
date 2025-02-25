@@ -338,7 +338,8 @@ done
 
 # === Cross-comparison Fingerprints ===
 # Compare processing methods for each sample (test and reference)
-for sample in "test" "reference"; do
+for sample in "${samples_to_process[@]}"; do
+
     echo -e "\nGenerating ${sample} processing comparison..."
     base_name="${QC_DIR}/fingerprint_${sample}_processing_comparison"
     
