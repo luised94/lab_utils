@@ -270,7 +270,8 @@ echo "Created $QC_DIR directory"
 
 declare -a samples_to_process=("test" "reference")
 
-# Loop through the BAM processing types
+# Loop through the BAM processing types to create the plotFingerprint output.
+# Do not output png and pdf since that requires certain libraries that may not be available on the linux cluster.
 for bam_type in "original" "deduped" "shifted"; do
     echo -e "\nProcessing ${bam_type} BAMs..."
 
@@ -328,8 +329,6 @@ for bam_type in "original" "deduped" "shifted"; do
             plotFingerprint \
                 -b "${bam_args[@]}" \
                 --labels "$label1" ${label2:+ "$label2"} \
-                -o "${base_name}.png" \
-                --plotFile "${base_name}.pdf" \
                 --outRawCounts "${base_name}.tab" \
                 --numberOfProcessors "$THREADS"
         fi
@@ -349,8 +348,6 @@ for sample in "${samples_to_process[@]}"; do
         plotFingerprint \
             -b "${SAMPLES[$sample]}" "${DEDUPED_BAMS[$sample]}" "${SHIFTED_BAMS[$sample]}" \
             --labels "${sample^}_Original" "${sample^}_Deduped" "${sample^}_Shifted" \
-            -o "${base_name}.png" \
-            --plotFile "${base_name}.pdf" \
             --outRawCounts "${base_name}.tab" \
             --numberOfProcessors "$THREADS"
     fi
