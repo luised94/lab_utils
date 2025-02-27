@@ -1,0 +1,122 @@
+---
+title: "Working on a cluster"
+author: "Luis"
+date: "2022-10-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Purpose
+
+Notes for working on a cluster.<br> While not comprehensive, several links point to further resources.
+
+## Cluster Basics
+
+[Understand the Basic Cluster Concepts](https://www.youtube.com/watch?v=8BBDxzJL6fY&list=PLwkggWOI__GQlfOgW8T06uZqrukEpr8EO&index=1&t=1028s)
+
+[What is Cluster Computing?](https://www.tutorialspoint.com/what-is-cluster-computing)
+
+Group of servers or computers that act a single system. Centralized processing and storage for an entire organization. Has redundant parts to be accessible in case any part goes down. Multiple systems increase load balancing capabilities. Enables parallel processing.
+
+##Luria Computing Cluster [Luria](http://rous.mit.edu/index.php/Luria#About_Luria)
+
+[Another guide for working in a cluster](https://support.ceci-hpc.be/doc/index.html) [Get Luria account](http://rous.mit.edu/index.php/Luria#Get_Luria_account)
+
+Request a luria account by emailing ki-sysadm\@mit.edu from a valid email address with your lab, work that you will do.
+
+[Making ssh connections to luria.mit.edu](http://rous.mit.edu/index.php/Making_ssh_connections_to_luria.mit.edu) Connect to Luria (from a Windows computer) using ssh
+
+> \$ssh -A -Y username\@luria.mit.edu
+
+Enter password at prompt.
+
+Once connected, you can use most basic unix [commands](http://rous.mit.edu/index.php/Basic_UNIX_usage) and [utilities](http://rous.mit.edu/index.php/Unix_Utilities). You can also create [scripts](http://rous.mit.edu/index.php/Shell_scripts) by using the basic [text editors](http://rous.mit.edu/index.php/Unix_text_editors).
+
+Each user has a home directory (20Gb storage) and a symbolic link called data that points to storage servers (/net/bmc-pub14/data/bell/luised94). If you are running out of space in home directory, move files to the data folder.
+
+Access data storage
+
+> \$cd /net/bmc-pub14/data/bell/luised94
+
+or from the home directory.
+
+> \$cd data
+
+##Working on the cluster
+
+###Transfering files Retrieve the data depending on your institution. Create directory, move to it and download it. If at MIT and your data is in one of the BMC servers then use the following commands (replace with information provided by bmc in email:
+
+> \$mkdir mydir \$cd mydir
+
+> \$sftp yourusername\@bmc.site.edu
+
+Enter password at prompt.
+
+> \$cd folderwithdata \$get -r \* \$exit
+
+Confirm that files were download with ls command.
+
+You can [transfer files from your system](http://rous.mit.edu/index.php/Transferring_data_from_luria.mit.edu_to_local_computers) as well.
+
+From the directory in your system (Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) if you are on Windows):
+
+> \$scp -r directory username\@luria.mit.edu:\~/targetfolder
+
+to download all contents in the folder recursively or remove the -r option to upload a specific file.
+
+If you download things you didn't want, use rm command to remove specific files or entire directories (careful!).
+
+You can easily copy files from the luria server to your local folder using the same command.
+
+> \$scp -r [username\@luria.mit.edu](mailto:username@luria.mit.edu){.email}:\~/targetfolder /directory/on/your/computer
+
+The [rsync](https://www.youtube.com/watch?v=qE77MbDnljA) command is another way to transfer files. It has many options but a really useful feature is that it can sync files that are missing in the target directory.
+
+[Another rsync resource](https://support.ceci-hpc.be/doc/_contents/ManagingFiles/TransferringFilesEffectively.html)
+
+The BMC core will email you with a number of ways to download the data as well. (https://openwetware.org/wiki/BioMicroCenter:FAQ#DOWNLOADING_DATA)
+
+1. If you are using Luria
+sru rsync -av /net/bmc/dir ~/data/target_dir
+
+2. SFTP client to bmc.mit.edu
+3. MIT certicate.  
+###Managing Softwares
+
+The [luria server uses modules](http://rous.mit.edu/index.php/Managment_of_Software_Packages_with_module) to setup the environment. You can check what [modules](https://modules.sourceforge.net/) are available with the module command.
+
+> \$module avail
+
+Add module that you want.
+
+> \$module add r/4.2.0
+
+The modules can be used as a if they commands run on your computer.\
+After activating R or python, you can verify which packages are already installed in the module. Python and R will have a way of outputting the packages so you can keep a record of the session.
+
+###Submitting Jobs using Slurm
+
+Most HPCs have instructions for running jobs. See [Slurm_Instructions_and_Tips](http://rous.mit.edu/index.php/Slurm_Instructions_and_Tips) and [Running_jobs](http://rous.mit.edu/index.php/Luria#Running_jobs) for Luria's.<br>
+
+More resources for learning about working through Slurm 1.[Submitting jobs](https://www.sherlock.stanford.edu/docs/getting-started/submitting/) 2.[SUBMITTING JOBS](https://hcc.unl.edu/docs/submitting_jobs/)
+
+Slurm is an advanced job scheduler. Jobs have to be submitted using a script. The first part of the script contains important information about the job to be submitted and the rest contains the commands to be run.
+
+Execute a sample script:
+
+> \$sbatch myjob.sh
+
+Don't run a job on the head node, which is "where" you are when you login. Only simple Unix commands.<br> Interactive mode on a random node as a way to compile, debug and test:
+
+> \$srun --pty bash
+
+Exit:
+
+> \$exit
+
+To learn more about commands use the man command or the --help option (most commands have it).
+
+

@@ -1,0 +1,96 @@
+---
+title: "Running R with Slurm"
+author: "Luis"
+date: "2022-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Install packages, include=FALSE}
+renv::install("readtext","rslurm","quanteda")
+
+```
+```{r Read in libraries}
+library(rslurm)
+library(readtext)
+```
+
+##Running R with Slurm
+
+Most of my analysis has been done with R. The examples that will show various ways to run the R scripts in the cluster. 
+
+All scripts will have a general header (with slight variations).
+
+```{r warning=FALSE, Display the bash example file for slurm echo=FALSE, include=FALSE}
+cat(readtext("./slurmjob.sh")$text, sep = "\n", verbosity = 0)
+```
+
+##Getting Started
+
+Once you log in the server (using ssh), you can check that R is available on the cluster with the module command. Once you have confirmed this, you can use module add r/{version} to be able to use it. 
+
+Run a few commands like getwd() and list.files() to see how the paths are structured. 
+
+Confirm that you can install packages.
+
+>\>install.packages("renv")
+
+Renv is a useful package to install. It allows for isolated virtual environments in R. 
+
+If it is the first time installing a package, you will get a notice that R cannot install packages globally and will ask if you would like to install packages locally. Answer yes to these questions. 
+
+You can run libPaths() or library(<an installed package>) to confirm that the path is being recognized whenever you reload into R.
+
+You can create scripts for R and bash by using the editors found by default or installing your own (not sure how to do this).
+
+I have some scripts (see ./scripts/) that can be a useful start. You can transfer them using wsl and rsync (if you are on windows). You can see the [rsync_with_wsl_and_R.R](./scripts/rsync_with_wsl_and_R.R) to see how to run the rsync command. 
+
+>\$wsl rsync --stats -vr /mnt/c/Users/path/to/directory/working-on-a-cluster/scripts/ username\@luria.mit.edu:/home/luised94/data/R-scripts
+
+These scripts can be checked and edited using vim, nano, etc. If you modify them, it is best to keep a separate folder and synchronized every time you make changes. 
+This can be achieved with rsync as well. 
+
+From a local repository, create the directory using R (dir.create()) or the command line (mkdir). Using R:
+
+>\>dir.create("./scripts/cluster-modified/")
+
+Then use rsync command to send files every time you modify them. It is probably better to sync to some remote repository like git then pull from there both for the cluster and the remote and local computers. Just invert the order of the previous document and add the directory to sync to. 
+
+>\$wsl rsync --stats -vr username\@luria.mit.edu:/home/username/data/R-scripts/* /mnt/c/Users/path/to/project/working-on-a-cluster/scripts/cluster-modified/ 
+
+##Running R scripts from the command line. 
+
+The commands and scripts that you want to run to do analyses have to be submitted to the cluster. This means that they will be included as part of a bash script with the header for the Slurm Job manager. See ./slurmjob.sh for an example. 
+
+To run R scripts on the head node or in an interactive run (useful to check output and troubleshoot), first add R to your current session using the module add command then use the Rscript command (there are alternatives). 
+
+>\$Rscript -e 'renv::run("/home/path/to/scripts/1-package-installation.r", project = "/path/to/data/directory/")'
+
+renv::run runs a provided script and further specifies which project environment should be used.
+
+1-package-installation.r installs many useful packages for analyzing genomic and short read data as well as for documenting code. It takes a while to complete.
+
+You can check that the packages installed by using library() command, running a function or using the help page. 
+
+To submit R scripts as jobs, you can create a bash file with the Rscript command renv::run and the slurm bash header using a text editor, give it execution permission and the just run the script using the command line. 
+
+Variables do not carry over from script run to script run. 
+>\$Rscript -e 'test_var <- osVersion; test_var'
+>\$Rscript -e 'test_var'
+
+Running R command from a bash executable opens an R session.
+
+##Creating a virtual environment 
+
+We will create a directory where the data and packages will be installed. To do this, use the dir.create or mkdir command inside the data directory (the directory with the high storage capacity). Pick a name that is recognizable. I went with the name used by the biomicrocenter at MIT (YYMMDDlabname) with the type of experiment (e.g. _CHIP). YYMMDD is the last two digits of year, month and day. 
+
+To simplify things, we can combine most of the scripts into a single (longer) script. That way we don't have to worry about what happens between script runs. We can add conditional statements to prevent certain things from running or running different things based on the working environment (like the Operating System).
+
+We will make the directories in the project using the project-startup.R. This script can be run on the head node. 
+
+If you made the file in windows, you have to run dos2unix -k -o script.sh. See [link](https://stackoverflow.com/questions/14219092/bash-script-bin-bashm-bad-interpreter-no-such-file-or-directory)
+
+If you need to run on many files, you can combine find and dos2unix to both authorize (chmod) and convert many files at once. 

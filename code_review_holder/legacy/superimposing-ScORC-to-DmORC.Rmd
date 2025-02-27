@@ -1,0 +1,18 @@
+---
+title: "Superimposing ScORC-DNA to  Inactive DmORC"
+output: html_document
+date: "2023-09-20"
+bibliography: references.bib
+---
+
+## #Superimposing ScORC-DNA and Inactive DmORC
+
+Mientras escribia mi tesis, me recorde de la estructura de ORC en la conformacion "inactiva"[@bleichert2015]. Pense en los elementos estructurales que contactan el ADN y como cambiarian entre la conformacion inactiva y la conformacion enlazada a ADN [@li2018]. Mas aun, yo descubri mutaciones que ayudan a restaurar la viabilidad de cepas de S cerevisiae con defectos en la actividad de hidrolisis de ATP de ORC. Los residues en estas mutaciones no estaban conservados pero podia superimponerlos para ver en donde terminaban las areas donde estaban situados los residuos mutuados.
+
+Para realizar este trabajo utilice una combinacion de pymol y python.
+
+## #Procesamiento preliminar
+
+Primero hay que abrir el programa pymol (<https://pymol.org/2/>). Desafortunadamente no es gratis pero no tengo mucha experiencia trabajando con otros programas. [^1]
+
+[^1]: Tuve un problema abriendo las estructuras usando el comando 'fetch' pero las estructuras se pueden abrir manualmente a traves de la interface File -\> Open -\> 5zr1.pdb 4xgc.dpb

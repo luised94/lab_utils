@@ -1,0 +1,23 @@
+---
+title: "codebase"
+output: html_document
+date: "2023-08-27"
+---
+
+I am trying to modify the open-source Zotero codebase to customize the application's user interface and functionality. Could you provide recommendations on the best practices for reading and understanding large codebases? Additionally, could you provide an example prompt I could use with an AI assistant to analyze a section of code and suggest changes to implement a new user interface element or feature?
+
+Revised: 
+
+Title: Analyze Zotero Code to Add Search Bar
+
+Goal: Add a search bar UI element to the open-source Zotero reference manager desktop application.
+
+Constraints: Work within existing Zotero code structure and conventions. Make minimal required code changes.
+
+Task: Review the Zotero code section related to the main user interface view (zotero.xul). Analyze the code structure and logic flow to:
+
+Recommend where to insert code to add the new search bar UI element.
+Suggest the sequence of steps required and best practices for implementing the search bar feature while maintaining compatibility with the rest of the Zotero codebase.
+Identify 2-3 key points in the code to modify and explain the changes needed.
+Provide high-level guidelines on adhering to Zotero coding conventions when adding this feature.
+Resources: zotero.xul code snippet attached.

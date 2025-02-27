@@ -1,0 +1,16 @@
+---
+title: "Setting up git, renv and dropbox"
+author: "Luis"
+date: "2023-08-21"
+output: html_document
+---
+
+## List of configurations
+-Ignore .git, renv and .Rproj.user
+Folders like .git, renv and .Rproj.user files have a lot of files that clog up syncing with Dropbox. 
+Trying to set to ignore and keep local copies of each. 
+
+-Setup .renvignore (or .gitignore)
+
+## References
+-Sandbox. “How to Ignore .Git Folders in Dropbox.” qSandbox Blog, 22 Apr. 2020, qsandbox.com/blog/development/ignore-git-folders-dropbox-p768. 

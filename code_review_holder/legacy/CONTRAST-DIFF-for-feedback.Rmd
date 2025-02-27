@@ -1,0 +1,36 @@
+---
+title: "CONTRAST-DIFF-for-feedback.Rmd"
+output: html_document
+date: "2023-08-28"
+---
+CONTRAST - Compare, Original, Revised, Analyze, Summarize, Tendencies
+
+DIFF - Differences, Improvements, Feedback, Fixes
+
+Compare the original and revised texts provided. The texts will be in the format of two separate blocks of text, with each version enclosed in three quotation marks at the start and end to clearly indicate the beginning and end of each version. In your response, identify and explain several key representative examples of revisions (5-10 illustrative examples of differences between the two text versions). Describe how the revisions impact grammar, style, content, readability, and other aspects of writing. Analyze what specific changes were made in the revision and why by providing detailed examples that cite specific passages from each text. Overall, characterize the general goals and purposes of the revisions. Make sure to focus on these illustrative examples rather than all differences, since there are more than 20 revisions. Explain the motive behind the revisions and how they strengthen the revised version. The revisions likely aim to improve clarity, concision, flow, word choice, sentence structure, organization, argumentation, or other elements of academic writing.
+
+In 1-2 paragraphs, summarize any tendencies or patterns of errors you notice the writer repeating multiple times across the drafts. Provide 2-3 clear action steps or questions the writer should keep in mind to catch and fix these errors in future revisions.
+
+The Original and The Revision
+
+Comparing two texts, side by side,
+Checking every verb and clause,
+Analyzing each change applied,
+Evaluating without pause.
+
+The first one written in a rush,
+Ideas there but underdeveloped,
+
+The second reads with better flow,
+Its thesis sharply evolved.
+
+Examining the changes made,
+Precision now where once unclear,
+Organization rearranged,
+Strengthening both far and near.
+
+Errors fixed and patterns found,
+Advice offered help writers grow,
+
+Revision is what takes good around,
+To excellent it now may go!
