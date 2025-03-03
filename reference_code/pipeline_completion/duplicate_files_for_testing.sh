@@ -3,12 +3,12 @@ echo "Starting script for copying bam and fastq files for pipeline testing"
 
 declare -A SAMPLES=(
     ['test']="$HOME/data/241010Bel/alignment/processed_245018_sequence_to_S288C_sorted.bam"
-    ['input']="$HOME/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam" 
+    ['input']="$HOME/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam"
     ['reference']="$HOME/data/100303Bel/alignment/processed_034475_sequence_to_S288C_sorted.bam"
 )
 
 # Output config
-OUTDIR="$HOME/preprocessing_test"
+OUTDIR="$HOME/data/preprocessing_test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage" "fastq" "quality_control" "plots")
 
 # Create directory structure
@@ -28,7 +28,7 @@ do
         missing_files=1
     else
         echo "Will copy. Bam file found: $input"
-        cp $input $copy_path
+        [[ ! -e $copy_path ]] && { cp $input $copy_path; }
     fi
 done
 
@@ -55,7 +55,7 @@ do
         missing_files=1
     else
         echo "Will copy. Fastq file found: $input"
-        cp $input $copy_path
+        [[ ! -e $copy_path ]] && { cp $input $copy_path; }
     fi
 done
 
