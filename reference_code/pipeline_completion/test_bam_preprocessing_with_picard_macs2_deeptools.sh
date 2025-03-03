@@ -65,7 +65,6 @@ fi
 
 # Output config
 OUTDIR="$HOME/preprocessing_test"
-OUTPUT_PREFIX="test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
 
 # Processing parameters
