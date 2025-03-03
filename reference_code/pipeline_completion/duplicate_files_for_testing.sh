@@ -61,3 +61,7 @@ done
 
 (( missing_files )) && { echo "Aborting: Missing fastq files"; echo "Use another experiment for testing or download Eaton 2010 data."; exit 1; }
 echo "Script complete."
+echo "Remember to use samtools to index the raw bam files."
+echo "for bam in *_raw.bam; do
+    samtools index "$bam"
+done"
