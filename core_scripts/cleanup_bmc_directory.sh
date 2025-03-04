@@ -1,7 +1,7 @@
 #!/bin/bash
 # Dependencies: Requires fastq files downloaded to the appropriate experiment fastq directory. Follow instructions in email with subject * Data Ready from the BMC personnel.
-# srun rsync -av /net/bmc-pub17/data/bmc/public/Bell/241122Bel ~/data/my_target_dir
-# Usage: Run each line manually. Not worth it to automate currently.
+# srun rsync -av /net/bmc-pub17/data/bmc/public/Bell/${PROJECT_ID}/ ~/data/${PROJECT_ID}/fastq/
+# Usage: Run relevant code lines manually. Not worth it to automate currently.
 
 # Strict error handling
 set -euo pipefail
@@ -21,6 +21,7 @@ echo "Working directory: $current_dir"
 # First count existing fastq files for verification
 initial_fastq_count=$(find . -type f -name "*.fastq" | wc -l)
 echo "Found $initial_fastq_count FASTQ files initially"
+[[ ! $initial_fastq_count -eq 0 ]] && { echo "No fastq files in directory."; return; }
 
 # Remove unmapped files first
 echo "Removing unmapped files..."
