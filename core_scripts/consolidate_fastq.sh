@@ -1,5 +1,6 @@
 #!/bin/bash
 # Dependencies: Assumes fastq files where transfered to appropriate ~/data/<experiment_id> directory 
+# Run from appropriate directory.
 
 # Strict error handling
 set -euo pipefail
@@ -31,12 +32,22 @@ fi
 
 # Extract unique IDs using delimiter-based approach
 # This specifically extracts the ID between the first and second dash after 'D24'
-readarray -t unique_ids < <(ls *_sequence.fastq | awk -F'D24-' '{print $2}' | cut -d'-' -f1 | sort -u)
+
+readarray -t unique_ids < <(
+    for f in *_sequence.fastq; do
+        # Split filename components
+        IFS='_-' read -ra parts <<< "${f##*/}"
+        # Extract ID from standardized position (3rd component)
+        printf "%s\n" "${parts[2]}"
+    done | sort -u
+)
+
 # Verify we found some IDs
 if [ ${#unique_ids[@]} -eq 0 ]; then
     echo "Error: No valid IDs found in fastq files"
     exit 1
 fi
+
 echo "Number of unique IDs: ${#unique_ids[@]}"
 echo "Found the following unique IDs:"
 echo "----------------"
