@@ -1,0 +1,6 @@
+---
+title: Instructions for using core scripts to analyze CHIP-seq data
+---
+
+# Introduction
+# Protocol
