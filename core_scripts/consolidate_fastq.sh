@@ -1,9 +1,19 @@
 #!/bin/bash
 # Dependencies: Assumes fastq files where transfered to appropriate ~/data/<experiment_id> directory 
-# Run from appropriate directory.
+# Requires bmc cleanup. Script will detect and exit if not.
+# Usage: ./consolidate_fastq.sh [experiment_id]
 
 # Strict error handling
 set -euo pipefail
+
+# ---- Configuration and Usage ----
+usage() {
+    echo "Usage: $0 [experiment_id]"
+    echo "Consolidates FASTQ files into single per-sample files"
+    echo "  - Without arguments: uses current directory (must be ~/data/######Bel/fastq)"
+    echo "  - With experiment_id: uses ~/data/<experiment_id>/fastq"
+    exit 1
+}
 
 # Function to validate FASTQ files
 validate_fastq() {
@@ -18,6 +28,42 @@ validate_fastq() {
     fi
 }
 
+# ---- Argument Handling ----
+if [[ $# -gt 1 ]]; then
+    usage
+fi
+
+original_dir="$(pwd)"
+target_dir=""
+
+if [[ $# -eq 1 ]]; then
+    # Validate provided experiment_id format
+    if [[ ! "$1" =~ ^[0-9]{6}Bel$ ]]; then
+        echo "ERROR: Invalid experiment_id format - must be 6 digits followed by 'Bel'" >&2
+        echo "Example: 230504Bel" >&2
+        exit 1
+    fi
+    
+    target_dir="${HOME}/data/$1/fastq"
+    if [[ ! -d "$target_dir" ]]; then
+        echo "ERROR: Directory not found: $target_dir" >&2
+        echo "Check experiment_id or directory structure" >&2
+        exit 1
+    fi
+else
+    # Validate current directory format
+    target_dir="$(pwd)"
+    if [[ ! "$target_dir" =~ ^${HOME}/data/[0-9]{6}Bel/fastq$ ]]; then
+        echo "ERROR: Current directory must be ~/data/######Bel/fastq" >&2
+        echo "Path detected: $target_dir" >&2
+        exit 1
+    fi
+fi
+
+# ---- Main Execution ----
+echo "Using FASTQ directory: ${target_dir}"
+cd "$target_dir" || { echo "ERROR: Failed to enter directory"; exit 1; }
+
 # Validate cleanup state with single consolidated check
 if [ "$(find . -mindepth 1 -type d | wc -l)" -gt 0 ] || \
    [ "$(find . -type f ! -name "*.fastq" | wc -l)" -gt 0 ] || \
@@ -30,9 +76,10 @@ if [ "$(find . -mindepth 1 -type d | wc -l)" -gt 0 ] || \
     exit 1
 fi
 
+echo "Confirmed directory has been cleaned from other bmc files."
+
 # Extract unique IDs using delimiter-based approach
 # This specifically extracts the ID between the first and second dash after 'D24'
-
 readarray -t unique_ids < <(
     for f in *_sequence.fastq; do
         # Split filename components
@@ -44,11 +91,12 @@ readarray -t unique_ids < <(
 
 # Verify we found some IDs
 if [ ${#unique_ids[@]} -eq 0 ]; then
-    echo "Error: No valid IDs found in fastq files"
+    echo "ERROR: No valid IDs found in fastq files" >&2
+    echo "Ensure the unique ids logic is correct and no updates have occured to names." >&2
     exit 1
 fi
 
-echo "Number of unique IDs: ${#unique_ids[@]}"
+echo "Processing ${#unique_ids[@]} sample IDs"
 echo "Found the following unique IDs:"
 echo "----------------"
 printf '%s\n' "${unique_ids[@]}" | xargs -n6 | sed 's/^/    /' | column -t
@@ -61,6 +109,8 @@ if [[ "$confirm" != "y" ]]; then
     exit 0
 fi
 
+echo "Job confirmed. Proceed with consolidation."
+
 # Process each unique ID
 for id in "${unique_ids[@]}"; do
     echo "Processing ID: $id"
@@ -68,7 +118,7 @@ for id in "${unique_ids[@]}"; do
     files=( *"${id}"*_sequence.fastq )
 
     if [ ${#files[@]} -eq 0 ]; then
-        echo "No files found for ID: $id"
+        echo "ERROR: No files found for ID: $id"
         continue
     fi
 
@@ -122,4 +172,6 @@ for id in "${unique_ids[@]}"; do
     fi
 done
 
-echo "All consolidation operations completed successfully"
+echo "Consolidation completed successfully in ${target_dir}"
+# Return to original directory
+cd "$original_dir"
