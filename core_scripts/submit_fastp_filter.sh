@@ -1,6 +1,7 @@
 #!/bin/bash
-# submit_alignment.sh
-# Usage: $./submit_alignment.sh $HOME/data/<experiment_directory>
+# submit_fastp_filter.sh
+# Dependencies: Cleaned up and consolidated fastq files.
+# Usage: $./submit_fastp_filter.sh $HOME/data/<experiment_directory>
 #
 # Immediately exit if not on luria.
 if [[ "$(hostname)" != "luria" ]]; then
@@ -20,8 +21,8 @@ if [ ! -d "$EXPERIMENT_DIR" ]; then
     echo "Usage: $0 <experiment_directory>"
     exit 1
 fi
-FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
 
+FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
 
 # Count fastq files
 FASTQ_COUNT=$(find "${FASTQ_DIR}" -maxdepth 1 -type f -name "consolidated*.fastq" | wc -l)
@@ -33,19 +34,17 @@ if [ $FASTQ_COUNT -eq 0 ]; then
 fi
 
 # Format file listing with columns and headers
-echo -e "\nFASTQ files found:"
-echo "----------------"
-#mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*_sorted.bam" -exec basename {} \;)
-#printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
-#printf '%s\n' "${unique_files[@]}" | column -c "${COLUMNS:-$(tput cols)}"
-#printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
-#unique_files=$(find "${FASTQ_DIR}" -maxdepth 1 -type f -name "consolidated*.fastq" -exec basename {} \;)
-find "${FASTQ_DIR}" -maxdepth 1 -type f -name "consolidated*.fastq" -exec basename {} \; | \
-    pr -3 -t -w 100 | \
-    column -t
+mapfile -t unique_files < <(find "${FASTQ_DIR}" -maxdepth 1 -type f -name "consolidated*.fastq" -exec basename {} \;)
 
-#printf '%s\n' "${unique_ids[@]}" | column -c $(tput cols)
-echo "----------------"
+# Format file listing with columns and headers
+echo -e "\nFASTQ files found:"
+printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
+printf '%s\n' "${unique_files[@]}" | column -c "${COLUMNS:-$(tput cols)}"
+printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
+#find "${FASTQ_DIR}" -maxdepth 1 -type f -name "consolidated*.fastq" -exec basename {} \; | \
+#    pr -3 -t -w 100 | \
+#    column -t
+
 echo -e "\nWill submit array job with following parameters:"
 echo "Array size: 1-${FASTQ_COUNT}"
 echo "Max simultaneous jobs: 16"
@@ -57,5 +56,6 @@ if [[ ! $confirm =~ ^[Yy]$ ]]; then
     echo "Job submission cancelled"
     exit 0
 fi
+
 # Submit job
 sbatch --array=1-${FASTQ_COUNT}%16 "$HOME/lab_utils/core_scripts/run_fastp_filter.sbatch" "$EXPERIMENT_DIR"

@@ -19,10 +19,13 @@ if [ ! -d "$EXPERIMENT_DIR" ]; then
     echo "Usage: $0 <experiment_directory>"
     exit 1
 fi
+
 BAM_DIRECTORY="${EXPERIMENT_DIR}/alignment"
+
 # Count BAM files
 BAM_COUNT=$(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*_sorted.bam" | wc -l)
 echo "Found ${BAM_COUNT} BAM files"
+
 declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
 TOTAL_JOBS=$((BAM_COUNT * ${#NORM_METHODS[@]}))
 echo "Found ${TOTAL_JOBS} jobs to run"
@@ -30,13 +33,15 @@ if [ $BAM_COUNT -eq 0 ]; then
     echo "Error: No BAM files found in ${BAM_DIRECTORY}"
     exit 1
 fi
-#
+
+mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "processed*_sorted.bam" -exec basename {} \;)
+
 # Format file listing with columns and headers
 echo -e "\nBAM files found:"
-mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "processed*_sorted.bam" -exec basename {} \;)
 printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
 printf '%s\n' "${unique_files[@]}" | column -c "${COLUMNS:-$(tput cols)}"
 printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
+
 echo -e "\nWill submit array job with following parameters:"
 echo "Array size: 1-${BAM_COUNT}"
 echo "Max simultaneous jobs: 16"

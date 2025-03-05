@@ -10,6 +10,7 @@
 # Script: run_fastp_filter.sbatch
 # Purpose: Executes fastp filter script logic.
 # Usage: sbatch --array=1-N%16 $HOME/lab_utils/core_scripts/run_fastp_filter.sbatch <experiment_directory>
+# OR RUN via submit_fastp_filter.sh
 # Author: Luis
 # Date: 2024-12-26
 
@@ -86,6 +87,8 @@ fi
 
 # Construct output path
 OUTPUT_FASTQ="${EXPERIMENT_DIR}/fastq/processed_${SAMPLE_ID}_sequence.fastq"
+OUTPUT_QC="${EXPERIMENT_DIR}/quality_control"
+mkdir -p $OUTPUT_QC
 
 # Validate output path doesn't already exist (optional)
 if [ -f "$OUTPUT_FASTQ" ]; then
@@ -156,8 +159,8 @@ if measure_performance "fastp_filtering" \
         --thread "$CPU_THREADS" \
         --overrepresentation_analysis \
         --overrepresentation_sampling "$OVERREPRESENTATION_SAMPLING" \
-        --json "${TASK_LOG_DIR}/${SAMPLE_ID}_fastp.json" \
-        --html "${TASK_LOG_DIR}/${SAMPLE_ID}_fastp.html"; then
+        --json "$OUTPUT_QC/${SAMPLE_ID}_fastp.json" \
+        --html "$OUTPUT_QC/${SAMPLE_ID}_fastp.html"; then
     
     log_message "INFO" "Performed fastp filtering."
 else
