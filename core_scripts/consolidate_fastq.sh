@@ -55,56 +55,61 @@ printf '%s\n' "${unique_ids[@]}" | xargs -n6 | sed 's/^/    /' | column -t
 echo "----------------"
 read -p "Proceed with job submission? (y/n): " confirm
 confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
+
 if [[ "$confirm" != "y" ]]; then
     echo "Job submission cancelled"
     exit 0
 fi
 
 # Process each unique ID
-for id in ${unique_ids[@]}; do
+for id in "${unique_ids[@]}"; do
     echo "Processing ID: $id"
-    # Find all files matching the specific pattern
-    # Using more strict pattern matching to avoid false matches
-    files=$(ls *"D24-${id}-"*_sequence.fastq 2>/dev/null || true)
+    # Find files using array and glob pattern
+    files=( *"${id}"*_sequence.fastq )
 
-    # Check if we found any files
-    if [ -z "$files" ]; then
+    if [ ${#files[@]} -eq 0 ]; then
         echo "No files found for ID: $id"
         continue
     fi
 
     # Validate all files before processing
-    for file in $files; do
+    for file in "${files[@]}"; do
         validate_fastq "$file"
         echo "Validated: $file"
     done
 
-    # Create output filename
     output_file="consolidated_${id}_sequence.fastq"
+    tmp_file="${output_file}.tmp"
 
-    #echo "Successfully created $output_file"
-    # Consolidate files
-    if cat $files > "$output_file"; then
+    # Consolidate files with atomic write
+    if cat -- "${files[@]}" > "$tmp_file"; then
+        mv "$tmp_file" "$output_file"
         echo "Successfully created $output_file"
 
-        # Verify the new file exists and has content
+        # Verify file content
         if [ -s "$output_file" ]; then
-            # Get size before and after
-            original_size=$(du -b $files | awk '{sum += $1} END {print sum}')
-            new_size=$(du -b "$output_file" | awk '{print $1}')
+            # Accurate size calculation
+            original_size=$(wc -c "${files[@]}" | awk '/total/ {print $1}')
+            new_size=$(wc -c < "$output_file")
 
             echo "Original files total size: $original_size bytes"
             echo "New file size: $new_size bytes"
 
-            if [ "$new_size" -gt 0 ]; then
-                echo "Removing original files..."
-                rm -f $files
-                echo "Original files removed"
-            else
-                echo "Error: Consolidated file is empty"
-                rm -f "$output_file"
+            # Calculate original data checksum
+            orig_checksum=$(cat "${files[@]}" | md5sum | cut -d' ' -f1)
+            new_checksum=$(md5sum "$output_file" | cut -d' ' -f1)
+            
+            if [[ "$orig_checksum" != "$new_checksum" ]]; then
+                echo "Error: Consolidated file checksum mismatch!" >&2
+                echo "Expected: $orig_checksum" >&2
+                echo "Actual:   $new_checksum" >&2
                 exit 1
             fi
+
+            # Only remove if verification passed
+            echo "Removing original files..."
+            rm -f -- "${files[@]}"
+            echo "Original files removed"
         else
             echo "Error: Consolidated file is empty"
             rm -f "$output_file"
@@ -112,7 +117,7 @@ for id in ${unique_ids[@]}; do
         fi
     else
         echo "Error during consolidation"
-        rm -f "$output_file"
+        rm -f "$tmp_file" "$output_file"
         exit 1
     fi
 done
