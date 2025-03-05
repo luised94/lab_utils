@@ -7,10 +7,12 @@ if [[ "$(hostname)" != "luria" ]]; then
     echo "Error: This script must be run on luria cluster"
     exit 1
 fi
+
 EXPERIMENT_DIR="$1"
 if [ -z "$EXPERIMENT_DIR" ]; then
     echo "Error: Experiment directory not provided"
     echo "Usage: $0 <experiment_directory>"
+    echo "Ensure experiment directory is full path: $HOME/data/<experiment_directory"
     exit 1
 fi
 
