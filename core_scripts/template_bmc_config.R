@@ -56,7 +56,7 @@
 #   3. Missing categories -> Check CATEGORIES vs COLUMN_ORDER
 # AUTHOR: Luis
 # DATE: 2024-11-27
-# VERSION: 2.0.0
+# VERSION: 2.1.0
 ################################################################################
 # !! Update EXPERIMENT_CONFIG if starting a new experiment.
 EXPERIMENT_CONFIG <- list(
