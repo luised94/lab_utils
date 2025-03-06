@@ -271,7 +271,7 @@ if (n_samples != expected) {
     # Helps display metadata values to help narrow down where you need to add combinations to filter.
     if (show_all_metadata) {
         print(metadata)
-    } elseif (show_particular_metadata) {
+    } else if (show_particular_metadata) {
         print(metadata[metadata[, category_to_show] == values_to_show, ])
     }
 
