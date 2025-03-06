@@ -104,7 +104,7 @@ required_modules <- list(
 )
 
 bmc_configuration_definition_path <- required_modules[[
-    which(sapply(required_modules, function(x) 
+    which(sapply(required_modules, function(x)
         x$description == "BMC Configuration"
     ))
 ]]$path
@@ -146,7 +146,7 @@ for (status in load_status) {
         gsub(" ", "_", tolower(status$module))
     )
     module_info[[module_key]] <- sprintf(
-        "%s (%s)", 
+        "%s (%s)",
         status$module,  # Now showing description
         if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
     )
@@ -187,6 +187,7 @@ handle_configuration_checkpoint(
     accept_configuration = accept_configuration,
     experiment_id = experiment_id
 )
+
 ################################################################################
 # Directory Structure Definition and Creation
 ################################################################################
@@ -265,9 +266,14 @@ if (n_samples != expected) {
     cat("\nFull sample breakdown:\n")
     print(summary(metadata))         # Show all category distributions
     cat("\n")
-    # Set this to a particular logic (or print entire table) to see the samples and determine how to remove them.
-    #print(metadata[metadata$antibody == "V5", ])
-    #print(metadata[metadata$antibody == "V5", ])
+
+    # Control this in the bmc_config.R file.
+    # Helps display metadata values to help narrow down where you need to add combinations to filter.
+    if (show_all_metadata) {
+        print(metadata)
+    } elseif (show_particular_metadata) {
+        print(metadata[metadata[, category_to_show] == values_to_show, ])
+    }
 
     stop(sprintf("Expected %d samples, got %d", expected, n_samples))
 }
@@ -278,14 +284,14 @@ if (n_samples != expected) {
 sample_classifications <- EXPERIMENT_CONFIG$SAMPLE_CLASSIFICATIONS
 
 # First, create a matrix/data frame to store all classification results
-classification_results <- matrix(FALSE, 
-                               nrow = nrow(metadata), 
+classification_results <- matrix(FALSE,
+                               nrow = nrow(metadata),
                                ncol = length(sample_classifications),
                                dimnames = list(NULL, names(sample_classifications)))
 
 # Evaluate each classification condition
 for (type in names(sample_classifications)) {
-    classification_results[, type] <- eval(sample_classifications[[type]], 
+    classification_results[, type] <- eval(sample_classifications[[type]],
                                          envir = metadata)
 }
 
@@ -304,11 +310,11 @@ multiple_classifications <- rowSums(classification_results) > 1
 if (any(multiple_classifications)) {
     cat("\nERROR: Multiple Classification Detected!\n")
     cat("----------------------------------------\n")
-    
+
     # Show problematic samples with their classifications
     problem_samples <- metadata[multiple_classifications, ]
     cat("Samples with multiple classifications:\n\n")
-    
+
     # Show which classifications were TRUE for each problematic sample
     for (i in which(multiple_classifications)) {
         cat(sprintf("\nSample %d:\n", i))
@@ -319,7 +325,7 @@ if (any(multiple_classifications)) {
         print(matching_types)
         cat("----------------------------------------\n")
     }
-    
+
     stop("Please fix multiple classifications in experiment configuration")
 }
 
