@@ -594,7 +594,7 @@ for (comparison_name in comparisons_to_process) {
             message("\nBigwig File Matching:")
             message(sprintf("  Sample ID: %s", sample_id))
             message("  Available files:")
-            invisible(lapply(bigwig_files, function(f) message("    ", basename(f))))
+            invisible(lapply(bigwig_files[1:5], function(f) message("    ", basename(f))))
             message("  Pattern matches:")
             matches <- grepl(sample_id, bigwig_files)
             message(sprintf("    Matches found: %d", sum(matches)))
