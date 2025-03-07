@@ -161,7 +161,8 @@ dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
     required_input_dirs = required_directories
 )
 
-dirs$output_dir <- file.path(dirs$plots, "genome_tracks", "overview")
+# Control output directory here.
+dirs$output_dir <- file.path(dirs$plots, "genome_tracks", "experimental_comparisons")
 dir.create(dirs$output_dir, recursive = TRUE, showWarnings = FALSE)
 # Find fastq files and extract sample IDs
 fastq_files <- list.files(
@@ -171,15 +172,21 @@ fastq_files <- list.files(
 )
 
 # Find bigwig files
-bigwig_pattern <- sprintf("processed_.*_sequence_to_S288C_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
+bigwig_pattern <- sprintf(
+    "processed_.*_sequence_to_S288C_%s\\.bw$",
+    EXPERIMENT_CONFIG$NORMALIZATION$active
+)
 bigwig_files <- list.files(
     dirs$coverage,
     pattern = bigwig_pattern,
     full.names = TRUE
 )
 
-normalization_method <- sub(".*_([^_]+)\\.bw$", "\\1",
-    basename(bigwig_files[1]))
+normalization_method <- sub(
+    ".*_([^_]+)\\.bw$",
+    "\\1",
+    basename(bigwig_files[1])
+)
 if (length(bigwig_files) == 0) {
     stop("No bigwig files found in specified directory")
 }
@@ -417,7 +424,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
 # Determine which comparisons to process
 comparisons_to_process <- if (RUNTIME_CONFIG$process_single_comparison) {
     if (!RUNTIME_CONFIG$process_comparison %in% names(EXPERIMENT_CONFIG$COMPARISONS)) {
-        cat(sprintf("Verify process_comparison in RUNTIME_CONFIG of bmc_config.R file for %s", experiment_id))
+        cat(sprintf("Verify process_comparison in RUNTIME_CONFIG of bmc_config.R file for %s or verify override_configuration.R", experiment_id))
         stop("Debug comparison not found in EXPERIMENT_CONFIG$COMPARISONS")
     }
     RUNTIME_CONFIG$process_comparison
