@@ -27,11 +27,19 @@ OVERRIDE_PRESETS <- list(
         debug_validate = TRUE,
         process_single_file = FALSE,
         process_single_comparison = TRUE,
-        output_dry_run = TRUE
+        output_dry_run = FALSE
     ),
     check_single_sample = list(  # For investigating specific sample issues
         debug_verbose = TRUE,
         output_dry_run = TRUE,
+        process_single_file = TRUE,
+        process_comparison = "comp_1108forNoneAndWT",
+        process_single_comparison = FALSE,
+        process_file_index = 58
+    ),
+    output_single_sample = list(  # For investigating specific sample issues
+        debug_verbose = TRUE,
+        output_dry_run = FALSE,
         process_single_file = TRUE,
         process_comparison = "comp_1108forNoneAndWT",
         process_single_comparison = FALSE,
