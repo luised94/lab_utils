@@ -193,6 +193,9 @@ if (length(fastq_files) == 0) {
         replacement = "\\1",
         x = basename(bigwig_files)
     )
+    stopifnot(
+        "Length of samples_ids is not lower than length of bigwig files." = all(nchar(sample_ids) < nchar(basename(bigwig_files)))
+    )
 } else {
     # Extract sample IDs from fastq filenames
     sample_ids <- gsub(
@@ -200,6 +203,14 @@ if (length(fastq_files) == 0) {
         replacement = "\\1",
         x = fastq_files
     )
+    stopifnot(
+        "Length of samples_ids is not lower than length of fastq files." = all(nchar(sample_ids) < nchar(fastq_files))
+    )
+}
+
+if (any(nchar(sample_ids) == 0)) {
+  warning("Empty sample IDs extracted from files: ", 
+          paste(bigwig_basenames[nchar(sample_ids) == 0], collapse = ", "))
 }
 
 if (RUNTIME_CONFIG$debug_verbose) {
@@ -406,6 +417,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
 # Determine which comparisons to process
 comparisons_to_process <- if (RUNTIME_CONFIG$process_single_comparison) {
     if (!RUNTIME_CONFIG$process_comparison %in% names(EXPERIMENT_CONFIG$COMPARISONS)) {
+        cat(sprintf("Verify process_comparison in RUNTIME_CONFIG of bmc_config.R file for %s", experiment_id))
         stop("Debug comparison not found in EXPERIMENT_CONFIG$COMPARISONS")
     }
     RUNTIME_CONFIG$process_comparison

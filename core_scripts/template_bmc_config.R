@@ -280,8 +280,8 @@ GENOME_TRACK_CONFIG <- list(
 
     # File handling
     file_pattern = "consolidated_.*_sequence\\.fastq$",
-    file_sample_id = "consolidated_([0-9]{5,6})_sequence\\.fastq",
-    file_sample_id_from_bigwig = "processed_([0-9]{5,6})_sequence_to_S288C_(RPKM|CPM|BPM|RPGC)\\.bw",
+    file_sample_id = "consolidated_([0-9]{1,6})_sequence\\.fastq",
+    file_sample_id_from_bigwig = "processed_([0-9]{1,6})_sequence_to_S288C_(RPKM|CPM|BPM|RPGC)\\.bw",
     file_genome_pattern = "S288C_refgenome.fna",
     file_genome_directory = file.path(Sys.getenv("HOME"), "data", "REFGENS"),
     file_feature_directory = file.path(Sys.getenv("HOME"), "data", "feature_files"),
