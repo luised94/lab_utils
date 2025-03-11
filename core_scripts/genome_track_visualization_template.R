@@ -176,16 +176,16 @@ sample_groups <- split(
 )
 
 # Determine processing scope based on debug configuration
-    RUNTIME_CONFIG$process_group
-} else {
-    seq_along(sample_groups)
-}
+#if ()
+#    RUNTIME_CONFIG$process_group
+#} else {
+#    seq_along(sample_groups)
+#}
 
 if (RUNTIME_CONFIG$debug_verbose) {
     message("\nProcessing Configuration:")
     message(sprintf("- Total groups: %d", length(sample_groups)))
-    message(sprintf("- Processing groups: %s", 
-                   paste(groups_to_process, collapse = ", ")))
+    message(sprintf("- Processing groups: %s", paste(groups_to_process, collapse = ", ")))
 }
 
 # Calculate Global Y-axis Limits
