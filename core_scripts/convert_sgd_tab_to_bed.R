@@ -1,4 +1,5 @@
 # [1] Debugging Utilities ------------------------------------------------------
+# Summarize categorical data.
 summarize_categories <- function(data, columns = NULL, max_categories = 10) {
   stopifnot(
     is.data.frame(data),
@@ -26,6 +27,7 @@ summarize_categories <- function(data, columns = NULL, max_categories = 10) {
   result
 }
 
+# Printing lists. 
 print_debug_info <- function(debug_info, title = "DEBUG INFO") {
   stopifnot(
     is.list(debug_info),
