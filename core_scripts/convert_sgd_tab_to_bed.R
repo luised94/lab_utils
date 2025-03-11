@@ -83,6 +83,7 @@ tryCatch({
 
 # Immediate debug output
 debug_info <- summarize_categories(raw_data, columns = c("V2", "V3", "V12", "V9"))
+
 # Enhanced debug summary
 debug_info <- list(
   "Column Summary" = sprintf("%d columns, %d rows", ncol(raw_data), nrow(raw_data)),
@@ -91,6 +92,7 @@ debug_info <- list(
   "Strand Codes (V12)" = summarize_categories(raw_data["V12"]),
   "Chromosomes (V9)" = summarize_categories(raw_data["V9"])
 )
+
 print_debug_info(debug_info, "DATA DIAGNOSTICS")
 #print_debug_info(debug_info, "INITIAL DATA SUMMARY")
 
