@@ -228,8 +228,7 @@ if (n_samples != expected) {
 }
 
 # Verification message
-cat("\nClassification Verification:\n")
-cat(sprintf("- Total samples: %d\n", nrow(metadata)))
+cat(sprintf("Total samples: %d\n", nrow(metadata)))
 cat("\nDiagnostic Information:\n")
 cat("----------------------\n")
 print(table(metadata$antibody))
@@ -264,28 +263,47 @@ metadata$short_name <- apply(metadata[, EXPERIMENT_CONFIG$COLUMN_ORDER], 1,
 ################################################################################
 # File Output Generation
 ################################################################################
-filenames <- "flow_cytometry_config.R"
-output_file_path <- file.path(directory_path, paste0(experiment_id, "_", filename))
-
-# Handle file writing with dry run checks
-if (RUNTIME_CONFIG$output_dry_run) {
-    # Check if the file exists.
-    if (file.exists(output_file_path)) {
-        cat(sprintf("[DRY RUN] File exists: %s. Overwrite will occur if dry-run is disabled.\n", output_file_path))
+filenames <- c("flow_cytometry_config.R", "sample_grid.csv")
+for (filename in filenames) {
+    output_file_path <- file.path(directory_path, paste0(experiment_id, "_", filename))
+    # Handle file writing with dry run checks
+    if (RUNTIME_CONFIG$output_dry_run) {
+        # Check if the file exists.
+        if (file.exists(output_file_path)) {
+            cat(sprintf("[DRY RUN] File exists: %s. Overwrite will occur if dry-run is disabled.\n", output_file_path))
+            next
+        }
+        # Dry-run message
+        cat(sprintf("[DRY RUN] Would write file to: %s\n", output_file_path))
         next
     }
-    # Dry-run message
-    cat(sprintf("[DRY RUN] Would write file to: %s\n", output_file_path))
-} else {
+
     # Write the file. Overwrite by default.
-    safe_write_file(
-        data = flow_cytometry_configuration_definition_path,
-        path = output_file_path,
-        write_fn = file.copy,
-        verbose = RUNTIME_CONFIG$debug_verbose,
-        interactive = interactive(),
-        overwrite = TRUE
-    )
+    if(endsWith(filename, ".csv")) {
+            safe_write_file(
+                data = metadata,
+                path = output_file_path,
+                write_fn = write.csv,
+                verbose = RUNTIME_CONFIG$debug_verbose,
+                interactive = interactive(),
+                row.names = FALSE
+            )
+        next
+    }
+
+    if(endsWith(filename, ".R")) {
+        safe_write_file(
+            data = flow_cytometry_configuration_definition_path,
+            path = output_file_path,
+            write_fn = file.copy,
+            verbose = RUNTIME_CONFIG$debug_verbose,
+            interactive = interactive(),
+            overwrite = TRUE
+        )
+        next
+    }
+
+    warning(sprintf("Unsupported file extension for file: %s", filename))
 }
 
 print(metadata)

@@ -273,15 +273,26 @@ parse_common_arguments <- function(
 #'     args <- parse_common_arguments("Align sequencing reads to reference genome")
 parse_flow_cytometry_arguments <- function(
     description = "Script description",
-    prog = NULL
+    prog = NULL,
+    verbose = TRUE
 ) {
+    # Set up directory path ------
+    # Can be modified to set directly.
+    dropbox_path <- Sys.getenv("DROPBOX_PATH")
+    flow_cytometry_bridge_path <- "Lab/Experiments/flow_cytometry"
+    if(dropbox_path == "") {
+        message("Environmental variable DROPBOX_PATH not available.")
+        message("Either set with my config directory or manually in the parse_flow_cytometry_arguments.")
+        stop("!!!! DROPBOX_PATH required for proper directory setting.")
+    }
+
     # Define options available, setup option parser and parse args -------
     option_list <- list(
         optparse::make_option(
-            "--directory-path",
+            "--directory-id",
             type = "character",
-            help = "Directory path to find experiment configuration (format: /path/to/directory, e.g., /mnt/c/Users/Luised94/MIT Dropbox/Luis Martinez/Lab/Experiments/flow_cytometry/250303_G1_arrest_degrade_and_release/ (use $DROPBOX_PATH variable for easier referencing, see my_config git)",
-            dest = "directory_path",
+            help = "Directory path to find experiment configuration (format: /path/to/directory, e.g., 250303_G1_arrest_degrade_and_release/\n Environmental variable $DROPBOX_PATH taken into account, see my_config git)",
+            dest = "directory_id",
             metavar = "DIR"
         ),
         optparse::make_option(
@@ -290,6 +301,13 @@ parse_flow_cytometry_arguments <- function(
             help = "Experiment within Directory Path to analyze (format: Exp_<YYYYMMDD>_[0-9])",
             dest = "experiment_id",
             metavar = "ID"
+        ),
+        make_option(
+            "--accept-configuration",
+            action = "store_true",
+            default = FALSE,
+            help = "Accept configuration and continue with execution (default: stop after config display)",
+            dest = "accept_configuration"
         ),
         optparse::make_option(
             "--log-to-file",
@@ -346,10 +364,11 @@ parse_flow_cytometry_arguments <- function(
     )
 
     # Validate all arguments --------
-    if (is.null(args$directory_path)) {
+    # todo: can probably process using optparser list.
+    if (is.null(args$directory_id)) {
         message("ERROR. Stopping script...")
         optparse::print_help(opt_parser)
-        stop("!!!! Missing required argument: --directory-path\nUse -h or --help for usage information")
+        stop("!!!! Missing required argument: --directory-id\nUse -h or --help for usage information")
     }
 
     if (is.null(args$experiment_id)) {
@@ -382,10 +401,10 @@ parse_flow_cytometry_arguments <- function(
         ))
     }
 
-
-    # Experiment id validation ----------
-    expected_format_experiment_id <- "Exp_\\d{6}_\\d{1,6}"
-    # Process multiple experiments or a single one.
+    #todo: dropbox_path id validation and processing ----------
+    # Experiment id validation and processing ----------
+    expected_format_experiment_id <- "Exp_\\d{8}_\\d{1,6}"
+    # Process multiple experiments or a single one
     if (grepl(",", args$experiment_id)) {
         # Split and clean the IDs
         experiment_ids <- stri_split_fixed(args$experiment_id, ",")[[1]]
@@ -409,17 +428,23 @@ parse_flow_cytometry_arguments <- function(
         args$experiment_id <- experiment_ids
     } else if (!grepl(expected_format_experiment_id, args$experiment_id, perl = TRUE)) {
         stop(sprintf(
-            "!!!! Invalid experiment-id format.\nExpected: Exp_YYYYMMDD_[0-9] or 'template' or '<exp_id1>,<exp_id2>,...'\nReceived: %s",
+            "!!!! Invalid experiment-id format.\nExpected: Exp_YYYYMMDD_[0-9] or '<exp_id1>,<exp_id2>,...'\nReceived: %s",
             args$experiment_id
         ))
     }
 
+    args$directory_path <- sapply(args$directory_id, function(id) {
+        file.path(dropbox_path, flow_cytometry_bridge_path, id)
+    })
+    #args$experiment_dir <- c()
+    #for (idx in 1:length(args$experiment_id)) {
+    #     experiment_dir <- file.path(args$directory_path[idx], args$experiment_id[idx])
+    #     args$experiment_dir <- c(args$experiment_dir, experiment_dir)
+    #    message(sprintf("Adding %s directory", experiment_dir))
+    #}
+
     # Set up experiment directory ------
     # Modify the directory check section
-    args$experiment_dir <- sapply(args$experiment_id, function(id) {
-        file.path(Sys.getenv("HOME"), "data", id)
-    })
-    args$is_template <- FALSE
 
     # Get command-line arguments once
     cmd_args <- commandArgs(trailingOnly = FALSE)
@@ -429,10 +454,10 @@ parse_flow_cytometry_arguments <- function(
     script_name <- if (length(script_flag)) basename(sub("^--file=", "", script_flag)) else "UNKNOWN"
 
     # Define allowed setup scripts (expand this vector in the future as needed)
-    setup_scripts <- c("setup_bmc_experiment.R")
+    setup_scripts <- c("setup_flow_cytometry_experiment.R")
 
     # Identify missing experiment directories
-    missing_dirs <- args$experiment_dir[!dir.exists(args$experiment_dir)]
+    missing_dirs <- args$directory_path[!dir.exists(args$directory_path)]
 
     if (length(missing_dirs) > 0) {
 
@@ -449,7 +474,7 @@ parse_flow_cytometry_arguments <- function(
             message("Experiment directories created successfully.")
         } else if (script_name == "UNKNOWN") {
             warning("Script name could not be determined. If you are running interactively, ensure directories exist.")
-            stop(missing_msg, call. = FALSE)
+            warning(missing_msg, call. = FALSE)
         } else {
             message("Directory existence check for non-setup script.")
             stop(sprintf(
@@ -579,7 +604,7 @@ check_required_packages <- function(
         install_cmd <- paste0("install.packages(c('", paste(status$missing, collapse = "', '"), "'))")
         bioc_install_cmd <- paste0("BiocManager::install(c('", paste(status$missing, collapse = "', '"), "'))")
         stop(sprintf(
-            "\nMissing required packages (%d of %d):\n%s\n\nPlease install them using one of the following commands:\n%s%sIf you are on a cluster, you may need to use your cluster's package installation mechanism.\n", # Corrected sprintf
+            "\nMissing required packages (%d of %d):\n%s\n\nPlease install them using one of the following commands:\n%s%sIf you are on a cluster, you may need to use your cluster's package installation mechanism.\n",
             length(status$missing),
             status$total,
             missing_pkgs_str,
@@ -648,7 +673,7 @@ setup_experiment_dirs <- function(
                 )) #
         }
         dirs[[dir_name]] <- full_path
-    } #eofl
+    }
 
     # Construct and create the output directory
     output_dir <- file.path(experiment_dir, output_dir_name)
