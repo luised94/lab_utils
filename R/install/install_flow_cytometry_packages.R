@@ -25,7 +25,7 @@ message("Activating renv environment...")
 
 renv_activation_path <- file.path(repository_root, "renv/activate.R")
 if (!file.exists(renv_activation_path)) {
-        stop("Error: renv environment not found at ", renv_activation_path)
+    stop("Error: renv environment not found at ", renv_activation_path)
 }
 source(renv_activation_path)
 
@@ -38,9 +38,9 @@ for (package in packages_to_install) {
         message("Package '", package, "' is already installed.")
         next
     }
-    
+
     message("Installing package: ", package)
-    
+
     # Attempt to install the package
     install_result <- tryCatch(
         expr = {
@@ -53,19 +53,18 @@ for (package in packages_to_install) {
             FALSE # Returns FALSE on failure
         }
     )
-    
+
     if (!install_result) {
         stop("!!!! Failed to install package '", package, "'")
     }
-    
+
     # After successful installation, ensure it's loaded
     library_name <- gsub(paste0(repository, user), "", x = package, fixed = TRUE)
     message("Loading package '", library_name, "'...")
     if (!library(library_name, character.only = TRUE, logical.return = TRUE)) {
         stop("!!!! Failed to load package '", package, "' after installation.")
-    } else {
-        message("Package '", package, "' has been successfully installed and loaded.")
     }
+    message("Package '", package, "' has been successfully installed and loaded.")
 }
 # Display success message
 message("\nAll packages installed and verified successfully!")
