@@ -67,7 +67,7 @@ message("Arguments parsed...")
 # Load and Validate Experiment Configuration
 ################################################################################
 # flow_cytometry_config.R is ignored in the git repository as this file is changed to add new experiments.
-config_path <- "~/lab_utils/core_scripts/flow_cytometry_config.R"
+config_path <- "~/lab_utils/core_scripts/configuration_flow_cytometry.R"
 # Define required dependencies
 required_modules <- list(
     list(
@@ -137,12 +137,14 @@ invisible(lapply(required_configs, function(config) {
 
 xit_file <- list.files(
     path = directory_path,
-    pattern = experiment_id
+    pattern = paste0(experiment_id, "\\.xit$"),
+    recursive = FALSE,
+    include.dirs = FALSE
 )
 
 stopifnot(
     "Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = experiment_id == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID,
-    "Xit file for experiment id not found in directory path." = length(xit_file) == 1
+    "Only one xit file expected." = length(xit_file) == 1
 )
 
 message("Modules loaded...")
@@ -211,7 +213,7 @@ if (n_samples != expected) {
     # Print diagnostic information
     cat("\nDiagnostic Information:\n")
     cat("----------------------\n")
-    print(table(metadata$antibody))  # Show antibody distribution
+    print(table(metadata[, category_to_show]))  # Show antibody distribution
     cat("\nFull sample breakdown:\n")
     print(summary(metadata))         # Show all category distributions
     cat("\n")
@@ -231,7 +233,7 @@ if (n_samples != expected) {
 cat(sprintf("Total samples: %d\n", nrow(metadata)))
 cat("\nDiagnostic Information:\n")
 cat("----------------------\n")
-print(table(metadata$antibody))
+print(table(metadata[, category_to_show]))
 
 ################################################################################
 # Metadata Formatting and Organization

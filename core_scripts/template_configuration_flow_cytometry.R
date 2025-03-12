@@ -1,7 +1,7 @@
 
 EXPERIMENT_CONFIG <- list(
     METADATA = list(
-        EXPERIMENT_ID = "Exp_250310_1",
+        EXPERIMENT_ID = "Exp_20250310_1",
         EXPECTED_SAMPLES = 42,
         VERSION = "1.0.0",
         PROJECT_ID = "project_001"
@@ -35,7 +35,7 @@ EXPERIMENT_CONFIG <- list(
 
     COLUMN_ORDER = c(
         "rescue_allele", "suppressor_allele", "auxin_treatment", "timepoints"
-    ),
+    )
 )
 
 #########
@@ -45,14 +45,14 @@ EXPERIMENT_CONFIG <- list(
 #########
 show_all_metadata <- TRUE
 show_particular_metadata <- TRUE
-category_to_show <- "antibody"
-value_to_show <- "HM1108"
+category_to_show <- "auxin_treatment"
+value_to_show <- "NO"
 values_in_category <- unlist(EXPERIMENT_CONFIG$CATEGORIES[category_to_show])
 
 stopifnot(
     "show_all_metadata has to be logical" = is.logical(show_all_metadata),
     "flag must be logical type" = is.logical(show_particular_metadata),
-    "category must be in grid" = category_to_show %in% names(EXPERIMENT_CONFIG$CATEGORIES),
+    "category to show must be in grid" = category_to_show %in% names(EXPERIMENT_CONFIG$CATEGORIES),
     "Value must be in category" = value_to_show %in% values_in_category
 )
 
@@ -82,14 +82,14 @@ RUNTIME_CONFIG <- list(
     process_file_index = 1,
     # Output control
     output_save_plots = FALSE,
-    output_dry_run = TRUE,
+    output_dry_run = TRUE
 )
 
 ################################################################################
 # Configuration Validation
 ################################################################################
 experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
-expected_format_for_experiment_id <- "Exp_\\d{6}_\\d{1,6}"
+expected_format_for_experiment_id <- "Exp_\\d{8}_\\d{1,6}"
 stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
     "Invalid experiment ID format. Expected: Exp_YYYMMDD_[0-9]{6}" = grepl(expected_format_for_experiment_id, experiment_id)
