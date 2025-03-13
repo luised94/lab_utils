@@ -3,7 +3,7 @@ EXPERIMENT_CONFIG <- list(
     METADATA = list(
         EXPERIMENT_ID = "Exp_20250310_1",
         EXPECTED_SAMPLES = 42,
-        VERSION = "1.0.0",
+        VERSION = "1.1.0",
         PROJECT_ID = "project_001"
     ),
 
@@ -32,6 +32,10 @@ EXPERIMENT_CONFIG <- list(
     #    is_positive = quote(orc_phenotype == "WT" & antibody == "ORC"),
     #    is_negative = quote(orc_phenotype == "orc1-161" & antibody == "ORC" & temperature == "37")
     #),
+
+    CONTROL_FACTORS = c(
+        "rescue_allele", "suppressor_allele", "auxin_treatment", "timepoints"
+    )
 
     COLUMN_ORDER = c(
         "rescue_allele", "suppressor_allele", "auxin_treatment", "timepoints"
