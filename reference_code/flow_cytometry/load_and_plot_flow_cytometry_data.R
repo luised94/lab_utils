@@ -98,6 +98,18 @@ metadata$file_paths <- gtools::mixedsort(FCS_FILE_PATHS)
 print(head(metadata))
 
 # Process the data
+#\\TODO\\ Adjust separator, add error handling, complete for loop logic, adjust for factor columns
 # Set in the configuration with CONTROL_FACTORS variable!
-control_categories <- c("rescue_allele", "suppressor_allele", "auxin_treatment")
-unique(metadata[, control_categories])
+control_columns <- c("rescue_allele", "suppressor_allele", "auxin_treatment")
+unique_control_combinations <- unique(metadata[, control_columns])
+
+# Create composite keys for fast vectorized matching
+metadata_keys <- do.call(paste, c(metadata[control_cols], sep = "|"))
+control_keys <- do.call(paste, c(unique_control_combos[control_cols], sep = "|"))
+
+# Vectorized subsetting using fast %in% operator
+control_samples <- metadata[metadata_keys %in% control_keys[1], ]
+
+# Reset row names for clean output (optional)
+rownames(control_samples) <- NULL
+
