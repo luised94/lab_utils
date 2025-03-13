@@ -15,7 +15,10 @@ print_vars <- function(variable_names, environment_variables) {
   }
 }
 
-# Setup and validation -------------
+########################################
+# Setup and validation
+########################################
+# Setup paths and files -------
 # Load the dropbox path since that is where the data is stored.
 # This assumes the variables is in the environment.
 # Set manually here or in bash or use my_config repository
@@ -82,10 +85,16 @@ sapply(SUBDIRS, function(SUBDIR) {
     dir.create(file.path(OUTPUT_DIR, SUBDIR), recursive = TRUE, showWarnings = FALSE)
 })
 
+# Setup constants --------
+# For creating sting identifier for rapid subsetting
+COLUMN_SEPARATOR <-  "\x01"
 message("All variables initialized...")
 # Print the variable to quickly inspect.
 # print_vars(ls(), ls())
 
+########################################
+# Load packages and metadata
+########################################
 # Check for required packages -------------
 required_packages <- c("flowCore", "svglite")
 sapply(required_packages, requireNamespace, quietly = TRUE)
@@ -95,21 +104,85 @@ message("All required packages available...")
 # Use gtools to account for unpadded digits in FCS file format.
 metadata <- read.csv(METADATA_FILE_PATH)
 metadata$file_paths <- gtools::mixedsort(FCS_FILE_PATHS)
-print(head(metadata))
+#print(head(metadata))
 
-# Process the data
-#\\TODO\\ Adjust separator, add error handling, complete for loop logic, adjust for factor columns
+# Setup for processing --------
+DEPENDENT_COLUMN <- "timepoints"
+
 # Set in the configuration with CONTROL_FACTORS variable!
-control_columns <- c("rescue_allele", "suppressor_allele", "auxin_treatment")
-unique_control_combinations <- unique(metadata[, control_columns])
+CONTROL_COLUMNS <- c("rescue_allele", "suppressor_allele", "auxin_treatment")
+UNIQUE_CONTROL_COMBINATIONS <- unique(metadata[, CONTROL_COLUMNS])
 
-# Create composite keys for fast vectorized matching
-metadata_keys <- do.call(paste, c(metadata[control_cols], sep = "|"))
-control_keys <- do.call(paste, c(unique_control_combos[control_cols], sep = "|"))
+# Factor safety (prevents level->integer conversion)
+metadata_chr <- lapply(metadata[CONTROL_COLUMNS], as.character)
+control_combos_chr <- lapply(UNIQUE_CONTROL_COMBINATIONS[CONTROL_COLUMNS], as.character)
 
-# Vectorized subsetting using fast %in% operator
-control_samples <- metadata[metadata_keys %in% control_keys[1], ]
+message("Generating keys for subsetting...")
+# Create composite keys for the control columns and fast vectorized matching
+metadata_keys <- do.call(paste, c(metadata_chr, sep = COLUMN_SEPARATOR))
+control_keys <- do.call(paste, c(control_combos_chr, sep = COLUMN_SEPARATOR))
+
+# Validation Phase ---------------------
+EXPECTED_SAMPLES_AFTER_SUBSETTING <- length(unique(metadata[, DEPENDENT_COLUMN]))
+EXPECTED_SEPARATOR_COUNT <- length(CONTROL_COLUMNS) - 1
+SEPARATOR_COUNTS <- lengths(gregexpr(COLUMN_SEPARATOR, metadata_keys))
+MISSING_CONTROL_IDS <- control_keys[!control_keys %in% metadata_keys]
+NUMBER_OF_SAMPLES_SUBSET_WITH_CONTROL_KEYS <- lengths(lapply(control_keys, function(key){ metadata[metadata_keys %in% key, ] }))
+
+stopifnot(
+    "COLUMN_SEPARATOR must not be in FCS_FILE_PATHS strings." = all(grepl(COLUMN_SEPARATOR, x = metadata$file_paths)) == FALSE,
+    "Number of rows in metadata not the same length as number of paths." = nrow(metadata) == length(FCS_FILE_PATHS),
+    "Number of rows in metadata not the same as expected number of samples." = nrow(metadata) == EXPECTED_SAMPLES
+)
+
+if(!all(SEPARATOR_COUNTS == EXPECTED_SEPARATOR_COUNT)) {
+  invalid_keys <- which(SEPARATOR_COUNTS != EXPECTED_SEPARATOR_COUNT)
+  stop(sprintf(
+    "!!!! Separator count mismatch in keys. Invalid key structure in rows = \n%s !!!!", 
+    toString(head(invalid_keys, 10))
+  ))
+}
+
+if (length(MISSING_CONTROL_IDS) > 0) {
+  stop(
+    "Control group failure: ", length(MISSING_CONTROL_IDS),
+    " combinations missing in metadata. First 5: \n",
+    paste(head(MISSING_CONTROL_IDS, 5), collapse = ", ")
+  )
+}
+
+if (!all(NUMBER_OF_SAMPLES_SUBSET_WITH_CONTROL_KEYS == EXPECTED_SAMPLES_AFTER_SUBSETTING)) {
+  invalid_keys <- which(NUMBER_OF_SAMPLES_SUBSET_WITH_CONTROL_KEYS != EXPECTED_SAMPLES_AFTER_SUBSETTING)
+  stop(
+    "!!!! Some of the control keys do not subset the expected number of samples: ", length(MISSING_CONTROL_IDS),
+    " combinations missing in metadata. First 5: \n ",
+    toString(head(invalid_keys, 5), collapse = ", ")
+  )
+}
+
+message("Validation for keys complete...")
+
+########################################
+# MAIN
+########################################
+message("Starting main script logic...")
+# Execute for each control_key
+for (key_idx in 1:length(control_keys)) {
+    # Setup variables ------------
+    control_key <- control_keys[key_idx]
+    keys_in_current_key <- metadata_keys %in% control_key
+    cat(sprintf("Processing %s key\n", key_idx))
+    cat(sprintf("Using key = %s \n", control_key))
+
+    # Subset the metadata using metadata keys
+    # Vectorized subsetting using fast %in% operator
+    # Alternative: control_samples <- merge(metadata, UNIQUE_CONTROL_COMBINATIONS, by = control_cols)
+    rows_to_analyze <- metadata[keys_in_current_key, ]
+    cat("Dimensions of rows_to_analyze =", dim(rows_to_analyze), "\n")
+    message("Sample subsetting complete...")
+    
+    rownames(control_samples) <- NULL
+}
 
 # Reset row names for clean output (optional)
-rownames(control_samples) <- NULL
-
+#\\TODO\\ complete for loop logic
