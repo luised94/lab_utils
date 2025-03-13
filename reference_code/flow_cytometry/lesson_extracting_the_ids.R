@@ -1,3 +1,4 @@
+
 # Script assumes working setup_flow_cytometry_experiment.R is working and was executed on an experiment.
 # The data was collected from <INSERT_INSTRUMENT> with <INSERT_SOFTWARE>.
 # We directly set the values to use a particular data set as an example for working with flow cytometry data.
@@ -92,12 +93,47 @@ sapply(required_packages, requireNamespace, quietly = TRUE)
 message("All required packages available...")
 
 # Load metadata -------------
-# Use gtools to account for unpadded digits in FCS file format.
-metadata <- read.csv(METADATA_FILE_PATH)
-metadata$file_paths <- gtools::mixedsort(FCS_FILE_PATHS)
-print(head(metadata))
-
-# Process the data
-# Set in the configuration with CONTROL_FACTORS variable!
-control_categories <- c("rescue_allele", "suppressor_allele", "auxin_treatment")
-unique(metadata[, control_categories])
+# Preprocess fcs file paths: They are not sorted because of the missing leading zero.
+ ids <- sub(".*-([^-]+)\\.[^.]*$", "\\1", basename(FCS_FILE_PATHS))
+# My code:
+#numbers <- sub("[A-Z]{1,2}", "\\1", ids)
+#letters <- sub("[^A-Z]{1,2}", "\\1", ids)
+#pairs <- data.frame(
+#    numbers = numbers,
+#    letters = letters,
+#    ids = ids
+#)
+#pairs$padded_numbers <- sapply(pairs$numbers, function(number){
+#    padding_zeroes <- rep("0", max(nchar(pairs$numbers)) - nchar(number))
+#    paste0(padding_zeroes, number)
+#})
+#
+#reordered_pairs <- pairs[order(pairs$letters, pairs$padded_numbers), ]
+#grepl(paste0("-", reordered_pairs$ids[1], ".fcs"), basename(FCS_FILE_PATHS))
+#pairs$file_paths <- c()
+#for (idx in 1:nrow(pairs)) {
+#    is_file <- grepl(paste0("-", reordered_pairs$ids[idx], ".fcs"), basename(FCS_FILE_PATHS))
+#    pairs$file_paths[idx] <- FCS_FILE_PATHS[is_file]
+#}
+# Separate letters and numbers more reliably
+  letters_part <- gsub("[0-9]", "", ids)
+  numbers_part <- as.numeric(gsub("[^0-9]", "", ids))
+  
+  # Create data frame with all components
+  file_data <- data.frame(
+    original_path = file_paths,
+    basename = basenames,
+    id = ids,
+    letter = letters_part,
+    number = numbers_part,
+    stringsAsFactors = FALSE
+  )
+  
+  # Add validation
+  stopifnot(
+    "Failed to extract valid IDs from some filenames" = all(nchar(file_data$id) > 0),
+    "Failed to extract numbers from some IDs" = !anyNA(file_data$number)
+  )
+  
+  # Sort the data frame directly
+  sorted_data <- file_data[order(file_data$letter, file_data$number), ]
