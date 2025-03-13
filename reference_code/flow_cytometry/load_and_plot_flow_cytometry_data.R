@@ -183,21 +183,13 @@ for (key_idx in 1:length(control_keys)) {
     message("Sample subsetting complete...")
 
     # Process rows in subset metadata -----
-    for (row_idx in 1:nrow(rows_to_analyze)) {
-        message("Starting row processing...")
+    message("Starting row processing...")
 
-        # Load fcs file
-        row_flow_data <- flowCore::read.FCS(rows_to_analyze$file_paths[row_idx])
-        if (row_idx == 1) {
-            message("Showing summary for first row...")
-            print(summary(row_flow_data))
+    # Load fcs file
+    subset_flowSet <- flowCore::read.flowSet(files = rows_to_analyze$file_paths)
 
-        }
-
-
+    if (key_idx == 1) {
+        message("Initially processing first control key...")
     }
 
 }
-
-# Reset row names for clean output (optional)
-#\\TODO\\ complete for loop logic
