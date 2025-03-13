@@ -96,7 +96,7 @@ message("All variables initialized...")
 # Load packages and metadata
 ########################################
 # Check for required packages -------------
-required_packages <- c("flowCore", "svglite")
+required_packages <- c("flowCore", "svglite", "ggcyto")
 sapply(required_packages, requireNamespace, quietly = TRUE)
 message("All required packages available...")
 
@@ -166,6 +166,7 @@ message("Validation for keys complete...")
 # MAIN
 ########################################
 message("Starting main script logic...")
+# Initial plots --------
 # Execute for each control_key
 for (key_idx in 1:length(control_keys)) {
     # Setup variables ------------
@@ -174,14 +175,28 @@ for (key_idx in 1:length(control_keys)) {
     cat(sprintf("Processing %s key\n", key_idx))
     cat(sprintf("Using key = %s \n", control_key))
 
-    # Subset the metadata using metadata keys
+    # Subset the metadata using metadata keys -----
     # Vectorized subsetting using fast %in% operator
     # Alternative: control_samples <- merge(metadata, UNIQUE_CONTROL_COMBINATIONS, by = control_cols)
     rows_to_analyze <- metadata[keys_in_current_key, ]
     cat("Dimensions of rows_to_analyze =", dim(rows_to_analyze), "\n")
     message("Sample subsetting complete...")
-    
-    rownames(control_samples) <- NULL
+
+    # Process rows in subset metadata -----
+    for (row_idx in 1:nrow(rows_to_analyze)) {
+        message("Starting row processing...")
+
+        # Load fcs file
+        row_flow_data <- flowCore::read.FCS(rows_to_analyze$file_paths[row_idx])
+        if (row_idx == 1) {
+            message("Showing summary for first row...")
+            print(summary(row_flow_data))
+
+        }
+
+
+    }
+
 }
 
 # Reset row names for clean output (optional)
