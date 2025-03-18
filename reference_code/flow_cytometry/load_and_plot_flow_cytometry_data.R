@@ -96,9 +96,24 @@ message("All variables initialized...")
 # Load packages and metadata
 ########################################
 # Check for required packages -------------
-required_packages <- c("flowCore", "svglite", "ggcyto")
+required_packages <- c("flowCore", "svglite", "ggcyto", "ggplot2")
 sapply(required_packages, requireNamespace, quietly = TRUE)
 message("All required packages available...")
+# Get current ggplot2 version
+current_version <- packageVersion("ggplot2")
+
+# Define compatible version range
+min_version <- "3.3.0"
+max_version <- "3.3.6"
+
+# Check if version is compatible
+if (current_version > max_version) {
+  warning(paste0("Your ggplot2 version (", current_version, ") is newer than the known compatible version (", max_version, "). This may cause issues with ggcyto."))
+} else if (current_version < min_version) {
+  stop(paste0("Your ggplot2 version (", current_version, ") is too old. Please upgrade to at least version ", min_version))
+} else {
+  message(paste0("Using ggplot2 version ", current_version, " - compatible with ggcyto"))
+}
 
 # Load metadata -------------
 # Use gtools to account for unpadded digits in FCS file format.
@@ -187,6 +202,8 @@ for (key_idx in 1:length(control_keys)) {
 
     # Load fcs file
     subset_flowSet <- flowCore::read.flowSet(files = rows_to_analyze$file_paths)
+    rownames(rows_to_analyze) <- basename(rows_to_analyze$file_paths)
+    flowCore::pData(subset_flowSet) <- rows_to_analyze
 
     if (key_idx == 1) {
         message("Initially processing first control key...")
