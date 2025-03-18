@@ -6,12 +6,14 @@ sudo apt-get install -y default-jdk
 # Install related libraries for R packages.
 sudo apt-get install libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libfontconfig1-dev
 sudo apt-get install libmagick++-dev
+sudo apt install xfonts-base xfonts-75dpi xfonts-100dpi xfonts-cyrillic
 
 # Install LaTeX and related packages
 sudo apt-get install -y texlive texlive-fonts-extra texlive-latex-extra texinfo
 sudo apt-get install -y texlive-science texlive-extra-utils texlive-bibtex-extra
 sudo apt-get install -y texlive-fonts-recommended texlive-plain-generic
 sudo apt-get install -y texlive-fonts-extra
+
 
 # Set up environment variables
 export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
