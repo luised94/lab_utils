@@ -7,6 +7,9 @@ median_values <- fsApply(subset_flowSet, each_col, median)
 median_df <- cbind(pData(subset_flowSet), as.data.frame(median_values))
 # View results
 print(median_df[, c("timepoints", "FSC-A", "SSC-A", "FL1-A")])
+# Convert flowSet to data frame with metadata
+df <- fortify(filtered_set_density, .melt = FALSE)
+df$timepoints <- factor(df$timepoints, levels = sort(unique(df$timepoints)))
 
 # Compute medians per timepoint
 timepoint_medians <- median_df %>%
