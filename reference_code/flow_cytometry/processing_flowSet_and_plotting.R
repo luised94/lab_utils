@@ -239,6 +239,12 @@ ggplot(hist_data, aes(x = bin_center, group = Timepoint, fill = Timepoint)) +
   scale_color_brewer(palette = "Blues") +
   scale_shape_manual(name = "Indicator", values = c("Median" = 21)) +
   coord_cartesian(xlim = global_range) +
+  theme(
+    strip.text.y.left = element_text(angle = 0),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, size = 1)
+  ) +
   labs(title = "Vertical Offset FL1-A Distributions",
        subtitle = "Median values indicated by outlined circles") +
   theme_minimal()
@@ -267,7 +273,12 @@ ggplot(hist_data, aes(x = bin_center, group = Timepoint, fill = Timepoint)) +
   scale_color_brewer(palette = "Blues") +
   scale_shape_manual(name = "Indicator", values = c("Median" = 21)) +
   coord_cartesian(xlim = global_range) +
-    theme(plot.border = element_rect(color = "black", fill = NA, size = 1)) +
+  theme(
+    strip.text.y.left = element_text(angle = 0),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, size = 1)
+  ) +
   labs(title = "Vertical Offset FL1-A Distributions",
        subtitle = "Median values indicated by outlined circles") +
   theme_minimal()
