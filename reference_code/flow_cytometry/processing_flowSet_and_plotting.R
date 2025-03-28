@@ -13,56 +13,6 @@ timepoint_medians <- median_df %>%
   group_by(timepoints) %>%
   summarise(median_FL1A = median(`FL1-A`))
 
-# 1. Create working copy
-filtered_set_density <- subset_flowSet
-
-# 2. Trim extreme 0.5% from both tails
-trim_level <- 0.005  # Adjust this to control trimming strictness
-
-for(i in seq_along(filtered_set_density)) {
-  ff <- filtered_set_density[[i]]
-  frame_data <- exprs(ff)
-  keep <- rep(TRUE, nrow(frame_data))
-  
-  for(channel in c("FSC-A", "SSC-A", "FL1-A")) {
-    vals <- frame_data[, channel]
-    lower <- quantile(vals, trim_level, na.rm = TRUE)
-    upper <- quantile(vals, 1 - trim_level, na.rm = TRUE)
-    
-    keep <- keep & (vals >= lower) & (vals <= upper)
-  }
-  
-  exprs(ff) <- frame_data[keep, ]
-  filtered_set_density[[i]] <- ff
-  
-  cat("Sample", sampleNames(filtered_set_density)[i],
-      "retained", sum(keep), "/", nrow(frame_data), "events\n")
-}
-
-# Convert flowSet to data frame with metadata
-df <- fortify(filtered_set_density, .melt = FALSE)
-df$timepoints <- factor(df$timepoints, levels = sort(unique(df$timepoints)))
-
-# Get global FL1-A range across all flowFrames in flowSet
-fl1a_ranges <- fsApply(filtered_set_density, function(fr) range(exprs(fr)[,"FL1-A"]))
-global_range <- range(fl1a_ranges)
-
-dir.create("~/flow_cytometry_test/")
-file_output <- "~/flow_cytometry_test/test_001.pdf"
-pdf(file = file_output)
-ggcyto(filtered_set_density, aes(x = `FL1-A`)) +
-  geom_histogram(bins = 50) +
-  facet_wrap(~timepoints) +
-  geom_vline(
-    data = timepoint_medians,
-    aes(xintercept = median_FL1A),
-    color = "red",
-    linetype = "dashed"
-  ) +
-  coord_cartesian(xlim = global_range) +
-  labs(title = "Density-Trimmed FL1-A Distributions")
-dev.off()
-
 ########################################
 # IQR based filtering
 ########################################
@@ -104,6 +54,7 @@ ssca_ranges <- fsApply(filtered_set_iqr, function(fr) range(exprs(fr)[,"SSC-A"])
 global_ssca_range <- range(ssca_ranges)
 
 file_output <- "~/flow_cytometry_test/test_002.pdf"
+dir.create("~/flow_cytometry_test/")
 pdf(file = file_output)
 ggcyto(filtered_set_iqr, aes(x = `FL1-A`)) +
     geom_histogram(bins = 50) +
@@ -126,7 +77,6 @@ ggcyto(filtered_set_iqr, aes(x = `FSC-A`, y = `SSC-A`)) +
     coord_cartesian(xlim = global_fcsa_range, ylim = global_ssca_range) +  # Use computed range
     labs(title = "FSC-A vs SSC-A distrubiton Hampel filtered")
 dev.off()
-
 
 # 1. Gradient-colored histograms
 file_output <- "~/flow_cytometry_test/test_004.pdf"
@@ -283,7 +233,61 @@ ggplot(hist_data, aes(x = bin_center, group = Timepoint, fill = Timepoint)) +
        subtitle = "Median values indicated by outlined circles") +
   theme_minimal()
 dev.off()
+
 ######## Following code serves as reference ########
+########################################
+# Density-Trimmed filtering
+########################################
+# 1. Create working copy
+filtered_set_density <- subset_flowSet
+
+# 2. Trim extreme 0.5% from both tails
+trim_level <- 0.005  # Adjust this to control trimming strictness
+
+for(i in seq_along(filtered_set_density)) {
+  ff <- filtered_set_density[[i]]
+  frame_data <- exprs(ff)
+  keep <- rep(TRUE, nrow(frame_data))
+  
+  for(channel in c("FSC-A", "SSC-A", "FL1-A")) {
+    vals <- frame_data[, channel]
+    lower <- quantile(vals, trim_level, na.rm = TRUE)
+    upper <- quantile(vals, 1 - trim_level, na.rm = TRUE)
+    
+    keep <- keep & (vals >= lower) & (vals <= upper)
+  }
+  
+  exprs(ff) <- frame_data[keep, ]
+  filtered_set_density[[i]] <- ff
+  
+  cat("Sample", sampleNames(filtered_set_density)[i],
+      "retained", sum(keep), "/", nrow(frame_data), "events\n")
+}
+
+# Convert flowSet to data frame with metadata
+df <- fortify(filtered_set_density, .melt = FALSE)
+df$timepoints <- factor(df$timepoints, levels = sort(unique(df$timepoints)))
+
+# Get global FL1-A range across all flowFrames in flowSet
+fl1a_ranges <- fsApply(filtered_set_density, function(fr) range(exprs(fr)[,"FL1-A"]))
+global_range <- range(fl1a_ranges)
+
+dir.create("~/flow_cytometry_test/")
+file_output <- "~/flow_cytometry_test/test_001.pdf"
+pdf(file = file_output)
+ggcyto(filtered_set_density, aes(x = `FL1-A`)) +
+  geom_histogram(bins = 50) +
+  facet_wrap(~timepoints) +
+  geom_vline(
+    data = timepoint_medians,
+    aes(xintercept = median_FL1A),
+    color = "red",
+    linetype = "dashed"
+  ) +
+  coord_cartesian(xlim = global_range) +
+  labs(title = "Density-Trimmed FL1-A Distributions")
+dev.off()
+
 ########################################
 # IQR based filtering 2
 ########################################
