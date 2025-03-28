@@ -1,0 +1,18 @@
+
+Add the following to a quarto file and render to pdf to include a result into a report.
+
+```{md}
+---
+title: "Flow Cytometry Test Plot"
+author: "Your Name"
+format: 
+  html: default
+  pdf: default
+---
+
+![Flow Cytometry Plot](~/flow_cytometry_test/output-1.png){width=90%}
+```
+
+```{bash}
+quarto render example.qmd --to pdf
+```
