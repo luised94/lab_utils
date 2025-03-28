@@ -149,7 +149,7 @@ rownames(metadata) <- basename(metadata$file_paths)
 flowCore::pData(flow_set) <- metadata
 
 # Filter and save all datasets ----------
-# filtered_flow_frames is a list, not an S4 class like flow_set
+# filtered_flow_set is a list, not an S4 class like flow_set
 # Convert if needed: as(filtered_flow_frames, "flowSet")
 filtered_flow_set <- lapply(seq_along(flow_set), function(sample_index) {
   flow_frame <- flow_set[[sample_index]]
@@ -177,11 +177,42 @@ filtered_flow_set <- lapply(seq_along(flow_set), function(sample_index) {
   cat("Sample ", sample_name, " retained ", sum(events_to_keep), "/", 
       nrow(event_data), "events (", 
       round(100*sum(events_to_keep)/nrow(event_data), 1), "%)\n", sep="")
+    stopifnot("Filtered events exceed original count!" = 
+          sum(events_to_keep) <= nrow(event_data))
 
   return(flow_frame)
 })
 
-# Convert to flowSet
+# Convert back to flow set S4 class
 filtered_flow_set <- as(filtered_flow_set, "flowSet")
 
+median_values <- fsApply(filtered_flow_set, each_col, median)
+median_df <- cbind(pData(flow_set), as.data.frame(median_values))
 
+timepoint_medians <- median_df %>%
+  group_by(across(all_of(c(CONTROL_COLUMNS, "timepoints")))) %>%
+  summarise(median_FL1A = median(`FL1-A`))
+
+CHANNELS_TO_PLOT <- c("FL1-A", "FSC-A", "SSC-A")
+channel_global_ranges <- do.call(rbind, lapply(CHANNELS_TO_PLOT, function(flow_channel) {
+  channel_ranges <- fsApply(filtered_flow_set, function(flow_frame) range(exprs(flow_frame)[, flow_channel]))
+  data.frame(
+    channel = flow_channel,
+    min_value = min(channel_ranges),
+    max_value = max(channel_ranges),
+    stringsAsFactors = FALSE
+  )
+}))
+
+fl1a_global_range <- channel_global_ranges %>%
+  dplyr::filter(channel == "FL1-A") %>%
+  select(min_value, max_value) %>%
+  as.numeric()
+
+sampleNames(filtered_flow_set) <- sampleNames(flow_set)
+pData(filtered_flow_set) <- pData(flow_set)
+
+pData(filtered_flow_set)$group <- apply(pData(filtered_flow_set)[, CONTROL_COLUMNS], 1, 
+                                       function(x) paste(x, collapse = "_"))
+
+pData(filtered_flow_set)$group <- factor(pData(filtered_flow_set)$group)
