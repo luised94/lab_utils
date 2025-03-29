@@ -250,9 +250,8 @@ fl1a_global_range <- channel_global_ranges %>%
 
 # Create the plot
 file_output <- "~/flow_cytometry_test/fl1a_density_plot.pdf"
-pdf(file = file_output)
 
-ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
+fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
   geom_density(
     aes(y = after_stat(scaled)),
     fill = "#4292C6",
@@ -317,4 +316,38 @@ scale_x_continuous(
 
   )
 
-dev.off()
+# Save using ggsave - no need to worry about graphics devices
+ggsave(
+  filename = "~/flow_cytometry_test/fl1a_density_plot.pdf", 
+  plot = fl1a_plot,
+  width = 10,       # Specify width
+  height = 8,       # Specify height
+  units = "in",     # Units for dimensions
+  dpi = 300         # Resolution
+)
+
+ssca_global_range <- channel_global_ranges %>%
+  dplyr::filter(channel == "SSC-A") %>%
+  select(min_value, max_value) %>%
+  as.numeric()
+
+fsca_global_range <- channel_global_ranges %>%
+  dplyr::filter(channel == "FSC-A") %>%
+  select(min_value, max_value) %>%
+  as.numeric()
+
+fsca_vs_ssca_file_output <- "~/flow_cytometry_test/fsca_vs_ssca_plot.pdf"
+fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
+    geom_hex(bins = 100) +
+    facet_wrap(timepoints ~ group, switch = "y") +
+    coord_cartesian(xlim = fsca_global_range, ylim = ssca_global_range) +  # Use computed range
+    labs(title = "FSC-A vs SSC-A distrubiton")
+
+ggsave(
+  filename = fsca_vs_ssca_file_output,
+  plot = fsca_vs_ssca_plot,
+  width = 10,       # Specify width
+  height = 8,       # Specify height
+  units = "in",     # Units for dimensions
+  dpi = 300         # Resolution
+)
