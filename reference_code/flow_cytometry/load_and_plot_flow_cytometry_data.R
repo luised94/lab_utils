@@ -256,7 +256,9 @@ ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
   geom_density(
     aes(y = after_stat(scaled)),
     fill = "#4292C6",
-    color = "#08306B",
+ 
+    color = "#2166AC",
+    #color = "#08306B", # First color.
     alpha = 0.3,
     size = 0.3
   ) +
@@ -266,11 +268,12 @@ ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
     aes(xintercept = median_FL1A),
     color = "#E64B35",
     linetype = "dashed",
-    size = 0.5
+    size = 0.4
   ) +
 scale_x_continuous(
   breaks = fl1a_global_range,
-    labels = format(fl1a_global_range, scientific = FALSE)
+    labels = format(fl1a_global_range, scientific = FALSE),
+    expand = c(0.02, 0)
 ) +
     ## Replace coord_cartesian() with scale_x_continuous()
     #scale_x_continuous(
@@ -279,18 +282,51 @@ scale_x_continuous(
     #  labels = format(fl1a_global_range, scientific = FALSE)
     #) +
   labs(
-    title = "FL1-A Intensity by Timepoint and Experimental Condition",
-    y = "Timepoint",
+    title = "FL1-A Intensity Distribution",
+    subtitle = "By Timepoint and Experimental Condition",
+    y = "Timepoint (minutes)",
     x = "FL1-A Intensity"
   ) +
+  theme_minimal() +
   theme(
-    strip.text.y.left = element_text(angle = 0),
-    strip.text.x = element_text(size = 6, angle = 0, hjust = 1),
+# Panel customization
+    panel.background = element_rect(fill = "white", color = NA),
+    #panel.grid.major = element_line(color = "gray90", size = 0.2),
+    panel.grid.major = element_line(color = "grey80", size = 0.2), # Chat gpt
+    panel.grid.minor = element_blank(),
+    panel.spacing = unit(0.3, "lines"),    # Slightly more space between facets
+    #panel.border = element_rect(color = "gray60", fill = NA, size = 0.5),
+    panel.border = element_rect(color = "black", fill = NA, size = 0.8), # Chat gpt
+   
+    strip.text.y.left = element_text(angle = 0, face = "bold"),
+    #strip.text.y.left = element_text(angle = 0, face = "bold", size = 8, margin = margin(r = 10)),
+
+    # Facet label formatting
+    strip.background = element_rect(fill = "gray95", color = NA),
+    strip.text.x = element_text(size = 6, angle = 0, hjust = 1, margin = margin(b = 5), face = "bold"),
+    #strip.text.x = element_text(size = 10, angle = 30, hjust = 1, face = "bold"), # chat gpt
+    
+    # Axis formatting
+    axis.title = element_text(face = "bold", size = 9),
     axis.text.y = element_blank(),
-    axis.text.x = element_text(size = 8, angle = 45, hjust = 1),
+    axis.text.x = element_text(size = 6, angle = 45, hjust = 1, color = "gray30"),
+    #axis.text.x = element_text(size = 10), # chat gpt
     axis.ticks.y = element_blank(),
-    panel.border = element_rect(color = "black", fill = NA, size = 1)
+    axis.ticks.x = element_line(color = "gray60", size = 0.3),
+    axis.line.x = element_line(color = "gray60", size = 0.3),
+    
+    # Title formatting
+    plot.title = element_text(face = "bold", size = 12, margin = margin(b = 5)),
+    plot.subtitle = element_text(size = 10, color = "gray30", margin = margin(b = 10)),
+    plot.margin = margin(t = 10, r = 15, b = 10, l = 15)
+
+    # Old formatting
+    #strip.text.y.left = element_text(angle = 0),
+    #strip.text.x = element_text(size = 6, angle = 0, hjust = 1),
+    #axis.text.y = element_blank(),
+    #axis.text.x = element_text(size = 8, angle = 45, hjust = 1),
+    #axis.ticks.y = element_blank(),
+    #panel.border = element_rect(color = "black", fill = NA, size = 1)
   )
 
 dev.off()
-
