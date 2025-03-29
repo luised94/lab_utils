@@ -242,6 +242,12 @@ pData(filtered_flow_set)$group <- factor(
   ordered = TRUE
 )
 
+ordered_groups <- with(pData(filtered_flow_set),
+                     unique(pData(filtered_flow_set)[order(rescue_allele, suppressor_allele, auxin_treatment), "group"]))
+
+pData(filtered_flow_set)$group <- factor(pData(filtered_flow_set)$group, 
+                                       levels = ordered_groups, 
+                                       ordered = TRUE)
 # Get global range for FL1-A channel
 fl1a_global_range <- channel_global_ranges %>%
   dplyr::filter(channel == "FL1-A") %>%
@@ -268,8 +274,7 @@ ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
   ) +
 scale_x_continuous(
   breaks = fl1a_global_range,
-  labels = scales::label_number(accuracy = 1),
-  expand = c(0.02, 0)
+    labels = format(fl1a_global_range, scientific = FALSE)
 ) +
     ## Replace coord_cartesian() with scale_x_continuous()
     #scale_x_continuous(
@@ -284,8 +289,9 @@ scale_x_continuous(
   ) +
   theme(
     strip.text.y.left = element_text(angle = 0),
-    #strip.text.x = element_text(size = 8, angle = 45, hjust = 1),
+    strip.text.x = element_text(size = 6, angle = 0, hjust = 1),
     axis.text.y = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 45, hjust = 1),
     axis.ticks.y = element_blank(),
     panel.border = element_rect(color = "black", fill = NA, size = 1)
   )
