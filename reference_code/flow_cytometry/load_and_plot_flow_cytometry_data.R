@@ -217,10 +217,11 @@ timepoint_medians <- median_df %>%
   summarise(median_FL1A = median(`FL1-A`))
 
 # Add group column to timepoint_medians for proper facet matching
-timepoint_medians$group <- apply(
-    timepoint_medians[, CONTROL_COLUMNS],
-    1,
-    paste, collapse = "_"
+timepoint_medians$group <- factor(
+
+    apply(timepoint_medians[, CONTROL_COLUMNS], 1, paste, collapse = "_"),
+    levels = unique(apply(timepoint_medians[, CONTROL_COLUMNS], 1, paste, collapse = "_")),
+    ordered = TRUE
 )
 
 # Calculate global ranges for each channel
@@ -237,17 +238,10 @@ channel_global_ranges <- do.call(rbind, lapply(CHANNELS_TO_PLOT, function(flow_c
 # Add a grouping column to pData as an ordered factor
 pData(filtered_flow_set)$group <- factor(
   apply(pData(filtered_flow_set)[, CONTROL_COLUMNS], 1, paste, collapse = "_"),
-  levels = unique(apply(pData(filtered_flow_set)[, CONTROL_COLUMNS], 1, 
-                    function(x) paste(x, collapse = "_"))),
+  levels = unique(apply(pData(filtered_flow_set)[, CONTROL_COLUMNS], 1, paste, collapse = "_")),
   ordered = TRUE
 )
 
-ordered_groups <- with(pData(filtered_flow_set),
-                     unique(pData(filtered_flow_set)[order(rescue_allele, suppressor_allele, auxin_treatment), "group"]))
-
-pData(filtered_flow_set)$group <- factor(pData(filtered_flow_set)$group, 
-                                       levels = ordered_groups, 
-                                       ordered = TRUE)
 # Get global range for FL1-A channel
 fl1a_global_range <- channel_global_ranges %>%
   dplyr::filter(channel == "FL1-A") %>%
@@ -263,7 +257,8 @@ ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
     aes(y = after_stat(scaled)),
     fill = "#4292C6",
     color = "#08306B",
-    alpha = 0.5
+    alpha = 0.3,
+    size = 0.3
   ) +
   facet_grid(timepoints ~ group, switch = "y") +
   geom_vline(
