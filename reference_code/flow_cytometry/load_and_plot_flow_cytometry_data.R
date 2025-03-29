@@ -269,8 +269,9 @@ ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
   geom_vline(
     data = timepoint_medians,
     aes(xintercept = median_FL1A),
-    color = "red",
-    size = 0.7
+    color = "#E64B35",
+    linetype = "dashed",
+    size = 0.5
   ) +
 scale_x_continuous(
   breaks = fl1a_global_range,
