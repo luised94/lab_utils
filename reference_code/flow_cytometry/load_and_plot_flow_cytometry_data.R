@@ -337,17 +337,86 @@ fsca_global_range <- channel_global_ranges %>%
   as.numeric()
 
 fsca_vs_ssca_file_output <- "~/flow_cytometry_test/fsca_vs_ssca_plot.pdf"
-fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
-    geom_hex(bins = 100) +
-    facet_wrap(timepoints ~ group, switch = "y") +
-    coord_cartesian(xlim = fsca_global_range, ylim = ssca_global_range) +  # Use computed range
-    labs(title = "FSC-A vs SSC-A distrubiton")
 
+# Streamlined FSC-A vs SSC-A plot matching your previous aesthetic
+
+# Generate pretty breaks for axes (just min and max)
+fsca_breaks <- c(min(fsca_global_range), max(fsca_global_range))
+ssca_breaks <- c(min(ssca_global_range), max(ssca_global_range))
+
+fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
+  # ===== DATA VISUALIZATION =====
+  # Hexbin plot with viridis color scale
+  geom_hex(bins = 100, aes(fill = after_stat(density))) +
+  scale_fill_viridis_c(option = "plasma", name = "Density") +
+  
+  # ===== FACETING =====
+  # Use facet_grid instead of facet_wrap to have timepoints appear only once per row
+  facet_grid(timepoints ~ group) +
+  
+  # ===== AXIS SCALING =====
+  # Show only min and max on axes
+  scale_x_continuous(
+    limits = fsca_global_range,
+    breaks = fsca_breaks,
+    labels = format(fsca_breaks, scientific = TRUE, digits = 2),
+    expand = c(0.02, 0)
+  ) +
+  scale_y_continuous(
+    limits = ssca_global_range,
+    breaks = ssca_breaks,
+    labels = format(ssca_breaks, scientific = TRUE, digits = 2),
+    expand = c(0.02, 0)
+  ) +
+  
+  # ===== LABELING =====
+  labs(
+    title = "Cell Size and Granularity Distribution",
+    subtitle = "FSC-A (cell size) vs SSC-A (cell granularity)",
+    x = "FSC-A (cell size)",
+    y = "SSC-A (granularity)"
+  ) +
+  
+  # ===== THEME CUSTOMIZATION =====
+  theme_minimal() +
+  theme(
+    # Panel customization
+    panel.background = element_blank(),
+    panel.grid.major = element_line(color = "grey80", size = 0.2),
+    panel.grid.minor = element_line(color = "grey90", size = 0.1),
+    panel.border = element_rect(color = "black", fill = NA, size = 0.8),
+    panel.spacing = unit(0.3, "lines"),
+    
+    # Facet label formatting - timepoints on left only
+    strip.background = element_blank(),
+    strip.text.x = element_text(size = 6, face = "bold", margin = margin(b = 5)),
+    strip.text.y.left = element_text(angle = 0, face = "bold"),
+    
+    # Axis formatting
+    axis.title = element_text(face = "bold", size = 9),
+    axis.text.y = element_text(size = 6, color = "gray30"),
+    axis.text.x = element_text(size = 6, angle = 45, color = "gray30", margin = margin(t = 5)),
+    axis.line = element_line(color = "gray60", size = 0.3),
+    axis.ticks = element_line(color = "gray60", size = 0.3),
+    
+    # Legend formatting
+    legend.position = "right",
+    legend.key.size = unit(0.8, "lines"),
+    legend.title = element_text(size = 8, face = "bold"),
+    legend.text = element_text(size = 7),
+    
+    # Title formatting
+    plot.title = element_text(face = "bold", size = 12, margin = margin(b = 5)),
+    plot.subtitle = element_text(size = 8, color = "gray30", margin = margin(b = 10)),
+    plot.margin = margin(t = 10, r = 15, b = 10, l = 15)
+  )
+
+# Save the plot
 ggsave(
-  filename = fsca_vs_ssca_file_output,
+  filename = "~/flow_cytometry_test/fsca_vs_ssca_plot.pdf",
   plot = fsca_vs_ssca_plot,
-  width = 10,       # Specify width
-  height = 8,       # Specify height
-  units = "in",     # Units for dimensions
-  dpi = 300         # Resolution
+  width = 12,
+  height = 8,
+  units = "in",
+  dpi = 300
 )
