@@ -133,6 +133,15 @@ DEPENDENT_COLUMN <- "timepoints"
 CONTROL_COLUMNS <- c("rescue_allele", "suppressor_allele", "auxin_treatment")
 UNIQUE_CONTROL_COMBINATIONS <- unique(metadata[, CONTROL_COLUMNS])
 
+CHANNELS_TO_PLOT <- c("FL1-A", "FSC-A", "SSC-A")
+# Category levels for proper ordering
+CATEGORIES <- list(
+    rescue_allele = c("NONE", "WT", "4R"),
+    suppressor_allele = c("NONE", "4PS"),
+    auxin_treatment = c("NO", "YES"),
+    timepoints = c("0", "20", "40", "60", "80", "100", "120")
+)
+
 ########################################
 # MAIN
 ########################################
@@ -148,9 +157,19 @@ stopifnot(
 rownames(metadata) <- basename(metadata$file_paths)
 flowCore::pData(flow_set) <- metadata
 
+# Convert metadata columns to ordered factors
+for(col in names(CATEGORIES)) {
+  if(col %in% colnames(pData(flow_set))) {
+    pData(flow_set)[[col]] <- factor(pData(flow_set)[[col]],
+                                    levels = CATEGORIES[[col]],
+                                    ordered = TRUE)
+  }
+}
+
 # Filter and save all datasets ----------
 # filtered_flow_set is a list, not an S4 class like flow_set
 # Convert if needed: as(filtered_flow_frames, "flowSet")
+# Apply IQR-based outlier filtering to each sample in the flow cytometry dataset
 filtered_flow_set <- lapply(seq_along(flow_set), function(sample_index) {
   flow_frame <- flow_set[[sample_index]]
   event_data <- exprs(flow_frame)
@@ -183,17 +202,28 @@ filtered_flow_set <- lapply(seq_along(flow_set), function(sample_index) {
   return(flow_frame)
 })
 
-# Convert back to flow set S4 class
+# Convert list back to flowSet S4 class and restore metadata
 filtered_flow_set <- as(filtered_flow_set, "flowSet")
+sampleNames(filtered_flow_set) <- sampleNames(flow_set)
+pData(filtered_flow_set) <- pData(flow_set)
 
+# Calculate median values for each sample
 median_values <- fsApply(filtered_flow_set, each_col, median)
 median_df <- cbind(pData(flow_set), as.data.frame(median_values))
 
+# Group by experimental factors and calculate medians for each channel
 timepoint_medians <- median_df %>%
   group_by(across(all_of(c(CONTROL_COLUMNS, "timepoints")))) %>%
   summarise(median_FL1A = median(`FL1-A`))
 
-CHANNELS_TO_PLOT <- c("FL1-A", "FSC-A", "SSC-A")
+# Add group column to timepoint_medians for proper facet matching
+timepoint_medians$group <- apply(
+    timepoint_medians[, CONTROL_COLUMNS],
+    1,
+    paste, collapse = "_"
+)
+
+# Calculate global ranges for each channel
 channel_global_ranges <- do.call(rbind, lapply(CHANNELS_TO_PLOT, function(flow_channel) {
   channel_ranges <- fsApply(filtered_flow_set, function(flow_frame) range(exprs(flow_frame)[, flow_channel]))
   data.frame(
@@ -204,15 +234,61 @@ channel_global_ranges <- do.call(rbind, lapply(CHANNELS_TO_PLOT, function(flow_c
   )
 }))
 
+# Add a grouping column to pData as an ordered factor
+pData(filtered_flow_set)$group <- factor(
+  apply(pData(filtered_flow_set)[, CONTROL_COLUMNS], 1, paste, collapse = "_"),
+  levels = unique(apply(pData(filtered_flow_set)[, CONTROL_COLUMNS], 1, 
+                    function(x) paste(x, collapse = "_"))),
+  ordered = TRUE
+)
+
+# Get global range for FL1-A channel
 fl1a_global_range <- channel_global_ranges %>%
   dplyr::filter(channel == "FL1-A") %>%
   select(min_value, max_value) %>%
   as.numeric()
 
-sampleNames(filtered_flow_set) <- sampleNames(flow_set)
-pData(filtered_flow_set) <- pData(flow_set)
+# Create the plot
+file_output <- "~/flow_cytometry_test/fl1a_density_plot.pdf"
+pdf(file = file_output)
 
-pData(filtered_flow_set)$group <- apply(pData(filtered_flow_set)[, CONTROL_COLUMNS], 1, 
-                                       function(x) paste(x, collapse = "_"))
+ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
+  geom_density(
+    aes(y = after_stat(scaled)),
+    fill = "#4292C6",
+    color = "#08306B",
+    alpha = 0.5
+  ) +
+  facet_grid(timepoints ~ group, switch = "y") +
+  geom_vline(
+    data = timepoint_medians,
+    aes(xintercept = median_FL1A),
+    color = "red",
+    size = 0.7
+  ) +
+scale_x_continuous(
+  breaks = fl1a_global_range,
+  labels = scales::label_number(accuracy = 1),
+  expand = c(0.02, 0)
+) +
+    ## Replace coord_cartesian() with scale_x_continuous()
+    #scale_x_continuous(
+    #  limits = fl1a_global_range,
+    #  breaks = fl1a_global_range,
+    #  labels = format(fl1a_global_range, scientific = FALSE)
+    #) +
+  labs(
+    title = "FL1-A Intensity by Timepoint and Experimental Condition",
+    y = "Timepoint",
+    x = "FL1-A Intensity"
+  ) +
+  theme(
+    strip.text.y.left = element_text(angle = 0),
+    #strip.text.x = element_text(size = 8, angle = 45, hjust = 1),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, size = 1)
+  )
 
-pData(filtered_flow_set)$group <- factor(pData(filtered_flow_set)$group)
+dev.off()
+
