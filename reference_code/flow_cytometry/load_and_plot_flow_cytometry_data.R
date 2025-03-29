@@ -289,44 +289,32 @@ scale_x_continuous(
   ) +
   theme_minimal() +
   theme(
-# Panel customization
-    panel.background = element_rect(fill = "white", color = NA),
-    #panel.grid.major = element_line(color = "gray90", size = 0.2),
-    panel.grid.major = element_line(color = "grey80", size = 0.2), # Chat gpt
+    # Panel customization
+    panel.background = element_blank(),
+    panel.grid.major = element_line(color = "grey80", size = 0.2),
     panel.grid.minor = element_blank(),
-    panel.spacing = unit(0.3, "lines"),    # Slightly more space between facets
-    #panel.border = element_rect(color = "gray60", fill = NA, size = 0.5),
-    panel.border = element_rect(color = "black", fill = NA, size = 0.8), # Chat gpt
+    panel.border = element_rect(color = "black", fill = NA, size = 0.8),
+    panel.spacing = unit(0.3, "lines"),
    
     strip.text.y.left = element_text(angle = 0, face = "bold"),
-    #strip.text.y.left = element_text(angle = 0, face = "bold", size = 8, margin = margin(r = 10)),
 
     # Facet label formatting
-    strip.background = element_rect(fill = "gray95", color = NA),
+    strip.background = element_blank(),
     strip.text.x = element_text(size = 6, angle = 0, hjust = 1, margin = margin(b = 5), face = "bold"),
-    #strip.text.x = element_text(size = 10, angle = 30, hjust = 1, face = "bold"), # chat gpt
     
     # Axis formatting
     axis.title = element_text(face = "bold", size = 9),
-    axis.text.y = element_blank(),
     axis.text.x = element_text(size = 6, angle = 45, hjust = 1, color = "gray30"),
-    #axis.text.x = element_text(size = 10), # chat gpt
-    axis.ticks.y = element_blank(),
-    axis.ticks.x = element_line(color = "gray60", size = 0.3),
     axis.line.x = element_line(color = "gray60", size = 0.3),
+    axis.ticks.x = element_line(color = "gray60", size = 0.3),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
     
     # Title formatting
     plot.title = element_text(face = "bold", size = 12, margin = margin(b = 5)),
     plot.subtitle = element_text(size = 10, color = "gray30", margin = margin(b = 10)),
     plot.margin = margin(t = 10, r = 15, b = 10, l = 15)
 
-    # Old formatting
-    #strip.text.y.left = element_text(angle = 0),
-    #strip.text.x = element_text(size = 6, angle = 0, hjust = 1),
-    #axis.text.y = element_blank(),
-    #axis.text.x = element_text(size = 8, angle = 45, hjust = 1),
-    #axis.ticks.y = element_blank(),
-    #panel.border = element_rect(color = "black", fill = NA, size = 1)
   )
 
 dev.off()
