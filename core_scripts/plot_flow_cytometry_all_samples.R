@@ -184,36 +184,46 @@ message("Configuration accepted...")
 ########################################
 # Check for required packages -------------
 # TODO: Add verification for package versions
-#required_packages <- list(
-#    "dplyr" = "1.1.4",
-#    "flowCore" = "2.17.1",
-#    "ggcyto" = "1.26.4",
-#    "gtools" = "3.9.5",
-#    "BH" = "1.87.0.1",
-#    "ggplot2" = "3.5.1",
-#    "RProtoBufLib" = "2.13.1",
-#    "cytolib" = "2.19.3"
-#)
-required_packages <- c("flowCore", "svglite", "ggcyto", "ggplot2")
-#required_packages <- c("flowCore", "svglite", "ggcyto", "ggplot2")
-sapply(required_packages, requireNamespace, quietly = TRUE)
-## Get current ggplot2 version
-#current_version <- packageVersion("ggplot2")
-#
-## Define compatible version range
-#min_version <- "3.3.0"
-#max_version <- "3.3.6"
-#
-## Check if version is compatible
-#if (current_version > max_version) {
-#  warning(paste0("Your ggplot2 version (", current_version, ") is newer than the known compatible version (", max_version, "). This may cause issues with ggcyto."))
-#} else if (current_version < min_version) {
-#  stop(paste0("Your ggplot2 version (", current_version, ") is too old. Please upgrade to at least version ", min_version))
-#} else {
-#  message(paste0("Using ggplot2 version ", current_version, " - compatible with ggcyto"))
-#}
+REQUIRED_PACKAGES <- list(
+    "dplyr" = "1.1.4",
+    "flowCore" = "2.17.1",
+    "ggcyto" = "1.26.4",
+    "gtools" = "3.9.5",
+    "BH" = "1.87.0.1",
+    "ggplot2" = "3.5.1",
+    "RProtoBufLib" = "2.13.1",
+    "cytolib" = "2.19.3"
+)
+# Verify packages are available and versions are at least minimum version in list
+lapply(names(REQUIRED_PACKAGES),
+    function(package_name){
+        # Check availability (stop if missing - essential)
+        if (!requireNamespace(package_name, quietly = TRUE)) {
+             stop(paste0("Required package '", package_name, "' is not installed. ",
+                         "Please install using renv or if related to flow cytometry, see install instructions."),
+                  call. = FALSE) # Stop execution if a core package is missing
+        }
 
-message("All required packages available...")
+        # Get the currently installed version
+        current_version <- as.character(packageVersion(package_name))
+        # Get the known compatible version
+        known_version <- REQUIRED_PACKAGES[[package_name]]
+
+        # Compare versions - issue warning if they don't match exactly
+        if (compareVersion(current_version, known_version) != 0) {
+            warning_message <- paste0(
+                "Package '", package_name, "' version installed (", current_version, ") ",
+                "differs from the known compatible version (", known_version, "). ",
+                "This *may* lead to unexpected behavior. ",
+                "Consider synchronizing by running 'renv::restore()'."
+            )
+            warning(warning_message, call. = FALSE) # Use call. = FALSE for cleaner warning output
+        }
+}) # END lapply
+
+# If the loop completes without stopping, all packages are available and meet minimum version requirements.
+message("All required packages are available.")
+
 ################################################################################
 # Load sample metadata
 ################################################################################
