@@ -1,9 +1,9 @@
-
+# TODO: Denest the logic of the functions. Easier to add, modify, verify the values of the EXPERIMENT_CONFIG for two different experiment types.
 EXPERIMENT_CONFIG <- list(
     METADATA = list(
         EXPERIMENT_ID = "Exp_20250310_1",
         EXPECTED_SAMPLES = 42,
-        VERSION = "1.1.0",
+        VERSION = "1.2.0",
         PROJECT_ID = "project_001"
     ),
 
@@ -21,25 +21,16 @@ EXPERIMENT_CONFIG <- list(
         )
     ),
 
-    #EXPERIMENTAL_CONDITIONS = list(
-    #    is_orc = quote(orc_phenotype == "WT" & cell_cycle == "nocodazole" & antibody == "ORC"),
-    #    is_nucleosomes = quote(antibody == "Nucleosomes"),
-    #    is_wt_37c = quote(orc_phenotype == "WT" & temperature == "37"),
-    #    is_async = quote(orc_phenotype == "WT" & cell_cycle == "async" & temperature == "23")
-    #),
-
-    #SAMPLE_CLASSIFICATIONS = list(
-    #    is_positive = quote(orc_phenotype == "WT" & antibody == "ORC"),
-    #    is_negative = quote(orc_phenotype == "orc1-161" & antibody == "ORC" & temperature == "37")
-    #),
-
-    CONTROL_FACTORS = c(
-        "rescue_allele", "suppressor_allele", "auxin_treatment", "timepoints"
-    )
-
     COLUMN_ORDER = c(
         "rescue_allele", "suppressor_allele", "auxin_treatment", "timepoints"
+    ),
+    FACET_FACTOR = c(
+        "timepoints"
+    ),
+    CONTROL_COLUMNS = c(
+        "rescue_allele", "suppressor_allele", "auxin_treatment"
     )
+
 )
 
 #########
