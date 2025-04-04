@@ -99,7 +99,7 @@ CONTROL_SAMPLES <- list(
     "reference" = "$HOME/data/100303Bel/alignment/processed_034475_sequence_to_S288C_sorted.bam"
 )
 
-DATA_DIRECTORY <- file.path(Sys.getenv("HOME"), "preprocessing_test")
+DATA_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "preprocessing_test")
 SUPPORTED_FILE_TYPES <- c(
   FASTQ = "fastq",
   BAM = "bam",
@@ -113,7 +113,7 @@ file_paths_by_type <- setNames(vector("list", length(SUPPORTED_FILE_TYPES)), nam
 
 for (file_type in names(SUPPORTED_FILE_TYPES)) {
     extension <- SUPPORTED_FILE_TYPES[[file_type]]
-    file_pattern <- paste0("\\.", extension, "$")
+    file_pattern <- paste0(".", extension, "$")
     message(sprintf("Searching for '%s' files (pattern: %s)...", file_type, file_pattern))
 
     found_files <- list.files(
@@ -143,7 +143,8 @@ if (length(file_paths_by_type) == 0) {
 ################################################################################
 # Load and process bigwig file
 ################################################################################
-#BIGWIG_FILES <- file_paths_by_type[["BIGWIG"]]
+BIGWIG_FILES <- file_paths_by_type[["BIGWIG"]]
+
 #
 #################################################################################
 ## Setup configuration for genome track plots
