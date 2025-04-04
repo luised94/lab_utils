@@ -143,52 +143,52 @@ if (length(file_paths_by_type) == 0) {
 ################################################################################
 # Load and process bigwig file
 ################################################################################
-BIGWIG_FILES <- file_paths_by_type[["BIGWIG"]]
-
-################################################################################
-# Setup configuration for genome track plots
-################################################################################
-# Initialize track list with genome axis
-tracks <- list(
-    Gviz::GenomeAxisTrack(
-        name = sprintf("Chr %s Axis", CHROMOSOME_TO_PLOT)
-    )
-)
-
-for (bigwig_file in BIGWIG_FILES) {
-    bigwig_data <- rtracklayer::import(bigwig_file_path, which = genomic_range)
-    genome_track <- Gviz::DataTrack(bigwig_data)
-    tracks[[length(tracks) + 1]] <- genome_track
-}
-if (exists("features")) {
-    tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
-        features,
-        name = "Features",
-        size = 0.5,
-        background.title = "lightgray",
-        fontcolor.title = "black",
-        cex.title = 0.6
-    )
-}
-
-OUTPUT_FILE_NAME
-svglite(
-    filename = OUTPUT_FILE_NAME,
-    width = 10,
-    height = 8,
-    bg = "white",
-    pointsize = 12,
-    standalone = TRUE,
-    system_fonts = list(),
-    user_fonts = list(),
-    web_fonts = list(),
-    id = NULL,
-    fix_text_size = TRUE,
-    scaling = 1,
-    always_valid = FALSE,
-    file
-)
-Gviz::plotTracks(
-    trackList = tracks
-)
-dev.off()
+#BIGWIG_FILES <- file_paths_by_type[["BIGWIG"]]
+#
+#################################################################################
+## Setup configuration for genome track plots
+#################################################################################
+## Initialize track list with genome axis
+#tracks <- list(
+#    Gviz::GenomeAxisTrack(
+#        name = sprintf("Chr %s Axis", CHROMOSOME_TO_PLOT)
+#    )
+#)
+#
+#for (bigwig_file in BIGWIG_FILES) {
+#    bigwig_data <- rtracklayer::import(bigwig_file_path, which = genomic_range)
+#    genome_track <- Gviz::DataTrack(bigwig_data)
+#    tracks[[length(tracks) + 1]] <- genome_track
+#}
+#if (exists("features")) {
+#    tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
+#        features,
+#        name = "Features",
+#        size = 0.5,
+#        background.title = "lightgray",
+#        fontcolor.title = "black",
+#        cex.title = 0.6
+#    )
+#}
+#
+#OUTPUT_FILE_NAME
+#svglite(
+#    filename = OUTPUT_FILE_NAME,
+#    width = 10,
+#    height = 8,
+#    bg = "white",
+#    pointsize = 12,
+#    standalone = TRUE,
+#    system_fonts = list(),
+#    user_fonts = list(),
+#    web_fonts = list(),
+#    id = NULL,
+#    fix_text_size = TRUE,
+#    scaling = 1,
+#    always_valid = FALSE,
+#    file
+#)
+#Gviz::plotTracks(
+#    trackList = tracks
+#)
+#dev.off()
