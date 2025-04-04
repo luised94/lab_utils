@@ -8,3 +8,6 @@ The purpose of these scripts is to test combinations of parameters for the comma
 The files used are positive controls from one of my experiments and from a reference article (Eaton 2010).
 Most of the scripts use the files from their directory locations but I realized that it was better to copy the files to the testing directory.
 I also downloaded the data to my dropbox to have it available without having to use a vpn to access the cluster (sometimes it never connects and I have to restart my computer).
+
+# Vim tricks
+If you want to trace the logic of the code by following a variable, you can hover over the variable name and either follow using * to search for words under the cursor. In R, there will probably be a variable being assigned with <-, so you can go to the beginning using ^ to the first character then press * and n to follow that variable. Repeat ^ * n to follow the logic to the end. Can be turned into a macro.

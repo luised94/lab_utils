@@ -144,19 +144,27 @@ if (length(file_paths_by_type) == 0) {
 # Load and process bigwig file
 ################################################################################
 BIGWIG_FILES <- file_paths_by_type[["BIGWIG"]]
-metadata_df <- as.data.frame(
-    do.call(rbind,
-        strsplit(
-            gsub(
-                ".bw",
-                "",
-                basename(BIGWIG_FILES)
-            ),
-            split = "_"
-        )
-    )
-)
-colnames(metadata_df) <- c("sample", "bam_processing", "bigwig_processing")
+NUMBER_OF_FILES <- length(BIGWIG_FILES)
+COLUMN_NAMES <- c("sample", "bam_processing", "bigwig_processing")
+FILE_EXTENSION_TO_REMOVE <- ".bw"
+EXPECTED_NUM_UNDERSCORES <- 2
+
+file_basenames <- basename(BIGWIG_FILES)
+filenames_without_extension <- gsub(FILE_EXTENSION_TO_REMOVE, "", file_basenames)
+split_metadata <- strsplit(filenames_without_extension, split = "_")
+
+underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
+if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPECTED_NUM_UNDERSCORES) {
+  stop("Filenames must contain exactly ", EXPECTED_NUM_UNDERSCORES, " underscores.")
+}
+
+# Preallocation
+bigwig_metadata_df <- data.frame(matrix(NA, nrow = NUMBER_OF_FILES, ncol = underscore_counts + 1))
+
+lapply(seq_along(bigwig_metadata_df) function(row_index) {
+    bigwig_metadata_df[row_index, ] <- split_metadata[[row_index]]
+})
+colnames(bigwig_metadata_df) <- COLUMN_NAMES
 
 #################################################################################
 ## Setup configuration for genome track plots
