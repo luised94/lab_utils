@@ -652,7 +652,7 @@ execute_track_plot <- function(
     plot_params = list(),
     display_plot = FALSE,
     verbose = TRUE,
-    output_format = "svg"  # New parameter for output format
+    output_format = "svg"
 ) {
     # Validate inputs
     stopifnot(

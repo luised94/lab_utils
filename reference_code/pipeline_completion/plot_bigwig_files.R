@@ -29,6 +29,7 @@ check_required_packages(REQUIRED_PACKAGES, verbose = TRUE, skip_validation = FAL
 # Ensure supplementary files for plotting genome tracks are present
 FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
 FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
+FILE_FEATURE_PATTERN <- "eaton_peaks"
 stopifnot(
     "Genome directory not found" = dir.exists(FILE_GENOME_DIRECTORY),
     "Feature directory not found" = dir.exists(FILE_FEATURE_DIRECTORY)
@@ -139,5 +140,55 @@ file_paths_by_type <- Filter(length, file_paths_by_type)
 if (length(file_paths_by_type) == 0) {
     stop("No valid files found in directory: ", DATA_DIRECTORY)
 }
+################################################################################
+# Load and process bigwig file
+################################################################################
+BIGWIG_FILES <- file_paths_by_type[["BIGWIG"]]
 
+################################################################################
+# Setup configuration for genome track plots
+################################################################################
+# Initialize track list with genome axis
+tracks <- list(
+    Gviz::GenomeAxisTrack(
+        name = sprintf("Chr %s Axis", CHROMOSOME_TO_PLOT)
+    )
+)
 
+for (bigwig_file in BIGWIG_FILES) {
+    bigwig_data <- rtracklayer::import(bigwig_file_path, which = genomic_range)
+    genome_track <- Gviz::DataTrack(bigwig_data)
+    tracks[[length(tracks) + 1]] <- genome_track
+}
+if (exists("features")) {
+    tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
+        features,
+        name = "Features",
+        size = 0.5,
+        background.title = "lightgray",
+        fontcolor.title = "black",
+        cex.title = 0.6
+    )
+}
+
+OUTPUT_FILE_NAME
+svglite(
+    filename = OUTPUT_FILE_NAME,
+    width = 10,
+    height = 8,
+    bg = "white",
+    pointsize = 12,
+    standalone = TRUE,
+    system_fonts = list(),
+    user_fonts = list(),
+    web_fonts = list(),
+    id = NULL,
+    fix_text_size = TRUE,
+    scaling = 1,
+    always_valid = FALSE,
+    file
+)
+Gviz::plotTracks(
+    trackList = tracks
+)
+dev.off()

@@ -156,7 +156,8 @@ handle_configuration_checkpoint(
 ################################################################################
 # !! Add directories here.
 required_directories <- c("fastq", "documentation", "coverage")
-dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
+dirs <- setup_experiment_dirs(
+    experiment_dir = experiment_dir,
     output_dir_name = "plots",
     required_input_dirs = required_directories
 )
@@ -187,6 +188,7 @@ normalization_method <- sub(
     "\\1",
     basename(bigwig_files[1])
 )
+
 if (length(bigwig_files) == 0) {
     stop("No bigwig files found in specified directory")
 }
@@ -701,7 +703,7 @@ for (comparison_name in comparisons_to_process) {
             cex.title = 0.6
         )
     }
-                                                                                     
+
     base_comparison_name <- gsub("^comp_", "", comparison_name)  # Remove prefix
     sanitized_comparison_name <- gsub("_", ".", base_comparison_name)      # Convert underscores
 
@@ -714,7 +716,7 @@ for (comparison_name in comparisons_to_process) {
         TIME_CONFIG$current_timestamp,
         normalization_method
     )
-                                                                                     
+
     plot_config <- create_track_plot_config(
         tracks = tracks,
         chromosome = chromosome_roman,
@@ -723,7 +725,7 @@ for (comparison_name in comparisons_to_process) {
         visualization_params = GENOME_TRACK_CONFIG$plot_defaults,
         verbose = RUNTIME_CONFIG$debug_verbose
     )
-                                                                                     
+
     for (mode in scaling_modes) {
         # Create filename for this mode
         plot_filename <- sprintf(
@@ -734,12 +736,12 @@ for (comparison_name in comparisons_to_process) {
             chromosome_to_plot,
             mode
          )
-                                                                                     
+
          plot_file <- file.path(
              dirs$output_dir,
              plot_filename
          )
-                                                                                     
+
         if (RUNTIME_CONFIG$debug_verbose) {
             message(paste(rep("-", 80), collapse = ""))
             message(sprintf("\nScaling mode: %s", mode))
