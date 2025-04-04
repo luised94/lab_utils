@@ -43,7 +43,7 @@ REF_GENOME_FILE <- list.files(
 )[1]
 
 #if (length(REF_GENOME_FILE) == 0) {
-#    stop(sprintf("No reference genome files found matching pattern '%s' in: %s", 
+#    stop(sprintf("No reference genome files found matching pattern '%s' in: %s",
 #                FILE_GENOME_DIRECTORY,
 #                FILE_FEATURE_DIRECTORY))
 #}
@@ -74,7 +74,7 @@ REF_GENOME_FILE <- list.files(
 #
 #if (length(FEATURE_FILE) == 0)
 #{
-#    warning(sprintf("No feature files found matching pattern '%s' in: %s", 
+#    warning(sprintf("No feature files found matching pattern '%s' in: %s",
 #                   GENOME_TRACK_CONFIG$file_feature_pattern,
 #                   GENOME_TRACK_CONFIG$file_feature_directory))
 #}
@@ -99,21 +99,45 @@ CONTROL_SAMPLES <- list(
 )
 
 DATA_DIRECTORY <- file.path(Sys.getenv("HOME"), "preprocessing_test")
-FILETYPES <- c("fastq", "bam", "bw", "narrowPeak", "broadPeak")
-FILE_LIST <- list()
-for (filetype in FILETYPES) {
-    string_pattern <- paste0("\\.", filetype, "$")
-    message(sprintf("String pattern: %s", string_pattern))
-    filepaths <- list.files(
+SUPPORTED_FILE_TYPES <- c(
+  FASTQ = "fastq",
+  BAM = "bam",
+  BIGWIG = "bw",
+  NARROW_PEAK = "narrowPeak",
+  BROAD_PEAK = "broadPeak"
+)
+
+# Preallocate list with file paths
+file_paths_by_type <- setNames(vector("list", length(SUPPORTED_FILE_TYPES)), names(SUPPORTED_FILE_TYPES))
+
+for (file_type in names(SUPPORTED_FILE_TYPES)) {
+    extension <- SUPPORTED_FILE_TYPES[[file_type]]
+    file_pattern <- paste0("\\.", extension, "$")
+    message(sprintf("Searching for '%s' files (pattern: %s)...", file_type, file_pattern))
+
+    found_files <- list.files(
         path = DATA_DIRECTORY,
-        pattern = string_pattern,
+        pattern = file_pattern,
         recursive = TRUE,
+        full.names = TRUE,
         include.dirs = FALSE
     )
-    if (length(filepaths) == 0) {
-        error_message <- sprintf("No files found for %s filetype.", filetype)
-        stop(error_message)
-    }
-    FILE_LIST[[filetype]] <- filepaths
 
+    if (length(found_files) == 0) {
+        warning(sprintf("No files found for type: %s", file_type))
+        next
+    }
+
+    message(sprintf("Found %s files for '%s' files ...", length(found_files), file_type))
+    file_paths_by_type[[file_type]] <- found_files
 }
+
+# Remove empty entries if warnings are acceptable
+# If no files are found, next assertion will stop
+file_paths_by_type <- Filter(length, file_paths_by_type)
+
+if (length(file_paths_by_type) == 0) {
+    stop("No valid files found in directory: ", DATA_DIRECTORY)
+}
+
+
