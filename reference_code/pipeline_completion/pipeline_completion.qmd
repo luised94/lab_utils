@@ -1,0 +1,10 @@
+---
+title: Pipeline completion documentation
+---
+
+# Introduction
+This documentation serves as an explanation for the files found in directory ~/lab_utils/reference_code/pipeline_completion/.
+The purpose of these scripts is to test combinations of parameters for the commands deeptools, macs2 and meme.
+The files used are positive controls from one of my experiments and from a reference article (Eaton 2010).
+Most of the scripts use the files from their directory locations but I realized that it was better to copy the files to the testing directory.
+I also downloaded the data to my dropbox to have it available without having to use a vpn to access the cluster (sometimes it never connects and I have to restart my computer).

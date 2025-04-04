@@ -1,8 +1,19 @@
 #!/bin/bash
 # Dependencies: Assumes fastq files where transfered to appropriate ~/data/<experiment_id> directory 
+# Requires bmc cleanup. Script will detect and exit if not.
+# Usage: ./consolidate_fastq.sh [experiment_id]
 
 # Strict error handling
 set -euo pipefail
+
+# ---- Configuration and Usage ----
+usage() {
+    echo "Usage: $0 [experiment_id]"
+    echo "Consolidates FASTQ files into single per-sample files"
+    echo "  - Without arguments: uses current directory (must be ~/data/######Bel/fastq)"
+    echo "  - With experiment_id: uses ~/data/<experiment_id>/fastq"
+    exit 1
+}
 
 # Function to validate FASTQ files
 validate_fastq() {
@@ -17,6 +28,42 @@ validate_fastq() {
     fi
 }
 
+# ---- Argument Handling ----
+if [[ $# -gt 1 ]]; then
+    usage
+fi
+
+original_dir="$(pwd)"
+target_dir=""
+
+if [[ $# -eq 1 ]]; then
+    # Validate provided experiment_id format
+    if [[ ! "$1" =~ ^[0-9]{6}Bel$ ]]; then
+        echo "ERROR: Invalid experiment_id format - must be 6 digits followed by 'Bel'" >&2
+        echo "Example: 230504Bel" >&2
+        exit 1
+    fi
+    
+    target_dir="${HOME}/data/$1/fastq"
+    if [[ ! -d "$target_dir" ]]; then
+        echo "ERROR: Directory not found: $target_dir" >&2
+        echo "Check experiment_id or directory structure" >&2
+        exit 1
+    fi
+else
+    # Validate current directory format
+    target_dir="$(pwd)"
+    if [[ ! "$target_dir" =~ ^${HOME}/data/[0-9]{6}Bel/fastq$ ]]; then
+        echo "ERROR: Current directory must be ~/data/######Bel/fastq" >&2
+        echo "Path detected: $target_dir" >&2
+        exit 1
+    fi
+fi
+
+# ---- Main Execution ----
+echo "Using FASTQ directory: ${target_dir}"
+cd "$target_dir" || { echo "ERROR: Failed to enter directory"; exit 1; }
+
 # Validate cleanup state with single consolidated check
 if [ "$(find . -mindepth 1 -type d | wc -l)" -gt 0 ] || \
    [ "$(find . -type f ! -name "*.fastq" | wc -l)" -gt 0 ] || \
@@ -29,71 +76,90 @@ if [ "$(find . -mindepth 1 -type d | wc -l)" -gt 0 ] || \
     exit 1
 fi
 
+echo "Confirmed directory has been cleaned from other bmc files."
+
 # Extract unique IDs using delimiter-based approach
 # This specifically extracts the ID between the first and second dash after 'D24'
-readarray -t unique_ids < <(ls *_sequence.fastq | awk -F'D24-' '{print $2}' | cut -d'-' -f1 | sort -u)
+readarray -t unique_ids < <(
+    for f in *_sequence.fastq; do
+        # Split filename components
+        IFS='_-' read -ra parts <<< "${f##*/}"
+        # Extract ID from standardized position (3rd component)
+        printf "%s\n" "${parts[2]}"
+    done | sort -u
+)
+
 # Verify we found some IDs
 if [ ${#unique_ids[@]} -eq 0 ]; then
-    echo "Error: No valid IDs found in fastq files"
+    echo "ERROR: No valid IDs found in fastq files" >&2
+    echo "Ensure the unique ids logic is correct and no updates have occured to names." >&2
     exit 1
 fi
-echo "Number of unique IDs: ${#unique_ids[@]}"
+
+echo "Processing ${#unique_ids[@]} sample IDs"
 echo "Found the following unique IDs:"
 echo "----------------"
 printf '%s\n' "${unique_ids[@]}" | xargs -n6 | sed 's/^/    /' | column -t
 echo "----------------"
 read -p "Proceed with job submission? (y/n): " confirm
 confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
+
 if [[ "$confirm" != "y" ]]; then
     echo "Job submission cancelled"
     exit 0
 fi
 
-# Process each unique ID
-for id in ${unique_ids[@]}; do
-    echo "Processing ID: $id"
-    # Find all files matching the specific pattern
-    # Using more strict pattern matching to avoid false matches
-    files=$(ls *"D24-${id}-"*_sequence.fastq 2>/dev/null || true)
+echo "Job confirmed. Proceed with consolidation."
 
-    # Check if we found any files
-    if [ -z "$files" ]; then
-        echo "No files found for ID: $id"
+# Process each unique ID
+for id in "${unique_ids[@]}"; do
+    echo "Processing ID: $id"
+    # Find files using array and glob pattern
+    files=( *"${id}"*_sequence.fastq )
+
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "ERROR: No files found for ID: $id"
         continue
     fi
 
     # Validate all files before processing
-    for file in $files; do
+    for file in "${files[@]}"; do
         validate_fastq "$file"
         echo "Validated: $file"
     done
 
-    # Create output filename
     output_file="consolidated_${id}_sequence.fastq"
+    tmp_file="${output_file}.tmp"
 
-    #echo "Successfully created $output_file"
-    # Consolidate files
-    if cat $files > "$output_file"; then
+    # Consolidate files with atomic write
+    if cat -- "${files[@]}" > "$tmp_file"; then
+        mv "$tmp_file" "$output_file"
         echo "Successfully created $output_file"
 
-        # Verify the new file exists and has content
+        # Verify file content
         if [ -s "$output_file" ]; then
-            # Get size before and after
-            original_size=$(du -b $files | awk '{sum += $1} END {print sum}')
-            new_size=$(du -b "$output_file" | awk '{print $1}')
+            # Accurate size calculation
+            original_size=$(wc -c "${files[@]}" | awk '/total/ {print $1}')
+            new_size=$(wc -c < "$output_file")
 
             echo "Original files total size: $original_size bytes"
             echo "New file size: $new_size bytes"
 
-            if [ "$new_size" -gt 0 ]; then
-                echo "Removing original files..."
-                rm -f $files
-                echo "Original files removed"
-            else
-                echo "Error: Consolidated file is empty"
-                rm -f "$output_file"
+            # Calculate original data checksum
+            orig_checksum=$(cat "${files[@]}" | md5sum | cut -d' ' -f1)
+            new_checksum=$(md5sum "$output_file" | cut -d' ' -f1)
+            
+            if [[ "$orig_checksum" != "$new_checksum" ]]; then
+                echo "Error: Consolidated file checksum mismatch!" >&2
+                echo "Expected: $orig_checksum" >&2
+                echo "Actual:   $new_checksum" >&2
                 exit 1
             fi
+
+            # Only remove if verification passed
+            echo "Removing original files..."
+            rm -f -- "${files[@]}"
+            echo "Original files removed"
         else
             echo "Error: Consolidated file is empty"
             rm -f "$output_file"
@@ -101,9 +167,11 @@ for id in ${unique_ids[@]}; do
         fi
     else
         echo "Error during consolidation"
-        rm -f "$output_file"
+        rm -f "$tmp_file" "$output_file"
         exit 1
     fi
 done
 
-echo "All consolidation operations completed successfully"
+echo "Consolidation completed successfully in ${target_dir}"
+# Return to original directory
+cd "$original_dir"

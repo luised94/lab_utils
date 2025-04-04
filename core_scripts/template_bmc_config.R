@@ -27,6 +27,22 @@
 #   +-- COMPARISONS/        # Analysis groupings
 #   +-- CONTROL_FACTORS/    # Control sample definitions
 #   +-- COLUMN_ORDER/       # Standard column arrangement
+# Comparison Naming Convention:
+# comp_[Antibody]_[Variables]_vs_[Baseline]_[Context]_[Modifier]
+# 
+# - [Antibody]: Official antibody code (e.g., HM1108, V5, ALFA)
+# - [Variables]: Main experimental factors being compared
+# - [vs_Baseline]: Reference state for comparison (if applicable)
+# - [Context]: Additional conditions (e.g., AuxinTreated, TimeCourse)
+# - [Modifier]: Special analysis flags or time points (e.g., 2h)
+#
+# Examples:
+# comp_HM1108_NoRescue_vs_WT
+# comp_V5_Auxin_2h
+# comp_ALFA_AllAlleles_Auxin_2h
+#
+# Note: Terms like "None", "For", "With", and "And" are avoided for clarity.
+# Time is abbreviated as "0h", "2h", etc. "NoRescue" is used instead of "None".
 #
 # VALIDATION:
 #   1. Category Values: Must be character vectors, unique
@@ -40,14 +56,15 @@
 #   3. Missing categories -> Check CATEGORIES vs COLUMN_ORDER
 # AUTHOR: Luis
 # DATE: 2024-11-27
-# VERSION: 2.0.0
+# VERSION: 2.1.0
 ################################################################################
 # !! Update EXPERIMENT_CONFIG if starting a new experiment.
 EXPERIMENT_CONFIG <- list(
     METADATA = list(
         EXPERIMENT_ID = "100303Bel",
         EXPECTED_SAMPLES = 5,
-        VERSION = "1.0.0"
+        VERSION = "1.0.0",
+        PROJECT_ID = "project_001"
     ),
 
     CATEGORIES = list(
@@ -114,6 +131,24 @@ EXPERIMENT_CONFIG <- list(
     )
 )
 
+#########
+# setup_bmc_experiment_flags: Control what is displayed during setup_bmc_experiment.R
+# Distinct from debug configuration, this is relevant when setting up the experiment only.
+#########
+show_all_metadata <- TRUE
+show_particular_metadata <- TRUE
+category_to_show <- "antibody"
+value_to_show <- "HM1108"
+values_in_category <- unlist(EXPERIMENT_CONFIG$CATEGORIES[category_to_show])
+
+stopifnot(
+    "show_all_metadata has to be logical" = is.logical(show_all_metadata),
+    "flag must be logical type" = is.logical(show_particular_metadata),
+    "category must be in grid" = category_to_show %in% names(EXPERIMENT_CONFIG$CATEGORIES),
+    "Value must be in category" = value_to_show %in% values_in_category
+)
+
+#todo: need to add guard statement around this section to prevent double loading of config objects when I run multi-experiment scripts. Also use default config with all values. Would need to adjust the parse arguments script as well. Pretty complex refactor. Could just to override_configuration.
 ################################################################################
 # Time Configurations
 ################################################################################
@@ -132,7 +167,6 @@ TIME_CONFIG <- list(
 ################################################################################
 RUNTIME_CONFIG <- list(
     # Execution Mode
-    #test_single_iteration = TRUE,  # (formerly debug_enabled/process_single_file)
     #show_debug_output = TRUE,      # (formerly debug_verbose)
     #require_confirmation = FALSE,   # (formerly debug_interactive)
     #validate_extensively = TRUE,    # (formerly debug_validate)
@@ -147,15 +181,15 @@ RUNTIME_CONFIG <- list(
     #plot_display_duration = 2
 
     # Core control flags
-    debug_enabled = TRUE,
     debug_interactive = FALSE,
     debug_verbose = TRUE,
     debug_validate = TRUE,
 
     # Processing control
     process_single_file = FALSE,
+    process_single_comparison = TRUE,
     process_comparison = "comp_1108forNoneAndWT",
-    process_chromosome = 10,
+    process_chromosome = 14,
     #process_group = 10,
     process_batch = 10,
     process_samples_per_batch = 4,
@@ -246,16 +280,16 @@ GENOME_TRACK_CONFIG <- list(
 
     # File handling
     file_pattern = "consolidated_.*_sequence\\.fastq$",
-    file_sample_id = "consolidated_([0-9]{5,6})_sequence\\.fastq",
-    file_sample_id_from_bigwig = "processed_([0-9]{5,6})_sequence_to_S288C_(RPKM|CPM|BPM|RPGC)\\.bw",
+    file_sample_id = "consolidated_([0-9]{1,6})_sequence\\.fastq",
+    file_sample_id_from_bigwig = "processed_([0-9]{1,6})_sequence_to_S288C_(RPKM|CPM|BPM|RPGC)\\.bw",
     file_genome_pattern = "S288C_refgenome.fna",
     file_genome_directory = file.path(Sys.getenv("HOME"), "data", "REFGENS"),
     file_feature_directory = file.path(Sys.getenv("HOME"), "data", "feature_files"),
     file_feature_pattern = "eaton_peaks",
 
     # File Names
-    filename_format_group_templates = "%s_%s_group%02d_chr%s_%s.svg",
-    filename_format_comparison_templates = "%s_%s_%s_chr%s_%s.svg",
+    filename_format_group_template = "%s_%s_group%02d_chr%s_%s.svg",
+    filename_format_comparison_template = "%s_%s_%s_chr%s_%s.svg",
     title_group_template = paste(
         "%s",               # Title
         "Group: %s",   # Comparison ID
@@ -404,7 +438,7 @@ validate_column_references(
     categories = EXPERIMENT_CONFIG$CATEGORIES,
     comparisons = EXPERIMENT_CONFIG$COMPARISONS,
     control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS,
-    conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS,
+    #conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS,
     verbose = validation_verbose
 )
 

@@ -7,9 +7,9 @@
 #SBATCH --exclude=c[5-22]
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=luised94@mit.edu
-# Script: run_macs2_peak_calling.sh
+# Script: run_macs2_peak_calling.sbatch
 # Purpose: Executes macs2 peak calling via the miniforge installation.
-# Usage: sbatch --array=1-N%16 run_bamcoverage_array.sh <experiment_directory>
+# Usage: sbatch --array=1-N%16 run_bamcoverage_array.sbatch <experiment_directory>
 # Dependencies: submit_macs2_peak_calling.sh, macs2, miniforge, slurm
 # Date: 2024-12-26
 

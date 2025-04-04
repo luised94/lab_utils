@@ -7,7 +7,7 @@
 #SBATCH --exclude=c[5-22]
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=luised94@mit.edu
-# run_fastqc_array.sh
+# run_fastqc_array.sbatch
 # Purpose: Execute FastQC as a SLURM array job
 # Version: 1.1.0
 # Compatibility: Bash 4.2+, SLURM

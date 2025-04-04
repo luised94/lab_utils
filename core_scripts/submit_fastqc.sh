@@ -47,6 +47,6 @@ echo "Found ${FASTQ_COUNT} FASTQ files for processing"
 # Submit SLURM array job
 # Limit to 16 concurrent jobs, adjust as needed
 sbatch --array=1-${FASTQ_COUNT}%16 \
-    "${PIPELINE_SCRIPTS_DIR}/run_fastqc_array.sh" \
+    "${PIPELINE_SCRIPTS_DIR}/run_fastqc_array.sbatch" \
     "${EXPERIMENT_DIR}" \
     "${FASTQ_SUBDIR}"

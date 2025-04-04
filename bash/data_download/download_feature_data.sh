@@ -22,8 +22,8 @@ ROSSI_DEPTH=1
 ROSSI_DIR="rossi_2021"
 
 # Additional data URLs
-HAWKINS_TIMING_URL="https://ars.els-cdn.com/content/image/1-s2.0-S2211124713005834-mmc2.xlsx"
-EATON_ORC_BED_URL="https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM424nnn/GSM424494/suppl/GSM424494_wt_G2_orc_chip_combined.bed.gz"
+#HAWKINS_TIMING_URL="https://ars.els-cdn.com/content/image/1-s2.0-S2211124713005834-mmc2.xlsx"
+#EATON_ORC_BED_URL="https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM424nnn/GSM424494/suppl/GSM424494_wt_G2_orc_chip_combined.bed.gz"
 
 #-------------------------------------------------------------------------------
 # Git validation
@@ -80,33 +80,33 @@ fi
 #-------------------------------------------------------------------------------
 # Download additional data
 #-------------------------------------------------------------------------------
-feature_folder="${FEATURE_DIR}/${ROSSI_DIR}/02_References_and_Features_Files"
-
-# Download Hawkins timing data
-echo "Downloading Hawkins timing data..."
-if ! curl -L -o "${feature_folder}/hawkins-origins-timing.xlsx" "$HAWKINS_TIMING_URL"; then
-    echo "Error: Failed to download Hawkins timing data"
-    exit 1
-fi
-
-# Download Eaton ORC bed data
-echo "Downloading Eaton ORC bed data..."
-if ! curl -L -o "${feature_folder}/G2_orc_chip.bed.gz" "$EATON_ORC_BED_URL"; then
-    echo "Error: Failed to download Eaton ORC bed data"
-    exit 1
-fi
-
-# Extract bed file
-gunzip -f "${feature_folder}/G2_orc_chip.bed.gz"
-
-# Log additional downloads
-{
-    echo "----------------------------------------"
-    echo "Additional Data Downloads:"
-    echo "Hawkins timing data: $HAWKINS_TIMING_URL"
-    echo "Eaton ORC bed data: $EATON_ORC_BED_URL"
-    echo "Download Date: $(date '+%Y-%m-%d %H:%M:%S')"
-    echo "----------------------------------------"
-} >> "$DOWNLOAD_LOG"
-
-echo "All downloads completed successfully"
+#feature_folder="${FEATURE_DIR}/${ROSSI_DIR}/02_References_and_Features_Files"
+#
+## Download Hawkins timing data
+#echo "Downloading Hawkins timing data..."
+#if ! curl -L -o "${feature_folder}/hawkins-origins-timing.xlsx" "$HAWKINS_TIMING_URL"; then
+#    echo "Error: Failed to download Hawkins timing data"
+#    exit 1
+#fi
+#
+## Download Eaton ORC bed data
+#echo "Downloading Eaton ORC bed data..."
+#if ! curl -L -o "${feature_folder}/G2_orc_chip.bed.gz" "$EATON_ORC_BED_URL"; then
+#    echo "Error: Failed to download Eaton ORC bed data"
+#    exit 1
+#fi
+#
+## Extract bed file
+#gunzip -f "${feature_folder}/G2_orc_chip.bed.gz"
+#
+## Log additional downloads
+#{
+#    echo "----------------------------------------"
+#    echo "Additional Data Downloads:"
+#    echo "Hawkins timing data: $HAWKINS_TIMING_URL"
+#    echo "Eaton ORC bed data: $EATON_ORC_BED_URL"
+#    echo "Download Date: $(date '+%Y-%m-%d %H:%M:%S')"
+#    echo "----------------------------------------"
+#} >> "$DOWNLOAD_LOG"
+#
+#echo "All downloads completed successfully"

@@ -47,6 +47,6 @@ echo "Found ${BAM_COUNT} BAM files for quality control"
 # Submit SLURM array job
 # Limit to 16 concurrent jobs, adjust as needed
 sbatch --array=1-${BAM_COUNT}%16 \
-    "${PIPELINE_SCRIPTS_DIR}/run_bam_qc_array.sh" \
+    "${PIPELINE_SCRIPTS_DIR}/run_bam_qc_array.sbatch" \
     "${EXPERIMENT_DIR}" \
     "${BAM_SUBDIR}"

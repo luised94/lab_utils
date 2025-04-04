@@ -1,0 +1,22 @@
+---
+title: Quick start instructions for using core scripts to analyze CHIP-seq data
+---
+
+# Introduction
+This document outlines how to use the scripts in the core_scripts/ directory to analyze data from a BMC experiment. This assumes the directory is clone which can be done using the git clone command. Furthermore, many of the scripts are meant to be run in a cluster environment (See README.md for assumptions). Thus, the user can use their institutions' cluster resources or install the softwares locally and adjust the scripts to use a for loop or a parallel library.
+Each script carries out a particular operation along a chip-seq pipeline and requires a particular dependency.
+
+# Protocol
+1. Download the data to the local directory according to the BMC's email instructions.
+2. Clean up the fastq directory (cleanup_bmc_directory.sh).
+- Run the commands instead of as a script. Files can also be moved and inspected preliminarily. I remove them since I prefer to use my own scripts.
+3. Consolidate the fastq files from both lanes (consolidate_fastq.sh). There could be differences between the lanes. However, if one lane has enough reads of good-enough quality, then you do not need to worry.
+
+The next set of scripts run an sbatch file that contains the information for slurm program to administrate the script and resources.
+
+4. Filter the fastq files (submit_fastp_filter.sh).
+5. Align the fastq files (submit_bowtie2_alignment.sh).
+6. Generate the coverage files (submit_bamcoverage_normalizations.sh).
+7. Call peaks (submit_macs2_peak_calling.sh).
+8. TODO: Determine motifs.
+9. TODO: Perform factor analysis.

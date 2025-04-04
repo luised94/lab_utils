@@ -1,43 +1,29 @@
 library(optparse)
 
-# Define analysis-focused override presets
-OVERRIDE_PRESETS <- list(
-    inspect_pipeline = list(  # For checking pipeline behavior
-        debug_enabled = TRUE,
-        debug_interactive = TRUE,
-        debug_verbose = TRUE,
-        debug_validate = TRUE,
-        process_single_file = TRUE,
-        output_save_plots = TRUE,
-        output_dry_run = FALSE
-    ),
-    full_analysis = list(  # For complete ChIP-seq analysis
-        debug_enabled = FALSE,
-        debug_interactive = FALSE,
-        debug_verbose = FALSE,
-        debug_validate = FALSE,
-        process_single_file = FALSE,
-        output_save_plots = TRUE,
-        output_dry_run = FALSE
-    ),
-    test_pipeline = list(  # For quick pipeline validation
-        debug_enabled = TRUE,
-        debug_verbose = TRUE,
-        debug_validate = TRUE,
-        process_single_file = TRUE,
-        process_samples_per_batch = 2,
-        output_display_time = 5
-    ),
-    check_single_sample = list(  # For investigating specific sample issues
-        debug_enabled = TRUE,
-        debug_verbose = TRUE,
-        output_dry_run = TRUE,
-        process_single_file = TRUE,
-        process_file_index = 1
-    )
+# Load configuration options for --override option.
+configuration_options <- "~/lab_utils/core_scripts/override_configuration.R"
+stopifnot(
+    "Configuration for overrides does not exist. Copy template to override_configuration.R" =
+    file.exists(configuration_options)
 )
+source(configuration_options)
 
-validate_configs <- function(required_configs) {
+# Control output formats for plotting scripts.
+OUTPUT_FORMATS <- c("svg", "png", "pdf")
+
+#########################################
+# Function Definitions
+#########################################
+
+# validate_configs ----------------------------------------------------
+#' Ensure configurations required for a script are present and follow the patterns
+#' @param required_configs Character string describing configurations required
+#' @return TRUE
+#' @examples
+#'     args <- validate_configs("RUNTIME_CONFIG")
+validate_configs <- function(
+    required_configs
+) {
     # 1. Input Validation
     stopifnot(
         "required_configs must be a character vector" = 
@@ -60,29 +46,34 @@ validate_configs <- function(required_configs) {
           paste(invalid_pattern, collapse = ", ")
         )
     }
-    
+
     # 3. Verify each one actually exists in the environment
     missing <- required_configs[!sapply(required_configs, exists)]
     if (length(missing) > 0) {
         stop("Missing required configs: ", paste(missing, collapse = ", "))
     }
-    
+
     # If we get here, all checks have passed
     invisible(TRUE)
-}
+} # End of function --------
 
-#' Parse common command line arguments for experiment scripts
+# parse_bmc_arguments ----------------------------------------------------
+#' Parse common command line arguments for bmc experiment scripts
 #' @param description Character string describing the script's purpose
 #' @param prog Character string of program name (optional)
 #' @return List of validated arguments
 #' @examples
-#' args <- parse_common_arguments("Align sequencing reads to reference genome")
-parse_common_arguments <- function(description = "Script description", prog = NULL) {
+#'     args <- parse_common_arguments("Align sequencing reads to reference genome")
+#todo: Add a --track-statistics to measure different stats from the main logic to track certain actions for debugging.
+parse_common_arguments <- function(
+    description = "Script description",
+    prog = NULL
+) {
     option_list <- list(
         make_option(
             "--experiment-id",
             type = "character",
-            help = "Experiment ID (format: YYMMDD'Bel', e.g., 241228Bel)",
+            help = "Experiment ID (format: YYMMDD'Bel', e.g., 241228Bel) or comma separated ID1,ID2,ID3",
             dest = "experiment_id",
             metavar = "ID"
         ),
@@ -110,6 +101,22 @@ parse_common_arguments <- function(description = "Script description", prog = NU
             ),
             dest = "override",
             metavar = "MODE"
+        ),
+        make_option(
+            opt_str = "--skip-validation",
+            action = "store_true",
+            default = TRUE,
+            help = "Skip validation for presence of required R packages (default: TRUE). Set to FALSE to force validation.",
+            dest = "skip_validation"
+        ),
+        make_option(
+            "--output-format",
+            type = "character",
+            help = paste(
+                "Control the filetype of the script output. ",
+                paste(OUTPUT_FORMATS, collapse = ", ")
+            ),
+            dest = "output_format"
         )
     )
 
@@ -153,33 +160,344 @@ parse_common_arguments <- function(description = "Script description", prog = NU
         ))
     }
 
-    # Validate experiment ID format
-    if (!grepl("^\\d{6}Bel$", args$experiment_id, perl = TRUE) && args$experiment_id != "template") {
+    if (!is.null(args$output_format) && !args$output_format %in% OUTPUT_FORMATS) {
         stop(sprintf(
-            "Invalid experiment-id format.\nExpected: YYMMDD'Bel' or 'template'\nReceived: %s",
+            "--output_format must be one of: %s",
+            paste(OUTPUT_FORMATS, collapse = ", ")
+        ))
+    }
+
+
+    # Experiment id validation ----------
+    expected_format_experiment_id <- "^\\d{6}Bel$"
+    if (grepl(",", args$experiment_id)) {
+        # Split and clean the IDs
+        experiment_ids <- stri_split_fixed(args$experiment_id, ",")[[1]]
+        experiment_ids <- trimws(experiment_ids)  # Remove any whitespace
+        experiment_ids <- experiment_ids[experiment_ids != ""]  # Remove empty elements
+
+        # Check for duplicates
+        if (length(unique(experiment_ids)) != length(experiment_ids)) {
+            stop("Duplicate experiment IDs detected")
+        }
+
+        # Validate format of each ID
+        invalid_ids <- experiment_ids[!grepl(expected_format_experiment_id, experiment_ids, perl = TRUE)]
+        if (length(invalid_ids) > 0) {
+            stop(sprintf(
+                "Invalid experiment-id format(s):\n%s\nExpected format: YYMMDD'Bel'",
+                paste(invalid_ids, collapse = ", ")
+            ))
+        }
+
+        args$experiment_id <- experiment_ids
+    } else if (!grepl(expected_format_experiment_id, args$experiment_id, perl = TRUE) && 
+               args$experiment_id != "template") {
+        stop(sprintf(
+            "Invalid experiment-id format.\nExpected: YYMMDD'Bel' or 'template' or '<exp_id1>,<exp_id2>,...'\nReceived: %s",
             args$experiment_id
         ))
     }
 
     # Set up experiment directory
-    if (args$experiment_id == "template") {
+    # Modify the directory check section
+    if (args$experiment_id[1] == "template") {
         args$experiment_dir <- file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts")
         args$is_template <- TRUE
     } else {
-        args$experiment_dir <- file.path(Sys.getenv("HOME"), "data", args$experiment_id)
+        args$experiment_dir <- sapply(args$experiment_id, function(id) {
+            file.path(Sys.getenv("HOME"), "data", id)
+        })
         args$is_template <- FALSE
-        
-        if (!dir.exists(args$experiment_dir)) {
+
+        # Get command-line arguments once
+        cmd_args <- commandArgs(trailingOnly = FALSE)
+
+        # Extract the script name from the --file argument
+        script_flag <- grep("--file=", cmd_args, value = TRUE)
+        script_name <- if (length(script_flag)) basename(sub("^--file=", "", script_flag)) else "UNKNOWN"
+
+        # Define allowed setup scripts (expand this vector in the future as needed)
+        setup_scripts <- c("setup_bmc_experiment.R")
+
+        # Identify missing experiment directories
+        missing_dirs <- args$experiment_dir[!dir.exists(args$experiment_dir)]
+
+        if (length(missing_dirs) > 0) {
+
+          # Build a common message for missing directories
+          missing_msg <- sprintf(
+            "The following directories are missing:\n%s",
+            paste(missing_dirs, collapse = "\n")
+          )
+
+          if (script_name %in% setup_scripts) {
+            message(sprintf("Running setup script '%s'. Creating experiment directories...", script_name))
+            message(sprintf("Creating the following directories:\n%s", paste(missing_dirs, collapse = "\n")))
+            invisible(lapply(missing_dirs, dir.create, showWarnings = FALSE, recursive = TRUE))
+            message("Experiment directories created successfully.")
+          } else if (script_name == "UNKNOWN") {
+                warning("Script name could not be determined. If you are running interactively, ensure directories exist.")
+                stop(missing_msg, call. = FALSE)
+          } else {
+            message("Directory existence check for non-setup script.")
             stop(sprintf(
-                "Experiment directory not found:\n%s\nPlease ensure the directory exists and the experiment-id is correct.",
-                args$experiment_dir
-            ))
+              paste(
+                "Error: Experiment directories are required for script '%s' to run.\n",
+                "%s\n",
+                "Please execute one of the setup scripts (%s) first to create these directories."
+              ),
+              script_name,
+              missing_msg,
+              paste(setup_scripts, collapse = ", ")
+            ), call. = FALSE)
+          }
+        } else {
+          if (!(script_name %in% setup_scripts)) {
+            message("All experiment directories exist. Continuing script execution.")
+          }
         }
     }
 
     return(args)
-}
+} # End of function ------
 
+# parse_flow_cytometry_arguments ----------------------------------------------------
+#' Parse common command line arguments for flow cytometry
+#' @param description Character string describing the script's purpose
+#' @param prog Character string of program name (optional)
+#' @return List of validated arguments
+#' @dependencies
+#'     packages: optparse
+#' @examples
+#'     args <- parse_common_arguments("Align sequencing reads to reference genome")
+parse_flow_cytometry_arguments <- function(
+    description = "Script description",
+    prog = NULL,
+    verbose = TRUE
+) {
+    # Set up directory path ------
+    # Can be modified to set directly.
+    dropbox_path <- Sys.getenv("DROPBOX_PATH")
+    flow_cytometry_bridge_path <- "Lab/Experiments/flow_cytometry"
+    if(dropbox_path == "") {
+        message("Environmental variable DROPBOX_PATH not available.")
+        message("Either set with my config directory or manually in the parse_flow_cytometry_arguments.")
+        stop("!!!! DROPBOX_PATH required for proper directory setting.")
+    }
+
+    # Define options available, setup option parser and parse args -------
+    option_list <- list(
+        optparse::make_option(
+            "--directory-id",
+            type = "character",
+            help = "Directory path to find experiment configuration (format: /path/to/directory, e.g., 250303_G1_arrest_degrade_and_release/\n Environmental variable $DROPBOX_PATH taken into account, see my_config git)",
+            dest = "directory_id",
+            metavar = "DIR"
+        ),
+        optparse::make_option(
+            "--experiment-id",
+            type = "character",
+            help = "Experiment within Directory Path to analyze (format: Exp_<YYYYMMDD>_[0-9])",
+            dest = "experiment_id",
+            metavar = "ID"
+        ),
+        make_option(
+            "--accept-configuration",
+            action = "store_true",
+            default = FALSE,
+            help = "Accept configuration and continue with execution (default: stop after config display)",
+            dest = "accept_configuration"
+        ),
+        optparse::make_option(
+            "--log-to-file",
+            action = "store_true",
+            default = FALSE,
+            help = "Enable logging to file (default: FALSE)",
+            dest = "log_to_file"
+        ),
+        optparse::make_option(
+            "--override",
+            type = "character",
+            help = paste(
+                "Override runtime configuration.",
+                "Values:", paste(names(OVERRIDE_PRESETS), collapse = ", "),
+                "(default: NULL)"
+            ),
+            dest = "override",
+            metavar = "MODE"
+        ),
+        optparse::make_option(
+            opt_str = "--skip-validation",
+            action = "store_true",
+            default = TRUE,
+            help = "Skip validation for presence of required R packages (default: TRUE). Set to FALSE to force validation.",
+            dest = "skip_validation"
+        ),
+        optparse::make_option(
+            "--output-format",
+            type = "character",
+            help = paste(
+                "Control the filetype of the script output. ",
+                paste(OUTPUT_FORMATS, collapse = ", ")
+            ),
+            dest = "output_format"
+        )
+    )
+
+    # Create parser with optional program name
+    opt_parser <- optparse::OptionParser(
+        option_list = option_list,
+        description = description,
+        prog = prog
+    )
+
+    # Parse arguments with enhanced error handling
+    args <- tryCatch(
+        optparse::parse_args(opt_parser),
+        error = function(e) {
+            cat("\nERROR: Argument parsing failed\n", file = stderr())
+            cat(as.character(e), "\n\n", file = stderr())
+            optparse::print_help(opt_parser)
+            quit(status = 1, save = "no")
+        }
+    )
+
+    # Validate all arguments --------
+    # todo: can probably process using optparser list.
+    if (is.null(args$directory_id)) {
+        message("ERROR. Stopping script...")
+        optparse::print_help(opt_parser)
+        stop("!!!! Missing required argument: --directory-id\nUse -h or --help for usage information")
+    }
+
+    if (is.null(args$experiment_id)) {
+        message("ERROR. Stopping script...")
+        optparse::print_help(opt_parser)
+        stop("!!!! Missing required argument: --experiment-id\nUse -h or --help for usage information")
+    }
+
+    # Validate argument types
+    if (!is.logical(args$log_to_file)) {
+        message("ERROR. Stopping script...")
+        stop("!!!! Argument --log-to-file must be logical value")
+    }
+
+    if (!is.logical(args$accept_configuration)) {
+        stop("!!!! Argument --accept-configuration must be logical value")
+    }
+
+    if (!is.null(args$override) && !args$override %in% names(OVERRIDE_PRESETS)) {
+        stop(sprintf(
+            "!!!! --override must be one of: %s",
+            paste(names(OVERRIDE_PRESETS), collapse = ", ")
+        ))
+    }
+
+    if (!is.null(args$output_format) && !args$output_format %in% OUTPUT_FORMATS) {
+        stop(sprintf(
+            "!!!! --output_format must be one of: %s",
+            paste(OUTPUT_FORMATS, collapse = ", ")
+        ))
+    }
+
+    #todo: dropbox_path id validation and processing ----------
+    # Experiment id validation and processing ----------
+    expected_format_experiment_id <- "Exp_\\d{8}_\\d{1,6}"
+    # Process multiple experiments or a single one
+    if (grepl(",", args$experiment_id)) {
+        # Split and clean the IDs
+        experiment_ids <- stri_split_fixed(args$experiment_id, ",")[[1]]
+        experiment_ids <- trimws(experiment_ids)  # Remove any whitespace
+        experiment_ids <- experiment_ids[experiment_ids != ""]  # Remove empty elements
+
+        # Check for duplicates
+        if (length(unique(experiment_ids)) != length(experiment_ids)) {
+            stop("!!!! Duplicate experiment IDs detected")
+        }
+
+        # Validate format of each ID
+        invalid_ids <- experiment_ids[!grepl(expected_format_experiment_id, experiment_ids, perl = TRUE)]
+        if (length(invalid_ids) > 0) {
+            stop(sprintf(
+                "!!!! Invalid experiment-id format(s):\n%s\nExpected format: Exp_YYYYMMDD_[0-9]",
+                paste(invalid_ids, collapse = ", ")
+            ))
+        }
+
+        args$experiment_id <- experiment_ids
+    } else if (!grepl(expected_format_experiment_id, args$experiment_id, perl = TRUE)) {
+        stop(sprintf(
+            "!!!! Invalid experiment-id format.\nExpected: Exp_YYYYMMDD_[0-9] or '<exp_id1>,<exp_id2>,...'\nReceived: %s",
+            args$experiment_id
+        ))
+    }
+
+    args$directory_path <- sapply(args$directory_id, function(id) {
+        file.path(dropbox_path, flow_cytometry_bridge_path, id)
+    })
+    #args$experiment_dir <- c()
+    #for (idx in 1:length(args$experiment_id)) {
+    #     experiment_dir <- file.path(args$directory_path[idx], args$experiment_id[idx])
+    #     args$experiment_dir <- c(args$experiment_dir, experiment_dir)
+    #    message(sprintf("Adding %s directory", experiment_dir))
+    #}
+
+    # Set up experiment directory ------
+    # Modify the directory check section
+
+    # Get command-line arguments once
+    cmd_args <- commandArgs(trailingOnly = FALSE)
+
+    # Extract the script name from the --file argument
+    script_flag <- grep("--file=", cmd_args, value = TRUE)
+    script_name <- if (length(script_flag)) basename(sub("^--file=", "", script_flag)) else "UNKNOWN"
+
+    # Define allowed setup scripts (expand this vector in the future as needed)
+    setup_scripts <- c("setup_flow_cytometry_experiment.R")
+
+    # Identify missing experiment directories
+    missing_dirs <- args$directory_path[!dir.exists(args$directory_path)]
+
+    if (length(missing_dirs) > 0) {
+
+        # Build a common message for missing directories
+        missing_msg <- sprintf(
+        "!!!! Error: The following directories are missing:\n%s",
+        paste(missing_dirs, collapse = "\n")
+        )
+
+        if (script_name %in% setup_scripts) {
+            message(sprintf("Running setup script '%s'. Creating experiment directories...", script_name))
+            message(sprintf("Creating the following directories:\n%s", paste(missing_dirs, collapse = "\n")))
+            invisible(lapply(missing_dirs, dir.create, showWarnings = FALSE, recursive = TRUE))
+            message("Experiment directories created successfully.")
+        } else if (script_name == "UNKNOWN") {
+            warning("Script name could not be determined. If you are running interactively, ensure directories exist.")
+            warning(missing_msg, call. = FALSE)
+        } else {
+            message("Directory existence check for non-setup script.")
+            stop(sprintf(
+                paste(
+                "!!!! Error: Experiment directories are required for script '%s' to run.\n",
+                "%s\n",
+                "Please execute one of the setup scripts (%s) first to create these directories."
+                ),
+                script_name,
+                missing_msg,
+                paste(setup_scripts, collapse = ", ")
+            ), call. = FALSE)
+        }
+    } else {
+        if (!(script_name %in% setup_scripts)) {
+            message("All experiment directories exist. Continuing script execution...")
+        }
+    }
+
+    return(args)
+} # End of function ------
+
+# handle_configuration_checkpoint ----------------------------------------------------
 #' Display configuration checkpoint status and handle execution flow
 #' @param accept_configuration Logical indicating whether to proceed with execution
 #' @param experiment_id Character string of experiment ID (for command example)
@@ -199,7 +517,7 @@ handle_configuration_checkpoint <- function(
     if (!is.character(experiment_id) || length(experiment_id) != 1 || is.na(experiment_id)) {
         stop("experiment_id must be a single character string")
     }
-    
+
     # Common formatting elements
     separator <- create_separator()
     format_section <- function(title) {
@@ -209,7 +527,7 @@ handle_configuration_checkpoint <- function(
             "\n", separator, "\n", sep = ""
         )
     }
-    
+
     if (!accept_configuration) {
         message(paste(
             format_section("CONFIGURATION CHECKPOINT"),
@@ -224,24 +542,36 @@ handle_configuration_checkpoint <- function(
         ))
         quit(status = 0, save = "no")
     }
-    
+
     message(paste(
         format_section("CONFIGURATION CONFIRMED"),
         "\nContinuing with script execution...",
         "\n", separator,
         sep = ""
     ))
-    
-    invisible(NULL)
-}
 
+    invisible(NULL)
+} # End of function ------
+
+# check_required_packages ----------------------------------------------------
 #' Validate and report required package availability
 #' @param packages Character vector of required package names
 #' @param verbose Logical, whether to display detailed status messages (defaults to TRUE)
 #' @return Invisible list of package status
 #' @examples
 #' validate_packages(c("rtracklayer", "GenomicRanges", "Gviz"))
-check_required_packages <- function(packages, verbose = TRUE) {  # verbose now defaults to TRUE
+check_required_packages <- function(
+    packages,
+    verbose = TRUE,
+    skip_validation = FALSE
+) {  # verbose now defaults to TRUE
+    if (skip_validation) {
+        if (verbose) {
+            structured_log_info("Package validation skipped. Use --skip-validation=FALSE to force validation.")
+        }
+        return(invisible(NULL))
+    }
+
     if (!is.character(packages) || length(packages) == 0) {
         stop("packages must be a non-empty character vector")
     }
@@ -274,7 +604,7 @@ check_required_packages <- function(packages, verbose = TRUE) {  # verbose now d
         install_cmd <- paste0("install.packages(c('", paste(status$missing, collapse = "', '"), "'))")
         bioc_install_cmd <- paste0("BiocManager::install(c('", paste(status$missing, collapse = "', '"), "'))")
         stop(sprintf(
-            "\nMissing required packages (%d of %d):\n%s\n\nPlease install them using one of the following commands:\n%s%sIf you are on a cluster, you may need to use your cluster's package installation mechanism.\n", # Corrected sprintf
+            "\nMissing required packages (%d of %d):\n%s\n\nPlease install them using one of the following commands:\n%s%sIf you are on a cluster, you may need to use your cluster's package installation mechanism.\n",
             length(status$missing),
             status$total,
             missing_pkgs_str,
@@ -289,9 +619,9 @@ check_required_packages <- function(packages, verbose = TRUE) {  # verbose now d
     }
 
     invisible(status)
-}
+} # End of function ------
 
-#' Setup standard experiment directories
+# Setup standard experiment directories -----------
 #'
 #' This function sets up standard directories for an experiment, including required input directories
 #' and an output directory. It validates the existence of input directories (as dependencies) and
@@ -302,16 +632,20 @@ check_required_packages <- function(packages, verbose = TRUE) {  # verbose now d
 #' @param required_input_dirs Vector of required input directory names (default: c("fastq", "documentation")).
 #' @return A named list of directory paths.
 #' @examples
-#' \dontrun{
-#' # Basic usage
-#' dirs <- setup_experiment_dirs("my_experiment")
-#' print(dirs)
+#'      \dontrun{
+#'      # Basic usage
+#'      dirs <- setup_experiment_dirs("my_experiment")
+#'      print(dirs)
 #'
-#' # Custom output directory name
-#' dirs <- setup_experiment_dirs("my_experiment", output_dir_name = "results")
-#' print(dirs)
-#' }
-setup_experiment_dirs <- function(experiment_dir, output_dir_name = "output", required_input_dirs = c("fastq", "documentation")) {
+#'      # Custom output directory name
+#'      dirs <- setup_experiment_dirs("my_experiment", output_dir_name = "results")
+#'      print(dirs)
+#'      }
+setup_experiment_dirs <- function(
+    experiment_dir,
+    output_dir_name = "output",
+    required_input_dirs = c("fastq", "documentation")
+) {
 
     # Input Validation
     stopifnot(
@@ -333,20 +667,34 @@ setup_experiment_dirs <- function(experiment_dir, output_dir_name = "output", re
     for (dir_name in required_input_dirs) {
         full_path <- file.path(experiment_dir, dir_name)
         if (!dir.exists(full_path)) {
-            stop(sprintf("Required experiment subdirectory '%s' not found: %s", dir_name, full_path))
+            stop(sprintf("Required experiment subdirectory '%s' not found: %s", 
+                    dir_name,
+                    full_path
+                )) #
         }
         dirs[[dir_name]] <- full_path
     }
 
     # Construct and create the output directory
     output_dir <- file.path(experiment_dir, output_dir_name)
-    dirs[[output_dir_name]] <- output_dir # More descriptive name
+    dirs[[output_dir_name]] <- output_dir
     dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
     return(dirs)
-}
+} # End of function ---------
 
-apply_runtime_override <- function(config, preset_name, preset_list) {
+# apply_runtime_override --------
+#' This function applies an override to configuration variable *_CONFIG.
+#' @param config List that is to be overriden
+#' @param preset_name Preset to use to override the config list
+#' @param preset_list List with override presets for given config
+#' @return Return a list with the mode, original and new values.
+#' @examples
+apply_runtime_override <- function(
+    config,
+    preset_name,
+    preset_list
+) {
     # Current input validation
     if (!is.list(config)) {
         stop("config must be a list")
@@ -357,7 +705,7 @@ apply_runtime_override <- function(config, preset_name, preset_list) {
     if (!is.list(preset_list)) {
         stop("preset_list must be a list of presets")
     }
-    
+
     # Validate preset exists
     if (!preset_name %in% names(preset_list)) {
         stop(sprintf(
@@ -366,9 +714,9 @@ apply_runtime_override <- function(config, preset_name, preset_list) {
             preset_name
         ))
     }
-    
+
     preset <- preset_list[[preset_name]]
-    
+
     # Validate preset keys
     invalid_keys <- setdiff(names(preset), names(config))
     if (length(invalid_keys) > 0) {
@@ -379,7 +727,7 @@ apply_runtime_override <- function(config, preset_name, preset_list) {
             paste(names(config), collapse = ", ")
         ))
     }
-    
+
     # Validate value types
     for (key in names(preset)) {
         if (!identical(class(preset[[key]]), class(config[[key]]))) {
@@ -392,11 +740,11 @@ apply_runtime_override <- function(config, preset_name, preset_list) {
             ))
         }
     }
-    
+
     # Return override info
     list(
         mode = preset_name,
         original = config,
         modified = modifyList(config, preset)
     )
-}
+} # End of function --------

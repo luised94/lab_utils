@@ -1,11 +1,14 @@
 #!/usr/bin/env Rscript
-source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_logging.R"))
-source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
-################################################################################
-# Load Required Libraries
-################################################################################
-required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
-check_required_packages(required_packages, verbose = TRUE)
+# Bootstrap phase
+function_filenames <- c("logging", "script_control", "file_operations")
+for (function_filename in function_filenames) {
+    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
+    normalized_path <- normalizePath(function_filepath)
+    if (!file.exists(normalized_path)) {
+        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
+    }
+    source(normalized_path)
+}
 
 ################################################################################
 # Handle script arguments
@@ -24,7 +27,6 @@ if (args$is_template) {
     metadata_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_sample_grid.csv"))
 }
 
-
 args_info <- list(
     title = "Script Configuration",
     "script.name" = get_script_name(),
@@ -33,17 +35,18 @@ args_info <- list(
 print_debug_info(modifyList(args_info, args))
 
 ################################################################################
+# Load Required Libraries
+################################################################################
+required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
+check_required_packages(
+    packages = required_packages,
+    verbose = TRUE,
+    skip_validation = args$skip_validation
+)
+
+################################################################################
 # Load and Validate Experiment Configuration and Dependencies
 ################################################################################
-# Bootstrap phase
-bootstrap_path <- normalizePath("~/lab_utils/core_scripts/functions_for_file_operations.R",
-                              mustWork = FALSE)
-if (!file.exists(bootstrap_path)) {
-    stop(sprintf("[FATAL] Bootstrap file not found: %s", bootstrap_path))
-}
-source(bootstrap_path)
-safe_source(config_path)
-
 # Define required dependencies
 required_modules <- list(
     list(
@@ -53,6 +56,11 @@ required_modules <- list(
     ),
     list(
         path = "~/lab_utils/core_scripts/functions_for_genome_tracks.R",
+        description = "Functions to load genome track objects for plotting",
+        required = TRUE
+    ),
+    list(
+        path = config_path,
         description = "Functions to load genome track objects for plotting",
         required = TRUE
     )
@@ -92,7 +100,6 @@ module_info <- list(
 )
 
 # Add status for each module
-# Add status for each module
 for (status in load_status) {
     module_key <- paste0(
         if(status$required) "required." else "optional.",
@@ -116,22 +123,22 @@ invisible(lapply(required_configs, function(config) {
 
 
 # Handle configuration override (independent)
-#if (!is.null(args$override)) {
-#    override_result <- apply_runtime_override(
-#        config = RUNTIME_CONFIG,
-#        preset_name = args$override,
-#        preset_list = OVERRIDE_PRESETS
-#    )
-#    RUNTIME_CONFIG <- override_result$modified
-#    
-# print_debug_info(modifyList(
-#     list(
-#         title = "Final Configuration",
-#         "override.mode" = override_result$mode
-#     ),
-#     RUNTIME_CONFIG  # Flat list of current settings
-# ))
-#}
+if (!is.null(args$override)) {
+    override_result <- apply_runtime_override(
+        config = RUNTIME_CONFIG,
+        preset_name = args$override,
+        preset_list = OVERRIDE_PRESETS
+    )
+    RUNTIME_CONFIG <- override_result$modified
+ print_debug_info(modifyList(
+     list(
+         title = "Final Configuration",
+         "override.mode" = override_result$mode
+     ),
+     RUNTIME_CONFIG  # Flat list of current settings
+ ))
+}
+
 handle_configuration_checkpoint(
     accept_configuration = accept_configuration,
     experiment_id = experiment_id
@@ -152,6 +159,7 @@ dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
     output_dir_name = "plots",
     required_input_dirs = required_directories
 )
+
 dirs$output_dir <- file.path(dirs$plots, "genome_tracks", "overview")
 dir.create(dirs$output_dir, recursive = TRUE, showWarnings = FALSE)
 # Find fastq files and extract sample IDs
@@ -369,6 +377,7 @@ if (!is.null(feature_file)) {
     )
 }
 
+# Calculate global track limits before entering for loop.
 global_limits_result <- calculate_track_limits(
     bigwig_files = bigwig_files,
     genome_range = genome_range,
@@ -559,6 +568,7 @@ for (group_idx in groups_to_process) {
         TIME_CONFIG$current_timestamp,
         normalization_method
     )
+
     plot_config <- create_track_plot_config(
         tracks = tracks,
         chromosome = chromosome_roman,

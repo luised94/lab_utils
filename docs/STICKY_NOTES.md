@@ -183,3 +183,8 @@ After a discussion with shandon, she suggested I talk to the BMC to consult on p
 I think I can still continue with the previous two repeats and check in with the BMC.
 Need to ask about the numbered files as well. (245001-1 and 245001-2)
 todo: Create the genomic tracks, finish the test module, update configs for the previous two repeats, prepare strategy and questions for BMC.
+
+## 2025-04-03
+I think I added a bunch of nonsense to most of my scripts with the loading modules and printing a lot of things, especially without having more control over what prints out to the screen.
+They currently work at least but I may need to remove it.
+Scripts to generate publication figures will be more targeted and streamlined either way.

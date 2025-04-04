@@ -7,9 +7,9 @@
 #SBATCH --exclude=c[5-22]
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=luised94@mit.edu
-# Script: run_bowtie2_array_alignment.sh
+# Script: run_bowtie2_array_alignment.sbatch
 # Purpose: Executes bowtie2 alignment as SLURM array job for multiple fastq files
-# Usage: sbatch --array=1-N%16 run_bowtie2_array_alignment.sh <experiment_directory>
+# Usage: sbatch --array=1-N%16 run_bowtie2_array_alignment.sbatch <experiment_directory>
 # Author: [Your Name]
 # Date: 2024-11-03
 

@@ -7,9 +7,9 @@
 #SBATCH --exclude=c[5-22]
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=luised94@mit.edu
-# Script: run_bamcoverage_array.sh
+# Script: run_bamcoverage_array.sbatch
 # Purpose: Executes deepTools bamCoverage as SLURM array job for multiple BAM files
-# Usage: sbatch --array=1-N%16 run_bamcoverage_array.sh <experiment_directory>
+# Usage: sbatch --array=1-N%16 run_bamcoverage_array.sbatch <experiment_directory>
 # Date: 2024-11-03
 
 # Function to display usage
