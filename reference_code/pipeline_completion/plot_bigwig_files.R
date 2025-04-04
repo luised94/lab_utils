@@ -144,8 +144,20 @@ if (length(file_paths_by_type) == 0) {
 # Load and process bigwig file
 ################################################################################
 BIGWIG_FILES <- file_paths_by_type[["BIGWIG"]]
+metadata_df <- as.data.frame(
+    do.call(rbind,
+        strsplit(
+            gsub(
+                ".bw",
+                "",
+                basename(BIGWIG_FILES)
+            ),
+            split = "_"
+        )
+    )
+)
+colnames(metadata_df) <- c("sample", "bam_processing", "bigwig_processing")
 
-#
 #################################################################################
 ## Setup configuration for genome track plots
 #################################################################################
