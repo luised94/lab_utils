@@ -1,0 +1,13 @@
+
+# Variable never defined or doesnt exist.
+Error in args$skip_validation :
+  object of type 'closure' is not subsettable
+
+Error in dir.exists(GENOME_TRACK_CONFIG$file_genome_directory) :
+  object 'GENOME_TRACK_CONFIG' not found
+
+# Missing or extra characters
+Error in source("reference_code/pipeline_completion/plot_bigwig_files.R") :
+  reference_code/pipeline_completion/plot_bigwig_files.R:30:74: unexpected ','
+29: # Ensure supplementary files for plotting genome tracks are present
+30: FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS"),
