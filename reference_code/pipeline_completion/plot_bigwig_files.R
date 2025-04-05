@@ -162,7 +162,7 @@ if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPEC
 bigwig_metadata_df <- data.frame(matrix(NA, nrow = NUMBER_OF_FILES, ncol = underscore_counts + 1 + 1 ))
 
 for (row_index in 1:nrow(bigwig_metadata_df)) {
-    bigwig_metadata_df[row_index, ] <- split_metadata[[row_index]]
+    bigwig_metadata_df[row_index, ] <- c(split_metadata[[row_index]], NA)
 }
 
 colnames(bigwig_metadata_df) <- COLUMN_NAMES

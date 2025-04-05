@@ -11,3 +11,7 @@ Error in source("reference_code/pipeline_completion/plot_bigwig_files.R") :
   reference_code/pipeline_completion/plot_bigwig_files.R:30:74: unexpected ','
 29: # Ensure supplementary files for plotting genome tracks are present
 30: FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS"),
+
+# Dataframe assignment
+Error in `[<-.data.frame`(`*tmp*`, row_index, , value = c("input", "deduped",  :
+  replacement has 3 items, need 4
