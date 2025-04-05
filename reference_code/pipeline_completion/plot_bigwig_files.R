@@ -159,13 +159,26 @@ if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPEC
 }
 
 # Preallocation
-bigwig_metadata_df <- data.frame(matrix(NA, nrow = NUMBER_OF_FILES, ncol = underscore_counts + 1))
+bigwig_metadata_df <- data.frame(matrix(NA, nrow = NUMBER_OF_FILES, ncol = underscore_counts + 1 + 1 ))
 
-lapply(seq_along(bigwig_metadata_df) function(row_index) {
+for (row_index in 1:nrow(bigwig_metadata_df)) {
     bigwig_metadata_df[row_index, ] <- split_metadata[[row_index]]
-})
-colnames(bigwig_metadata_df) <- COLUMN_NAMES
+}
 
+colnames(bigwig_metadata_df) <- COLUMN_NAMES
+bigwig_metadata_df$file_paths <- BIGWIG_FILES
+
+# Assertions
+stopifnot(
+    "No samples are NA." = !any(is.na(bigwig_metadata_df$sample)),
+    "Metadata has expected dimensions." =
+        nrow(bigwig_metadata_df) == NUMBER_OF_FILES &&
+        ncol(bigwig_metadata_df) == length(COLUMN_NAMES),
+    "No duplicate samples." = !any(duplicated(bigwig_metadata_df$sample))
+)
+if (length(BIGWIG_FILES) == 0) {
+    stop("No bigwig files found.")
+}
 #################################################################################
 ## Setup configuration for genome track plots
 #################################################################################
