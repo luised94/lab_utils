@@ -145,7 +145,7 @@ if (length(file_paths_by_type) == 0) {
 ################################################################################
 BIGWIG_FILES <- file_paths_by_type[["BIGWIG"]]
 NUMBER_OF_FILES <- length(BIGWIG_FILES)
-COLUMN_NAMES <- c("sample", "bam_processing", "bigwig_processing")
+COLUMN_NAMES <- c("sample", "bam_processing", "bigwig_processing", "file_paths")
 FILE_EXTENSION_TO_REMOVE <- ".bw"
 EXPECTED_NUM_UNDERSCORES <- 2
 
@@ -154,6 +154,7 @@ filenames_without_extension <- gsub(FILE_EXTENSION_TO_REMOVE, "", file_basenames
 split_metadata <- strsplit(filenames_without_extension, split = "_")
 
 underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
+
 if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPECTED_NUM_UNDERSCORES) {
   stop("Filenames must contain exactly ", EXPECTED_NUM_UNDERSCORES, " underscores.")
 }
@@ -162,7 +163,7 @@ if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPEC
 bigwig_metadata_df <- data.frame(matrix(NA, nrow = NUMBER_OF_FILES, ncol = underscore_counts + 1 + 1 ))
 
 for (row_index in 1:nrow(bigwig_metadata_df)) {
-    bigwig_metadata_df[row_index, ] <- c(split_metadata[[row_index]], NA)
+    bigwig_metadata_df[row_index, 1:3] <- split_metadata[[row_index]]
 }
 
 colnames(bigwig_metadata_df) <- COLUMN_NAMES
@@ -173,9 +174,10 @@ stopifnot(
     "No samples are NA." = !any(is.na(bigwig_metadata_df$sample)),
     "Metadata has expected dimensions." =
         nrow(bigwig_metadata_df) == NUMBER_OF_FILES &&
-        ncol(bigwig_metadata_df) == length(COLUMN_NAMES),
+        ncol(bigwig_metadata_df) == length(COLUMN_NAMES) + 1,
     "No duplicate samples." = !any(duplicated(bigwig_metadata_df$sample))
 )
+
 if (length(BIGWIG_FILES) == 0) {
     stop("No bigwig files found.")
 }
