@@ -191,20 +191,20 @@ if (length(BIGWIG_FILES) == 0) {
 # MAIN
 #################################################################################
 # Define track style defaults
-TRACK_STYLE <- list(
-    showAxis = TRUE,
-    showTitle = TRUE,
-    type = "h",
-    size = 1.2,
-    background.title = "white",
-    fontcolor.title = "black",
-    col.border.title = "#e0e0e0",
-    cex.title = 0.7,
-    fontface = 1,
-    title.width = 1.0,
-    col = "darkblue",
-    fill = "darkblue"
-)
+#TRACK_STYLE <- list(
+#    showAxis = TRUE,
+#    showTitle = TRUE,
+#    type = "h",
+#    size = 1.2,
+#    background.title = "white",
+#    fontcolor.title = "black",
+#    col.border.title = "#e0e0e0",
+#    cex.title = 0.7,
+#    fontface = 1,
+#    title.width = 1.0,
+#    col = "darkblue",
+#    fill = "darkblue"
+#)
 
 # Define plot style defaults
 PLOT_STYLE <- list(
