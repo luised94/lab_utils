@@ -57,7 +57,7 @@ if (!file.exists(REF_GENOME_FILE)) {
 REFERENCE_GENOME_DSS <- Biostrings::readDNAStringSet(REF_GENOME_FILE)
 
 # Create chromosome range
-CHROMOSOME_TO_PLOT <- RUNTIME_CONFIG$process_chromosome
+CHROMOSOME_TO_PLOT <- 10
 CHROMOSOME_WIDTH <- REFERENCE_GENOME_DSS[CHROMOSOME_TO_PLOT]@ranges@width
 CHROMOSOME_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
 
@@ -69,16 +69,16 @@ GENOME_RANGE_TO_LOAD <- GenomicRanges::GRanges(
 
 # Load feature file (annotation)
 FEATURE_FILE <- list.files(
-    path = GENOME_TRACK_CONFIG$file_feature_directory,
-    pattern = GENOME_TRACK_CONFIG$file_feature_pattern,
+    path = FILE_FEATURE_DIRECTORY,
+    pattern = FILE_FEATURE_PATTERN,
     full.names = TRUE
 )[1]
 
 if (length(FEATURE_FILE) == 0)
 {
     warning(sprintf("No feature files found matching pattern '%s' in: %s",
-                   GENOME_TRACK_CONFIG$file_feature_pattern,
-                   GENOME_TRACK_CONFIG$file_feature_directory))
+                   FILE_FEATURE_PATTERN,
+                   FILE_FEATURE_DIRECTORY))
 }
 
 if (!is.null(FEATURE_FILE))
@@ -177,7 +177,7 @@ stopifnot(
     "Metadata has expected dimensions." =
         nrow(bigwig_metadata_df) == NUMBER_OF_FILES &&
         ncol(bigwig_metadata_df) == length(COLUMN_NAMES),
-    "No duplicate samples." = !any(duplicated(bigwig_metadata_df$sample))
+    "No duplicate samples." = !any(duplicated(bigwig_metadata_df))
 )
 
 if (length(BIGWIG_FILES) == 0) {
@@ -223,19 +223,23 @@ for (key_idx in 1:length(control_keys)) {
         name = sprintf("Chr %s Axis", CHROMOSOME_TO_PLOT)
     )
 
-    for (i in seq_along(track_list)) {
+    for (i in 1:nrow(rows_to_analyze)) {
+        rows_file_path <- rows_to_analyze[i, "file_paths"]
+        message(sprintf("Importing file path %s...", rows_file_path))
          bigwig_data <- rtracklayer::import(
-            rows_to_analyze[i, "file_paths"],
+            rows_file_path,
             format = "BigWig",
             which = GENOME_RANGE_TO_LOAD
         )
         track_list[[i + 1]] <- Gviz::DataTrack(bigwig_data)
-        message(sprint("Sample %s imported...", i))
+        message(sprintf("Sample %s imported...", i))
 
     }
 
+    message("All samples imported and added to track_list.")
+
     if (exists("features")) {
-        tracks[[length(tracks)]] <- Gviz::AnnotationTrack(
+        track_list[[length(track_list)]] <- Gviz::AnnotationTrack(
             GENOME_FEATURES,
             name = "Features",
             size = 0.5,
@@ -250,9 +254,9 @@ for (key_idx in 1:length(control_keys)) {
     )
 }
 
-# 
+#
 #sample_bigwig_combinations <- expand.grid(
-#    c(CATEGORIES["samples"], 
+#    c(CATEGORIES["samples"],
 #        bigwig_processing = "cpm")
 #)
 #metadata_chr <- lapply(bigwig_metadata_df[c("sample", "bigwig_processing")], as.character)
