@@ -202,7 +202,6 @@ TRACK_STYLE <- list(
     cex.title = 0.7,
     fontface = 1,
     title.width = 1.0,
-    ylim = c(0, 1000),
     col = "darkblue",
     fill = "darkblue"
 )
@@ -231,7 +230,7 @@ sample_bam_combinations <- expand.grid(
 )
 
 # Filter the sample combinations to exclude input shifted
-is_input_combination <- sample_bam_combinations$samples == "input" 
+is_input_combination <- sample_bam_combinations$samples == "input"
 is_shifted_combination <- sample_bam_combinations$bam_processing == "shifted"
 sample_bam_combinations <- sample_bam_combinations[!(is_input_combination & is_shifted_combination), ]
 
@@ -249,7 +248,6 @@ for (key_idx in 1:length(control_keys)) {
     keys_in_current_key <- metadata_keys %in% control_key
     cat(sprintf("Processing %s key\n", key_idx))
     cat(sprintf("Using key = %s \n", control_key))
-
 
     rows_to_analyze <- bigwig_metadata_df[keys_in_current_key, ]
     message("Sample subsetting complete...")
@@ -295,20 +293,23 @@ for (key_idx in 1:length(control_keys)) {
 
     # Style the tracks
     # Special styling for axis track
-    Gviz::displayPars(track_list[[1]]) <- list(
+    Gviz::setPar(track_list[[1]], list(
         fontcolor.title = "black",
         cex.title = 0.7,
         background.title = "white"
-    )
+    ))
 
     # Apply styles to tracks and plot
     # Skip axis track and feature track
     for (i in 2:(length(track_list)-1)) {
-        Gviz::displayPars(track_list[[i]]) <- TRACK_STYLE
+        Gviz::setPar(track_list[[i]], TRACK_STYLE)
     }
 
     Gviz::plotTracks(
         trackList = track_list,
+        chromosome = CHROMOSOME_ROMAN,
+        from = GENOME_RANGE_TO_LOAD@ranges@start,
+        to = GENOME_RANGE_TO_LOAD@ranges@width,
         PLOT_STYLE
     )
 }
