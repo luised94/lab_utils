@@ -295,16 +295,16 @@ for (key_idx in 1:length(control_keys)) {
 
     # Style the tracks
     # Special styling for axis track
-    track_list[[1]] <- Gviz::displayPars(track_list[[1]], list(
+    Gviz::displayPars(track_list[[1]]) <- list(
         fontcolor.title = "black",
         cex.title = 0.7,
         background.title = "white"
-    ))
+    )
 
     # Apply styles to tracks and plot
     # Skip axis track and feature track
     for (i in 2:(length(track_list)-1)) {
-        track_list[[i]] <- Gviz::displayPars(track_list[[i]], TRACK_STYLE)
+        Gviz::displayPars(track_list[[i]]) <- TRACK_STYLE
     }
 
     Gviz::plotTracks(
