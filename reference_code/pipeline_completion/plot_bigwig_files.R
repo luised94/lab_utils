@@ -261,7 +261,7 @@ for (key_idx in 1:length(control_keys)) {
     )
 
     for (i in 1:nrow(rows_to_analyze)) {
-        track_name <- do.call(paste, rows_to_analyze[i, ], sep = "_")
+        track_name <- do.call(paste, c(rows_to_analyze[i, 1:3], sep = "_"))
         rows_file_path <- rows_to_analyze[i, "file_paths"]
         message(sprintf("Importing file path %s...", rows_file_path))
         bigwig_data <- rtracklayer::import(
@@ -273,9 +273,7 @@ for (key_idx in 1:length(control_keys)) {
             data = bigwig_data,
             name = track_name
         )
-
         message(sprintf("Sample %s imported...", i))
-
     }
 
     message("All samples imported and added to track_list.")
