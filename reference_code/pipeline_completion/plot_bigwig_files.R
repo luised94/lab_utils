@@ -273,7 +273,20 @@ for (key_idx in 1:length(control_keys)) {
 
         track_list[[i + 1]] <- Gviz::DataTrack(
             range = bigwig_data,
-            name = track_name
+            name = track_name,
+            # Apply styling
+            showAxis = TRUE,
+            showTitle = TRUE,
+            type = "h",
+            size = 1.2,
+            background.title = "white",
+            fontcolor.title = "black",
+            col.border.title = "#e0e0e0",
+            cex.title = 0.7,
+            fontface = 1,
+            title.width = 1.0,
+            col = "darkblue",
+            fill = "darkblue"
         )
         message(sprintf("Sample %s imported...", i))
     }
