@@ -238,7 +238,7 @@ for (key_idx in 1:length(control_keys)) {
 
     message("All samples imported and added to track_list.")
 
-    if (exists("features")) {
+    if (exists("GENOME_FEATURES")) {
         track_list[[length(track_list)]] <- Gviz::AnnotationTrack(
             GENOME_FEATURES,
             name = "Features",
