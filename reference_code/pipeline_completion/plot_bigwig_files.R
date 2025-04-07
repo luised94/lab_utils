@@ -198,6 +198,11 @@ sample_bam_combinations <- expand.grid(
     CATEGORIES[c("samples", "bam_processing")]
 )
 
+# Filter the sample combinations to exclude input shifted
+is_input_combination <- sample_bam_combinations$samples == "input" 
+is_shifted_combination <- sample_bam_combinations$bam_processing == "shifted"
+sample_bam_combinations <- sample_bam_combinations[!(is_input_combination & is_shifted_combination), ]
+
 
 # Handle the sample and bam_processing combinations
 COLUMN_SEPARATOR <-  "\x01"
