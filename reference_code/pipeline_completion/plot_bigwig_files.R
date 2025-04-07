@@ -89,6 +89,9 @@ if (!is.null(FEATURE_FILE))
         "chr",
         utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(GENOME_FEATURES)))
     )
+    # Fitler out the rest of the chromosomes
+    # GENOME_FEATURES <- GENOME_FEATURES[seqnames(GENOME_FEATURES) == CHROMOSOME_ROMAN]
+    GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOME_ROMAN, pruning.mode = "coarse")
 }
 
 ################################################################################
@@ -185,8 +188,37 @@ if (length(BIGWIG_FILES) == 0) {
 }
 
 #################################################################################
-## MAIN
+# MAIN
 #################################################################################
+# Define track style defaults
+TRACK_STYLE <- list(
+    showAxis = TRUE,
+    showTitle = TRUE,
+    type = "h",
+    size = 1.2,
+    background.title = "white",
+    fontcolor.title = "black",
+    col.border.title = "#e0e0e0",
+    cex.title = 0.7,
+    fontface = 1,
+    title.width = 1.0,
+    ylim = c(0, 1000),
+    col = "darkblue",
+    fill = "darkblue"
+)
+
+# Define plot style defaults
+PLOT_STYLE <- list(
+    margin = 15,
+    innerMargin = 5,
+    spacing = 10,
+    col.axis = "black",
+    cex.axis = 0.8,
+    cex.main = 0.9,
+    fontface.main = 2,
+    background.panel = "transparent"
+)
+
 # Define categories
 CATEGORIES <- list(
     samples = unique(bigwig_metadata_df[,"sample"]),
@@ -229,14 +261,19 @@ for (key_idx in 1:length(control_keys)) {
     )
 
     for (i in 1:nrow(rows_to_analyze)) {
+        track_name <- do.call(paste, rows_to_analyze[i, ], sep = "_")
         rows_file_path <- rows_to_analyze[i, "file_paths"]
         message(sprintf("Importing file path %s...", rows_file_path))
-         bigwig_data <- rtracklayer::import(
+        bigwig_data <- rtracklayer::import(
             rows_file_path,
             format = "BigWig",
             which = GENOME_RANGE_TO_LOAD
         )
-        track_list[[i + 1]] <- Gviz::DataTrack(bigwig_data)
+        track_list[[i + 1]] <- Gviz::DataTrack(
+            data = bigwig_data,
+            name = track_name
+        )
+
         message(sprintf("Sample %s imported...", i))
 
     }
@@ -250,12 +287,31 @@ for (key_idx in 1:length(control_keys)) {
             size = 0.5,
             background.title = "lightgray",
             fontcolor.title = "black",
-            cex.title = 0.6
+            showAxis = FALSE,
+            background.panel = "#f5f5f5",
+            cex.title = 0.6,
+            fill = "#8b4513",
+            col = "#8b4513"
         )
     }
 
+    # Style the tracks
+    # Special styling for axis track
+    track_list[[1]] <- Gviz::displayPars(track_list[[1]], list(
+        fontcolor.title = "black",
+        cex.title = 0.7,
+        background.title = "white"
+    ))
+
+    # Apply styles to tracks and plot
+    # Skip axis track and feature track
+    for (i in 2:(length(track_list)-1)) {
+        track_list[[i]] <- Gviz::displayPars(track_list[[i]], TRACK_STYLE)
+    }
+
     Gviz::plotTracks(
-        trackList = track_list
+        trackList = track_list,
+        PLOT_STYLE
     )
 }
 
