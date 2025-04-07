@@ -255,7 +255,10 @@ for (key_idx in 1:length(control_keys)) {
 
     track_list <- vector("list", nrow(rows_to_analyze) + 1 + 1)
     track_list[[1]] <- Gviz::GenomeAxisTrack(
-        name = sprintf("Chr %s Axis", CHROMOSOME_TO_PLOT)
+        name = sprintf("Chr %s Axis", CHROMOSOME_TO_PLOT),
+        fontcolor.title = "black",
+        cex.title = 0.7,
+        background.title = "white"
     )
 
     for (i in 1:nrow(rows_to_analyze)) {
@@ -267,8 +270,9 @@ for (key_idx in 1:length(control_keys)) {
             format = "BigWig",
             which = GENOME_RANGE_TO_LOAD
         )
+
         track_list[[i + 1]] <- Gviz::DataTrack(
-            data = bigwig_data,
+            range = bigwig_data,
             name = track_name
         )
         message(sprintf("Sample %s imported...", i))
@@ -289,20 +293,6 @@ for (key_idx in 1:length(control_keys)) {
             fill = "#8b4513",
             col = "#8b4513"
         )
-    }
-
-    # Style the tracks
-    # Special styling for axis track
-    Gviz::setPar(track_list[[1]], list(
-        fontcolor.title = "black",
-        cex.title = 0.7,
-        background.title = "white"
-    ))
-
-    # Apply styles to tracks and plot
-    # Skip axis track and feature track
-    for (i in 2:(length(track_list)-1)) {
-        Gviz::setPar(track_list[[i]], TRACK_STYLE)
     }
 
     Gviz::plotTracks(
@@ -327,28 +317,6 @@ for (key_idx in 1:length(control_keys)) {
 #is_not_input <- !grepl("input", control_keys)
 #control_keys <- control_keys[is_not_input]
 # Determine preallocation parameters for tracks list
-## Initialize track list with genome axis
-#tracks <- list(
-#    Gviz::GenomeAxisTrack(
-#        name = sprintf("Chr %s Axis", CHROMOSOME_TO_PLOT)
-#    )
-#)
-#
-#for (bigwig_file in BIGWIG_FILES) {
-#    bigwig_data <- rtracklayer::import(bigwig_file_path, which = genomic_range)
-#    genome_track <- Gviz::DataTrack(bigwig_data)
-#    tracks[[length(tracks) + 1]] <- genome_track
-#}
-#if (exists("features")) {
-#    tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
-#        features,
-#        name = "Features",
-#        size = 0.5,
-#        background.title = "lightgray",
-#        fontcolor.title = "black",
-#        cex.title = 0.6
-#    )
-#}
 #
 #OUTPUT_FILE_NAME
 #svglite(
