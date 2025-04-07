@@ -28,6 +28,7 @@ check_required_packages(REQUIRED_PACKAGES, verbose = TRUE, skip_validation = FAL
 ################################################################################
 # Ensure supplementary files for plotting genome tracks are present
 FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
+FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
 FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
 FILE_FEATURE_PATTERN <- "eaton_peaks"
 stopifnot(
@@ -38,7 +39,7 @@ stopifnot(
 # Load reference genome
 REF_GENOME_FILE <- list.files(
     path = FILE_GENOME_DIRECTORY,
-    pattern = FILE_FEATURE_DIRECTORY,
+    pattern = FILE_GENOME_PATTERN,
     full.names = TRUE,
     recursive = TRUE
 )[1]
