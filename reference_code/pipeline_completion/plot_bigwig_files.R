@@ -313,7 +313,15 @@ for (key_idx in 1:length(control_keys)) {
         chromosome = CHROMOSOME_ROMAN,
         from = GENOME_RANGE_TO_LOAD@ranges@start,
         to = GENOME_RANGE_TO_LOAD@ranges@width,
-        PLOT_STYLE
+        margin = 15,
+        innerMargin = 5,
+        spacing = 10,
+        col.axis = "black",
+        cex.axis = 0.8,
+        cex.main = 0.9,
+        fontface.main = 2,
+        background.panel = "transparent"
+        #PLOT_STYLE
     )
 }
 
