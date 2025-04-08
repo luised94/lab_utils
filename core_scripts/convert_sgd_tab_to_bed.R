@@ -176,13 +176,15 @@ merged_data$resolved_name <- dplyr::coalesce(
 )
 
 bed_data <- data.frame(
-  chrom = merged_data$chrom,
-  start = merged_data$bed_start,
-  end = merged_data$bed_end,
-  name = merged_data$resolved_name,
-  score = 0,
-  strand = merged_data$bed_strand,
-  stringsAsFactors = FALSE
+    chrom = merged_data$chrom,
+    start = merged_data$bed_start,
+    end = merged_data$bed_end,
+    name = merged_data$resolved_name,
+    score = 0,
+    strand = merged_data$bed_strand,
+    feature_type = merged_data$V2,
+    gene_name = merged_data$V5,
+    stringsAsFactors = FALSE
 )
 
 stopifnot(
@@ -220,7 +222,16 @@ stopifnot(
   "Output directory not writable" = file.access(output_directory, 2) == 0
 )
 
-sanitize_filename <- function(feature_type) {
+# Track base names and their counts
+name_registry <- list()
+
+# Generate manifest with proper numbering
+manifest <- data.frame()
+current_date <- format(Sys.Date(), "%Y%m%d")
+
+for (feature_type in unique(feature_types)) {
+
+    # Sanitize file name
   # Convert to lowercase and replace special characters
   clean_name <- tolower(feature_type)
   # Replace all non-alphanumeric characters with underscores
@@ -228,32 +239,16 @@ sanitize_filename <- function(feature_type) {
   # Collapse multiple underscores
   clean_name <- gsub("_+", "_", clean_name)
   # Trim leading/trailing underscores
-  clean_name <- gsub("^_|_$", "", clean_name)
-  return(clean_name)
-}
-
-
-# Track base names and their counts
-name_registry <- list()
-
-generate_filename <- function(feature_type) {
-  base_name <- sanitize_filename(feature_type)
-  
-  # Update registry
+  base_name <- gsub("^_|_$", "", clean_name)
+  # Update registry to track file names
   if (is.null(name_registry[[base_name]])) {
-    name_registry[[base_name]] <<- 1
-    return(paste0(base_name, ".bed"))
+    name_registry[[base_name]] <- 1
+    file_name <- paste0(current_date, "_", base_name, "_sgd.bed")
   } else {
     count <- name_registry[[base_name]]
-    name_registry[[base_name]] <<- count + 1
-    return(paste0(base_name, "_", count, ".bed"))
+    name_registry[[base_name]] <- count + 1
+    file_name <- paste0(current_date, "_", base_name, "_", count, "_sgd.bed")
   }
-}
-
-# Generate manifest with proper numbering
-manifest <- data.frame()
-for (feature_type in unique(feature_types)) {
-  file_name <- generate_filename(feature_type)
   count <- sum(feature_types == feature_type)
 
   manifest <- rbind(manifest, data.frame(
@@ -271,7 +266,8 @@ print(manifest)
 response <- tolower(readline(prompt = "Proceed with writing files? (y/n): "))
 if (!response %in% c("y", "yes")) {
   cat("Operation cancelled\n")
-  quit(save = "no", status = 0)
+    stop("Inspect files or resource the script.")
+  #quit(save = "no", status = 0)
 }
 
 # Actual file writing
@@ -286,7 +282,7 @@ for (i in 1:nrow(manifest)) {
     sep = "\t",
     quote = FALSE,
     row.names = FALSE,
-    col.names = FALSE
+    col.names = TRUE
   )
 
   cat(sprintf(" - %-25s: %6d entries -> %s\n",
@@ -299,10 +295,9 @@ cat(sprintf("\nSuccessfully wrote %d files to:\n%s\n",
             nrow(manifest), output_directory))
 
 cat("\n=== COMBINED FILE GENERATION ===\n")
-combined_path <- file.path(output_directory, "sgd_features_combined.bed")
-
-# Add feature type metadata column
-bed_data$feature_type <- merged_data$V2
+combined_path <- file.path(output_directory,
+    paste(current_date, "_", "sgd_features_combined.bed", sep = "")
+)
 
 # Interactive confirmation
 cat(sprintf(
@@ -313,32 +308,33 @@ cat(sprintf(
 
 create_combined <- tolower(readline("Create combined BED file? (y/n): "))
 if(create_combined %in% c("y", "yes")) {
-  # Write with track line for genome browsers
-  track_line <- sprintf(
-    'track name="SGD_Features" description="Combined_SGD_Annotation" visibility=2 itemRgb="On"'
-  )
+  ## Write with track line for genome browsers
+  #track_line <- sprintf(
+  #  'track name="SGD_Features" description="Combined_SGD_Annotation" visibility=2 itemRgb="On"'
+  #)
 
   # Prepare final structure with Gviz-friendly columns
-  combined_output <- bed_data[, c("chrom", "start", "end", "name", "score", "strand")]
-  combined_output$thickStart <- combined_output$start
-  combined_output$thickEnd <- combined_output$end
-  combined_output$itemRgb <- ifelse(
-    bed_data$feature_type == "ORF",
-    "255,0,0",  # Red for ORFs
-    "0,0,255"    # Blue for others
-  )
+  #combined_output <- bed_data[, c("chrom", "start", "end", "name", "score", "strand", "feature_type")]
+  combined_output <- bed_data
+  #combined_output$thickStart <- combined_output$start
+  #combined_output$thickEnd <- combined_output$end
+  #combined_output$itemRgb <- ifelse(
+  #  bed_data$feature_type == "ORF",
+  #  "255,0,0",  # Red for ORFs
+  #  "0,0,255"    # Blue for others
+  #)
 
   # Write to file
   #writeLines(track_line, combined_path)
-  #write.table(
-  #  combined_output,
-  #  file = combined_path,
-  #  append = TRUE,
-  #  sep = "\t",
-  #  quote = FALSE,
-  #  row.names = FALSE,
-  #  col.names = FALSE
-  #)
+  write.table(
+    combined_output,
+    file = combined_path,
+    append = TRUE,
+    sep = "\t",
+    quote = FALSE,
+    row.names = FALSE,
+    col.names = TRUE
+  )
   
   cat(sprintf(
     "\nSuccessfully wrote combined BED file with:\n- %d total features\n- Color-coded types\n- Genome browser compatibility\n",
