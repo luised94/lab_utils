@@ -1,3 +1,16 @@
+###############################################################################
+# Decompose sdg tab dataset to bed files 
+################################################################################
+# PURPOSE: Output bed files for features found in the sgd tab files
+# Conclusion: {{fill}}
+# USAGE: source("reference_code/pipeline_completion/plot_bigwig_files.R")
+# DEPENDENCIES: 
+# packages = GenomicRanges, rtracklayer
+# data = Sgd file is either from Rossi 2021 or from sgd website.
+# OUTPUT: Bed files for different gene feature sets and the sgd file per se
+# AUTHOR: LEMR
+# DATE: 2025-04-07
+################################################################################
 # [1] Debugging Utilities ------------------------------------------------------
 # Summarize categorical data.
 summarize_categories <- function(data, columns = NULL, max_categories = 10) {
@@ -16,9 +29,9 @@ summarize_categories <- function(data, columns = NULL, max_categories = 10) {
     if(length(counts) > max_categories) {
       counts <- counts[1:max_categories]
     }
-    
+
     result[[col]] <- sprintf(
-      "%s (%d unique): %s", 
+      "%s (%d unique): %s",
       col,
       length(unique(data[[col]])),
       paste(sprintf("%s: %d", names(counts), counts), collapse = ", ")
@@ -27,7 +40,7 @@ summarize_categories <- function(data, columns = NULL, max_categories = 10) {
   result
 }
 
-# Printing lists. 
+# Printing lists
 print_debug_info <- function(debug_info, title = "DEBUG INFO") {
   stopifnot(
     is.list(debug_info),
@@ -57,7 +70,7 @@ print_debug_info <- function(debug_info, title = "DEBUG INFO") {
 }
 
 # [2] Main Processing Script ---------------------------------------------------
-input_file_path <- "~/data/feature_files/240830_SGD_features.tab"
+input_file_path <- file.path(Sys.getenv("HOME"), "data", "feature_files", "240830_SGD_features.tab")
 
 # Initial checks
 stopifnot(
@@ -74,7 +87,7 @@ tryCatch({
     sep = "\t",
     stringsAsFactors = FALSE,
     na.strings = c("", "NA", "NaN", " "),
-    quote = ""  # Disable quote interpretation
+    quote = ""
   )
 }, error = function(e) {
   cat("FILE READING FAILED:\n")
@@ -120,6 +133,7 @@ stopifnot(
   "Invalid end coordinates" = !any(is.na(raw_data$end)),
   "Invalid strand codes" = all(raw_data$strand_code %in% c("W", "C"))
 )
+
 # Chromosome conversion to roman numerals
 valid_chromosomes <- c(1:17)
 invalid_chrom <- unique(raw_data$chromosome_number[!raw_data$chromosome_number %in% valid_chromosomes])
@@ -141,7 +155,7 @@ cat("Resolving feature names...\n")
 
 # Create ORF name lookup based on shared identifiers (V1)
 orf_name_lookup <- raw_data[
-  raw_data$V2 == "ORF" & !is.na(raw_data$V4), 
+  raw_data$V2 == "ORF" & !is.na(raw_data$V4),
   c("V1", "V4")
 ]
 colnames(orf_name_lookup) <- c("source_id", "canonical_name")
@@ -157,7 +171,8 @@ merged_data <- merge(
 merged_data$resolved_name <- dplyr::coalesce(
   merged_data$V4,
   merged_data$canonical_name,
-  paste0(merged_data$V1, "_", merged_data$V2)  # S000350094_CDS format
+  # S000350094_CDS format
+  paste0(merged_data$V1, "_", merged_data$V2)
 )
 
 bed_data <- data.frame(
@@ -169,7 +184,6 @@ bed_data <- data.frame(
   strand = merged_data$bed_strand,
   stringsAsFactors = FALSE
 )
-
 
 stopifnot(
   "Invalid BED coordinates (start >= end)" = all(bed_data$start < bed_data$end),
@@ -191,7 +205,7 @@ if(any(duplicated(duplicate_keys))) {
 
 cat("\nWriting output files:\n")
 unique_types <- unique(feature_types)
-cat(sprintf("Found %d feature types: %s\n", 
+cat(sprintf("Found %d feature types: %s\n",
             length(unique_types), paste(unique_types, collapse = ", ")))
 
 output_directory <- normalizePath(
@@ -241,7 +255,7 @@ manifest <- data.frame()
 for (feature_type in unique(feature_types)) {
   file_name <- generate_filename(feature_type)
   count <- sum(feature_types == feature_type)
-  
+
   manifest <- rbind(manifest, data.frame(
     Original_Feature = feature_type,
     Sanitized_Name = file_name,
@@ -274,14 +288,14 @@ for (i in 1:nrow(manifest)) {
     row.names = FALSE,
     col.names = FALSE
   )
-  
-  cat(sprintf(" - %-25s: %6d entries -> %s\n", 
-              current$Original_Feature, 
+
+  cat(sprintf(" - %-25s: %6d entries -> %s\n",
+              current$Original_Feature,
               current$Entries,
               current$FilePath))
 }
 
-cat(sprintf("\nSuccessfully wrote %d files to:\n%s\n", 
+cat(sprintf("\nSuccessfully wrote %d files to:\n%s\n",
             nrow(manifest), output_directory))
 
 cat("\n=== COMBINED FILE GENERATION ===\n")
@@ -303,7 +317,7 @@ if(create_combined %in% c("y", "yes")) {
   track_line <- sprintf(
     'track name="SGD_Features" description="Combined_SGD_Annotation" visibility=2 itemRgb="On"'
   )
-  
+
   # Prepare final structure with Gviz-friendly columns
   combined_output <- bed_data[, c("chrom", "start", "end", "name", "score", "strand")]
   combined_output$thickStart <- combined_output$start
@@ -313,7 +327,7 @@ if(create_combined %in% c("y", "yes")) {
     "255,0,0",  # Red for ORFs
     "0,0,255"    # Blue for others
   )
-  
+
   # Write to file
   #writeLines(track_line, combined_path)
   #write.table(
