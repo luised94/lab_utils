@@ -2,12 +2,14 @@
 # Plot bigwig files
 ################################################################################
 # PURPOSE: Plot bigwig files generated during the pipeline completion tests
-# Conclusion: {{fill}}
+# Conclusion: 
+#   = The plots look the same for the counts and the post processing. Unless I made a mistake making the bigwig files.
 # USAGE: source("reference_code/pipeline_completion/plot_bigwig_files.R")
 # DEPENDENCIES: GenomicRanges, rtracklayer
 # OUTPUT: {{fill}}
 # AUTHOR: LEMR
 # DATE: 2025-02-25
+# DATE_V1_COMPLETE: 2025-04-08
 ################################################################################
 # Bootstrap phase
 FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
