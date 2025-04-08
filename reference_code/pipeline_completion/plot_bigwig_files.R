@@ -190,88 +190,73 @@ if (length(BIGWIG_FILES) == 0) {
 #################################################################################
 # MAIN
 #################################################################################
-# Define track style defaults
-#TRACK_STYLE <- list(
-#    showAxis = TRUE,
-#    showTitle = TRUE,
-#    type = "h",
-#    size = 1.2,
-#    background.title = "white",
-#    fontcolor.title = "black",
-#    col.border.title = "#e0e0e0",
-#    cex.title = 0.7,
-#    fontface = 1,
-#    title.width = 1.0,
-#    col = "darkblue",
-#    fill = "darkblue"
-#)
-
-# Define plot style defaults
-PLOT_STYLE <- list(
-    margin = 15,
-    innerMargin = 5,
-    spacing = 10,
-    col.axis = "black",
-    cex.axis = 0.8,
-    cex.main = 0.9,
-    fontface.main = 2,
-    background.panel = "transparent"
-)
-
+#---------------------------------------------
+# Plot the bigwig processing comparisons
+#---------------------------------------------
 # Define categories
-CATEGORIES <- list(
+UNIQUE_METADATA_CATEGORIES <- list(
     samples = unique(bigwig_metadata_df[,"sample"]),
     bam_processing = unique(bigwig_metadata_df[,"bam_processing"]),
     bigwig_processing = unique(bigwig_metadata_df[, "bigwig_processing"])
 )
 
-sample_bam_combinations <- expand.grid(
-    CATEGORIES[c("samples", "bam_processing")]
+VALID_PROCESSING_COMBINATIONS <- expand.grid(
+    UNIQUE_METADATA_CATEGORIES[c("samples", "bam_processing")]
 )
 
 # Filter the sample combinations to exclude input shifted
-is_input_combination <- sample_bam_combinations$samples == "input"
-is_shifted_combination <- sample_bam_combinations$bam_processing == "shifted"
-sample_bam_combinations <- sample_bam_combinations[!(is_input_combination & is_shifted_combination), ]
-
+IS_INPUT_SAMPLE <- VALID_PROCESSING_COMBINATIONS$samples == "input"
+IS_SHIFTED_PROCESSING <- VALID_PROCESSING_COMBINATIONS$bam_processing == "shifted"
+VALID_PROCESSING_COMBINATIONS <- VALID_PROCESSING_COMBINATIONS[!(IS_INPUT_SAMPLE & IS_SHIFTED_PROCESSING), ]
 
 # Handle the sample and bam_processing combinations
-COLUMN_SEPARATOR <-  "\x01"
-metadata_chr <- lapply(bigwig_metadata_df[c("sample", "bam_processing")], as.character)
-metadata_keys <- do.call(paste, c(metadata_chr, sep = COLUMN_SEPARATOR))
+# Non-printing character to avoid collision
+METADATA_COLUMN_SEPARATOR <-  "\x01"
 
-control_combos_chr <- lapply(sample_bam_combinations, as.character)
-control_keys <- do.call(paste, c(control_combos_chr, sep = COLUMN_SEPARATOR))
+# Create the keys to perform subsetting
+METADATA_CHARACTER_VECTORS <- lapply(bigwig_metadata_df[c("sample", "bam_processing")], as.character)
+METADATA_JOINED_KEYS <- do.call(paste, c(METADATA_CHARACTER_VECTORS, sep = METADATA_COLUMN_SEPARATOR))
 
-for (key_idx in 1:length(control_keys)) {
-    control_key <- control_keys[key_idx]
-    keys_in_current_key <- metadata_keys %in% control_key
-    cat(sprintf("Processing %s key\n", key_idx))
-    cat(sprintf("Using key = %s \n", control_key))
+CONTROL_COMBINATIONS_CHARACTERS <- lapply(VALID_PROCESSING_COMBINATIONS, as.character)
+CONTROL_JOINED_KEYS <- do.call(paste, c(CONTROL_COMBINATIONS_CHARACTERS, sep = METADATA_COLUMN_SEPARATOR))
 
-    rows_to_analyze <- bigwig_metadata_df[keys_in_current_key, ]
-    message("Sample subsetting complete...")
-    print(head(rows_to_analyze))
+# Create output directory if it doesn't exist
+PLOT_OUTPUT_DIR <- "~/data/preprocessing_test/plots/"
+dir.create(PLOT_OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
 
-    track_list <- vector("list", nrow(rows_to_analyze) + 1 + 1)
-    track_list[[1]] <- Gviz::GenomeAxisTrack(
+for (CURRENT_KEY_IDX in seq_along(CONTROL_JOINED_KEYS)) {
+    CURRENT_CONTROL_KEY <- CONTROL_JOINED_KEYS[CURRENT_KEY_IDX]
+    message(sprintf("Processing key %d: %s", CURRENT_KEY_IDX, CURRENT_CONTROL_KEY))
+
+    # [1] Metadata Subsetting
+    CURRENT_METADATA_SUBSET <- bigwig_metadata_df[METADATA_JOINED_KEYS %in% CURRENT_CONTROL_KEY, ]
+    message("Metadata subset complete...")
+    message("Subset content:")
+    print(head(CURRENT_METADATA_SUBSET))
+
+    # [2] Track Container Initialization
+    TRACK_CONTAINER <- vector("list", nrow(CURRENT_METADATA_SUBSET) + 1 + exists("GENOME_FEATURES"))
+    TRACK_CONTAINER[[1]] <- Gviz::GenomeAxisTrack(
         name = sprintf("Chr %s Axis", CHROMOSOME_TO_PLOT),
         fontcolor.title = "black",
         cex.title = 0.7,
         background.title = "white"
     )
 
-    for (i in 1:nrow(rows_to_analyze)) {
-        track_name <- do.call(paste, c(rows_to_analyze[i, 1:3], sep = "_"))
-        rows_file_path <- rows_to_analyze[i, "file_paths"]
-        message(sprintf("Importing file path %s...", rows_file_path))
+    # Process the metadata subet ---------------------
+    # [3] Data Track Population
+    for (track_idx in seq_len(nrow(CURRENT_METADATA_SUBSET))) {
+        track_name <- do.call(paste, c(CURRENT_METADATA_SUBSET[track_idx, 1:3], sep = "_"))
+        current_row_filepath <- CURRENT_METADATA_SUBSET[track_idx, "file_paths"]
+
+        message(sprintf("Importing bigwig file: %s", current_row_filepath))
         bigwig_data <- rtracklayer::import(
-            rows_file_path,
+            current_row_filepath,
             format = "BigWig",
             which = GENOME_RANGE_TO_LOAD
         )
 
-        track_list[[i + 1]] <- Gviz::DataTrack(
+        TRACK_CONTAINER[[track_idx + 1]] <- Gviz::DataTrack(
             range = bigwig_data,
             name = track_name,
             # Apply styling
@@ -288,13 +273,14 @@ for (key_idx in 1:length(control_keys)) {
             col = "darkblue",
             fill = "darkblue"
         )
-        message(sprintf("Sample %s imported...", i))
-    }
+        message(sprintf("Sample %s imported...", track_idx))
+    } # end for
 
-    message("All samples imported and added to track_list.")
+    message("All samples imported and added to TRACK_CONTAINER.")
 
+    # [4] Annotation Track (Conditional)
     if (exists("GENOME_FEATURES")) {
-        track_list[[length(track_list)]] <- Gviz::AnnotationTrack(
+        TRACK_CONTAINER[[length(TRACK_CONTAINER)]] <- Gviz::AnnotationTrack(
             GENOME_FEATURES,
             name = "Features",
             size = 0.5,
@@ -308,8 +294,26 @@ for (key_idx in 1:length(control_keys)) {
         )
     }
 
+    # [5] Plot Generation & Export -----------------
+    PLOT_BASENAME <- paste(
+        "bigwig_processing",
+        CHROMOSOME_ROMAN,
+        gsub(METADATA_COLUMN_SEPARATOR, ".", CURRENT_CONTROL_KEY, fixed = TRUE),
+        sep = "_"
+    )
+
+    OUTPUT_FILENAME <- paste0(PLOT_OUTPUT_DIR, PLOT_BASENAME, ".svg")
+    message(sprintf("Saving file: %s", OUTPUT_FILENAME))
+
+    svglite::svglite(
+        filename = OUTPUT_FILENAME,
+        width = 10,
+        height = 8,
+        bg = "white"
+    )
+
     Gviz::plotTracks(
-        trackList = track_list,
+        trackList = TRACK_CONTAINER,
         chromosome = CHROMOSOME_ROMAN,
         from = GENOME_RANGE_TO_LOAD@ranges@start,
         to = GENOME_RANGE_TO_LOAD@ranges@width,
@@ -321,20 +325,23 @@ for (key_idx in 1:length(control_keys)) {
         cex.main = 0.9,
         fontface.main = 2,
         background.panel = "transparent"
-        #PLOT_STYLE
     )
-}
+    dev.off()
+    message(sprintf("Plot saved. Finished processing %d: %s", CURRENT_KEY_IDX, CURRENT_CONTROL_KEY))
+} # end for loop
 
-#
+#---------------------------------------------
+# Plot the bam processing comparisons for cpm
+#---------------------------------------------
 #sample_bigwig_combinations <- expand.grid(
 #    c(CATEGORIES["samples"],
 #        bigwig_processing = "cpm")
 #)
-#metadata_chr <- lapply(bigwig_metadata_df[c("sample", "bigwig_processing")], as.character)
-#metadata_keys <- do.call(paste, c(metadata_chr, sep = COLUMN_SEPARATOR))
+#METADATA_CHARACTER_VECTORS <- lapply(bigwig_metadata_df[c("sample", "bigwig_processing")], as.character)
+#METADATA_JOINED_KEYS <- do.call(paste, c(METADATA_CHARACTER_VECTORS, sep = METADATA_COLUMN_SEPARATOR))
 #
 #control_combos_chr <- lapply(sample_bigwig_combinations, as.character)
-#control_keys <- do.call(paste, c(control_combos_chr, sep = COLUMN_SEPARATOR))
+#control_keys <- do.call(paste, c(control_combos_chr, sep = METADATA_COLUMN_SEPARATOR))
 #is_not_input <- !grepl("input", control_keys)
 #control_keys <- control_keys[is_not_input]
 # Determine preallocation parameters for tracks list
