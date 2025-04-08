@@ -296,9 +296,9 @@ for (CURRENT_KEY_IDX in seq_along(control_joined_keys)) {
 
     # [5] Plot Generation & Export -----------------
     PLOT_BASENAME <- paste(
-        "bigwig_processing",
+        "/bigwig_processing",
         CHROMOSOME_ROMAN,
-        gsub(METADATA_COLUMN_SEPARATOR, ".", CURRENT_CONTROL_KEY, fixed = TRUE),
+        gsub(METADATA_COLUMN_SEPARATOR, "_", CURRENT_CONTROL_KEY, fixed = TRUE),
         sep = "_"
     )
 
@@ -337,7 +337,7 @@ message("Finished bigwig processing for loop...")
 message("Starting processing for bam processing cpm plots...")
 # Get the combinations for cpm counts, no need to filter
 VALID_BAM_PROCESSING_COMBINATIONS <- expand.grid(
-    c(CATEGORIES["samples"],
+    c(UNIQUE_METADATA_CATEGORIES["samples"],
         bigwig_processing = "cpm")
 )
 
@@ -421,7 +421,7 @@ for (CURRENT_KEY_IDX in seq_along(control_joined_keys)) {
 
     # [5] Plot Generation & Export -----------------
     PLOT_BASENAME <- paste(
-        "bigwig_processing",
+        "/bigwig_processing",
         CHROMOSOME_ROMAN,
         gsub(METADATA_COLUMN_SEPARATOR, ".", CURRENT_CONTROL_KEY, fixed = TRUE),
         sep = "_"
