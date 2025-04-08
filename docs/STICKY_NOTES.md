@@ -32,15 +32,14 @@ Dont think I have to repeat ORC two more times but probably will have to...
 ## 2024 04 28
 - Creating a new branch for flow_cytomery since I am also attempting to use renv for package management.
 Step-by-step: for future reference
-'''{bash}
+```{bash}
 git branch feature/flow_cytometry
 
 #Procede with feature development. In this case, creating the module for analysing flow_cytometry data.
 git checkout feature/flow_cytometry
 # Return to main
 git checkout main
-
-'''
+```
 
 ## 2024-07-11
 
@@ -188,3 +187,7 @@ todo: Create the genomic tracks, finish the test module, update configs for the 
 I think I added a bunch of nonsense to most of my scripts with the loading modules and printing a lot of things, especially without having more control over what prints out to the screen.
 They currently work at least but I may need to remove it.
 Scripts to generate publication figures will be more targeted and streamlined either way.
+
+## 2025-04-07
+Similar problems with functions. They are probably doing too much but not as bad as last time.
+Need to run the script for the bigwig files to see the effects of bam and bigwig processing. Should be fine to source from R after loading.
