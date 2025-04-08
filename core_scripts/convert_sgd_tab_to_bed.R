@@ -2,12 +2,16 @@
 # Decompose sdg tab dataset to bed files 
 ################################################################################
 # PURPOSE: Output bed files for features found in the sgd tab files
-# Conclusion: {{fill}}
+# Conclusion:
+#   = Works but wasnt sure if the bed files should include the header or not.
+#   = Went with header but this will require
 # USAGE: source("reference_code/pipeline_completion/plot_bigwig_files.R")
-# DEPENDENCIES: 
-# packages = GenomicRanges, rtracklayer
+# DEPENDENCIES:
+# packages = dplyr
 # data = Sgd file is either from Rossi 2021 or from sgd website.
-# OUTPUT: Bed files for different gene feature sets and the sgd file per se
+# OUTPUT:
+# = Bed files for different gene feature sets and the sgd file per se. 
+# = Bed files are not valid because they have a header...
 # AUTHOR: LEMR
 # DATE: 2025-04-07
 ################################################################################
