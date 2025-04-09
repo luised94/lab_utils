@@ -6,7 +6,7 @@
 #   = The plots look the same for the counts and the post processing. Unless I made a mistake making the bigwig files.
 # USAGE: source("reference_code/pipeline_completion/plot_bigwig_files.R")
 # DEPENDENCIES: GenomicRanges, rtracklayer
-# OUTPUT: {{fill}}
+# OUTPUT: svg plots with comparisons for cpm/rpkm/raw and for shifted/raw/deduped for cpm counts
 # AUTHOR: LEMR
 # DATE: 2025-02-25
 # DATE_V1_COMPLETE: 2025-04-08
