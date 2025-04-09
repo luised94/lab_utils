@@ -39,15 +39,7 @@ declare -a NORMALIZATION=("" "RPKM" "CPM")  # Raw, RPKM, and CPM
 
 # Output config
 OUTDIR="$HOME/preprocessing_test"
-OUTPUT_PREFIX="test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
-
-# Processing parameters
-PVALUE=1e-6
-BIN_SIZE=25
-SMOOTH_LEN=75
-MIN_FRAGMENT=20
-MAX_FRAGMENT=300
 
 ##############################################
 # Helper functions
@@ -213,9 +205,9 @@ process_bam_set() {
             macs2 callpeak \
                 -t "$bam_path" \
                 -n "$out_prefix" \
-                ${CORE_PARAMS[@]} \
-                ${PEAK_MODES[$mode]} \
-                $ext_size
+                "${CORE_PARAMS[@]}" \
+                "${PEAK_MODES[$mode]}" \
+                "$ext_size"
             
             # With input control (if allowed and available)
             if [[ "$allow_input" == true && "$sample" == "test" ]]; then
@@ -239,9 +231,9 @@ process_bam_set() {
                     -t "$bam_path" \
                     -c "${DEDUPED_BAMS[input]}" \
                     -n "$out_prefix" \
-                    ${CORE_PARAMS[@]} \
-                    ${PEAK_MODES[$mode]} \
-                    $ext_size
+                    "${CORE_PARAMS[@]}" \
+                    "${PEAK_MODES[$mode]}" \
+                    "$ext_size"
             fi
         done
     done
@@ -326,7 +318,7 @@ for sample_type in "${!SAMPLES[@]}"; do
         bamCoverage \
             -b "$input" \
             -o "$output" \
-            $norm_flag \
+            "$norm_flag" \
             --binSize 25 \
             --effectiveGenomeSize "$GENOME_SIZE" \
             --smoothLength 75 \
@@ -355,7 +347,7 @@ for sample_type in "${!DEDUPED_BAMS[@]}"; do
         bamCoverage \
             -b "$input" \
             -o "$output" \
-            $norm_flag \
+            "$norm_flag" \
             --binSize 25 \
             --effectiveGenomeSize "$GENOME_SIZE" \
             --smoothLength 75 \
@@ -386,7 +378,7 @@ for sample_type in 'test' 'reference'; do
         bamCoverage \
             -b "$input" \
             -o "$output" \
-            $norm_flag \
+            "$norm_flag" \
             --binSize 25 \
             --effectiveGenomeSize "$GENOME_SIZE" \
             --smoothLength 75 \
