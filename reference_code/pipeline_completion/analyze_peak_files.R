@@ -154,16 +154,16 @@ if (length(file_paths_by_type) == 0) {
 # Load and process peak files
 ################################################################################
 PEAK_EXTENSIONS <- c("NARROW_PEAK", "BED", "XLS", "GAPPED_PEAK", "BROAD_PEAK")
-PEAK_FILES <- file_paths_by_type[[PEAK_EXTENSIONS]]
+PEAK_FILES <- file_paths_by_type[PEAK_EXTENSIONS]
 NUMBER_OF_FILES <- length(PEAK_FILES)
 # Load PEAK_FILE_COLUMNS variable
 source(normalizePath("~/lab_utils/core_scripts/peak_file_columns_by_type.R"))
-stopifnot("Problem loading PEAK_FILE_COLUMNS variable from R file." = exists(PEAK_FILE_COLUMNS))
+stopifnot("Problem loading PEAK_FILE_COLUMNS variable from R file." = exists("PEAK_FILE_COLUMNS"))
 FILE_EXTENSION_TO_REMOVE <- paste0(".", SUPPORTED_FILE_TYPES)
-#EXPECTED_NUM_UNDERSCORES <- 2
+EXPECTED_NUM_UNDERSCORES <- 2
 #
-#file_basenames <- basename(BIGWIG_FILES)
-#filenames_without_extension <- gsub(FILE_EXTENSION_TO_REMOVE, "", file_basenames)
+file_basenames <- basename(unlist(PEAK_FILES))
+filenames_without_extension <- gsub(FILE_EXTENSION_TO_REMOVE, "", file_basenames)
 #split_metadata <- strsplit(filenames_without_extension, split = "_")
 #
 #underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
