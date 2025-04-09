@@ -155,56 +155,66 @@ if (length(file_paths_by_type) == 0) {
 ################################################################################
 PEAK_EXTENSIONS <- c("NARROW_PEAK", "BED", "XLS", "GAPPED_PEAK", "BROAD_PEAK")
 PEAK_FILES <- file_paths_by_type[PEAK_EXTENSIONS]
-NUMBER_OF_FILES <- length(PEAK_FILES)
+PEAK_PARAMETER_TEST_COLUMNS <- c(
+  "sample_type",      # input, reference, test
+  "alignment_processing", # deduped, raw, shifted
+  "peak_calling_mode",        # auto, narrow, broad
+  "significance_metric",  # X4: "p" (p-value), "q" (q-value)
+  "input_control_type",  # X5: "noInput", "withInput"
+  "output_category",    # X6: "peaks" (constant)
+  "peak_detail_level"   # V7: "peaks", "summits"
+  "file_paths"
+)
+
+EXPECTED_NUM_UNDERSCORES <- 6
+NUMBER_OF_FILES <- length(unlist(PEAK_FILES))
 # Load PEAK_FILE_COLUMNS variable
 source(normalizePath("~/lab_utils/core_scripts/peak_file_columns_by_type.R"))
 stopifnot("Problem loading PEAK_FILE_COLUMNS variable from R file." = exists("PEAK_FILE_COLUMNS"))
-FILE_EXTENSION_TO_REMOVE <- paste0(".", SUPPORTED_FILE_TYPES)
-file_basenames <- basename(unlist(PEAK_FILES))
-EXPECTED_NUM_UNDERSCORES <- 6
-filenames_without_extension <- unlist(
-  lapply(file_basenames, function(file_basename, extensions_to_remove){
-    for (EXTENSION_IDX in 1:length(extensions_to_remove)) {
-      extension_to_remove <- extensions_to_remove[EXTENSION_IDX]
-      if (grepl(pattern = extension_to_remove, x = file_basename)) {
-        filename_without_extension <- gsub(pattern = extension_to_remove, replacement = "", x = file_basename)
-      }
-    }
-    return(filename_without_extension)
-  }, extensions_to_remove = FILE_EXTENSION_TO_REMOVE)
-)
+EXTENSIONS_TO_REMOVE <- paste0(".", SUPPORTED_FILE_TYPES)
+filenames <- basename(unlist(PEAK_FILES))
+
+# Prepare regex pattern
+escaped_extensions <- gsub(".", "\\.", EXTENSIONS_TO_REMOVE, fixed = TRUE)
+sorted_extensions <- escaped_extensions[order(nchar(escaped_extensions), decreasing = TRUE)]
+extension_pattern <- paste0("(", paste(sorted_extensions, collapse = "|"), ")$")
+# Single vectorized operation to remove extensions
+filenames_without_extension <- sub(extension_pattern, "", filenames)
+
 split_metadata <- strsplit(filenames_without_extension, split = "_")
 
 underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
-NUMBER_OF_COLUMNS <- lengths(PEAK_FILE_COLUMNS)
+NUMBER_OF_COLUMNS <- length(PEAK_PARAMETER_TEST_COLUMNS)
 
 if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPECTED_NUM_UNDERSCORES) {
   stop("Filenames must contain exactly ", EXPECTED_NUM_UNDERSCORES, " underscores.")
 }
 
-## Preallocation
-#bigwig_metadata_df <- data.frame(matrix(NA, nrow = NUMBER_OF_FILES, ncol = NUMBER_OF_COLUMNS))
-#
-#for (row_index in 1:nrow(bigwig_metadata_df)) {
-#    bigwig_metadata_df[row_index, 1:3] <- split_metadata[[row_index]]
-#}
-#
-#colnames(bigwig_metadata_df) <- COLUMN_NAMES
-#bigwig_metadata_df$file_paths <- BIGWIG_FILES
-#
-## Assertions
-#stopifnot(
-#    "No samples are NA." = !any(is.na(bigwig_metadata_df$sample)),
-#    "Metadata has expected dimensions." =
-#        nrow(bigwig_metadata_df) == NUMBER_OF_FILES &&
-#        ncol(bigwig_metadata_df) == length(COLUMN_NAMES),
-#    "No duplicate samples." = !any(duplicated(bigwig_metadata_df))
-#)
-#
-#if (length(BIGWIG_FILES) == 0) {
-#    stop("No bigwig files found.")
-#}
-#
+# Preallocation
+peak_metadata_df <- data.frame(
+  matrix(NA, nrow = NUMBER_OF_FILES, ncol = NUMBER_OF_COLUMNS )
+)
+
+for (row_index in 1:nrow(peak_metadata_df)) {
+    peak_metadata_df[row_index, 1:length(split_metadata[[row_index]])] <- split_metadata[[row_index]]
+}
+
+colnames(peak_metadata_df) <- PEAK_PARAMETER_TEST_COLUMNS
+peak_metadata_df$file_paths <- PEAK_FILES
+
+# Assertions
+stopifnot(
+    "No samples are NA." = !any(is.na(peak_metadata_df$sample)),
+    "Metadata has expected dimensions." =
+        nrow(peak_metadata_df) == NUMBER_OF_FILES &&
+        ncol(peak_metadata_df) == length(COLUMN_NAMES),
+    "No duplicate samples." = !any(duplicated(peak_metadata_df))
+)
+
+if (length(PEAK_FILES) == 0) {
+    stop("No bigwig files found.")
+}
+
 ##################################################################################
 ## MAIN
 ##################################################################################
@@ -213,9 +223,9 @@ if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPEC
 ##---------------------------------------------
 ## Define categories
 #UNIQUE_METADATA_CATEGORIES <- list(
-#    samples = unique(bigwig_metadata_df[,"sample"]),
-#    bam_processing = unique(bigwig_metadata_df[,"bam_processing"]),
-#    bigwig_processing = unique(bigwig_metadata_df[, "bigwig_processing"])
+#    samples = unique(peak_metadata_df[,"sample"]),
+#    bam_processing = unique(peak_metadata_df[,"bam_processing"]),
+#    bigwig_processing = unique(peak_metadata_df[, "bigwig_processing"])
 #)
 #
 #VALID_PROCESSING_COMBINATIONS <- expand.grid(
@@ -232,7 +242,7 @@ if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPEC
 #METADATA_COLUMN_SEPARATOR <-  "\x01"
 #
 ## Create the keys to perform subsetting
-#METADATA_CHARACTER_VECTORS <- lapply(bigwig_metadata_df[c("sample", "bam_processing")], as.character)
+#METADATA_CHARACTER_VECTORS <- lapply(peak_metadata_df[c("sample", "bam_processing")], as.character)
 #METADATA_JOINED_KEYS <- do.call(paste, c(METADATA_CHARACTER_VECTORS, sep = METADATA_COLUMN_SEPARATOR))
 #
 #CONTROL_COMBINATIONS_CHARACTERS <- lapply(VALID_PROCESSING_COMBINATIONS, as.character)
@@ -247,7 +257,7 @@ if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPEC
 #    message(sprintf("Processing key %d: %s", CURRENT_KEY_IDX, CURRENT_CONTROL_KEY))
 #
 #    # [1] Metadata Subsetting
-#    CURRENT_METADATA_SUBSET <- bigwig_metadata_df[METADATA_JOINED_KEYS %in% CURRENT_CONTROL_KEY, ]
+#    CURRENT_METADATA_SUBSET <- peak_metadata_df[METADATA_JOINED_KEYS %in% CURRENT_CONTROL_KEY, ]
 #    message("Metadata subset complete...")
 #    message("Subset content:")
 #    print(head(CURRENT_METADATA_SUBSET))
@@ -360,7 +370,7 @@ if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPEC
 #)
 #
 ## Create the metadata characters and keys for sample and bigwig comparisons (_SB)
-#METADATA_CHARACTER_VECTORS_SB <- lapply(bigwig_metadata_df[c("sample", "bigwig_processing")], as.character)
+#METADATA_CHARACTER_VECTORS_SB <- lapply(peak_metadata_df[c("sample", "bigwig_processing")], as.character)
 #METADATA_JOINED_KEYS_SB <- do.call(paste, c(METADATA_CHARACTER_VECTORS_SB, sep = METADATA_COLUMN_SEPARATOR))
 #
 #CONTROL_BAM_COMBINATIONS_CHARACTERS <- lapply(VALID_BAM_PROCESSING_COMBINATIONS, as.character)
@@ -372,7 +382,7 @@ if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPEC
 #    message(sprintf("Processing key %d: %s", CURRENT_KEY_IDX, CURRENT_CONTROL_KEY))
 #
 #    # [1] Metadata Subsetting
-#    CURRENT_METADATA_SUBSET <- bigwig_metadata_df[METADATA_JOINED_KEYS_SB %in% CURRENT_CONTROL_KEY, ]
+#    CURRENT_METADATA_SUBSET <- peak_metadata_df[METADATA_JOINED_KEYS_SB %in% CURRENT_CONTROL_KEY, ]
 #    message("Metadata subset complete...")
 #    message("Subset content:")
 #    print(head(CURRENT_METADATA_SUBSET))
