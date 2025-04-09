@@ -160,19 +160,28 @@ NUMBER_OF_FILES <- length(PEAK_FILES)
 source(normalizePath("~/lab_utils/core_scripts/peak_file_columns_by_type.R"))
 stopifnot("Problem loading PEAK_FILE_COLUMNS variable from R file." = exists("PEAK_FILE_COLUMNS"))
 FILE_EXTENSION_TO_REMOVE <- paste0(".", SUPPORTED_FILE_TYPES)
-EXPECTED_NUM_UNDERSCORES <- 2
-#
 file_basenames <- basename(unlist(PEAK_FILES))
-filenames_without_extension <- gsub(FILE_EXTENSION_TO_REMOVE, "", file_basenames)
-#split_metadata <- strsplit(filenames_without_extension, split = "_")
-#
-#underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
-#NUMBER_OF_COLUMNS <- length(COLUMN_NAMES)
-#
-#if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPECTED_NUM_UNDERSCORES) {
-#  stop("Filenames must contain exactly ", EXPECTED_NUM_UNDERSCORES, " underscores.")
-#}
-#
+EXPECTED_NUM_UNDERSCORES <- 6
+filenames_without_extension <- unlist(
+  lapply(file_basenames, function(file_basename, extensions_to_remove){
+    for (EXTENSION_IDX in 1:length(extensions_to_remove)) {
+      extension_to_remove <- extensions_to_remove[EXTENSION_IDX]
+      if (grepl(pattern = extension_to_remove, x = file_basename)) {
+        filename_without_extension <- gsub(pattern = extension_to_remove, replacement = "", x = file_basename)
+      }
+    }
+    return(filename_without_extension)
+  }, extensions_to_remove = FILE_EXTENSION_TO_REMOVE)
+)
+split_metadata <- strsplit(filenames_without_extension, split = "_")
+
+underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
+NUMBER_OF_COLUMNS <- lengths(PEAK_FILE_COLUMNS)
+
+if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPECTED_NUM_UNDERSCORES) {
+  stop("Filenames must contain exactly ", EXPECTED_NUM_UNDERSCORES, " underscores.")
+}
+
 ## Preallocation
 #bigwig_metadata_df <- data.frame(matrix(NA, nrow = NUMBER_OF_FILES, ncol = NUMBER_OF_COLUMNS))
 #
