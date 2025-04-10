@@ -182,6 +182,8 @@ for (bed_file_index in 1:length(blacklist_files)) {
       name = if(ncol(bed_content) >= 4) bed_content[,4] else rep(sub("\\.bed$", "", basename(bed_file_name)), nrow(bed_content)),
       score = if(ncol(bed_content) >= 5) bed_content[,5] else 0,
       strand = if(ncol(bed_content) >= 6) bed_content[,6] else ".",
+      feature_type = if(ncol(bed_content) >= 7) bed_content[,7] else ".",
+      gene_name = if(ncol(bed_content) >= 8) bed_content[,8] else ".",
       stringsAsFactors = FALSE
     )
 
@@ -254,34 +256,72 @@ cat("Converting to GRanges object...\n")
 gr <- GenomicRanges::GRanges(
   seqnames = combined_bed_data$chromosome,
   ranges = IRanges::IRanges(
-  start = combined_bed_data$start + 1,  # BED is 0-based, GRanges is 1-based
-  end = combined_bed_data$end
+    start = combined_bed_data$start + 1,  # BED is 0-based, GRanges is 1-based
+    end = combined_bed_data$end
   ),
   strand = combined_bed_data$strand,
+  # Include all other columns as metadata
   name = combined_bed_data$name,
-  score = combined_bed_data$score
+  score = combined_bed_data$score,
+  feature_type = combined_bed_data$feature_type,
+  gene_name = combined_bed_data$gene_name
 )
 
 cat("Removing redundancy by merging overlapping regions...\n")
-non_redundant_gr <- GenomicRanges::reduce(gr)
-# Step: 4: Add metadata back to the reduced regions
-GenomicRanges::mcols(non_redundant_gr)$name <- paste0("blacklist_",
-                                                    seq_along(non_redundant_gr))
-GenomicRanges::mcols(non_redundant_gr)$score <- rep(1000, length(non_redundant_gr))
-GenomicRanges::mcols(non_redundant_gr)$type <- "blacklist_sponge"
+non_redundant_gr <- GenomicRanges::reduce(gr, with.revmap=TRUE)
 
 # Step 5: Report the reduction
 cat("Original regions:", length(gr), "\n")
 cat("Non-redundant regions:", length(non_redundant_gr), "\n")
 cat("Reduction:", round((1 - length(non_redundant_gr)/length(gr)) * 100, 2), "%\n")
 
+# Step: 4: Add metadata back to the reduced regions
+new_mcols <- S4Vectors::DataFrame(
+  name = character(length(non_redundant_gr)),
+  score = numeric(length(non_redundant_gr)),
+  feature_type = character(length(non_redundant_gr)),
+  gene_name = character(length(non_redundant_gr))
+)
+
+# For each reduced range, aggregate metadata from the original ranges that map to it
+for (i in seq_along(non_redundant_gr)) {
+  # Get indices of original ranges that were merged into this reduced range
+  idx <- non_redundant_gr$revmap[[i]]
+  for (mcols in names(new_mcols)) {
+    if (mcols == "score"){
+      new_mcols[i, mcols] <- max(GenomicRanges::mcols(gr)[idx, mcols])
+    } else {
+      x <- na.omit(GenomicRanges::mcols(gr)[idx, mcols])
+      if (length(x) == 1 || all(x == x[1])) {
+        # If all values are the same, just return one
+        column_metadata <- x[1]
+      } else {
+        # Get unique values and collapse with commas
+        column_metadata <- paste(unique(x), collapse=",")
+      }
+      new_mcols[i, mcols] <- column_metadata
+    }
+  }
+}
+
+# Assign the new metadata to the reduced GRanges
+GenomicRanges::mcols(non_redundant_gr) <- new_mcols
+
+# Remove the revmap column which we no longer need
+non_redundant_gr$revmap <- NULL
+
 ######################################################################
 # WRITE OUTPUT FILES
 ######################################################################
+# When exporting to BED, ensure the column order matches your expectations
+# Export the non-redundant regions as BED file
+cat("Exporting blacklist BED file...\n")
+rtracklayer::export(non_redundant_gr, output_file_path, format = "BED")
+
 # Write the combined data to output file
-cat("Writing", nrow(combined_bed_data), "records to output file:", output_file_path, "\n")
-write.table(combined_bed_data, file = output_file_path, 
-            quote = FALSE, sep = "\t", row.names = FALSE, col.names = FALSE)
+#cat("Writing", nrow(combined_bed_data), "records to output file:", output_file_path, "\n")
+#write.table(combined_bed_data, file = output_file_path, 
+#            quote = FALSE, sep = "\t", row.names = FALSE, col.names = FALSE)
 
 # Final verification
 if (file.exists(output_file_path)) {
