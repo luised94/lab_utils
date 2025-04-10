@@ -1,4 +1,3 @@
-
 #' MACS2 Peak File Column Definitions
 #'
 #' @description

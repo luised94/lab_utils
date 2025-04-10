@@ -23,10 +23,10 @@ summarize_categories <- function(data, columns = NULL, max_categories = 10) {
     nrow(data) > 0,
     is.null(columns) || all(columns %in% names(data))
   )
-  
+
   if(is.null(columns)) columns <- names(data)
   result <- list()
-  
+
   for(col in columns) {
     counts <- table(data[[col]], useNA = "ifany")
     counts <- sort(counts, decreasing = TRUE)
@@ -51,16 +51,16 @@ print_debug_info <- function(debug_info, title = "DEBUG INFO") {
     length(debug_info) > 0,
     all(nzchar(names(debug_info)))
   )
-  
+
   # Create separator based on terminal width
   terminal_width <- if(!interactive()) 80 else getOption("width")
   sep <- paste(rep("=", terminal_width), collapse = "")
-  
+
   # Create header
   cat("\n", sep, "\n", sep = "")
   cat(paste("##", toupper(title)), "\n")
   cat(sep, "\n", sep = "")
-  
+
   # Print formatted items
   for(name in names(debug_info)) {
     items <- strwrap(debug_info[[name]], width = terminal_width - 20, exdent = 25)
@@ -69,7 +69,7 @@ print_debug_info <- function(debug_info, title = "DEBUG INFO") {
       for(item in items[-1]) cat(paste(rep(" ", 20), collapse = ""), item, "\n")
     }
   }
-  
+
   cat(sep, "\n\n", sep = "")
 }
 
@@ -151,6 +151,7 @@ raw_data$chrom <- paste0(
 )
 
 cat("Processing genomic coordinates...\n")
+# Ensure data follows 0-based indexing according to bed standard
 raw_data$bed_start <- pmin(raw_data$start, raw_data$end) - 1L
 raw_data$bed_end <- pmax(raw_data$start, raw_data$end)
 raw_data$bed_strand <- ifelse(raw_data$strand_code == "W", "+", "-")
@@ -172,9 +173,11 @@ merged_data <- merge(
   all.x = TRUE
 )
 
+# Merge will select CDS over ORF I think. That is why Orc4 is not in orf bed.
+# Find the first non-missing value. Prioritize gene name, then standard name, then combination.
 merged_data$resolved_name <- dplyr::coalesce(
+  merged_data$V5,
   merged_data$V4,
-  merged_data$canonical_name,
   # S000350094_CDS format
   paste0(merged_data$V1, "_", merged_data$V2)
 )
@@ -191,6 +194,7 @@ bed_data <- data.frame(
     stringsAsFactors = FALSE
 )
 
+
 stopifnot(
   "Invalid BED coordinates (start >= end)" = all(bed_data$start < bed_data$end),
   "Missing chromosome names" = !any(is.na(bed_data$chrom)),
@@ -204,7 +208,7 @@ if(any(duplicated(duplicate_keys))) {
   cat(sprintf("WARNING: Found %d duplicate features\n", dup_count))
   print(head(bed_data[duplicated(duplicate_keys), ]))
   cat("Consider adding feature type suffixes\n")
-  
+
   # Add feature type disambiguation
   bed_data$name <- paste0(bed_data$name, "_", merged_data$V2)
 }
@@ -218,6 +222,7 @@ output_directory <- normalizePath(
   file.path("~", "data", "feature_files"),
   mustWork = FALSE
 )
+
 dir.create(output_directory, showWarnings = FALSE, recursive = TRUE)
 
 # Verify directory creation
@@ -286,7 +291,7 @@ for (i in 1:nrow(manifest)) {
     sep = "\t",
     quote = FALSE,
     row.names = FALSE,
-    col.names = TRUE
+    col.names = FALSE
   )
 
   cat(sprintf(" - %-25s: %6d entries -> %s\n",
@@ -337,30 +342,30 @@ if(create_combined %in% c("y", "yes")) {
     sep = "\t",
     quote = FALSE,
     row.names = FALSE,
-    col.names = TRUE
+    col.names = FALSE
   )
-  
+
   cat(sprintf(
     "\nSuccessfully wrote combined BED file with:\n- %d total features\n- Color-coded types\n- Genome browser compatibility\n",
     nrow(combined_output)
   ))
-  
+
   # Create matching Gviz style file
-  style_path <- file.path(output_directory, "gviz_style.txt")
-  writeLines(
-    c(
-      "Track type=GeneRegion",
-      "name=SGD Features",
-      "featureTypeAnnotation=feature_type",
-      "colorBy=feature_type",
-      "ORF=red",
-      "CDS=darkred",
-      "ARS=blue",
-      "default=gray"
-    ),
-    style_path
-  )
-  cat(sprintf("Gviz style template created: %s\n", style_path))
+  #style_path <- file.path(output_directory, "gviz_style.txt")
+  #writeLines(
+  #  c(
+  #    "Track type=GeneRegion",
+  #    "name=SGD Features",
+  #    "featureTypeAnnotation=feature_type",
+  #    "colorBy=feature_type",
+  #    "ORF=red",
+  #    "CDS=darkred",
+  #    "ARS=blue",
+  #    "default=gray"
+  #  ),
+  #  style_path
+  #)
+  #cat(sprintf("Gviz style template created: %s\n", style_path))
 } else {
   cat("Skipping combined file creation\n")
 }
