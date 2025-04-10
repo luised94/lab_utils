@@ -316,7 +316,43 @@ non_redundant_gr$revmap <- NULL
 # When exporting to BED, ensure the column order matches your expectations
 # Export the non-redundant regions as BED file
 cat("Exporting blacklist BED file...\n")
-rtracklayer::export(non_redundant_gr, output_file_path, format = "BED")
+#rtracklayer::export(non_redundant_gr, output_file_path, format = "BED")
+# First create the bed_data data frame
+non_redundant_bed <- data.frame(
+  chromosome = as.character(GenomicRanges::seqnames(non_redundant_gr)),
+  start = GenomicRanges::start(non_redundant_gr) - 1,  # Convert back to 0-based
+  end = GenomicRanges::end(non_redundant_gr),
+  name = GenomicRanges::mcols(non_redundant_gr)$name,
+  score = GenomicRanges::mcols(non_redundant_gr)$score,
+  strand = as.character(GenomicRanges::strand(non_redundant_gr)),
+  feature_type = GenomicRanges::mcols(non_redundant_gr)$feature_type,
+  gene_name = GenomicRanges::mcols(non_redundant_gr)$gene_name,
+  stringsAsFactors = FALSE
+)
+
+# Write the data frame to a BED file
+write.table(
+  non_redundant_bed,
+  file = output_file_path,
+  quote = FALSE,
+  sep = "\t",
+  row.names = FALSE,
+  col.names = FALSE
+)
+
+cat("Exported BED file with all columns preserved\n")
+
+# For documentation purposes, save the column names to a separate file
+#write.table(
+#  data.frame(column_name = names(non_redundant_bed)),
+#  file = "yeast_blacklist_sponge.columns.txt",
+#  quote = FALSE,
+#  sep = "\t",
+#  row.names = FALSE,
+#  col.names = FALSE
+#)
+#
+#cat("Column names saved to yeast_blacklist_sponge.columns.txt\n")
 
 # Write the combined data to output file
 #cat("Writing", nrow(combined_bed_data), "records to output file:", output_file_path, "\n")
