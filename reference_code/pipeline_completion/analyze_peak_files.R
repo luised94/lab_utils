@@ -153,8 +153,14 @@ if (length(file_paths_by_type) == 0) {
 ################################################################################
 # Load and process peak files
 ################################################################################
+# Setup
 PEAK_EXTENSIONS <- c("NARROW_PEAK", "BED", "XLS", "GAPPED_PEAK", "BROAD_PEAK")
 PEAK_FILES <- file_paths_by_type[PEAK_EXTENSIONS]
+
+if (length(PEAK_FILES) == 0) {
+    stop("No peak files found.")
+}
+
 PEAK_PARAMETER_TEST_COLUMNS <- c(
   "sample_type",      # input, reference, test
   "alignment_processing", # deduped, raw, shifted
@@ -174,28 +180,28 @@ stopifnot("Problem loading PEAK_FILE_COLUMNS variable from R file." = exists("PE
 EXTENSIONS_TO_REMOVE <- paste0(".", SUPPORTED_FILE_TYPES)
 filenames <- basename(unlist(PEAK_FILES))
 
+# Process the file path names to extract metadata
 # Prepare regex pattern
 escaped_extensions <- gsub(".", "\\.", EXTENSIONS_TO_REMOVE, fixed = TRUE)
 sorted_extensions <- escaped_extensions[order(nchar(escaped_extensions), decreasing = TRUE)]
 extension_pattern <- paste0("(", paste(sorted_extensions, collapse = "|"), ")$")
 # Single vectorized operation to remove extensions
 filenames_without_extension <- sub(extension_pattern, "", filenames)
-
 split_metadata <- strsplit(filenames_without_extension, split = "_")
 
 underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
 NUMBER_OF_COLUMNS <- length(PEAK_PARAMETER_TEST_COLUMNS)
-
 if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPECTED_NUM_UNDERSCORES) {
   stop("Filenames must contain exactly ", EXPECTED_NUM_UNDERSCORES, " underscores.")
 }
 
 # Preallocation
+# Dataframe construction using extracted metadata
 peak_metadata_df <- data.frame(
   matrix(NA, nrow = NUMBER_OF_FILES, ncol = NUMBER_OF_COLUMNS )
 )
 
-for (row_index in 1:nrow(peak_metadata_df)) {
+for (row_index in seq_len(nrow(peak_metadata_df))) {
     peak_metadata_df[row_index, 1:length(split_metadata[[row_index]])] <- split_metadata[[row_index]]
 }
 
@@ -207,27 +213,38 @@ stopifnot(
     "No samples are NA." = !any(is.na(peak_metadata_df$sample)),
     "Metadata has expected dimensions." =
         nrow(peak_metadata_df) == NUMBER_OF_FILES &&
-        ncol(peak_metadata_df) == length(COLUMN_NAMES),
+        ncol(peak_metadata_df) == NUMBER_OF_COLUMNS,
     "No duplicate samples." = !any(duplicated(peak_metadata_df))
 )
 
-if (length(PEAK_FILES) == 0) {
-    stop("No bigwig files found.")
-}
+# Add factor levels to metadata frame and define unique categories
+# Convert all columns to factors
+peak_metadata_df[] <- lapply(peak_metadata_df, as.factor)
+
+# Define factor levels for each column (customize as needed)
+COLUMN_LEVELS <- list(
+  sample_group = c("input", "reference", "test"),
+  alignment_processing = c("raw", "deduped", "shifted"),
+  peak_calling_mode = c("narrow", "broad", "auto"),
+  significance_metric = c("p", "q"),
+  input_control_type = c("noInput", "withInput"),
+  output_category = "peaks",  # Single level since constant
+  peak_detail_level = c("peaks", "summits")
+)
 
 ##################################################################################
-## MAIN
+# MAIN
 ##################################################################################
+# Create list of unique categories automatically
+UNIQUE_METADATA_CATEGORIES <- lapply(colnames(peak_metadata_df), function(col_name) {
+  unique(peak_metadata_df[[col_name]])
+})
+
+# Name the list elements using the column names
+names(UNIQUE_METADATA_CATEGORIES) <- colnames(peak_metadata_df)
 ##---------------------------------------------
 ## Plot the bigwig processing comparisons
 ##---------------------------------------------
-## Define categories
-#UNIQUE_METADATA_CATEGORIES <- list(
-#    samples = unique(peak_metadata_df[,"sample"]),
-#    bam_processing = unique(peak_metadata_df[,"bam_processing"]),
-#    bigwig_processing = unique(peak_metadata_df[, "bigwig_processing"])
-#)
-#
 #VALID_PROCESSING_COMBINATIONS <- expand.grid(
 #    UNIQUE_METADATA_CATEGORIES[c("samples", "bam_processing")]
 #)
