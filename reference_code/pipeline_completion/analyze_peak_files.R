@@ -168,7 +168,7 @@ PEAK_PARAMETER_TEST_COLUMNS <- c(
   "significance_metric",  # X4: "p" (p-value), "q" (q-value)
   "input_control_type",  # X5: "noInput", "withInput"
   "output_category",    # X6: "peaks" (constant)
-  "peak_detail_level"   # V7: "peaks", "summits"
+  "peak_detail_level",   # V7: "peaks", "summits"
   "file_paths"
 )
 
@@ -206,7 +206,7 @@ for (row_index in seq_len(nrow(peak_metadata_df))) {
 }
 
 colnames(peak_metadata_df) <- PEAK_PARAMETER_TEST_COLUMNS
-peak_metadata_df$file_paths <- PEAK_FILES
+peak_metadata_df$file_paths <- unlist(PEAK_FILES)
 
 # Assertions
 stopifnot(
@@ -251,14 +251,15 @@ names(UNIQUE_METADATA_CATEGORIES) <- colnames(peak_metadata_df)
 METADATA_COLUMN_SEPARATOR <-  "\x01"
 #
 ## Create the keys to perform subsetting
-METADATA_CHARACTER_VECTORS <- lapply(peak_metadata_df[, !("file_paths" %in% names(peak_metadata_df))], as.character)
+is_not_file_path_column <- !grepl(pattern = "file_paths", x = names(peak_metadata_df))
+METADATA_CHARACTER_VECTORS <- lapply(peak_metadata_df[, is_not_file_path_column], as.character)
 METADATA_JOINED_KEYS <- do.call(paste, c(METADATA_CHARACTER_VECTORS, sep = METADATA_COLUMN_SEPARATOR))
-print(unique(METADATA_JOINED_KEYS))
-print(length(unique(METADATA_JOINED_KEYS)))
+message(sprintf("Number of unique metadata keys: %s", length(unique(METADATA_JOINED_KEYS))))
 
 #EXTENSIONS_TO_DROP <- c(".xls", ".r")
-is_not_xls_file <- grepl(pattern = "\\.xls$", x = peak_metadata_df$file_paths)
-print(nrow(peak_metadata[!(is_not_xls_file), ]))
+is_not_xls_file <- !grepl(pattern = "\\.xls$", x = peak_metadata_df$file_paths)
+message(sprintf("Number of files after filtering out xls files: %s", nrow(peak_metadata_df[is_not_xls_file, ])))
+
 
 # Create output directory if it doesn't exist
 PLOT_OUTPUT_DIR <- file.path(Sys.getenv("HOME"), "data", "preprocessing_test", "plots")
