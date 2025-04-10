@@ -93,7 +93,7 @@ if (!is.null(FEATURE_FILE))
     )
     # Fitler out the rest of the chromosomes
     # GENOME_FEATURES <- GENOME_FEATURES[seqnames(GENOME_FEATURES) == CHROMOSOME_ROMAN]
-    GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOME_ROMAN, pruning.mode = "coarse")
+    #GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOME_ROMAN, pruning.mode = "coarse")
 }
 
 ################################################################################
@@ -256,18 +256,66 @@ METADATA_CHARACTER_VECTORS <- lapply(peak_metadata_df[, is_not_file_path_column]
 METADATA_JOINED_KEYS <- do.call(paste, c(METADATA_CHARACTER_VECTORS, sep = METADATA_COLUMN_SEPARATOR))
 message(sprintf("Number of unique metadata keys: %s", length(unique(METADATA_JOINED_KEYS))))
 
-#EXTENSIONS_TO_DROP <- c(".xls", ".r")
 is_not_xls_file <- !grepl(pattern = "\\.xls$", x = peak_metadata_df$file_paths)
 message(sprintf("Number of files after filtering out xls files: %s", nrow(peak_metadata_df[is_not_xls_file, ])))
 
+# Filter out xls data for now
+peak_metadata_df <- peak_metadata_df[is_not_xls_file, ]
 
 # Create output directory if it doesn't exist
 PLOT_OUTPUT_DIR <- file.path(Sys.getenv("HOME"), "data", "preprocessing_test", "plots")
 dir.create(PLOT_OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
 
-#for (CURRENT_KEY_IDX in seq_along(control_joined_keys)) {
+# --- Configuration ---
+MIN_ROW_COUNT <- 1
+MAX_ROW_COUNT <- nrow(peak_metadata_df)
+ANALYSIS_COLUMNS <- c("number_of_peaks", "peak_width_distribution", "overlap_with_eaton")
+
+DEBUG_MODE <- TRUE
+RESULTS <- data.frame(
+  matrix(NA, nrow = MAX_ROW_COUNT, ncol = length(ANALYSIS_COLUMNS) )
+)
+
+message(sprintf("Starting processing for %d records...", MAX_ROW_COUNT))
+for (row_index in seq_len(MAX_ROW_COUNT)) {
+  # Pre-loop validation
+  stopifnot(
+    row_index >= MIN_ROW_COUNT,
+    row_index <= MAX_ROW_COUNT
+  )
+  # Add a small separator for clarity in logs
+  message("--------------------")
+  message(sprintf("Processing row %d/%d", row_index, MAX_ROW_COUNT))
+
+  # 1. Extract the current row's data
+  current_metadata <- peak_metadata_df[row_index, ]
+  if (DEBUG_MODE) {
+    message("Row Details:")
+    invisible(lapply(names(current_metadata), function(column_name) {
+       message(sprintf("| %s: %s", column_name, current_metadata[[column_name]]))
+    }))
+  }
+
+  # Extract only needed columns
+  #"sample_type",      # input, reference, test
+  #"alignment_processing", # deduped, raw, shifted
+  #"peak_calling_mode",        # auto, narrow, broad
+  #"significance_metric",  # X4: "p" (p-value), "q" (q-value)
+  #"input_control_type",  # X5: "noInput", "withInput"
+  #"output_category",    # X6: "peaks" (constant)
+  #"peak_detail_level",   # V7: "peaks", "summits"
+  #"file_paths"
+  bed_file_path <- current_metadata$file_paths
+  stopifnot("Expect only one file path every iteration." = length(bed_file_path) == 1)
+  file_ext <- tools::file_ext(bed_file_path)
+
+  # --- Bed File Analysis ---
+  # --- Store Results ---
+
+  message("--------------------")
+} # End of for loop
+message("Processing finished.")
 #    CURRENT_CONTROL_KEY <- control_joined_keys[CURRENT_KEY_IDX]
-#    message(sprintf("Processing key %d: %s", CURRENT_KEY_IDX, CURRENT_CONTROL_KEY))
 #
 #    # [1] Metadata Subsetting
 #    CURRENT_METADATA_SUBSET <- peak_metadata_df[METADATA_JOINED_KEYS %in% CURRENT_CONTROL_KEY, ]
