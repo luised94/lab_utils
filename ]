@@ -171,36 +171,12 @@ if (min_start > 0 && !has_zero_starts) {
   # Confirm with the user
   cat("Converting to 0-based coordinates (subtracting 1 from start positions)...\n")
 
-  # For 1-based data, after sorting start/end, subtract 1 ONLY from start
-  # First ensure start is smaller than end
-  start_smaller <- raw_data$start <= raw_data$end
-  raw_data$bed_start <- ifelse(start_smaller, raw_data$start, raw_data$end) - 1L
-  raw_data$bed_end <- ifelse(start_smaller, raw_data$end, raw_data$start)
-
+  raw_data$bed_start <- pmin(raw_data$start, raw_data$end) - 1L
 } else {
   cat("Data appears to already be 0-based (contains zero positions or very low min value).\n")
-  # For 0-based data, just ensure start is smaller than end
-  start_smaller <- raw_data$start <= raw_data$end
-  raw_data$bed_start <- ifelse(start_smaller, raw_data$start, raw_data$end)
-  raw_data$bed_end <- ifelse(start_smaller, raw_data$end, raw_data$start)
 }
 
-# Additional check for negative start positions
-negative_starts <- raw_data$bed_start < 0
-if (any(negative_starts)) {
-  cat("Found", sum(negative_starts), "features with negative start positions\n")
-  cat("Setting these to 0 to make them valid in BED format\n")
-  raw_data$bed_start[negative_starts] <- 0
-}
-
-# Additional check and fix for equal start/end positions
-equal_positions <- raw_data$bed_start == raw_data$bed_end
-if (any(equal_positions)) {
-  cat("Found", sum(equal_positions), "features with equal start and end positions\n")
-  cat("Adding 1 to end positions for these features to make them valid in BED format\n")
-  raw_data$bed_end[equal_positions] <- raw_data$bed_end[equal_positions] + 1
-}
-
+raw_data$bed_end <- pmax(raw_data$start, raw_data$end)
 raw_data$bed_strand <- ifelse(raw_data$strand_code == "W", "+", "-")
 
 cat("Resolving feature names...\n")
@@ -239,6 +215,7 @@ bed_data <- data.frame(
     gene_name = merged_data$V5,
     stringsAsFactors = FALSE
 )
+
 
 stopifnot(
   "Invalid BED coordinates (start >= end)" = all(bed_data$start < bed_data$end),
@@ -369,7 +346,7 @@ if(create_combined %in% c("y", "yes")) {
 
   # Prepare final structure with Gviz-friendly columns
   #combined_output <- bed_data[, c("chrom", "start", "end", "name", "score", "strand", "feature_type")]
-  #combined_output <- bed_data
+  combined_output <- bed_data
   #combined_output$thickStart <- combined_output$start
   #combined_output$thickEnd <- combined_output$end
   #combined_output$itemRgb <- ifelse(
@@ -381,9 +358,9 @@ if(create_combined %in% c("y", "yes")) {
   # Write to file
   #writeLines(track_line, combined_path)
   write.table(
-    bed_data,
+    combined_output,
     file = combined_path,
-    append = FALSE,
+    append = TRUE,
     sep = "\t",
     quote = FALSE,
     row.names = FALSE,

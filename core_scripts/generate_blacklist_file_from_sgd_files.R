@@ -1,4 +1,4 @@
-# USAGE: source("core_scripts/generate_blacklist_file_from_sgd_files.R")
+# @USAGE source("core_scripts/generate_blacklist_file_from_sgd_files.R")
 ######################################################################
 # CONFIGURATION AND CONSTANTS
 ######################################################################
@@ -11,7 +11,6 @@ file_directory <- normalizePath("~/data/feature_files")
 # Output file path
 output_file_path <- file.path(file_directory, paste0(current_date, "_saccharomyces_cerevisiae_s288c_blacklist.bed"))
 
-# Define patterns for files to include in blacklist
 blacklist_patterns <- c(
   # Repetitive elements
   "long_terminal_repeat",
@@ -21,19 +20,30 @@ blacklist_patterns <- c(
   "x_element",
   "y_prime_element",
   "transposable_element_gene",
-
   # Special genomic features
   "telomere",
   "centromere",
   "mating_type_region",
   "silent_mating_type_cassette_array",
-
   # Specialized regions
   "w_region",
   "x_region",
   "y_region",
   "z1_region",
-  "z2_region"
+  "z2_region",
+  # RNA genes and related regions - highly important for sponge sequences
+  "rrna_gene",
+  "trna_gene",
+  "snrna_gene",
+  "snorna_gene",
+  "internal_transcribed_spacer_region",
+  "external_transcribed_spacer_region",
+  "non_transcribed_region",
+  # Other potentially problematic features
+  "telomerase_rna_gene",
+  "centromere_dna_element_i",
+  "centromere_dna_element_ii",
+  "centromere_dna_element_iii"
 )
 
 ######################################################################
@@ -131,18 +141,14 @@ for (bed_file_index in 1:length(blacklist_files)) {
                               stringsAsFactors = FALSE, comment.char = "#",
                               fill = TRUE, quote = "")
 
-    # filter out header file...
-    bed_content <- bed_content[bed_content[,1] != "chrom", ]
-# Filter out rows where start or end positions aren't numeric
-#valid_rows <- !is.na(as.numeric(bed_content[,2])) & !is.na(as.numeric(bed_content[,3]))
-#bed_content <- bed_content[valid_rows, ]
+  # Filter out rows where start or end positions aren't numeric
+  #valid_rows <- !is.na(as.numeric(bed_content[,2])) & !is.na(as.numeric(bed_content[,3]))
+  #bed_content <- bed_content[valid_rows, ]
     # Ensure we have at least the required 3 columns
     if (ncol(bed_content) < 3) {
       warning("File ", bed_file_name, " has fewer than 3 columns. Skipping.")
       next
     }
-
-    # The following section is commented out as requested, but kept for reference
 
     # # Standardize column names for the first 6 BED columns
     # valid_columns <- min(ncol(bed_content), 6)
@@ -200,7 +206,6 @@ for (bed_file_index in 1:length(blacklist_files)) {
 ######################################################################
 # DATA VALIDATION AND ASSERTIONS
 ######################################################################
-
 # Verify we processed some files
 if (files_processed == 0) {
   stop("No files were successfully processed. Check file paths and formats.")
@@ -224,9 +229,8 @@ if (length(invalid_ranges) > 0) {
 }
 
 ######################################################################
-# SORT AND WRITE OUTPUT
+# SORT BED FILE
 ######################################################################
-
 # Sort BED entries by chromosome and start position
 # First convert chromosome names to factors to ensure proper sorting
 # when chromosomes are named like "chr1", "chr2", etc.
@@ -237,6 +241,43 @@ combined_bed_data <- combined_bed_data[order(combined_bed_data$sortkey, combined
 combined_bed_data$sortkey <- NULL  # Remove the temporary sort key
 #combined_bed_data <- combined_bed_data[!is.na(combined_bed_data$start) & !is.na(combined_bed_data$end), ]
 
+######################################################################
+# REMOVE REDUNDANT SECTIONS
+######################################################################
+library(GenomicRanges)
+library(rtracklayer)
+
+# Step 1: Report the size of the original dataset
+cat("Processing", nrow(combined_bed_data), "total regions from all files\n")
+message("Removing redundant regions...")
+cat("Converting to GRanges object...\n")
+gr <- GenomicRanges::GRanges(
+  seqnames = combined_bed_data$chromosome,
+  ranges = IRanges::IRanges(
+  start = combined_bed_data$start + 1,  # BED is 0-based, GRanges is 1-based
+  end = combined_bed_data$end
+  ),
+  strand = combined_bed_data$strand,
+  name = combined_bed_data$name,
+  score = combined_bed_data$score
+)
+
+cat("Removing redundancy by merging overlapping regions...\n")
+non_redundant_gr <- GenomicRanges::reduce(gr)
+# Step: 4: Add metadata back to the reduced regions
+GenomicRanges::mcols(non_redundant_gr)$name <- paste0("blacklist_",
+                                                    seq_along(non_redundant_gr))
+GenomicRanges::mcols(non_redundant_gr)$score <- rep(1000, length(non_redundant_gr))
+GenomicRanges::mcols(non_redundant_gr)$type <- "blacklist_sponge"
+
+# Step 5: Report the reduction
+cat("Original regions:", length(gr), "\n")
+cat("Non-redundant regions:", length(non_redundant_gr), "\n")
+cat("Reduction:", round((1 - length(non_redundant_gr)/length(gr)) * 100, 2), "%\n")
+
+######################################################################
+# WRITE OUTPUT FILES
+######################################################################
 # Write the combined data to output file
 cat("Writing", nrow(combined_bed_data), "records to output file:", output_file_path, "\n")
 write.table(combined_bed_data, file = output_file_path, 
