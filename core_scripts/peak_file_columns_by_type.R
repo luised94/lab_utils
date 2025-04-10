@@ -85,7 +85,7 @@ PEAK_FILE_COLUMNS <- list(
   ),
 
   # narrowPeak columns (BED6+4)
-  NARROW_PEAK = c(
+  NARROWPEAK = c(
     "chromosome",
     "start",
     "end",
@@ -99,7 +99,7 @@ PEAK_FILE_COLUMNS <- list(
   ),
 
   # broadPeak columns (BED6+3)
-  BROAD_PEAK = c(
+  BROADPEAK = c(
     "chromosome",
     "start",
     "end",
@@ -112,7 +112,7 @@ PEAK_FILE_COLUMNS <- list(
   ),
 
   # gappedPeak columns (BED12+3)
-  GAPPED_PEAK = c(
+  GAPPEDPEAK = c(
     "chromosome",
     "start",
     "end",

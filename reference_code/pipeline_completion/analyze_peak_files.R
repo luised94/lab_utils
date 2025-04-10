@@ -231,6 +231,9 @@ COLUMN_LEVELS <- list(
   output_category = "peaks",  # Single level since constant
   peak_detail_level = c("peaks", "summits")
 )
+# Bed format extra columns
+extraCols_narrowPeak <- c(signalValue = "numeric", pValue = "numeric",
+                          qValue = "numeric", peak = "integer")
 
 ##################################################################################
 # MAIN
@@ -305,9 +308,42 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   #"output_category",    # X6: "peaks" (constant)
   #"peak_detail_level",   # V7: "peaks", "summits"
   #"file_paths"
+  # --- Load bed file data ---
   bed_file_path <- current_metadata$file_paths
   stopifnot("Expect only one file path every iteration." = length(bed_file_path) == 1)
   file_ext <- tools::file_ext(bed_file_path)
+  format_key <- toupper(file_ext)
+
+  # Check if we have a definition for this file type
+  if (!format_key %in% names(PEAK_FILE_COLUMNS)) {
+    stop(paste0("Unsupported file format: ", file_ext, 
+                ". Supported formats are: ", 
+                paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")))
+  }
+
+  col_names <- PEAK_FILE_COLUMNS[format_key]
+
+  peak_df <- read.table(
+    file = bed_file_path,
+    col.names = col_names,
+    header = FALSE
+  )
+
+  # Create GRanges object with core coordinates
+  gr <- GenomicRanges::GRanges(
+    seqnames = peak_df$chromosome,
+    ranges = GenomicRanges::IRanges(
+      start = peak_df$start + 1,  # Convert from 0-based to 1-based
+      end = peak_df$end
+    ),
+    strand = if("strand" %in% names(peak_df)) peak_df$strand else "*"
+  )
+
+  # Add metadata columns (everything except chr, start, end)
+  meta_cols <- setdiff(names(peak_df), c("chromosome", "start", "end"))
+  if (length(meta_cols) > 0) {
+    GenomicRanges::mcols(gr) <- peak_df[, meta_cols, drop = FALSE]
+  }
 
   # --- Bed File Analysis ---
   # --- Store Results ---
