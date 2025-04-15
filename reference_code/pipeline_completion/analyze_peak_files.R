@@ -310,7 +310,11 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   #"file_paths"
   # --- Load bed file data ---
   bed_file_path <- current_metadata$file_paths
-  stopifnot("Expect only one file path every iteration." = length(bed_file_path) == 1)
+  stopifnot(
+    "Expect only one file path every iteration." = length(bed_file_path) == 1,
+    "Bed file path for current metadata does not exist." = file.exists(bed_file_path)
+  )
+
   file_ext <- tools::file_ext(bed_file_path)
   format_key <- toupper(file_ext)
 
@@ -325,7 +329,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 
   peak_df <- read.table(
     file = bed_file_path,
-    col.names = col_names,
+    #col.names = col_names,
     header = FALSE
   )
 
@@ -333,14 +337,15 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   gr <- GenomicRanges::GRanges(
     seqnames = peak_df$chromosome,
     ranges = GenomicRanges::IRanges(
-      start = peak_df$start + 1,  # Convert from 0-based to 1-based
+      # Convert from 0-based to 1-based
+      start = peak_df$start + 1,
       end = peak_df$end
     ),
     strand = if("strand" %in% names(peak_df)) peak_df$strand else "*"
   )
 
   # Add metadata columns (everything except chr, start, end)
-  meta_cols <- setdiff(names(peak_df), c("chromosome", "start", "end"))
+  meta_cols <- setdiff(names(peak_df), c("chromosome", "start", "end", "strand"))
   if (length(meta_cols) > 0) {
     GenomicRanges::mcols(gr) <- peak_df[, meta_cols, drop = FALSE]
   }
