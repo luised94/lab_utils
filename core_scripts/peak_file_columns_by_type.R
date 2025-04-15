@@ -64,8 +64,8 @@ PEAK_FILE_COLUMNS <- list(
     "start",
     "end",
     "name",
-    "score",
-    "strand"
+    "score"
+    #"strand"
   ),
 
   # BED12 format (used in gappedPeak)
