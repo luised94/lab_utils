@@ -33,6 +33,7 @@ FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
 FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
 FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
 FILE_FEATURE_PATTERN <- "eaton_peaks"
+#SGD_FILE_FEATURE_PATTERN <- 
 stopifnot(
     "Genome directory not found" = dir.exists(FILE_GENOME_DIRECTORY),
     "Feature directory not found" = dir.exists(FILE_FEATURE_DIRECTORY)
@@ -231,9 +232,6 @@ COLUMN_LEVELS <- list(
   output_category = "peaks",  # Single level since constant
   peak_detail_level = c("peaks", "summits")
 )
-# Bed format extra columns
-extraCols_narrowPeak <- c(signalValue = "numeric", pValue = "numeric",
-                          qValue = "numeric", peak = "integer")
 
 ##################################################################################
 # MAIN
@@ -300,15 +298,6 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     }))
   }
 
-  # Extract only needed columns
-  #"sample_type",      # input, reference, test
-  #"alignment_processing", # deduped, raw, shifted
-  #"peak_calling_mode",        # auto, narrow, broad
-  #"significance_metric",  # X4: "p" (p-value), "q" (q-value)
-  #"input_control_type",  # X5: "noInput", "withInput"
-  #"output_category",    # X6: "peaks" (constant)
-  #"peak_detail_level",   # V7: "peaks", "summits"
-  #"file_paths"
   # --- Load bed file data ---
   bed_file_path <- as.character(current_metadata$file_paths)
   stopifnot(
@@ -347,14 +336,42 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   message(sprintf("Peak dataframe details from file path: %s", bed_file_path))
   print(head(peak_df))
 
-  # --- Bed File Analysis Basic Statistics ---
+  # Validate critical columns exist
+  stopifnot(
+    "Missing chromosome column in peak_df." = "chromosome" %in% names(peak_df),
+    "Missing start position column in peak_df." = "start" %in% names(peak_df),
+    "Missing end position column in peak_df." = "end" %in% names(peak_df)
+  )
 
+  lapply(names(peak_df), function(column_name){
+    if (any(is.na(peak_df[[column_name]]))){
+      warning(sprintf("Some missing values in %s column.", column_name))
+    }
+  })
+
+  has_chr_prefix <- grepl("^chr", peak_df$chromosome)
+  if (any(!has_chr_prefix)) {
+    stop("Some chromosome values in peak_df do not follow chr<roman_num> format.")
+  }
+
+  # Verify position values are valid
+  stopifnot(
+    "peak_df has negative start positions" = all(peak_df$start >= 0), 
+    "peak_df has rows where end < start" = all(peak_df$end > peak_df$start)
+  )
+
+  # --- Bed File Analysis Basic Statistics ---
+  number_of_peaks <- nrow(peak_df)
+  peak_width_distribution <- peak_df$end - peak_df$start
+  chromosome_distribution <- table(peak_df$chromosome)
+
+  # --- Bed File Analysis GenomicRanges ---
   # Create GRanges object with core coordinates
   gr <- GenomicRanges::GRanges(
     seqnames = peak_df$chromosome,
     ranges = IRanges::IRanges(
       # Convert from 0-based to 1-based
-      start = peak_df$start + 1,
+      start = peak_df$start + 1L,
       end = peak_df$end
     ),
     strand = "*"
@@ -368,7 +385,6 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     GenomicRanges::mcols(gr) <- peak_df[, meta_cols, drop = FALSE]
   }
 
-  # --- Bed File Analysis GenomicRanges ---
   # --- Store Results ---
 
   message("--------------------")
