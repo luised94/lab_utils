@@ -319,13 +319,13 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 
   file_ext <- tools::file_ext(bed_file_path)
   format_key <- toupper(file_ext)
-  SUPPORTED_FORMATS <- paste(tolower(names(PEAK_FILE_COLUMNS))
+  SUPPORTED_FORMATS <- paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")
 
   # Check if we have a definition for this file type
   if (!format_key %in% names(PEAK_FILE_COLUMNS)) {
     stop(paste0("Unsupported file format: ", file_ext,
                 ". Supported formats are: ",
-                SUPPORTED_FORMATS, collapse=", ")))
+                SUPPORTED_FORMATS))
   }
 
   col_names <- PEAK_FILE_COLUMNS[[format_key]]
