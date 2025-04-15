@@ -329,7 +329,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   col_names <- PEAK_FILE_COLUMNS[[format_key]]
   peak_df <- read.table(
     file = bed_file_path,
-    col.names = col_names,
+    #col.names = col_names,
     header = FALSE
   )
   message(sprintf("Length of col_names: %s\nNumber of columns in peak_df: %s", length(col_names), ncol(peak_df)))
