@@ -295,7 +295,8 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   if (DEBUG_MODE) {
     message("Row Details:")
     invisible(lapply(names(current_metadata), function(column_name) {
-       message(sprintf("| %s: %s", column_name, current_metadata[[column_name]]))
+        column_data <- current_metadata[[column_name]]
+       message(sprintf("| %s: %s - %s", column_name, column_data, typeof(column_data)))
     }))
   }
 
@@ -309,38 +310,50 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   #"peak_detail_level",   # V7: "peaks", "summits"
   #"file_paths"
   # --- Load bed file data ---
-  bed_file_path <- current_metadata$file_paths
-  stopifnot("Expect only one file path every iteration." = length(bed_file_path) == 1)
+  bed_file_path <- as.character(current_metadata$file_paths)
+  stopifnot(
+    "Expect only one file path every iteration." = length(bed_file_path) == 1,
+    "Bed file path for current metadata does not exist." = file.exists(bed_file_path)
+  )
+
   file_ext <- tools::file_ext(bed_file_path)
   format_key <- toupper(file_ext)
 
   # Check if we have a definition for this file type
   if (!format_key %in% names(PEAK_FILE_COLUMNS)) {
-    stop(paste0("Unsupported file format: ", file_ext, 
-                ". Supported formats are: ", 
+    stop(paste0("Unsupported file format: ", file_ext,
+                ". Supported formats are: ",
                 paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")))
   }
 
-  col_names <- PEAK_FILE_COLUMNS[format_key]
-
+  col_names <- PEAK_FILE_COLUMNS[[format_key]]
   peak_df <- read.table(
     file = bed_file_path,
     col.names = col_names,
     header = FALSE
   )
+  message(sprintf("Length of col_names: %s\nNumber of columns in peak_df: %s", length(col_names), ncol(peak_df)))
+    message("Column names for peak_df:")
+  print(paste(col_names, collapse=", "))
+
+    message(sprintf("Peak dataframe details from file path: %s", bed_file_path))
+  print(head(peak_df))
+
 
   # Create GRanges object with core coordinates
   gr <- GenomicRanges::GRanges(
     seqnames = peak_df$chromosome,
-    ranges = GenomicRanges::IRanges(
-      start = peak_df$start + 1,  # Convert from 0-based to 1-based
+    ranges = IRanges::IRanges(
+      # Convert from 0-based to 1-based
+      start = peak_df$start + 1,
       end = peak_df$end
     ),
-    strand = if("strand" %in% names(peak_df)) peak_df$strand else "*"
+    strand = "*"
+    #strand = if("strand" %in% names(peak_df)) peak_df$strand else "*"
   )
 
   # Add metadata columns (everything except chr, start, end)
-  meta_cols <- setdiff(names(peak_df), c("chromosome", "start", "end"))
+  meta_cols <- setdiff(names(peak_df), c("chromosome", "start", "end", "strand"))
   if (length(meta_cols) > 0) {
     GenomicRanges::mcols(gr) <- peak_df[, meta_cols, drop = FALSE]
   }
