@@ -312,18 +312,20 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   # --- Load bed file data ---
   bed_file_path <- as.character(current_metadata$file_paths)
   stopifnot(
-    "Expect only one file path every iteration." = length(bed_file_path) == 1,
-    "Bed file path for current metadata does not exist." = file.exists(bed_file_path)
+    "Expect only one file path in bed_file_path every iteration." = length(bed_file_path) == 1,
+    "bed_file_path variable is empty." = nzchar(bed_file_path),
+    "bed_file_path variable for current metadata does not exist." = file.exists(bed_file_path)
   )
 
   file_ext <- tools::file_ext(bed_file_path)
   format_key <- toupper(file_ext)
+  SUPPORTED_FORMATS <- paste(tolower(names(PEAK_FILE_COLUMNS))
 
   # Check if we have a definition for this file type
   if (!format_key %in% names(PEAK_FILE_COLUMNS)) {
     stop(paste0("Unsupported file format: ", file_ext,
                 ". Supported formats are: ",
-                paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")))
+                SUPPORTED_FORMATS, collapse=", ")))
   }
 
   col_names <- PEAK_FILE_COLUMNS[[format_key]]
@@ -332,13 +334,20 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     col.names = col_names,
     header = FALSE
   )
-  message(sprintf("Length of col_names: %s\nNumber of columns in peak_df: %s", length(col_names), ncol(peak_df)))
-    message("Column names for peak_df:")
-  print(paste(col_names, collapse=", "))
 
-    message(sprintf("Peak dataframe details from file path: %s", bed_file_path))
+  stopifnot("peak_df is empty." = nrow(peak_df) > 0)
+
+  message(sprintf(
+    "Loaded %s peaks (cols: %s) from %s",
+    nrow(peak_df),
+    ncol(peak_df),
+    basename(bed_file_path)
+  ))
+  message(sprintf("Column names (num: %s) from PEAK_FILE_COLUMNS object:\n%s", length(col_names), paste(col_names, collapse=", ")))
+  message(sprintf("Peak dataframe details from file path: %s", bed_file_path))
   print(head(peak_df))
 
+  # --- Bed File Analysis Basic Statistics ---
 
   # Create GRanges object with core coordinates
   gr <- GenomicRanges::GRanges(
@@ -355,10 +364,11 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   # Add metadata columns (everything except chr, start, end)
   meta_cols <- setdiff(names(peak_df), c("chromosome", "start", "end", "strand"))
   if (length(meta_cols) > 0) {
+    #message("Metadata columns:\n", paste(meta_cols, collapse=", "))
     GenomicRanges::mcols(gr) <- peak_df[, meta_cols, drop = FALSE]
   }
 
-  # --- Bed File Analysis ---
+  # --- Bed File Analysis GenomicRanges ---
   # --- Store Results ---
 
   message("--------------------")
