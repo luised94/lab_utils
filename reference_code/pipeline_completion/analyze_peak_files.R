@@ -255,6 +255,7 @@ METADATA_COLUMN_SEPARATOR <-  "\x01"
 is_not_file_path_column <- !grepl(pattern = "file_paths", x = names(peak_metadata_df))
 METADATA_CHARACTER_VECTORS <- lapply(peak_metadata_df[, is_not_file_path_column], as.character)
 METADATA_JOINED_KEYS <- do.call(paste, c(METADATA_CHARACTER_VECTORS, sep = METADATA_COLUMN_SEPARATOR))
+peak_metadata_df$sample_id <- METADATA_JOINED_KEYS
 message(sprintf("Number of unique metadata keys: %s", length(unique(METADATA_JOINED_KEYS))))
 
 is_not_xls_file <- !grepl(pattern = "\\.xls$", x = peak_metadata_df$file_paths)
@@ -273,9 +274,20 @@ MAX_ROW_COUNT <- nrow(peak_metadata_df)
 ANALYSIS_COLUMNS <- c("number_of_peaks", "peak_width_distribution", "overlap_with_eaton")
 
 DEBUG_MODE <- TRUE
-RESULTS <- data.frame(
-  matrix(NA, nrow = MAX_ROW_COUNT, ncol = length(ANALYSIS_COLUMNS) )
-)
+#summary_statistics_df <- data.frame(
+#  condition = character(),
+#  num_peaks = integer(),
+#  overlap_pct = numeric(),
+#  width_mean = numeric(),
+#  width_median = numeric(),
+#  stringsAsFactors = FALSE
+#)
+#chromosome_distribution_df <- data.frame(
+#
+#)
+#peak_width_distribution_df <- data.frame(
+#
+#)
 
 message(sprintf("Starting processing for %d records...", MAX_ROW_COUNT))
 for (row_index in seq_len(MAX_ROW_COUNT)) {
@@ -288,7 +300,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   message("--------------------")
   message(sprintf("Processing row %d/%d", row_index, MAX_ROW_COUNT))
 
-  # 1. Extract the current row's data
+  # Extract the current row's data
   current_metadata <- peak_metadata_df[row_index, ]
   if (DEBUG_MODE) {
     message("Row Details:")
@@ -298,8 +310,10 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     }))
   }
 
-  # --- Load bed file data ---
   bed_file_path <- as.character(current_metadata$file_paths)
+  sample_id <- as.character(current_metadata$sample_id)
+
+  # --- Load bed file data ---
   stopifnot(
     "Expect only one file path in bed_file_path every iteration." = length(bed_file_path) == 1,
     "bed_file_path variable is empty." = nzchar(bed_file_path),
