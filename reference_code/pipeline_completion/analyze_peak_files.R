@@ -423,7 +423,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   peak_width_list[[row_index]] <- data.frame(
     sample_id = current_sample_id,
     peak_id = seq_len(length(peak_widths)),
-    width = peak_widths,
+    width = peak_widths
   )
 
   message("--------------------")
@@ -443,7 +443,7 @@ METADATA_COLS_TO_KEEP <- setdiff(names(peak_metadata_df), "file_paths")
 
 # Explicit merges
 chromosome_distribution_df <- merge(
-  chromosome_distribution_df, 
+  chromosome_distribution_df,
   peak_metadata_df[, METADATA_COLS_TO_KEEP],
   by = "sample_id"
 )
