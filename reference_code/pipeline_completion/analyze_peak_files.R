@@ -422,8 +422,8 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   # Width DF (store in list first)
   peak_width_list[[row_index]] <- data.frame(
     sample_id = current_sample_id,
-    peak_id = seq_len(nrow(peak_widths)),
-    width = peak_widths,
+    peak_id = seq_len(length(peak_widths)),
+    width = peak_widths
   )
 
   message("--------------------")
