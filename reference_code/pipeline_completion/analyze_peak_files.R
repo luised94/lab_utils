@@ -274,20 +274,21 @@ MAX_ROW_COUNT <- nrow(peak_metadata_df)
 ANALYSIS_COLUMNS <- c("number_of_peaks", "peak_width_distribution", "overlap_with_eaton")
 
 DEBUG_MODE <- TRUE
-#summary_statistics_df <- data.frame(
-#  condition = character(),
-#  num_peaks = integer(),
-#  overlap_pct = numeric(),
-#  width_mean = numeric(),
-#  width_median = numeric(),
-#  stringsAsFactors = FALSE
-#)
-#chromosome_distribution_df <- data.frame(
-#
-#)
-#peak_width_distribution_df <- data.frame(
-#
-#)
+summary_statistics_df <- data.frame(
+  sample_id = character(MAX_ROW_COUNT),
+  num_peaks = integer(MAX_ROW_COUNT),
+  overlap_pct = numeric(MAX_ROW_COUNT),
+  width_mean = numeric(MAX_ROW_COUNT),
+  width_median = numeric(MAX_ROW_COUNT),
+  stringsAsFactors = FALSE
+)
+
+# Initialize with NA values explicitly
+summary_statistics_df[] <- NA
+
+ESTIMATED_CHROMOSOMES_PER_SAMPLE <- length(names(REFERENCE_GENOME_DSS))
+chromosome_distribution_list <- vector("list", MAX_ROW_COUNT)
+peak_width_list <- vector("list", MAX_ROW_COUNT)
 
 message(sprintf("Starting processing for %d records...", MAX_ROW_COUNT))
 for (row_index in seq_len(MAX_ROW_COUNT)) {
@@ -311,7 +312,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   }
 
   bed_file_path <- as.character(current_metadata$file_paths)
-  sample_id <- as.character(current_metadata$sample_id)
+  current_sample_id <- as.character(current_metadata$sample_id)
 
   # --- Load bed file data ---
   stopifnot(
@@ -374,12 +375,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     "peak_df has rows where end < start" = all(peak_df$end > peak_df$start)
   )
 
-  # --- Bed File Analysis Basic Statistics ---
-  number_of_peaks <- nrow(peak_df)
-  peak_width_distribution <- peak_df$end - peak_df$start
-  chromosome_distribution <- table(peak_df$chromosome)
-
-  # --- Bed File Analysis GenomicRanges ---
+  # --- Create GenomicRanges ---
   # Create GRanges object with core coordinates
   gr <- GenomicRanges::GRanges(
     seqnames = peak_df$chromosome,
@@ -399,112 +395,43 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     GenomicRanges::mcols(gr) <- peak_df[, meta_cols, drop = FALSE]
   }
 
+  # --- Bed File Analysis Basic Statistics ---
+  peak_widths <- peak_df$end - peak_df$start
+  chrom_counts <- as.data.frame(table(peak_df$chromosome))
+  # Calculate overlaps (logical vector: TRUE = overlap exists)
+  overlaps_logical <- GenomicRanges::overlapsAny(gr, GENOME_FEATURES)
+  # Percent of gr1 ranges overlapping gr2
+  percent_shared <- ( sum(overlaps_logical) / length(gr) ) * 100
+
   # --- Store Results ---
+  summary_statistics_df$sample_id[row_index] <- current_sample_id
+  summary_statistics_df$num_peaks[row_index] <- nrow(peak_df)
+  summary_statistics_df$width_mean[row_index] <- mean(peak_widths)
+  summary_statistics_df$width_median[row_index] <- median(peak_widths)
+  summary_statistics_df$overlap_pct[row_index] <- percent_shared
+
+  chromosome_distribution_list[[row_index]] <- data.frame(
+      sample_id = current_sample_id,
+      chromosome = chrom_counts$Var1,
+      count = chrom_counts$Freq,
+      stringsAsFactors = FALSE
+    )
+
+  # Width DF (store in list first)
+  peak_width_list[[row_index]] <- data.frame(
+    sample_id = current_sample_id,
+    width = peak_widths
+  )
+
+
 
   message("--------------------")
 } # End of for loop
 message("Processing finished.")
-#    CURRENT_CONTROL_KEY <- control_joined_keys[CURRENT_KEY_IDX]
-#
-#    # [1] Metadata Subsetting
-#    CURRENT_METADATA_SUBSET <- peak_metadata_df[METADATA_JOINED_KEYS %in% CURRENT_CONTROL_KEY, ]
-#    message("Metadata subset complete...")
-#    message("Subset content:")
-#    print(head(CURRENT_METADATA_SUBSET))
-#
-#    # [2] Track Container Initialization
-#    TRACK_CONTAINER <- vector("list", nrow(CURRENT_METADATA_SUBSET) + 1 + exists("GENOME_FEATURES"))
-#    TRACK_CONTAINER[[1]] <- Gviz::GenomeAxisTrack(
-#        name = sprintf("Chr %s Axis", CHROMOSOME_TO_PLOT),
-#        fontcolor.title = "black",
-#        cex.title = 0.7,
-#        background.title = "white"
-#    )
-#
-#    # Process the metadata subet ---------------------
-#    # [3] Data Track Population
-#    for (track_idx in seq_len(nrow(CURRENT_METADATA_SUBSET))) {
-#        track_name <- do.call(paste, c(CURRENT_METADATA_SUBSET[track_idx, 1:3], sep = "_"))
-#        current_row_filepath <- CURRENT_METADATA_SUBSET[track_idx, "file_paths"]
-#
-#        message(sprintf("Importing bigwig file: %s", current_row_filepath))
-#        bigwig_data <- rtracklayer::import(
-#            current_row_filepath,
-#            format = "BigWig",
-#            which = GENOME_RANGE_TO_LOAD
-#        )
-#
-#        TRACK_CONTAINER[[track_idx + 1]] <- Gviz::DataTrack(
-#            range = bigwig_data,
-#            name = track_name,
-#            # Apply styling
-#            showAxis = TRUE,
-#            showTitle = TRUE,
-#            type = "h",
-#            size = 1.2,
-#            background.title = "white",
-#            fontcolor.title = "black",
-#            col.border.title = "#e0e0e0",
-#            cex.title = 0.7,
-#            fontface = 1,
-#            title.width = 1.0,
-#            col = "darkblue",
-#            fill = "darkblue"
-#        )
-#        message(sprintf("Sample %s imported...", track_idx))
-#    } # end for
-#
-#    message("All samples imported and added to TRACK_CONTAINER.")
-#
-#    # [4] Annotation Track (Conditional)
-#    if (exists("GENOME_FEATURES")) {
-#        TRACK_CONTAINER[[length(TRACK_CONTAINER)]] <- Gviz::AnnotationTrack(
-#            GENOME_FEATURES,
-#            name = "Features",
-#            size = 0.5,
-#            background.title = "lightgray",
-#            fontcolor.title = "black",
-#            showAxis = FALSE,
-#            background.panel = "#f5f5f5",
-#            cex.title = 0.6,
-#            fill = "#8b4513",
-#            col = "#8b4513"
-#        )
-#    }
-#
-#    # [5] Plot Generation & Export -----------------
-#    PLOT_BASENAME <- paste(
-#        "/bigwig_processing",
-#        CHROMOSOME_ROMAN,
-#        gsub(METADATA_COLUMN_SEPARATOR, "_", CURRENT_CONTROL_KEY, fixed = TRUE),
-#        sep = "_"
-#    )
-#
-#    OUTPUT_FILENAME <- paste0(PLOT_OUTPUT_DIR, PLOT_BASENAME, ".svg")
-#    message(sprintf("Saving file: %s", OUTPUT_FILENAME))
-#
-#    svglite::svglite(
-#        filename = OUTPUT_FILENAME,
-#        width = 10,
-#        height = 8,
-#        bg = "white"
-#    )
-#
-#    Gviz::plotTracks(
-#        trackList = TRACK_CONTAINER,
-#        chromosome = CHROMOSOME_ROMAN,
-#        from = GENOME_RANGE_TO_LOAD@ranges@start,
-#        to = GENOME_RANGE_TO_LOAD@ranges@width,
-#        margin = 15,
-#        innerMargin = 5,
-#        spacing = 10,
-#        col.axis = "black",
-#        cex.axis = 0.8,
-#        cex.main = 0.9,
-#        fontface.main = 2,
-#        background.panel = "transparent"
-#    )
-#    dev.off()
-#    message(sprintf("Plot saved. Finished processing %d: %s", CURRENT_KEY_IDX, CURRENT_CONTROL_KEY))
-#} # end for loop
-#message("Finished bigwig processing for loop...")
+# Convert lists to DF
+peak_width_distribution_df <- do.call(rbind, peak_width_list)
+chromosome_distribution_df <- do.call(rbind, chromosome_distribution_list)
+
+# Optional: Trim unused preallocated rows
+chromosome_distribution_df <- chromosome_distribution_df[!is.na(chromosome_distribution_df$sample_id), ]
+peak_width_distribution_df <- peak_width_distribution_df[!is.na(peak_width_distribution_df$sample_id), ]
