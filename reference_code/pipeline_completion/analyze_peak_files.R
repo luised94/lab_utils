@@ -33,7 +33,7 @@ FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
 FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
 FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
 FILE_FEATURE_PATTERN <- "eaton_peaks"
-#SGD_FILE_FEATURE_PATTERN <- 
+#SGD_FILE_FEATURE_PATTERN <-
 stopifnot(
     "Genome directory not found" = dir.exists(FILE_GENOME_DIRECTORY),
     "Feature directory not found" = dir.exists(FILE_FEATURE_DIRECTORY)
@@ -371,7 +371,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 
   # Verify position values are valid
   stopifnot(
-    "peak_df has negative start positions" = all(peak_df$start >= 0), 
+    "peak_df has negative start positions" = all(peak_df$start >= 0),
     "peak_df has rows where end < start" = all(peak_df$end > peak_df$start)
   )
 
@@ -399,7 +399,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   peak_widths <- peak_df$end - peak_df$start
   chrom_counts <- as.data.frame(table(peak_df$chromosome))
   # Calculate overlaps (logical vector: TRUE = overlap exists)
-  overlaps_logical <- GenomicRanges::overlapsAny(gr, GENOME_FEATURES)
+  overlaps_logical <- IRanges::overlapsAny(gr, GENOME_FEATURES)
   # Percent of gr1 ranges overlapping gr2
   percent_shared <- ( sum(overlaps_logical) / length(gr) ) * 100
 
