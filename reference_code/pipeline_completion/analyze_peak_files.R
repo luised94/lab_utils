@@ -283,9 +283,6 @@ summary_statistics_df <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# Initialize with NA values explicitly
-summary_statistics_df[] <- NA
-
 ESTIMATED_CHROMOSOMES_PER_SAMPLE <- length(names(REFERENCE_GENOME_DSS))
 chromosome_distribution_list <- vector("list", MAX_ROW_COUNT)
 peak_width_list <- vector("list", MAX_ROW_COUNT)
@@ -397,7 +394,12 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 
   # --- Bed File Analysis Basic Statistics ---
   peak_widths <- peak_df$end - peak_df$start
-  chrom_counts <- as.data.frame(table(peak_df$chromosome))
+  stopifnot(all(peak_widths > 0))
+
+  #chrom_counts <- as.data.frame(table(peak_df$chromosome))
+  chrom_counts <- as.data.frame(table(
+      factor(peak_df$chromosome, levels=names(REFERENCE_GENOME_DSS))
+  ))
   # Calculate overlaps (logical vector: TRUE = overlap exists)
   overlaps_logical <- GenomicRanges::overlapsAny(gr, GENOME_FEATURES)
   # Percent of gr1 ranges overlapping gr2
@@ -420,10 +422,9 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   # Width DF (store in list first)
   peak_width_list[[row_index]] <- data.frame(
     sample_id = current_sample_id,
-    width = peak_widths
+    peak_id = seq_len(nrow(peak_widths)),
+    width = peak_widths,
   )
-
-
 
   message("--------------------")
 } # End of for loop
@@ -435,3 +436,26 @@ chromosome_distribution_df <- do.call(rbind, chromosome_distribution_list)
 # Optional: Trim unused preallocated rows
 chromosome_distribution_df <- chromosome_distribution_df[!is.na(chromosome_distribution_df$sample_id), ]
 peak_width_distribution_df <- peak_width_distribution_df[!is.na(peak_width_distribution_df$sample_id), ]
+summary_statistics_df <- summary_statistics_df[!is.na(summary_statistics_df$sample_id), ]
+
+# Add metadata to distribution DFs for easier plotting
+METADATA_COLS_TO_KEEP <- setdiff(names(peak_metadata_df), "file_paths")
+
+# Explicit merges
+chromosome_distribution_df <- merge(
+  chromosome_distribution_df, 
+  peak_metadata_df[, METADATA_COLS_TO_KEEP],
+  by = "sample_id"
+)
+peak_width_distribution_df <- merge(
+  peak_width_distribution_df,
+  peak_metadata_df[, METADATA_COLS_TO_KEEP],
+  by = "sample_id"
+)
+summary_statistics_df <- merge(
+  summary_statistics_df,
+  peak_metadata_df[, METADATA_COLS_TO_KEEP],
+  by = "sample_id"
+)
+
+# --- Plot results ---
