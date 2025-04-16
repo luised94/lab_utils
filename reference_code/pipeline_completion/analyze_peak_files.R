@@ -403,14 +403,19 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   # Calculate overlaps (logical vector: TRUE = overlap exists)
   overlaps_logical <- IRanges::overlapsAny(gr, GENOME_FEATURES)
   # Percent of gr1 ranges overlapping gr2
-  percent_shared <- ( sum(overlaps_logical) / length(gr) ) * 100
+  percent_enriched <- ( sum(overlaps_logical) / length(gr) ) * 100
+
+  # Calculate overlaps (logical vector: TRUE = overlap exists)
+  overlaps_logical <- IRanges::overlapsAny(GENOME_FEATURES, gr)
+  percent_recovered <- ( sum(overlaps_logical) / length(GENOME_FEATURES) ) * 100
 
   # --- Store Results ---
   summary_statistics_df$sample_id[row_index] <- current_sample_id
   summary_statistics_df$num_peaks[row_index] <- nrow(peak_df)
   summary_statistics_df$width_mean[row_index] <- mean(peak_widths)
   summary_statistics_df$width_median[row_index] <- median(peak_widths)
-  summary_statistics_df$overlap_pct[row_index] <- percent_shared
+  summary_statistics_df$percent_recovered[row_index] <- percent_recovered
+  summary_statistics_df$percent_enriched[row_index] <- percent_enriched
 
   chromosome_distribution_list[[row_index]] <- data.frame(
       sample_id = current_sample_id,
