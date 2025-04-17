@@ -11,3 +11,7 @@ I also downloaded the data to my dropbox to have it available without having to 
 
 # Vim tricks
 If you want to trace the logic of the code by following a variable, you can hover over the variable name and either follow using * to search for words under the cursor. In R, there will probably be a variable being assigned with <-, so you can go to the beginning using ^ to the first character then press * and n to follow that variable. Repeat ^ * n to follow the logic to the end. Can be turned into a macro.
+
+# Notes
+Managed to process the data using the different deeptools and macs2 parameters. Couldnt see obvious differences in the plots for peaks called, overlap with reference bed file from Eaton2010 as factors were accounted for. If I remember correctly, the particular samples I used were from the dataset before I started to systematically decontaminate everything using DNAzap. Inspecting my most recent dataset where I simply did arrest at two cell cycle stages, I could see improvements for the input and samples. I think picking a bigger set of the last experiment would be better.
+I would like to reuse the scripts but not have to worry about the other data produced by the previous samples. I may or may not reinclude the samples that I already analyzed in the reanalysis. Second, I will document the commands I ran to remove the files I already produced.
