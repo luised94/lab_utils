@@ -30,7 +30,7 @@ FILES=$(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*.bam" |
 
 # Step 2: Check if any files were found
 if [ -z "$FILES" ]; then
-    echo "No *_raw.bam files found in ~/data/preprocessing_test/align" >&2
+    echo "No *.bam files found in ~/data/preprocessing_test/align" >&2
     exit 1
 fi
 
@@ -45,7 +45,7 @@ done <<< "$FILES"
 # Check if the SAMPLES array is not empty
 if [[ ${#SAMPLES[@]} -eq 0 ]]; then
   echo "SAMPLES array is empty!"
-  echo "Check ~/data/preprocessing_test/align directory for '*_raw.bam' bam files."
+  echo "Check ~/data/preprocessing_test/align directory for '*.bam' bam files."
 else
   echo "SAMPLES array initialized successfully:"
   for key in "${!SAMPLES[@]}"; do
@@ -53,6 +53,7 @@ else
     echo "    Filepath: ${SAMPLES[$key]}"
   done
 fi
+exit 1
 
 # Reference data
 GENOME_SIZE=12000000  # 1.2e7 in integer form
@@ -229,49 +230,7 @@ echo "=== Pipeline Configuration ==="
 echo "Genome Size: $GENOME_SIZE"
 echo "Output Directory: $OUTDIR"
 echo "Threads: $THREADS"
-echo "Samples:"
-for stype in "${!SAMPLES[@]}"; do
-  echo " - $stype: ${SAMPLES[$stype]}"
-done
 echo "=============================="
-
-# === File Verification ===
-declare -i missing_files=0
-declare -A DEDUPED_BAMS=()
-declare -A SHIFTED_BAMS=()
-for sample_type in "${!SAMPLES[@]}"; do
-  input="${SAMPLES[$sample_type]}"
-  deduped_path=$(get_deduped_path "$sample_type")
-  shifted_path=$(get_shifted_path "$sample_type")
-  echo "Processing $sample_type..."
-  echo "Input: $input"
-  echo "deduped: $deduped_path"
-  echo "Shifted: $shifted_path"
-
-  if [[ ! -e "$input" ]]; then
-      echo "[ERROR] Missing $sample_type file: $input" 1>&2
-      missing_files=1
-  fi
-
-  if [[ ! -e "$deduped_path" ]]; then
-      echo "Deduplicated file not present. Rerun test_bam_preprocessing_with_picard_macs2_deeptools.sh script."
-      missing_files=1
-  fi
-
-  if [[ "$sample_type" == "test" || "$sample_type" == "reference" ]]; then
-      if [[ ! -e "$shifted_path" ]]; then
-          echo "Shifted file not present for sample type '$sample_type'. Rerun test_bam_preprocessing_with_picard_macs2_deeptools.sh script."
-          missing_files=1
-      fi
-  fi
-
-  DEDUPED_BAMS[$sample_type]="$deduped_path"
-  SHIFTED_BAMS[$sample_type]="$shifted_path"
-done
-
-(( missing_files )) && { echo "Aborting: Missing files"; echo "Run test_bam_preprocessing_with_picard_macs2_deeptools.sh script." ; exit 1; }
-
-echo "All sample files verified successfully."
 
 module load python/2.7.13 deeptools/3.0.1
 
@@ -280,29 +239,30 @@ echo "=== Generating coverage for original BAMs ==="
 for sample_type in "${!SAMPLES[@]}"; do
   input="${SAMPLES[$sample_type]}"
   echo "Processing: $input"
-  for norm_method in "${NORMALIZATION[@]}"; do
-      output=$(get_bigwig_name "$sample_type" "raw" "$norm_method")
-      echo "File will be output to: $output"
-      [[ -f "$output" ]] && {
-          echo "Skipping existing: $output"
-          continue
-      }
+  #for norm_method in "${NORMALIZATION[@]}"; do
+  #    output=$(get_bigwig_name "$sample_type" "raw" "$norm_method")
+  #    echo "File will be output to: $output"
+  #    [[ -f "$output" ]] && {
+  #        echo "Skipping existing: $output"
+  #        continue
+  #    }
 
-      echo "Processing $sample_type (raw) with ${norm_method:-no} normalization"
-      norm_flag=""
-      [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
-      echo "Using norm flag: $norm_flag"
-      bamCoverage \
-          -b "$input" \
-          -o "$output" \
-          "$norm_flag" \
-          --binSize 25 \
-          --effectiveGenomeSize "$GENOME_SIZE" \
-          --smoothLength 75 \
-          --ignoreDuplicates \
-          --numberOfProcessors "$THREADS"
-  done
+  #    echo "Processing $sample_type (raw) with ${norm_method:-no} normalization"
+  #    norm_flag=""
+  #    [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
+  #    echo "Using norm flag: $norm_flag"
+  #    bamCoverage \
+  #        -b "$input" \
+  #        -o "$output" \
+  #        "$norm_flag" \
+  #        --binSize 25 \
+  #        --effectiveGenomeSize "$GENOME_SIZE" \
+  #        --smoothLength 75 \
+  #        --ignoreDuplicates \
+  #        --numberOfProcessors "$THREADS"
+  #done
 done
+exit 1
 
 # Process deduped BAMs
 echo -e "\n=== Generating coverage for deduplicated BAMs ==="
