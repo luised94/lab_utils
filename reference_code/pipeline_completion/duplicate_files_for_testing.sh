@@ -88,6 +88,4 @@ echo "All bam files copied."
 echo "Script complete."
 echo "Remember to use samtools to index the raw bam files."
 echo "See file for the for loop"
-#for bam in *_raw.bam; do
-#    samtools index "$bam"
-#done
+#for bam in *_raw.bam; do samtools index "$bam" ; done
