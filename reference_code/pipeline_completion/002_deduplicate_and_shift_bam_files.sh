@@ -52,15 +52,11 @@ fi
 
 echo "MACS2 environment ready in $(which python)"
 #source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh || exit 1
-
-##############################################
-# Key Adjustable Parameters
-##############################################
 # Cluster config
 THREADS=8
+declare -A CHROM_SIZES=()
 
 # File paths
-declare -A CHROM_SIZES=()
 # Store find results in a variable
 # See ./lab_utils/reference_code/pipeline_completion/duplicate_files_for_testing.sh to see what samples should be initialized.
 # Alternatively verify the directory with the find command.
