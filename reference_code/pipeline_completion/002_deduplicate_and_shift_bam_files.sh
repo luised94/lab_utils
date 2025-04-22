@@ -64,21 +64,22 @@ declare -A CHROM_SIZES=()
 # Store find results in a variable
 # See ./lab_utils/reference_code/pipeline_completion/duplicate_files_for_testing.sh to see what samples should be initialized.
 # Alternatively verify the directory with the find command.
-mapfile -d '' FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" -print0)
+FILES=$(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam")
+#mapfile -d '' FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" -print0)
 
-# Check if any files were found
-if [ ${#FILES[@]} -eq 0 ]; then
+# Step 2: Check if any files were found
+if [ -z "$FILES" ]; then
     echo "No *_raw.bam files found in ~/data/preprocessing_test/align" >&2
     exit 1
 fi
 
 # Process the files if found
 declare -A SAMPLES
-for filepath in "${FILES[@]}"; do
+while IFS= read -r filepath; do
     filename=$(basename "$filepath")
     key=${filename%_raw.bam}
     SAMPLES["$key"]="$filepath"
-done
+done <<< "$FILES"
 
 # Check if the SAMPLES array is not empty
 if [[ ${#SAMPLES[@]} -eq 0 ]]; then
