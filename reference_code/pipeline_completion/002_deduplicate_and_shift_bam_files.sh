@@ -64,7 +64,7 @@ declare -A CHROM_SIZES=()
 # Store find results in a variable
 # See ./lab_utils/reference_code/pipeline_completion/duplicate_files_for_testing.sh to see what samples should be initialized.
 # Alternatively verify the directory with the find command.
-FILES=$(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam")
+FILES=$(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" | sort)
 #mapfile -d '' FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" -print0)
 
 # Step 2: Check if any files were found
@@ -195,8 +195,9 @@ for sample_type in "${SELECTED_SAMPLE_KEYS[@]}"; do
   if [[ ! -f "$log_file" ]] || ! grep -q 'predicted fragment length is' "$log_file"; then
     echo "Running fragment size prediction..."
     macs2 predictd \
-        -i "$deduplicated_bam" \
-        -g "$GENOME_SIZE" \
+        --ifile "$deduplicated_bam" \
+        --mfold 2 200 \
+        --gsize "$GENOME_SIZE" \
         --outdir "$outdir" 2> "$log_file"
   else
     echo "Using existing prediction results in: $log_file"

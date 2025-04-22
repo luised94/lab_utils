@@ -1,3 +1,11 @@
+# macs2 not enough peaks for model building
+WARNING @ Tue, 22 Apr 2025 15:26:17: Too few paired peaks (80) so I can not build the model! Broader your MFOLD range parameter may erase this error. If it still can't build the model, we suggest to use --nomodel and --extsize 147 or other fixed number instead.
+WARNING @ Tue, 22 Apr 2025 15:26:17: Process for pairing-model is terminated!
+WARNING @ Tue, 22 Apr 2025 15:26:17: # Can't find enough pairs of symmetric peaks to build model!
+
+Samples with poor quality data or negative controls can give this error. Extend mfold for model building or disable extsize. 
+See: https://claude.ai/chat/401ce71b-31dc-4ae0-92a7-ba69724ecfb8
+
 
 # Variable never defined or doesnt exist.
 Error in args$skip_validation :
