@@ -23,54 +23,44 @@
 
 # Cluster config
 THREADS=8
-
-# Initialization of array with keys and file paths
-FILES=$(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*.bam" | sort)
-#mapfile -d '' FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" -print0)
-
-# Step 2: Check if any files were found
-if [ -z "$FILES" ]; then
-    echo "No *.bam files found in ~/data/preprocessing_test/align" >&2
-    exit 1
-fi
-
-# Process the files if found
-declare -A SAMPLES
-while IFS= read -r filepath; do
-    filename=$(basename "$filepath")
-    key=${filename%.bam}
-    SAMPLES["$key"]="$filepath"
-done <<< "$FILES"
-
-# Check if the SAMPLES array is not empty
-if [[ ${#SAMPLES[@]} -eq 0 ]]; then
-  echo "SAMPLES array is empty!"
-  echo "Check ~/data/preprocessing_test/align directory for '*.bam' bam files."
-else
-  echo "SAMPLES array initialized successfully:"
-  for key in "${!SAMPLES[@]}"; do
-    echo "  Sample key: $key"
-    echo "    Filepath: ${SAMPLES[$key]}"
-  done
-fi
-exit 1
-
-# Reference data
+# Genome data
 GENOME_SIZE=12000000  # 1.2e7 in integer form
 GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
 if [[ ! -f $GENOME_FASTA ]]; then
   echo "$GENOME_FASTA does not exist."
   exit 1
 fi
-
 # Define normalization methods
 declare -a NORMALIZATION=("" "RPKM" "CPM")  # Raw, RPKM, and CPM
-
 # Output config
 OUTDIR="$HOME/preprocessing_test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
 # Create directory structure
 mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
+
+# Initialization of array with keys and file paths
+# Create an array of files
+mapfile -t FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*.bam" | sort)
+
+# Check if any files were found
+if [ ${#FILES[@]} -eq 0 ]; then
+    echo "No *.bam files found in ~/data/preprocessing_test/align" >&2
+    exit 1
+fi
+
+# Process the files if found
+for filepath in "${FILES[@]}"; do
+  filename=$(basename "$filepath")
+  key=${filename%.bam}
+  sample_name=$(echo "$key" | cut -d'_' -f1-2)
+  bam_type=$(echo "$key" | cut -d'_' -f3 )
+
+  echo "Sample information:"
+  echo "  Filename: $filename"
+  echo "  Sample_name: $sample_name"
+  echo "  Bam type: $bam_type"
+done
+exit 1
 
 ##############################################
 # Helper functions
