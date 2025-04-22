@@ -105,7 +105,7 @@ if [[ ! -f $GENOME_FASTA ]]; then
 fi
 
 # Output config
-OUTDIR="$HOME/preprocessing_test"
+OUTDIR="$HOME/data/preprocessing_test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
 
 ##############################################
