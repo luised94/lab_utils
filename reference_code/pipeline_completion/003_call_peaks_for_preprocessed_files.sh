@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 ################################################################################
-# Remove duplicates and shift reads for sample bam files
+# Call peaks for raw, deduplicated and the shifted bam
 ################################################################################
-# Purpose: Generate bam files with duplicated reads removed and the bam files with shifted reads.
+# Purpose: Generate peak calling files for preprocessed bam files
 # Usage: Run as script.
-# $./002_deduplicate_and_shift_bam_files.sh
-# DEPENDENCIES: bash, data from 250207Bel BMC experiment
+# $./003_deduplicate_and_shift_bam_files.sh
+# DEPENDENCIES: bash, data from 250207Bel BMC experiment and scripts 001 and 002 from the pipeline script
 # OUTPUT: Duplicate files with renaming for easier identification and isolation from data directories
 # NOTES: Updated the files being used in analysis, went from the data in the 241010Bel to the data in 250207Bel
 # AUTHOR: LEMR
-# DATE: 2025-04-17
-# UPDATE: 2025-02-07
+# DATE: 2025-02-07
+# UPDATE: 2025-04-22
 ################################################################################
 
 #set -euo pipefail
@@ -21,20 +21,38 @@
 #    exit 1
 #fi
 
-##############################################
-# Key Adjustable Parameters
-##############################################
-
 # Cluster config
 THREADS=8
 
-# File paths
-declare -A SAMPLES=(
-  ['test']="$HOME/data/241010Bel/alignment/processed_245018_sequence_to_S288C_sorted.bam"
-  ['input']="$HOME/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam" 
-  ['reference']="$HOME/data/100303Bel/alignment/processed_034475_sequence_to_S288C_sorted.bam"
-)
-declare -A CHROM_SIZES=()
+# Initialization of array with keys and file paths
+FILES=$(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*.bam" | sort)
+#mapfile -d '' FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" -print0)
+
+# Step 2: Check if any files were found
+if [ -z "$FILES" ]; then
+    echo "No *_raw.bam files found in ~/data/preprocessing_test/align" >&2
+    exit 1
+fi
+
+# Process the files if found
+declare -A SAMPLES
+while IFS= read -r filepath; do
+    filename=$(basename "$filepath")
+    key=${filename%.bam}
+    SAMPLES["$key"]="$filepath"
+done <<< "$FILES"
+
+# Check if the SAMPLES array is not empty
+if [[ ${#SAMPLES[@]} -eq 0 ]]; then
+  echo "SAMPLES array is empty!"
+  echo "Check ~/data/preprocessing_test/align directory for '*_raw.bam' bam files."
+else
+  echo "SAMPLES array initialized successfully:"
+  for key in "${!SAMPLES[@]}"; do
+    echo "  Sample key: $key"
+    echo "    Filepath: ${SAMPLES[$key]}"
+  done
+fi
 
 # Reference data
 GENOME_SIZE=12000000  # 1.2e7 in integer form
@@ -50,6 +68,8 @@ declare -a NORMALIZATION=("" "RPKM" "CPM")  # Raw, RPKM, and CPM
 # Output config
 OUTDIR="$HOME/preprocessing_test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
+# Create directory structure
+mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
 
 ##############################################
 # Helper functions
@@ -76,56 +96,6 @@ get_bigwig_name() {
   echo "$OUTDIR/coverage/${sample}_${bam_type}_${suffix}.bw"
 }
 
-get_chrom_sizes() {
-  local ref_fasta="$GENOME_FASTA"
-  local chrom_sizes_file="$OUTDIR/chrom.sizes"
-
-  echo "=== Chromosome Size Generation ==="
-
-  # Generate .fai if missing
-  if [[ ! -f "${ref_fasta}.fai" ]]; then
-      echo "Creating FASTA index for reference genome..."
-      samtools faidx "$ref_fasta" || {
-          echo "[ERROR] Failed to index reference FASTA" >&2
-          exit 10
-      }
-  fi
-
-  # Generate chrom.sizes if missing
-  if [[ ! -f "$chrom_sizes_file" ]]; then
-      echo -e "\nBuilding chromosome size file..."
-      mkdir -p "$OUTDIR"
-
-      echo "Input FASTA: $(basename "$ref_fasta")"
-      echo "Output sizes: $chrom_sizes_file"
-
-      awk '{print $1 "\t" $2}' "${ref_fasta}.fai" > "$chrom_sizes_file" || {
-          echo "[ERROR] Failed to create chrom.sizes" >&2
-          exit 11
-      }
-
-      # Validate non-empty output
-      [[ -s "$chrom_sizes_file" ]] || {
-          echo "[ERROR] chrom.sizes file is empty" >&2
-          exit 12
-      }
-  fi
-
-  # Load into associative array with debug output
-  echo -e "\nLoading chromosome sizes:"
-  while IFS=$'\t' read -r chrom size; do
-      [[ -z "$chrom" ]] && continue  # Skip empty lines
-
-      # Trim additional fields after first tab
-      chrom="${chrom%%[[:space:]]*}"
-
-      echo " - ${chrom}: ${size}bp"
-      CHROM_SIZES["$chrom"]="$size"
-  done < "$chrom_sizes_file"
-
-  echo -e "\nLoaded ${#CHROM_SIZES[@]} chromosomes"
-  echo "======================================="
-}
 
 get_peak_name() {
   local sample=$1
@@ -254,10 +224,6 @@ process_bam_set() {
 ##############################################
 # Initialization & Validation
 ##############################################
-
-# Create directory structure
-mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
-
 # Display parameter summary
 echo "=== Pipeline Configuration ==="
 echo "Genome Size: $GENOME_SIZE"

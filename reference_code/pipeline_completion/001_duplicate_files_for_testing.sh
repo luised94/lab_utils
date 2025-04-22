@@ -28,7 +28,7 @@ declare -A SAMPLES=(
   # WT_NONE_ALPHA_Input_2_input
   ['input_001']="$HOME/data/250207Bel/alignment/processed_126041_sequence_to_S288C_sorted.bam"
   # Eaton2010
-  ['reference']="$HOME/data/100303Bel/alignment/processed_034475_sequence_to_S288C_sorted.bam"
+  ['reference_001']="$HOME/data/100303Bel/alignment/processed_034475_sequence_to_S288C_sorted.bam"
 )
 
 # Output config

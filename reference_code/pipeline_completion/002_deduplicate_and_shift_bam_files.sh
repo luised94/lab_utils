@@ -52,11 +52,11 @@ fi
 
 echo "MACS2 environment ready in $(which python)"
 #source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh || exit 1
+#======================================== 
 # Cluster config
 THREADS=8
-declare -A CHROM_SIZES=()
 
-# File paths
+# Initialization of array with keys and file paths
 # Store find results in a variable
 # See ./lab_utils/reference_code/pipeline_completion/duplicate_files_for_testing.sh to see what samples should be initialized.
 # Alternatively verify the directory with the find command.
@@ -92,7 +92,7 @@ fi
 #SELECTED_SAMPLE_KEYS=$(echo "${!SAMPLES[@]}" | sed 's/ /\n/g' | grep -v "input")
 mapfile -t SELECTED_SAMPLE_KEYS < <(echo "${!SAMPLES[@]}" | tr ' ' '\n' | grep -E '^test|^reference')
 
-# Reference data
+# Genome data
 GENOME_SIZE=12000000  # 1.2e7 in integer form
 GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
 if [[ ! -f $GENOME_FASTA ]]; then
@@ -249,6 +249,7 @@ fi
 
 # Load into associative array with debug output
 echo -e "\nLoading chromosome sizes:"
+declare -A CHROM_SIZES=()
 while IFS=$'\t' read -r chrom size; do
   # Skip empty lines
   [[ -z "$chrom" ]] && continue
