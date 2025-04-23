@@ -160,7 +160,7 @@ for filepath in "${FILES[@]}"; do
   echo "  Fragment_size: $fragment_size"
 
   if [[ "$sample_type" == "input" ]]; then
-    echo "Skipping input sample for shifted analysis"
+    echo "Skipping input sample peak calling..."
     continue
   fi
 
@@ -169,6 +169,7 @@ for filepath in "${FILES[@]}"; do
 
     # Always run without input control
     output_name="${key}_${peak_mode}"
+    output_name_prefix="${output_name}_noInput"
 
     # Split the peak mode parameters into an array
     IFS=' ' read -r -a mode_params <<< "${PEAK_MODES[$peak_mode]}"
@@ -176,11 +177,11 @@ for filepath in "${FILES[@]}"; do
     # Core parameters used in all calls
     flags=(
       callpeak
+      --treatment "${filepath}"
+      --name "${output_name_prefix}"
+      --outdir "$output_dir"
       --gsize "$GENOME_SIZE"
       --SPMR
-      --treatment "${filepath}"
-      --name "${output_name}_noinput"
-      --outdir "$output_dir"
     )
 
     # Add the peak mode-specific parameters
@@ -191,235 +192,47 @@ for filepath in "${FILES[@]}"; do
     echo "    Output name: $output_name"
     echo -e "    COMMAND No input:\nmacs2 ${flags[*]}"
 
-    # Execute the command
-    #macs2 "${flags[@]}"
+    if [[ -f "${output_name_prefix}.narrowPeak" || -f "${output_name_prefix}.broadPeak" ]]; then
+      echo "  Skipping existing output: $(basename "$output_name_prefix")*Peak"
+    else
+      echo "Executing macs2 command for ${output_name_prefix}..."
+      # Execute the command
+      #macs2 "${flags[@]}" > "${output_dir}/${output_name}.log" 2>&1 || {
+      #  echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
+      #}
+    fi
 
     # === Second run WITH input control (if available) ===
-    if [[ -n "$INPUT_CONTROL" ]]; then
-      # Create the base flags array for input control run
-      flags=(
-        callpeak
-        --treatment "$filepath"
-        --control "$INPUT_CONTROL"
-        --name "${key}_${peak_mode}_withinput"
-        --gsize "$GENOME_SIZE"
-        --SPMR
-        --outdir "$output_dir"
-      )
+    # Create the base flags array for input control run
+    output_name_prefix="${output_name}_withInput"
+    if [[ -f "${output_name_prefix}.narrowPeak" || -f "${output_name_prefix}.broadPeak" ]]; then
+      echo "  Skipping existing output: $(basename "$output_name_prefix")*Peak"
+    else
+      echo "If input available, executing macs2 command for ${output_name_prefix} ..."
+      if [[ -n "$INPUT_CONTROL" ]]; then
+        flags=(
+          callpeak
+          --treatment "$filepath"
+          --control "$INPUT_CONTROL"
+          --name "${output_name_prefix}"
+          --outdir "$output_dir"
+          --gsize "$GENOME_SIZE"
+          --SPMR
+        )
 
-      # Add the peak mode-specific parameters
-      flags+=("${mode_params[@]}")
+        # Add the peak mode-specific parameters
+        flags+=("${mode_params[@]}")
 
-      # Print the command that would be executed
-      echo -e "    COMMAND with input:\nmacs2 ${flags[*]}"
+        # Print the command that would be executed
+        echo -e "    COMMAND with input:\nmacs2 ${flags[*]}"
 
-      # Execute the command
-      #macs2 "${flags[@]}"
+        # Execute the command
+        #macs2 "${flags[@]}" >> "${output_dir}/${output_name}.log" 2>&1 || {
+        #  echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
+        #}
+      fi
     fi
 
   done # end of peak calling for loop
 done # end of file for loop
-exit 1 # Breakpoint
-
-get_peak_name() {
-  local sample=$1
-  local bam_type=$2
-  local mode=$3
-  local has_input=$4
-  echo "${OUTDIR}/peaks/${sample}_${bam_type}_${mode}_${has_input}"
-}
-
-process_bam_set() {
-  local array_name=$1   # Name of the array to process
-  local bam_type=$2     # raw/deduped/shifted
-  local allow_input=$3  # true/false
-  
-  echo "=== Processing $bam_type BAMs ==="
-  
-  # Get array contents using indirect reference
-  case $array_name in
-      "SAMPLES")
-          local -a keys=("${!SAMPLES[@]}")
-          local -a values=("${SAMPLES[@]}")
-          ;;
-      "DEDUPED_BAMS")
-          local -a keys=("${!DEDUPED_BAMS[@]}")
-          local -a values=("${DEDUPED_BAMS[@]}")
-          ;;
-      "SHIFTED_BAMS")
-          local -a keys=("${!SHIFTED_BAMS[@]}")
-          local -a values=("${SHIFTED_BAMS[@]}")
-          ;;
-      *)
-          echo "Unknown array: $array_name" >&2
-          return 1
-          ;;
-  esac
-  
-  echo "Number of BAMs to process: ${#keys[@]}"
-  echo "Available samples: ${keys[*]}"
-  
-  for sample in "${keys[@]}"; do
-      echo -e "\nProcessing sample: $sample"
-      
-      # Get BAM path from appropriate array
-      local bam_path
-      case $array_name in
-          "SAMPLES") bam_path="${SAMPLES[$sample]}" ;;
-          "DEDUPED_BAMS") bam_path="${DEDUPED_BAMS[$sample]}" ;;
-          "SHIFTED_BAMS") bam_path="${SHIFTED_BAMS[$sample]}" ;;
-      esac
-      echo "Input BAM: $bam_path"
-      
-      # Skip input sample for certain analyses
-      if [[ "$sample" == "input" && "$bam_type" == "shifted" ]]; then
-          echo "Skipping input sample for shifted analysis"
-          continue
-      fi
-      
-      # Get fragment size if available
-      local ext_size=""
-      if [[ -v "FRAGMENTS[$sample]" ]]; then
-          ext_size="--extsize ${FRAGMENTS[$sample]}"
-          echo "Using fragment size: ${FRAGMENTS[$sample]}"
-      else
-          echo "No fragment size available for $sample"
-      fi
-      
-      # Process each peak calling mode
-      for mode in "${!PEAK_MODES[@]}"; do
-          echo -e "\n  Peak calling mode: $mode"
-          
-          # Without input control
-          out_prefix=$(get_peak_name "$sample" "$bam_type" "$mode" "noInput")
-          echo "  Output prefix: $(basename "$out_prefix")"
-          
-          # Skip if output exists
-          if [[ -f "${out_prefix}.narrowPeak" || -f "${out_prefix}.broadPeak" ]]; then
-              echo "  Skipping existing output: $(basename "$out_prefix")*Peak"
-              continue
-          fi
-          
-          echo "  Running MACS2 without input control..."
-          echo "  Parameters:"
-          echo "    - Treatment: $bam_path"
-          echo "    - Mode: ${PEAK_MODES[$mode]}"
-          echo "    - Fragment size param: $ext_size"
-          
-          # todo: Add blacklist processing
-          macs2 callpeak \
-              -t "$bam_path" \
-              -n "$out_prefix" \
-              "${CORE_PARAMS[@]}" \
-              "${PEAK_MODES[$mode]}" \
-              "$ext_size"
-          
-          # With input control (if allowed and available)
-          if [[ "$allow_input" == true && "$sample" == "test" ]]; then
-              out_prefix=$(get_peak_name "$sample" "$bam_type" "$mode" "withInput")
-              echo -e "\n  Processing with input control"
-              echo "  Output prefix: $(basename "$out_prefix")"
-              
-              if [[ -f "${out_prefix}.narrowPeak" || -f "${out_prefix}.broadPeak" ]]; then
-                  echo "  Skipping existing output: $(basename "$out_prefix")*Peak"
-                  continue
-              fi
-              
-              echo "  Running MACS2 with input control..."
-              echo "  Parameters:"
-              echo "    - Treatment: $bam_path"
-              echo "    - Control: ${DEDUPED_BAMS[input]}"
-              echo "    - Mode: ${PEAK_MODES[$mode]}"
-              echo "    - Fragment size param: $ext_size"
-              
-              macs2 callpeak \
-                  -t "$bam_path" \
-                  -c "${DEDUPED_BAMS[input]}" \
-                  -n "$out_prefix" \
-                  "${CORE_PARAMS[@]}" \
-                  "${PEAK_MODES[$mode]}" \
-                  "$ext_size"
-          fi
-      done
-  done
-  echo -e "\nCompleted processing $bam_type BAMs"
-}
-
-
-echo -e "\n=== Read in fragment sizes for peak calls ==="
-# Read log file paths into array
-mapfile -t FRAG_LOGS < <(
-  find "$OUTDIR/predictd/" -type f -name "macs2.log"
-) || {
-  echo "[ERROR] Failed to find fragment size logs in $OUTDIR/predictd/" >&2
-  exit 1
-}
-
-# Validate number of log files
-[[ ${#FRAG_LOGS[@]} -eq 2 ]] || {
-  echo "[ERROR] Expected 2 fragment logs, found ${#FRAG_LOGS[@]}" >&2
-  echo "Found logs:" >&2
-  printf '%s\n' "${FRAG_LOGS[@]}" >&2
-  exit 2
-}
-
-# Initialize fragments associative array
-declare -A FRAGMENTS=()
-
-# Process each log file
-for log in "${FRAG_LOGS[@]}"; do
-  # Extract sample type from path
-  sample_type=$(basename "$(dirname "$log")" | sed 's/_predictd//')
-  #echo "Sample type: $sample_type"
-  # Extract fragment size
-  frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log") || {
-      echo "[ERROR] Failed to extract fragment size from $log" >&2
-      exit 3
-  }
-  #echo "Read fragment size: $frag_size"
-  
-  # Validate fragment size
-  [[ "$frag_size" =~ ^[0-9]+$ ]] && (( frag_size > 0 )) || {
-      echo "[ERROR] Invalid fragment size ($frag_size) in $log" >&2
-      exit 4
-  }
-  
-  # Store in associative array
-  FRAGMENTS[$sample_type]=$frag_size
-done
-
-# Verify expected samples
-for required in 'test' 'reference'; do
-  #echo "Verifying fragment size in FRAGMENTS array: ${FRAGMENTS[$required]}"
-  [[ -n "${FRAGMENTS[$required]}" ]] || {
-      echo "[ERROR] Missing fragment size for $required sample" >&2
-      exit 5
-  }
-done
-
-# Debug output
-echo "=== Fragment Sizes ==="
-for sample in "${!FRAGMENTS[@]}"; do
-  echo "$sample: ${FRAGMENTS[$sample]}bp"
-done
-
-
-echo -e "\n=== Starting Peak Calling Analysis ==="
-echo "Available BAM sets:"
-echo "Original BAMs: ${!SAMPLES[@]}"
-echo "Deduped BAMs: ${!DEDUPED_BAMS[@]}"
-echo "Shifted BAMs: ${!SHIFTED_BAMS[@]}"
-
-# Process original BAMs
-echo -e "\nProcessing original BAMs..."
-process_bam_set SAMPLES "raw" true
-
-# Process deduplicated BAMs
-echo -e "\nProcessing deduplicated BAMs..."
-process_bam_set DEDUPED_BAMS "deduped" true
-
-# Process shifted BAMs
-echo -e "\nProcessing shifted BAMs..."
-process_bam_set SHIFTED_BAMS "shifted" true
-
-echo -e "\n=== Peak Calling Analysis Complete ==="
+echo "Peak calling done."
