@@ -53,7 +53,9 @@ mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
 # Initialization of array with keys and file paths
 # Create an array of files
 mapfile -t FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*.bam" | sort)
-number_of_sample_types=$(basename -a "${FILES[@]}" | cut -d_ -f1-2 | grep -v "input" | sort | uniq | wc -l)
+# Count unique sample types (excluding inputs)
+number_of_sample_types=$(basename -a "${FILES[@]}" | cut -d_ -f1-2 | grep -v "input" | sort -u | wc -l)
+
 # Check if any files were found
 if [ ${#FILES[@]} -eq 0 ]; then
   echo "No *.bam files found in ~/data/preprocessing_test/align" >&2
@@ -83,38 +85,45 @@ fi
 echo "MACS2 environment ready in $(which python)"
 # === Load fragment samples for sample types ===
 # Read log file paths into array
-mapfile -t FRAG_LOGS < <(
-  find "$OUTDIR/predictd/" -type f -name "macs2.log"
-) || {
+mapfile -t FRAG_LOGS < <(find "$OUTDIR/predictd/" -type f -name "macs2.log")
+
+# Check if any logs were found
+if [[ ${#FRAG_LOGS[@]} -eq 0 ]]; then
   echo "[ERROR] Failed to find fragment size logs in $OUTDIR/predictd/" >&2
   exit 1
-}
+fi
+
 
 # Validate number of log files
-[[ ${#FRAG_LOGS[@]} -eq $number_of_sample_types ]] || {
+if [[ ${#FRAG_LOGS[@]} -ne $number_of_sample_types ]]; then
   echo "[ERROR] Expected $number_of_sample_types fragment logs, found ${#FRAG_LOGS[@]}" >&2
   echo "Found logs:" >&2
   printf '%s\n' "${FRAG_LOGS[@]}" >&2
-  #exit 2
-}
+  exit 2
+fi
 
 # Initialize fragments associative array
 declare -A FRAGMENT_SIZES=()
 for log in "${FRAG_LOGS[@]}"; do
   # Extract sample type from path
   sample_name=$(basename "$(dirname "$log")" | sed 's/_predictd//')
+
   # Extract fragment size
-  frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log") || {
-      echo "[ERROR] Failed to extract fragment size from $log" >&2
-      #exit 3
-  }
+  frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log")
+
+  # Check if extraction succeeded
+  if [[ -z "$frag_size" ]]; then
+    echo "[ERROR] Failed to extract fragment size from $log" >&2
+    exit 3
+  fi
 
   echo "Sample type: $sample_name"
   echo "Fragment size: $frag_size"
+
   # Validate fragment size
-  if ! [[ "$frag_size" =~ ^[0-9]+$ ]] && (( frag_size > 0 )); then
-      echo "[ERROR] Invalid fragment size ($frag_size) in $log" >&2
-      #exit 4
+  if ! [[ "$frag_size" =~ ^[0-9]+$ ]] || (( frag_size <= 0 )); then
+    echo "[ERROR] Invalid fragment size ($frag_size) in $log" >&2
+    exit 4
   fi
 
   # Store in associative array
