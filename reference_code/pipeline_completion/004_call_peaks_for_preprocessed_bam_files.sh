@@ -28,21 +28,7 @@ if [[ ! -f $GENOME_FASTA ]]; then
   exit 1
 fi
 
-# Core parameters used in all calls
-CORE_PARAMS=(
-  "-g $GENOME_SIZE"
-  "--SPMR"
-)
 
-# Analysis variants with significance thresholds
-declare -A PEAK_MODES=(
-  ['narrow_p']="--nomodel --call-summits --pvalue 1e-6"
-  ['narrow_q']="--nomodel --call-summits --qvalue 0.01"
-  ['broad_p']="--broad --broad-cutoff 0.1 --nomodel --pvalue 1e-6"
-  ['broad_q']="--broad --broad-cutoff 0.1 --nomodel --qvalue 0.01"
-  ['auto_p']="--fix-bimodal --call-summits --pvalue 1e-6"
-  ['auto_q']="--fix-bimodal --call-summits --qvalue 0.01"
-)
 
 # Output config
 OUTDIR="$HOME/data/preprocessing_test"
@@ -141,6 +127,21 @@ for filepath in "${FILES[@]}"; do
   fi
 done
 
+# Check the input file was found
+if [[ -z "$INPUT_CONTROL" ]]; then
+  echo "[WARNING] No input control file found. Some analyses will be skipped."
+fi
+
+# Analysis variants with significance thresholds
+declare -A PEAK_MODES=(
+  ['narrow_p']="--nomodel --call-summits --pvalue 1e-6"
+  ['narrow_q']="--nomodel --call-summits --qvalue 0.01"
+  ['broad_p']="--broad --broad-cutoff 0.1 --nomodel --pvalue 1e-6"
+  ['broad_q']="--broad --broad-cutoff 0.1 --nomodel --qvalue 0.01"
+  ['auto_p']="--fix-bimodal --call-summits --pvalue 1e-6"
+  ['auto_q']="--fix-bimodal --call-summits --qvalue 0.01"
+)
+
 # Process the files if found
 for filepath in "${FILES[@]}"; do
   filename=$(basename "$filepath")
@@ -148,21 +149,76 @@ for filepath in "${FILES[@]}"; do
   sample_type=$(echo "$key" | cut -d'_' -f1)
   sample_name=$(echo "$key" | cut -d'_' -f1-2)
   bam_type=$(echo "$key" | cut -d'_' -f3 )
-  fragment_size=${FRAGMENT_SIZES[$sample_name]]}
+  fragment_size=${FRAGMENT_SIZES[$sample_name]}
 
   echo "---Sample information---"
+  echo "  Filepath: $filepath"
   echo "  Filename: $filename"
   echo "  Sample_name: $sample_name"
   echo "  Sample type: $sample_type"
   echo "  Bam type: $bam_type"
   echo "  Fragment_size: $fragment_size"
 
-  if [[ "$sample_type" == "input" && "$bam_type" == "shifted" ]]; then
+  if [[ "$sample_type" == "input" ]]; then
     echo "Skipping input sample for shifted analysis"
     continue
   fi
 
-done
+  for peak_mode in "${!PEAK_MODES[@]}" ; do
+    output_dir="$OUTDIR/peaks"
+
+    # Always run without input control
+    output_name="${key}_${peak_mode}"
+
+    # Split the peak mode parameters into an array
+    IFS=' ' read -r -a mode_params <<< "${PEAK_MODES[$peak_mode]}"
+
+    # Core parameters used in all calls
+    flags=(
+      callpeak
+      --gsize "$GENOME_SIZE"
+      --SPMR
+      --treatment "${filepath}"
+      --name "${output_name}_noinput"
+      --outdir "$output_dir"
+    )
+
+    # Add the peak mode-specific parameters
+    flags+=("${mode_params[@]}")
+
+    # Print the command that would be executed
+    echo "  ---Peak mode information---"
+    echo "    Output name: $output_name"
+    echo -e "    COMMAND No input:\nmacs2 ${flags[*]}"
+
+    # Execute the command
+    #macs2 "${flags[@]}"
+
+    # === Second run WITH input control (if available) ===
+    if [[ -n "$INPUT_CONTROL" ]]; then
+      # Create the base flags array for input control run
+      flags=(
+        callpeak
+        --treatment "$filepath"
+        --control "$INPUT_CONTROL"
+        --name "${key}_${peak_mode}_withinput"
+        --gsize "$GENOME_SIZE"
+        --SPMR
+        --outdir "$output_dir"
+      )
+
+      # Add the peak mode-specific parameters
+      flags+=("${mode_params[@]}")
+
+      # Print the command that would be executed
+      echo -e "    COMMAND with input:\nmacs2 ${flags[*]}"
+
+      # Execute the command
+      #macs2 "${flags[@]}"
+    fi
+
+  done # end of peak calling for loop
+done # end of file for loop
 exit 1 # Breakpoint
 
 get_peak_name() {
