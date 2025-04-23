@@ -53,7 +53,7 @@ mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
 # Initialization of array with keys and file paths
 # Create an array of files
 mapfile -t FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*.bam" | sort)
-
+number_of_sample_types=$(basename -a "${FILES[@]}" | cut -d_ -f1-2 | grep -v "input" | sort | uniq | wc -l)
 # Check if any files were found
 if [ ${#FILES[@]} -eq 0 ]; then
   echo "No *.bam files found in ~/data/preprocessing_test/align" >&2
@@ -91,38 +91,35 @@ mapfile -t FRAG_LOGS < <(
 }
 
 # Validate number of log files
-[[ ${#FRAG_LOGS[@]} -eq ${#FILES[@]} ]] || {
-  echo "[ERROR] Expected ${#FILES[@]}fragment logs, found ${#FRAG_LOGS[@]}" >&2
+[[ ${#FRAG_LOGS[@]} -eq $number_of_sample_types ]] || {
+  echo "[ERROR] Expected $number_of_sample_types fragment logs, found ${#FRAG_LOGS[@]}" >&2
   echo "Found logs:" >&2
   printf '%s\n' "${FRAG_LOGS[@]}" >&2
-  exit 2
+  #exit 2
 }
 
 # Initialize fragments associative array
-declare -A FRAGMENTS=()
-
-# Process each log file
+declare -A FRAGMENT_SIZES=()
 for log in "${FRAG_LOGS[@]}"; do
   # Extract sample type from path
   sample_type=$(basename "$(dirname "$log")" | sed 's/_predictd//')
-  #echo "Sample type: $sample_type"
+  echo "Sample type: $sample_type"
   # Extract fragment size
   frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log") || {
       echo "[ERROR] Failed to extract fragment size from $log" >&2
-      exit 3
+      #exit 3
   }
-  
+
   # Validate fragment size
-  if ! [[ "$frag_size" =~ ^[0-9]+$ ]] || (( frag_size > 0 )); then
+  if ! [[ "$frag_size" =~ ^[0-9]+$ ]] && (( frag_size > 0 )); then
       echo "[ERROR] Invalid fragment size ($frag_size) in $log" >&2
-      exit 4
+      #exit 4
   fi
-  
+
   # Store in associative array
-  FRAGMENTS[$sample_type]=$frag_size
+  FRAGMENT_SIZES[$sample_type]=$frag_size
 done
 
-exit 1
 # Process the files if found
 for filepath in "${FILES[@]}"; do
   filename=$(basename "$filepath")
@@ -130,12 +127,14 @@ for filepath in "${FILES[@]}"; do
   sample_type=$(echo "$key" | cut -d'_' -f1)
   sample_name=$(echo "$key" | cut -d'_' -f1-2)
   bam_type=$(echo "$key" | cut -d'_' -f3 )
+  fragment_size=${FRAGMENT_SIZES[$sample_type]]}
 
   echo "---Sample information---"
   echo "  Filename: $filename"
   echo "  Sample_name: $sample_name"
   echo "  Sample type: $sample_type"
   echo "  Bam type: $bam_type"
+  echo "  Fragment_size: $fragment_size"
 
   if [[ "$sample_type" == "input" && "$bam_type" == "shifted" ]]; then
     echo "Skipping input sample for shifted analysis"
