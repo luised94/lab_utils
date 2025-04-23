@@ -31,7 +31,7 @@ if [[ ! -f $GENOME_FASTA ]]; then
   exit 1
 fi
 # Define normalization methods
-declare -a NORMALIZATION=("" "RPKM" "CPM")  # Raw, RPKM, and CPM
+declare -a NORMALIZATION_METHOD=("raw" "RPKM" "CPM")  # Raw, RPKM, and CPM
 # Output config
 OUTDIR="$HOME/preprocessing_test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
@@ -55,12 +55,41 @@ for filepath in "${FILES[@]}"; do
   sample_name=$(echo "$key" | cut -d'_' -f1-2)
   bam_type=$(echo "$key" | cut -d'_' -f3 )
 
-  echo "Sample information:"
+  echo "---Sample information---"
   echo "  Filename: $filename"
   echo "  Sample_name: $sample_name"
   echo "  Bam type: $bam_type"
+  for norm_method in "${NORMALIZATION_METHOD[@]}"; do
+    suffix=${norm_method,,}
+    flags=(
+        -b "$filepath"
+        -o "$output"
+        --binSize 25
+        --effectiveGenomeSize "$GENOME_SIZE"
+        --smoothLength 75
+        --ignoreDuplicates
+        --numberOfProcessors "$THREADS"
+    )
+    [[ -n "$norm_method" ]] && flags+=(--normalizeUsing "$norm_method")
+    output="$OUTDIR/coverage/${sample_type}_${bam_type}_${suffix}.bw"
+    echo "  ---Normalization information---"
+    echo "    Normalization method Suffix: $suffix"
+    echo "    Normalization flag: $norm_flag"
+    echo "    Output: $output"
+
+    [[ -f "$output" ]] && {
+        echo "Skipping existing: $output"
+        continue
+    }
+
+    # Print the command that would be executed
+    echo "COMMAND: bamCoverage ${flags[*]}"
+
+    # Execute with all flags properly expanded
+    # bamCoverage "${flags[@]}"
+  done
 done
-exit 1
+exit 1 # Breakpoint
 
 ##############################################
 # Helper functions
@@ -229,28 +258,6 @@ echo "=== Generating coverage for original BAMs ==="
 for sample_type in "${!SAMPLES[@]}"; do
   input="${SAMPLES[$sample_type]}"
   echo "Processing: $input"
-  #for norm_method in "${NORMALIZATION[@]}"; do
-  #    output=$(get_bigwig_name "$sample_type" "raw" "$norm_method")
-  #    echo "File will be output to: $output"
-  #    [[ -f "$output" ]] && {
-  #        echo "Skipping existing: $output"
-  #        continue
-  #    }
-
-  #    echo "Processing $sample_type (raw) with ${norm_method:-no} normalization"
-  #    norm_flag=""
-  #    [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
-  #    echo "Using norm flag: $norm_flag"
-  #    bamCoverage \
-  #        -b "$input" \
-  #        -o "$output" \
-  #        "$norm_flag" \
-  #        --binSize 25 \
-  #        --effectiveGenomeSize "$GENOME_SIZE" \
-  #        --smoothLength 75 \
-  #        --ignoreDuplicates \
-  #        --numberOfProcessors "$THREADS"
-  #done
 done
 exit 1
 
