@@ -71,7 +71,8 @@ for filepath in "${FILES[@]}"; do
         --ignoreDuplicates
         --numberOfProcessors "$THREADS"
     )
-    [[ -n "$norm_method" ]] && flags+=(--normalizeUsing "$norm_method")
+    # Add normalization flag only if not raw (case-insensitive comparison)
+    [[ ${norm_method,,} != "raw" ]] && flags+=(--normalizeUsing "$norm_method")
     echo "  ---Normalization information---"
     echo "    Normalization method Suffix: $suffix"
     echo "    Normalization flag: $norm_flag"
