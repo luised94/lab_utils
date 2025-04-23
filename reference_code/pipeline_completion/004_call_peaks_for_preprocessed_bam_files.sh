@@ -130,6 +130,17 @@ for log in "${FRAG_LOGS[@]}"; do
   FRAGMENT_SIZES[$sample_name]=$frag_size
 done
 
+# Find input control
+INPUT_CONTROL=""
+for filepath in "${FILES[@]}"; do
+  filename=$(basename "$filepath")
+  if [[ "$filename" == input_*_deduped.bam ]]; then
+    INPUT_CONTROL="$filepath"
+    echo "Found input control file: $INPUT_CONTROL"
+    break
+  fi
+done
+
 # Process the files if found
 for filepath in "${FILES[@]}"; do
   filename=$(basename "$filepath")
