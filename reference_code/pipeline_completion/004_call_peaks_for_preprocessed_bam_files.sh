@@ -102,14 +102,15 @@ mapfile -t FRAG_LOGS < <(
 declare -A FRAGMENT_SIZES=()
 for log in "${FRAG_LOGS[@]}"; do
   # Extract sample type from path
-  sample_type=$(basename "$(dirname "$log")" | sed 's/_predictd//')
-  echo "Sample type: $sample_type"
+  sample_name=$(basename "$(dirname "$log")" | sed 's/_predictd//')
   # Extract fragment size
   frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log") || {
       echo "[ERROR] Failed to extract fragment size from $log" >&2
       #exit 3
   }
 
+  echo "Sample type: $sample_name"
+  echo "Fragment size: $frag_size"
   # Validate fragment size
   if ! [[ "$frag_size" =~ ^[0-9]+$ ]] && (( frag_size > 0 )); then
       echo "[ERROR] Invalid fragment size ($frag_size) in $log" >&2
@@ -117,7 +118,7 @@ for log in "${FRAG_LOGS[@]}"; do
   fi
 
   # Store in associative array
-  FRAGMENT_SIZES[$sample_type]=$frag_size
+  FRAGMENT_SIZES[$sample_name]=$frag_size
 done
 
 # Process the files if found
@@ -127,7 +128,7 @@ for filepath in "${FILES[@]}"; do
   sample_type=$(echo "$key" | cut -d'_' -f1)
   sample_name=$(echo "$key" | cut -d'_' -f1-2)
   bam_type=$(echo "$key" | cut -d'_' -f3 )
-  fragment_size=${FRAGMENT_SIZES[$sample_type]]}
+  fragment_size=${FRAGMENT_SIZES[$sample_name]]}
 
   echo "---Sample information---"
   echo "  Filename: $filename"
