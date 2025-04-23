@@ -92,30 +92,6 @@ for filepath in "${FILES[@]}"; do
 done
 exit 1 # Breakpoint
 
-##############################################
-# Helper functions
-##############################################
-# File path generators
-get_deduped_path() {
-  local sample_type=$1
-  echo "$OUTDIR/align/${sample_type}_deduped.bam"
-}
-
-get_shifted_path() {
-  local sample_type=$1
-  echo "$OUTDIR/align/${sample_type}_shifted.bam"
-}
-
-# Function to generate BigWig name
-get_bigwig_name() {
-  local sample=$1
-  # 'raw', 'deduped', or 'shifted'
-  local bam_type=$2
-  local norm_method=$3
-  local suffix="raw"
-  [[ -n "$norm_method" ]] && suffix="${norm_method,,}"
-  echo "$OUTDIR/coverage/${sample}_${bam_type}_${suffix}.bw"
-}
 
 get_peak_name() {
   local sample=$1

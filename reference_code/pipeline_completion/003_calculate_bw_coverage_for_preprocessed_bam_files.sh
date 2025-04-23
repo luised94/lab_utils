@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+################################################################################
+# Call peaks for raw, deduplicated and the shifted bam
+################################################################################
+# Purpose: Generate peak calling files for preprocessed bam files
+# Usage: Run as script.
+# $./003_deduplicate_and_shift_bam_files.sh
+# DEPENDENCIES: bash, data from 250207Bel BMC experiment and scripts 001 and 002 from the pipeline script
+# OUTPUT: Duplicate files with renaming for easier identification and isolation from data directories
+# NOTES: Updated the files being used in analysis, went from the data in the 241010Bel to the data in 250207Bel
+# AUTHOR: LEMR
+# DATE: 2025-02-07
+# UPDATE: 2025-04-22
+################################################################################
+#set -euo pipefail
+
+# === Cluster Environment Setup ===
+#if [[ "$(hostname)" != "luria" ]]; then
+#    echo "Error: This script must be run on luria cluster" 1>&2
+#    exit 1
+#fi
+
+# Cluster config
+THREADS=8
+# Genome data
+GENOME_SIZE=12000000  # 1.2e7 in integer form
+GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
+if [[ ! -f $GENOME_FASTA ]]; then
+  echo "$GENOME_FASTA does not exist."
+  exit 1
+fi
+# Define normalization methods
+declare -a NORMALIZATION_METHOD=("raw" "RPKM" "CPM")  # Raw, RPKM, and CPM
+# Output config
+OUTDIR="$HOME/data/preprocessing_test"
+SUB_DIRS=("align" "predictd" "peaks" "coverage")
+# Create directory structure
+mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
+
+# Initialization of array with keys and file paths
+# Create an array of files
+mapfile -t FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*.bam" | sort)
+
+# Check if any files were found
+if [ ${#FILES[@]} -eq 0 ]; then
+  echo "No *.bam files found in ~/data/preprocessing_test/align" >&2
+  exit 1
+fi
+
+module load python/2.7.13 deeptools/3.0.1
+# Process the files if found
+for filepath in "${FILES[@]}"; do
+  filename=$(basename "$filepath")
+  key=${filename%.bam}
+  sample_name=$(echo "$key" | cut -d'_' -f1-2)
+  bam_type=$(echo "$key" | cut -d'_' -f3 )
+
+  echo "---Sample information---"
+  echo "  Filename: $filename"
+  echo "  Sample_name: $sample_name"
+  echo "  Bam type: $bam_type"
+  for norm_method in "${NORMALIZATION_METHOD[@]}"; do
+    suffix=${norm_method,,}
+    output="$OUTDIR/coverage/${sample_name}_${bam_type}_${suffix}.bw"
+    flags=(
+        -b "$filepath"
+        -o "$output"
+        --binSize 25
+        --effectiveGenomeSize "$GENOME_SIZE"
+        --smoothLength 75
+        --ignoreDuplicates
+        --numberOfProcessors "$THREADS"
+    )
+    # Add normalization flag only if not raw (case-insensitive comparison)
+    [[ "$suffix" != "raw" ]] && flags+=(--normalizeUsing "$norm_method")
+    echo "  ---Normalization information---"
+    echo "    Normalization method Suffix: $suffix"
+    echo "    Normalization flag: $norm_flag"
+    echo "    Output: $output"
+
+    [[ -f "$output" ]] && {
+        echo "Skipping existing: $output"
+        continue
+    }
+
+    # Print the command that would be executed
+    echo "COMMAND: bamCoverage ${flags[*]}"
+
+    # Execute with all flags properly expanded
+    bamCoverage "${flags[@]}"
+  done
+done
+#
+# Create array of bigwig files
+declare -a BIGWIG_FILES
+mapfile -t BIGWIG_FILES < <(find "$OUTDIR/coverage" -name "*.bw" | sort)
+
+# Validate array
+if [[ ${#BIGWIG_FILES[@]} -eq 0 ]]; then
+  echo "ERROR: No bigwig files found in $OUTDIR/coverage" >&2
+  echo "Verify the directory or 003_calculate_bw_coverage_for_preprocessed_bam_files.sh" >&2
+  exit 3
+fi
+echo "Finished generating bigwig files..."
