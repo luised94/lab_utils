@@ -25,7 +25,7 @@ THREADS=8
 # Genome data
 GENOME_SIZE=12000000  # 1.2e7 in integer form
 GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
-BLACKLIST_BED_FILE=""
+BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
 # Check if blacklist file exists once before the loops
 BLACKLIST_EXISTS=false
 if [[ -f "$BLACKLIST_BED_FILE" ]]; then
@@ -102,7 +102,7 @@ for filepath in "${FILES[@]}"; do
       # Print the command that would be executed
       echo "COMMAND: bamCoverage ${flags_no_bl[*]}"
       # Execute with all flags properly expanded
-      #bamCoverage "${flags[@]}"
+      bamCoverage "${flags_no_bl[@]}"
     fi
 
     # --- Case 2: Process with blacklist ---
@@ -117,7 +117,7 @@ for filepath in "${FILES[@]}"; do
         # Print the command that would be executed
         echo "COMMAND: bamCoverage ${flags_with_bl[*]}"
         # Execute with all flags properly expanded
-        #bamCoverage "${flags_with_bl[@]}"
+        bamCoverage "${flags_with_bl[@]}"
       fi
     else
       echo "Blacklist file not found. Skipping: $output_name_with_bl"
