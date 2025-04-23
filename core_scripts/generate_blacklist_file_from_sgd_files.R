@@ -80,7 +80,7 @@ for (pattern_index in 1:length(blacklist_patterns)) {
   } else {
     cat("WARNING: No files found matching pattern:", pattern, "\n")
   }
-}
+} # end for loop for finding files
 
 # Report patterns not found
 missing_patterns <- blacklist_patterns[!patterns_found]

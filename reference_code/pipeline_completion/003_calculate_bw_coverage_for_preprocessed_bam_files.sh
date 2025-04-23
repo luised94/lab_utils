@@ -25,10 +25,21 @@ THREADS=8
 # Genome data
 GENOME_SIZE=12000000  # 1.2e7 in integer form
 GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
+BLACKLIST_BED_FILE=""
+# Check if blacklist file exists once before the loops
+BLACKLIST_EXISTS=false
+if [[ -f "$BLACKLIST_BED_FILE" ]]; then
+    BLACKLIST_EXISTS=true
+    echo "Using blacklist file: $BLACKLIST_BED_FILE"
+else
+    echo "Blacklist file not found: $BLACKLIST_BED_FILE. Blacklist runs will be skipped."
+fi
+
 if [[ ! -f $GENOME_FASTA ]]; then
   echo "$GENOME_FASTA does not exist."
   exit 1
 fi
+
 # Define normalization methods
 declare -a NORMALIZATION_METHOD=("raw" "RPKM" "CPM")  # Raw, RPKM, and CPM
 # Output config
@@ -52,19 +63,22 @@ module load python/2.7.13 deeptools/3.0.1
 for filepath in "${FILES[@]}"; do
   filename=$(basename "$filepath")
   key=${filename%.bam}
+  sample_type=$(echo "$key" | cut -d'_' -f1)
   sample_name=$(echo "$key" | cut -d'_' -f1-2)
   bam_type=$(echo "$key" | cut -d'_' -f3 )
 
   echo "---Sample information---"
+  echo "  Input Path: $filepath"
   echo "  Filename: $filename"
   echo "  Sample_name: $sample_name"
+  echo "  Sample type: $sample_type"
   echo "  Bam type: $bam_type"
+
   for norm_method in "${NORMALIZATION_METHOD[@]}"; do
     suffix=${norm_method,,}
-    output="$OUTDIR/coverage/${sample_name}_${bam_type}_${suffix}.bw"
-    flags=(
-        -b "$filepath"
-        -o "$output"
+    output_dir="$OUTDIR/coverage/"
+    base_flags=(
+        --bam "$filepath"
         --binSize 25
         --effectiveGenomeSize "$GENOME_SIZE"
         --smoothLength 75
@@ -72,25 +86,46 @@ for filepath in "${FILES[@]}"; do
         --numberOfProcessors "$THREADS"
     )
     # Add normalization flag only if not raw (case-insensitive comparison)
-    [[ "$suffix" != "raw" ]] && flags+=(--normalizeUsing "$norm_method")
+    [[ "$suffix" != "raw" ]] && base_flags+=(--normalizeUsing "$norm_method")
     echo "  ---Normalization information---"
     echo "    Normalization method Suffix: $suffix"
-    echo "    Normalization flag: $norm_flag"
-    echo "    Output: $output"
 
-    [[ -f "$output" ]] && {
-        echo "Skipping existing: $output"
-        continue
-    }
+    # --- Case 1: Process WITHOUT blacklist ---
+    output_name_no_bl="${output_dir}${key}_${suffix}_noBlacklist.bw"
+    echo "    Output without blacklist: $output_name_no_bl"
+    if [[ -f "$output_name_no_bl" ]]; then
+        echo "Output file already exists. Skipping: $output_name_no_bl"
+    else
+      # Create flags specifically for the NO blacklist run, adding the output file
+      flags_no_bl=("${base_flags[@]}" -o "$output_name_no_bl")
+      echo "Executing coverage calculation without blacklist..."
+      # Print the command that would be executed
+      echo "COMMAND: bamCoverage ${flags_no_bl[*]}"
+      # Execute with all flags properly expanded
+      #bamCoverage "${flags[@]}"
+    fi
 
-    # Print the command that would be executed
-    echo "COMMAND: bamCoverage ${flags[*]}"
+    # --- Case 2: Process with blacklist ---
+    if [[ "$BLACKLIST_EXISTS" == true ]]; then
+      output_name_with_bl="${output_dir}${key}_${suffix}_withBlacklist.bw"
+      if [[ -f "$output_name_with_bl" ]] ; then
+          echo "Output file already exists. Skipping: $output_name_with_bl"
+      else
+        echo "    Output with blacklist: $output_name_with_bl"
+        echo "Executing coverage calculation with blacklist..."
+        flags_with_bl=("${base_flags[@]}" -o "$output_name_with_bl" --blackListFileName "$BLACKLIST_BED_FILE")
+        # Print the command that would be executed
+        echo "COMMAND: bamCoverage ${flags_with_bl[*]}"
+        # Execute with all flags properly expanded
+        #bamCoverage "${flags_with_bl[@]}"
+      fi
+    else
+      echo "Blacklist file not found. Skipping: $output_name_with_bl"
+    fi
 
-    # Execute with all flags properly expanded
-    bamCoverage "${flags[@]}"
-  done
-done
-#
+  done # End of norm_method loop
+done # End of filepath loop
+
 # Create array of bigwig files
 declare -a BIGWIG_FILES
 mapfile -t BIGWIG_FILES < <(find "$OUTDIR/coverage" -name "*.bw" | sort)
