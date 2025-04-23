@@ -29,10 +29,25 @@ if [[ ! -f $GENOME_FASTA ]]; then
   echo "$GENOME_FASTA does not exist."
   exit 1
 fi
-# Define normalization methods
-declare -a NORMALIZATION_METHOD=("raw" "RPKM" "CPM")  # Raw, RPKM, and CPM
+
+# Core parameters used in all calls
+CORE_PARAMS=(
+  "-g $GENOME_SIZE"
+  "--SPMR"
+)
+
+# Analysis variants with significance thresholds
+declare -A PEAK_MODES=(
+  ['narrow_p']="--nomodel --call-summits --pvalue 1e-6"
+  ['narrow_q']="--nomodel --call-summits --qvalue 0.01"
+  ['broad_p']="--broad --broad-cutoff 0.1 --nomodel --pvalue 1e-6"
+  ['broad_q']="--broad --broad-cutoff 0.1 --nomodel --qvalue 0.01"
+  ['auto_p']="--fix-bimodal --call-summits --pvalue 1e-6"
+  ['auto_q']="--fix-bimodal --call-summits --qvalue 0.01"
+)
+
 # Output config
-OUTDIR="$HOME/preprocessing_test"
+OUTDIR="$HOME/data/preprocessing_test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
 # Create directory structure
 mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
@@ -47,51 +62,48 @@ if [ ${#FILES[@]} -eq 0 ]; then
   exit 1
 fi
 
-module load python/2.7.13 deeptools/3.0.1
+# Initialize Conda
+CONDA_ROOT=~/miniforge3
+if [[ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]]; then
+  . "$CONDA_ROOT/etc/profile.d/conda.sh"
+else
+  echo "ERROR: Conda not found at $CONDA_ROOT" >&2
+  exit 1
+fi
+
+# Activate MACS2 environment
+echo "Activating MACS2 environment..."
+conda activate macs2_env 2> /dev/null
+
+# Verify MACS2 installation
+if ! command -v macs2 &> /dev/null; then
+  echo "ERROR: MACS2 not installed. Install with:" >&2
+  echo "Run: conda install -c bioconda macs2=2.2.7.1" >&2
+  exit 2
+fi
+
+echo "MACS2 environment ready in $(which python)"
+
 # Process the files if found
 for filepath in "${FILES[@]}"; do
   filename=$(basename "$filepath")
   key=${filename%.bam}
+  sample_type=$(echo "$key" | cut -d'_' -f1)
   sample_name=$(echo "$key" | cut -d'_' -f1-2)
   bam_type=$(echo "$key" | cut -d'_' -f3 )
 
   echo "---Sample information---"
   echo "  Filename: $filename"
   echo "  Sample_name: $sample_name"
+  echo "  Sample type: $sample_type"
   echo "  Bam type: $bam_type"
-  for norm_method in "${NORMALIZATION_METHOD[@]}"; do
-    suffix=${norm_method,,}
-    output="$OUTDIR/coverage/${sample_name}_${bam_type}_${suffix}.bw"
-    flags=(
-        -b "$filepath"
-        -o "$output"
-        --binSize 25
-        --effectiveGenomeSize "$GENOME_SIZE"
-        --smoothLength 75
-        --ignoreDuplicates
-        --numberOfProcessors "$THREADS"
-    )
-    # Add normalization flag only if not raw (case-insensitive comparison)
-    [[ ${norm_method,,} != "raw" ]] && flags+=(--normalizeUsing "$norm_method")
-    echo "  ---Normalization information---"
-    echo "    Normalization method Suffix: $suffix"
-    echo "    Normalization flag: $norm_flag"
-    echo "    Output: $output"
 
-    [[ -f "$output" ]] && {
-        echo "Skipping existing: $output"
-        continue
-    }
-
-    # Print the command that would be executed
-    echo "COMMAND: bamCoverage ${flags[*]}"
-
-    # Execute with all flags properly expanded
-    bamCoverage "${flags[@]}"
-  done
+  if [[ "$sample_type" == "input" && "$bam_type" == "shifted" ]]; then
+    echo "Skipping input sample for shifted analysis"
+    continue
+  fi
 done
 exit 1 # Breakpoint
-
 
 get_peak_name() {
   local sample=$1
@@ -217,120 +229,6 @@ process_bam_set() {
   echo -e "\nCompleted processing $bam_type BAMs"
 }
 
-# Process original BAMs
-echo "=== Generating coverage for original BAMs ==="
-for sample_type in "${!SAMPLES[@]}"; do
-  input="${SAMPLES[$sample_type]}"
-  echo "Processing: $input"
-done
-exit 1
-
-# Process deduped BAMs
-echo -e "\n=== Generating coverage for deduplicated BAMs ==="
-for sample_type in "${!DEDUPED_BAMS[@]}"; do
-  input="${DEDUPED_BAMS[$sample_type]}"
-  echo "Processing: $input"
-  for norm_method in "${NORMALIZATION[@]}"; do
-      output=$(get_bigwig_name "$sample_type" "deduped" "$norm_method")
-      echo "File will be output to: $output"
-      [[ -f "$output" ]] && {
-          echo "Skipping existing: $output"
-          continue
-      }
-
-      echo "Processing $sample_type (deduped) with ${norm_method:-no} normalization"
-      norm_flag=""
-      [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
-      echo "Using norm flag: $norm_flag"
-      bamCoverage \
-          -b "$input" \
-          -o "$output" \
-          "$norm_flag" \
-          --binSize 25 \
-          --effectiveGenomeSize "$GENOME_SIZE" \
-          --smoothLength 75 \
-          --ignoreDuplicates \
-          --numberOfProcessors "$THREADS"
-  done
-done
-
-# Process shifted BAMs (skip input)
-echo -e "\n=== Generating coverage for shifted BAMs ==="
-for sample_type in 'test' 'reference'; do
-  input="${SHIFTED_BAMS[$sample_type]}"
-  echo "Processing: $input"
-  [[ -z "$input" ]] && continue  # Skip if no shifted BAM exists
-  
-  for norm_method in "${NORMALIZATION[@]}"; do
-      output=$(get_bigwig_name "$sample_type" "shifted" "$norm_method")
-      echo "File will be output to: $output"
-      [[ -f "$output" ]] && {
-          echo "Skipping existing: $output"
-          continue
-      }
-
-      echo "Processing $sample_type (shifted) with ${norm_method:-no} normalization"
-      norm_flag=""
-      [[ -n "$norm_method" ]] && norm_flag="--normalizeUsing $norm_method"
-      echo "Using norm flag: $norm_flag"
-      bamCoverage \
-          -b "$input" \
-          -o "$output" \
-          "$norm_flag" \
-          --binSize 25 \
-          --effectiveGenomeSize "$GENOME_SIZE" \
-          --smoothLength 75 \
-          --ignoreDuplicates \
-          --numberOfProcessors "$THREADS"
-  done
-done
-
-# Summary of generated files
-#echo -e "\n=== Coverage Generation Summary ==="
-#find "$OUTDIR/coverage" -name "*.bw" -exec basename {} \; | sort
-
-# Create array of bigwig files
-declare -a BIGWIG_FILES
-mapfile -t BIGWIG_FILES < <(find "$OUTDIR/coverage" -name "*.bw" | sort)
-
-# Validate array
-if [[ ${#BIGWIG_FILES[@]} -eq 0 ]]; then
-  echo "ERROR: No bigwig files found in $OUTDIR/coverage" >&2
-  exit 3
-fi
-
-# Display found files
-#echo "Found ${#BIGWIG_FILES[@]} bigwig files:"
-#for bw in "${BIGWIG_FILES[@]}"; do
-#    echo "  $bw"
-#done
-
-# Purge existing modules
-echo "Purging modules..."
-module purge
-
-# Initialize Conda
-CONDA_ROOT=~/miniforge3
-
-if [[ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]]; then
-  . "$CONDA_ROOT/etc/profile.d/conda.sh"
-else
-  echo "ERROR: Conda not found at $CONDA_ROOT" >&2
-  exit 1
-fi
-
-# Activate MACS2 environment
-echo "Activating MACS2 environment..."
-conda activate macs2_env 2> /dev/null
-
-# Verify MACS2 installation
-if ! command -v macs2 &> /dev/null; then
-  echo "ERROR: MACS2 not installed. Install with:" >&2
-  echo "conda install -c bioconda macs2=2.2.7.1" >&2
-  exit 2
-fi
-
-echo "MACS2 environment ready in $(which python)"
 
 echo -e "\n=== Read in fragment sizes for peak calls ==="
 # Read log file paths into array
@@ -389,21 +287,6 @@ for sample in "${!FRAGMENTS[@]}"; do
   echo "$sample: ${FRAGMENTS[$sample]}bp"
 done
 
-# Core parameters used in all calls
-CORE_PARAMS=(
-  "-g $GENOME_SIZE"
-  "--SPMR"
-)
-
-# Analysis variants with significance thresholds
-declare -A PEAK_MODES=(
-  ['narrow_p']="--nomodel --call-summits --pvalue 1e-6"
-  ['narrow_q']="--nomodel --call-summits --qvalue 0.01"
-  ['broad_p']="--broad --broad-cutoff 0.1 --nomodel --pvalue 1e-6"
-  ['broad_q']="--broad --broad-cutoff 0.1 --nomodel --qvalue 0.01"
-  ['auto_p']="--fix-bimodal --call-summits --pvalue 1e-6"
-  ['auto_q']="--fix-bimodal --call-summits --qvalue 0.01"
-)
 
 echo -e "\n=== Starting Peak Calling Analysis ==="
 echo "Available BAM sets:"
