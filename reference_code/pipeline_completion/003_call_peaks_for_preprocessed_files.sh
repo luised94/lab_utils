@@ -60,7 +60,7 @@ for filepath in "${FILES[@]}"; do
   echo "  Bam type: $bam_type"
   for norm_method in "${NORMALIZATION_METHOD[@]}"; do
     suffix=${norm_method,,}
-    output="$OUTDIR/coverage/${sample_type}_${bam_type}_${suffix}.bw"
+    output="$OUTDIR/coverage/${sample_name}_${bam_type}_${suffix}.bw"
     flags=(
         -b "$filepath"
         -o "$output"
