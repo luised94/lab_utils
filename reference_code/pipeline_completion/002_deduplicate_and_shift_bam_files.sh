@@ -103,36 +103,23 @@ fi
 # Output config
 OUTDIR="$HOME/data/preprocessing_test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
-
-##############################################
-# Initialization & Validation
-##############################################
 # Create directory structure
 mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
-
-# Display parameter summary
-echo "=== Pipeline Configuration ==="
-echo "Genome Size: $GENOME_SIZE"
-echo "Output Directory: $OUTDIR"
-echo "Threads: $THREADS"
-echo "Samples:"
-for stype in "${!SAMPLES[@]}"; do
-  echo " - $stype: ${SAMPLES[$stype]}"
-done
-echo "=============================="
 
 ##############################################
 # Preprocessing Workflow
 ##############################################
 # === Step 1: Duplicate Removal ===
+# === Step 1: Index Deduplicated BAMs ===
 echo -e "\n=== Marking Duplicates ==="
 for sample_type in "${!SAMPLES[@]}"; do
   raw_bam="${SAMPLES[$sample_type]}"
   deduplicated_bam="$OUTDIR/align/${sample_type}_deduped.bam"
+  index_file="${deduplicated_bam}.bai"
 
   echo "Processing $sample_type..."
-  echo "Input: $raw_bam"
-  echo "Output: $deduplicated_bam"
+  echo "  Input: $raw_bam"
+  echo "  Output: $deduplicated_bam"
 
   if [[ -f "$deduplicated_bam" ]]; then
     echo "Skipping existing: $deduplicated_bam"
@@ -148,19 +135,8 @@ for sample_type in "${!SAMPLES[@]}"; do
     echo "ERROR: Failed to create $deduplicated_bam" >&2
     exit 2
   fi
-  #echo "$sample_type Deduped Reads: "
-  #samtools view -c "$output"
-  #echo "Inspect first few reads"
-  #samtools view "$output" | head
-done # end deduplicate bam for loop
 
-# === Step 1b: Index Deduplicated BAMs ===
-echo -e "\n=== Indexing Deduplicated Files ==="
-for sample_type in "${!SAMPLES[@]}"; do
-  deduplicated_bam="$OUTDIR/align/${sample_type}_deduped.bam"
-  index_file="${deduplicated_bam}.bai"
   echo "Indexing $sample_type deduped BAM..."
-
   if [[ -f "$index_file" ]]; then
     echo "Index exists: $index_file"
   else
@@ -174,7 +150,11 @@ for sample_type in "${!SAMPLES[@]}"; do
       exit 3
     fi
   fi
-done # end indexing deduplicated bam file for loop
+  #echo "$sample_type Deduped Reads: "
+  #samtools view -c "$output"
+  #echo "Inspect first few reads"
+  #samtools view "$output" | head
+done # end deduplicate and index bam for loop
 
 # === Step 2: Fragment Analysis ===
 echo -e "\n=== Analyzing Fragment Sizes ==="

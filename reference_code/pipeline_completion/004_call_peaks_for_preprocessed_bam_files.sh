@@ -20,8 +20,6 @@
 #    exit 1
 #fi
 
-# Cluster config
-THREADS=8
 # Genome data
 GENOME_SIZE=12000000  # 1.2e7 in integer form
 GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
@@ -83,7 +81,48 @@ if ! command -v macs2 &> /dev/null; then
 fi
 
 echo "MACS2 environment ready in $(which python)"
+# === Load fragment samples for sample types ===
+# Read log file paths into array
+mapfile -t FRAG_LOGS < <(
+  find "$OUTDIR/predictd/" -type f -name "macs2.log"
+) || {
+  echo "[ERROR] Failed to find fragment size logs in $OUTDIR/predictd/" >&2
+  exit 1
+}
 
+# Validate number of log files
+[[ ${#FRAG_LOGS[@]} -eq ${#FILES[@]} ]] || {
+  echo "[ERROR] Expected ${#FILES[@]}fragment logs, found ${#FRAG_LOGS[@]}" >&2
+  echo "Found logs:" >&2
+  printf '%s\n' "${FRAG_LOGS[@]}" >&2
+  exit 2
+}
+
+# Initialize fragments associative array
+declare -A FRAGMENTS=()
+
+# Process each log file
+for log in "${FRAG_LOGS[@]}"; do
+  # Extract sample type from path
+  sample_type=$(basename "$(dirname "$log")" | sed 's/_predictd//')
+  #echo "Sample type: $sample_type"
+  # Extract fragment size
+  frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log") || {
+      echo "[ERROR] Failed to extract fragment size from $log" >&2
+      exit 3
+  }
+  
+  # Validate fragment size
+  if ! [[ "$frag_size" =~ ^[0-9]+$ ]] || (( frag_size > 0 )); then
+      echo "[ERROR] Invalid fragment size ($frag_size) in $log" >&2
+      exit 4
+  fi
+  
+  # Store in associative array
+  FRAGMENTS[$sample_type]=$frag_size
+done
+
+exit 1
 # Process the files if found
 for filepath in "${FILES[@]}"; do
   filename=$(basename "$filepath")
@@ -102,6 +141,7 @@ for filepath in "${FILES[@]}"; do
     echo "Skipping input sample for shifted analysis"
     continue
   fi
+
 done
 exit 1 # Breakpoint
 
