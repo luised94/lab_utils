@@ -197,9 +197,9 @@ for filepath in "${FILES[@]}"; do
     else
       echo "Executing macs2 command for ${output_name_prefix}..."
       # Execute the command
-      #macs2 "${flags[@]}" > "${output_dir}/${output_name}.log" 2>&1 || {
-      #  echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
-      #}
+      macs2 "${flags[@]}" > "${output_dir}/${output_name}.log" 2>&1 || {
+        echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
+      }
     fi
 
     # === Second run WITH input control (if available) ===
@@ -227,9 +227,9 @@ for filepath in "${FILES[@]}"; do
         echo -e "    COMMAND with input:\nmacs2 ${flags[*]}"
 
         # Execute the command
-        #macs2 "${flags[@]}" >> "${output_dir}/${output_name}.log" 2>&1 || {
-        #  echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
-        #}
+        macs2 "${flags[@]}" >> "${output_dir}/${output_name}.log" 2>&1 || {
+          echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
+        }
       fi
     fi
 
