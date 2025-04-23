@@ -47,6 +47,7 @@ if [ ${#FILES[@]} -eq 0 ]; then
   exit 1
 fi
 
+module load python/2.7.13 deeptools/3.0.1
 # Process the files if found
 for filepath in "${FILES[@]}"; do
   filename=$(basename "$filepath")
@@ -114,7 +115,6 @@ get_bigwig_name() {
   [[ -n "$norm_method" ]] && suffix="${norm_method,,}"
   echo "$OUTDIR/coverage/${sample}_${bam_type}_${suffix}.bw"
 }
-
 
 get_peak_name() {
   local sample=$1
@@ -239,18 +239,6 @@ process_bam_set() {
   done
   echo -e "\nCompleted processing $bam_type BAMs"
 }
-
-##############################################
-# Initialization & Validation
-##############################################
-# Display parameter summary
-echo "=== Pipeline Configuration ==="
-echo "Genome Size: $GENOME_SIZE"
-echo "Output Directory: $OUTDIR"
-echo "Threads: $THREADS"
-echo "=============================="
-
-module load python/2.7.13 deeptools/3.0.1
 
 # Process original BAMs
 echo "=== Generating coverage for original BAMs ==="
