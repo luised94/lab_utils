@@ -12,7 +12,6 @@
 # DATE: 2025-02-07
 # UPDATE: 2025-04-22
 ################################################################################
-
 #set -euo pipefail
 
 # === Cluster Environment Setup ===
@@ -61,6 +60,7 @@ for filepath in "${FILES[@]}"; do
   echo "  Bam type: $bam_type"
   for norm_method in "${NORMALIZATION_METHOD[@]}"; do
     suffix=${norm_method,,}
+    output="$OUTDIR/coverage/${sample_type}_${bam_type}_${suffix}.bw"
     flags=(
         -b "$filepath"
         -o "$output"
@@ -71,7 +71,6 @@ for filepath in "${FILES[@]}"; do
         --numberOfProcessors "$THREADS"
     )
     [[ -n "$norm_method" ]] && flags+=(--normalizeUsing "$norm_method")
-    output="$OUTDIR/coverage/${sample_type}_${bam_type}_${suffix}.bw"
     echo "  ---Normalization information---"
     echo "    Normalization method Suffix: $suffix"
     echo "    Normalization flag: $norm_flag"
