@@ -43,8 +43,8 @@ mapfile -t FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -n
 
 # Check if any files were found
 if [ ${#FILES[@]} -eq 0 ]; then
-    echo "No *.bam files found in ~/data/preprocessing_test/align" >&2
-    exit 1
+  echo "No *.bam files found in ~/data/preprocessing_test/align" >&2
+  exit 1
 fi
 
 # Process the files if found
@@ -85,7 +85,7 @@ for filepath in "${FILES[@]}"; do
     echo "COMMAND: bamCoverage ${flags[*]}"
 
     # Execute with all flags properly expanded
-    # bamCoverage "${flags[@]}"
+    bamCoverage "${flags[@]}"
   done
 done
 exit 1 # Breakpoint

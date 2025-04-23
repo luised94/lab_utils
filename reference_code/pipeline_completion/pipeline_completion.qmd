@@ -22,10 +22,16 @@ If you want to trace the logic of the code by following a variable, you can hove
 gUiw
 ```
 
-# Bash
+# Bash things
 ## Why were my samples not printing in the order I initialized them in an array?
 Bash associative arrays (declared with declare -A) do not maintain insertion order. When you iterate through an associative array in bash, the elements come out in an order based on the internal hash table implementation, not the order you inserted them.
 Also realized I didnt need the associative array at this stage.
+See: https://claude.ai/chat/8cbf7281-0b1c-48ed-b361-8fe21a96404a
+
+## A @ or * inside brackets of accessing an array
+ The difference between [*] and [@] is subtle but important:
+${flags[*]} expands all array elements into a single string, with elements separated by the first character of IFS (usually a space)
+${flags[@]} expands each array element as a separate word
 See: https://claude.ai/chat/8cbf7281-0b1c-48ed-b361-8fe21a96404a
 
 # Notes
