@@ -4,7 +4,7 @@
 ################################################################################
 # Purpose: Define files that will be duplicated from their location in the ~/data/<experiment_id>/. Files will be renamed to set the metadata.
 # Usage: Run as script.
-# $./duplicate_files_for_testing.sh
+# $./001_duplicate_files_for_testing.sh
 # DEPENDENCIES: bash, data from 250207Bel BMC experiment
 # OUTPUT: Duplicate files with renaming for easier identification and isolation from data directories
 # NOTES: Updated the files being used in analysis, went from the data in the 241010Bel to the data in 250207Bel
@@ -65,7 +65,7 @@ done
 }
 
 echo "All bam files copied."
-mapfiles -t BAM_FILES < <(find "$OUTDIR/align" -type f -name "*.bam")
+mapfile -t BAM_FILES < <(find "$OUTDIR/align" -type f -name "*.bam")
 if [[ ${#SAMPLES} -eq ${#BAM_FILES} ]];
 then
   echo "[WARNING] Number of samples in array does not equal number of bam files in the directory."
@@ -73,8 +73,16 @@ then
 fi
 
 echo "Indexing raw bam files..."
-mapfiles -t RAW_BAM < <(find "$OUTDIR/align" -type f -name "*_raw.bam")
+mapfile -t RAW_BAM < <(find "$OUTDIR/align" -type f -name "*_raw.bam")
+module add samtools
 for bam in "${RAW_BAM[@]}"; do samtools index "$bam" ; done
+mapfile -t BAI_FILES < <(find "$OUTDIR/align" -type f -name "*.bam.bai")
+if [[ ${#BAI_FILES} -eq ${#BAM_FILES} ]];
+then
+  echo "[WARNING] Number of index files does not equal number of bam files in the directory."
+  echo "[SUGGESTION] Double check the files in the directory. Could be leftover from previous analysis."
+fi
+
 echo "Script complete."
 echo "See file for the for loop"
 
