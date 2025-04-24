@@ -333,6 +333,7 @@ for (i in 1:nrow(manifest)) {
   write.table(
     x = bed_data[type_mask, ],
     file = current$FilePath,
+    append = FALSE,
     sep = "\t",
     quote = FALSE,
     row.names = FALSE,
@@ -390,10 +391,8 @@ if(create_combined %in% c("y", "yes")) {
     col.names = FALSE
   )
 
-  cat(sprintf(
-    "\nSuccessfully wrote combined BED file with:\n- %d total features\n- Color-coded types\n- Genome browser compatibility\n",
-    nrow(combined_output)
-  ))
+  cat("Succesfully wrote bed file.")
+
 
   # Create matching Gviz style file
   #style_path <- file.path(output_directory, "gviz_style.txt")

@@ -371,3 +371,4 @@ if (file.exists(output_file_path)) {
 }
 
 cat("Blacklist generation complete.\n")
+cat("Run bedtools merge -i my_blacklist_original.bed > my_blacklist_merged.bed to ensure bed file is merged.")
