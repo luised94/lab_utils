@@ -47,18 +47,39 @@ do
     echo "Input: $input"
     echo "Copy: $copy_path"
 
-    if [[ ! -e "$input" ]]; then
+    if [[ ! -e "$input" ]];
+    then
         echo "[ERROR] Missing $sample_type file: $input" 1>&2
         missing_files=1
     else
         echo "Will copy. Bam file found: $input"
+        # Copy if it does not exist
         [[ ! -e "$copy_path" ]] && { cp "$input" "$copy_path"; }
     fi
 done
 
-(( missing_files )) && { echo "Aborting: Missing bam files"; echo "Use another experiment for testing or download Eaton 2010 data."; exit 1; }
-echo "All bam files copied."
+(( missing_files )) && {
+  echo "Aborting: Missing bam files";
+  echo "Use another experiment for testing or download Eaton 2010 data.";
+  exit 1;
+}
 
+echo "All bam files copied."
+mapfiles -t BAM_FILES < <(find "$OUTDIR/align" -type f -name "*.bam")
+if [[ ${#SAMPLES} -eq ${#BAM_FILES} ]];
+then
+  echo "[WARNING] Number of samples in array does not equal number of bam files in the directory."
+  echo "[SUGGESTION] Double check the files in the directory. Could be leftover from previous analysis."
+fi
+
+echo "Indexing raw bam files..."
+mapfiles -t RAW_BAM < <(find "$OUTDIR/align" -type f -name "*_raw.bam")
+for bam in "${RAW_BAM[@]}"; do samtools index "$bam" ; done
+echo "Script complete."
+echo "See file for the for loop"
+
+# Copy fastq files. Not the focus of the experiment although it could be better to preprocess duplicates before
+# Makes next steps faster.
 #declare -A FASTQ_FILES=(
 #    ['test']="$HOME/data/250207Bel/fastq/consolidated_245018_sequence.fastq"
 #    ['input']="$HOME/data/250207Bel/fastq/consolidated_245003_sequence.fastq"
@@ -84,7 +105,4 @@ echo "All bam files copied."
 #done
 #
 #(( missing_files )) && { echo "Aborting: Missing fastq files"; echo "Use another experiment for testing or download Eaton 2010 data."; exit 1; }
-echo "Script complete."
-echo "Remember to use samtools to index the raw bam files."
-echo "See file for the for loop"
 #for bam in *_raw.bam; do samtools index "$bam" ; done

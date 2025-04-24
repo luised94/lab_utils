@@ -49,17 +49,24 @@ EXTENSIONS=(
   "narrowPeak"
   "broadPeak"
   "gappedPeak"
+  "predictd" # R script by MACS2 for plotting
 )
 
 # Run this first to ensure the proper files are found.
-for EXTENSION in "${EXTENSIONS[@]}"; do
+for EXTENSION in "${EXTENSIONS[@]}";
+do
   formatted_extension="*.${EXTENSION}"
   echo "Finding files for: ${formatted_extension}"
   find ${TARGET_DIRECTORY} -type f -name "${formatted_extension}"
 done
 
 for EXTENSION in "${EXTENSIONS[@]}"; do
-  formatted_extension="*.${EXTENSION}"
+  if [[ ${EXTENSION} == predictd ]];
+  then
+    formatted_extension="*${EXTENSION}*"
+  else
+    formatted_extension="*.${EXTENSION}"
+  fi
   echo "Finding files for: ${formatted_extension}"
   find ${TARGET_DIRECTORY} -type f -name "${formatted_extension}" -delete
 done
