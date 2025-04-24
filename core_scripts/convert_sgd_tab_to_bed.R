@@ -246,6 +246,24 @@ stopifnot(
   "Empty feature names" = !any(is.na(bed_data$name) | bed_data$name == "")
 )
 
+message("Head of bed data:")
+print(head(bed_data))
+
+# Sort the bed dataframe by chromosome, start and end
+# --- Define the chromosome levels ---
+#chrom_levels <- mixedsort(unique(bed_data$chrom))
+chrom_levels <- c(
+  "chrI", "chrII", "chrIII", "chrIV", "chrV", "chrVI", "chrVII", "chrVIII",
+  "chrIX", "chrX", "chrXI", "chrXII", "chrXIII", "chrXIV", "chrXV", "chrXVI"
+)
+
+# Filter to include only chromosomes in data.
+chrom_levels <- chrom_levels[chrom_levels %in% bed_data$chrom]
+bed_data$chrom_factor <- factor(bed_data$chrom, levels = chrom_levels, ordered = TRUE)
+sorted_order <- order(bed_data$chrom_factor, bed_data$start, bed_data$end)
+bed_data <- bed_data[sorted_order, ]
+bed_data$chrom_factor <- NULL
+
 cat("Checking for duplicate features...\n")
 duplicate_keys <- paste(bed_data$chrom, bed_data$start, bed_data$end, bed_data$name)
 if(any(duplicated(duplicate_keys))) {
