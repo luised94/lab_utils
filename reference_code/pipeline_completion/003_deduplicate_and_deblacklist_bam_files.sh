@@ -60,8 +60,8 @@ THREADS=8
 # Store find results in a variable
 # See ./lab_utils/reference_code/pipeline_completion/duplicate_files_for_testing.sh to see what samples should be initialized.
 # Alternatively verify the directory with the find command.
-FILES=$(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" | sort)
 #mapfile -d '' FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" -print0)
+FILES=$(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" | sort)
 
 # Step 2: Check if any files were found
 if [ -z "$FILES" ]; then
@@ -157,96 +157,6 @@ for sample_type in "${!SAMPLES[@]}"; do
 done # end deduplicate and index bam for loop
 
 # === Step 2: Fragment Analysis ===
-echo -e "\n=== Analyzing Fragment Sizes ==="
-declare -A FRAGMENTS=()
-for sample_type in "${SELECTED_SAMPLE_KEYS[@]}"; do
-  echo "Processing $sample_type..."
-  deduplicated_bam="$OUTDIR/align/${sample_type}_deduped.bam"
-  outdir="$OUTDIR/predictd/${sample_type}_predictd"
-  log_file="$outdir/macs2.log"
-
-  mkdir -p "$outdir"
-
-  # Only run MACS2 if log is missing/incomplete
-  if [[ ! -f "$log_file" ]] || ! grep -q 'predicted fragment length is' "$log_file"; then
-    echo "Running fragment size prediction..."
-    macs2 predictd \
-        --ifile "$deduplicated_bam" \
-        --mfold 2 200 \
-        --gsize "$GENOME_SIZE" \
-        --outdir "$outdir" 2> "$log_file"
-  else
-    echo "Using existing prediction results in: $log_file"
-  fi
-
-  # Validate and extract fragment size
-  if ! frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log_file"); then
-    echo -e "\nERROR: Fragment analysis failed for $sample_type"
-    echo "Debug info:"
-    echo "Log file: $log_file"
-    [[ -f "$log_file" ]] && tail -n 20 "$log_file"
-    exit 4
-  fi
-
-  FRAGMENTS[$sample_type]=$frag_size
-  echo -e "Fragment Size Analysis Complete\n  Sample: $sample_type\n  Size: ${frag_size}bp\n  Log: ${log_file/$OUTDIR/\$OUTDIR}\n"
-done # end fragment size analysis for loop
-
-# === Step 3: Initializing chromosome lengths ===
-# In main workflow, after variable initialization
-echo -e "\n=== Chromosome Size Initialization ==="
-CHROM_SIZES_FILE="$OUTDIR/chrom.sizes"
-# Generate .fai if missing
-if [[ ! -f "${GENOME_FASTA}.fai" ]]; then
-  echo "Creating FASTA index for reference genome..."
-  samtools faidx "$GENOME_FASTA" || {
-    echo "[ERROR] Failed to index reference FASTA" >&2
-    exit 10
-  }
-else
-  echo "Genome fasta index present. Skipping..."
-fi
-
-# Generate chrom.sizes if missing
-if [[ ! -f "$CHROM_SIZES_FILE" ]]; then
-  echo -e "\nBuilding chromosome size file..."
-  echo "Input FASTA: $(basename "$GENOME_FASTA")"
-  echo "Output sizes: $CHROM_SIZES_FILE"
-
-  awk '{print $1 "\t" $2}' "${GENOME_FASTA}.fai" > "$CHROM_SIZES_FILE" || {
-    echo "[ERROR] Failed to create chrom.sizes" >&2
-    exit 11
-  }
-
-  # Validate non-empty output
-  [[ -s "$CHROM_SIZES_FILE" ]] || {
-    echo "[ERROR] chrom.sizes file is empty" >&2
-    exit 12
-  }
-else
-  echo "Chrom sizes file present. Skipping..."
-fi
-
-# Load into associative array with debug output
-echo -e "\nLoading chromosome sizes:"
-declare -A CHROM_SIZES=()
-while IFS=$'\t' read -r chrom size; do
-  # Skip empty lines
-  [[ -z "$chrom" ]] && continue
-
-  # Trim additional fields after first tab
-  chrom="${chrom%%[[:space:]]*}"
-
-  echo " - ${chrom}: ${size}bp"
-  CHROM_SIZES["$chrom"]="$size"
-done < "$CHROM_SIZES_FILE"
-
-echo -e "ChromDB status: Loaded ${#CHROM_SIZES[@]} chromosomes\n"
-echo "======================================="
-
-# Example chromosome checks
-test_chr="chrI"
-echo "Debug: ${test_chr} length = ${CHROM_SIZES[$test_chr]:-UNDEFINED}"
 
 # === Step 4: Read Shifting ===
 echo -e "\n=== Shifting Reads ==="

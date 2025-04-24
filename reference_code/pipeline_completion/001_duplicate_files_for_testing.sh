@@ -85,32 +85,3 @@ fi
 
 echo "Script complete."
 echo "See file for the for loop"
-
-# Copy fastq files. Not the focus of the experiment although it could be better to preprocess duplicates before
-# Makes next steps faster.
-#declare -A FASTQ_FILES=(
-#    ['test']="$HOME/data/250207Bel/fastq/consolidated_245018_sequence.fastq"
-#    ['input']="$HOME/data/250207Bel/fastq/consolidated_245003_sequence.fastq"
-#    ['reference']="$HOME/data/100303Bel/fastq/consolidated_034475_sequence.fastq"
-#)
-#
-#declare -i missing_files=0
-#for sample_type in "${!FASTQ_FILES[@]}";
-#do
-#    input="${FASTQ_FILES[$sample_type]}"
-#    copy_path="$OUTDIR/fastq/${sample_type}_raw.fastq"
-#    echo "Processing $sample_type..."
-#    echo "Input: $input"
-#    echo "Copy: $copy_path"
-#
-#    if [[ ! -e "$input" ]]; then
-#        echo "[ERROR] Missing $sample_type file: $input" 1>&2
-#        missing_files=1
-#    else
-#        echo "Will copy. Fastq file found: $input"
-#        [[ ! -e $copy_path ]] && { cp $input $copy_path; }
-#    fi
-#done
-#
-#(( missing_files )) && { echo "Aborting: Missing fastq files"; echo "Use another experiment for testing or download Eaton 2010 data."; exit 1; }
-#for bam in *_raw.bam; do samtools index "$bam" ; done
