@@ -1,4 +1,3 @@
-
 echo -e "\n=== Analyzing Fragment Sizes ==="
 declare -A FRAGMENTS=()
 for sample_type in "${SELECTED_SAMPLE_KEYS[@]}"; do

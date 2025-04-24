@@ -12,7 +12,12 @@
 # DATE: 2025-04-17
 # UPDATE: 2025-02-07
 ################################################################################
-echo "Starting script for copying bam and fastq files for pipeline testing"
+SCRIPT_NAME=$(basename "$0")
+CURRENT_TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
+echo "=========================================="
+echo "Script: $SCRIPT_NAME"
+echo "Start Time: $CURRENT_TIMESTAMP"
+echo "=========================================="
 declare -A SAMPLES=(
   # WT_NONE_NOCO_HM1108_2_positive
   ['test_001']="$HOME/data/250207Bel/alignment/processed_126050_sequence_to_S288C_sorted.bam"

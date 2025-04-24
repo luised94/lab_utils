@@ -20,7 +20,6 @@ echo "Start Time: $CURRENT_TIMESTAMP"
 echo "=========================================="
 
 # Genome data
-GENOME_SIZE=12000000  # 1.2e7 in integer form
 GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
 if [[ ! -f $GENOME_FASTA ]]; then
   echo "$GENOME_FASTA does not exist."
@@ -31,10 +30,10 @@ fi
 OUTDIR="$HOME/data/preprocessing_test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
 
+CHROM_SIZES_FILE="$OUTDIR/chrom.sizes"
 # Create directory structure
 mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
 echo -e "\n=== Chromosome Size Initialization ==="
-CHROM_SIZES_FILE="$OUTDIR/chrom.sizes"
 
 # Generate .fai if missing
 if [[ ! -f "${GENOME_FASTA}.fai" ]]; then
@@ -69,6 +68,7 @@ fi
 
 # Load into associative array with debug output
 # Reusable component start
+#CHROM_SIZES_FILE="$OUTDIR/chrom.sizes"
 echo -e "\nLoading chromosome sizes:"
 declare -A CHROM_SIZES=()
 while IFS=$'\t' read -r chrom size; do
