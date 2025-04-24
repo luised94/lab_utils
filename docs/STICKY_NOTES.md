@@ -191,3 +191,10 @@ Scripts to generate publication figures will be more targeted and streamlined ei
 ## 2025-04-07
 Similar problems with functions. They are probably doing too much but not as bad as last time.
 Need to run the script for the bigwig files to see the effects of bam and bigwig processing. Should be fine to source from R after loading.
+
+## 2025-04-23
+Updated the pipeline completion scripts
+Have a blacklist file now to start.
+Need to rework the deduplication and shifting script to do blacklist removal after deduplication then do the shifting and fragment length prediction
+Remove redundant operations from the deduplication script (like defining selected sample keys) by extracting metadata from the filename like I did in 003 and 004 scripts.
+Remove or comment the logic for coverage calculation with blacklist
