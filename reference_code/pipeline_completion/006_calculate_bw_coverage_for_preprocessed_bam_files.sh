@@ -90,8 +90,8 @@ for filepath in "${FILES[@]}"; do
         --binSize "$BIN_SIZE"
         --effectiveGenomeSize "$GENOME_SIZE"
         --smoothLength "$SMOOTH_LENGTH"
-        --ignoreDuplicates
         --numberOfProcessors $(( THREADS / 2))
+        #--ignoreDuplicates
     )
     # Add normalization flag only if not raw (case-insensitive comparison)
     [[ "$norm_suffix" != "raw" ]] && base_flags+=(--normalizeUsing "$norm_method")
