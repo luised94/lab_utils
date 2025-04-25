@@ -59,7 +59,7 @@ SUB_DIRS=("align" "predictd" "peaks" "coverage" "metrics")
 # Create directory structure
 mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
 
-# Initialization of array with keys and file paths
+# Initialization of array with file paths
 # Store find results in a variable
 #mapfile -d '' FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" -print0)
 mapfile -t FILES < <( find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" | sort )
@@ -82,15 +82,15 @@ echo -e "\n=== Deduplicating and removing reads in blacklist ==="
 for filepath in "${FILES[@]}";
 do
   filename=$(basename "$filepath")
-  key=${filename%.bam}
-  deduplicated_bam="$OUTDIR/align/${key}_deduped.bam"
+  sample_name=${filename%.bam}
+  deduplicated_bam="$OUTDIR/align/${sample_name}_deduped.bam"
   index_file_of_deduplicated_bam="${deduplicated_bam}.bai"
   blacklist_filtered_bam="${deduplicated_bam%.bam}_blFiltered.bam"
   index_file_of_blacklist_filtered_bam="${blacklist_filtered_bam}.bai"
 
   echo "--- Sample Information ---"
   echo "Filepath: $filename"
-  echo "Key: $key"
+  echo "Sample_name: $sample_name"
   echo "Deduplicated bam: $deduplicated_bam"
   echo "Deduplicated bam index file: $index_file_of_deduplicated_bam"
   echo "Blacklist bam: $blacklist_filtered_bam"
@@ -102,7 +102,7 @@ do
   #  java -jar $PICARD_JAR MarkDuplicates \
   #      I="$filepath" \
   #      O="$deduplicated_bam" \
-  #      M="$OUTDIR/metrics/${key}_dup_metrics.txt" \
+  #      M="$OUTDIR/metrics/${sample_name}_dup_metrics.txt" \
   #      REMOVE_DUPLICATES=true
   #else
   #  echo "Skipping existing: $deduplicated_bam"
@@ -164,4 +164,4 @@ do
   #  echo "Index exists: $index_file_of_blacklist_filtered_bam"
   #fi
 
-done # end deduplicate and index bam for loop
+done # end deduplicate and blacklist filter loop
