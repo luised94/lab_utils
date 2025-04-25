@@ -97,38 +97,37 @@ do
   echo "Blacklist bam index file: $index_file_of_blacklist_filtered_bam"
 
   # === Deduplicate Bam files ===
-  #if [[ ! -f "$deduplicated_bam" ]];
-  #then
-  #  java -jar $PICARD_JAR MarkDuplicates \
-  #      I="$filepath" \
-  #      O="$deduplicated_bam" \
-  #      M="$OUTDIR/metrics/${sample_name}_dup_metrics.txt" \
-  #      REMOVE_DUPLICATES=true
-  #else
-  #  echo "Skipping existing: $deduplicated_bam"
-  #fi
+  if [[ ! -f "$deduplicated_bam" ]];
+  then
+    java -jar $PICARD_JAR MarkDuplicates \
+        I="$filepath" \
+        O="$deduplicated_bam" \
+        M="$OUTDIR/metrics/${sample_name}_dup_metrics.txt" \
+        REMOVE_DUPLICATES=true
+  else
+    echo "Skipping existing: $deduplicated_bam"
+  fi
 
-  ## Validate output
-  #if [[ ! -s "$deduplicated_bam" ]];
-  #then
-  #  echo "ERROR: Failed to create $deduplicated_bam" >&2
-  #  exit 2
-  #fi
+  # Validate output
+  if [[ ! -s "$deduplicated_bam" ]];
+  then
+    echo "ERROR: Failed to create $deduplicated_bam" >&2
+    exit 2
+  fi
 
-  #echo "Indexing deduped BAM..."
-  #if [[ ! -f "$index_file_of_deduplicated_bam" ]];
-  #then
-  #  echo "Indexing: $deduplicated_bam"
-  #  samtools index "$deduplicated_bam"
-  #  if [[ $? -ne 0 ]];
-  #  then
-  #    echo "[ERROR] Indexing failed for ${deduplicated_bam} (exit $exit_code)" >&2
-  #    exit 3
-  #  fi
-  #  echo "File $deduplicated_bam indexed succesfully"
-  #else
-  #  echo "Index exists: $index_file_of_deduplicated_bam"
-  #fi
+  echo "Indexing deduped BAM..."
+  if [[ ! -f "$index_file_of_deduplicated_bam" ]];
+  then
+    echo "Indexing: $deduplicated_bam"
+    if ! samtools index "$deduplicated_bam" 2>&1;
+    then
+      echo "[ERROR] Indexing failed for ${deduplicated_bam} " >&2
+      exit 3
+    fi
+    echo "File $deduplicated_bam indexed succesfully"
+  else
+    echo "Index exists: $index_file_of_deduplicated_bam"
+  fi
 
   ## === Filter reads in blacklist regions ===
   #if [[ ! -f "$blacklist_filtered_bam" ]];
@@ -154,9 +153,9 @@ do
   #then
   #  echo "Indexing: $blacklist_filtered_bam"
   #  samtools index "$blacklist_filtered_bam"
-  #  if [[ $? -ne 0 ]];
+  #  if ! samtools index "$blacklist_filtered_bam" 2>&1;
   #  then
-  #    echo "[ERROR] Indexing failed for ${blacklist_filtered_bam} (exit $exit_code)" >&2
+  #    echo "[ERROR] Indexing failed for ${blacklist_filtered_bam} " >&2
   #    exit 3
   #  fi
   #  echo "File $blacklist_filtered_bam indexed succesfully"
