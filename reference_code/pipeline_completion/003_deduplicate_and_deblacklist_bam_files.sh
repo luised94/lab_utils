@@ -20,11 +20,22 @@ echo "Start Time: $CURRENT_TIMESTAMP"
 echo "=========================================="
 #set -euo pipefail
 
+# Reusable component start
 # === Cluster Environment Setup ===
-#if [[ "$(hostname)" != "luria" ]]; then
-#    echo "Error: This script must be run on luria cluster" 1>&2
-#    exit 1
-#fi
+# Check if running on head node (should use interactive job instead)
+if [[ "$(hostname)" == "luria" ]]; then
+    echo "Error: This script should not be run on the head node" 1>&2
+    echo "Please run: srun --pty bash" 1>&2
+    exit 1
+fi
+
+# Check if running inside a Slurm allocation
+if [[ -z "${SLURM_JOB_ID}" ]]; then
+    echo "Error: This script must be run inside a Slurm allocation" 1>&2
+    echo "Please run: srun --pty bash" 1>&2
+    exit 1
+fi
+# Reusable component end
 
 # Load required modules
 module load picard/2.18.26 java samtools bedtools python/2.7.13 deeptools/3.0.1
@@ -38,12 +49,6 @@ fi
 #========================================
 # Cluster config
 #THREADS=8
-# Genome data
-GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
-if [[ ! -f $GENOME_FASTA ]]; then
-  echo "$GENOME_FASTA does not exist."
-  exit 1
-fi
 
 BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
 # Check if blacklist file exists once before the loops
@@ -129,38 +134,38 @@ do
     echo "Index exists: $index_file_of_deduplicated_bam"
   fi
 
-  ## === Filter reads in blacklist regions ===
-  #if [[ ! -f "$blacklist_filtered_bam" ]];
-  #then
-  #  alignmentSieve --bam "$deduplicated_bam" \
-  #    --blackListFileName "$BLACKLIST_BED_FILE" \
-  #    --outputBamFile "$blacklist_filtered_bam" \
-  #    --outFileFormat BAM \
-  #    --numberOfProcessors auto
-  #else
-  #  echo "Skipping existing: $blacklist_filtered_bam"
-  #fi
+  # === Filter reads in blacklist regions ===
+  if [[ ! -f "$blacklist_filtered_bam" ]];
+  then
+    alignmentSieve --bam "$deduplicated_bam" \
+      --blackListFileName "$BLACKLIST_BED_FILE" \
+      --outputBamFile "$blacklist_filtered_bam" \
+      --outFileFormat BAM \
+      --numberOfProcessors auto
+  else
+    echo "Skipping existing: $blacklist_filtered_bam"
+  fi
 
-  ## Validate output
-  #if [[ ! -s "$blacklist_filtered_bam" ]];
-  #then
-  #  echo "ERROR: Failed to create $blacklist_filtered_bam" >&2
-  #  exit 2
-  #fi
+  # Validate output
+  if [[ ! -s "$blacklist_filtered_bam" ]];
+  then
+    echo "ERROR: Failed to create $blacklist_filtered_bam" >&2
+    exit 2
+  fi
 
-  #echo "Indexing blacklist filtered BAM..."
-  #if [[ ! -f "$index_file_of_blacklist_filtered_bam" ]];
-  #then
-  #  echo "Indexing: $blacklist_filtered_bam"
-  #  samtools index "$blacklist_filtered_bam"
-  #  if ! samtools index "$blacklist_filtered_bam" 2>&1;
-  #  then
-  #    echo "[ERROR] Indexing failed for ${blacklist_filtered_bam} " >&2
-  #    exit 3
-  #  fi
-  #  echo "File $blacklist_filtered_bam indexed succesfully"
-  #else
-  #  echo "Index exists: $index_file_of_blacklist_filtered_bam"
-  #fi
+  echo "Indexing blacklist filtered BAM..."
+  if [[ ! -f "$index_file_of_blacklist_filtered_bam" ]];
+  then
+    echo "Indexing: $blacklist_filtered_bam"
+    samtools index "$blacklist_filtered_bam"
+    if ! samtools index "$blacklist_filtered_bam" 2>&1;
+    then
+      echo "[ERROR] Indexing failed for ${blacklist_filtered_bam} " >&2
+      exit 3
+    fi
+    echo "File $blacklist_filtered_bam indexed succesfully"
+  else
+    echo "Index exists: $index_file_of_blacklist_filtered_bam"
+  fi
 
 done # end deduplicate and blacklist filter loop
