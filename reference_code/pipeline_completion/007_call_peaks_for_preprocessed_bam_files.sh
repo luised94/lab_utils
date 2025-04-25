@@ -18,13 +18,24 @@ echo "=========================================="
 echo "Script: $SCRIPT_NAME"
 echo "Start Time: $CURRENT_TIMESTAMP"
 echo "=========================================="
-#set -euo pipefail
 
+# Reusable component start ===
 # === Cluster Environment Setup ===
-#if [[ "$(hostname)" != "luria" ]]; then
-#    echo "Error: This script must be run on luria cluster" 1>&2
-#    exit 1
-#fi
+# Check if running on head node (should use interactive job instead)
+if [[ "$(hostname)" == "luria" ]]; then
+    echo "Error: This script should not be run on the head node" 1>&2
+    echo "Please run: srun --pty bash" 1>&2
+    exit 1
+fi
+
+# Check if running inside a Slurm allocation
+if [[ -z "${SLURM_JOB_ID}" ]]; then
+    echo "Error: This script must be run inside a Slurm allocation" 1>&2
+    echo "Please run: srun --pty bash" 1>&2
+    exit 1
+fi
+# Reusable component end ===
+
 # Initialize Conda
 CONDA_ROOT=~/miniforge3
 if [[ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]]; then
@@ -69,20 +80,26 @@ if [ ${#FILES[@]} -eq 0 ]; then
 fi
 
 # Find input control
-INPUT_CONTROL=""
-for filepath in "${FILES[@]}"; do
-  filename=$(basename "$filepath")
-  if [[ "$filename" == input_*_blFiltered.bam ]]; then
-    INPUT_CONTROL="$filepath"
-    echo "Found input control file: $INPUT_CONTROL"
-    break
-  fi
-done
+INPUT_FILE_PATTERN="input_*_blFiltered.bam"
+# Use find to get all matching files
+mapfile -t matching_files < <(find "$OUTDIR/align/" -name "$INPUT_FILE_PATTERN" -type f)
 
-# Check the input file was found
-if [[ -z "$INPUT_CONTROL" ]]; then
-  echo "[WARNING] No input control file found. Some analyses will be skipped."
+# Check how many files were found
+if [[ ${#matching_files[@]} -eq 0 ]]; then
+    echo "[ERROR] No input control files matching pattern '$INPUT_FILE_PATTERN' found."
+    exit 1
 fi
+
+if [[ ${#matching_files[@]} -gt 1 ]]; then
+    echo "[ERROR] Multiple input control files found matching pattern '$INPUT_FILE_PATTERN':"
+    printf "  %s\n" "${matching_files[@]}"
+    echo "Please specify a more precise pattern."
+    exit 1
+fi
+
+# Exactly one file found - success!
+INPUT_CONTROL="${matching_files[0]}"
+echo "Found input control file: $INPUT_CONTROL"
 
 # Analysis variants with significance thresholds
 declare -A PEAK_MODES=(
@@ -97,10 +114,10 @@ declare -A PEAK_MODES=(
 # Process the files if found
 for filepath in "${FILES[@]}"; do
   filename=$(basename "$filepath")
-  key=${filename%.bam}
-  sample_type=$(echo "$key" | cut -d'_' -f1)
-  sample_name=$(echo "$key" | cut -d'_' -f1-2)
-  bam_type=$(echo "$key" | cut -d'_' -f3 )
+  basename=${filename%.bam}
+  sample_type=$(echo "$basename" | cut -d'_' -f1)
+  sample_name=$(echo "$basename" | cut -d'_' -f1-2)
+  bam_type=$(echo "$basename" | cut -d'_' -f3 )
   fragment_size=${FRAGMENT_SIZES[$sample_name]}
 
   echo "---Sample information---"
@@ -111,16 +128,16 @@ for filepath in "${FILES[@]}"; do
   echo "  Bam type: $bam_type"
   echo "  Fragment_size: $fragment_size"
 
-  if [[ "$sample_type" == "input" ]]; then
-    echo "Skipping input sample peak calling..."
-    continue
-  fi
+  #if [[ "$sample_type" == "input" ]]; then
+  #  echo "Skipping input sample peak calling..."
+  #  continue
+  #fi
 
   for peak_mode in "${!PEAK_MODES[@]}" ; do
     output_dir="$OUTDIR/peaks"
 
     # Always run without input control
-    output_name="${key}_${peak_mode}"
+    output_name="${basename}_${peak_mode}"
     output_name_prefix="${output_name}_noInput"
 
     # Split the peak mode parameters into an array
@@ -149,9 +166,9 @@ for filepath in "${FILES[@]}"; do
     else
       echo "Executing macs2 command for ${output_name_prefix}..."
       # Execute the command
-      macs2 "${flags[@]}" > "${output_dir}/${output_name}.log" 2>&1 || {
-        echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
-      }
+      #macs2 "${flags[@]}" > "${output_dir}/${output_name}.log" 2>&1 || {
+      #  echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
+      #}
     fi
 
     # === Second run WITH input control (if available) ===
@@ -179,12 +196,26 @@ for filepath in "${FILES[@]}"; do
         echo -e "    COMMAND with input:\nmacs2 ${flags[*]}"
 
         # Execute the command
-        macs2 "${flags[@]}" >> "${output_dir}/${output_name}.log" 2>&1 || {
-          echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
-        }
+        #macs2 "${flags[@]}" >> "${output_dir}/${output_name}.log" 2>&1 || {
+        #  echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
+        #}
       fi
     fi
 
   done # end of peak calling for loop
 done # end of file for loop
+# Create array of bigwig files
+declare -a PEAK_FILES
+mapfile -t PEAK_FILES < <(find "$OUTDIR/peaks" -name "*.xls" | sort | uniq )
+
+# Validate array
+if [[ ${#PEAK_FILES[@]} -eq 0 ]];
+then
+  echo "ERROR: No bigwig files found in $OUTDIR/peaks" >&2
+  echo "Verify output directory or $0 " >&2
+  #exit 3
+fi
+
+echo "Processed ${#FILES[@]} bam files..."
+echo "Generated ${#PEAK_FILES[@]} peak files..."
 echo "Peak calling done."

@@ -22,7 +22,7 @@ module load python/2.7.13 deeptools/3.0.1
 echo "Loaded deeptools module..."
 #set -euo pipefail
 
-# Reusable component start
+# Reusable component start ===
 # === Cluster Environment Setup ===
 # Check if running on head node (should use interactive job instead)
 if [[ "$(hostname)" == "luria" ]]; then
@@ -37,7 +37,7 @@ if [[ -z "${SLURM_JOB_ID}" ]]; then
     echo "Please run: srun --pty bash" 1>&2
     exit 1
 fi
-# Reusable component end
+# Reusable component end ===
 
 # Output config
 OUTDIR="$HOME/data/preprocessing_test"
