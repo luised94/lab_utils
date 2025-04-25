@@ -139,8 +139,7 @@ do
   then
     alignmentSieve --bam "$deduplicated_bam" \
       --blackListFileName "$BLACKLIST_BED_FILE" \
-      --outputBamFile "$blacklist_filtered_bam" \
-      --outFileFormat BAM \
+      --outFile "$blacklist_filtered_bam" \
       --numberOfProcessors $(( THREADS / 2 ))
   else
     echo "Skipping existing: $blacklist_filtered_bam"
