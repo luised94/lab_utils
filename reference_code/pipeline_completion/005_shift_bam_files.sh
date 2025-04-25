@@ -12,26 +12,58 @@
 # DATE: 2025-04-24
 # UPDATE:
 ################################################################################
-THREADS=8
+SCRIPT_NAME=$(basename "$0")
+CURRENT_TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
+echo "=========================================="
+echo "Script: $SCRIPT_NAME"
+echo "Start Time: $CURRENT_TIMESTAMP"
+echo "=========================================="
+module load samtools
+echo "Loaded samtools module..."
+#set -euo pipefail
+
+# Reusable component start
+# === Cluster Environment Setup ===
+# Check if running on head node (should use interactive job instead)
+if [[ "$(hostname)" == "luria" ]]; then
+    echo "Error: This script should not be run on the head node" 1>&2
+    echo "Please run: srun --pty bash" 1>&2
+    exit 1
+fi
+
+# Check if running inside a Slurm allocation
+if [[ -z "${SLURM_JOB_ID}" ]]; then
+    echo "Error: This script must be run inside a Slurm allocation" 1>&2
+    echo "Please run: srun --pty bash" 1>&2
+    exit 1
+fi
+# Reusable component end
+
+THREADS=$( nproc )
 CHROM_SIZES_FILE="$OUTDIR/chrom.sizes"
+AWK_SHIFT_FILE="$HOME/lab_utils/core_scripts/shift_reads.awk"
 OUTDIR="$HOME/data/preprocessing_test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
 # Create directory structure
 mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
 
-# Generate chrom.sizes if missing
+# Check for required files
 if [[ ! -f "$CHROM_SIZES_FILE" ]]; then
   echo "[ERROR] ${CHROM_SIZES_FILE} not present."
   echo "Please run 002_determine_chromosome_sizes.sh"
-else
-  echo "Chromosome sizes present..."
+  exit 2
 fi
 
-module load samtools
+if [[ ! -f "$AWK_SHIFT_FILE" ]]; then
+  echo "[ERROR] ${AWK_SHIFT_FILE} not present."
+  echo "Download from lab utils repository"
+  exit 2
+fi
 
 # Initialization of array with keys and file paths
 # Create an array of files
-mapfile -t FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_blFiltered.bam" | sort)
+mapfile -t FILES < <(find "$HOME/data/preprocessing_test/align" -maxdepth 1 -type f -name "*_blFiltered.bam" | sort)
+
 # Count unique sample types (excluding inputs)
 number_of_sample_types=$(basename -a "${FILES[@]}" | cut -d_ -f1-2 | grep -v "input" | sort -u | wc -l)
 
@@ -50,7 +82,6 @@ if [[ ${#FRAG_LOGS[@]} -eq 0 ]]; then
   echo "[ERROR] Failed to find fragment size logs in $OUTDIR/predictd/" >&2
   exit 1
 fi
-
 
 # Validate number of log files
 if [[ ${#FRAG_LOGS[@]} -ne $number_of_sample_types ]]; then
@@ -124,23 +155,24 @@ do
     continue
   fi
 
-  samtools view -h "$filepath" | \
-    awk -v shift="$shift_size" -v chrom_file="$OUTDIR/chrom.sizes" -v log_file="$OUTDIR/shift_stats.log" -f "$HOME/lab_utils/core_scripts/shift_reads.awk" | \
-    samtools sort -@ $THREADS | \
-    samtools view -bS - > "$shifted_bam" || {
-      echo "Shifting failed for $filepath" >&2
-      rm -f "$shifted_bam"
-      return 1
-    }
-  # Cleanup and validation
-  #rm "$chrom_sizes_file"
-  samtools index "$shifted_bam"
-  echo "Shift validation:"
-  samtools idxstats "$shifted_bam"
+  #samtools view -h "$filepath" | \
+  #  awk -v shift="$shift_size" -v chrom_file="$CHROM_SIZES_FILE" -v log_file="$OUTDIR/shift_stats.log" -f "$AWK_SHIFT_FILE" | \
+  #  samtools sort -@ $(( THREADS / 2 )) | \
+  #  samtools view -bS - > "$shifted_bam" || \
+  #  {
+  #    echo "Shifting failed for $filepath" >&2
+  #    rm -f "$shifted_bam"
+  #    return 1
+  #  }
+  ## Cleanup and validation
+  ##rm "$chrom_sizes_file"
+  #samtools index "$shifted_bam"
+  #echo "Shift validation:"
+  ##samtools idxstats "$shifted_bam"
 
-  if [[ -f "$shifted_bam" ]]; then
-    echo "Shift Complete: $(basename "$shifted_bam")"
-  else
-    echo "[WARNING] Shift failed for $shifted_bam."
-  fi
+  #if [[ -f "$shifted_bam" ]]; then
+  #  echo "Shift Complete: $(basename "$shifted_bam")"
+  #else
+  #  echo "[WARNING] Shift failed for $shifted_bam."
+  #fi
 done # end bam shift for loop
