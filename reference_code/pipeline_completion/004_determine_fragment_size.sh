@@ -18,7 +18,6 @@ echo "Script: $SCRIPT_NAME"
 echo "Start Time: $CURRENT_TIMESTAMP"
 echo "=========================================="
 
-
 # Reusable component start
 # === Cluster Environment Setup ===
 # Check if running on head node (should use interactive job instead)
@@ -45,6 +44,7 @@ mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
 # Genome data
 GENOME_SIZE=12000000  # 1.2e7 in integer form
 
+# Reusable component start ===
 # Initialize Conda and MACS2 environment
 CONDA_ROOT=~/miniforge3
 
@@ -66,6 +66,8 @@ if ! command -v macs2 &> /dev/null; then
 fi
 
 echo "MACS2 environment ready in $(which python)"
+# Reusable component end ===
+
 # Initialization of array with keys and file paths
 # Store find results in a variable
 mapfile -t FILES < <( find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_blFiltered.bam" | sort )
@@ -79,7 +81,7 @@ fi
 echo -e "\n=== Analyzing Fragment Sizes ==="
 for filepath in "${FILES[@]}";
 do
-  filename=$(basename filepath)
+  filename=$(basename "$filepath" )
   sample_name=${filename%.bam}
   sample_type=$(echo "$sample_name" | cut -d_ -f1-2 )
   log_file="$OUTDIR/predictd/${sample_type}_macs2.log"
@@ -87,28 +89,28 @@ do
   echo "Filename: $filename"
   echo "Sample name: $sample_name"
   echo "Sample type: $sample_type"
-  echo "Log file: $filename"
+  echo "Log file: $log_file"
 
-  # Only run MACS2 if log is missing/incomplete
-  if [[ ! -f "$log_file" ]] || ! grep -q 'predicted fragment length is' "$log_file"; then
-    echo "Running fragment size prediction..."
-    macs2 predictd \
-        --ifile "$filepath" \
-        --mfold 2 200 \
-        --gsize "$GENOME_SIZE" \
-        --outdir "$OUTDIR/predictd" 2> "$log_file"
-  else
-    echo "Using existing prediction results in: $log_file"
-  fi
+  ## Only run MACS2 if log is missing/incomplete
+  #if [[ ! -f "$log_file" ]] || ! grep -q 'predicted fragment length is' "$log_file"; then
+  #  echo "Running fragment size prediction..."
+  #  macs2 predictd \
+  #      --ifile "$filepath" \
+  #      --mfold 2 200 \
+  #      --gsize "$GENOME_SIZE" \
+  #      --outdir "$OUTDIR/predictd" 2> "$log_file"
+  #else
+  #  echo "Using existing prediction results in: $log_file"
+  #fi
 
-  # Validate and extract fragment size
-  if ! frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log_file"); then
-    echo -e "\nERROR: Fragment analysis failed for $sample_type"
-    echo "Debug info:"
-    echo "Log file: $log_file"
-    [[ -f "$log_file" ]] && tail -n 20 "$log_file"
-    exit 4
-  fi
-  echo "Fragment size: $frag_size"
+  ## Validate and extract fragment size
+  #if ! frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log_file"); then
+  #  echo -e "\nERROR: Fragment analysis failed for $sample_type"
+  #  echo "Debug info:"
+  #  echo "Log file: $log_file"
+  #  [[ -f "$log_file" ]] && tail -n 20 "$log_file"
+  #  exit 4
+  #fi
+  #echo "Fragment size: $frag_size"
 
 done # end fragment size analysis for loop
