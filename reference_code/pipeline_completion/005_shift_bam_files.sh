@@ -38,14 +38,14 @@ if [[ -z "${SLURM_JOB_ID}" ]]; then
     exit 1
 fi
 # Reusable component end
-
-THREADS=$( nproc )
-CHROM_SIZES_FILE="$OUTDIR/chrom.sizes"
-AWK_SHIFT_FILE="$HOME/lab_utils/core_scripts/shift_reads.awk"
 OUTDIR="$HOME/data/preprocessing_test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
 # Create directory structure
 mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
+THREADS=$( nproc )
+
+CHROM_SIZES_FILE="$OUTDIR/chrom.sizes"
+AWK_SHIFT_FILE="$HOME/lab_utils/core_scripts/shift_reads.awk"
 
 # Check for required files
 if [[ ! -f "$CHROM_SIZES_FILE" ]]; then
