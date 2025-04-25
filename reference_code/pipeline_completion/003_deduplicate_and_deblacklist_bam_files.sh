@@ -27,7 +27,7 @@ echo "=========================================="
 #fi
 
 # Load required modules
-module load picard/2.18.26 java samtools bedtools
+module load picard/2.18.26 java samtools bedtools python/2.7.13 deeptools/3.0.1
 export PICARD_JAR="/home/software/picard/picard-2.18.26/picard.jar"
 
 if [[ ! -f "$PICARD_JAR" ]]; then
@@ -57,7 +57,7 @@ fi
 
 echo "MACS2 environment ready in $(which python)"
 #source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh || exit 1
-#======================================== 
+#========================================
 # Cluster config
 #THREADS=8
 # Genome data
@@ -122,15 +122,15 @@ do
   echo "Blacklist bam index file: $index_file_of_blacklist_filtered_bam"
 
   # === Deduplicate Bam files ===
-  #if [[ -f "$deduplicated_bam" ]];
+  #if [[ ! -f "$deduplicated_bam" ]];
   #then
-  #  echo "Skipping existing: $deduplicated_bam"
-  #else
   #  java -jar $PICARD_JAR MarkDuplicates \
   #      I="$filepath" \
   #      O="$deduplicated_bam" \
   #      M="$OUTDIR/metrics/${key}_dup_metrics.txt" \
   #      REMOVE_DUPLICATES=true
+  #else
+  #  echo "Skipping existing: $deduplicated_bam"
   #fi
 
   ## Validate output
@@ -141,31 +141,30 @@ do
   #fi
 
   #echo "Indexing deduped BAM..."
-  #if [[ -f "$index_file_of_deduplicated_bam" ]];
+  #if [[ ! -f "$index_file_of_deduplicated_bam" ]];
   #then
-  #  echo "Index exists: $index_file_of_deduplicated_bam"
-  #else
   #  echo "Indexing: $deduplicated_bam"
   #  samtools index "$deduplicated_bam"
-  #  exit_code=$?
-  #  if [[ $exit_code -eq 0 ]] && [[ -f "$index_file_of_deduplicated_bam" ]]; then
-  #    echo "File $deduplicated_bam indexed succesfully"
-  #  else
+  #  if [[ $? -ne 0 ]];
+  #  then
   #    echo "[ERROR] Indexing failed for ${deduplicated_bam} (exit $exit_code)" >&2
   #    exit 3
   #  fi
+  #  echo "File $deduplicated_bam indexed succesfully"
+  #else
+  #  echo "Index exists: $index_file_of_deduplicated_bam"
   #fi
 
   ## === Filter reads in blacklist regions ===
-  #if [[ -f "$blacklist_filtered_bam" ]];
+  #if [[ ! -f "$blacklist_filtered_bam" ]];
   #then
-  #  echo "Skipping existing: $blacklist_filtered_bam"
-  #else
   #  alignmentSieve --bam "$deduplicated_bam" \
   #    --blackListFileName "$BLACKLIST_BED_FILE" \
   #    --outputBamFile "$blacklist_filtered_bam" \
   #    --outFileFormat BAM \
   #    --numberOfProcessors auto
+  #else
+  #  echo "Skipping existing: $blacklist_filtered_bam"
   #fi
 
   ## Validate output
@@ -176,20 +175,18 @@ do
   #fi
 
   #echo "Indexing blacklist filtered BAM..."
-  #if [[ -f "$index_file_of_blacklist_filtered_bam" ]];
+  #if [[ ! -f "$index_file_of_blacklist_filtered_bam" ]];
   #then
-  #  echo "Index exists: $index_file_of_blacklist_filtered_bam"
-  #else
   #  echo "Indexing: $blacklist_filtered_bam"
   #  samtools index "$blacklist_filtered_bam"
-  #  exit_code=$?
-  #  if [[ $exit_code -eq 0 ]] && [[ -f "$blacklist_filtered_bam" ]];
+  #  if [[ $? -ne 0 ]];
   #  then
-  #    echo "File $blacklist_filtered_bam indexed succesfully"
-  #  else
   #    echo "[ERROR] Indexing failed for ${blacklist_filtered_bam} (exit $exit_code)" >&2
   #    exit 3
   #  fi
+  #  echo "File $blacklist_filtered_bam indexed succesfully"
+  #else
+  #  echo "Index exists: $index_file_of_blacklist_filtered_bam"
   #fi
 
 done # end deduplicate and index bam for loop

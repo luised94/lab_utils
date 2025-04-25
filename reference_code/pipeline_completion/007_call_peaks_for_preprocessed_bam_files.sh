@@ -4,14 +4,20 @@
 ################################################################################
 # Purpose: Generate peak calling files for preprocessed bam files
 # Usage: Run as script.
-# $./003_deduplicate_and_shift_bam_files.sh
-# DEPENDENCIES: bash, data from 250207Bel BMC experiment and scripts 001 and 002 from the pipeline script
-# OUTPUT: Duplicate files with renaming for easier identification and isolation from data directories
+# $./007_call_peaks_for_preprocessed_bam_files.sh
+# DEPENDENCIES: bash, data from 250207Bel BMC experiment and scripts 001-005
+# OUTPUT: A bunch of bed and peak files
 # NOTES: Updated the files being used in analysis, went from the data in the 241010Bel to the data in 250207Bel
 # AUTHOR: LEMR
 # DATE: 2025-02-07
 # UPDATE: 2025-04-22
 ################################################################################
+SCRIPT_NAME=$(basename "$0")
+CURRENT_TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
+echo "=========================================="
+echo "Script: $SCRIPT_NAME"
+echo "Start Time: $CURRENT_TIMESTAMP"
+echo "=========================================="
 #set -euo pipefail
 
 # === Cluster Environment Setup ===
@@ -19,35 +25,6 @@
 #    echo "Error: This script must be run on luria cluster" 1>&2
 #    exit 1
 #fi
-
-# Genome data
-GENOME_SIZE=12000000  # 1.2e7 in integer form
-GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
-if [[ ! -f $GENOME_FASTA ]]; then
-  echo "$GENOME_FASTA does not exist."
-  exit 1
-fi
-
-
-
-# Output config
-OUTDIR="$HOME/data/preprocessing_test"
-SUB_DIRS=("align" "predictd" "peaks" "coverage")
-# Create directory structure
-mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
-
-# Initialization of array with keys and file paths
-# Create an array of files
-mapfile -t FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*.bam" | sort)
-# Count unique sample types (excluding inputs)
-number_of_sample_types=$(basename -a "${FILES[@]}" | cut -d_ -f1-2 | grep -v "input" | sort -u | wc -l)
-
-# Check if any files were found
-if [ ${#FILES[@]} -eq 0 ]; then
-  echo "No *.bam files found in ~/data/preprocessing_test/align" >&2
-  exit 1
-fi
-
 # Initialize Conda
 CONDA_ROOT=~/miniforge3
 if [[ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]]; then
@@ -69,58 +46,33 @@ if ! command -v macs2 &> /dev/null; then
 fi
 
 echo "MACS2 environment ready in $(which python)"
-# === Load fragment samples for sample types ===
-# Read log file paths into array
-mapfile -t FRAG_LOGS < <(find "$OUTDIR/predictd/" -type f -name "macs2.log")
 
-# Check if any logs were found
-if [[ ${#FRAG_LOGS[@]} -eq 0 ]]; then
-  echo "[ERROR] Failed to find fragment size logs in $OUTDIR/predictd/" >&2
+# Genome data
+GENOME_SIZE=12000000  # 1.2e7 in integer form
+
+# Output config
+OUTDIR="$HOME/data/preprocessing_test"
+SUB_DIRS=("align" "predictd" "peaks" "coverage")
+# Create directory structure
+mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
+
+# Initialization of array with keys and file paths
+# Create an array of files
+mapfile -t FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*.bam" | sort)
+# Count unique sample types (excluding inputs)
+#number_of_sample_types=$(basename -a "${FILES[@]}" | cut -d_ -f1-2 | grep -v "input" | sort -u | wc -l)
+
+# Check if any files were found
+if [ ${#FILES[@]} -eq 0 ]; then
+  echo "No *.bam files found in ~/data/preprocessing_test/align" >&2
   exit 1
 fi
-
-
-# Validate number of log files
-if [[ ${#FRAG_LOGS[@]} -ne $number_of_sample_types ]]; then
-  echo "[ERROR] Expected $number_of_sample_types fragment logs, found ${#FRAG_LOGS[@]}" >&2
-  echo "Found logs:" >&2
-  printf '%s\n' "${FRAG_LOGS[@]}" >&2
-  exit 2
-fi
-
-# Initialize fragments associative array
-declare -A FRAGMENT_SIZES=()
-for log in "${FRAG_LOGS[@]}"; do
-  # Extract sample type from path
-  sample_name=$(basename "$(dirname "$log")" | sed 's/_predictd//')
-
-  # Extract fragment size
-  frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log")
-
-  # Check if extraction succeeded
-  if [[ -z "$frag_size" ]]; then
-    echo "[ERROR] Failed to extract fragment size from $log" >&2
-    exit 3
-  fi
-
-  echo "Sample type: $sample_name"
-  echo "Fragment size: $frag_size"
-
-  # Validate fragment size
-  if ! [[ "$frag_size" =~ ^[0-9]+$ ]] || (( frag_size <= 0 )); then
-    echo "[ERROR] Invalid fragment size ($frag_size) in $log" >&2
-    exit 4
-  fi
-
-  # Store in associative array
-  FRAGMENT_SIZES[$sample_name]=$frag_size
-done
 
 # Find input control
 INPUT_CONTROL=""
 for filepath in "${FILES[@]}"; do
   filename=$(basename "$filepath")
-  if [[ "$filename" == input_*_deduped.bam ]]; then
+  if [[ "$filename" == input_*_blFiltered.bam ]]; then
     INPUT_CONTROL="$filepath"
     echo "Found input control file: $INPUT_CONTROL"
     break

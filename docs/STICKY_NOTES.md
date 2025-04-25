@@ -198,3 +198,11 @@ Have a blacklist file now to start.
 Need to rework the deduplication and shifting script to do blacklist removal after deduplication then do the shifting and fragment length prediction
 Remove redundant operations from the deduplication script (like defining selected sample keys) by extracting metadata from the filename like I did in 003 and 004 scripts.
 Remove or comment the logic for coverage calculation with blacklist
+
+## 2025-04-25
+Separated the file into different steps and tried to refactor most of the files.
+This will definitely affect the downstream R scripts and will have to adjust how the metadata for each of the files is done. Could make the names independent instead of building them up.
+E g name_of_bam_none_none.bam name_of_bam_deduped_none.bam etcetera.
+Otherwise will have to handle missing columns. (maybe minimum is 3, "left align" the metadata then fill with default value, so like a lower part of a matrix from the diagonal match or fitted with the other half like a puzzle piece )
+Need to find the plotting code but other than that I think its looking good.
+Will comment the code to run as dry-run to double check then run.

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 ################################################################################
-# Call peaks for raw, deduplicated and the shifted bam
+# Calculate bw coverage files for plotting
 ################################################################################
-# Purpose: Generate peak calling files for preprocessed bam files
+# Purpose: Generate bw to plot genomic tracks
 # Usage: Run as script.
-# $./003_deduplicate_and_shift_bam_files.sh
-# DEPENDENCIES: bash, data from 250207Bel BMC experiment and scripts 001 and 002 from the pipeline script
+# $./006_calculate_bw_coverage_for_preprocessed_bam_files.sh
+# DEPENDENCIES: bash, data from 250207Bel BMC experiment and scripts 001-005
 # OUTPUT: Duplicate files with renaming for easier identification and isolation from data directories
 # NOTES: Updated the files being used in analysis, went from the data in the 241010Bel to the data in 250207Bel
 # AUTHOR: LEMR
@@ -24,26 +24,27 @@
 THREADS=8
 # Genome data
 GENOME_SIZE=12000000  # 1.2e7 in integer form
-GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
-BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
-# Check if blacklist file exists once before the loops
-BLACKLIST_EXISTS=false
-if [[ -f "$BLACKLIST_BED_FILE" ]]; then
-    BLACKLIST_EXISTS=true
-    echo "Using blacklist file: $BLACKLIST_BED_FILE"
-else
-    echo "Blacklist file not found: $BLACKLIST_BED_FILE. Blacklist runs will be skipped."
-fi
-
-if [[ ! -f $GENOME_FASTA ]]; then
-  echo "$GENOME_FASTA does not exist."
-  exit 1
-fi
+#GENOME_FASTA="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
+#BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
+## Check if blacklist file exists once before the loops
+#BLACKLIST_EXISTS=false
+#if [[ -f "$BLACKLIST_BED_FILE" ]]; then
+#    BLACKLIST_EXISTS=true
+#    echo "Using blacklist file: $BLACKLIST_BED_FILE"
+#else
+#    echo "Blacklist file not found: $BLACKLIST_BED_FILE. Blacklist runs will be skipped."
+#fi
+#
+#if [[ ! -f $GENOME_FASTA ]]; then
+#  echo "$GENOME_FASTA does not exist."
+#  exit 1
+#fi
 
 # Define normalization methods
 declare -a NORMALIZATION_METHOD=("raw" "RPKM" "CPM")  # Raw, RPKM, and CPM
 # Output config
 OUTDIR="$HOME/data/preprocessing_test"
+OUTPUT_DIR="$OUTDIR/coverage/"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
 # Create directory structure
 mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
@@ -65,7 +66,9 @@ for filepath in "${FILES[@]}"; do
   key=${filename%.bam}
   sample_type=$(echo "$key" | cut -d'_' -f1)
   sample_name=$(echo "$key" | cut -d'_' -f1-2)
-  bam_type=$(echo "$key" | cut -d'_' -f3 )
+  # TODO: Need to adjust this. Maybe determine the amount of underscores or just take the last available.
+  bam_type=$(echo "$key" | awk -F_ '{ print $NF }')
+  #bam_type=$(echo "$key" | cut -d'_' -f3 )
 
   echo "---Sample information---"
   echo "  Input Path: $filepath"
@@ -76,7 +79,6 @@ for filepath in "${FILES[@]}"; do
 
   for norm_method in "${NORMALIZATION_METHOD[@]}"; do
     suffix=${norm_method,,}
-    output_dir="$OUTDIR/coverage/"
     base_flags=(
         --bam "$filepath"
         --binSize 25
@@ -91,7 +93,7 @@ for filepath in "${FILES[@]}"; do
     echo "    Normalization method Suffix: $suffix"
 
     # --- Case 1: Process WITHOUT blacklist ---
-    output_name_no_bl="${output_dir}${key}_${suffix}_noBlacklist.bw"
+    output_name_no_bl="${OUTPUT_DIR}${key}_${suffix}_noBlacklist.bw"
     echo "    Output without blacklist: $output_name_no_bl"
     if [[ -f "$output_name_no_bl" ]]; then
         echo "Output file already exists. Skipping: $output_name_no_bl"
@@ -106,22 +108,22 @@ for filepath in "${FILES[@]}"; do
     fi
 
     # --- Case 2: Process with blacklist ---
-    if [[ "$BLACKLIST_EXISTS" == true ]]; then
-      output_name_with_bl="${output_dir}${key}_${suffix}_withBlacklist.bw"
-      if [[ -f "$output_name_with_bl" ]] ; then
-          echo "Output file already exists. Skipping: $output_name_with_bl"
-      else
-        echo "    Output with blacklist: $output_name_with_bl"
-        echo "Executing coverage calculation with blacklist..."
-        flags_with_bl=("${base_flags[@]}" -o "$output_name_with_bl" --blackListFileName "$BLACKLIST_BED_FILE")
-        # Print the command that would be executed
-        echo "COMMAND: bamCoverage ${flags_with_bl[*]}"
-        # Execute with all flags properly expanded
-        bamCoverage "${flags_with_bl[@]}"
-      fi
-    else
-      echo "Blacklist file not found. Skipping: $output_name_with_bl"
-    fi
+    #if [[ "$BLACKLIST_EXISTS" == true ]]; then
+    #  output_name_with_bl="${OUTPUT_DIR}${key}_${suffix}_withBlacklist.bw"
+    #  if [[ -f "$output_name_with_bl" ]] ; then
+    #      echo "Output file already exists. Skipping: $output_name_with_bl"
+    #  else
+    #    echo "    Output with blacklist: $output_name_with_bl"
+    #    echo "Executing coverage calculation with blacklist..."
+    #    flags_with_bl=("${base_flags[@]}" -o "$output_name_with_bl" --blackListFileName "$BLACKLIST_BED_FILE")
+    #    # Print the command that would be executed
+    #    echo "COMMAND: bamCoverage ${flags_with_bl[*]}"
+    #    # Execute with all flags properly expanded
+    #    bamCoverage "${flags_with_bl[@]}"
+    #  fi
+    #else
+    #  echo "Blacklist file not found. Skipping: $output_name_with_bl"
+    #fi
 
   done # End of norm_method loop
 done # End of filepath loop
