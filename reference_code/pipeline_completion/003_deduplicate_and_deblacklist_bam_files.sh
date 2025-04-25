@@ -35,28 +35,6 @@ if [[ ! -f "$PICARD_JAR" ]]; then
   exit 10
 fi
 
-# Initialize Conda and MACS2 environment
-CONDA_ROOT=~/miniforge3
-
-if [[ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]]; then
-  . "$CONDA_ROOT/etc/profile.d/conda.sh"
-else
-  echo "ERROR: Conda not found at $CONDA_ROOT" >&2
-  exit 1
-fi
-
-# Activate MACS2 environment with validation
-conda activate macs2_env 2> /dev/null
-
-# Verify MACS2 installation
-if ! command -v macs2 &> /dev/null; then
-  echo "ERROR: MACS2 not installed. Install with:" >&2
-  echo "conda install -c bioconda macs2=2.2.7.1" >&2
-  exit 2
-fi
-
-echo "MACS2 environment ready in $(which python)"
-#source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh || exit 1
 #========================================
 # Cluster config
 #THREADS=8
@@ -94,9 +72,6 @@ then
     echo "No *_raw.bam files found in ~/data/preprocessing_test/align" >&2
     exit 1
 fi
-
-#SELECTED_SAMPLE_KEYS=$(echo "${!SAMPLES[@]}" | sed 's/ /\n/g' | grep -v "input")
-#mapfile -t SELECTED_SAMPLE_KEYS < <(echo "${!SAMPLES[@]}" | tr ' ' '\n' | grep -E '^test|^reference')
 
 ##############################################
 # Preprocessing Workflow
