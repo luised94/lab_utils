@@ -151,29 +151,32 @@ do
     continue
   fi
 
-  if [[ "$sample_type" == "input" ]]; then
-    echo "Skipping input shifting..."
-    continue
-  fi
-
-  #samtools view -h "$filepath" | \
-  #  awk -v shift="$shift_size" -v chrom_file="$CHROM_SIZES_FILE" -v log_file="$OUTDIR/shift_stats.log" -f "$AWK_SHIFT_FILE" | \
-  #  samtools sort -@ $(( THREADS / 2 )) | \
-  #  samtools view -bS - > "$shifted_bam" || \
-  #  {
-  #    echo "Shifting failed for $filepath" >&2
-  #    rm -f "$shifted_bam"
-  #    return 1
-  #  }
-  ## Cleanup and validation
-  ##rm "$chrom_sizes_file"
-  #samtools index "$shifted_bam"
-  #echo "Shift validation:"
-  ##samtools idxstats "$shifted_bam"
-
-  #if [[ -f "$shifted_bam" ]]; then
-  #  echo "Shift Complete: $(basename "$shifted_bam")"
-  #else
-  #  echo "[WARNING] Shift failed for $shifted_bam."
+  #if [[ "$sample_type" == "input" ]]; then
+  #  echo "Skipping input shifting..."
+  #  continue
   #fi
+
+  samtools view -h "$filepath" | \
+  awk -v shift="$shift_size" \
+      -v chrom_file="$CHROM_SIZES_FILE" \
+      -v log_file="$OUTDIR/shift_stats.log" \
+      -f "$AWK_SHIFT_FILE" | \
+  samtools sort -@ $(( THREADS / 2 )) | \
+  samtools view -bS - > "$shifted_bam" || \
+  {
+    echo "Shifting failed for $filepath" >&2
+    rm -f "$shifted_bam"
+    return 1
+  }
+  # Cleanup and validation
+  #rm "$chrom_sizes_file"
+  samtools index "$shifted_bam"
+  #echo "Shift validation:"
+  #samtools idxstats "$shifted_bam"
+
+  if [[ ! -f "$shifted_bam" ]]; then
+    echo "[WARNING] Shift failed for $shifted_bam."
+    exit 3
+  fi
+  echo "Shift Complete: $(basename "$shifted_bam")"
 done # end bam shift for loop
