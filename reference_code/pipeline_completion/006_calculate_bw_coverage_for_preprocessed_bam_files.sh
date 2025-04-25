@@ -113,7 +113,7 @@ for filepath in "${FILES[@]}"; do
       # Print the command that would be executed
       echo "COMMAND: bamCoverage ${flags_no_bl[*]}"
       # Execute with all flags properly expanded
-      #bamCoverage "${flags_no_bl[@]}"
+      bamCoverage "${flags_no_bl[@]}"
     fi
 
     # --- Case 2: Process with blacklist ---
