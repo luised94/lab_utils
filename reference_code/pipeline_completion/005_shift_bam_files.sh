@@ -101,14 +101,15 @@ for log in "${FRAG_LOGS[@]}"; do
   # Extract fragment size
   frag_size=$(grep -oP 'predicted fragment length is \K\d+' "$log")
 
+  echo "Log file: $log"
+  echo "Sample type: $sample_name"
+  echo "Fragment size: $frag_size"
+
   # Check if extraction succeeded
   if [[ -z "$frag_size" ]]; then
     echo "[ERROR] Failed to extract fragment size from $log" >&2
     exit 3
   fi
-
-  echo "Sample type: $sample_name"
-  echo "Fragment size: $frag_size"
 
   # Validate fragment size
   if ! [[ "$frag_size" =~ ^[0-9]+$ ]] || (( frag_size <= 0 )); then
@@ -125,7 +126,7 @@ for filepath in "${FILES[@]}";
 do
   filename=$(basename "$filepath")
   sample_name=${filename%.bam}
-  sample_type=$( echo "$sample_name" | cut -d_ -f1 )
+  sample_type=$( echo "$sample_name" | cut -d_ -f1-2 )
   shifted_bam="$OUTDIR/align/${sample_name}_shifted.bam"
   frag_size=${FRAGMENT_SIZES[$sample_type]}
   shift_size=$((frag_size / 2))
