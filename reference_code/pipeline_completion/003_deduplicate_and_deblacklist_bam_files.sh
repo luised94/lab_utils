@@ -48,7 +48,7 @@ fi
 
 #========================================
 # Cluster config
-#THREADS=8
+THREADS=$(nproc)
 
 BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
 # Check if blacklist file exists once before the loops
@@ -141,7 +141,7 @@ do
       --blackListFileName "$BLACKLIST_BED_FILE" \
       --outputBamFile "$blacklist_filtered_bam" \
       --outFileFormat BAM \
-      --numberOfProcessors auto
+      --numberOfProcessors $(( THREADS / 2 ))
   else
     echo "Skipping existing: $blacklist_filtered_bam"
   fi
