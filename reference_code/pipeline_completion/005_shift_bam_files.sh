@@ -65,7 +65,7 @@ fi
 mapfile -t FILES < <(find "$HOME/data/preprocessing_test/align" -maxdepth 1 -type f -name "*_blFiltered.bam" | sort)
 
 # Count unique sample types (excluding inputs)
-number_of_sample_types=$(basename -a "${FILES[@]}" | cut -d_ -f1-2 | grep -v "input" | sort -u | wc -l)
+number_of_sample_types=$(basename -a "${FILES[@]}" | cut -d_ -f1-2 | sort -u | wc -l)
 
 # Check if any files were found
 if [ ${#FILES[@]} -eq 0 ]; then
