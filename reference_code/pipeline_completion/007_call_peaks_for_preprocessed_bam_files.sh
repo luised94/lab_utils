@@ -66,6 +66,7 @@ OUTDIR="$HOME/data/preprocessing_test"
 SUB_DIRS=("align" "predictd" "peaks" "coverage")
 # Create directory structure
 mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
+OUTPUT_DIR="$OUTDIR/peaks"
 
 # Initialization of array with keys and file paths
 # Create an array of files
@@ -102,23 +103,42 @@ INPUT_CONTROL="${matching_files[0]}"
 echo "Found input control file: $INPUT_CONTROL"
 
 # Analysis variants with significance thresholds
-declare -A PEAK_MODES=(
-  ['narrow_p']="--nomodel --call-summits --pvalue 1e-6"
-  ['narrow_q']="--nomodel --call-summits --qvalue 0.01"
-  ['broad_p']="--broad --broad-cutoff 0.1 --nomodel --pvalue 1e-6"
-  ['broad_q']="--broad --broad-cutoff 0.1 --nomodel --qvalue 0.01"
-  ['auto_p']="--fix-bimodal --call-summits --pvalue 1e-6"
-  ['auto_q']="--fix-bimodal --call-summits --qvalue 0.01"
+#declare -A PEAK_MODES=(
+  #['narrow_q']="--nomodel --call-summits --qvalue 0.01"
+  #['broad_q']="--broad --broad-cutoff 0.1 --nomodel --qvalue 0.01"
+  #['auto_q']="--fix-bimodal --call-summits --qvalue 0.01"
+#  #['broad_p']="--broad --broad-cutoff 0.1 --nomodel --pvalue 1e-6"
+#  #['narrow_p']="--nomodel --call-summits --pvalue 1e-6"
+#  #['auto_p']="--fix-bimodal --call-summits --pvalue 1e-6"
+#)
+
+declare -a BASE_FLAGS=(
+      callpeak
+      --outdir "$OUTPUT_DIR"
+      --gsize "$GENOME_SIZE"
+      --SPMR
+      --qvalue 0.01
+)
+
+declare -A INPUT_PARAMETERS=(
+  ['withInput']="--control ${INPUT_CONTROL}"
+  ['noInput']=""
+)
+
+declare -A PEAK_TYPES=(
+  ['narrow']="--call-summits"
+  ['broad']="--broad --broad-cutoff 0.1"
 )
 
 # Process the files if found
-for filepath in "${FILES[@]}"; do
+for filepath in "${FILES[@]}";
+do
+
   filename=$(basename "$filepath")
   basename=${filename%.bam}
   sample_type=$(echo "$basename" | cut -d'_' -f1)
   sample_name=$(echo "$basename" | cut -d'_' -f1-2)
-  bam_type=$(echo "$basename" | cut -d'_' -f3 )
-  fragment_size=${FRAGMENT_SIZES[$sample_name]}
+  bam_type=$(echo "$basename" | awk -F_ '{print $NF}' )
 
   echo "---Sample information---"
   echo "  Filepath: $filepath"
@@ -126,84 +146,58 @@ for filepath in "${FILES[@]}"; do
   echo "  Sample_name: $sample_name"
   echo "  Sample type: $sample_type"
   echo "  Bam type: $bam_type"
-  echo "  Fragment_size: $fragment_size"
 
-  #if [[ "$sample_type" == "input" ]]; then
-  #  echo "Skipping input sample peak calling..."
-  #  continue
-  #fi
 
-  for peak_mode in "${!PEAK_MODES[@]}" ; do
-    output_dir="$OUTDIR/peaks"
+  # Assign mutually exclusive options based on bam types
+  if [[ "$bam_type" == "shifted" ]]; then
+    echo "Setting the flags for shifted bam file..."
+    bam_type_flags=( "--nomodel" )
+  else
+    echo "Setting the flags for non-shifted bam file..."
+    bam_type_flags=( "--fix-bimodal" )
+  fi
+  ##########
 
-    # Always run without input control
-    output_name="${basename}_${peak_mode}"
-    output_name_prefix="${output_name}_noInput"
+  for input_parameter in "${!INPUT_PARAMETERS[@]}";
+  do
 
-    # Split the peak mode parameters into an array
-    IFS=' ' read -r -a mode_params <<< "${PEAK_MODES[$peak_mode]}"
+    output_name_prefix="${basename}_${input_parameter}"
+    if [[ $input_parameter == withInput ]] && [[ -n "$INPUT_CONTROL" ]];
+    then
+      input_control_flag=("${INPUT_PARAMETERS[$input_parameter]}")
+    fi
 
-    # Core parameters used in all calls
-    flags=(
-      callpeak
-      --treatment "${filepath}"
-      --name "${output_name_prefix}"
-      --outdir "$output_dir"
-      --gsize "$GENOME_SIZE"
-      --SPMR
-    )
+    for peak_type in "${!PEAK_TYPES[@]}" ;
+    do
 
-    # Add the peak mode-specific parameters
-    flags+=("${mode_params[@]}")
+      output_name_prefix="${output_name_prefix}_${peak_type}"
+      if [[ -f "${output_name_prefix}.narrowPeak" || -f "${output_name_prefix}.broadPeak" ]];
+      then
+        echo "Skipping ${output_name_prefix} file"
+        continue
+      fi
 
-    # Print the command that would be executed
-    echo "  ---Peak mode information---"
-    echo "    Output name: $output_name"
-    echo -e "    COMMAND No input:\nmacs2 ${flags[*]}"
+      IFS=' ' read -r -a mode_params <<< "${PEAK_TYPES[$peak_type]}"
+      macs2_command_flags=(
+        "${BASE_FLAGS[@]}"
+        --name "$output_name_prefix"
+        --treatment "${filepath}"
+        "${bam_type_flags[@]}"
+        "${input_control_flag[@]}"
+        "${mode_params[@]}"
+      )
 
-    if [[ -f "${output_name_prefix}.narrowPeak" || -f "${output_name_prefix}.broadPeak" ]]; then
-      echo "  Skipping existing output: $(basename "$output_name_prefix")*Peak"
-    else
-      echo "Executing macs2 command for ${output_name_prefix}..."
-      # Execute the command
-      #macs2 "${flags[@]}" > "${output_dir}/${output_name}.log" 2>&1 || {
+      echo "  Output name: ${output_name_prefix}"
+      echo -e "  COMMAND No input:\nmacs2 ${macs2_command_flags[*]}"
+      #macs2 "${macs2_command_flags[@]}" > "${output_dir}/${basename}.log" 2>&1 || {
       #  echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
       #}
-    fi
+    done
 
-    # === Second run WITH input control (if available) ===
-    # Create the base flags array for input control run
-    output_name_prefix="${output_name}_withInput"
-    if [[ -f "${output_name_prefix}.narrowPeak" || -f "${output_name_prefix}.broadPeak" ]]; then
-      echo "  Skipping existing output: $(basename "$output_name_prefix")*Peak"
-    else
-      echo "If input available, executing macs2 command for ${output_name_prefix} ..."
-      if [[ -n "$INPUT_CONTROL" ]]; then
-        flags=(
-          callpeak
-          --treatment "$filepath"
-          --control "$INPUT_CONTROL"
-          --name "${output_name_prefix}"
-          --outdir "$output_dir"
-          --gsize "$GENOME_SIZE"
-          --SPMR
-        )
+  done
 
-        # Add the peak mode-specific parameters
-        flags+=("${mode_params[@]}")
+done # end of peak calling for loop
 
-        # Print the command that would be executed
-        echo -e "    COMMAND with input:\nmacs2 ${flags[*]}"
-
-        # Execute the command
-        #macs2 "${flags[@]}" >> "${output_dir}/${output_name}.log" 2>&1 || {
-        #  echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
-        #}
-      fi
-    fi
-
-  done # end of peak calling for loop
-done # end of file for loop
 # Create array of bigwig files
 declare -a PEAK_FILES
 mapfile -t PEAK_FILES < <(find "$OUTDIR/peaks" -name "*.xls" | sort | uniq )
@@ -211,7 +205,7 @@ mapfile -t PEAK_FILES < <(find "$OUTDIR/peaks" -name "*.xls" | sort | uniq )
 # Validate array
 if [[ ${#PEAK_FILES[@]} -eq 0 ]];
 then
-  echo "ERROR: No bigwig files found in $OUTDIR/peaks" >&2
+  echo "ERROR: No peak files found in $OUTDIR/peaks" >&2
   echo "Verify output directory or $0 " >&2
   #exit 3
 fi
