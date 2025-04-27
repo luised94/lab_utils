@@ -100,11 +100,12 @@ if (!is.null(FEATURE_FILE))
 ################################################################################
 # Setup directories and file paths
 ################################################################################
-CONTROL_SAMPLES <- list(
-    "test" = "$HOME/data/241010Bel/alignment/processed_245018_sequence_to_S288C_sorted.bam",
-    "input" = "$HOME/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam",
-    "reference" = "$HOME/data/100303Bel/alignment/processed_034475_sequence_to_S288C_sorted.bam"
-)
+
+#CONTROL_SAMPLES <- list(
+#    "test" = "$HOME/data/241010Bel/alignment/processed_245018_sequence_to_S288C_sorted.bam",
+#    "input" = "$HOME/data/241010Bel/alignment/processed_245003_sequence_to_S288C_sorted.bam",
+#    "reference" = "$HOME/data/100303Bel/alignment/processed_034475_sequence_to_S288C_sorted.bam"
+#)
 
 DATA_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "preprocessing_test")
 SUPPORTED_FILE_TYPES <- c(

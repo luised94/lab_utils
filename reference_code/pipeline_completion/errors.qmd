@@ -6,6 +6,8 @@ WARNING @ Tue, 22 Apr 2025 15:26:17: # Can't find enough pairs of symmetric peak
 Samples with poor quality data or negative controls can give this error. Extend mfold for model building or disable extsize. 
 See: https://claude.ai/chat/401ce71b-31dc-4ae0-92a7-ba69724ecfb8
 
+# macs2 does not recognize the parameter
+Control was being passed from associated array as "--control ${INPUT_CONTROL}" whereas it needed to be ( --control ${INPUT_CONTROL}) as a separate argument.
 
 # Variable never defined or doesnt exist.
 Error in args$skip_validation :

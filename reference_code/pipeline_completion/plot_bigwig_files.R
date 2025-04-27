@@ -146,6 +146,8 @@ file_paths_by_type <- Filter(length, file_paths_by_type)
 if (length(file_paths_by_type) == 0) {
     stop("No valid files found in directory: ", DATA_DIRECTORY)
 }
+# TODO: Probably insert breakpoint here and then test.
+# Currently, have to test the underscore processing, test columns, subset selection. Once metadata initialization is done, I can probably do both.
 ################################################################################
 # Load and process bigwig file
 ################################################################################
@@ -276,7 +278,7 @@ for (CURRENT_KEY_IDX in seq_along(control_joined_keys)) {
             fill = "darkblue"
         )
         message(sprintf("Sample %s imported...", track_idx))
-    } # end for
+    } # end for loop of subset metadata ########
 
     message("All samples imported and added to TRACK_CONTAINER.")
 
@@ -330,7 +332,7 @@ for (CURRENT_KEY_IDX in seq_along(control_joined_keys)) {
     )
     dev.off()
     message(sprintf("Plot saved. Finished processing %d: %s", CURRENT_KEY_IDX, CURRENT_CONTROL_KEY))
-} # end for loop
+} # end keys for loop
 message("Finished bigwig processing for loop...")
 
 #---------------------------------------------
