@@ -180,6 +180,7 @@ do
       fi
 
       IFS=' ' read -r -a mode_params <<< "${PEAK_TYPES[$peak_type]}"
+      # Build command
       macs2_command_flags=(
         "${BASE_FLAGS[@]}"
         --name "$final_output_name_prefix"
@@ -194,9 +195,9 @@ do
       echo "  Prefix with input: ${prefix_with_input_parameter}"
       echo "  Output name: ${final_output_name_prefix}"
       echo -e "  COMMAND:\nmacs2 ${macs2_command_flags[*]}"
-      #macs2 "${macs2_command_flags[@]}" > "${output_dir}/${basename}.log" 2>&1 || {
-      #  echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
-      #}
+      macs2 "${macs2_command_flags[@]}" > "${OUTPUT_DIR}/${basename}.log" 2>&1 || {
+        echo -e "[ERROR] MACS2 peak calling failed for: \n$filepath" >&2
+      }
     done
 
   done
