@@ -99,8 +99,8 @@ if [[ ${#matching_files[@]} -gt 1 ]]; then
 fi
 
 # Exactly one file found - success!
-INPUT_CONTROL="${matching_files[0]}"
-echo "Found input control file: $INPUT_CONTROL"
+INPUT_CONTROL_PATH="${matching_files[0]}"
+echo "Found input control file: $INPUT_CONTROL_PATH"
 
 # Analysis variants with significance thresholds
 #declare -A PEAK_MODES=(
@@ -121,7 +121,7 @@ declare -a BASE_FLAGS=(
 )
 
 declare -A INPUT_PARAMETERS=(
-  ['withInput']="--control ${INPUT_CONTROL}"
+  ['withInput']="${INPUT_CONTROL_PATH}"
   ['noInput']=""
 )
 
@@ -163,10 +163,6 @@ do
     echo "  ---Input Parameters---"
 
     prefix_with_input_parameter="${basename}_${input_parameter}"
-    if [[ $input_parameter == withInput ]] && [[ -n "$INPUT_CONTROL" ]];
-    then
-      input_control_flag=("${INPUT_PARAMETERS[$input_parameter]}")
-    fi
 
     for peak_type in "${!PEAK_TYPES[@]}" ;
     do
@@ -186,9 +182,12 @@ do
         --name "$final_output_name_prefix"
         --treatment "${filepath}"
         "${bam_type_flags[@]}"
-        "${input_control_flag[@]}"
         "${mode_params[@]}"
       )
+      if [[ $input_parameter == withInput ]] && [[ -n "$INPUT_CONTROL_PATH" ]];
+      then
+        macs2_command_flags+=( --control "${INPUT_PARAMETERS[$input_parameter]}")
+      fi
 
       echo "  Input parameter: ${input_parameter}"
       echo "  Peak type: ${peak_type}"
