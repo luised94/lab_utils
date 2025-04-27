@@ -161,7 +161,7 @@ do
   for input_parameter in "${!INPUT_PARAMETERS[@]}";
   do
 
-    output_name_prefix="${basename}_${input_parameter}"
+    prefix_with_input_parameter="${basename}_${input_parameter}"
     if [[ $input_parameter == withInput ]] && [[ -n "$INPUT_CONTROL" ]];
     then
       input_control_flag=("${INPUT_PARAMETERS[$input_parameter]}")
@@ -170,25 +170,28 @@ do
     for peak_type in "${!PEAK_TYPES[@]}" ;
     do
 
-      output_name_prefix="${output_name_prefix}_${peak_type}"
-      if [[ -f "${output_name_prefix}.narrowPeak" || -f "${output_name_prefix}.broadPeak" ]];
+      final_output_name_prefix="${prefix_with_input_parameter}_${peak_type}"
+      if [[ -f "${final_output_name_prefix}.narrowPeak" || -f "${final_output_name_prefix}.broadPeak" ]];
       then
-        echo "Skipping ${output_name_prefix} file"
+        echo "Skipping ${final_output_name_prefix} file"
         continue
       fi
 
       IFS=' ' read -r -a mode_params <<< "${PEAK_TYPES[$peak_type]}"
       macs2_command_flags=(
         "${BASE_FLAGS[@]}"
-        --name "$output_name_prefix"
+        --name "$final_output_name_prefix"
         --treatment "${filepath}"
         "${bam_type_flags[@]}"
         "${input_control_flag[@]}"
         "${mode_params[@]}"
       )
 
-      echo "  Output name: ${output_name_prefix}"
-      echo -e "  COMMAND No input:\nmacs2 ${macs2_command_flags[*]}"
+      echo "  Input parameter: ${input_parameter}"
+      echo "  Peak type: ${peak_type}"
+      echo "  Prefix with input: ${prefix_with_input_parameter}"
+      echo "  Output name: ${final_output_name_prefix}"
+      echo -e "  COMMAND:\nmacs2 ${macs2_command_flags[*]}"
       #macs2 "${macs2_command_flags[@]}" > "${output_dir}/${basename}.log" 2>&1 || {
       #  echo "[ERROR] MACS2 peak calling failed for $output_name" >&2
       #}
