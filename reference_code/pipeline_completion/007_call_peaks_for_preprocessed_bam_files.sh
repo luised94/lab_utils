@@ -160,6 +160,7 @@ do
 
   for input_parameter in "${!INPUT_PARAMETERS[@]}";
   do
+    echo "  ---Input Parameters---"
 
     prefix_with_input_parameter="${basename}_${input_parameter}"
     if [[ $input_parameter == withInput ]] && [[ -n "$INPUT_CONTROL" ]];
@@ -169,6 +170,7 @@ do
 
     for peak_type in "${!PEAK_TYPES[@]}" ;
     do
+      echo "    ---Peak type Parameters---"
 
       final_output_name_prefix="${prefix_with_input_parameter}_${peak_type}"
       if [[ -f "${final_output_name_prefix}.narrowPeak" || -f "${final_output_name_prefix}.broadPeak" ]];
