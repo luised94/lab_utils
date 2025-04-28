@@ -161,6 +161,60 @@ if (length(BIGWIG_FILES) == 0) {
     stop("No bigwig files found.")
 }
 
+#-------------------------------------------------------------------------------
+# EXTRACT METADATA FROM FILENAMES
+#-------------------------------------------------------------------------------
+# Extract base filenames without path and extensions
+file_basenames <- basename(XLS_FILES)
+filenames_without_extension <- gsub(ESCAPED_EXTENSIONS, "", file_basenames)
+clean_filenames <- gsub("_peaks$", "", filenames_without_extension) # Remove _peaks suffix added by MACS2
+
+# Split filenames by underscores to extract metadata components
+filename_parts <- strsplit(clean_filenames, split = "_")
+underscore_counts <- lengths(gregexpr("_", clean_filenames))
+max_parts <- max(sapply(filename_parts, length))
+
+# Pad each split filename to ensure uniform length for data frame creation
+padded_filename_parts <- lapply(filename_parts, function(parts) {
+  padding_needed <- max_parts - length(parts)
+  if (padding_needed > 0) {
+    return(c(parts, rep("none", padding_needed)))
+  } else {
+    return(parts)
+  }
+})
+
+# Convert to data frame
+metadata_df <- as.data.frame(do.call(rbind, padded_filename_parts))
+ORIGINAL_COLUMN_COUNT <- ncol(metadata_df)
+
+# Count "none" values in each row (vectorized approach)
+metadata_df$none_count <- apply(metadata_df, 1, function(row) {
+  sum(grepl("none", row))
+})
+
+# Determine BAM type based on position in filename
+metadata_df$bam_type <- sapply(1:nrow(metadata_df), function(row_idx) {
+  # Calculate position of BAM type in the row
+  bam_type_col_idx <- ORIGINAL_COLUMN_COUNT - 2 - metadata_df$none_count[row_idx]
+  if (bam_type_col_idx > 0 && bam_type_col_idx <= ORIGINAL_COLUMN_COUNT) {
+    return(as.character(metadata_df[row_idx, bam_type_col_idx]))
+  } else {
+    return("unknown")  # Fallback if position is invalid
+  }
+})
+
+# COMBINE ALL METADATA INTO FINAL DATA FRAME
+# Assuming first two columns are sample type and condition idx
+final_metadata <- data.frame(
+  sample_type = metadata_df[, 1],
+  condition_idx = metadata_df[, 2],
+  bam_type = metadata_df$bam_type,
+  file_path = BIGWIG_FILES,
+  stringsAsFactors = FALSE
+)
+
+stop("Breakpoint...")
 file_basenames <- basename(BIGWIG_FILES)
 filenames_without_extension <- gsub(ESCAPED_EXTENSIONS, "", file_basenames)
 underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
@@ -168,7 +222,6 @@ split_metadata <- strsplit(filenames_without_extension, split = "_")
 
 
 message(sprintf("Minimum # of underscores: %s\nMaximum # of underscores: %s", min(underscore_counts), max(underscore_counts)))
-stop("Breakpoint...")
 
 COLUMN_NAMES <- c("sample", "bam_processing", "bigwig_processing", "file_paths")
 FILE_EXTENSION_TO_REMOVE <- ".bw"
