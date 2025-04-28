@@ -204,9 +204,10 @@ metadata_df$none_count <- apply(metadata_df, 1, function(row) {
 })
 
 # Determine BAM type based on position in filename
+ADDITIONAL_NUMBER_OF_METADATA_COLUMNS <- 2
 metadata_df$bam_type <- sapply(1:nrow(metadata_df), function(row_idx) {
   # Calculate position of BAM type in the row
-  bam_type_col_idx <- ORIGINAL_COLUMN_COUNT - 2 - metadata_df$none_count[row_idx]
+  bam_type_col_idx <- ORIGINAL_COLUMN_COUNT - ADDITIONAL_NUMBER_OF_METADATA_COLUMNS - metadata_df$none_count[row_idx]
   if (bam_type_col_idx > 0 && bam_type_col_idx <= ORIGINAL_COLUMN_COUNT) {
     return(as.character(metadata_df[row_idx, bam_type_col_idx]))
   } else {

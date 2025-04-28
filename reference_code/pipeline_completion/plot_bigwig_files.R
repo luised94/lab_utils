@@ -152,7 +152,7 @@ if (length(file_paths_by_type) == 0) {
 # Load and process bigwig file
 ################################################################################
 # Setup
-EXTENSION_TO_LOAD <- "BIGWIG"
+EXTENSION_TO_LOAD <- "BW"
 EXTENSIONS_TO_REMOVE <- paste0(".", tolower(EXTENSION_TO_LOAD))
 ESCAPED_EXTENSIONS <- gsub(".", "\\.", EXTENSIONS_TO_REMOVE, fixed = TRUE)
 BIGWIG_FILES <- file_paths_by_type[[EXTENSION_TO_LOAD]]
@@ -165,7 +165,7 @@ if (length(BIGWIG_FILES) == 0) {
 # EXTRACT METADATA FROM FILENAMES
 #-------------------------------------------------------------------------------
 # Extract base filenames without path and extensions
-file_basenames <- basename(XLS_FILES)
+file_basenames <- basename(BIGWIG_FILES)
 filenames_without_extension <- gsub(ESCAPED_EXTENSIONS, "", file_basenames)
 clean_filenames <- gsub("_peaks$", "", filenames_without_extension) # Remove _peaks suffix added by MACS2
 
@@ -194,9 +194,10 @@ metadata_df$none_count <- apply(metadata_df, 1, function(row) {
 })
 
 # Determine BAM type based on position in filename
+ADDITIONAL_NUMBER_OF_METADATA_COLUMNS <- 1
 metadata_df$bam_type <- sapply(1:nrow(metadata_df), function(row_idx) {
   # Calculate position of BAM type in the row
-  bam_type_col_idx <- ORIGINAL_COLUMN_COUNT - 2 - metadata_df$none_count[row_idx]
+  bam_type_col_idx <- ORIGINAL_COLUMN_COUNT - ADDITIONAL_NUMBER_OF_METADATA_COLUMNS - metadata_df$none_count[row_idx]
   if (bam_type_col_idx > 0 && bam_type_col_idx <= ORIGINAL_COLUMN_COUNT) {
     return(as.character(metadata_df[row_idx, bam_type_col_idx]))
   } else {
@@ -204,12 +205,22 @@ metadata_df$bam_type <- sapply(1:nrow(metadata_df), function(row_idx) {
   }
 })
 
+# Extract the last non-"none" columns normalization
+normalization_method <- vector("list", nrow(metadata_df))
+for (row_idx in 1:nrow(metadata_df)) {
+  end_idx <- ORIGINAL_COLUMN_COUNT - metadata_df$none_count[row_idx]
+  if (end_idx >= 2) {
+    normalization_method[row_idx] <- metadata_df[row_idx, end_idx]
+  }
+}
+
 # COMBINE ALL METADATA INTO FINAL DATA FRAME
 # Assuming first two columns are sample type and condition idx
 final_metadata <- data.frame(
   sample_type = metadata_df[, 1],
   condition_idx = metadata_df[, 2],
   bam_type = metadata_df$bam_type,
+  normalization_method = unlist(normalization_method),
   file_path = BIGWIG_FILES,
   stringsAsFactors = FALSE
 )
