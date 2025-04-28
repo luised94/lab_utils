@@ -243,104 +243,40 @@ final_metadata <- data.frame(
 
 stop("Breakpoint...")
 
-PEAK_PARAMETER_TEST_COLUMNS <- c(
-  "sample_type",      # input, reference, test
-  "alignment_processing", # deduped, raw, shifted
-  "peak_calling_mode",        # auto, narrow, broad
-  "significance_metric",  # X4: "p" (p-value), "q" (q-value)
-  "input_control_type",  # X5: "noInput", "withInput"
-  "output_category",    # X6: "peaks" (constant)
-  "peak_detail_level",   # V7: "peaks", "summits"
-  "file_paths"
-)
-
-EXPECTED_NUM_UNDERSCORES <- 6
-NUMBER_OF_FILES <- length(unlist(PEAK_FILES))
-EXTENSIONS_TO_REMOVE <- paste0(".", SUPPORTED_FILE_TYPES)
-filenames <- basename(unlist(PEAK_FILES))
-
-# Process the file path names to extract metadata
-# Prepare regex pattern
-escaped_extensions <- gsub(".", "\\.", EXTENSIONS_TO_REMOVE, fixed = TRUE)
-sorted_extensions <- escaped_extensions[order(nchar(escaped_extensions), decreasing = TRUE)]
-extension_pattern <- paste0("(", paste(sorted_extensions, collapse = "|"), ")$")
-# Single vectorized operation to remove extensions
-filenames_without_extension <- sub(extension_pattern, "", filenames)
-split_metadata <- strsplit(filenames_without_extension, split = "_")
-
-underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
-NUMBER_OF_COLUMNS <- length(PEAK_PARAMETER_TEST_COLUMNS)
-if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPECTED_NUM_UNDERSCORES) {
-  stop("Filenames must contain exactly ", EXPECTED_NUM_UNDERSCORES, " underscores.")
-}
-
-# Preallocation
-# Dataframe construction using extracted metadata
-peak_metadata_df <- data.frame(
-  matrix(NA, nrow = NUMBER_OF_FILES, ncol = NUMBER_OF_COLUMNS )
-)
-
-for (row_index in seq_len(nrow(peak_metadata_df))) {
-    peak_metadata_df[row_index, 1:length(split_metadata[[row_index]])] <- split_metadata[[row_index]]
-}
-
-colnames(peak_metadata_df) <- PEAK_PARAMETER_TEST_COLUMNS
-peak_metadata_df$file_paths <- unlist(PEAK_FILES)
-
 # Assertions
-stopifnot(
-    "No samples are NA." = !any(is.na(peak_metadata_df$sample)),
-    "Metadata has expected dimensions." =
-        nrow(peak_metadata_df) == NUMBER_OF_FILES &&
-        ncol(peak_metadata_df) == NUMBER_OF_COLUMNS,
-    "No duplicate samples." = !any(duplicated(peak_metadata_df))
-)
+#stopifnot(
+#    "No samples are NA." = !any(is.na(peak_metadata_df$sample)),
+#    "Metadata has expected dimensions." =
+#        nrow(peak_metadata_df) == NUMBER_OF_FILES &&
+#        ncol(peak_metadata_df) == NUMBER_OF_COLUMNS,
+#    "No duplicate samples." = !any(duplicated(peak_metadata_df))
+#)
 
 # Add factor levels to metadata frame and define unique categories
 # Convert all columns to factors
-peak_metadata_df[] <- lapply(peak_metadata_df, as.factor)
+#peak_metadata_df[] <- lapply(peak_metadata_df, as.factor)
 
 # Define factor levels for each column (customize as needed)
-COLUMN_LEVELS <- list(
-  sample_group = c("input", "reference", "test"),
-  alignment_processing = c("raw", "deduped", "shifted"),
-  peak_calling_mode = c("narrow", "broad", "auto"),
-  significance_metric = c("p", "q"),
-  input_control_type = c("noInput", "withInput"),
-  output_category = "peaks",  # Single level since constant
-  peak_detail_level = c("peaks", "summits")
-)
+#COLUMN_LEVELS <- list(
+#  sample_group = c("input", "reference", "test"),
+#  alignment_processing = c("raw", "deduped", "shifted"),
+#  peak_calling_mode = c("narrow", "broad", "auto"),
+#  significance_metric = c("p", "q"),
+#  input_control_type = c("noInput", "withInput"),
+#  output_category = "peaks",  # Single level since constant
+#  peak_detail_level = c("peaks", "summits")
+#)
 
 ##################################################################################
 # MAIN
 ##################################################################################
 # Create list of unique categories automatically
-UNIQUE_METADATA_CATEGORIES <- lapply(colnames(peak_metadata_df), function(col_name) {
-  unique(peak_metadata_df[[col_name]])
-})
-
-# Name the list elements using the column names
-names(UNIQUE_METADATA_CATEGORIES) <- colnames(peak_metadata_df)
-
-#---------------------------------------------
-# Verify the unique categories
-#---------------------------------------------
-# Handle the sample and bam_processing combinations
-# Non-printing character to avoid collision
-METADATA_COLUMN_SEPARATOR <-  "\x01"
+#UNIQUE_METADATA_CATEGORIES <- lapply(colnames(peak_metadata_df), function(col_name) {
+#  unique(peak_metadata_df[[col_name]])
+#})
 #
-## Create the keys to perform subsetting
-is_not_file_path_column <- !grepl(pattern = "file_paths", x = names(peak_metadata_df))
-METADATA_CHARACTER_VECTORS <- lapply(peak_metadata_df[, is_not_file_path_column], as.character)
-METADATA_JOINED_KEYS <- do.call(paste, c(METADATA_CHARACTER_VECTORS, sep = METADATA_COLUMN_SEPARATOR))
-peak_metadata_df$sample_id <- METADATA_JOINED_KEYS
-message(sprintf("Number of unique metadata keys: %s", length(unique(METADATA_JOINED_KEYS))))
-
-is_not_xls_file <- !grepl(pattern = "\\.xls$", x = peak_metadata_df$file_paths)
-message(sprintf("Number of files after filtering out xls files: %s", nrow(peak_metadata_df[is_not_xls_file, ])))
-
-# Filter out xls data for now
-peak_metadata_df <- peak_metadata_df[is_not_xls_file, ]
+## Name the list elements using the column names
+#names(UNIQUE_METADATA_CATEGORIES) <- colnames(peak_metadata_df)
 
 # Create output directory if it doesn't exist
 PLOT_OUTPUT_DIR <- file.path(Sys.getenv("HOME"), "data", "preprocessing_test", "plots")

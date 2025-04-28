@@ -226,51 +226,15 @@ final_metadata <- data.frame(
 )
 
 stop("Breakpoint...")
-file_basenames <- basename(BIGWIG_FILES)
-filenames_without_extension <- gsub(ESCAPED_EXTENSIONS, "", file_basenames)
-underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
-split_metadata <- strsplit(filenames_without_extension, split = "_")
-
-
-message(sprintf("Minimum # of underscores: %s\nMaximum # of underscores: %s", min(underscore_counts), max(underscore_counts)))
-
-COLUMN_NAMES <- c("sample", "bam_processing", "bigwig_processing", "file_paths")
-FILE_EXTENSION_TO_REMOVE <- ".bw"
-EXPECTED_NUM_UNDERSCORES <- 2
-
-file_basenames <- basename(BIGWIG_FILES)
-filenames_without_extension <- gsub(FILE_EXTENSION_TO_REMOVE, "", file_basenames)
-split_metadata <- strsplit(filenames_without_extension, split = "_")
-
-underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
-NUMBER_OF_COLUMNS <- length(COLUMN_NAMES)
-
-if (length(unique(underscore_counts)) != 1 || unique(underscore_counts) != EXPECTED_NUM_UNDERSCORES) {
-  stop("Filenames must contain exactly ", EXPECTED_NUM_UNDERSCORES, " underscores.")
-}
-
-# Preallocation
-bigwig_metadata_df <- data.frame(matrix(NA, nrow = NUMBER_OF_FILES, ncol = NUMBER_OF_COLUMNS))
-
-for (row_index in 1:nrow(bigwig_metadata_df)) {
-    bigwig_metadata_df[row_index, 1:3] <- split_metadata[[row_index]]
-}
-
-colnames(bigwig_metadata_df) <- COLUMN_NAMES
-bigwig_metadata_df$file_paths <- BIGWIG_FILES
 
 # Assertions
-stopifnot(
-    "No samples are NA." = !any(is.na(bigwig_metadata_df$sample)),
-    "Metadata has expected dimensions." =
-        nrow(bigwig_metadata_df) == NUMBER_OF_FILES &&
-        ncol(bigwig_metadata_df) == length(COLUMN_NAMES),
-    "No duplicate samples." = !any(duplicated(bigwig_metadata_df))
-)
-
-if (length(BIGWIG_FILES) == 0) {
-    stop("No bigwig files found.")
-}
+#stopifnot(
+#    "No samples are NA." = !any(is.na(bigwig_metadata_df$sample)),
+#    "Metadata has expected dimensions." =
+#        nrow(bigwig_metadata_df) == NUMBER_OF_FILES &&
+#        ncol(bigwig_metadata_df) == length(COLUMN_NAMES),
+#    "No duplicate samples." = !any(duplicated(bigwig_metadata_df))
+#)
 
 #################################################################################
 # MAIN
@@ -279,20 +243,20 @@ if (length(BIGWIG_FILES) == 0) {
 # Plot the bigwig processing comparisons
 #---------------------------------------------
 # Define categories
-UNIQUE_METADATA_CATEGORIES <- list(
-    samples = unique(bigwig_metadata_df[,"sample"]),
-    bam_processing = unique(bigwig_metadata_df[,"bam_processing"]),
-    bigwig_processing = unique(bigwig_metadata_df[, "bigwig_processing"])
-)
-
-VALID_PROCESSING_COMBINATIONS <- expand.grid(
-    UNIQUE_METADATA_CATEGORIES[c("samples", "bam_processing")]
-)
-
-# Filter the sample combinations to exclude input shifted
-IS_INPUT_SAMPLE <- VALID_PROCESSING_COMBINATIONS$samples == "input"
-IS_SHIFTED_PROCESSING <- VALID_PROCESSING_COMBINATIONS$bam_processing == "shifted"
-VALID_PROCESSING_COMBINATIONS <- VALID_PROCESSING_COMBINATIONS[!(IS_INPUT_SAMPLE & IS_SHIFTED_PROCESSING), ]
+#UNIQUE_METADATA_CATEGORIES <- list(
+#    samples = unique(bigwig_metadata_df[,"sample"]),
+#    bam_processing = unique(bigwig_metadata_df[,"bam_processing"]),
+#    bigwig_processing = unique(bigwig_metadata_df[, "bigwig_processing"])
+#)
+#
+#VALID_PROCESSING_COMBINATIONS <- expand.grid(
+#    UNIQUE_METADATA_CATEGORIES[c("samples", "bam_processing")]
+#)
+#
+## Filter the sample combinations to exclude input shifted
+#IS_INPUT_SAMPLE <- VALID_PROCESSING_COMBINATIONS$samples == "input"
+#IS_SHIFTED_PROCESSING <- VALID_PROCESSING_COMBINATIONS$bam_processing == "shifted"
+#VALID_PROCESSING_COMBINATIONS <- VALID_PROCESSING_COMBINATIONS[!(IS_INPUT_SAMPLE & IS_SHIFTED_PROCESSING), ]
 
 # Handle the sample and bam_processing combinations
 # Non-printing character to avoid collision
@@ -302,8 +266,8 @@ METADATA_COLUMN_SEPARATOR <-  "\x01"
 METADATA_CHARACTER_VECTORS <- lapply(bigwig_metadata_df[c("sample", "bam_processing")], as.character)
 METADATA_JOINED_KEYS <- do.call(paste, c(METADATA_CHARACTER_VECTORS, sep = METADATA_COLUMN_SEPARATOR))
 
-CONTROL_COMBINATIONS_CHARACTERS <- lapply(VALID_PROCESSING_COMBINATIONS, as.character)
-control_joined_keys <- do.call(paste, c(CONTROL_COMBINATIONS_CHARACTERS, sep = METADATA_COLUMN_SEPARATOR))
+#CONTROL_COMBINATIONS_CHARACTERS <- lapply(VALID_PROCESSING_COMBINATIONS, as.character)
+#control_joined_keys <- do.call(paste, c(CONTROL_COMBINATIONS_CHARACTERS, sep = METADATA_COLUMN_SEPARATOR))
 
 # Create output directory if it doesn't exist
 PLOT_OUTPUT_DIR <- file.path(Sys.getenv("HOME"), "data", "preprocessing_test", "plots")
