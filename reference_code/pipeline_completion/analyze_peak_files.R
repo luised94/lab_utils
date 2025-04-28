@@ -173,8 +173,58 @@ if (length(XLS_FILES) == 0) {
 
 file_basenames <- basename(XLS_FILES)
 filenames_without_extension <- gsub(ESCAPED_EXTENSIONS, "", file_basenames)
+# Specific step required to remove _peaks that is added by macs2 I think
+filenames_without_extension <- gsub("_peaks$", "", filenames_without_extension)
 underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
 split_metadata <- strsplit(filenames_without_extension, split = "_")
+# Add additional elements to be able to bind the different elements
+filled_split_metadata <- lapply(seq_along(split_metadata), function(x){
+  elements_to_append <- rep("none", max(underscore_counts) + 1 - length(split_metadata[[x]]))
+  filled_list <- c(split_metadata[[x]], elements_to_append)
+  return(filled_list)
+})
+metadata_df <- do.call(rbind, filled_split_metadata)
+metadata_df <- as.data.frame(metadata_df)
+original_number_of_columns <- ncol(metadata_df)
+
+# Determine the number of nones in rows 
+number_of_nones <- vector("list", nrow(metadata_df))
+for (row_idx in seq_len(nrow(metadata_df))) {
+  count <- 0
+  for (col_idx in seq_len(ncol(metadata_df))) {
+    if(grepl("none", metadata_df[row_idx, col_idx])) {
+      count = count + 1
+    }
+  }
+  number_of_nones[row_idx] <- count
+}
+metadata_df$number_of_nones <- unlist(number_of_nones)
+# Find the type of bam the row is usig the amount of nones added
+#metadata_df$bam_type <- c("shifted", "blFiltered", "deduped", "raw")[metadata_df$number_of_nones + 1]
+#number_of_columns <- ncol(metadata_df)
+bam_type_list <- vector("list", nrow(metadata_df))
+for (row_idx in seq_len(nrow(metadata_df))) {
+  bam_type_ncol <- original_number_of_columns - 2 - metadata_df$number_of_nones[row_idx]]
+  bam_type <- metadata_df[row_idx, bam_type_ncol]
+  bam_type_list[row_idx] <- bam_type
+}
+metadata_df$bam_type <- unlist(bam_type_list)
+
+input_and_peak_type_cols <- data.frame(matrix(NA, nrow = nrow(metadata_df), ncol = 2))
+for (row_idx in seq_len(nrow(metadata_df))) {
+  end_idx <- original_number_of_columns - metadata_df$number_of_nones[row_idx]
+  start_idx <- end_idx - 1
+  input_and_peak_type_cols[row_idx, ] <- metadata_df[row_idx, start_idx:end_idx]
+}
+
+# Append the 
+test_df <- cbind(
+  metadata_df[, 1:2],
+  metadata_df$bam_type,
+  input_and_peak_type_cols,
+  XLS_FILES
+)
+
 
 message(sprintf("Minimum # of underscores: %s\nMaximum # of underscores: %s", min(underscore_counts), max(underscore_counts)))
 stop("Breakpoint...")

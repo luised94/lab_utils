@@ -109,7 +109,7 @@ DATA_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "preprocessing_test")
 SUPPORTED_FILE_TYPES <- c(
   FASTQ = "fastq",
   BAM = "bam",
-  BIGWIG = "bw",
+  BW = "bw",
   NARROW_PEAK = "narrowPeak",
   BROAD_PEAK = "broadPeak"
 )
@@ -162,9 +162,10 @@ if (length(BIGWIG_FILES) == 0) {
 }
 
 file_basenames <- basename(BIGWIG_FILES)
-filenames_without_extension <- gsub(FILE_EXTENSION_TO_REMOVE, "", file_basenames)
+filenames_without_extension <- gsub(ESCAPED_EXTENSIONS, "", file_basenames)
 underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
 split_metadata <- strsplit(filenames_without_extension, split = "_")
+
 
 message(sprintf("Minimum # of underscores: %s\nMaximum # of underscores: %s", min(underscore_counts), max(underscore_counts)))
 stop("Breakpoint...")
