@@ -152,18 +152,32 @@ if (length(file_paths_by_type) == 0) {
     stop("No valid files found in directory: ", DATA_DIRECTORY)
 }
 
-message("Breakpoint...")
-quit(save = "no", status = 0)
 ################################################################################
 # Load and process peak files
 ################################################################################
-# Setup
-PEAK_EXTENSIONS <- c("NARROW_PEAK", "BED", "XLS", "GAPPED_PEAK", "BROAD_PEAK")
-PEAK_FILES <- file_paths_by_type[PEAK_EXTENSIONS]
+# Load PEAK_FILE_COLUMNS variable
+source(normalizePath("~/lab_utils/core_scripts/peak_file_columns_by_type.R"))
+stopifnot("Problem loading PEAK_FILE_COLUMNS variable from R file." = exists("PEAK_FILE_COLUMNS"))
 
-if (length(PEAK_FILES) == 0) {
-    stop("No peak files found.")
+# Setup
+#PEAK_EXTENSIONS <- c("NARROW_PEAK", "BED", "XLS", "GAPPED_PEAK", "BROAD_PEAK")
+#PEAK_FILES <- file_paths_by_type[PEAK_EXTENSIONS]
+EXTENSION_TO_LOAD <- "XLS"
+EXTENSIONS_TO_REMOVE <- paste0(".", tolower(EXTENSION_TO_LOAD))
+ESCAPED_EXTENSIONS <- gsub(".", "\\.", EXTENSIONS_TO_REMOVE, fixed = TRUE)
+XLS_FILES <- file_paths_by_type[[EXTENSION_TO_LOAD]]
+
+if (length(XLS_FILES) == 0) {
+    stop("No xls peak files found.")
 }
+
+file_basenames <- basename(XLS_FILES)
+filenames_without_extension <- gsub(ESCAPED_EXTENSIONS, "", file_basenames)
+underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
+split_metadata <- strsplit(filenames_without_extension, split = "_")
+
+message(sprintf("Minimum # of underscores: %s\nMaximum # of underscores: %s", min(underscore_counts), max(underscore_counts)))
+stop("Breakpoint...")
 
 PEAK_PARAMETER_TEST_COLUMNS <- c(
   "sample_type",      # input, reference, test
@@ -178,9 +192,6 @@ PEAK_PARAMETER_TEST_COLUMNS <- c(
 
 EXPECTED_NUM_UNDERSCORES <- 6
 NUMBER_OF_FILES <- length(unlist(PEAK_FILES))
-# Load PEAK_FILE_COLUMNS variable
-source(normalizePath("~/lab_utils/core_scripts/peak_file_columns_by_type.R"))
-stopifnot("Problem loading PEAK_FILE_COLUMNS variable from R file." = exists("PEAK_FILE_COLUMNS"))
 EXTENSIONS_TO_REMOVE <- paste0(".", SUPPORTED_FILE_TYPES)
 filenames <- basename(unlist(PEAK_FILES))
 

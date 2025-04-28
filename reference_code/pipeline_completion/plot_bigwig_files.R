@@ -148,13 +148,27 @@ if (length(file_paths_by_type) == 0) {
 }
 # TODO: Probably insert breakpoint here and then test.
 # Currently, have to test the underscore processing, test columns, subset selection. Once metadata initialization is done, I can probably do both.
-message("Breakpoint...")
-quit(save = "no", status = 0)
 ################################################################################
 # Load and process bigwig file
 ################################################################################
-BIGWIG_FILES <- file_paths_by_type[["BIGWIG"]]
-NUMBER_OF_FILES <- length(BIGWIG_FILES)
+# Setup
+EXTENSION_TO_LOAD <- "BIGWIG"
+EXTENSIONS_TO_REMOVE <- paste0(".", tolower(EXTENSION_TO_LOAD))
+ESCAPED_EXTENSIONS <- gsub(".", "\\.", EXTENSIONS_TO_REMOVE, fixed = TRUE)
+BIGWIG_FILES <- file_paths_by_type[[EXTENSION_TO_LOAD]]
+
+if (length(BIGWIG_FILES) == 0) {
+    stop("No bigwig files found.")
+}
+
+file_basenames <- basename(BIGWIG_FILES)
+filenames_without_extension <- gsub(FILE_EXTENSION_TO_REMOVE, "", file_basenames)
+underscore_counts <- lengths(gregexpr("_", filenames_without_extension))
+split_metadata <- strsplit(filenames_without_extension, split = "_")
+
+message(sprintf("Minimum # of underscores: %s\nMaximum # of underscores: %s", min(underscore_counts), max(underscore_counts)))
+stop("Breakpoint...")
+
 COLUMN_NAMES <- c("sample", "bam_processing", "bigwig_processing", "file_paths")
 FILE_EXTENSION_TO_REMOVE <- ".bw"
 EXPECTED_NUM_UNDERSCORES <- 2
