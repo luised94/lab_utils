@@ -152,6 +152,8 @@ if (length(file_paths_by_type) == 0) {
     stop("No valid files found in directory: ", DATA_DIRECTORY)
 }
 
+message("Breakpoint...")
+quit(save = "no", status = 0)
 ################################################################################
 # Load and process peak files
 ################################################################################

@@ -148,6 +148,8 @@ if (length(file_paths_by_type) == 0) {
 }
 # TODO: Probably insert breakpoint here and then test.
 # Currently, have to test the underscore processing, test columns, subset selection. Once metadata initialization is done, I can probably do both.
+message("Breakpoint...")
+quit(save = "no", status = 0)
 ################################################################################
 # Load and process bigwig file
 ################################################################################
