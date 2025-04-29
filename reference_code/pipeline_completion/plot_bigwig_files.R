@@ -309,13 +309,13 @@ for (comparison_name in names(list_of_comparisons)) {
     if (nrow(subset_df) == 0) next
     # Create a title describing this comparison
     title_parts <- paste(
-      paste(fixed_columns_array, "=", 
+      paste(fixed_columns_array, "=",
             sapply(fixed_columns_array, function(col) unique_combinations[i, col])),
       collapse = ", "
     )
 
     track_title <- paste0(comparison_name, ": ", title_parts)
-    print(paste0("Found ", nrow(subset_df), " tracks for ", track_title))
+    print(paste0("  Found ", nrow(subset_df), " tracks for ", track_title))
 
     # Here you would run your plotting code using subset_df
     # The vary_column(s) will naturally have different values in this subset
@@ -360,20 +360,36 @@ for (comparison_name in names(list_of_comparisons)) {
       message("     --- Metadata subsetting ---")
       current_row <- subset_df[file_idx, ]
       current_filepath <- subset_df$file_path[file_idx]
-      # Create track name based on vary_column(s)
-      if (length(comparison$vary_column) == 1) {
-        # Single vary column - simple case
-        track_name <- paste0(comparison$vary_column, ": ", current_row[[comparison$vary_column]])
+
+      # Always include sample_type and condition_idx as base information
+      base_info <- paste0(
+        current_row[["sample_type"]], "_",
+        current_row[["condition_idx"]]
+      )
+      # Add varying column information
+      if (length(comparison$vary_column) == 1 &&
+          !(comparison$vary_column %in% c("sample_type", "condition_idx"))) {
+        # Add single vary column (if it's not already included in base_info)
+        vary_col <- comparison$vary_column
+        track_name <- paste0(base_info, " (", vary_col, ": ", current_row[[vary_col]], ")")
+      } else if (length(comparison$vary_column) > 1) {
+        # For multiple vary columns, add any that aren't already in base_info
+        additional_cols <- setdiff(comparison$vary_column, c("sample_type", "condition_idx"))
+        if (length(additional_cols) > 0) {
+          vary_values <- sapply(additional_cols, function(col) {
+            paste0(col, "=", current_row[[col]])
+          })
+          track_name <- paste0(base_info, " (", paste(vary_values, collapse=", "), ")")
+        } else {
+          track_name <- base_info  # Only sample and condition are varying
+        }
       } else {
-        # Multiple vary columns - combine their values
-        vary_values <- sapply(comparison$vary_column, function(col) {
-          paste0(col, "=", current_row[[col]])
-        })
-        track_name <- paste(vary_values, collapse = ", ")
+        # The vary column is already included in base_info
+        track_name <- base_info
       }
 
-      message(sprintf("Importing bigwig file: %s", current_filepath))
-      message(paste0("  Adding track: ", track_name))
+      message(sprintf("   Importing bigwig file: %s", current_filepath))
+      message(paste0("    Adding track: ", track_name))
 
       bigwig_data <- rtracklayer::import(
         current_filepath,
@@ -401,7 +417,7 @@ for (comparison_name in names(list_of_comparisons)) {
 
     }
 
-    message("All samples imported and added to track_container.")
+    message("   All samples imported and added to track_container.")
     # [4] Annotation Track (Conditional)
     if (exists("GENOME_FEATURES")) {
         track_container[[length(track_container)]] <- Gviz::AnnotationTrack(
@@ -417,6 +433,12 @@ for (comparison_name in names(list_of_comparisons)) {
             col = "#8b4513"
         )
     }
+    # Create descriptive main plot title
+    main_title <- paste0(
+      comparison_name, ": ",
+      paste(names(fixed_values), "=", unlist(fixed_values), collapse=", ")
+    )
+    message(sprint("Plotting %s", main_title))
 
     #svglite::svglite(
     #    filename = full_path,
@@ -433,6 +455,7 @@ for (comparison_name in names(list_of_comparisons)) {
     #    margin = 15,
     #    innerMargin = 5,
     #    spacing = 10,
+    #    main = main_title,
     #    col.axis = "black",
     #    cex.axis = 0.8,
     #    cex.main = 0.9,
