@@ -347,6 +347,11 @@ for (comparison_name in names(list_of_comparisons)) {
     full_path <- file.path(PLOT_OUTPUT_DIR, filename)
     message(paste0("  File will be saved to ", full_path))
 
+    if(file.exists(full_path)) {
+      message(sprintf("[DUPLICATE] File %s already exists. Skipping..."))
+      next
+    }
+
     # [2] Track Container Initialization
     track_container <- vector("list", nrow(subset_df) + 1 + as.numeric(exists("GENOME_FEATURES")))
     track_container[[1]] <- Gviz::GenomeAxisTrack(
