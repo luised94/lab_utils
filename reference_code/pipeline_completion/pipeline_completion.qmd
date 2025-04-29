@@ -47,9 +47,10 @@ See: https://www.perplexity.ai/search/frag-size-0-9-frag-size-0-echo-HFFIchSoSli
 ## Cool way to trace a variable across the program
 If you want to trace the logic of the code by following a variable, you can hover over the variable name and either follow using * to search for words under the cursor. In R, there will probably be a variable being assigned with <-, so you can go to the beginning using ^ to the first character then press * and n to follow that variable. Repeat ^ * n to follow the logic to the end. Can be turned into a macro. Maybe it can be turned into an across file using quick fix list or something.
 
-## Turn a word (in the vim sense) into capital letters
+## Turn a word (in the vim sense) into capital letters or lower case
 ```{vim}
-gUiw
+gUiw " uppercase
+guiw " lowercase
 ```
 
 # Notes
@@ -61,3 +62,7 @@ Reference bam file was not present in the align directory. Not sure why. Will ad
 Added numbers since the order of each file should be clear and consistent now.
 Very worried that I am analyzing the wrong files even though I double checked the numbers and I saw the bigwig file.
 
+## 2025-04-29
+Had to refactor a substantial amount of code after changing name conventions while processing the bam files. Still not sure about if I chose the wrong files.
+Received the files for the repeat experiments.
+See error # file had missing data after macs2 call # to see the case for what happens when same file is used as control for peak calling. No data was present. Great I think.

@@ -1,13 +1,72 @@
+# file had missing data after macs2 call
+```{error}
+3: In `[<-.data.frame`(`*tmp*`, row_index, , value = list(sample_id = "input001",  :
+  provided 6 variables to replace 5 variables
+4: In eval(ei, envir) :
+  File has no data after comments: /home/luised94/data/preprocessing_test/peaks/input_001_raw_deduped_blFiltered_withInput_narrow_peaks.xls
+5: In `[<-.data.frame`(`*tmp*`, row_index, , value = list(sample_id = "input001",  :
+  provided 6 variables to replace 5 variables
+```
+
+Macs2 peak calling used the same file as control. Seems like it worked.
+Second, I forgot to fix the preallocation of the summary_statistics_df when I added the percent_recovered and percent_enriched stats. The summary_statistics_df only had the overlap_pct.
+Indeed, after fixing the preallocation, we only get:
+```{error}
+2: In eval(ei, envir) :
+  File has no data after comments: /home/luised94/data/preprocessing_test/peaks/input_001_raw_deduped_blFiltered_shifted_withInput_narrow_peaks.xls
+3: In eval(ei, envir) :
+  File has no data after comments: /home/luised94/data/preprocessing_test/peaks/input_001_raw_deduped_blFiltered_withInput_narrow_peaks.xls
+```
+
+# assigning wrong number of values
+```{error}
+Error in `$<-.data.frame`(`*tmp*`, "percent_recovered", value = c(NA,  :
+  replacement has 6 rows, data has 112
+
+    summary_statistics_df$sample_id[row_index] <- current_sample_id
+    summary_statistics_df$num_peaks[row_index] <- 0
+    summary_statistics_df$width_mean[row_index] <- NA
+    summary_statistics_df$width_median[row_index] <- NA
+    summary_statistics_df$percent_recovered[row_index] <- NA
+    summary_statistics_df$percent_enriched[row_index] <- NA
+    # Create minimal placeholder data for distributions
+    chromosome_distribution_list[[row_index]] <- data.frame(
+      sample_id = current_sample_id,
+      chromosome = NA,
+      count = NA,
+      stringsAsFactors = FALSE
+    )
+    peak_width_list[[row_index]] <- data.frame(
+      sample_id = current_sample_id,
+      peak_id = NA,
+      width = NA
+    )
+```
+
+Not sure why they were being assigned as six. Converted to single values and row assignment and using NA specific types (NA_real_)
+# unexpected if
+```{error}
+Error in source("pipeline_completion/analyze_peak_files.R") :
+  pipeline_completion/analyze_peak_files.R:345:3: unexpected 'if'
+344:   # Check if file has content after comments
+345:   if
+```
+
+Usually caused by missing brackets of a function or conditional I think
 # subsetting dataframe
+```{error}
 > subset(final_metadata, eval(comparison$filter, envir = final_metadata))
 Error in subset.data.frame(final_metadata, eval(comparison$filter, envir = final_metadata)) :
   'subset' must be logical
+```
 
 
 # macs2 not enough peaks for model building
+```{error}
 WARNING @ Tue, 22 Apr 2025 15:26:17: Too few paired peaks (80) so I can not build the model! Broader your MFOLD range parameter may erase this error. If it still can't build the model, we suggest to use --nomodel and --extsize 147 or other fixed number instead.
 WARNING @ Tue, 22 Apr 2025 15:26:17: Process for pairing-model is terminated!
 WARNING @ Tue, 22 Apr 2025 15:26:17: # Can't find enough pairs of symmetric peaks to build model!
+```
 
 Samples with poor quality data or negative controls can give this error. Extend mfold for model building or disable extsize. 
 See: https://claude.ai/chat/401ce71b-31dc-4ae0-92a7-ba69724ecfb8
@@ -16,21 +75,27 @@ See: https://claude.ai/chat/401ce71b-31dc-4ae0-92a7-ba69724ecfb8
 Control was being passed from associated array as "--control ${INPUT_CONTROL}" whereas it needed to be ( --control ${INPUT_CONTROL}) as a separate argument.
 
 # Variable never defined or doesnt exist.
+```{error}
 Error in args$skip_validation :
   object of type 'closure' is not subsettable
 
 Error in dir.exists(GENOME_TRACK_CONFIG$file_genome_directory) :
   object 'GENOME_TRACK_CONFIG' not found
+```
 
 # Missing or extra characters
+```{error}
 Error in source("reference_code/pipeline_completion/plot_bigwig_files.R") :
   reference_code/pipeline_completion/plot_bigwig_files.R:30:74: unexpected ','
 29: # Ensure supplementary files for plotting genome tracks are present
 30: FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS"),
+```
 
 # Dataframe assignment
+```{error}
 Error in `[<-.data.frame`(`*tmp*`, row_index, , value = c("input", "deduped",  :
   replacement has 3 items, need 4
+```
 
 bigwig_metadata_df[row_index, ] <- split_metadata[[row_index]]
 Add NA using: c(split_metadata[[row_index]], NA)
