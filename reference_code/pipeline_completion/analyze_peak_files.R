@@ -111,7 +111,7 @@ DATA_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "preprocessing_test")
 SUPPORTED_FILE_TYPES <- c(
   FASTQ = "fastq",
   BAM = "bam",
-  BIGWIG = "bw",
+  BW = "bw",
   NARROW_PEAK = "narrowPeak",
   BED = "bed",
   XLS = "xls",
@@ -181,7 +181,6 @@ clean_filenames <- gsub("_peaks$", "", filenames_without_extension) # Remove _pe
 
 # Split filenames by underscores to extract metadata components
 filename_parts <- strsplit(clean_filenames, split = "_")
-underscore_counts <- lengths(gregexpr("_", clean_filenames))
 max_parts <- max(sapply(filename_parts, length))
 
 # Pad each split filename to ensure uniform length for data frame creation
@@ -284,7 +283,7 @@ dir.create(PLOT_OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
 
 # --- Configuration ---
 MIN_ROW_COUNT <- 1
-MAX_ROW_COUNT <- nrow(peak_metadata_df)
+MAX_ROW_COUNT <- nrow(final_metadata)
 ANALYSIS_COLUMNS <- c("number_of_peaks", "peak_width_distribution", "overlap_with_eaton")
 
 DEBUG_MODE <- TRUE

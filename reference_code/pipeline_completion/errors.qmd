@@ -1,3 +1,9 @@
+# subsetting dataframe
+> subset(final_metadata, eval(comparison$filter, envir = final_metadata))
+Error in subset.data.frame(final_metadata, eval(comparison$filter, envir = final_metadata)) :
+  'subset' must be logical
+
+
 # macs2 not enough peaks for model building
 WARNING @ Tue, 22 Apr 2025 15:26:17: Too few paired peaks (80) so I can not build the model! Broader your MFOLD range parameter may erase this error. If it still can't build the model, we suggest to use --nomodel and --extsize 147 or other fixed number instead.
 WARNING @ Tue, 22 Apr 2025 15:26:17: Process for pairing-model is terminated!
