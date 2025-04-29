@@ -240,20 +240,19 @@ final_metadata <- data.frame(
   stringsAsFactors = FALSE
 )
 
-stop("Breakpoint...")
 
 # Assertions
 #stopifnot(
-#    "No samples are NA." = !any(is.na(peak_metadata_df$sample)),
+#    "No samples are NA." = !any(is.na(final_metadata$sample)),
 #    "Metadata has expected dimensions." =
-#        nrow(peak_metadata_df) == NUMBER_OF_FILES &&
-#        ncol(peak_metadata_df) == NUMBER_OF_COLUMNS,
-#    "No duplicate samples." = !any(duplicated(peak_metadata_df))
+#        nrow(final_metadata) == NUMBER_OF_FILES &&
+#        ncol(final_metadata) == NUMBER_OF_COLUMNS,
+#    "No duplicate samples." = !any(duplicated(final_metadata))
 #)
 
 # Add factor levels to metadata frame and define unique categories
 # Convert all columns to factors
-#peak_metadata_df[] <- lapply(peak_metadata_df, as.factor)
+#final_metadata[] <- lapply(final_metadata, as.factor)
 
 # Define factor levels for each column (customize as needed)
 #COLUMN_LEVELS <- list(
@@ -270,12 +269,12 @@ stop("Breakpoint...")
 # MAIN
 ##################################################################################
 # Create list of unique categories automatically
-#UNIQUE_METADATA_CATEGORIES <- lapply(colnames(peak_metadata_df), function(col_name) {
-#  unique(peak_metadata_df[[col_name]])
+#UNIQUE_METADATA_CATEGORIES <- lapply(colnames(final_metadata), function(col_name) {
+#  unique(final_metadata[[col_name]])
 #})
 #
 ## Name the list elements using the column names
-#names(UNIQUE_METADATA_CATEGORIES) <- colnames(peak_metadata_df)
+#names(UNIQUE_METADATA_CATEGORIES) <- colnames(final_metadata)
 
 # Create output directory if it doesn't exist
 PLOT_OUTPUT_DIR <- file.path(Sys.getenv("HOME"), "data", "preprocessing_test", "plots")
@@ -312,7 +311,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   message(sprintf("Processing row %d/%d", row_index, MAX_ROW_COUNT))
 
   # Extract the current row's data
-  current_metadata <- peak_metadata_df[row_index, ]
+  current_metadata <- final_metadata[row_index, ]
   if (DEBUG_MODE) {
     message("Row Details:")
     invisible(lapply(names(current_metadata), function(column_name) {
@@ -321,17 +320,17 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     }))
   }
 
-  bed_file_path <- as.character(current_metadata$file_paths)
-  current_sample_id <- as.character(current_metadata$sample_id)
+  xls_file_path <- as.character(current_metadata$file_path)
+  current_sample_id <- paste0(current_metadata$sample_type, as.character(current_metadata$condition_idx))
 
   # --- Load bed file data ---
   stopifnot(
-    "Expect only one file path in bed_file_path every iteration." = length(bed_file_path) == 1,
-    "bed_file_path variable is empty." = nzchar(bed_file_path),
-    "bed_file_path variable for current metadata does not exist." = file.exists(bed_file_path)
+    "Expect only one file path in xls_file_path every iteration." = length(xls_file_path) == 1,
+    "xls_file_path variable is empty." = nzchar(xls_file_path),
+    "xls_file_path variable for current metadata does not exist." = file.exists(xls_file_path)
   )
 
-  file_ext <- tools::file_ext(bed_file_path)
+  file_ext <- tools::file_ext(xls_file_path)
   format_key <- toupper(file_ext)
   SUPPORTED_FORMATS <- paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")
 
@@ -344,7 +343,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 
   col_names <- PEAK_FILE_COLUMNS[[format_key]]
   peak_df <- read.table(
-    file = bed_file_path,
+    file = xls_file_path,
     col.names = col_names,
     header = FALSE
   )
@@ -355,98 +354,99 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     "Loaded %s peaks (cols: %s) from %s",
     nrow(peak_df),
     ncol(peak_df),
-    basename(bed_file_path)
+    basename(xls_file_path)
   ))
-  message(sprintf("Column names (num: %s) from PEAK_FILE_COLUMNS object:\n%s", length(col_names), paste(col_names, collapse=", ")))
-  message(sprintf("Peak dataframe details from file path: %s", bed_file_path))
-  print(head(peak_df))
+  #message(sprintf("Column names (num: %s) from PEAK_FILE_COLUMNS object:\n%s", length(col_names), paste(col_names, collapse=", ")))
+  #message(sprintf("Peak dataframe details from file path: %s", xls_file_path))
+  #print(head(peak_df))
 
-  # Validate critical columns exist
-  stopifnot(
-    "Missing chromosome column in peak_df." = "chromosome" %in% names(peak_df),
-    "Missing start position column in peak_df." = "start" %in% names(peak_df),
-    "Missing end position column in peak_df." = "end" %in% names(peak_df)
-  )
+  ## Validate critical columns exist
+  #stopifnot(
+  #  "Missing chromosome column in peak_df." = "chromosome" %in% names(peak_df),
+  #  "Missing start position column in peak_df." = "start" %in% names(peak_df),
+  #  "Missing end position column in peak_df." = "end" %in% names(peak_df)
+  #)
 
-  lapply(names(peak_df), function(column_name){
-    if (any(is.na(peak_df[[column_name]]))){
-      warning(sprintf("Some missing values in %s column.", column_name))
-    }
-  })
+  #lapply(names(peak_df), function(column_name){
+  #  if (any(is.na(peak_df[[column_name]]))){
+  #    warning(sprintf("Some missing values in %s column.", column_name))
+  #  }
+  #})
 
-  has_chr_prefix <- grepl("^chr", peak_df$chromosome)
-  if (any(!has_chr_prefix)) {
-    stop("Some chromosome values in peak_df do not follow chr<roman_num> format.")
-  }
+  #has_chr_prefix <- grepl("^chr", peak_df$chromosome)
+  #if (any(!has_chr_prefix)) {
+  #  stop("Some chromosome values in peak_df do not follow chr<roman_num> format.")
+  #}
 
-  # Verify position values are valid
-  stopifnot(
-    "peak_df has negative start positions" = all(peak_df$start >= 0),
-    "peak_df has rows where end < start" = all(peak_df$end > peak_df$start)
-  )
+  ## Verify position values are valid
+  #stopifnot(
+  #  "peak_df has negative start positions" = all(peak_df$start >= 0),
+  #  "peak_df has rows where end < start" = all(peak_df$end > peak_df$start)
+  #)
 
-  # --- Create GenomicRanges ---
-  # Create GRanges object with core coordinates
-  gr <- GenomicRanges::GRanges(
-    seqnames = peak_df$chromosome,
-    ranges = IRanges::IRanges(
-      # Convert from 0-based to 1-based
-      start = peak_df$start + 1L,
-      end = peak_df$end
-    ),
-    strand = "*"
-    #strand = if("strand" %in% names(peak_df)) peak_df$strand else "*"
-  )
+  ## --- Create GenomicRanges ---
+  ## Create GRanges object with core coordinates
+  #gr <- GenomicRanges::GRanges(
+  #  seqnames = peak_df$chromosome,
+  #  ranges = IRanges::IRanges(
+  #    # Convert from 0-based to 1-based
+  #    start = peak_df$start + 1L,
+  #    end = peak_df$end
+  #  ),
+  #  strand = "*"
+  #  #strand = if("strand" %in% names(peak_df)) peak_df$strand else "*"
+  #)
 
-  # Add metadata columns (everything except chr, start, end)
-  meta_cols <- setdiff(names(peak_df), c("chromosome", "start", "end", "strand"))
-  if (length(meta_cols) > 0) {
-    #message("Metadata columns:\n", paste(meta_cols, collapse=", "))
-    GenomicRanges::mcols(gr) <- peak_df[, meta_cols, drop = FALSE]
-  }
+  ## Add metadata columns (everything except chr, start, end)
+  #meta_cols <- setdiff(names(peak_df), c("chromosome", "start", "end", "strand"))
+  #if (length(meta_cols) > 0) {
+  #  #message("Metadata columns:\n", paste(meta_cols, collapse=", "))
+  #  GenomicRanges::mcols(gr) <- peak_df[, meta_cols, drop = FALSE]
+  #}
 
-  # --- Bed File Analysis Basic Statistics ---
-  peak_widths <- peak_df$end - peak_df$start
-  stopifnot(all(peak_widths > 0))
+  ## --- Bed File Analysis Basic Statistics ---
+  #peak_widths <- peak_df$end - peak_df$start
+  #stopifnot(all(peak_widths > 0))
 
-  #chrom_counts <- as.data.frame(table(peak_df$chromosome))
-  chrom_counts <- as.data.frame(table(
-      factor(peak_df$chromosome, levels=names(REFERENCE_GENOME_DSS))
-  ))
-  # Calculate overlaps (logical vector: TRUE = overlap exists)
-  overlaps_logical <- IRanges::overlapsAny(gr, GENOME_FEATURES)
-  # Percent of gr1 ranges overlapping gr2
-  percent_enriched <- ( sum(overlaps_logical) / length(gr) ) * 100
+  ##chrom_counts <- as.data.frame(table(peak_df$chromosome))
+  #chrom_counts <- as.data.frame(table(
+  #    factor(peak_df$chromosome, levels=names(REFERENCE_GENOME_DSS))
+  #))
+  ## Calculate overlaps (logical vector: TRUE = overlap exists)
+  #overlaps_logical <- IRanges::overlapsAny(gr, GENOME_FEATURES)
+  ## Percent of gr1 ranges overlapping gr2
+  #percent_enriched <- ( sum(overlaps_logical) / length(gr) ) * 100
 
-  # Calculate overlaps (logical vector: TRUE = overlap exists)
-  overlaps_logical <- IRanges::overlapsAny(GENOME_FEATURES, gr)
-  percent_recovered <- ( sum(overlaps_logical) / length(GENOME_FEATURES) ) * 100
+  ## Calculate overlaps (logical vector: TRUE = overlap exists)
+  #overlaps_logical <- IRanges::overlapsAny(GENOME_FEATURES, gr)
+  #percent_recovered <- ( sum(overlaps_logical) / length(GENOME_FEATURES) ) * 100
 
-  # --- Store Results ---
-  summary_statistics_df$sample_id[row_index] <- current_sample_id
-  summary_statistics_df$num_peaks[row_index] <- nrow(peak_df)
-  summary_statistics_df$width_mean[row_index] <- mean(peak_widths)
-  summary_statistics_df$width_median[row_index] <- median(peak_widths)
-  summary_statistics_df$percent_recovered[row_index] <- percent_recovered
-  summary_statistics_df$percent_enriched[row_index] <- percent_enriched
+  ## --- Store Results ---
+  #summary_statistics_df$sample_id[row_index] <- current_sample_id
+  #summary_statistics_df$num_peaks[row_index] <- nrow(peak_df)
+  #summary_statistics_df$width_mean[row_index] <- mean(peak_widths)
+  #summary_statistics_df$width_median[row_index] <- median(peak_widths)
+  #summary_statistics_df$percent_recovered[row_index] <- percent_recovered
+  #summary_statistics_df$percent_enriched[row_index] <- percent_enriched
 
-  chromosome_distribution_list[[row_index]] <- data.frame(
-      sample_id = current_sample_id,
-      chromosome = chrom_counts$Var1,
-      count = chrom_counts$Freq,
-      stringsAsFactors = FALSE
-    )
+  #chromosome_distribution_list[[row_index]] <- data.frame(
+  #    sample_id = current_sample_id,
+  #    chromosome = chrom_counts$Var1,
+  #    count = chrom_counts$Freq,
+  #    stringsAsFactors = FALSE
+  #  )
 
-  # Width DF (store in list first)
-  peak_width_list[[row_index]] <- data.frame(
-    sample_id = current_sample_id,
-    peak_id = seq_len(length(peak_widths)),
-    width = peak_widths
-  )
+  ## Width DF (store in list first)
+  #peak_width_list[[row_index]] <- data.frame(
+  #  sample_id = current_sample_id,
+  #  peak_id = seq_len(length(peak_widths)),
+  #  width = peak_widths
+  #)
 
   message("--------------------")
 } # End of for loop
 message("Processing finished.")
+stop("Breakpoint...")
 # Convert lists to DF
 peak_width_distribution_df <- do.call(rbind, peak_width_list)
 chromosome_distribution_df <- do.call(rbind, chromosome_distribution_list)
@@ -457,22 +457,22 @@ peak_width_distribution_df <- peak_width_distribution_df[!is.na(peak_width_distr
 summary_statistics_df <- summary_statistics_df[!is.na(summary_statistics_df$sample_id), ]
 
 # Add metadata to distribution DFs for easier plotting
-METADATA_COLS_TO_KEEP <- setdiff(names(peak_metadata_df), "file_paths")
+METADATA_COLS_TO_KEEP <- setdiff(names(final_metadata), "file_paths")
 
 # Explicit merges
 chromosome_distribution_df <- merge(
   chromosome_distribution_df,
-  peak_metadata_df[, METADATA_COLS_TO_KEEP],
+  final_metadata[, METADATA_COLS_TO_KEEP],
   by = "sample_id"
 )
 peak_width_distribution_df <- merge(
   peak_width_distribution_df,
-  peak_metadata_df[, METADATA_COLS_TO_KEEP],
+  final_metadata[, METADATA_COLS_TO_KEEP],
   by = "sample_id"
 )
 summary_statistics_df <- merge(
   summary_statistics_df,
-  peak_metadata_df[, METADATA_COLS_TO_KEEP],
+  final_metadata[, METADATA_COLS_TO_KEEP],
   by = "sample_id"
 )
 

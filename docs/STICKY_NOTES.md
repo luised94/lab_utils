@@ -206,3 +206,8 @@ E g name_of_bam_none_none.bam name_of_bam_deduped_none.bam etcetera.
 Otherwise will have to handle missing columns. (maybe minimum is 3, "left align" the metadata then fill with default value, so like a lower part of a matrix from the diagonal match or fitted with the other half like a puzzle piece )
 Need to find the plotting code but other than that I think its looking good.
 Will comment the code to run as dry-run to double check then run.
+
+## 2025-04-29
+Almost done with the tests. Need to plot bigwig files and the peak file statistics
+Bigwig file script runs, just need to plot and save to file to see if there are no errors.
+For the peak files, can adapt the metadata processing but just need to go through all of the files to grab statistics and then decide on the plots.
