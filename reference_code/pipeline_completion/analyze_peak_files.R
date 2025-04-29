@@ -240,7 +240,6 @@ final_metadata <- data.frame(
   stringsAsFactors = FALSE
 )
 
-
 # Assertions
 #stopifnot(
 #    "No samples are NA." = !any(is.na(final_metadata$sample)),
@@ -286,6 +285,7 @@ MAX_ROW_COUNT <- nrow(final_metadata)
 ANALYSIS_COLUMNS <- c("number_of_peaks", "peak_width_distribution", "overlap_with_eaton")
 
 DEBUG_MODE <- TRUE
+# TODO: Likely have to add file path and use that to merge data.frames
 summary_statistics_df <- data.frame(
   sample_id = character(MAX_ROW_COUNT),
   num_peaks = integer(MAX_ROW_COUNT),
@@ -330,87 +330,134 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     "xls_file_path variable for current metadata does not exist." = file.exists(xls_file_path)
   )
 
-  file_ext <- tools::file_ext(xls_file_path)
-  format_key <- toupper(file_ext)
-  SUPPORTED_FORMATS <- paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")
+  file_lines <- readLines(xls_file_path)
+  comment_lines <- grep("^#", file_lines)
+  # Determine the header line (first non-comment line)
+  if (length(comment_lines) > 0) {
+    header_line <- max(comment_lines) + 1
+  } else {
+    header_line <- 1  # No comments, header is first line
+  }
+  message(sprintf(" Number of comment lines: %s", length(comment_lines)))
+  message(sprintf(" Header line identified: %s", header_line)
 
-  # Check if we have a definition for this file type
-  if (!format_key %in% names(PEAK_FILE_COLUMNS)) {
-    stop(paste0("Unsupported file format: ", file_ext,
-                ". Supported formats are: ",
-                SUPPORTED_FORMATS))
+  # Check if file has content after comments
+  if (header_line > length(file_lines)) {
+    message(paste("File has no data after comments:", xls_file_path))
+    warning(paste("File has no data after comments:", xls_file_path))
+    summary_statistics_df$sample_id[row_index] <- current_sample_id
+    summary_statistics_df$num_peaks[row_index] <- 0
+    summary_statistics_df$width_mean[row_index] <- NA
+    summary_statistics_df$width_median[row_index] <- NA
+    summary_statistics_df$percent_recovered[row_index] <- NA
+    summary_statistics_df$percent_enriched[row_index] <- NA
+    # Create minimal placeholder data for distributions
+    chromosome_distribution_list[[row_index]] <- data.frame(
+      sample_id = current_sample_id,
+      chromosome = NA,
+      count = NA,
+      stringsAsFactors = FALSE
+    )
+    peak_width_list[[row_index]] <- data.frame(
+      sample_id = current_sample_id,
+      peak_id = NA,
+      width = NA
+    )
+    next  # Skip to next iteration
   }
 
-  col_names <- PEAK_FILE_COLUMNS[[format_key]]
-  peak_df <- read.table(
-    file = xls_file_path,
-    col.names = col_names,
-    header = FALSE
-  )
+  # Get the header and data lines
+  header <- all_lines[header_line]
+  data_lines <- all_lines[(header_line+1):length(all_lines)]
 
-  stopifnot("peak_df is empty." = nrow(peak_df) > 0)
-
+  # Check if there's any data
+  if (length(data_lines) == 0) {
+    warning(paste("File has header but no data:", file_path))
+  }
+  xls_peak_df <- read.delim(text = data_lines, header = FALSE, sep = "\t")
   message(sprintf(
     "Loaded %s peaks (cols: %s) from %s",
-    nrow(peak_df),
-    ncol(peak_df),
+    nrow(xls_peak_df),
+    ncol(xls_peak_df),
     basename(xls_file_path)
   ))
+  message(sprintf("Peak dataframe details from file path: %s", xls_file_path))
+  print(head(xls_peak_df))
+
+  #file_ext <- tools::file_ext(xls_file_path)
+  #format_key <- toupper(file_ext)
+  #SUPPORTED_FORMATS <- paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")
+
+  ## Check if we have a definition for this file type
+  #if (!format_key %in% names(PEAK_FILE_COLUMNS)) {
+  #  stop(paste0("Unsupported file format: ", file_ext,
+  #              ". Supported formats are: ",
+  #              SUPPORTED_FORMATS))
+  #}
+  #col_names <- PEAK_FILE_COLUMNS[[format_key]]
+  #xls_peak_df <- read.table(
+  #  file = xls_file_path,
+  #  col.names = col_names,
+  #  header = FALSE
+  #)
+
+  #stopifnot("xls_peak_df is empty." = nrow(xls_peak_df) > 0)
+
   #message(sprintf("Column names (num: %s) from PEAK_FILE_COLUMNS object:\n%s", length(col_names), paste(col_names, collapse=", ")))
   #message(sprintf("Peak dataframe details from file path: %s", xls_file_path))
-  #print(head(peak_df))
+  #print(head(xls_peak_df))
 
   ## Validate critical columns exist
   #stopifnot(
-  #  "Missing chromosome column in peak_df." = "chromosome" %in% names(peak_df),
-  #  "Missing start position column in peak_df." = "start" %in% names(peak_df),
-  #  "Missing end position column in peak_df." = "end" %in% names(peak_df)
+  #  "Missing chromosome column in xls_peak_df." = "chromosome" %in% names(xls_peak_df),
+  #  "Missing start position column in xls_peak_df." = "start" %in% names(xls_peak_df),
+  #  "Missing end position column in xls_peak_df." = "end" %in% names(xls_peak_df)
   #)
 
-  #lapply(names(peak_df), function(column_name){
-  #  if (any(is.na(peak_df[[column_name]]))){
+  #lapply(names(xls_peak_df), function(column_name){
+  #  if (any(is.na(xls_peak_df[[column_name]]))){
   #    warning(sprintf("Some missing values in %s column.", column_name))
   #  }
   #})
 
-  #has_chr_prefix <- grepl("^chr", peak_df$chromosome)
+  #has_chr_prefix <- grepl("^chr", xls_peak_df$chromosome)
   #if (any(!has_chr_prefix)) {
-  #  stop("Some chromosome values in peak_df do not follow chr<roman_num> format.")
+  #  stop("Some chromosome values in xls_peak_df do not follow chr<roman_num> format.")
   #}
 
   ## Verify position values are valid
   #stopifnot(
-  #  "peak_df has negative start positions" = all(peak_df$start >= 0),
-  #  "peak_df has rows where end < start" = all(peak_df$end > peak_df$start)
+  #  "xls_peak_df has negative start positions" = all(xls_peak_df$start >= 0),
+  #  "xls_peak_df has rows where end < start" = all(xls_peak_df$end > xls_peak_df$start)
   #)
 
   ## --- Create GenomicRanges ---
   ## Create GRanges object with core coordinates
   #gr <- GenomicRanges::GRanges(
-  #  seqnames = peak_df$chromosome,
+  #  seqnames = xls_peak_df$chromosome,
   #  ranges = IRanges::IRanges(
   #    # Convert from 0-based to 1-based
-  #    start = peak_df$start + 1L,
-  #    end = peak_df$end
+  #    start = xls_peak_df$start + 1L,
+  #    end = xls_peak_df$end
   #  ),
   #  strand = "*"
-  #  #strand = if("strand" %in% names(peak_df)) peak_df$strand else "*"
+  #  #strand = if("strand" %in% names(xls_peak_df)) xls_peak_df$strand else "*"
   #)
 
   ## Add metadata columns (everything except chr, start, end)
-  #meta_cols <- setdiff(names(peak_df), c("chromosome", "start", "end", "strand"))
+  #meta_cols <- setdiff(names(xls_peak_df), c("chromosome", "start", "end", "strand"))
   #if (length(meta_cols) > 0) {
   #  #message("Metadata columns:\n", paste(meta_cols, collapse=", "))
-  #  GenomicRanges::mcols(gr) <- peak_df[, meta_cols, drop = FALSE]
+  #  GenomicRanges::mcols(gr) <- xls_peak_df[, meta_cols, drop = FALSE]
   #}
 
   ## --- Bed File Analysis Basic Statistics ---
-  #peak_widths <- peak_df$end - peak_df$start
+  #peak_widths <- xls_peak_df$end - xls_peak_df$start
   #stopifnot(all(peak_widths > 0))
 
-  ##chrom_counts <- as.data.frame(table(peak_df$chromosome))
+  ##chrom_counts <- as.data.frame(table(xls_peak_df$chromosome))
   #chrom_counts <- as.data.frame(table(
-  #    factor(peak_df$chromosome, levels=names(REFERENCE_GENOME_DSS))
+  #    factor(xls_peak_df$chromosome, levels=names(REFERENCE_GENOME_DSS))
   #))
   ## Calculate overlaps (logical vector: TRUE = overlap exists)
   #overlaps_logical <- IRanges::overlapsAny(gr, GENOME_FEATURES)
@@ -423,7 +470,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 
   ## --- Store Results ---
   #summary_statistics_df$sample_id[row_index] <- current_sample_id
-  #summary_statistics_df$num_peaks[row_index] <- nrow(peak_df)
+  #summary_statistics_df$num_peaks[row_index] <- nrow(xls_peak_df)
   #summary_statistics_df$width_mean[row_index] <- mean(peak_widths)
   #summary_statistics_df$width_median[row_index] <- median(peak_widths)
   #summary_statistics_df$percent_recovered[row_index] <- percent_recovered
