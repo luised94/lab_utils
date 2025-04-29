@@ -289,7 +289,8 @@ DEBUG_MODE <- TRUE
 summary_statistics_df <- data.frame(
   sample_id = character(MAX_ROW_COUNT),
   num_peaks = integer(MAX_ROW_COUNT),
-  overlap_pct = numeric(MAX_ROW_COUNT),
+  percent_recovered = numeric(MAX_ROW_COUNT),
+  percent_enriched = numeric(MAX_ROW_COUNT),
   width_mean = numeric(MAX_ROW_COUNT),
   width_median = numeric(MAX_ROW_COUNT),
   stringsAsFactors = FALSE
@@ -307,7 +308,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     row_index <= MAX_ROW_COUNT
   )
   # Add a small separator for clarity in logs
-  message("--------------------")
+  message("====================")
   message(sprintf("Processing row %d/%d", row_index, MAX_ROW_COUNT))
 
   # Extract the current row's data
@@ -323,7 +324,8 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   xls_file_path <- as.character(current_metadata$file_path)
   current_sample_id <- paste0(current_metadata$sample_type, as.character(current_metadata$condition_idx))
 
-  # --- Load bed file data ---
+  # --- Load xls file data ---
+  message("--- Loading xls data ---")
   stopifnot(
     "Expect only one file path in xls_file_path every iteration." = length(xls_file_path) == 1,
     "xls_file_path variable is empty." = nzchar(xls_file_path),
@@ -338,50 +340,61 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   } else {
     header_line <- 1  # No comments, header is first line
   }
-  message(sprintf(" Number of comment lines: %s", length(comment_lines)))
-  message(sprintf(" Header line identified: %s", header_line)
+  message(sprintf("  Current sample id: %s", current_sample_id))
+  message(sprintf("  Number of comment lines: %s", length(comment_lines)))
+  message(sprintf("  Header line identified: %s", header_line))
 
   # Check if file has content after comments
   if (header_line > length(file_lines)) {
-    message(paste("File has no data after comments:", xls_file_path))
+    message(paste("  File has no data after comments:", xls_file_path))
     warning(paste("File has no data after comments:", xls_file_path))
-    summary_statistics_df$sample_id[row_index] <- current_sample_id
-    summary_statistics_df$num_peaks[row_index] <- 0
-    summary_statistics_df$width_mean[row_index] <- NA
-    summary_statistics_df$width_median[row_index] <- NA
-    summary_statistics_df$percent_recovered[row_index] <- NA
-    summary_statistics_df$percent_enriched[row_index] <- NA
+    message("  Creating placeholder data...")
+    summary_statistics_df[row_index, ] <- data.frame(
+      sample_id = current_sample_id,
+      num_peaks = 0L,
+      width_mean = NA_real_,
+      width_median = NA_real_,
+      percent_recovered = NA_real_,
+      percent_enriched = NA_real_,
+      stringsAsFactors = FALSE
+    )
     # Create minimal placeholder data for distributions
     chromosome_distribution_list[[row_index]] <- data.frame(
       sample_id = current_sample_id,
-      chromosome = NA,
-      count = NA,
+      chromosome = NA_character_,
+      count = NA_integer_,
       stringsAsFactors = FALSE
     )
     peak_width_list[[row_index]] <- data.frame(
       sample_id = current_sample_id,
-      peak_id = NA,
-      width = NA
+      peak_id = NA_character_,
+      width = NA_real_,
+      stringsAsFactors = FALSE
     )
+    message("  Skipping to next iteration...")
     next  # Skip to next iteration
   }
 
   # Get the header and data lines
-  header <- all_lines[header_line]
-  data_lines <- all_lines[(header_line+1):length(all_lines)]
+  header <- file_lines[header_line]
+  data_lines <- file_lines[(header_line+1):length(file_lines)]
 
   # Check if there's any data
   if (length(data_lines) == 0) {
     warning(paste("File has header but no data:", file_path))
+    next
   }
+
+  # --- Extract statistics from xls file ---
+  message("--- Extracting statistics from xls file ---")
   xls_peak_df <- read.delim(text = data_lines, header = FALSE, sep = "\t")
   message(sprintf(
-    "Loaded %s peaks (cols: %s) from %s",
+    "  Loaded %s peaks (cols: %s) from %s",
     nrow(xls_peak_df),
     ncol(xls_peak_df),
     basename(xls_file_path)
   ))
-  message(sprintf("Peak dataframe details from file path: %s", xls_file_path))
+  message(sprintf("  Peak dataframe details from file path: %s", xls_file_path))
   print(head(xls_peak_df))
 
   #file_ext <- tools::file_ext(xls_file_path)
@@ -490,7 +503,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   #  width = peak_widths
   #)
 
-  message("--------------------")
+  message("====================")
 } # End of for loop
 message("Processing finished.")
 stop("Breakpoint...")
