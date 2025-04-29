@@ -394,55 +394,42 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     ncol(xls_peak_df),
     basename(xls_file_path)
   ))
+
+  file_ext <- tools::file_ext(xls_file_path)
+  format_key <- toupper(file_ext)
+  SUPPORTED_FORMATS <- paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")
+  # Check if we have a definition for this file type
+  f (!format_key %in% names(PEAK_FILE_COLUMNS)) {
+    stop(paste0("Unsupported file format: ", file_ext,
+                ". Supported formats are: ",
+                SUPPORTED_FORMATS))
+  }
+  col_names <- PEAK_FILE_COLUMNS[[format_key]]
+  names(xls_peak_df) <- col_names
+  # Error handling chunk ----
+  has_chr_prefix <- grepl("^chr", xls_peak_df$chromosome)
+  stopifnot(
+    "xls_peak_df is empty." = nrow(xls_peak_df) > 0,
+    "Missing chromosome column in xls_peak_df." = "chromosome" %in% names(xls_peak_df),
+    "Missing start position column in xls_peak_df." = "start" %in% names(xls_peak_df),
+    "Missing end position column in xls_peak_df." = "end" %in% names(xls_peak_df),
+    "Some chromosome values in xls_peak_df do not follow chr<roman_num> format." = any(!has_chr_prefix),
+    "xls_peak_df has negative start positions" = all(xls_peak_df$start >= 0),
+    "xls_peak_df has rows where end < start" = all(xls_peak_df$end > xls_peak_df$start)
+  )
+
+  lapply(names(xls_peak_df), function(column_name){
+    if (any(is.na(xls_peak_df[[column_name]]))){
+      warning(sprintf("Some missing values in %s column.", column_name))
+    }
+  })
+  # -----------
+
+  message(sprintf(" Error handling chunk passed for: %s", xls_file_path))
   message(sprintf("  Peak dataframe details from file path: %s", xls_file_path))
+  message("~~~~~~~~~~~~~~~~~~~~")
   print(head(xls_peak_df))
-
-  #file_ext <- tools::file_ext(xls_file_path)
-  #format_key <- toupper(file_ext)
-  #SUPPORTED_FORMATS <- paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")
-
-  ## Check if we have a definition for this file type
-  #if (!format_key %in% names(PEAK_FILE_COLUMNS)) {
-  #  stop(paste0("Unsupported file format: ", file_ext,
-  #              ". Supported formats are: ",
-  #              SUPPORTED_FORMATS))
-  #}
-  #col_names <- PEAK_FILE_COLUMNS[[format_key]]
-  #xls_peak_df <- read.table(
-  #  file = xls_file_path,
-  #  col.names = col_names,
-  #  header = FALSE
-  #)
-
-  #stopifnot("xls_peak_df is empty." = nrow(xls_peak_df) > 0)
-
-  #message(sprintf("Column names (num: %s) from PEAK_FILE_COLUMNS object:\n%s", length(col_names), paste(col_names, collapse=", ")))
-  #message(sprintf("Peak dataframe details from file path: %s", xls_file_path))
-  #print(head(xls_peak_df))
-
-  ## Validate critical columns exist
-  #stopifnot(
-  #  "Missing chromosome column in xls_peak_df." = "chromosome" %in% names(xls_peak_df),
-  #  "Missing start position column in xls_peak_df." = "start" %in% names(xls_peak_df),
-  #  "Missing end position column in xls_peak_df." = "end" %in% names(xls_peak_df)
-  #)
-
-  #lapply(names(xls_peak_df), function(column_name){
-  #  if (any(is.na(xls_peak_df[[column_name]]))){
-  #    warning(sprintf("Some missing values in %s column.", column_name))
-  #  }
-  #})
-
-  #has_chr_prefix <- grepl("^chr", xls_peak_df$chromosome)
-  #if (any(!has_chr_prefix)) {
-  #  stop("Some chromosome values in xls_peak_df do not follow chr<roman_num> format.")
-  #}
-
-  ## Verify position values are valid
-  #stopifnot(
-  #  "xls_peak_df has negative start positions" = all(xls_peak_df$start >= 0),
-  #  "xls_peak_df has rows where end < start" = all(xls_peak_df$end > xls_peak_df$start)
-  #)
+  message("~~~~~~~~~~~~~~~~~~~~")
 
   ## --- Create GenomicRanges ---
   ## Create GRanges object with core coordinates
