@@ -2,7 +2,7 @@
 # Plot bigwig files
 ################################################################################
 # PURPOSE: Plot bigwig files generated during the pipeline completion tests
-# Conclusion: 
+# Conclusion:
 #   = The plots look the same for the counts and the post processing. Unless I made a mistake making the bigwig files.
 # USAGE: source("reference_code/pipeline_completion/plot_bigwig_files.R")
 # DEPENDENCIES: GenomicRanges, rtracklayer
@@ -438,7 +438,7 @@ for (comparison_name in names(list_of_comparisons)) {
       comparison_name, ": ",
       paste(names(fixed_values), "=", unlist(fixed_values), collapse=", ")
     )
-    message(sprint("Plotting %s", main_title))
+    message(sprintf("Plotting %s", main_title))
 
     #svglite::svglite(
     #    filename = full_path,
