@@ -346,7 +346,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   message(sprintf("  Header line identified: %s", header_line))
 
   # Check if file has content after comments
-  if (header_line > length(file_lines)) {
+  if (header_line >= length(file_lines)) {
     message(paste("  File has no data after comments:", xls_file_path))
     warning(paste("File has no data after comments:", xls_file_path))
     message("  Creating placeholder data...")
