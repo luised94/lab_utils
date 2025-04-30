@@ -405,7 +405,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   # Finds the specific instance in the command line of the header
   # \\b matches whole word.
   if (any(grepl("^# Command:.*--call-summits\\b",
-                file_lines[1:header_start],
+                file_lines[1:max(comment_lines)],
                 ignore.case = TRUE))) {
 
     format_key <- paste0(format_key, "_SUMMITS")
