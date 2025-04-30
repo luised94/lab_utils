@@ -332,6 +332,8 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   )
 
   file_lines <- readLines(xls_file_path)
+  # Note: There is one line in the header that is empty. //
+  # This should account for it but there may be issues.  //
   comment_lines <- grep("^#", file_lines)
   # Determine the header line (first non-comment line)
   if (length(comment_lines) > 0) {
@@ -400,7 +402,12 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   file_ext <- tools::file_ext(xls_file_path)
   format_key <- toupper(file_ext)
   # Handle --call-summits command
-  if (any(grepl("--call-summits", file_lines[1:header_start]))) {
+  # Finds the specific instance in the command line of the header
+  # \\b matches whole word.
+  if (any(grepl("^# Command:.*--call-summits\\b",
+                file_lines[1:header_start],
+                ignore.case = TRUE))) {
+
     format_key <- paste0(format_key, "_SUMMITS")
   }
   SUPPORTED_FORMATS <- paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")
