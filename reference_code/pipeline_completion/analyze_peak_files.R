@@ -285,9 +285,9 @@ MAX_ROW_COUNT <- nrow(final_metadata)
 ANALYSIS_COLUMNS <- c("number_of_peaks", "peak_width_distribution", "overlap_with_eaton")
 
 DEBUG_MODE <- TRUE
-# TODO: Likely have to add file path and use that to merge data.frames
 summary_statistics_df <- data.frame(
   sample_id = character(MAX_ROW_COUNT),
+  file_path = character(MAX_ROW_COUNT),
   num_peaks = integer(MAX_ROW_COUNT),
   percent_recovered = numeric(MAX_ROW_COUNT),
   percent_enriched = numeric(MAX_ROW_COUNT),
@@ -351,6 +351,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     message("  Creating placeholder data...")
     summary_statistics_df[row_index, ] <- data.frame(
       sample_id = current_sample_id,
+      file_path = xls_file_path,
       num_peaks = 0L,
       width_mean = NA_real_,
       width_median = NA_real_,
@@ -361,12 +362,14 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     # Create minimal placeholder data for distributions
     chromosome_distribution_list[[row_index]] <- data.frame(
       sample_id = current_sample_id,
+      file_path = xls_file_path,
       chromosome = NA_character_,
       count = NA_integer_,
       stringsAsFactors = FALSE
     )
     peak_width_list[[row_index]] <- data.frame(
       sample_id = current_sample_id,
+      file_path = xls_file_path,
       peak_id = NA_character_,
       width = NA_real_,
       stringsAsFactors = FALSE
@@ -453,11 +456,9 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 
   ## --- Bed File Analysis Basic Statistics ---
   #peak_widths <- xls_peak_df$end - xls_peak_df$start
-  #stopifnot(all(peak_widths > 0))
-
-  ##chrom_counts <- as.data.frame(table(xls_peak_df$chromosome))
   #chrom_counts <- as.data.frame(table(
-  #    factor(xls_peak_df$chromosome, levels=names(REFERENCE_GENOME_DSS))
+  #  # Requires chromosomes of the reference genome to be in order
+  #  factor(xls_peak_df$chromosome, levels=names(REFERENCE_GENOME_DSS))
   #))
   ## Calculate overlaps (logical vector: TRUE = overlap exists)
   #overlaps_logical <- IRanges::overlapsAny(gr, GENOME_FEATURES)
@@ -469,25 +470,30 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   #percent_recovered <- ( sum(overlaps_logical) / length(GENOME_FEATURES) ) * 100
 
   ## --- Store Results ---
-  #summary_statistics_df$sample_id[row_index] <- current_sample_id
-  #summary_statistics_df$num_peaks[row_index] <- nrow(xls_peak_df)
-  #summary_statistics_df$width_mean[row_index] <- mean(peak_widths)
-  #summary_statistics_df$width_median[row_index] <- median(peak_widths)
-  #summary_statistics_df$percent_recovered[row_index] <- percent_recovered
-  #summary_statistics_df$percent_enriched[row_index] <- percent_enriched
-
+  #summary_statistics_df[row_index, ] <- data.frame(
+  #  sample_id = current_sample_id,
+  #   file_path = xls_file_path,
+  #  num_peaks = nrow(xls_peak_df),
+  #  width_mean = mean(peak_widths),
+  #  width_median = median(peak_widths),
+  #  percent_recovered = percent_recovered,
+  #  percent_enriched = percent_enriched,
+  #  stringsAsFactors = FALSE
+  #)
+  ## Create minimal placeholder data for distributions
   #chromosome_distribution_list[[row_index]] <- data.frame(
-  #    sample_id = current_sample_id,
-  #    chromosome = chrom_counts$Var1,
-  #    count = chrom_counts$Freq,
-  #    stringsAsFactors = FALSE
-  #  )
-
-  ## Width DF (store in list first)
+  #  sample_id = current_sample_id,
+  #    file_path = xls_file_path,
+  #  chromosome = chrom_counts$Var1,
+  #  count = chrom_counts$Freq,
+  #  stringsAsFactors = FALSE
+  #)
   #peak_width_list[[row_index]] <- data.frame(
   #  sample_id = current_sample_id,
+  #    file_path = xls_file_path,
   #  peak_id = seq_len(length(peak_widths)),
-  #  width = peak_widths
+  #  width = peak_widths,
+  #  stringsAsFactors = FALSE
   #)
 
   message("====================")
@@ -504,23 +510,23 @@ peak_width_distribution_df <- peak_width_distribution_df[!is.na(peak_width_distr
 summary_statistics_df <- summary_statistics_df[!is.na(summary_statistics_df$sample_id), ]
 
 # Add metadata to distribution DFs for easier plotting
-METADATA_COLS_TO_KEEP <- setdiff(names(final_metadata), "file_paths")
+#METADATA_COLS_TO_KEEP <- setdiff(names(final_metadata), "file_paths")
 
 # Explicit merges
 chromosome_distribution_df <- merge(
   chromosome_distribution_df,
-  final_metadata[, METADATA_COLS_TO_KEEP],
-  by = "sample_id"
+  final_metadata,
+  by = "file_path"
 )
 peak_width_distribution_df <- merge(
   peak_width_distribution_df,
-  final_metadata[, METADATA_COLS_TO_KEEP],
-  by = "sample_id"
+  final_metadata,
+  by = "file_path"
 )
 summary_statistics_df <- merge(
   summary_statistics_df,
-  final_metadata[, METADATA_COLS_TO_KEEP],
-  by = "sample_id"
+  final_metadata,
+  by = "file_path"
 )
 
 # --- Plot results ---
