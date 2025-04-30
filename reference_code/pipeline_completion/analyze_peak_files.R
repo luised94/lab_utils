@@ -402,9 +402,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   file_ext <- tools::file_ext(xls_file_path)
   format_key <- toupper(file_ext)
   # Handle --call-summits command
-  # Finds the specific instance in the command line of the header
-  # \\b matches whole word.
-  if (any(grepl("^# Command:.*--call-summits\\b",
+  if (any(grepl("--call-summits",
                 file_lines[1:max(comment_lines)],
                 ignore.case = TRUE))) {
 

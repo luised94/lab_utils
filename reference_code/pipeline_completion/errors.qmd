@@ -1,3 +1,16 @@
+# column mismatch due to format key misassignment
+```{error}
+Error in `[.data.frame`(xls_peak_df, , meta_cols, drop = FALSE) :
+  undefined columns selected
+```
+
+xls_peak_df had an NA column. Turns out format key was not being assigned correctly because the regex was not working. Going with the simpler one (just --call-summits) worked but another variation worked as well:
+```{r}
+any(grepl("^#\\s*Command:?.*--call-summits\\b", 
+          file_lines[1:max(comment_lines)], 
+          ignore.case = TRUE))
+```
+
 # file had missing data after macs2 call
 ```{error}
 3: In `[<-.data.frame`(`*tmp*`, row_index, , value = list(sample_id = "input001",  :
