@@ -412,7 +412,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   }
   SUPPORTED_FORMATS <- paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")
   # Check if we have a definition for this file type
-  f (!format_key %in% names(PEAK_FILE_COLUMNS)) {
+  if (!format_key %in% names(PEAK_FILE_COLUMNS)) {
     stop(paste0("Unsupported file format: ", file_ext,
                 ". Supported formats are: ",
                 SUPPORTED_FORMATS))
