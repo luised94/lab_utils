@@ -147,7 +147,6 @@ for (file_type in names(SUPPORTED_FILE_TYPES)) {
 # Remove empty entries if warnings are acceptable
 # If no files are found, next assertion will stop
 file_paths_by_type <- Filter(length, file_paths_by_type)
-
 if (length(file_paths_by_type) == 0) {
     stop("No valid files found in directory: ", DATA_DIRECTORY)
 }
@@ -400,6 +399,10 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 
   file_ext <- tools::file_ext(xls_file_path)
   format_key <- toupper(file_ext)
+  # Handle --call-summits command
+  if (any(grepl("--call-summits", file_lines[1:header_start]))) {
+    format_key <- paste0(format_key, "_SUMMITS")
+  }
   SUPPORTED_FORMATS <- paste(tolower(names(PEAK_FILE_COLUMNS)), collapse=", ")
   # Check if we have a definition for this file type
   f (!format_key %in% names(PEAK_FILE_COLUMNS)) {

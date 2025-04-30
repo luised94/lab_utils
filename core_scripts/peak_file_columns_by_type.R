@@ -129,15 +129,26 @@ PEAK_FILE_COLUMNS <- list(
     "pValue",
     "qValue"
   ),
-
   # XLS MACS2 output
   XLS = c(
     "chromosome",
     "start",
     "end",
     "length",
-    "summit",
-    "tagsCount",
+    "pileup",
+    "pValue",
+    "foldEnrichment",
+    "qValue",
+    "name"
+  ),
+  # XLS OUTPUT when --call-summits is enabled
+  XLS_SUMMITS = c(
+    "chromosome",
+    "start",
+    "end",
+    "length",
+    "abs_summit",
+    "pileup",
     "pValue",
     "foldEnrichment",
     "qValue",
