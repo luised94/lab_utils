@@ -426,7 +426,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     "Missing chromosome column in xls_peak_df." = "chromosome" %in% names(xls_peak_df),
     "Missing start position column in xls_peak_df." = "start" %in% names(xls_peak_df),
     "Missing end position column in xls_peak_df." = "end" %in% names(xls_peak_df),
-    "Some chromosome values in xls_peak_df do not follow chr<roman_num> format." = any(!has_chr_prefix),
+    "Some chromosome values in xls_peak_df do not follow chr<roman_num> format." = all(has_chr_prefix),
     "xls_peak_df has negative start positions" = all(xls_peak_df$start >= 0),
     "xls_peak_df has rows where end < start" = all(xls_peak_df$end > xls_peak_df$start)
   )
