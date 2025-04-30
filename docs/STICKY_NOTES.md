@@ -211,3 +211,9 @@ Will comment the code to run as dry-run to double check then run.
 Almost done with the tests. Need to plot bigwig files and the peak file statistics
 Bigwig file script runs, just need to plot and save to file to see if there are no errors.
 For the peak files, can adapt the metadata processing but just need to go through all of the files to grab statistics and then decide on the plots.
+
+## 2025-04-29
+Finally got the data for the experiment.
+I think I also got the pipeline completion scripts to run. Just need to see the output and generate the plots.
+Considering creating one consolidated script that processes a file from fastq to bw, peaks, etcetera once I am sure I have the complete picture.
+Need to find the plotting code for the test scripts.

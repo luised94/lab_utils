@@ -9,7 +9,7 @@ Each script carries out a particular operation along a chip-seq pipeline and req
 # Protocol
 1. Download the data to the local directory according to the BMC's email instructions.
 2. Clean up the fastq directory (cleanup_bmc_directory.sh).
-- Run the commands instead of as a script. Files can also be moved and inspected preliminarily. I remove them since I prefer to use my own scripts.
+  - Run the commands instead of as a script. Files can also be moved and inspected preliminarily. I remove them since I prefer to use my own scripts.
 3. Consolidate the fastq files from both lanes (consolidate_fastq.sh). There could be differences between the lanes. However, if one lane has enough reads of good-enough quality, then you do not need to worry.
 
 The next set of scripts run an sbatch file that contains the information for slurm program to administrate the script and resources.

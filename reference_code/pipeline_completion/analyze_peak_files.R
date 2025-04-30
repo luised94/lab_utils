@@ -511,7 +511,6 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   message("====================")
 } # End of for loop
 message("Processing finished.")
-stop("Breakpoint...")
 # Convert lists to DF
 peak_width_distribution_df <- do.call(rbind, peak_width_list)
 chromosome_distribution_df <- do.call(rbind, chromosome_distribution_list)
