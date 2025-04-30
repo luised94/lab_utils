@@ -21,8 +21,11 @@ echo "Working directory: $current_dir"
 # First count existing fastq files for verification
 initial_fastq_count=$(find . -type f -name "*.fastq" | wc -l)
 echo "Found $initial_fastq_count FASTQ files initially"
-[[ ! $initial_fastq_count -eq 0 ]] && { echo "No fastq files in directory."; return; }
+#[[  $initial_fastq_count -eq 0 ]] && { echo "No fastq files in directory."; return; }
+[[  $initial_fastq_count -eq 0 ]] && { echo "No fastq files in directory."; }
 
+# You can perform a dry-run first by removing the -delete option from the command.
+# Use | wc -l to count the files as well.
 # Remove unmapped files first
 echo "Removing unmapped files..."
 find . -type f -name "*unmapped*" -delete
@@ -40,13 +43,15 @@ echo "Removing empty directories..."
 find . -type d -empty -delete
 
 # Verify final state
+# Should be double if you used Aviti. Two for each lane.
 final_fastq_count=$(find . -maxdepth 1 -type f -name "*.fastq" | wc -l)
 echo "Final FASTQ count in current directory: $final_fastq_count"
 
-if [ "$initial_fastq_count" -ne "$final_fastq_count" ]; then
-    echo "ERROR: FASTQ file count mismatch! Initial: $initial_fastq_count, Final: $final_fastq_count"
-    exit 1
-fi
+# This comparison does not work. Initially there are two files per sample and the additional fastq for each lane.
+#if [ "$initial_fastq_count" -ne "$final_fastq_count" ]; then
+#    echo "ERROR: FASTQ file count mismatch! Initial: $initial_fastq_count, Final: $final_fastq_count"
+#    exit 1
+#fi
 
 echo "Operation completed successfully at $(date)"
 echo "Log file: $log_file"

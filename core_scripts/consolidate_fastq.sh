@@ -31,6 +31,7 @@ validate_fastq() {
 # ---- Argument Handling ----
 if [[ $# -gt 1 ]]; then
     usage
+    exit 1
 fi
 
 original_dir="$(pwd)"
@@ -41,14 +42,14 @@ if [[ $# -eq 1 ]]; then
     if [[ ! "$1" =~ ^[0-9]{6}Bel$ ]]; then
         echo "ERROR: Invalid experiment_id format - must be 6 digits followed by 'Bel'" >&2
         echo "Example: 230504Bel" >&2
-        exit 1
+        exit 2
     fi
-    
+
     target_dir="${HOME}/data/$1/fastq"
     if [[ ! -d "$target_dir" ]]; then
         echo "ERROR: Directory not found: $target_dir" >&2
         echo "Check experiment_id or directory structure" >&2
-        exit 1
+        exit 2
     fi
 else
     # Validate current directory format
@@ -56,7 +57,7 @@ else
     if [[ ! "$target_dir" =~ ^${HOME}/data/[0-9]{6}Bel/fastq$ ]]; then
         echo "ERROR: Current directory must be ~/data/######Bel/fastq" >&2
         echo "Path detected: $target_dir" >&2
-        exit 1
+        exit 2
     fi
 fi
 
@@ -93,7 +94,7 @@ readarray -t unique_ids < <(
 if [ ${#unique_ids[@]} -eq 0 ]; then
     echo "ERROR: No valid IDs found in fastq files" >&2
     echo "Ensure the unique ids logic is correct and no updates have occured to names." >&2
-    exit 1
+    exit 3
 fi
 
 echo "Processing ${#unique_ids[@]} sample IDs"
@@ -101,24 +102,30 @@ echo "Found the following unique IDs:"
 echo "----------------"
 printf '%s\n' "${unique_ids[@]}" | xargs -n6 | sed 's/^/    /' | column -t
 echo "----------------"
-read -p "Proceed with job submission? (y/n): " confirm
+read -rp "Proceed with job submission? (y/n): " confirm
 confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
 
 if [[ "$confirm" != "y" ]]; then
     echo "Job submission cancelled"
-    exit 0
+    exit 4
 fi
 
 echo "Job confirmed. Proceed with consolidation."
 
 # Process each unique ID
 for id in "${unique_ids[@]}"; do
+    echo "--------------------"
     echo "Processing ID: $id"
     # Find files using array and glob pattern
     files=( *"${id}"*_sequence.fastq )
 
     if [ ${#files[@]} -eq 0 ]; then
         echo "ERROR: No files found for ID: $id"
+        continue
+    fi
+
+    if [ ${#files[@]} -eq 2 ]; then
+        echo -e "[ERROR]: Found ${#files[@]} for $id\nExpected 2"
         continue
     fi
 
@@ -153,7 +160,7 @@ for id in "${unique_ids[@]}"; do
                 echo "Error: Consolidated file checksum mismatch!" >&2
                 echo "Expected: $orig_checksum" >&2
                 echo "Actual:   $new_checksum" >&2
-                exit 1
+                exit 5
             fi
 
             # Only remove if verification passed
@@ -163,13 +170,14 @@ for id in "${unique_ids[@]}"; do
         else
             echo "Error: Consolidated file is empty"
             rm -f "$output_file"
-            exit 1
+            exit 5
         fi
     else
         echo "Error during consolidation"
         rm -f "$tmp_file" "$output_file"
-        exit 1
+        exit 5
     fi
+    echo "--------------------"
 done
 
 echo "Consolidation completed successfully in ${target_dir}"
