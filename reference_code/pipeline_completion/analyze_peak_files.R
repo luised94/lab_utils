@@ -444,68 +444,72 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   print(head(xls_peak_df))
   message("~~~~~~~~~~~~~~~~~~~~")
 
-  ## --- Create GenomicRanges ---
-  ## Create GRanges object with core coordinates
-  #gr <- GenomicRanges::GRanges(
-  #  seqnames = xls_peak_df$chromosome,
-  #  ranges = IRanges::IRanges(
-  #    # Convert from 0-based to 1-based
-  #    start = xls_peak_df$start + 1L,
-  #    end = xls_peak_df$end
-  #  ),
-  #  strand = "*"
-  #  #strand = if("strand" %in% names(xls_peak_df)) xls_peak_df$strand else "*"
-  #)
+  # --- Create GenomicRanges ---
+  # Create GRanges object with core coordinates
+  gr <- GenomicRanges::GRanges(
+    seqnames = xls_peak_df$chromosome,
+    ranges = IRanges::IRanges(
+      # Convert from 0-based to 1-based
+      start = xls_peak_df$start + 1L,
+      end = xls_peak_df$end
+    ),
+    strand = "*"
+    #strand = if("strand" %in% names(xls_peak_df)) xls_peak_df$strand else "*"
+  )
 
-  ## Add metadata columns (everything except chr, start, end)
-  #meta_cols <- setdiff(names(xls_peak_df), c("chromosome", "start", "end", "strand"))
-  #if (length(meta_cols) > 0) {
-  #  #message("Metadata columns:\n", paste(meta_cols, collapse=", "))
-  #  GenomicRanges::mcols(gr) <- xls_peak_df[, meta_cols, drop = FALSE]
-  #}
+  # Add metadata columns (everything except chr, start, end)
+  meta_cols <- setdiff(names(xls_peak_df), c("chromosome", "start", "end"))
+  if (length(meta_cols) > 0) {
+    #message("Metadata columns:\n", paste(meta_cols, collapse=", "))
+    GenomicRanges::mcols(gr) <- xls_peak_df[, meta_cols, drop = FALSE]
+  }
+  message("  Assigned Genomic Ranges...")
 
-  ## --- Bed File Analysis Basic Statistics ---
-  #peak_widths <- xls_peak_df$end - xls_peak_df$start
-  #chrom_counts <- as.data.frame(table(
-  #  # Requires chromosomes of the reference genome to be in order
-  #  factor(xls_peak_df$chromosome, levels=names(REFERENCE_GENOME_DSS))
-  #))
-  ## Calculate overlaps (logical vector: TRUE = overlap exists)
-  #overlaps_logical <- IRanges::overlapsAny(gr, GENOME_FEATURES)
-  ## Percent of gr1 ranges overlapping gr2
-  #percent_enriched <- ( sum(overlaps_logical) / length(gr) ) * 100
+  # --- Bed File Analysis Basic Statistics ---
+  peak_widths <- xls_peak_df$end - xls_peak_df$start
+  chrom_counts <- as.data.frame(table(
+    # Requires chromosomes of the reference genome to be in order
+    factor(xls_peak_df$chromosome, levels=names(REFERENCE_GENOME_DSS))
+  ))
+  # Calculate overlaps (logical vector: TRUE = overlap exists)
+  overlaps_logical <- IRanges::overlapsAny(gr, GENOME_FEATURES)
+  # Percent of gr1 ranges overlapping gr2
+  percent_enriched <- ( sum(overlaps_logical) / length(gr) ) * 100
 
-  ## Calculate overlaps (logical vector: TRUE = overlap exists)
-  #overlaps_logical <- IRanges::overlapsAny(GENOME_FEATURES, gr)
-  #percent_recovered <- ( sum(overlaps_logical) / length(GENOME_FEATURES) ) * 100
+  # Calculate overlaps (logical vector: TRUE = overlap exists)
+  overlaps_logical <- IRanges::overlapsAny(GENOME_FEATURES, gr)
+  percent_recovered <- ( sum(overlaps_logical) / length(GENOME_FEATURES) ) * 100
 
-  ## --- Store Results ---
-  #summary_statistics_df[row_index, ] <- data.frame(
-  #  sample_id = current_sample_id,
-  #   file_path = xls_file_path,
-  #  num_peaks = nrow(xls_peak_df),
-  #  width_mean = mean(peak_widths),
-  #  width_median = median(peak_widths),
-  #  percent_recovered = percent_recovered,
-  #  percent_enriched = percent_enriched,
-  #  stringsAsFactors = FALSE
-  #)
-  ## Create minimal placeholder data for distributions
-  #chromosome_distribution_list[[row_index]] <- data.frame(
-  #  sample_id = current_sample_id,
-  #    file_path = xls_file_path,
-  #  chromosome = chrom_counts$Var1,
-  #  count = chrom_counts$Freq,
-  #  stringsAsFactors = FALSE
-  #)
-  #peak_width_list[[row_index]] <- data.frame(
-  #  sample_id = current_sample_id,
-  #    file_path = xls_file_path,
-  #  peak_id = seq_len(length(peak_widths)),
-  #  width = peak_widths,
-  #  stringsAsFactors = FALSE
-  #)
+  message("  Calculated statistics based on dataframe...")
 
+  # --- Store Results ---
+  summary_statistics_df[row_index, ] <- data.frame(
+    sample_id = current_sample_id,
+     file_path = xls_file_path,
+    num_peaks = nrow(xls_peak_df),
+    width_mean = mean(peak_widths),
+    width_median = median(peak_widths),
+    percent_recovered = percent_recovered,
+    percent_enriched = percent_enriched,
+    stringsAsFactors = FALSE
+  )
+  # Create minimal placeholder data for distributions
+  chromosome_distribution_list[[row_index]] <- data.frame(
+    sample_id = current_sample_id,
+      file_path = xls_file_path,
+    chromosome = chrom_counts$Var1,
+    count = chrom_counts$Freq,
+    stringsAsFactors = FALSE
+  )
+  peak_width_list[[row_index]] <- data.frame(
+    sample_id = current_sample_id,
+      file_path = xls_file_path,
+    peak_id = seq_len(length(peak_widths)),
+    width = peak_widths,
+    stringsAsFactors = FALSE
+  )
+
+  message("  Added statistics to data.frame and lists...")
   message("====================")
 } # End of for loop
 message("Processing finished.")

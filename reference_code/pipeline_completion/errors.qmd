@@ -17,6 +17,17 @@ Indeed, after fixing the preallocation, we only get:
 3: In eval(ei, envir) :
   File has no data after comments: /home/luised94/data/preprocessing_test/peaks/input_001_raw_deduped_blFiltered_withInput_narrow_peaks.xls
 ```
+And after fixing some errors later in the coding session:
+```{error}
+2: In eval(ei, envir) :
+  File has no data after comments: /home/luised94/data/preprocessing_test/peaks/input_001_raw_deduped_blFiltered_shifted_withInput_broad_peaks.xls
+3: In eval(ei, envir) :
+  File has no data after comments: /home/luised94/data/preprocessing_test/peaks/input_001_raw_deduped_blFiltered_shifted_withInput_narrow_peaks.xls
+4: In eval(ei, envir) :
+  File has no data after comments: /home/luised94/data/preprocessing_test/peaks/input_001_raw_deduped_blFiltered_withInput_broad_peaks.xls
+5: In eval(ei, envir) :
+  File has no data after comments: /home/luised94/data/preprocessing_test/peaks/input_001_raw_deduped_blFiltered_withInput_narrow_peaks.xls
+```
 
 # assigning wrong number of values
 ```{error}
