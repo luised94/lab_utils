@@ -30,3 +30,4 @@ Description:
   > Chromatin immunoprecipitation after arresting cells in either alpha factor or nocodaloze. IP with HM1108 and UM174. Two repeats.
   > Repeat to have at least two biological replicates
 Related: 250207Bel
+Jobs: 10105558

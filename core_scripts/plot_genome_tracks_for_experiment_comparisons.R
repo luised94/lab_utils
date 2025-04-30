@@ -461,7 +461,8 @@ if (RUNTIME_CONFIG$debug_verbose) {
 ################################################################################
 # Main script logic for plotting experiment comparisons of genomic tracks
 ################################################################################
-scaling_modes <- c("local", "individual")
+#scaling_modes <- c("local", "individual")
+scaling_modes <- "local"
 for (comparison_name in comparisons_to_process) {
     # Metadata processing and sample selection
     comparison_expression <- EXPERIMENT_CONFIG$COMPARISONS[[comparison_name]]

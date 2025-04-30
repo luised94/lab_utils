@@ -1,3 +1,15 @@
+# pattern matching error
+```{error}
+Error in gsub(pattern = GENOME_TRACK_CONFIG$file_sample_id, replacement = "\\1",  :
+  invalid regular expression 'consolidated_([0-9]{4,5,6})_sequence\.fastq', reason 'Invalid contents of {}'
+In addition: Warning message:
+In gsub(pattern = GENOME_TRACK_CONFIG$file_sample_id, replacement = "\\1",  :
+  TRE pattern compilation error 'Invalid contents of {}'
+
+"consolidated_([0-9]{4,6})_sequence\\.fastq"
+"consolidated_([0-9]{4}|[0-9]{5}|[0-9]{6})_sequence\\.fastq"
+```
+
 # column mismatch due to format key misassignment
 ```{error}
 Error in `[.data.frame`(xls_peak_df, , meta_cols, drop = FALSE) :
