@@ -303,8 +303,9 @@ for (comparison_name in names(list_of_comparisons)) {
   # Get unique combinations
   unique_combinations_df <- unique(fixed_cols_df)
   # Process each unique combination
-  for (i in 1:nrow(unique_combinations_df)) {
+  for (i in 1:nrow(unique_combinations_df)[1]) {
     message("  --- Unique combination ---")
+    message(sprintf("Processing idx %s ------", i))
     # Create a logical vector to match this combination
     row_match <- rep(TRUE, nrow(filtered_metadata_df))
 
@@ -475,34 +476,35 @@ for (comparison_name in names(list_of_comparisons)) {
     message(plot_title_chr)
     message("~~~~~~~~~~~~~~~~~~~~~~")
 
-    #svglite::svglite(
-    #    filename = plot_output_path,
-    #    width = 10,
-    #    height = 8,
-    #    bg = "white"
-    #)
+    svglite::svglite(
+        filename = plot_output_path,
+        width = 10,
+        height = 8,
+        bg = "white"
+    )
 
-    #Gviz::plotTracks(
-    #    trackList = track_container,
-    #    chromosome = CHROMOSOME_ROMAN,
-    #    from = GENOME_RANGE_TO_LOAD@ranges@start,
-    #    to = GENOME_RANGE_TO_LOAD@ranges@width,
-    #    margin = 15,
-    #    innerMargin = 5,
-    #    spacing = 10,
-    #    main = plot_title_chr,
-    #    col.axis = "black",
-    #    cex.axis = 0.8,
-    #    cex.main = 0.9,
-    #    fontface.main = 2,
-    #    background.panel = "transparent"
-    #)
-    #dev.off()
+    Gviz::plotTracks(
+        trackList = track_container,
+        chromosome = CHROMOSOME_ROMAN,
+       from = GENOME_RANGE_TO_LOAD@ranges@start,
+        to = GENOME_RANGE_TO_LOAD@ranges@width,
+        margin = 15,
+        innerMargin = 5,
+        spacing = 10,
+        main = plot_title_chr,
+        col.axis = "black",
+        cex.axis = 0.8,
+        cex.main = 0.9,
+       fontface.main = 2,
+        background.panel = "transparent"
+    )
+    dev.off()
     message("   Plot saved...")
+    break
     # Add line break between comparisons for readability
     message("\n")
   } # end for loop for unique combinations of each comparison
-  break # Quick testing break
+  break
 } # end for loop of comparisons
 message("====================")
 message("Finished bigwig processing for loop...")
