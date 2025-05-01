@@ -49,6 +49,7 @@ check_required_packages(
 ################################################################################
 # Load and Validate Experiment Configuration and Dependencies
 ################################################################################
+# TODO: Consolidate this into the previous for loop? Or use second for loop with safe_source
 # Define required dependencies
 required_modules <- list(
     list(
@@ -252,6 +253,8 @@ if (RUNTIME_CONFIG$debug_verbose) {
     invisible(lapply(head(sample_ids, 3), function(id) message("      ", id)))
 }
 
+# Load csv, turn into factors, ensure proper order, add sample id column.
+# INQ: Should be "cached"?
 metadata <- load_and_process_experiment_metadata(
     metadata_path = metadata_path,
     categories = EXPERIMENT_CONFIG$CATEGORIES,
@@ -461,8 +464,8 @@ if (RUNTIME_CONFIG$debug_verbose) {
 ################################################################################
 # Main script logic for plotting experiment comparisons of genomic tracks
 ################################################################################
-#scaling_modes <- c("local", "individual")
-scaling_modes <- "local"
+scaling_modes <- c("local", "individual")
+#scaling_modes <- "local"
 for (comparison_name in comparisons_to_process) {
     # Metadata processing and sample selection
     comparison_expression <- EXPERIMENT_CONFIG$COMPARISONS[[comparison_name]]
@@ -779,7 +782,7 @@ for (comparison_name in comparisons_to_process) {
                             length(group_files), nrow(row_samples_to_visualize)))
                 }
             }
-
+            # INQ: Could cache this result as well and turn into independent script.
             local_limits_result <- calculate_track_limits(
                 bigwig_files = group_files,
                 genome_range = genome_range,

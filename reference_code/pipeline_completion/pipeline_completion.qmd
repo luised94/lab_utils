@@ -44,6 +44,14 @@ Move to a traditional if statement for unambiguous flow. Ensure regex and arithm
 See: https://www.perplexity.ai/search/frag-size-0-9-frag-size-0-echo-HFFIchSoSli2CNG5De7FdQ
 
 # Vim tricks
+## Add something to the beginning or end of a match during substitution command
+```{vim}
+%s/.*/&_df/
+" & represents matched text
+%s/filtered_metadata/&_df/gc
+%s/.*/prefix_&/
+```
+
 ## Cool way to trace a variable across the program
 If you want to trace the logic of the code by following a variable, you can hover over the variable name and either follow using * to search for words under the cursor. In R, there will probably be a variable being assigned with <-, so you can go to the beginning using ^ to the first character then press * and n to follow that variable. Repeat ^ * n to follow the logic to the end. Can be turned into a macro. Maybe it can be turned into an across file using quick fix list or something.
 

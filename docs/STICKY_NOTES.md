@@ -217,3 +217,8 @@ Finally got the data for the experiment.
 I think I also got the pipeline completion scripts to run. Just need to see the output and generate the plots.
 Considering creating one consolidated script that processes a file from fastq to bw, peaks, etcetera once I am sure I have the complete picture.
 Need to find the plotting code for the test scripts.
+
+## 2025-05-01
+TODO: Need to address the labels for the bigwig files. Either set manually in a mapping with the comparison quote (nested list with quote and the columns to use) or in the configuration file.
+TODO: Add border to the genome tracks?
+TODO: Create the map of the bad files?

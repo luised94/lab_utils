@@ -1,4 +1,5 @@
 # Create a key column to subset dataframe with another set of keys
+```{r}
 # Create the metadata characters and keys for sample and bigwig comparisons (_SB)
 METADATA_CHARACTER_VECTORS_SB <- lapply(final_metadata[c("sample", "bigwig_processing")], as.character)
 METADATA_JOINED_KEYS_SB <- do.call(paste, c(METADATA_CHARACTER_VECTORS_SB, sep = METADATA_COLUMN_SEPARATOR))
@@ -8,3 +9,4 @@ control_joined_keys <- do.call(paste, c(CONTROL_BAM_COMBINATIONS_CHARACTERS, sep
 message("Keys for metadata subsetting created. Starting for loop...")
 
 for (CURRENT_KEY_IDX in seq_along(control_joined_keys)) {
+```

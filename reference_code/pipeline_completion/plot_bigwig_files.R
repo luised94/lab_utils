@@ -11,6 +11,7 @@
 # DATE: 2025-02-25
 # DATE_V1_COMPLETE: 2025-04-08
 ################################################################################
+current_timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S"),
 # Bootstrap phase
 FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
 for (function_filename in FUNCTION_FILENAMES) {
@@ -242,6 +243,16 @@ dir.create(PLOT_OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
 #---------------------------------------------
 # Define the comparisons lists
 #---------------------------------------------
+title_comparison_template = paste(
+  "Comparison: %s",   # Comparison ID
+  "Chromosome %s", # Chr info
+  "Normalization: %s", # Norm method
+  "Date: %s",
+  "Vary Col(s): %s",
+  "Fixed Col(s): %s",
+  "Fixed values: %s",
+  sep = "\n"
+)
 list_of_comparisons <- list(
   bam_processing_effect = list(
     fixed_columns = c("sample_type", "condition_idx", "normalization_method"),
@@ -260,7 +271,8 @@ list_of_comparisons <- list(
     filter = NULL
   )
 )
-
+# TODO: Add scaling mode
+# scaling_modes <- c("local", "individual")
 message("====================")
 for (comparison_name in names(list_of_comparisons)) {
   message("--- Comparison for loop ---")
@@ -273,49 +285,47 @@ for (comparison_name in names(list_of_comparisons)) {
     "Vary column not in metadata frame. Please adjust." = all(vary_column_value %in% names(final_metadata))
   )
 
-
   # Apply filter if it exists
-  filtered_metadata <- final_metadata
+  filtered_metadata_df <- final_metadata
   if (!is.null(filter_expression)) {
-    filtered_metadata <- subset(final_metadata, eval(filter_expression, envir = final_metadata))
+    filtered_metadata_df <- subset(final_metadata, eval(filter_expression, envir = final_metadata))
   }
 
-  message(sprintf("  Dimensions after filtering:%s, %s", nrow(filtered_metadata), ncol(filtered_metadata)))
+  message(sprintf("  Dimensions after filtering:%s, %s", nrow(filtered_metadata_df), ncol(filtered_metadata_df)))
   # If there are no rows after filtering, skip to next comparison
-  if (nrow(filtered_metadata) == 0) {
+  if (nrow(filtered_metadata_df) == 0) {
     message("No data after filtering, skipping comparison")
     next
   }
 
   # Create a dataframe with just the fixed columns
-  fixed_cols_df <- filtered_metadata[, fixed_columns_array, drop = FALSE]
+  fixed_cols_df <- filtered_metadata_df[, fixed_columns_array, drop = FALSE]
 
   # Get unique combinations
-  unique_combinations <- unique(fixed_cols_df)
+  unique_combinations_df <- unique(fixed_cols_df)
   # Process each unique combination
-  for (i in 1:nrow(unique_combinations)) {
+  for (i in 1:nrow(unique_combinations_df)) {
     message("  --- Unique combination ---")
     # Create a logical vector to match this combination
-    row_match <- rep(TRUE, nrow(filtered_metadata))
+    row_match <- rep(TRUE, nrow(filtered_metadata_df))
 
     for (col in fixed_columns_array) {
-      row_match <- row_match & (filtered_metadata[[col]] == unique_combinations[i, col])
+      row_match <- row_match & (filtered_metadata_df[[col]] == unique_combinations_df[i, col])
     }
 
     # Subset the dataframe for this combination
-    subset_df <- filtered_metadata[row_match, ]
+    subset_df <- filtered_metadata_df[row_match, ]
 
     # Skip if empty subset
     if (nrow(subset_df) == 0) next
     # Create a title describing this comparison
-    title_parts <- paste(
+    comparison_description <- paste(
       paste(fixed_columns_array, "=",
-            sapply(fixed_columns_array, function(col) unique_combinations[i, col])),
+            sapply(fixed_columns_array, function(col) unique_combinations_df[i, col])),
       collapse = ", "
     )
-
     track_title <- paste0(comparison_name, ": ", title_parts)
-    print(paste0("  Found ", nrow(subset_df), " tracks for ", track_title))
+    print(paste0("  Found ", nrow(subset_df), " tracks for ", comparison_description_chr))
 
     # Here you would run your plotting code using subset_df
     # The vary_column(s) will naturally have different values in this subset
@@ -325,15 +335,15 @@ for (comparison_name in names(list_of_comparisons)) {
     }
 
     # Create a list of fixed values for this combination
-    fixed_values <- as.list(unique_combinations[i, ])
+    fixed_values_list <- as.list(unique_combinations_df[i, ])
     # Start with the comparison name
     filename_parts <- comparison_name
     # Add fixed column values if they exist
-    if (length(fixed_values) > 0) {
+    if (length(fixed_values_list) > 0) {
       # Create sanitized strings for each fixed column
-      fixed_strings <- sapply(names(fixed_values), function(col) {
+      fixed_strings <- sapply(names(fixed_values_list), function(col) {
         # Replace spaces and special characters
-        value <- gsub("[^a-zA-Z0-9]", "_", fixed_values[[col]])
+        value <- gsub("[^a-zA-Z0-9]", "_", fixed_values_list[[col]])
         return(paste0(col, "-", value))
       })
       # Add to filename parts
@@ -343,10 +353,15 @@ for (comparison_name in names(list_of_comparisons)) {
     filename <- paste0(paste(filename_parts, collapse="_"), ".svg")
     # Replace multiple underscores with single one
     filename <- gsub("_+", "_", filename)
+    filename <- paste0(current_timestamp, "_", filename)
+
     # Create full path
     plot_output_path <- file.path(PLOT_OUTPUT_DIR, filename)
     message(paste0("  File will be saved to ", plot_output_path))
 
+    # TODO: Will break with current_timestamp prefix appending //
+    # current_timestamp is always unique essentially. //
+    # Determine files in directory up front. Parse the plot output path and match. //
     if(file.exists(plot_output_path)) {
       message(sprintf("[DUPLICATE] File %s already exists. Skipping..."))
       next
@@ -376,15 +391,17 @@ for (comparison_name in names(list_of_comparisons)) {
           !(comparison$vary_column %in% c("sample_type", "condition_idx"))) {
         # Add single vary column (if it's not already included in base_info)
         vary_col <- comparison$vary_column
-        track_name <- paste0(base_info, " (", vary_col, ": ", current_row[[vary_col]], ")")
+        track_name <- paste0(base_info, "_", current_row[[vary_col]])
+        #track_name <- paste0(base_info, " (", vary_col, ": ", current_row[[vary_col]], ")")
       } else if (length(comparison$vary_column) > 1) {
         # For multiple vary columns, add any that aren't already in base_info
         additional_cols <- setdiff(comparison$vary_column, c("sample_type", "condition_idx"))
         if (length(additional_cols) > 0) {
           vary_values <- sapply(additional_cols, function(col) {
-            paste0(col, "=", current_row[[col]])
+            current_row[[col]]
+            #paste0(col, ":", current_row[[col]])
           })
-          track_name <- paste0(base_info, " (", paste(vary_values, collapse=", "), ")")
+          track_name <- paste0(base_info, paste(vary_values, collapse="_"))
         } else {
           track_name <- base_info  # Only sample and condition are varying
         }
@@ -393,7 +410,7 @@ for (comparison_name in names(list_of_comparisons)) {
         track_name <- base_info
       }
 
-      message(sprintf("   Importing bigwig file: %s", current_filepath))
+      message(sprintf("    Importing bigwig file: %s", current_filepath))
       message(paste0("    Adding track: ", track_name))
 
       bigwig_data <- rtracklayer::import(
@@ -439,40 +456,47 @@ for (comparison_name in names(list_of_comparisons)) {
         )
     }
     # Create descriptive main plot title
-    main_title <- paste0(
-      comparison_name, ": ",
-      paste(names(fixed_values), "=", unlist(fixed_values), collapse=", ")
+    plot_title_chr <- sprintf(
+        title_comparison_template,
+        comparison_name,
+        chromosome_to_plot,
+        normalization_method,
+        current_timestamp,
+        paste(vary_column_value, collapse = ","),
+        paste(fixed_columns_array, collapse = ",")
+        paste(fixed_values_list, collapse = ",")
     )
-    message(sprintf("Plotting %s", main_title))
+    message(sprintf("Plotting %s", plot_title_chr))
 
-    svglite::svglite(
-        filename = plot_output_path,
-        width = 10,
-        height = 8,
-        bg = "white"
-    )
+    #svglite::svglite(
+    #    filename = plot_output_path,
+    #    width = 10,
+    #    height = 8,
+    #    bg = "white"
+    #)
 
-    Gviz::plotTracks(
-        trackList = track_container,
-        chromosome = CHROMOSOME_ROMAN,
-        from = GENOME_RANGE_TO_LOAD@ranges@start,
-        to = GENOME_RANGE_TO_LOAD@ranges@width,
-        margin = 15,
-        innerMargin = 5,
-        spacing = 10,
-        main = main_title,
-        col.axis = "black",
-        cex.axis = 0.8,
-        cex.main = 0.9,
-        fontface.main = 2,
-        background.panel = "transparent"
-    )
-    dev.off()
+    #Gviz::plotTracks(
+    #    trackList = track_container,
+    #    chromosome = CHROMOSOME_ROMAN,
+    #    from = GENOME_RANGE_TO_LOAD@ranges@start,
+    #    to = GENOME_RANGE_TO_LOAD@ranges@width,
+    #    margin = 15,
+    #    innerMargin = 5,
+    #    spacing = 10,
+    #    main = plot_title_chr,
+    #    col.axis = "black",
+    #    cex.axis = 0.8,
+    #    cex.main = 0.9,
+    #    fontface.main = 2,
+    #    background.panel = "transparent"
+    #)
+    #dev.off()
     message("   Plot saved...")
-
     # Add line break between comparisons for readability
     message("\n")
-  }
+
+    break # Quick testing break
+  } # end for loop for unique combinations of each comparison
 } # end for loop of comparisons
 message("====================")
 message("Finished bigwig processing for loop...")
