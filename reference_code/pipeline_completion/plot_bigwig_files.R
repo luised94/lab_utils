@@ -11,7 +11,7 @@
 # DATE: 2025-02-25
 # DATE_V1_COMPLETE: 2025-04-08
 ################################################################################
-current_timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S"),
+current_timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 # Bootstrap phase
 FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
 for (function_filename in FUNCTION_FILENAMES) {
@@ -319,12 +319,11 @@ for (comparison_name in names(list_of_comparisons)) {
     # Skip if empty subset
     if (nrow(subset_df) == 0) next
     # Create a title describing this comparison
-    comparison_description <- paste(
+    comparison_description_chr <- paste(
       paste(fixed_columns_array, "=",
             sapply(fixed_columns_array, function(col) unique_combinations_df[i, col])),
       collapse = ", "
     )
-    track_title <- paste0(comparison_name, ": ", title_parts)
     print(paste0("  Found ", nrow(subset_df), " tracks for ", comparison_description_chr))
 
     # Here you would run your plotting code using subset_df
@@ -459,11 +458,11 @@ for (comparison_name in names(list_of_comparisons)) {
     plot_title_chr <- sprintf(
         title_comparison_template,
         comparison_name,
-        chromosome_to_plot,
+        CHROMOSOME_TO_PLOT,
         normalization_method,
         current_timestamp,
         paste(vary_column_value, collapse = ","),
-        paste(fixed_columns_array, collapse = ",")
+        paste(fixed_columns_array, collapse = ","),
         paste(fixed_values_list, collapse = ",")
     )
     message(sprintf("Plotting %s", plot_title_chr))
