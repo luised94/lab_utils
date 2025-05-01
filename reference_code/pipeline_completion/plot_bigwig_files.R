@@ -344,10 +344,10 @@ for (comparison_name in names(list_of_comparisons)) {
     # Replace multiple underscores with single one
     filename <- gsub("_+", "_", filename)
     # Create full path
-    full_path <- file.path(PLOT_OUTPUT_DIR, filename)
-    message(paste0("  File will be saved to ", full_path))
+    plot_output_path <- file.path(PLOT_OUTPUT_DIR, filename)
+    message(paste0("  File will be saved to ", plot_output_path))
 
-    if(file.exists(full_path)) {
+    if(file.exists(plot_output_path)) {
       message(sprintf("[DUPLICATE] File %s already exists. Skipping..."))
       next
     }
@@ -445,29 +445,29 @@ for (comparison_name in names(list_of_comparisons)) {
     )
     message(sprintf("Plotting %s", main_title))
 
-    #svglite::svglite(
-    #    filename = full_path,
-    #    width = 10,
-    #    height = 8,
-    #    bg = "white"
-    #)
+    svglite::svglite(
+        filename = plot_output_path,
+        width = 10,
+        height = 8,
+        bg = "white"
+    )
 
-    #Gviz::plotTracks(
-    #    trackList = track_container,
-    #    chromosome = CHROMOSOME_ROMAN,
-    #    from = GENOME_RANGE_TO_LOAD@ranges@start,
-    #    to = GENOME_RANGE_TO_LOAD@ranges@width,
-    #    margin = 15,
-    #    innerMargin = 5,
-    #    spacing = 10,
-    #    main = main_title,
-    #    col.axis = "black",
-    #    cex.axis = 0.8,
-    #    cex.main = 0.9,
-    #    fontface.main = 2,
-    #    background.panel = "transparent"
-    #)
-    #dev.off()
+    Gviz::plotTracks(
+        trackList = track_container,
+        chromosome = CHROMOSOME_ROMAN,
+        from = GENOME_RANGE_TO_LOAD@ranges@start,
+        to = GENOME_RANGE_TO_LOAD@ranges@width,
+        margin = 15,
+        innerMargin = 5,
+        spacing = 10,
+        main = main_title,
+        col.axis = "black",
+        cex.axis = 0.8,
+        cex.main = 0.9,
+        fontface.main = 2,
+        background.panel = "transparent"
+    )
+    dev.off()
     message("   Plot saved...")
 
     # Add line break between comparisons for readability
@@ -475,271 +475,4 @@ for (comparison_name in names(list_of_comparisons)) {
   }
 } # end for loop of comparisons
 message("====================")
-stop("Breakpoint...")
-#---------------------------------------------
-# Plot the bigwig processing comparisons
-#---------------------------------------------
-# Define categories
-#UNIQUE_METADATA_CATEGORIES <- list(
-#    samples = unique(final_metadata[,"sample"]),
-#    bam_processing = unique(final_metadata[,"bam_processing"]),
-#    bigwig_processing = unique(final_metadata[, "bigwig_processing"])
-#)
-#
-#VALID_PROCESSING_COMBINATIONS <- expand.grid(
-#    UNIQUE_METADATA_CATEGORIES[c("samples", "bam_processing")]
-#)
-#
-## Filter the sample combinations to exclude input shifted
-#IS_INPUT_SAMPLE <- VALID_PROCESSING_COMBINATIONS$samples == "input"
-#IS_SHIFTED_PROCESSING <- VALID_PROCESSING_COMBINATIONS$bam_processing == "shifted"
-#VALID_PROCESSING_COMBINATIONS <- VALID_PROCESSING_COMBINATIONS[!(IS_INPUT_SAMPLE & IS_SHIFTED_PROCESSING), ]
-
-#---------------------------------------------
-# Plot the bam processing comparisons for the bigwig files
-#---------------------------------------------
-# Handle the sample and bam_processing combinations
-# Non-printing character to avoid collision
-METADATA_COLUMN_SEPARATOR <-  "\x01"
-
-# Create the keys to perform subsetting
-columns_for_metadata_keys <- c("sample_type", "condition_idx", "normalization_method")
-
-METADATA_CHARACTER_VECTORS <- lapply(final_metadata[c("sample_type", "bam_processing")], as.character)
-METADATA_JOINED_KEYS <- do.call(paste, c(METADATA_CHARACTER_VECTORS, sep = METADATA_COLUMN_SEPARATOR))
-
-#CONTROL_COMBINATIONS_CHARACTERS <- lapply(VALID_PROCESSING_COMBINATIONS, as.character)
-#control_joined_keys <- do.call(paste, c(CONTROL_COMBINATIONS_CHARACTERS, sep = METADATA_COLUMN_SEPARATOR))
-
-
-for (CURRENT_KEY_IDX in seq_along(control_joined_keys)) {
-    CURRENT_CONTROL_KEY <- control_joined_keys[CURRENT_KEY_IDX]
-    message(sprintf("Processing key %d: %s", CURRENT_KEY_IDX, CURRENT_CONTROL_KEY))
-
-    # [1] Metadata Subsetting
-    CURRENT_METADATA_SUBSET <- final_metadata[METADATA_JOINED_KEYS %in% CURRENT_CONTROL_KEY, ]
-    message("Metadata subset complete...")
-    message("Subset content:")
-    print(head(CURRENT_METADATA_SUBSET))
-
-    # [2] Track Container Initialization
-    track_container <- vector("list", nrow(CURRENT_METADATA_SUBSET) + 1 + exists("GENOME_FEATURES"))
-    track_container[[1]] <- Gviz::GenomeAxisTrack(
-        name = sprintf("Chr %s Axis", CHROMOSOME_TO_PLOT),
-        fontcolor.title = "black",
-        cex.title = 0.7,
-        background.title = "white"
-    )
-
-    # Process the metadata subet ---------------------
-    # [3] Data Track Population
-    for (track_idx in seq_len(nrow(CURRENT_METADATA_SUBSET))) {
-        track_name <- do.call(paste, c(CURRENT_METADATA_SUBSET[track_idx, 1:3], sep = "_"))
-        current_row_filepath <- CURRENT_METADATA_SUBSET[track_idx, "file_paths"]
-
-        message(sprintf("Importing bigwig file: %s", current_row_filepath))
-        bigwig_data <- rtracklayer::import(
-            current_row_filepath,
-            format = "BigWig",
-            which = GENOME_RANGE_TO_LOAD
-        )
-
-        track_container[[track_idx + 1]] <- Gviz::DataTrack(
-            range = bigwig_data,
-            name = track_name,
-            # Apply styling
-            showAxis = TRUE,
-            showTitle = TRUE,
-            type = "h",
-            size = 1.2,
-            background.title = "white",
-            fontcolor.title = "black",
-            col.border.title = "#e0e0e0",
-            cex.title = 0.7,
-            fontface = 1,
-            title.width = 1.0,
-            col = "darkblue",
-            fill = "darkblue"
-        )
-        message(sprintf("Sample %s imported...", track_idx))
-    } # end for loop of subset metadata ########
-
-    message("All samples imported and added to TRACK_CONTAINER.")
-
-    # [4] Annotation Track (Conditional)
-    if (exists("GENOME_FEATURES")) {
-        TRACK_CONTAINER[[length(TRACK_CONTAINER)]] <- Gviz::AnnotationTrack(
-            GENOME_FEATURES,
-            name = "Features",
-            size = 0.5,
-            background.title = "lightgray",
-            fontcolor.title = "black",
-            showAxis = FALSE,
-            background.panel = "#f5f5f5",
-            cex.title = 0.6,
-            fill = "#8b4513",
-            col = "#8b4513"
-        )
-    }
-
-    # [5] Plot Generation & Export -----------------
-    PLOT_BASENAME <- paste(
-        "/bigwig_processing",
-        CHROMOSOME_ROMAN,
-        gsub(METADATA_COLUMN_SEPARATOR, "_", CURRENT_CONTROL_KEY, fixed = TRUE),
-        sep = "_"
-    )
-
-    OUTPUT_FILENAME <- paste0(PLOT_OUTPUT_DIR, PLOT_BASENAME, ".svg")
-    message(sprintf("Saving file: %s", OUTPUT_FILENAME))
-
-    svglite::svglite(
-        filename = OUTPUT_FILENAME,
-        width = 10,
-        height = 8,
-        bg = "white"
-    )
-
-    Gviz::plotTracks(
-        trackList = TRACK_CONTAINER,
-        chromosome = CHROMOSOME_ROMAN,
-        from = GENOME_RANGE_TO_LOAD@ranges@start,
-        to = GENOME_RANGE_TO_LOAD@ranges@width,
-        margin = 15,
-        innerMargin = 5,
-        spacing = 10,
-        col.axis = "black",
-        cex.axis = 0.8,
-        cex.main = 0.9,
-        fontface.main = 2,
-        background.panel = "transparent"
-    )
-    dev.off()
-    message(sprintf("Plot saved. Finished processing %d: %s", CURRENT_KEY_IDX, CURRENT_CONTROL_KEY))
-} # end keys for loop
 message("Finished bigwig processing for loop...")
-
-#---------------------------------------------
-# Plot the bam processing comparisons for cpm
-#---------------------------------------------
-message("Starting processing for bam processing cpm plots...")
-# Get the combinations for cpm counts, no need to filter
-VALID_BAM_PROCESSING_COMBINATIONS <- expand.grid(
-    c(UNIQUE_METADATA_CATEGORIES["samples"],
-        bigwig_processing = "cpm")
-)
-
-# Create the metadata characters and keys for sample and bigwig comparisons (_SB)
-METADATA_CHARACTER_VECTORS_SB <- lapply(final_metadata[c("sample", "bigwig_processing")], as.character)
-METADATA_JOINED_KEYS_SB <- do.call(paste, c(METADATA_CHARACTER_VECTORS_SB, sep = METADATA_COLUMN_SEPARATOR))
-
-CONTROL_BAM_COMBINATIONS_CHARACTERS <- lapply(VALID_BAM_PROCESSING_COMBINATIONS, as.character)
-control_joined_keys <- do.call(paste, c(CONTROL_BAM_COMBINATIONS_CHARACTERS, sep = METADATA_COLUMN_SEPARATOR))
-message("Keys for metadata subsetting created. Starting for loop...")
-
-for (CURRENT_KEY_IDX in seq_along(control_joined_keys)) {
-    CURRENT_CONTROL_KEY <- control_joined_keys[CURRENT_KEY_IDX]
-    message(sprintf("Processing key %d: %s", CURRENT_KEY_IDX, CURRENT_CONTROL_KEY))
-
-    # [1] Metadata Subsetting
-    CURRENT_METADATA_SUBSET <- final_metadata[METADATA_JOINED_KEYS_SB %in% CURRENT_CONTROL_KEY, ]
-    message("Metadata subset complete...")
-    message("Subset content:")
-    print(head(CURRENT_METADATA_SUBSET))
-
-    # [2] Track Container Initialization
-    TRACK_CONTAINER <- vector("list", nrow(CURRENT_METADATA_SUBSET) + 1 + exists("GENOME_FEATURES"))
-    TRACK_CONTAINER[[1]] <- Gviz::GenomeAxisTrack(
-        name = sprintf("Chr %s Axis", CHROMOSOME_TO_PLOT),
-        fontcolor.title = "black",
-        cex.title = 0.7,
-        background.title = "white"
-    )
-
-    # Process the metadata subet ---------------------
-    # [3] Data Track Population
-    for (track_idx in seq_len(nrow(CURRENT_METADATA_SUBSET))) {
-        track_name <- do.call(paste, c(CURRENT_METADATA_SUBSET[track_idx, 1:3], sep = "_"))
-        current_row_filepath <- CURRENT_METADATA_SUBSET[track_idx, "file_paths"]
-
-        message(sprintf("Importing bigwig file: %s", current_row_filepath))
-        bigwig_data <- rtracklayer::import(
-            current_row_filepath,
-            format = "BigWig",
-            which = GENOME_RANGE_TO_LOAD
-        )
-
-        TRACK_CONTAINER[[track_idx + 1]] <- Gviz::DataTrack(
-            range = bigwig_data,
-            name = track_name,
-            # Apply styling
-            showAxis = TRUE,
-            showTitle = TRUE,
-            type = "h",
-            size = 1.2,
-            background.title = "white",
-            fontcolor.title = "black",
-            col.border.title = "#e0e0e0",
-            cex.title = 0.7,
-            fontface = 1,
-            title.width = 1.0,
-            col = "darkblue",
-            fill = "darkblue"
-        )
-        message(sprintf("Sample %s imported...", track_idx))
-    } # end for
-
-    message("All samples imported and added to TRACK_CONTAINER.")
-
-    # [4] Annotation Track (Conditional)
-    if (exists("GENOME_FEATURES")) {
-        TRACK_CONTAINER[[length(TRACK_CONTAINER)]] <- Gviz::AnnotationTrack(
-            GENOME_FEATURES,
-            name = "Features",
-            size = 0.5,
-            background.title = "lightgray",
-            fontcolor.title = "black",
-            showAxis = FALSE,
-            background.panel = "#f5f5f5",
-            cex.title = 0.6,
-            fill = "#8b4513",
-            col = "#8b4513"
-        )
-    }
-
-    # [5] Plot Generation & Export -----------------
-    PLOT_BASENAME <- paste(
-        "/bigwig_processing",
-        CHROMOSOME_ROMAN,
-        gsub(METADATA_COLUMN_SEPARATOR, ".", CURRENT_CONTROL_KEY, fixed = TRUE),
-        sep = "_"
-    )
-
-    OUTPUT_FILENAME <- paste0(PLOT_OUTPUT_DIR, PLOT_BASENAME, ".svg")
-    message(sprintf("Saving file: %s", OUTPUT_FILENAME))
-
-    svglite::svglite(
-        filename = OUTPUT_FILENAME,
-        width = 10,
-        height = 8,
-        bg = "white"
-    )
-
-    Gviz::plotTracks(
-        trackList = TRACK_CONTAINER,
-        chromosome = CHROMOSOME_ROMAN,
-        from = GENOME_RANGE_TO_LOAD@ranges@start,
-        to = GENOME_RANGE_TO_LOAD@ranges@width,
-        margin = 15,
-        innerMargin = 5,
-        spacing = 10,
-        col.axis = "black",
-        cex.axis = 0.8,
-        cex.main = 0.9,
-        fontface.main = 2,
-        background.panel = "transparent"
-    )
-    dev.off()
-    message(sprintf("Plot saved. Finished processing %d: %s", CURRENT_KEY_IDX, CURRENT_CONTROL_KEY))
-} # end for loop
-message("Finished bam processing for loop...")
