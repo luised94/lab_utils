@@ -246,7 +246,6 @@ dir.create(PLOT_OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
 title_comparison_template = paste(
   "Comparison: %s",   # Comparison ID
   "Chromosome %s", # Chr info
-  "Normalization: %s", # Norm method
   "Date: %s",
   "Vary Col(s): %s",
   "Fixed Col(s): %s",
@@ -459,13 +458,22 @@ for (comparison_name in names(list_of_comparisons)) {
         title_comparison_template,
         comparison_name,
         CHROMOSOME_TO_PLOT,
-        normalization_method,
         current_timestamp,
         paste(vary_column_value, collapse = ","),
         paste(fixed_columns_array, collapse = ","),
-        paste(fixed_values_list, collapse = ",")
+        paste(unlist(fixed_values_list), collapse = ",")
     )
-    message(sprintf("Plotting %s", plot_title_chr))
+    message("~~~~~~~~~~~~~~~~~~~~~~")
+    message("Plotting...")
+    #print(title_comparison_template)
+    #print(comparison_name)
+    #print(CHROMOSOME_TO_PLOT)
+    #print(current_timestamp)
+    #print(paste(vary_column_value, collapse = ","))
+    #print(paste(fixed_columns_array, collapse = ","))
+    #print(paste(unlist(fixed_values_list), collapse = ","))
+    message(plot_title_chr)
+    message("~~~~~~~~~~~~~~~~~~~~~~")
 
     #svglite::svglite(
     #    filename = plot_output_path,
@@ -493,9 +501,8 @@ for (comparison_name in names(list_of_comparisons)) {
     message("   Plot saved...")
     # Add line break between comparisons for readability
     message("\n")
-
-    break # Quick testing break
   } # end for loop for unique combinations of each comparison
+  break # Quick testing break
 } # end for loop of comparisons
 message("====================")
 message("Finished bigwig processing for loop...")
