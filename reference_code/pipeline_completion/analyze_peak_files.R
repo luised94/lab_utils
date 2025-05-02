@@ -404,6 +404,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
       file_path = xls_file_path,
       peak_id = NA_character_,
       fold_enrichment = NA_real_,
+      qvalue = NA_real_,
       width = NA_real_,
       stringsAsFactors = FALSE
     )
@@ -536,6 +537,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     file_path = xls_file_path,
     peak_id = seq_len(length(peak_widths)),
     fold_enrichment = xls_peak_df$fold_enrichment,
+    qvalue = xls_peak_df$qvalue,
 
     width = peak_widths,
     stringsAsFactors = FALSE
@@ -546,13 +548,13 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 } # End of for loop
 message("Processing finished.")
 # Convert lists to DF
-peak_width_distribution_df <- do.call(rbind, peak_statistics_list)
+peak_statistics_df <- do.call(rbind, peak_statistics_list)
 chromosome_distribution_df <- do.call(rbind, chromosome_distribution_list)
 
 # Remove any rows where all values are NA.
 # Peaks will be zero in some cases which shouldnt cause drop.
 chromosome_distribution_df <- chromosome_distribution_df[!apply(is.na(chromosome_distribution_df), 1, all), ]
-peak_width_distribution_df <- peak_width_distribution_df[!apply(is.na(peak_width_distribution_df), 1, all), ]
+peak_statistics_df <- peak_statistics_df[!apply(is.na(peak_statistics_df), 1, all), ]
 summary_statistics_df <- summary_statistics_df[!apply(is.na(summary_statistics_df), 1, all), ]
 
 # Add metadata to distribution DFs for easier plotting
@@ -564,8 +566,8 @@ chromosome_distribution_df <- merge(
   final_metadata_df,
   by = "file_path"
 )
-peak_width_distribution_df <- merge(
-  peak_width_distribution_df,
+peak_statistics_df <- merge(
+  peak_statistics_df,
   final_metadata_df,
   by = "file_path"
 )
