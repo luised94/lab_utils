@@ -334,7 +334,7 @@ for (comparison_name in names(list_of_comparisons)) {
   # Get unique combinations
   unique_combinations_df <- unique(fixed_cols_df)
   # Process each unique combination
-  for (i in 1:nrow(unique_combinations_df)[1]) {
+  for (i in 1:nrow(unique_combinations_df)) {
     message("  --- Unique combination ---")
     message(sprintf("Processing idx %s ------", i))
     # Create a logical vector to match this combination
@@ -530,11 +530,9 @@ for (comparison_name in names(list_of_comparisons)) {
     )
     dev.off()
     message("   Plot saved...")
-    break
     # Add line break between comparisons for readability
     message("\n")
   } # end for loop for unique combinations of each comparison
-  break
 } # end for loop of comparisons
 message("====================")
 message("Finished bigwig processing for loop...")
