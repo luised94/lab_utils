@@ -226,32 +226,27 @@ final_metadata_df <- data.frame(
 
 # Determine unique values for each categories
 message("Determining unique categories...")
-metadata_columns <- setdiff(names(final_metadata_df), "file_path")
-unique_categories_lst <- vector("list", length(metadata_columns))
-message("Before...")
-print(unique_categories_lst)
-for (array_index in 1:length(metadata_columns)) {
-  column_name_chr <- metadata_columns[array_index]
-  print(column_name_chr)
-  unique_values <- unique(final_metadata_df[, column_name_chr])
-  print(unique_values)
-  unique_categories_lst[[array_index]] <- unique_values
-}
-message("After...")
-print(unique_categories_lst)
-names(unique_categories_lst) <- metadata_columns
-lapply(names(unique_categories_lst), function(column_name_chr){
-  message(sprintf("--- Column %s ---", column_name_chr))
-  #message("  ---Style 1 ---")
-  #for (value in unique_categories_lst[[column_name_chr]]) {
-    #pad_value <- paste0("|_ ", value)
-    #print(pad_value)
-  #}
-  message("  --- Style 2 ---")
-  collapsed_values <- paste(unique_categories_lst[[column_name_chr]], collapse = ",")
-  print(collapsed_values)
-  return()
+metadata_columns_vec <- setdiff(names(final_metadata_df), "file_path")
+unique_categories_lst <- lapply(metadata_columns_vec, function(col_name) {
+  unique(final_metadata_df[[col_name]])
 })
+names(unique_categories_lst) <- metadata_columns_vec
+lapply(metadata_columns_vec, function(col_name) {
+  message(sprintf("--- Column %s ---\n  %s", 
+            col_name,
+            paste(unique_categories_lst[[col_name]], collapse = ",")))
+})
+
+# Define the levels of the columns that should be turned into factors
+factor_levels_list <- list(
+  bam_type = c("raw", "deduped", "shifted", "blFiltered"),
+  normalization_method = c("raw", "cpm", "rpkm")
+)
+invisible(lapply(names(factor_levels_list), function(column_name){
+  final_metadata_df[, column_name] <<- factor(x = final_metadata_df[[column_name]],
+                                                levels = factor_levels_list[[column_name]]
+                                                )
+}))
 stop("Breakpoint...")
 
 # Assertions
