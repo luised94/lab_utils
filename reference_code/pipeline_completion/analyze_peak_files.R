@@ -245,7 +245,7 @@ stopifnot(
     "No NAs found in the final_metadata_df." = !any(is.na(final_metadata_df)),
     "Metadata has expected dimensions." =
         nrow(final_metadata_df) == length(XLS_FILES) &&
-        ncol(final_metadata_df) == ADDITIONAL_NUMBER_OF_METADATA_COLUMNS + 2 + 2 + 1,
+        ncol(final_metadata_df) == ADDITIONAL_NUMBER_OF_METADATA_COLUMNS + 2 + 1 + 1,
     "No duplicate samples." = !any(duplicated(final_metadata_df))
 )
 
@@ -262,15 +262,21 @@ lapply(metadata_columns_vec, function(col_name) {
             paste(unique_categories_lst[[col_name]], collapse = ",")))
 })
 
-stop("Breakpoint... Set the factor_levels_list")
 # Define the levels of the columns that should be turned into factors
 # See the output of the previous lapply statement to manually define
 # the order for the factors. This will control the plotting order.
 factor_levels_list <- list(
   bam_type = c("raw", "deduped", "shifted", "blFiltered"),
-  normalization_method = c("raw", "cpm", "rpkm")
+  peak_type = c("narrow", "broad")
 )
 stopifnot(all(names(factor_levels_list) %in% names(final_metadata_df)))
+for (column_name in names(factor_levels_list)){
+  values_not_in_metadata_chr <- setdiff(factor_levels_list[[column_name]], final_metadata_df[[column_name]])
+  stopifnot(
+    "There are values not present in the metadata in the factor_levels_list." =
+    length(values_not_in_metadata_df) == 0
+  )
+}
 
 for (col in names(factor_levels_list)) {
   final_metadata_df[[col]] <- factor(
@@ -279,18 +285,6 @@ for (col in names(factor_levels_list)) {
     ordered = TRUE
   )
 }
-
-
-# Define factor levels for each column (customize as needed)
-#COLUMN_LEVELS <- list(
-#  sample_group = c("input", "reference", "test"),
-#  alignment_processing = c("raw", "deduped", "shifted"),
-#  peak_calling_mode = c("narrow", "broad", "auto"),
-#  significance_metric = c("p", "q"),
-#  input_control_type = c("noInput", "withInput"),
-#  output_category = "peaks",  # Single level since constant
-#  peak_detail_level = c("peaks", "summits")
-#)
 
 ##################################################################################
 # MAIN
