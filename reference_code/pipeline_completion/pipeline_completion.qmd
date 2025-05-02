@@ -74,3 +74,25 @@ Very worried that I am analyzing the wrong files even though I double checked th
 Had to refactor a substantial amount of code after changing name conventions while processing the bam files. Still not sure about if I chose the wrong files.
 Received the files for the repeat experiments.
 See error # file had missing data after macs2 call # to see the case for what happens when same file is used as control for peak calling. No data was present. Great I think.
+
+## 2025-05-02
+```{experiment}
+Description: Looking at bigwig files after different processing files
+Summaries:
+  > Raw looks like there is more signal. This is removed by deduplication
+  > Blacklist removal is pretty clear, some empty sections in the plots.
+  > Shifting bams shifted the scale (max 40 before to 50), seems like it does have an effect.
+  > Some of the tall peaks at the edges are not removed by blacklisting. Maybe my blacklist is missing some features.
+  > Seems like blacklist filtering can alter scale.
+    -20250502_144238_bam_processing_effect_sample_type-input_condition_idx-001_normalization_method-cpm.svg
+  > Rpkm scale is different (60 vs 2000) but looks visually the same
+    -20250502_144238_normalization_effect_sample_type-input_bam_type-blFiltered_condition_idx-001.svg
+  > The two peaks at the ends in eaton data are not removed by blacklist filtering
+    -20250502_144238_normalization_effect_sample_type-reference_bam_type-blFiltered_condition_idx-001.svg
+  > My test 001 looks very similar to the eaton reference. Great!
+    -20250502_144238_sample_type_comparison_bam_type-blFiltered_normalization_method-rpkm.svg
+  > Scale difference in raw is crazy. 600 for mine and 300 for eaton.
+    -20250502_144238_sample_type_comparison_bam_type-raw_normalization_method-cpm.svg
+Conclusion:
+  The processing step that has the most impactful effect on the biwig data is the deduplication step. Blacklist is clearly working. Shifting I think has an effect but I may need a more positive shift like just moving everything to the edge to ensure the process has an effect. My test 001 (WT_NONE_NOCO_HM1108_2_positive) looks very similar to the eaton reference. Finally, presenting the raw data creates a very striking contrast between the peaks and the background. Maybe it would be good to show.
+```

@@ -29,7 +29,6 @@ declare -A SAMPLES=(
   ['test_004']="$HOME/data/250207Bel/alignment/processed_126066_sequence_to_S288C_sorted.bam"
   # 4R_NONE_ALPHA_Input_2_input
   ['test_005']="$HOME/data/250207Bel/alignment/processed_126042_sequence_to_S288C_sorted.bam"
-
   # WT_NONE_ALPHA_Input_2_input
   ['input_001']="$HOME/data/250207Bel/alignment/processed_126041_sequence_to_S288C_sorted.bam"
   # Eaton2010
