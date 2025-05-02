@@ -366,7 +366,13 @@ for (comparison_name in names(list_of_comparisons)) {
     }
 
     # Create a list of fixed values for this combination
-    fixed_values_list <- as.list(unique_combinations_df[i, ])
+    # Convert factors to CHARACTER before printing/combining
+    # R_TIDBIT: unlist() on a data frame row silently converts factors to integers
+    fixed_values_list <- lapply(as.list(unique_combinations_df[i, ]), function(x) {
+      if (is.factor(x)) as.character(x) else x
+    })
+
+    fixed_values_str <- paste(unlist(fixed_values_list), collapse = ",")
     # Start with the comparison name
     filename_parts <- comparison_name
     # Add fixed column values if they exist
@@ -494,7 +500,7 @@ for (comparison_name in names(list_of_comparisons)) {
         current_timestamp,
         paste(vary_column_value, collapse = ","),
         paste(fixed_columns_array, collapse = ","),
-        paste(unlist(fixed_values_list), collapse = ",")
+        fixed_values_str
     )
     message("~~~~~~~~~~~~~~~~~~~~~~")
     message("Plotting...")
@@ -511,7 +517,7 @@ for (comparison_name in names(list_of_comparisons)) {
     Gviz::plotTracks(
         trackList = track_container,
         chromosome = CHROMOSOME_ROMAN,
-       from = GENOME_RANGE_TO_LOAD@ranges@start,
+        from = GENOME_RANGE_TO_LOAD@ranges@start,
         to = GENOME_RANGE_TO_LOAD@ranges@width,
         margin = 15,
         innerMargin = 5,
@@ -519,8 +525,8 @@ for (comparison_name in names(list_of_comparisons)) {
         main = plot_title_chr,
         col.axis = "black",
         cex.axis = 0.8,
-        cex.main = 0.9,
-       fontface.main = 2,
+        cex.main = 0.7,
+        fontface.main = 1,
         background.panel = "transparent"
     )
     dev.off()
