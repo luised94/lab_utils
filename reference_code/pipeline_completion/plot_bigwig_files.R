@@ -227,25 +227,33 @@ final_metadata_df <- data.frame(
 # Determine unique values for each categories
 message("Determining unique categories...")
 metadata_columns <- setdiff(names(final_metadata_df), "file_path")
-unique_categories_lst <- vector("list", ncol(metadata_columns))
-for (column_name_chr in names(metadata_columns)) {
+unique_categories_lst <- vector("list", length(metadata_columns))
+message("Before...")
+print(unique_categories_lst)
+for (array_index in 1:length(metadata_columns)) {
+  column_name_chr <- metadata_columns[array_index]
+  print(column_name_chr)
   unique_values <- unique(final_metadata_df[, column_name_chr])
-  unique_categories_lst[[column_name_chr]] <- unique_values
+  print(unique_values)
+  unique_categories_lst[[array_index]] <- unique_values
 }
+message("After...")
+print(unique_categories_lst)
+names(unique_categories_lst) <- metadata_columns
 lapply(names(unique_categories_lst), function(column_name_chr){
   message(sprintf("--- Column %s ---", column_name_chr))
-  message("  ---Style 1 ---")
-  for (value in unique_categories_lst[, column_name_chr]) {
-    pad_value <- paste0("|_ ", value)
-    print(pad_value)
-  }
+  #message("  ---Style 1 ---")
+  #for (value in unique_categories_lst[[column_name_chr]]) {
+    #pad_value <- paste0("|_ ", value)
+    #print(pad_value)
+  #}
   message("  --- Style 2 ---")
-  collapsed_values <- paste(unique_categories_lst, collapse = ",")
+  collapsed_values <- paste(unique_categories_lst[[column_name_chr]], collapse = ",")
   print(collapsed_values)
   return()
 })
-
 stop("Breakpoint...")
+
 # Assertions
 #stopifnot(
 #    "No samples are NA." = !any(is.na(final_metadata_df$sample)),
