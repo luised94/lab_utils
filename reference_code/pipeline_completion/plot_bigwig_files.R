@@ -229,7 +229,7 @@ final_metadata_df <- data.frame(
 stopifnot(
     "No NAs found in the final_metadata_df." = !any(is.na(final_metadata_df)),
     "Metadata has expected dimensions." =
-        nrow(final_metadata_df) == NUMBER_OF_FILES &&
+        nrow(final_metadata_df) == length(BIGWIG_FILES) &&
         ncol(final_metadata_df) == ADDITIONAL_NUMBER_OF_METADATA_COLUMNS + 2 + 1 + 1,
     "No duplicate samples." = !any(duplicated(final_metadata_df))
 )
@@ -242,19 +242,19 @@ unique_categories_lst <- lapply(metadata_columns_vec, function(col_name) {
 })
 names(unique_categories_lst) <- metadata_columns_vec
 lapply(metadata_columns_vec, function(col_name) {
-  message(sprintf("--- Column %s ---\n  %s", 
+  message(sprintf("--- Column %s ---\n  %s",
             col_name,
             paste(unique_categories_lst[[col_name]], collapse = ",")))
 })
 
 # Define the levels of the columns that should be turned into factors
-# See the output of the previous lapply statement to manually define 
+# See the output of the previous lapply statement to manually define
 # the order for the factors. This will control the plotting order.
 factor_levels_list <- list(
   bam_type = c("raw", "deduped", "shifted", "blFiltered"),
   normalization_method = c("raw", "cpm", "rpkm")
 )
-stopifnot(all(names(factor_levels) %in% names(final_metadata_df)))
+stopifnot(all(names(factor_levels_list) %in% names(final_metadata_df)))
 
 for (col in names(factor_levels_list)) {
   final_metadata_df[[col]] <- factor(
@@ -263,7 +263,6 @@ for (col in names(factor_levels_list)) {
     ordered = TRUE
   )
 }
-stop("Breakpoint...")
 
 #################################################################################
 # MAIN
