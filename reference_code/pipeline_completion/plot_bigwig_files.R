@@ -224,6 +224,16 @@ final_metadata_df <- data.frame(
   stringsAsFactors = FALSE
 )
 
+# Assertions
+# TODO: Need to see if I should extract the number into variables to improve readability. //
+stopifnot(
+    "No NAs found in the final_metadata_df." = !any(is.na(final_metadata_df)),
+    "Metadata has expected dimensions." =
+        nrow(final_metadata_df) == NUMBER_OF_FILES &&
+        ncol(final_metadata_df) == ADDITIONAL_NUMBER_OF_METADATA_COLUMNS + 2 + 1 + 1,
+    "No duplicate samples." = !any(duplicated(final_metadata_df))
+)
+
 # Determine unique values for each categories
 message("Determining unique categories...")
 metadata_columns_vec <- setdiff(names(final_metadata_df), "file_path")
@@ -238,25 +248,22 @@ lapply(metadata_columns_vec, function(col_name) {
 })
 
 # Define the levels of the columns that should be turned into factors
+# See the output of the previous lapply statement to manually define 
+# the order for the factors. This will control the plotting order.
 factor_levels_list <- list(
   bam_type = c("raw", "deduped", "shifted", "blFiltered"),
   normalization_method = c("raw", "cpm", "rpkm")
 )
-invisible(lapply(names(factor_levels_list), function(column_name){
-  final_metadata_df[, column_name] <<- factor(x = final_metadata_df[[column_name]],
-                                                levels = factor_levels_list[[column_name]]
-                                                )
-}))
-stop("Breakpoint...")
+stopifnot(all(names(factor_levels) %in% names(final_metadata_df)))
 
-# Assertions
-#stopifnot(
-#    "No samples are NA." = !any(is.na(final_metadata_df$sample)),
-#    "Metadata has expected dimensions." =
-#        nrow(final_metadata_df) == NUMBER_OF_FILES &&
-#        ncol(final_metadata_df) == length(COLUMN_NAMES),
-#    "No duplicate samples." = !any(duplicated(final_metadata_df))
-#)
+for (col in names(factor_levels_list)) {
+  final_metadata_df[[col]] <- factor(
+    x = final_metadata_df[[col]],
+    levels = factor_levels_list[[col]],
+    ordered = TRUE
+  )
+}
+stop("Breakpoint...")
 
 #################################################################################
 # MAIN
@@ -305,8 +312,8 @@ for (comparison_name in names(list_of_comparisons)) {
   vary_column_value <- comparison$vary_column
   filter_expression <- comparison$filter
   stopifnot(
-    "Fixed columns are not in metadata frame. Please adjust." = all(fixed_columns_array %in% names(final_metadata_df)),
-    "Vary column not in metadata frame. Please adjust." = all(vary_column_value %in% names(final_metadata_df))
+    "Fixed columns are not in final metadata frame. Please adjust." = all(fixed_columns_array %in% names(final_metadata_df)),
+    "Vary column not in final metadata frame. Please adjust." = all(vary_column_value %in% names(final_metadata_df))
   )
 
   # Apply filter if it exists
@@ -315,7 +322,7 @@ for (comparison_name in names(list_of_comparisons)) {
     filtered_metadata_df <- subset(final_metadata_df, eval(filter_expression, envir = final_metadata_df))
   }
 
-  message(sprintf("  Dimensions after filtering:%s, %s", nrow(filtered_metadata_df), ncol(filtered_metadata_df)))
+  message(sprintf("  Dimensions (row, col) after filtering:%s, %s", nrow(filtered_metadata_df), ncol(filtered_metadata_df)))
   # If there are no rows after filtering, skip to next comparison
   if (nrow(filtered_metadata_df) == 0) {
     message("No data after filtering, skipping comparison")
@@ -491,13 +498,6 @@ for (comparison_name in names(list_of_comparisons)) {
     )
     message("~~~~~~~~~~~~~~~~~~~~~~")
     message("Plotting...")
-    #print(title_comparison_template)
-    #print(comparison_name)
-    #print(CHROMOSOME_TO_PLOT)
-    #print(current_timestamp)
-    #print(paste(vary_column_value, collapse = ","))
-    #print(paste(fixed_columns_array, collapse = ","))
-    #print(paste(unlist(fixed_values_list), collapse = ","))
     message(plot_title_chr)
     message("~~~~~~~~~~~~~~~~~~~~~~")
 
