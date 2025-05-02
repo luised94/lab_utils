@@ -524,6 +524,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     percent_enriched = percent_enriched,
     stringsAsFactors = FALSE
   )
+  message("  Added statistics to summary df...")
   # Create minimal placeholder data for distributions
   chromosome_distribution_list[[row_index]] <- data.frame(
     sample_id = current_sample_id,
@@ -532,6 +533,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     count = chrom_counts$Freq,
     stringsAsFactors = FALSE
   )
+  message("  Added statistics to chromosome distribution list...")
   peak_statistics_list[[row_index]] <- data.frame(
     sample_id = current_sample_id,
     file_path = xls_file_path,
@@ -542,8 +544,9 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     width = peak_widths,
     stringsAsFactors = FALSE
   )
+  message("  Added statistics to peak statistics list...")
 
-  message("  Added statistics to data.frame and lists...")
+  message("  Finishing loop iteration...")
   message("====================")
 } # End of for loop
 message("Processing finished.")
