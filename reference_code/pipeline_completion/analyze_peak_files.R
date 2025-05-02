@@ -328,7 +328,7 @@ summary_statistics_df <- data.frame(
 
 ESTIMATED_CHROMOSOMES_PER_SAMPLE <- length(names(REFERENCE_GENOME_DSS))
 chromosome_distribution_list <- vector("list", MAX_ROW_COUNT)
-peak_width_list <- vector("list", MAX_ROW_COUNT)
+peak_statistics_list <- vector("list", MAX_ROW_COUNT)
 
 message(sprintf("Starting processing for %d records...", MAX_ROW_COUNT))
 for (row_index in seq_len(MAX_ROW_COUNT)) {
@@ -399,10 +399,11 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
       count = NA_integer_,
       stringsAsFactors = FALSE
     )
-    peak_width_list[[row_index]] <- data.frame(
+    peak_statistics_list[[row_index]] <- data.frame(
       sample_id = current_sample_id,
       file_path = xls_file_path,
       peak_id = NA_character_,
+      fold_enrichment = NA_real_,
       width = NA_real_,
       stringsAsFactors = FALSE
     )
@@ -530,10 +531,12 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     count = chrom_counts$Freq,
     stringsAsFactors = FALSE
   )
-  peak_width_list[[row_index]] <- data.frame(
+  peak_statistics_list[[row_index]] <- data.frame(
     sample_id = current_sample_id,
-      file_path = xls_file_path,
+    file_path = xls_file_path,
     peak_id = seq_len(length(peak_widths)),
+    fold_enrichment = xls_peak_df$fold_enrichment,
+
     width = peak_widths,
     stringsAsFactors = FALSE
   )
@@ -543,7 +546,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 } # End of for loop
 message("Processing finished.")
 # Convert lists to DF
-peak_width_distribution_df <- do.call(rbind, peak_width_list)
+peak_width_distribution_df <- do.call(rbind, peak_statistics_list)
 chromosome_distribution_df <- do.call(rbind, chromosome_distribution_list)
 
 # Remove any rows where all values are NA.

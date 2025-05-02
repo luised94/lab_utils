@@ -137,7 +137,7 @@ PEAK_FILE_COLUMNS <- list(
     "length",
     "pileup",
     "pValue",
-    "foldEnrichment",
+    "fold_enrichment",
     "qValue",
     "name"
   ),
@@ -150,7 +150,7 @@ PEAK_FILE_COLUMNS <- list(
     "abs_summit",
     "pileup",
     "pValue",
-    "foldEnrichment",
+    "fold_enrichment",
     "qValue",
     "name"
   )
