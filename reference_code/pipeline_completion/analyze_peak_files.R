@@ -229,7 +229,7 @@ for (row_idx in 1:nrow(metadata_df)) {
 
 # COMBINE ALL METADATA INTO FINAL DATA FRAME
 # Assuming first two columns are sample ID and condition
-final_metadata <- data.frame(
+final_metadata_df <- data.frame(
   sample_type = metadata_df[, 1],
   condition_idx = metadata_df[, 2],
   bam_type = metadata_df$bam_type,
@@ -240,17 +240,46 @@ final_metadata <- data.frame(
 )
 
 # Assertions
-#stopifnot(
-#    "No samples are NA." = !any(is.na(final_metadata$sample)),
-#    "Metadata has expected dimensions." =
-#        nrow(final_metadata) == NUMBER_OF_FILES &&
-#        ncol(final_metadata) == NUMBER_OF_COLUMNS,
-#    "No duplicate samples." = !any(duplicated(final_metadata))
-#)
+# TODO: Need to see if I should extract the number into variables to improve readability. //
+stopifnot(
+    "No NAs found in the final_metadata_df." = !any(is.na(final_metadata_df)),
+    "Metadata has expected dimensions." =
+        nrow(final_metadata_df) == length(XLS_FILES) &&
+        ncol(final_metadata_df) == ADDITIONAL_NUMBER_OF_METADATA_COLUMNS + 2 + 2 + 1,
+    "No duplicate samples." = !any(duplicated(final_metadata_df))
+)
 
-# Add factor levels to metadata frame and define unique categories
-# Convert all columns to factors
-#final_metadata[] <- lapply(final_metadata, as.factor)
+# Determine unique values for each categories
+message("Determining unique categories...")
+metadata_columns_vec <- setdiff(names(final_metadata_df), "file_path")
+unique_categories_lst <- lapply(metadata_columns_vec, function(col_name) {
+  unique(final_metadata_df[[col_name]])
+})
+names(unique_categories_lst) <- metadata_columns_vec
+lapply(metadata_columns_vec, function(col_name) {
+  message(sprintf("--- Column %s ---\n  %s",
+            col_name,
+            paste(unique_categories_lst[[col_name]], collapse = ",")))
+})
+
+stop("Breakpoint... Set the factor_levels_list")
+# Define the levels of the columns that should be turned into factors
+# See the output of the previous lapply statement to manually define
+# the order for the factors. This will control the plotting order.
+factor_levels_list <- list(
+  bam_type = c("raw", "deduped", "shifted", "blFiltered"),
+  normalization_method = c("raw", "cpm", "rpkm")
+)
+stopifnot(all(names(factor_levels_list) %in% names(final_metadata_df)))
+
+for (col in names(factor_levels_list)) {
+  final_metadata_df[[col]] <- factor(
+    x = final_metadata_df[[col]],
+    levels = factor_levels_list[[col]],
+    ordered = TRUE
+  )
+}
+
 
 # Define factor levels for each column (customize as needed)
 #COLUMN_LEVELS <- list(
@@ -280,7 +309,7 @@ dir.create(PLOT_OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
 
 # --- Configuration ---
 MIN_ROW_COUNT <- 1
-MAX_ROW_COUNT <- nrow(final_metadata)
+MAX_ROW_COUNT <- nrow(final_metadata_df)
 ANALYSIS_COLUMNS <- c("number_of_peaks", "peak_width_distribution", "overlap_with_eaton")
 
 DEBUG_MODE <- TRUE
@@ -311,7 +340,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   message(sprintf("Processing row %d/%d", row_index, MAX_ROW_COUNT))
 
   # Extract the current row's data
-  current_metadata <- final_metadata[row_index, ]
+  current_metadata <- final_metadata_df[row_index, ]
   if (DEBUG_MODE) {
     message("Row Details:")
     invisible(lapply(names(current_metadata), function(column_name) {
@@ -515,28 +544,29 @@ message("Processing finished.")
 peak_width_distribution_df <- do.call(rbind, peak_width_list)
 chromosome_distribution_df <- do.call(rbind, chromosome_distribution_list)
 
-# Optional: Trim unused preallocated rows
-chromosome_distribution_df <- chromosome_distribution_df[!is.na(chromosome_distribution_df$sample_id), ]
-peak_width_distribution_df <- peak_width_distribution_df[!is.na(peak_width_distribution_df$sample_id), ]
-summary_statistics_df <- summary_statistics_df[!is.na(summary_statistics_df$sample_id), ]
+# Remove any rows where all values are NA.
+# Peaks will be zero in some cases which shouldnt cause drop.
+chromosome_distribution_df <- chromosome_distribution_df[!apply(is.na(chromosome_distribution_df), 1, all), ]
+peak_width_distribution_df <- peak_width_distribution_df[!apply(is.na(peak_width_distribution_df), 1, all), ]
+summary_statistics_df <- summary_statistics_df[!apply(is.na(summary_statistics_df), 1, all), ]
 
 # Add metadata to distribution DFs for easier plotting
-#METADATA_COLS_TO_KEEP <- setdiff(names(final_metadata), "file_paths")
+#METADATA_COLS_TO_KEEP <- setdiff(names(final_metadata_df), "file_paths")
 
 # Explicit merges
 chromosome_distribution_df <- merge(
   chromosome_distribution_df,
-  final_metadata,
+  final_metadata_df,
   by = "file_path"
 )
 peak_width_distribution_df <- merge(
   peak_width_distribution_df,
-  final_metadata,
+  final_metadata_df,
   by = "file_path"
 )
 summary_statistics_df <- merge(
   summary_statistics_df,
-  final_metadata,
+  final_metadata_df,
   by = "file_path"
 )
 
