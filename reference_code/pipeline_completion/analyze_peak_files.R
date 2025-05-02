@@ -514,10 +514,11 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   message("  Calculated statistics based on dataframe...")
 
   # --- Store Results ---
+  number_of_peaks <- nrow(xls_peak_df)
   summary_statistics_df[row_index, ] <- data.frame(
     sample_id = current_sample_id,
-     file_path = xls_file_path,
-    num_peaks = nrow(xls_peak_df),
+    file_path = xls_file_path,
+    num_peaks = number_of_peaks,
     width_mean = mean(peak_widths),
     width_median = median(peak_widths),
     percent_recovered = percent_recovered,
@@ -525,22 +526,21 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     stringsAsFactors = FALSE
   )
   message("  Added statistics to summary df...")
+
   # Create minimal placeholder data for distributions
   chromosome_distribution_list[[row_index]] <- data.frame(
     sample_id = current_sample_id,
-      file_path = xls_file_path,
+    file_path = xls_file_path,
     chromosome = chrom_counts$Var1,
     count = chrom_counts$Freq,
     stringsAsFactors = FALSE
   )
   message("  Added statistics to chromosome distribution list...")
   peak_statistics_list[[row_index]] <- data.frame(
-    sample_id = current_sample_id,
-    file_path = xls_file_path,
-    peak_id = seq_len(length(peak_widths)),
-    fold_enrichment = xls_peak_df$fold_enrichment,
-    qvalue = xls_peak_df$qvalue,
-
+    sample_id = rep(current_sample_id, number_of_peaks),
+    file_path = rep(xls_file_path, number_of_peaks),
+    peak_id = seq_len(number_of_peaks),
+    xls_peak_df[c("fold_enrichment", "qvalue")],
     width = peak_widths,
     stringsAsFactors = FALSE
   )

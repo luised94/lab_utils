@@ -51,3 +51,16 @@ lapply(names(unique_categories_lst), function(column_name_chr){
   return()
 })
 ```
+
+# Debugging when there is a mismatch between numbers and lengths during assigment
+## 2025-05-02
+I have mistakenly assigned values of the wrong length multiple times. this could be turned into for loop with more explicit warning. Define array or list with the variable names, use the R functions to find variables and show the value.
+```{r}
+# Substitute for appropriate values
+message(sprintf(
+  "Lengths: sample_id=%d, file_path=%d, peaks=%d, fold_enr=%d, qval=%d, widths=%d",
+  length(current_sample_id), length(xls_file_path), 
+  length(peak_widths), length(xls_peak_df$fold_enrichment),
+  length(xls_peak_df$qvalue), length(peak_widths)
+))
+```
