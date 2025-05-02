@@ -93,8 +93,8 @@ PEAK_FILE_COLUMNS <- list(
     "score",
     "strand",
     "signalValue",
-    "pValue",
-    "qValue",
+    "pvalue",
+    "qvalue",
     "peak"
   ),
 
@@ -107,8 +107,8 @@ PEAK_FILE_COLUMNS <- list(
     "score",
     "strand",
     "signalValue",
-    "pValue",
-    "qValue"
+    "pvalue",
+    "qvalue"
   ),
 
   # gappedPeak columns (BED12+3)
@@ -126,8 +126,8 @@ PEAK_FILE_COLUMNS <- list(
     "blockSizes",
     "blockStarts",
     "signalValue",
-    "pValue",
-    "qValue"
+    "pvalue",
+    "qvalue"
   ),
   # XLS MACS2 output
   XLS = c(
@@ -136,9 +136,9 @@ PEAK_FILE_COLUMNS <- list(
     "end",
     "length",
     "pileup",
-    "pValue",
+    "pvalue",
     "fold_enrichment",
-    "qValue",
+    "qvalue",
     "name"
   ),
   # XLS OUTPUT when --call-summits is enabled
@@ -149,9 +149,9 @@ PEAK_FILE_COLUMNS <- list(
     "length",
     "abs_summit",
     "pileup",
-    "pValue",
+    "pvalue",
     "fold_enrichment",
-    "qValue",
+    "qvalue",
     "name"
   )
 )
