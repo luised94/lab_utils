@@ -271,13 +271,20 @@ factor_levels_list <- list(
 )
 stopifnot(all(names(factor_levels_list) %in% names(final_metadata_df)))
 for (column_name in names(factor_levels_list)){
-  values_not_in_metadata_chr <- setdiff(factor_levels_list[[column_name]], final_metadata_df[[column_name]])
-  stopifnot(
-    "There are values not present in the metadata in the factor_levels_list." =
-    length(values_not_in_metadata_df) == 0
-  )
-}
-
+  expected_levels <- factor_levels_list[[column_name]]
+  actual_levels <- unique(final_metadata_df[[column_name]])
+  missing_levels <- setdiff(expected_levels, actual_levels)
+  if (length(missing_levels) > 0) {
+    stop(sprintf(
+        "Validation failed for column '%s':\n  Levels defined but missing: %s\n  Available levels: %s",
+        column_name,
+        paste(missing_levels, collapse = ", "),
+        paste(actual_levels, collapse = ", ")
+        ),
+        call. = FALSE
+    )
+  }
+} # end validation for loop
 for (col in names(factor_levels_list)) {
   final_metadata_df[[col]] <- factor(
     x = final_metadata_df[[col]],
@@ -285,6 +292,7 @@ for (col in names(factor_levels_list)) {
     ordered = TRUE
   )
 }
+message("User specified columns converted to factors...")
 
 ##################################################################################
 # MAIN
