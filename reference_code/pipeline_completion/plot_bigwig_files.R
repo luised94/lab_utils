@@ -215,7 +215,7 @@ for (row_idx in 1:nrow(metadata_df)) {
 
 # COMBINE ALL METADATA INTO FINAL DATA FRAME
 # Assuming first two columns are sample type and condition idx
-final_metadata <- data.frame(
+final_metadata_df <- data.frame(
   sample_type = metadata_df[, 1],
   condition_idx = metadata_df[, 2],
   bam_type = metadata_df$bam_type,
@@ -224,13 +224,35 @@ final_metadata <- data.frame(
   stringsAsFactors = FALSE
 )
 
+# Determine unique values for each categories
+message("Determining unique categories...")
+metadata_columns <- setdiff(names(final_metadata_df), "file_path")
+unique_categories_lst <- vector("list", ncol(metadata_columns))
+for (column_name_chr in names(metadata_columns)) {
+  unique_values <- unique(final_metadata_df[, column_name_chr])
+  unique_categories_lst[[column_name_chr]] <- unique_values
+}
+lapply(names(unique_categories_lst), function(column_name_chr){
+  message(sprintf("--- Column %s ---", column_name_chr))
+  message("  ---Style 1 ---")
+  for (value in unique_categories_lst[, column_name_chr]) {
+    pad_value <- paste0("|_ ", value)
+    print(pad_value)
+  }
+  message("  --- Style 2 ---")
+  collapsed_values <- paste(unique_categories_lst, collapse = ",")
+  print(collapsed_values)
+  return()
+})
+
+stop("Breakpoint...")
 # Assertions
 #stopifnot(
-#    "No samples are NA." = !any(is.na(final_metadata$sample)),
+#    "No samples are NA." = !any(is.na(final_metadata_df$sample)),
 #    "Metadata has expected dimensions." =
-#        nrow(final_metadata) == NUMBER_OF_FILES &&
-#        ncol(final_metadata) == length(COLUMN_NAMES),
-#    "No duplicate samples." = !any(duplicated(final_metadata))
+#        nrow(final_metadata_df) == NUMBER_OF_FILES &&
+#        ncol(final_metadata_df) == length(COLUMN_NAMES),
+#    "No duplicate samples." = !any(duplicated(final_metadata_df))
 #)
 
 #################################################################################
@@ -280,14 +302,14 @@ for (comparison_name in names(list_of_comparisons)) {
   vary_column_value <- comparison$vary_column
   filter_expression <- comparison$filter
   stopifnot(
-    "Fixed columns are not in metadata frame. Please adjust." = all(fixed_columns_array %in% names(final_metadata)),
-    "Vary column not in metadata frame. Please adjust." = all(vary_column_value %in% names(final_metadata))
+    "Fixed columns are not in metadata frame. Please adjust." = all(fixed_columns_array %in% names(final_metadata_df)),
+    "Vary column not in metadata frame. Please adjust." = all(vary_column_value %in% names(final_metadata_df))
   )
 
   # Apply filter if it exists
-  filtered_metadata_df <- final_metadata
+  filtered_metadata_df <- final_metadata_df
   if (!is.null(filter_expression)) {
-    filtered_metadata_df <- subset(final_metadata, eval(filter_expression, envir = final_metadata))
+    filtered_metadata_df <- subset(final_metadata_df, eval(filter_expression, envir = final_metadata_df))
   }
 
   message(sprintf("  Dimensions after filtering:%s, %s", nrow(filtered_metadata_df), ncol(filtered_metadata_df)))
