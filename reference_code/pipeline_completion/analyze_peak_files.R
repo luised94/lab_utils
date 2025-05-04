@@ -434,7 +434,8 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 
   file_ext <- tools::file_ext(xls_file_path)
   format_key <- toupper(file_ext)
-  # Handle --call-summits command
+  # --- Handle --call-summits command: Call summit adds one more column to the output ---
+  # Solution: Use a different set of columns names
   if (any(grepl("--call-summits",
                 file_lines[1:max(comment_lines)],
                 ignore.case = TRUE))) {
@@ -450,7 +451,8 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   }
   col_names <- PEAK_FILE_COLUMNS[[format_key]]
   names(xls_peak_df) <- col_names
-  # Error handling chunk ----
+  # --- Error handling chunk: Ensure loaded dataframe has ---
+  # --- expected properties for genomic range data. ----
   has_chr_prefix <- grepl("^chr", xls_peak_df$chromosome)
   stopifnot(
     "xls_peak_df is empty." = nrow(xls_peak_df) > 0,
@@ -477,10 +479,11 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 
   # --- Create GenomicRanges ---
   # Create GRanges object with core coordinates
+  # GenomicRanges::makeGRangesFromDataFrame(xls_peak_df, keep.extra.columns = TRUE)
   gr <- GenomicRanges::GRanges(
     seqnames = xls_peak_df$chromosome,
     ranges = IRanges::IRanges(
-      # Convert from 0-based to 1-based
+      # Convert from 0-based to 1-based: Input BED is 0-based; GRanges are 1-based. start+1L converts.
       start = xls_peak_df$start + 1L,
       end = xls_peak_df$end
     ),
@@ -497,21 +500,78 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   message("  Assigned Genomic Ranges...")
 
   # --- Bed File Analysis Basic Statistics ---
+  # Validate inputs
+  if (length(gr) == 0) {
+    warning("No peaks found in the current dataset")
+    next
+  }
+
+  if (length(GENOME_FEATURES) == 0) {
+    message("[ERROR] Reference genome features object is empty.")
+    stop("Reference genome is empty and required for downstream analysis.")
+  }
+
+  message("  Calculating overlaps...")
+  message("  Number of called peaks: ", length(gr))
+  message("  Number of reference features: ", length(GENOME_FEATURES))
+
+  # --- Peak widths: What is the width of the called peaks? ---
+  # Is it consistent with previous experiments and DNA binding behavior?
   peak_widths <- xls_peak_df$end - xls_peak_df$start
+  # --- Chromosome distribution: How many peaks in each chromosome? ---
+  # chrom_counts <- as.data.frame(table(factor(seqnames(gr), levels = seqlevels(gr)))
   chrom_counts <- as.data.frame(table(
     # Requires chromosomes of the reference genome to be in order
     factor(xls_peak_df$chromosome, levels=names(REFERENCE_GENOME_DSS))
   ))
-  # Calculate overlaps (logical vector: TRUE = overlap exists)
-  overlaps_logical <- IRanges::overlapsAny(gr, GENOME_FEATURES)
-  # Percent of gr1 ranges overlapping gr2
-  percent_enriched <- ( sum(overlaps_logical) / length(gr) ) * 100
 
+  # --- Enrichment: What percent of called peaks overlap with reference features ---
+  # Is it consistent with previous experiments of ORC and MCM?
   # Calculate overlaps (logical vector: TRUE = overlap exists)
-  overlaps_logical <- IRanges::overlapsAny(GENOME_FEATURES, gr)
-  percent_recovered <- ( sum(overlaps_logical) / length(GENOME_FEATURES) ) * 100
+  enrichment_overlaps <- IRanges::overlapsAny(gr, GENOME_FEATURES)
+  # Count overlapping peaks
+  overlapping_peaks <- sum(enrichment_overlaps)
+  # Percent of called peaks overlapping reference features
+  percent_enriched <- (overlapping_peaks / length(gr)) * 100
 
+  # --- Recovery: What percent of reference features are recovered by called peaks ---
+  # Calculate overlaps (logical vector: TRUE = overlap exists)
+  recovery_overlaps <- IRanges::overlapsAny(GENOME_FEATURES, gr)
+  # Count recovered reference features
+  recovered_features <- sum(recovery_overlaps)
+  # Percent of reference features overlapped by called peaks
+  percent_recovered <- (recovered_features / length(GENOME_FEATURES)) * 100
+
+  # --- Validation check: Percent should not exceed 100 ---
+  if (percent_enriched > 100)
+  {
+    warning_message <- sprintf(
+      "Enrichment percentage exceeds 100% for:\n  [ %s ]",
+      current_sample_id
+    )
+    warning(warning_message)
+  }
+  if (percent_recovered > 100)
+  {
+    warning_message <- sprintf(
+      "Recovery percentage exceeds 100% for:\n  [ %s ]",
+      current_sample_id
+    )
+    warning(warning_message)
+  }
+
+  #stopifnot(
+  #  "Percent recovered exceeds 100." = percent_recovered <= 100,
+  #  "Percent enriched exceeds 100." = percent_enriched <= 100
+  #)
   message("  Calculated statistics based on dataframe...")
+  # --- Detailed Diagnostics ---
+  message("  Enrichment: ", overlapping_peaks, "/", length(gr),
+          " called peaks overlap with reference features (",
+          formatC(percent_enriched, digits=2, format="f"), "%)")
+  message("  Recovery: ", recovered_features, "/", length(GENOME_FEATURES),
+          " reference features recovered by called peaks (",
+          formatC(percent_recovered, digits=2, format="f"), "%)")
 
   # --- Store Results ---
   number_of_peaks <- nrow(xls_peak_df)
