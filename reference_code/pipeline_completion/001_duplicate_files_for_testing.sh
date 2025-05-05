@@ -18,6 +18,23 @@ echo "=========================================="
 echo "Script: $SCRIPT_NAME"
 echo "Start Time: $CURRENT_TIMESTAMP"
 echo "=========================================="
+# Reusable component start
+# === Cluster Environment Setup ===
+# Check if running on head node (should use interactive job instead)
+if [[ "$(hostname)" == "luria" ]]; then
+    echo "Error: This script should not be run on the head node" 1>&2
+    echo "Please run: srun --pty bash" 1>&2
+    exit 1
+fi
+
+# Check if running inside a Slurm allocation
+if [[ -z "${SLURM_JOB_ID}" ]]; then
+    echo "Error: This script must be run inside a Slurm allocation" 1>&2
+    echo "Please run: srun --pty bash" 1>&2
+    exit 1
+fi
+
+# Reusable component end
 declare -A SAMPLES=(
   # WT_NONE_NOCO_HM1108_2_positive
   ['test_001']="$HOME/data/250207Bel/alignment/processed_126050_sequence_to_S288C_sorted.bam"
