@@ -625,15 +625,89 @@ summary_statistics_df <- merge(
 )
 
 # --- Plot results ---
-sample_ids_chr <- unique(summary_statistics_df$sample_id)
-for (sample_id in sample_ids_chr) {
-  print(sample_id)
-  rows_with_sample_id_bool <- summary_statistics_df$sample_id == sample_id
-  subset_df <- summary_statistics_df[rows_with_sample_id_bool, ]
+# You can modify and copy to the interactive session in the cluster
+# to avoid triggering git. Otherwise I would have to create a config file.
+# Similar to how I control the r scripts in the core_scripts dir.
+# TODO: May create a config in the future but this is just a test set of scripts
+library(tidyverse)
+library(ggplot2)
+
+all_sample_ids_chr <- unique(summary_statistics_df$sample_id)
+# Configure sample selection:
+# 1. For testing - just first sample
+sample_ids_to_plot_chr <- all_sample_ids_chr[1]
+
+# 2. For all samples (comment out line above)
+# sample_ids_to_plot <- all_sample_ids
+
+# 3. For specific pattern (e.g., just inputs)
+# sample_ids_to_plot <- grep("input", all_sample_ids, value = TRUE)
+message("====================")
+for (current_sample_id in sample_ids_to_plot_chr) {
+  message("--- Plot sample id for loop ---")
+  is_row_with_sample_id_bool <- summary_statistics_df$sample_id == current_sample_id
+  current_sample_subset_df <- summary_statistics_df[is_row_with_sample_id_bool, ]
+
+  # Skip if no rows in the subset dataframe
+  if (nrow(current_sample_subset_df) == 0) {
+    warning_message <- sprintf(
+      paste("Current sample dataframe has no rows.\n",
+            "Sample id used: %s")
+    )
+    warning(warning_message)
+    next
+
+  }
   message(sprintf(
     paste0("Subset dataframe with sample_id: %s\n",
            "Number of rows in subset df: %s"),
-    sample_id,
+    current_sample_id,
     nrow(subset_df)
   ))
+
+  # Create processing group factor
+  current_sample_subset_df$processing_group <- factor(
+    paste(current_sample_subset_df$bam_type, current_sample_subset_df$peak_type, sep = " + ")
+  )
+  # Generate plots
+  recovery_plot <- ggplot(current_sample_subset_df, aes(x = processing_group)) +
+    geom_point(aes(y = percent_recovered, color = "Recovery"), size = 3) +
+    geom_point(aes(y = percent_enriched, color = "Enrichment"), size = 3) +
+    labs(title = paste("Sample:", current_sample_id),
+         subtitle = "Peak Recovery vs Enrichment",
+         x = "Processing Method", y = "Percentage (%)") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  count_plot <- ggplot(current_sample_subset_df, aes(x = processing_group, y = num_peaks, fill = processing_group)) +
+    geom_col() +
+    labs(title = paste("Sample:", current_sample_id),
+         subtitle = "Number of Peaks Called",
+         x = "Processing Method", y = "Count") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+
+  width_stats_plot <- ggplot(current_sample_subset_df) +
+    geom_point(aes(x = processing_group, y = width_mean, color = "Mean"), size = 3) +
+    geom_point(aes(x = processing_group, y = width_median, color = "Median"), size = 3) +
+    labs(
+      title = paste("Peak Width Statistics\n", "Sample:", current_sample_id),
+      x = "Processing Method + Peak Type",
+      y = "Width (bp)",
+      color = "Statistic") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  # Display plots
+  print(recovery_plot)
+  readline(prompt = "Press [enter] to plot count_plot")
+  print(count_plot)
+  readline(prompt = "Press [enter] to plot width_plot")
+  print(width_plot)
+
+  # Optional: Add interactive pause between samples
+  # invisible(readline(prompt = "Press [enter] to continue to other sample"))
 }
+message("====================")
+
+
