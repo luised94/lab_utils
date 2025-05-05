@@ -49,7 +49,8 @@ check_required_packages(
 ################################################################################
 # Load and Validate Experiment Configuration and Dependencies
 ################################################################################
-# TODO: Consolidate this into the previous for loop? Or use second for loop with safe_source
+# TODO: Consolidate this into the previous for loop? Or use second for loop with safe_source //
+# Would need to remove the print_debug_info call. I probably need to adjust that function anyways. //
 # Define required dependencies
 required_modules <- list(
     list(

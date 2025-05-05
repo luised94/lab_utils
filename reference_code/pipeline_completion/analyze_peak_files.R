@@ -479,24 +479,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
 
   # --- Create GenomicRanges ---
   # Create GRanges object with core coordinates
-  # GenomicRanges::makeGRangesFromDataFrame(xls_peak_df, keep.extra.columns = TRUE)
-  gr <- GenomicRanges::GRanges(
-    seqnames = xls_peak_df$chromosome,
-    ranges = IRanges::IRanges(
-      # Convert from 0-based to 1-based: Input BED is 0-based; GRanges are 1-based. start+1L converts.
-      start = xls_peak_df$start + 1L,
-      end = xls_peak_df$end
-    ),
-    strand = "*"
-    #strand = if("strand" %in% names(xls_peak_df)) xls_peak_df$strand else "*"
-  )
-
-  # Add metadata columns (everything except chr, start, end)
-  meta_cols <- setdiff(names(xls_peak_df), c("chromosome", "start", "end"))
-  if (length(meta_cols) > 0) {
-    #message("Metadata columns:\n", paste(meta_cols, collapse=", "))
-    GenomicRanges::mcols(gr) <- xls_peak_df[, meta_cols, drop = FALSE]
-  }
+  gr <- GenomicRanges::makeGRangesFromDataFrame(xls_peak_df, keep.extra.columns = TRUE)
   message("  Assigned Genomic Ranges...")
 
   # --- Bed File Analysis Basic Statistics ---
@@ -519,7 +502,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   # Is it consistent with previous experiments and DNA binding behavior?
   peak_widths <- xls_peak_df$end - xls_peak_df$start
   # --- Chromosome distribution: How many peaks in each chromosome? ---
-  # chrom_counts <- as.data.frame(table(factor(seqnames(gr), levels = seqlevels(gr)))
+  # chrom_counts <- as.data.frame(table(factor(GenomicRanges::seqnames(gr), levels = GenomicInfoDb::seqlevels(gr)))
   chrom_counts <- as.data.frame(table(
     # Requires chromosomes of the reference genome to be in order
     factor(xls_peak_df$chromosome, levels=names(REFERENCE_GENOME_DSS))
@@ -528,6 +511,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   # --- Enrichment: What percent of called peaks overlap with reference features ---
   # Is it consistent with previous experiments of ORC and MCM?
   # Calculate overlaps (logical vector: TRUE = overlap exists)
+  # Use overlapsAny to avoid double counting.
   enrichment_overlaps <- IRanges::overlapsAny(gr, GENOME_FEATURES)
   # Count overlapping peaks
   overlapping_peaks <- sum(enrichment_overlaps)
@@ -641,3 +625,15 @@ summary_statistics_df <- merge(
 )
 
 # --- Plot results ---
+sample_ids_chr <- unique(summary_statistics_df$sample_id)
+for (sample_id in sample_ids_chr) {
+  print(sample_id)
+  rows_with_sample_id_bool <- summary_statistics_df$sample_id == sample_id
+  subset_df <- summary_statistics_df[rows_with_sample_id_bool, ]
+  message(sprintf(
+    paste0("Subset dataframe with sample_id: %s\n",
+           "Number of rows in subset df: %s"),
+    sample_id,
+    nrow(subset_df)
+  ))
+}

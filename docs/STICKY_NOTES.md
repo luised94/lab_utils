@@ -219,6 +219,9 @@ Considering creating one consolidated script that processes a file from fastq to
 Need to find the plotting code for the test scripts.
 
 ## 2025-05-01
-TODO: Need to address the labels for the bigwig files. Either set manually in a mapping with the comparison quote (nested list with quote and the columns to use) or in the configuration file.
-TODO: Add border to the genome tracks?
-TODO: Create the map of the bad files?
+[DONE]TODO: Need to address the labels for the bigwig files. Either set manually in a mapping with the comparison quote (nested list with quote and the columns to use) or in the configuration file.
+[IGNORE]TODO: Add border to the genome tracks?
+[IGNORE]TODO: Create the map of the bad files?
+
+## 2025-05-04
+TODO: May need to do a big correlation analysis as a matrix heatmap. I will do that after looking at the visualizations and seeing if I need to rework some scripts.

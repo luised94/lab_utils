@@ -64,3 +64,31 @@ message(sprintf(
   length(xls_peak_df$qvalue), length(peak_widths)
 ))
 ```
+
+# Creating a genomic range from a dataframe
+I was doing this manually with the following:
+```{r}
+gr <- GenomicRanges::GRanges(
+  seqnames = xls_peak_df$chromosome,
+  ranges = IRanges::IRanges(
+    # Convert from 0-based to 1-based: Input BED is 0-based; GRanges are 1-based. start+1L converts.
+    start = xls_peak_df$start + 1L,
+    end = xls_peak_df$end
+  ),
+  strand = "*"
+  #strand = if("strand" %in% names(xls_peak_df)) xls_peak_df$strand else "*"
+)
+
+# Add metadata columns (everything except chr, start, end)
+meta_cols <- setdiff(names(xls_peak_df), c("chromosome", "start", "end"))
+if (length(meta_cols) > 0) {
+  #message("Metadata columns:\n", paste(meta_cols, collapse=", "))
+  GenomicRanges::mcols(gr) <- xls_peak_df[, meta_cols, drop = FALSE]
+}
+```
+
+Turns out there is a simpler way to achieve a similar result:
+```{r}
+GenomicRanges::makeGRangesFromDataFrame(xls_peak_df, keep.extra.columns = TRUE)
+```
+Of course there is less flexibility if you want to control the columns that get added. Although you could potentially filter them before or maybe the command has additional parameters (check with ?). Remember to check by printing them out or checking mcols or nrow/length.
