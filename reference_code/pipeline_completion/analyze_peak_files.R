@@ -319,7 +319,12 @@ DEBUG_MODE <- TRUE
 if (interactive() && !exists("summary_statistics_df")){
 cat("Running the summary statistics computation...\n")
 # Code block that is "cached" --------
+# 1. Define types and order
+SUMMARY_COLS <- c("sample_id", "file_path", "num_peaks", 
+                 "percent_recovered", "percent_enriched",
+                 "width_mean", "width_median")
 
+# 2. Initialize with correct types
 summary_statistics_df <- data.frame(
   sample_id = character(MAX_ROW_COUNT),
   file_path = character(MAX_ROW_COUNT),
@@ -329,7 +334,7 @@ summary_statistics_df <- data.frame(
   width_mean = numeric(MAX_ROW_COUNT),
   width_median = numeric(MAX_ROW_COUNT),
   stringsAsFactors = FALSE
-)
+)[, SUMMARY_COLS]  # Enforce order
 
 ESTIMATED_CHROMOSOMES_PER_SAMPLE <- length(names(REFERENCE_GENOME_DSS))
 chromosome_distribution_list <- vector("list", MAX_ROW_COUNT)
@@ -386,16 +391,21 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     message(paste("  File has no data after comments:", xls_file_path))
     warning(paste("File has no data after comments:", xls_file_path))
     message("  Creating placeholder data...")
-    summary_statistics_df[row_index, ] <- data.frame(
+    new_row <- data.frame(
       sample_id = current_sample_id,
       file_path = xls_file_path,
       num_peaks = 0L,
-      width_mean = NA_real_,
-      width_median = NA_real_,
       percent_recovered = NA_real_,
       percent_enriched = NA_real_,
+      width_mean = NA_real_,
+      width_median = NA_real_,
       stringsAsFactors = FALSE
     )
+    stopifnot(all(names(summary_statistics_df) %in% names(new_row)))
+    new_row <- new_row[, names(summary_statistics_df)]
+    stopifnot(identical(names(new_row), names(summary_statistics_df)))
+    summary_statistics_df[row_index, names(new_row)] <- new_row
+
     # Create minimal placeholder data for distributions
     chromosome_distribution_list[[row_index]] <- data.frame(
       sample_id = current_sample_id,
@@ -564,7 +574,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   # --- Store Results ---
   number_of_peaks <- nrow(xls_peak_df)
   # Critical: Order of assignment in the data.frame call has to be the same!!!
-  summary_statistics_df[row_index, ] <- data.frame(
+  new_row <- data.frame(
     sample_id = current_sample_id,
     file_path = xls_file_path,
     num_peaks = number_of_peaks,
@@ -574,11 +584,12 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     width_median = median(peak_widths),
     stringsAsFactors = FALSE
   )
+  stopifnot(all(names(summary_statistics_df) %in% names(new_row)))
+  new_row <- new_row[, names(summary_statistics_df)]
+  stopifnot(identical(names(new_row), names(summary_statistics_df)))
+  summary_statistics_df[row_index, names(new_row)] <- new_row
+
   message("  Added statistics to summary df...")
-  stopifnot(
-    "Percent recovered exceeds 100." = summary_statistics_df[row_index, "percent_recovered"] <= 100,
-    "Percent enriched exceeds 100." = summary_statistics_df[row_index, "percent_enriched"] <= 100
-  )
 
   # Create minimal placeholder data for distributions
   chromosome_distribution_list[[row_index]] <- data.frame(

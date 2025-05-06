@@ -140,3 +140,45 @@ Can also do:
 bigwig_metadata_df[row_index, 1:3] <- split_metadata[[row_index]]
 
 If the split metadata were to change, I can calculate length of elements being assigned and adjust the dimensions to subset the dataframe columns while the data is being assigned. I would have to ensure that it is unique or adjust dynamically based on the row.
+
+# Crazy error when assigning some values to a dataframe inside a for loop
+
+```{r}
+summary_statistics_df <- data.frame(
+  sample_id = character(MAX_ROW_COUNT),
+  file_path = character(MAX_ROW_COUNT),
+  num_peaks = integer(MAX_ROW_COUNT),
+  percent_recovered = numeric(MAX_ROW_COUNT),
+  percent_enriched = numeric(MAX_ROW_COUNT),
+  width_mean = numeric(MAX_ROW_COUNT),
+  width_median = numeric(MAX_ROW_COUNT),
+  stringsAsFactors = FALSE
+)
+
+for (row_index in seq_len(MAX_ROW_COUNT)) {
+#....
+  summary_statistics_df[row_index, ] <- data.frame(
+    sample_id = current_sample_id,
+    file_path = xls_file_path,
+    num_peaks = number_of_peaks,
+    width_mean = mean(peak_widths),
+    width_median = median(peak_widths),
+    percent_recovered = current_percent_recovered,
+    percent_enriched = current_percent_enriched,
+    stringsAsFactors = FALSE
+  )
+#....
+}
+```
+The assigment does not occur by name!!!! 
+Deepseek would have fixed it without knowing but o4-mini detected it.
+When you assign a data.frame to a slice of another data.frame (df[row, ] <- newrow_df), R drops names and lines up columns by position. Your RHS columns
+(., width_mean, width_median, percent_recovered, percent_enriched)
+don't match the LHS slots
+(., percent_recovered, percent_enriched, width_mean, width_median),
+so everything shifts, placing a mean width (often hundreds of bases) into the percent_recovered column and blowing past 100.
+
+Solutions:
+1) Reorder during the assignment
+2) Enforce order during initialization
+3) Assign with for loop or by names
