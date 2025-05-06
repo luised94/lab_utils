@@ -660,7 +660,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     paste0("  Subset dataframe with sample_id: %s\n",
            "  Number of rows in subset df: %s"),
     current_sample_id,
-    nrow(subset_df)
+    nrow(current_sample_subset_df)
   ))
 
   # Create processing group factor
@@ -673,7 +673,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     aes(x = processing_group,
       shape =input_type,
       group = interaction(processing_group, input_type))) +
-    geom_hline(yintercept = recovery_reference_line,
+    geom_hline(yintercept = recovery_reference_percent,
       linetype = "dashed",
       color = "gray50") +
     geom_point(aes(y = percent_recovered, color = "Recovery"),
@@ -730,9 +730,9 @@ for (current_sample_id in sample_ids_to_plot_chr) {
 
     plot_output_path <- file.path(
       PLOT_OUTPUT_DIR,
-      paste0(current_sample_id, "_", plot_variable, ".svg")
+      paste0(current_sample_id, "_", current_sample_id, ".svg")
     )
-    message(sprintf("  Saving to: %s", plot_output_name))
+    message(sprintf("  Saving to: %s", plot_output_path))
     #svglite::svglite(
     #    filename = plot_output_path,
     #    width = 10,
