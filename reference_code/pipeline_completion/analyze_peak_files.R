@@ -835,15 +835,3 @@ for (current_sample_id in sample_ids_to_plot_chr) {
   # invisible(readline(prompt = "Press [enter] to continue to other sample"))
 }
 message("====================")
-message(sprintf(
-    paste0("Verifying values for calculating overlaps:\n",
-           "Overlapping Peaks: %s\n",
-           "Recovered features: %s\n",
-           "Length gr: %s\n",
-           "Length GENOME_FEATURES: %s\n"),
-    overlapping_peaks,
-    recovered_features,
-    length(gr),
-    length(GENOME_FEATURES)
-))
-print((recovered_features / length(GENOME_FEATURES)) * 100)
