@@ -517,65 +517,68 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
   # Is it consistent with previous experiments of ORC and MCM?
   # Calculate overlaps (logical vector: TRUE = overlap exists)
   # Use overlapsAny to avoid double counting.
-  enrichment_overlaps <- IRanges::overlapsAny(gr, GENOME_FEATURES)
+  current_enrichment_overlaps <- IRanges::overlapsAny(gr, GENOME_FEATURES)
   # Count overlapping peaks
-  overlapping_peaks <- sum(enrichment_overlaps)
+  current_overlapping_peaks <- sum(current_enrichment_overlaps)
   # Percent of called peaks overlapping reference features
-  percent_enriched <- (overlapping_peaks / length(gr)) * 100
+  current_percent_enriched <- (current_overlapping_peaks / length(gr)) * 100
 
   # --- Recovery: What percent of reference features are recovered by called peaks ---
   # Calculate overlaps (logical vector: TRUE = overlap exists)
-  recovery_overlaps <- IRanges::overlapsAny(GENOME_FEATURES, gr)
+  current_recovery_overlaps <- IRanges::overlapsAny(GENOME_FEATURES, gr)
   # Count recovered reference features
-  recovered_features <- sum(recovery_overlaps)
+  current_recovered_features <- sum(current_recovery_overlaps)
   # Percent of reference features overlapped by called peaks
-  percent_recovered <- (recovered_features / length(GENOME_FEATURES)) * 100
+  current_percent_recovered <- (current_recovered_features / length(GENOME_FEATURES)) * 100
 
   # --- Validation check: Percent should not exceed 100 ---
-  if (percent_enriched > 100)
-  {
-    warning_message <- sprintf(
-      "Enrichment percentage exceeds 100% for:\n  [ %s ]",
-      current_sample_id
-    )
+  if (current_percent_enriched > 100) {
+    warning_message <- sprintf("Enrichment percentage exceeds 100% for:\n  [ %s ]",
+                               current_sample_id)
     warning(warning_message)
   }
-  if (percent_recovered > 100)
-  {
-    warning_message <- sprintf(
-      "Recovery percentage exceeds 100% for:\n  [ %s ]",
-      current_sample_id
-    )
+  if (current_percent_recovered > 100) {
+    warning_message <- sprintf("Recovery percentage exceeds 100% for:\n  [ %s ]",
+                               current_sample_id)
     warning(warning_message)
   }
 
   stopifnot(
-    "Percent recovered exceeds 100." = percent_recovered <= 100,
-    "Percent enriched exceeds 100." = percent_enriched <= 100
+    "Percent recovered exceeds 100." = current_percent_recovered <= 100,
+    "Percent enriched exceeds 100." = current_percent_enriched <= 100
   )
 
   message("  Calculated statistics based on dataframe...")
   # --- Detailed Diagnostics ---
-  message("  Enrichment: ", overlapping_peaks, "/", length(gr),
+  message("  Enrichment: ", current_overlapping_peaks, "/", length(gr),
           " called peaks overlap with reference features (",
-          formatC(percent_enriched, digits=2, format="f"), "%)")
-  message("  Recovery: ", recovered_features, "/", length(GENOME_FEATURES),
+          formatC(current_percent_enriched, digits=2, format="f"), "%)")
+  message("  Recovery: ", current_recovered_features, "/", length(GENOME_FEATURES),
           " reference features recovered by called peaks (",
-          formatC(percent_recovered, digits=2, format="f"), "%)")
+          formatC(current_percent_recovered, digits=2, format="f"), "%)")
 
+  stopifnot(
+    "Percent recovered exceeds 100." = current_percent_recovered <= 100,
+    "Percent enriched exceeds 100." = current_percent_enriched <= 100
+  )
   # --- Store Results ---
   number_of_peaks <- nrow(xls_peak_df)
+  # Critical: Order of assignment in the data.frame call has to be the same!!!
   summary_statistics_df[row_index, ] <- data.frame(
     sample_id = current_sample_id,
     file_path = xls_file_path,
     num_peaks = number_of_peaks,
+    percent_recovered = current_percent_recovered,
+    percent_enriched = current_percent_enriched,
     width_mean = mean(peak_widths),
     width_median = median(peak_widths),
-    percent_recovered = percent_recovered,
-    percent_enriched = percent_enriched,
     stringsAsFactors = FALSE
   )
   message("  Added statistics to summary df...")
+  stopifnot(
+    "Percent recovered exceeds 100." = summary_statistics_df[row_index, "percent_recovered"] <= 100,
+    "Percent enriched exceeds 100." = summary_statistics_df[row_index, "percent_enriched"] <= 100
+  )
 
   # Create minimal placeholder data for distributions
   chromosome_distribution_list[[row_index]] <- data.frame(
@@ -628,6 +631,11 @@ summary_statistics_df <- merge(
   summary_statistics_df,
   final_metadata_df,
   by = "file_path"
+)
+message("Merge complete...")
+stopifnot(
+  "Percent recovered exceeds 100." = all(summary_statistics_df$percent_recovered <= 100),
+  "Percent enriched exceeds 100." = all(summary_statistics_df$percent_enriched <= 100)
 )
 
 # End of "cached" code ----------
