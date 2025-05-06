@@ -668,26 +668,61 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     paste(current_sample_subset_df$bam_type, current_sample_subset_df$peak_type, sep = " + ")
   )
 
-  # Generate plots
-  peak_recovery_plot <- ggplot(current_sample_subset_df,
-    aes(x = processing_group,
-      shape =input_type,
-      group = interaction(processing_group, input_type))) +
+  # Sort processing_group by median recovery % (descending)
+  # Create sorted version of processing_group for recovery
+  current_sample_subset_df <- current_sample_subset_df %>%
+    mutate(
+      processing_group_srt_rec = fct_reorder(
+        processing_group,
+        percent_recovered,
+        .fun = median,
+        .desc = TRUE
+      ),
+      processing_group_srt_enr = fct_reorder(
+        processing_group,
+        percent_enriched,
+        .fun = median,
+        .desc = TRUE
+      )
+    )
+
+  peak_recovery_plot <- ggplot(
+    current_sample_subset_df,
+    aes(x = processing_group_srt_rec, y = percent_recovered,
+        color = input_type, group = input_type)
+    ) +
     geom_hline(yintercept = recovery_reference_percent,
-      linetype = "dashed",
-      color = "gray50") +
-    geom_point(aes(y = percent_recovered, color = "Recovery"),
-      position = position_dodge(width = 0.5),
-      size = 3) +
-    geom_point(aes(y = percent_enriched, color = "Enrichment"),
-      position = position_dodge(width = 0.5),
-      size = 3) +
-    labs(title = "Peak Recovery vs Enrichment",
-      subtitle = paste("Sample:", current_sample_id),
-      x = "Processing Method",
-      y = "Percentage (%)",
-      color = "Metric",
-      shape = "Input Control") +
+               linetype = "dashed", color = "gray50") +
+    geom_line(linewidth = 0.7, alpha = 0.5) +
+    geom_point(size = 3) +
+    geom_text(
+      aes(label = round(percent_recovered, 1)),
+          vjust = -1, size = 3, show.legend = FALSE) +
+      labs(title = "Peak Recovery by Processing Method",
+           subtitle = paste("Sample:", current_sample_id),
+           x = "Processing Method (sorted by recovery %)",
+           y = "Peaks Recovered (%)",
+           color = "Input Control") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  peak_enrichment_plot <- ggplot(
+    current_sample_subset_df,
+    aes(x = processing_group_srt_enr, y = percent_enriched,
+        color = input_type, group = input_type)
+    ) +
+    geom_hline(yintercept = recovery_reference_percent,
+               linetype = "dashed", color = "gray50") +
+    geom_line(linewidth = 0.7, alpha = 0.5) +
+    geom_point(size = 3) +
+    geom_text(
+      aes(label = round(percent_enriched, 1)),
+          vjust = -1, size = 3, show.legend = FALSE) +
+      labs(title = "Peak Enrichement by Processing Method",
+           subtitle = paste("Sample:", current_sample_id),
+           x = "Processing Method (sorted by recovery %)",
+           y = "Peaks Enriched (%)",
+           color = "Input Control") +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
@@ -703,19 +738,19 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
 
-  peak_width_stats_plot <- ggplot(current_sample_subset_df) +
-    geom_point(aes(x = processing_group, y = width_mean,
-                   fill = input_type, color = "Mean"), size = 3) +
-    geom_point(aes(x = processing_group, y = width_median,
-                   fill = input_type, color = "Median"), size = 3) +
-    labs(
-      title = "Peak Width Statistics\n",
-      subtitle = paste("Sample:", current_sample_id),
-      x = "Processing Method + Peak Type",
-      y = "Width (bp)",
-      color = "Statistic") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  #peak_width_stats_plot <- ggplot(current_sample_subset_df) +
+  #  geom_point(aes(x = processing_group, y = width_mean,
+  #                 fill = input_type, color = "Mean"), size = 3) +
+  #  geom_point(aes(x = processing_group, y = width_median,
+  #                 fill = input_type, color = "Median"), size = 3) +
+  #  labs(
+  #    title = "Peak Width Statistics\n",
+  #    subtitle = paste("Sample:", current_sample_id),
+  #    x = "Processing Method + Peak Type",
+  #    y = "Width (bp)",
+  #    color = "Statistic") +
+  #  theme_minimal() +
+  #  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
   # Get all ggplot objects from environment
   plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
