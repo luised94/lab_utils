@@ -315,6 +315,11 @@ MAX_ROW_COUNT <- nrow(final_metadata_df)
 ANALYSIS_COLUMNS <- c("number_of_peaks", "peak_width_distribution", "overlap_with_eaton")
 
 DEBUG_MODE <- TRUE
+# Prevent time-consuming code from running unless it has to
+if (interactive() && !exists("summary_statistics_df")){
+cat("Running the summary statistics computation...\n")
+# Code block that is "cached" --------
+
 summary_statistics_df <- data.frame(
   sample_id = character(MAX_ROW_COUNT),
   file_path = character(MAX_ROW_COUNT),
@@ -544,10 +549,11 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     warning(warning_message)
   }
 
-  #stopifnot(
-  #  "Percent recovered exceeds 100." = percent_recovered <= 100,
-  #  "Percent enriched exceeds 100." = percent_enriched <= 100
-  #)
+  stopifnot(
+    "Percent recovered exceeds 100." = percent_recovered <= 100,
+    "Percent enriched exceeds 100." = percent_enriched <= 100
+  )
+
   message("  Calculated statistics based on dataframe...")
   # --- Detailed Diagnostics ---
   message("  Enrichment: ", overlapping_peaks, "/", length(gr),
@@ -624,6 +630,15 @@ summary_statistics_df <- merge(
   by = "file_path"
 )
 
+# End of "cached" code ----------
+cat("Computation complete! -- summary_statistics_df is now available.\n")
+
+# Cache the for loop ###########
+} else if (interactive()) {
+  cat("Skipping summary statistics computation: 'summary_statistics_df' already exists.\n",
+      "To force a rerun, remove the variable with: rm(summary_statistics_df)\n")
+}
+
 # --- Plot results ---
 # You can modify and copy to the interactive session in the cluster
 # to avoid triggering git. Otherwise I would have to create a config file.
@@ -633,11 +648,11 @@ library(tidyverse)
 library(ggplot2)
 
 # Configure sample selection:
-# Subset, grep or all as examples
-# sample_ids_to_plot <- all_sample_ids
-# sample_ids_to_plot <- grep("input", all_sample_ids, value = TRUE)
 all_sample_ids_chr <- unique(summary_statistics_df$sample_id)
-sample_ids_to_plot_chr <- all_sample_ids_chr[1]
+# Subset, grep or all as examples
+sample_ids_to_plot_chr <- all_sample_ids_chr
+# sample_ids_to_plot <- grep("input", all_sample_ids, value = TRUE)
+sample_ids_to_plot_chr <- all_sample_ids_chr[2]
 
 # Reference values for the plots
 reference_peak_count_int <- length(GENOME_FEATURES)
@@ -685,14 +700,19 @@ for (current_sample_id in sample_ids_to_plot_chr) {
         .desc = TRUE
       )
     )
-
+  # --- How many peaks were recovered ---
   peak_recovery_plot <- ggplot(
     current_sample_subset_df,
     aes(x = processing_group_srt_rec, y = percent_recovered,
         color = input_type, group = input_type)
     ) +
     geom_hline(yintercept = recovery_reference_percent,
-               linetype = "dashed", color = "gray50") +
+               linetype = "dashed", color = "black", linewidth = 0.8) +
+    geom_text(
+      aes(x = Inf, y = recovery_reference_percent,
+          label = paste("Reference =", recovery_reference_percent, "%")),
+      vjust = -0.5, hjust = 1.1,
+      color = "black", size = 3.5) +
     geom_line(linewidth = 0.7, alpha = 0.5) +
     geom_point(size = 3) +
     geom_text(
@@ -706,19 +726,25 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+  # --- How many peaks are enriched  ---
   peak_enrichment_plot <- ggplot(
     current_sample_subset_df,
     aes(x = processing_group_srt_enr, y = percent_enriched,
         color = input_type, group = input_type)
     ) +
     geom_hline(yintercept = recovery_reference_percent,
-               linetype = "dashed", color = "gray50") +
+               linetype = "dashed", color = "black", linewidth = 0.8) +
+    geom_text(
+      aes(x = Inf, y = recovery_reference_percent,
+          label = paste("Reference =", recovery_reference_percent, "%")),
+      vjust = -0.5, hjust = 1.1,
+      color = "black", size = 3.5) +
     geom_line(linewidth = 0.7, alpha = 0.5) +
     geom_point(size = 3) +
     geom_text(
       aes(label = round(percent_enriched, 1)),
           vjust = -1, size = 3, show.legend = FALSE) +
-      labs(title = "Peak Enrichement by Processing Method",
+      labs(title = "Peak Enrichment by Processing Method",
            subtitle = paste("Sample:", current_sample_id),
            x = "Processing Method (sorted by recovery %)",
            y = "Peaks Enriched (%)",
@@ -726,17 +752,24 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+  # --- How many peaks were called ---
   peak_count_plot <- ggplot(current_sample_subset_df,
     aes(x = processing_group, y = num_peaks, fill = input_type)) +
+    geom_col(position = position_dodge(width = 0.9)) +
     geom_hline(yintercept = reference_peak_count_int,
                linetype = "dashed",
-               color = "gray50") +
-    geom_col(position = position_dodge(width = 0.9)) +
+               linewidth = 0.8,
+               color = "black") +
+    geom_text(
+      aes(x = Inf, y = reference_peak_count_int,
+          label = paste("Eaton Peaks =", reference_peak_count_int)),
+      vjust = -0.5, hjust = 1.1,
+      color = "black", size = 3.7, fontface = "bold") +
     labs(title = "Number of Peaks Called",
          subtitle = paste("Sample:", current_sample_id),
          x = "Processing Method", y = "Count") +
     theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
   #peak_width_stats_plot <- ggplot(current_sample_subset_df) +
   #  geom_point(aes(x = processing_group, y = width_mean,
@@ -765,7 +798,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
 
     plot_output_path <- file.path(
       PLOT_OUTPUT_DIR,
-      paste0(current_sample_id, "_", current_sample_id, ".svg")
+      paste0(current_plot_name, "_", current_sample_id, ".svg")
     )
     message(sprintf("  Saving to: %s", plot_output_path))
     #svglite::svglite(
@@ -783,3 +816,15 @@ for (current_sample_id in sample_ids_to_plot_chr) {
   # invisible(readline(prompt = "Press [enter] to continue to other sample"))
 }
 message("====================")
+message(sprintf(
+    paste0("Verifying values for calculating overlaps:\n",
+           "Overlapping Peaks: %s\n",
+           "Recovered features: %s\n",
+           "Length gr: %s\n",
+           "Length GENOME_FEATURES: %s\n"),
+    overlapping_peaks,
+    recovered_features,
+    length(gr),
+    length(GENOME_FEATURES)
+))
+print((recovered_features / length(GENOME_FEATURES)) * 100)
