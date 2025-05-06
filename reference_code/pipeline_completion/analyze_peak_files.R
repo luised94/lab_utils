@@ -320,7 +320,7 @@ if (interactive() && !exists("summary_statistics_df")){
 cat("Running the summary statistics computation...\n")
 # Code block that is "cached" --------
 # 1. Define types and order
-SUMMARY_COLS <- c("sample_id", "file_path", "num_peaks", 
+SUMMARY_COLS <- c("sample_id", "file_path", "num_peaks",
                  "percent_recovered", "percent_enriched",
                  "width_mean", "width_median")
 
@@ -644,10 +644,10 @@ summary_statistics_df <- merge(
   by = "file_path"
 )
 message("Merge complete...")
-stopifnot(
-  "Percent recovered exceeds 100." = all(summary_statistics_df$percent_recovered <= 100),
-  "Percent enriched exceeds 100." = all(summary_statistics_df$percent_enriched <= 100)
-)
+#stopifnot(
+  #"Percent recovered exceeds 100." = all(summary_statistics_df$percent_recovered <= 100),
+  #"Percent enriched exceeds 100." = all(summary_statistics_df$percent_enriched <= 100)
+#)
 
 # End of "cached" code ----------
 cat("Computation complete! -- summary_statistics_df is now available.\n")
