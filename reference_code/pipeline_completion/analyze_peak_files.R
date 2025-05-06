@@ -632,16 +632,17 @@ summary_statistics_df <- merge(
 library(tidyverse)
 library(ggplot2)
 
-all_sample_ids_chr <- unique(summary_statistics_df$sample_id)
 # Configure sample selection:
-# 1. For testing - just first sample
+# Subset, grep or all as examples
+# sample_ids_to_plot <- all_sample_ids
+# sample_ids_to_plot <- grep("input", all_sample_ids, value = TRUE)
+all_sample_ids_chr <- unique(summary_statistics_df$sample_id)
 sample_ids_to_plot_chr <- all_sample_ids_chr[1]
 
-# 2. For all samples (comment out line above)
-# sample_ids_to_plot <- all_sample_ids
+# Reference values for the plots
+reference_peak_count_int <- length(GENOME_FEATURES)
+recovery_reference_percent <- 100
 
-# 3. For specific pattern (e.g., just inputs)
-# sample_ids_to_plot <- grep("input", all_sample_ids, value = TRUE)
 message("====================")
 for (current_sample_id in sample_ids_to_plot_chr) {
   message("--- Plot sample id for loop ---")
@@ -668,29 +669,45 @@ for (current_sample_id in sample_ids_to_plot_chr) {
   )
 
   # Generate plots
-  recovery_plot <- ggplot(current_sample_subset_df, aes(x = processing_group)) +
-    geom_point(aes(y = percent_recovered, color = "Recovery"), size = 3) +
-    geom_point(aes(y = percent_enriched, color = "Enrichment"), size = 3) +
-    facet_wrap(~input_type, nrow = 1) +
+  peak_recovery_plot <- ggplot(current_sample_subset_df,
+    aes(x = processing_group,
+      shape =input_type,
+      group = interaction(processing_group, input_type))) +
+    geom_hline(yintercept = recovery_reference_line,
+      linetype = "dashed",
+      color = "gray50") +
+    geom_point(aes(y = percent_recovered, color = "Recovery"),
+      position = position_dodge(width = 0.5),
+      size = 3) +
+    geom_point(aes(y = percent_enriched, color = "Enrichment"),
+      position = position_dodge(width = 0.5),
+      size = 3) +
     labs(title = "Peak Recovery vs Enrichment",
-         subtitle = paste("Sample:", current_sample_id),
-         x = "Processing Method", y = "Percentage (%)") +
+      subtitle = paste("Sample:", current_sample_id),
+      x = "Processing Method",
+      y = "Percentage (%)",
+      color = "Metric",
+      shape = "Input Control") +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-  count_plot <- ggplot(current_sample_subset_df, aes(x = processing_group, y = num_peaks, fill = processing_group)) +
-    geom_col() +
-    facet_wrap(~input_type, nrow = 1) +
+  peak_count_plot <- ggplot(current_sample_subset_df,
+    aes(x = processing_group, y = num_peaks, fill = input_type)) +
+    geom_hline(yintercept = reference_peak_count_int,
+               linetype = "dashed",
+               color = "gray50") +
+    geom_col(position = position_dodge(width = 0.9)) +
     labs(title = "Number of Peaks Called",
          subtitle = paste("Sample:", current_sample_id),
          x = "Processing Method", y = "Count") +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
 
-  width_stats_plot <- ggplot(current_sample_subset_df) +
-    geom_point(aes(x = processing_group, y = width_mean, color = "Mean"), size = 3) +
-    geom_point(aes(x = processing_group, y = width_median, color = "Median"), size = 3) +
-    facet_wrap(~input_type, nrow = 1) +
+  peak_width_stats_plot <- ggplot(current_sample_subset_df) +
+    geom_point(aes(x = processing_group, y = width_mean,
+                   fill = input_type, color = "Mean"), size = 3) +
+    geom_point(aes(x = processing_group, y = width_median,
+                   fill = input_type, color = "Median"), size = 3) +
     labs(
       title = "Peak Width Statistics\n",
       subtitle = paste("Sample:", current_sample_id),
@@ -701,15 +718,13 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
   # Display plots
-  print(recovery_plot)
-  readline(prompt = "Press [enter] to plot count_plot")
-  print(count_plot)
-  readline(prompt = "Press [enter] to plot width_plot")
-  print(width_stats_plot)
+  #print(peak_recovery_plot)
+  #readline(prompt = "Press [enter] to plot count_plot")
+  #print(peak_count_plot)
+  #readline(prompt = "Press [enter] to plot width_plot")
+  #print(peak_width_stats_plot)
 
   # Optional: Add interactive pause between samples
   # invisible(readline(prompt = "Press [enter] to continue to other sample"))
 }
 message("====================")
-
-
