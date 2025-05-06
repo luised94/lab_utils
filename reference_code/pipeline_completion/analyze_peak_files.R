@@ -718,6 +718,22 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
   # Display plots
+  plot_variables_chr <- ls()[grep("_plot$", ls())]
+  for (plot_variable in plot_variables_chr) {
+    message("  --- Plotting variables ---")
+    message(sprintf("Plotting: %s", plot_variable))
+    # Add check to ensure variable is the ggplot type
+    plot_output_name <- file.path(PLOT_OUTPUT_DIR, paste(current_sample_id, plot_variable, ".svg", sep = "_"))
+    message(sprintf("Savign to: %s", plot_output_name))
+    svglite::svglite(
+        filename = plot_output_path,
+        width = 10,
+        height = 8,
+        bg = "white"
+    )
+    print(eval(parse(text = plot_variable)))
+    dev.off()
+  }
   #print(peak_recovery_plot)
   #readline(prompt = "Press [enter] to plot count_plot")
   #print(peak_count_plot)
