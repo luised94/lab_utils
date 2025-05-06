@@ -92,3 +92,48 @@ Turns out there is a simpler way to achieve a similar result:
 GenomicRanges::makeGRangesFromDataFrame(xls_peak_df, keep.extra.columns = TRUE)
 ```
 Of course there is less flexibility if you want to control the columns that get added. Although you could potentially filter them before or maybe the command has additional parameters (check with ?). Remember to check by printing them out or checking mcols or nrow/length.
+
+# Looping over strings that have been assigned as variables
+Execute many ggplot2 and store in objects then loop over the names in the ls() output.
+```{r}
+# Get all ggplot objects from environment
+plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
+for (current_plot_name in plot_object_names) {
+  message("  --- Plotting variables ---")
+  message(sprintf("  Plotting: %s", current_plot_name))
+  # Retrieve the actual plot object
+  current_plot_object <- get(current_plot_name, envir = .GlobalEnv)
+  # Robust type checking
+  if (!inherits(current_plot_object, "ggplot")) {
+    warning("Skipping ", current_plot_name, " - not a ggplot object")
+    next
+  }
+  plot_output_path <- file.path(
+    PLOT_OUTPUT_DIR,
+    paste0(current_sample_id, "_", plot_variable, ".svg")
+  )
+  message(sprintf("Savign to: %s", plot_output_name))
+  svglite::svglite(
+      filename = plot_output_path,
+      width = 10,
+      height = 8,
+      bg = "white"
+  )
+  print(current_plot_object)
+  dev.off()
+}
+```
+
+# Determining the type of a ggplot2 object
+```{r}
+library(ggplot2)
+p <- ggplot(mtcars, aes(x = mpg, y = wt)) + geom_point()
+
+# Check what classes the object has
+class(p)
+# Expected: [1] "gg"     "ggplot"
+
+# Both of these will return TRUE
+inherits(p, "gg")
+inherits(p, "ggplot")
+```

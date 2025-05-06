@@ -717,28 +717,32 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-  # Display plots
-  plot_variables_chr <- ls()[grep("_plot$", ls())]
-  for (plot_variable in plot_variables_chr) {
+  # Get all ggplot objects from environment
+  plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
+  for (current_plot_name in plot_object_names) {
     message("  --- Plotting variables ---")
-    message(sprintf("Plotting: %s", plot_variable))
-    # Add check to ensure variable is the ggplot type
-    plot_output_name <- file.path(PLOT_OUTPUT_DIR, paste(current_sample_id, plot_variable, ".svg", sep = "_"))
-    message(sprintf("Savign to: %s", plot_output_name))
-    svglite::svglite(
-        filename = plot_output_path,
-        width = 10,
-        height = 8,
-        bg = "white"
+    message(sprintf("  Plotting: %s", current_plot_name))
+    current_plot_object <- get(current_plot_name, envir = .GlobalEnv)
+    if (!inherits(current_plot_object, "ggplot")) {
+      warning("Skipping ", current_plot_name, " - not a ggplot object")
+      next
+    }
+
+    plot_output_path <- file.path(
+      PLOT_OUTPUT_DIR,
+      paste0(current_sample_id, "_", plot_variable, ".svg")
     )
-    print(eval(parse(text = plot_variable)))
-    dev.off()
+    message(sprintf("  Saving to: %s", plot_output_name))
+    #svglite::svglite(
+    #    filename = plot_output_path,
+    #    width = 10,
+    #    height = 8,
+    #    bg = "white"
+    #)
+    print(current_plot_object)
+    #dev.off()
+    readline(prompt = "Press [enter] to continue plot")
   }
-  #print(peak_recovery_plot)
-  #readline(prompt = "Press [enter] to plot count_plot")
-  #print(peak_count_plot)
-  #readline(prompt = "Press [enter] to plot width_plot")
-  #print(peak_width_stats_plot)
 
   # Optional: Add interactive pause between samples
   # invisible(readline(prompt = "Press [enter] to continue to other sample"))
