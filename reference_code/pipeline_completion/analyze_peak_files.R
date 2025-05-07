@@ -680,8 +680,14 @@ recovery_reference_percent <- 100
 message("====================")
 for (current_sample_id in sample_ids_to_plot_chr) {
   message("--- Plot sample id for loop ---")
-  is_row_with_sample_id_bool <- summary_statistics_df$sample_id == current_sample_id
-  current_sample_subset_df <- summary_statistics_df[is_row_with_sample_id_bool, ]
+  is_summary_row_with_sample_id_bool <- summary_statistics_df$sample_id == current_sample_id
+  current_sample_subset_df <- summary_statistics_df[is_summary_row_with_sample_id_bool, ]
+  is_peak_row_with_sample_id_bool <- peak_statistics_df$sample_id == current_sample_id
+  current_peak_subset_df <- peak_statistics_df[is_peak_row_with_sample_id_bool, ]
+#ggplot(peak_statistics_df, aes(x = log10(qvalue), y = fold_enrichment)) +
+#  geom_hex(bins = 50) +
+#  geom_density_2d(color = "red", alpha = 0.5) +
+#  facet_grid(peak_type ~ bam_type)
 
   # Skip if no rows in the subset dataframe
   if (nrow(current_sample_subset_df) == 0) {
@@ -723,25 +729,22 @@ for (current_sample_id in sample_ids_to_plot_chr) {
   peak_recovery_plot <- ggplot(
     current_sample_subset_df,
     aes(x = processing_group_srt_rec, y = percent_recovered,
-        color = input_type, group = input_type)
-    ) +
+        color = input_type, group = input_type)) +
     geom_hline(yintercept = recovery_reference_percent,
                linetype = "dashed", color = "black", linewidth = 0.8) +
-    geom_text(
-      aes(x = Inf, y = recovery_reference_percent,
-          label = paste("Reference =", recovery_reference_percent, "%")),
-      vjust = -0.5, hjust = 1.1,
-      color = "black", size = 3.5) +
+    geom_text(aes(x = Inf, y = recovery_reference_percent,
+              label = paste("Reference =", recovery_reference_percent, "%")),
+              vjust = -0.5, hjust = 1.1,
+              color = "black", size = 3.5) +
     geom_line(linewidth = 0.7, alpha = 0.5) +
     geom_point(size = 3) +
-    geom_text(
-      aes(label = round(percent_recovered, 1)),
-          vjust = -1, size = 3, show.legend = FALSE) +
-      labs(title = "Peak Recovery by Processing Method",
-           subtitle = paste("Sample:", current_sample_id),
-           x = "Processing Method (sorted by recovery %)",
-           y = "Peaks Recovered (%)",
-           color = "Input Control") +
+    geom_text(aes(label = round(percent_recovered, 1)),
+              vjust = -1, size = 3, show.legend = FALSE) +
+    labs(title = "Peak Recovery by Processing Method",
+      subtitle = paste("Sample:", current_sample_id),
+      x = "Processing Method (sorted by recovery %)",
+      y = "Peaks Recovered (%)",
+      color = "Input Control") +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
@@ -790,20 +793,6 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-  #peak_width_stats_plot <- ggplot(current_sample_subset_df) +
-  #  geom_point(aes(x = processing_group, y = width_mean,
-  #                 fill = input_type, color = "Mean"), size = 3) +
-  #  geom_point(aes(x = processing_group, y = width_median,
-  #                 fill = input_type, color = "Median"), size = 3) +
-  #  labs(
-  #    title = "Peak Width Statistics\n",
-  #    subtitle = paste("Sample:", current_sample_id),
-  #    x = "Processing Method + Peak Type",
-  #    y = "Width (bp)",
-  #    color = "Statistic") +
-  #  theme_minimal() +
-  #  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
   # Get all ggplot objects from environment
   plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
   for (current_plot_name in plot_object_names) {
@@ -835,3 +824,135 @@ for (current_sample_id in sample_ids_to_plot_chr) {
   # invisible(readline(prompt = "Press [enter] to continue to other sample"))
 }
 message("====================")
+stop("Breakpoint. Run plots...")
+# Create the trade-off plot using your variables
+#recovery_enrichment_scatter_plot <- 
+ggplot(
+  data = current_sample_subset_df,
+  aes(x = percent_recovered, y = percent_enriched,
+      color = peak_type, shape = bam_type)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_text(aes(label = input_type),
+            vjust = -1, size = 3,
+            show.legend = FALSE) +
+  labs(title = paste("Recovery vs Enrichment Trade-off -", current_sample_id),
+       subtitle = paste("Sample Type:", unique(current_sample_subset_df$sample_type)),
+       x = "% Reference Peaks Recovered",
+       y = "% Called Peaks Enriched",
+       color = "Peak Type",
+       shape = "BAM Processing") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(face = "bold"))
+
+ggplot(summary_statistics_df,
+  aes(x = percent_recovered, y = percent_enriched, color = peak_type)) +
+  geom_point(aes(size = num_peaks), alpha = 0.7) +
+  facet_grid(bam_type ~ input_type) +
+  geom_abline(slope = 1, linetype = "dashed")
+
+ggplot(peak_statistics_df, aes(x = log10(qvalue), fill = bam_type)) +
+  geom_density(alpha = 0.6) +
+  facet_grid(sample_id ~ peak_type, scales = "free_y") +
+  labs(title = "Q-value Distribution by Sample and Peak Type",
+       x = "log10(q-value)", y = "Density") +
+  theme_minimal()
+
+ggplot(peak_statistics_df, aes(x = fold_enrichment, fill = bam_type)) +
+  geom_density(alpha = 0.6) +
+  facet_grid(sample_id ~ peak_type, scales = "free_x") +
+  labs(title = "Fold Enrichment Distribution by Sample and Peak Type",
+       x = "Fold Enrichment", y = "Density") +
+  coord_cartesian(xlim = c(0, 20))
+
+ggplot(peak_statistics_df, aes(x = interaction(bam_type, peak_type), y = width)) +
+  geom_violin(aes(fill = peak_type), scale = "width", trim = TRUE) +
+  geom_boxplot(width = 0.1, outlier.shape = NA) +
+  scale_y_log10() +
+  facet_grid(~input_type)
+
+ggplot(peak_statistics_df, aes(x = log10(qvalue), y = fold_enrichment)) +
+  geom_hex(bins = 50) +
+  geom_density_2d(color = "red", alpha = 0.5) +
+  facet_grid(peak_type ~ bam_type)
+
+peak_statistics_df %>%
+  ggplot(aes(x = log10(qvalue), y = fold_enrichment)) +
+  geom_hex(bins = 50, aes(fill = after_stat(count))) +
+  geom_density_2d(color = "red", alpha = 0.3, linewidth = 0.5) +
+  facet_grid(peak_type ~ bam_type) +  # Technical parameters
+  scale_fill_viridis_c(trans = "log10") +  # Handle overplotting
+  labs(title = "Enrichment vs. Significance (All Samples)",
+       subtitle = "Colored by peak density | Contours show distribution",
+       x = "log10(q-value)", y = "Fold Enrichment") +
+  theme_minimal()
+
+# Add sample labels to dense regions
+set.seed(42)
+peak_statistics_df %>%
+  group_by(sample_id, bam_type, peak_type) %>%
+  slice_sample(n = 50) %>%
+  ggplot(aes(x = log10(qvalue), y = fold_enrichment)) +
+  geom_hex(data = peak_statistics_df, bins = 50, alpha = 0.7) +
+  geom_point(color = "red", size = 1, alpha = 0.5) +
+  #ggrepel::geom_text_repel(  # Label outliers
+  #  aes(label = ifelse(fold_enrichment > 10 | qvalue > 1e-5, sample_id, "")),
+  #  size = 2, max.overlaps = 20
+  #) +
+  facet_grid(peak_type ~ bam_type)
+
+peak_statistics_df %>%
+  group_by(chromosome, bam_type) %>%
+  summarise(mean_enrich = mean(fold_enrichment)) %>%
+  ggplot(aes(x = chromosome, y = bam_type, fill = mean_enrich)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "plasma")
+
+# ----- Chromosome Distribution Analysis -----
+# Tile plot for chromosome distribution overview
+ggplot(chromosome_distribution_df,
+  aes(x = chromosome, y = count, fill = interaction(bam_type, peak_type))) +
+  geom_col(position = "stack") +
+  coord_flip() +
+  facet_wrap(~sample_type, scales = "free_x")
+
+chromosome_norm_df <- chromosome_distribution_df %>%
+  group_by(file_path) %>%
+  mutate(norm_count = count / sum(count) * 100) %>%
+  ungroup()
+
+ggplot(chromosome_norm_df,
+  aes(x = chromosome,
+      y = interaction(bam_type, input_type, peak_type),
+      fill = norm_count)) +
+  geom_tile() +
+  facet_wrap(~ sample_type, scales = "free_y", ncol = 1) +
+  scale_fill_viridis_c(option = "plasma") +
+  labs(title = "Normalized Chromosome Distribution of Peaks",
+       x = "Chromosome",
+       y = "Parameter Combination",
+       fill = "% of Peaks") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+chromosome_norm_df %>%
+  mutate(param_combo = interaction(bam_type, peak_type, sep = " + ")) %>% 
+  ggplot(aes(x = chromosome, y = param_combo,
+             fill = norm_count)) +
+  geom_tile(color = "white", linewidth = 0.2) +
+  geom_text(aes(label = ifelse(norm_count > 5, round(norm_count, 1), "")),
+                color = "black", size = 2.5) +
+  facet_grid(rows = vars(sample_type),
+             cols = vars(input_type),
+             scales = "free_y") +
+  scale_fill_viridis_c(option = "plasma",
+                       breaks = c(0, 25, 50, 75, 100),
+                       limits = c(0, 100)) +
+  labs(title = "Chromosomal Peak Distribution by Preprocessing",
+       subtitle = "Normalized counts (%) per chromosome",
+       x = NULL,
+       y = "Processing Parameters") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        panel.spacing = unit(0.5, "lines"),
+        strip.text = element_text(face = "bold"))
