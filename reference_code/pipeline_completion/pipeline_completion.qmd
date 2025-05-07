@@ -96,3 +96,38 @@ Summaries:
 Conclusion:
   The processing step that has the most impactful effect on the biwig data is the deduplication step. Blacklist is clearly working. Shifting I think has an effect but I may need a more positive shift like just moving everything to the edge to ensure the process has an effect. My test 001 (WT_NONE_NOCO_HM1108_2_positive) looks very similar to the eaton reference. Finally, presenting the raw data creates a very striking contrast between the peaks and the background. Maybe it would be good to show.
 ```
+
+## 2025-05-07
+These are the samples that were used:
+1) WT_NONE_ALPHA_Input_2_input
+  ['input_001']="$HOME/data/250207Bel/alignment/processed_126041_sequence_to_S288C_sorted.bam"
+2) Eaton2010
+  ['reference_001']="$HOME/data/100303Bel/alignment/processed_034475_sequence_to_S288C_sorted.bam"
+3) WT_NONE_NOCO_HM1108_2_positive
+  ['test_001']="$HOME/data/250207Bel/alignment/processed_126050_sequence_to_S288C_sorted.bam"
+4) 4R_4PS_NOCO_HM1108_2_treatment
+  ['test_002']="$HOME/data/250207Bel/alignment/processed_126058_sequence_to_S288C_sorted.bam"
+5) WT_NONE_ALPHA_UM174_2_positive
+  ['test_003']="$HOME/data/250207Bel/alignment/processed_126065_sequence_to_S288C_sorted.bam"
+6) WT_NONE_NOCO_UM174_2_positive
+  ['test_004']="$HOME/data/250207Bel/alignment/processed_126066_sequence_to_S288C_sorted.bam"
+7) 4R_NONE_ALPHA_Input_2_input
+  ['test_005']="$HOME/data/250207Bel/alignment/processed_126042_sequence_to_S288C_sorted.bam"
+```{experiment}
+Description: Running some plots before reworking.
+Summaries:
+  > Recovery-enrichment scatter
+    - Adjust the shape. Use color or something.
+  > Recovery-enrichment scatter facetted
+    - By sample maybe?
+  > Q-value distribution. Definitely have more towards the right for the positive samples
+    - 
+  > Fold-enrichment could be sensitive to blacklist filtering. Not really what I was expecting. I thought the positive controls would have more enrichment.
+  > Peak width definitely does not look good with violin. Need to adjust the text x axis angle since I cant tell what is what.
+  > I should potentially sort by factor or by another metric.
+  > For the chromosome distribution should definitely do by sample id and change to the heatmap, then each of the rows could be one of the processing combinations instead of by sample. So at least two factorings before plotting.
+  > The cool heatmap is the geom_tile. Definitely need to break down by sample.
+  > Create the mapping for the names to add to the plot subtitles.
+Conclusion:
+  > Make the mapping for the subtitles and proper sample names.
+```

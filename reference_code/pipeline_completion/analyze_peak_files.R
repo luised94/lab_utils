@@ -10,6 +10,11 @@
 # AUTHOR: LEMR
 # DATE: 2025-04-08
 # DATE_V1_COMPLETE: {{fill}}
+# NOTES:
+# You can modify and copy to the interactive session in the cluster
+# to avoid triggering git. Otherwise I would have to create a config file.
+# Similar to how I control the r scripts in the core_scripts dir.
+# TODO: May create a config in the future but this is just a test set of scripts
 ################################################################################
 # Bootstrap phase
 FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
@@ -652,19 +657,23 @@ message("Merge complete...")
 # End of "cached" code ----------
 cat("Computation complete! -- summary_statistics_df is now available.\n")
 
-# Cache the for loop ###########
-} else if (interactive()) {
-  cat("Skipping summary statistics computation: 'summary_statistics_df' already exists.\n",
-      "To force a rerun, remove the variable with: rm(summary_statistics_df)\n")
-}
+# Create the mapping for the sample ids
+sample_id_to_bio_name_map <- list(
+  "input001" = "WT_Input",
+  "reference001" = "Eaton",
+  "test001" = "WT_Noco_ORC",
+  "test002" = "4R_4PS_Noco_HM1108",
+  "test003" = "WT_Alpha_MCM",
+  "test004" = "WT_Noco_UM174",
+  "test005" = "4R_Input"
+)
 
 # --- Plot results ---
-# You can modify and copy to the interactive session in the cluster
-# to avoid triggering git. Otherwise I would have to create a config file.
-# Similar to how I control the r scripts in the core_scripts dir.
-# TODO: May create a config in the future but this is just a test set of scripts
 library(tidyverse)
 library(ggplot2)
+# Reference values for the plots
+reference_peak_count_int <- length(GENOME_FEATURES)
+recovery_reference_percent <- 100
 
 # Configure sample selection:
 all_sample_ids_chr <- unique(summary_statistics_df$sample_id)
@@ -673,13 +682,17 @@ sample_ids_to_plot_chr <- all_sample_ids_chr
 # sample_ids_to_plot <- grep("input", all_sample_ids, value = TRUE)
 sample_ids_to_plot_chr <- all_sample_ids_chr[2]
 
-# Reference values for the plots
-reference_peak_count_int <- length(GENOME_FEATURES)
-recovery_reference_percent <- 100
+# Cache the for loop and some additional ###########
+} else if (interactive()) {
+  cat("Skipping summary statistics computation: 'summary_statistics_df' already exists.\n",
+      "To force a rerun, remove the variable with: rm(summary_statistics_df)\n")
+} # Cache everything inside depends on summary_statistics_df, end
 
 message("====================")
 for (current_sample_id in sample_ids_to_plot_chr) {
   message("--- Plot sample id for loop ---")
+  bio_name <- sample_id_to_bio_name_map[[current_sample_id]]
+  # Subset the dataframes that we will plot
   is_summary_row_with_sample_id_bool <- summary_statistics_df$sample_id == current_sample_id
   current_sample_subset_df <- summary_statistics_df[is_summary_row_with_sample_id_bool, ]
   is_peak_row_with_sample_id_bool <- peak_statistics_df$sample_id == current_sample_id
@@ -688,7 +701,6 @@ for (current_sample_id in sample_ids_to_plot_chr) {
 #  geom_hex(bins = 50) +
 #  geom_density_2d(color = "red", alpha = 0.5) +
 #  facet_grid(peak_type ~ bam_type)
-
   # Skip if no rows in the subset dataframe
   if (nrow(current_sample_subset_df) == 0) {
     warning(sprintf("Skipping empty sample: %s", current_sample_id))
@@ -698,8 +710,10 @@ for (current_sample_id in sample_ids_to_plot_chr) {
 
   message(sprintf(
     paste0("  Subset dataframe with sample_id: %s\n",
+           "  Biological name: %s\n"),
            "  Number of rows in subset df: %s"),
     current_sample_id,
+    bio_name,
     nrow(current_sample_subset_df)
   ))
 
@@ -871,42 +885,45 @@ ggplot(peak_statistics_df, aes(x = interaction(bam_type, peak_type), y = width))
   scale_y_log10() +
   facet_grid(~input_type)
 
-ggplot(peak_statistics_df, aes(x = log10(qvalue), y = fold_enrichment)) +
-  geom_hex(bins = 50) +
-  geom_density_2d(color = "red", alpha = 0.5) +
-  facet_grid(peak_type ~ bam_type)
+# Requires hexbin package.
+#ggplot(peak_statistics_df, aes(x = log10(qvalue), y = fold_enrichment)) +
+#  geom_hex(bins = 50) +
+#  geom_density_2d(color = "red", alpha = 0.5) +
+#  facet_grid(peak_type ~ bam_type)
 
-peak_statistics_df %>%
-  ggplot(aes(x = log10(qvalue), y = fold_enrichment)) +
-  geom_hex(bins = 50, aes(fill = after_stat(count))) +
-  geom_density_2d(color = "red", alpha = 0.3, linewidth = 0.5) +
-  facet_grid(peak_type ~ bam_type) +  # Technical parameters
-  scale_fill_viridis_c(trans = "log10") +  # Handle overplotting
-  labs(title = "Enrichment vs. Significance (All Samples)",
-       subtitle = "Colored by peak density | Contours show distribution",
-       x = "log10(q-value)", y = "Fold Enrichment") +
-  theme_minimal()
+# Requires hexbin package.
+#peak_statistics_df %>%
+#  ggplot(aes(x = log10(qvalue), y = fold_enrichment)) +
+#  geom_hex(bins = 50, aes(fill = after_stat(count))) +
+#  geom_density_2d(color = "red", alpha = 0.3, linewidth = 0.5) +
+#  facet_grid(peak_type ~ bam_type) +  # Technical parameters
+#  scale_fill_viridis_c(trans = "log10") +  # Handle overplotting
+#  labs(title = "Enrichment vs. Significance (All Samples)",
+#       subtitle = "Colored by peak density | Contours show distribution",
+#       x = "log10(q-value)", y = "Fold Enrichment") +
+#  theme_minimal()
 
 # Add sample labels to dense regions
-set.seed(42)
-peak_statistics_df %>%
-  group_by(sample_id, bam_type, peak_type) %>%
-  slice_sample(n = 50) %>%
-  ggplot(aes(x = log10(qvalue), y = fold_enrichment)) +
-  geom_hex(data = peak_statistics_df, bins = 50, alpha = 0.7) +
-  geom_point(color = "red", size = 1, alpha = 0.5) +
-  #ggrepel::geom_text_repel(  # Label outliers
-  #  aes(label = ifelse(fold_enrichment > 10 | qvalue > 1e-5, sample_id, "")),
-  #  size = 2, max.overlaps = 20
-  #) +
-  facet_grid(peak_type ~ bam_type)
+#set.seed(42)
+#peak_statistics_df %>%
+#  group_by(sample_id, bam_type, peak_type) %>%
+#  slice_sample(n = 50) %>%
+#  ggplot(aes(x = log10(qvalue), y = fold_enrichment)) +
+#  geom_hex(data = peak_statistics_df, bins = 50, alpha = 0.7) +
+#  geom_point(color = "red", size = 1, alpha = 0.5) +
+#  #ggrepel::geom_text_repel(  # Label outliers
+#  #  aes(label = ifelse(fold_enrichment > 10 | qvalue > 1e-5, sample_id, "")),
+#  #  size = 2, max.overlaps = 20
+#  #) +
+#  facet_grid(peak_type ~ bam_type)
 
-peak_statistics_df %>%
-  group_by(chromosome, bam_type) %>%
-  summarise(mean_enrich = mean(fold_enrichment)) %>%
-  ggplot(aes(x = chromosome, y = bam_type, fill = mean_enrich)) +
-  geom_tile() +
-  scale_fill_viridis_c(option = "plasma")
+# Chromosome was not added to this dataframe.
+#peak_statistics_df %>%
+#  group_by(chromosome, bam_type) %>%
+#  summarise(mean_enrich = mean(fold_enrichment)) %>%
+#  ggplot(aes(x = chromosome, y = bam_type, fill = mean_enrich)) +
+#  geom_tile() +
+#  scale_fill_viridis_c(option = "plasma")
 
 # ----- Chromosome Distribution Analysis -----
 # Tile plot for chromosome distribution overview
@@ -921,6 +938,7 @@ chromosome_norm_df <- chromosome_distribution_df %>%
   mutate(norm_count = count / sum(count) * 100) %>%
   ungroup()
 
+# The cool heatmap
 ggplot(chromosome_norm_df,
   aes(x = chromosome,
       y = interaction(bam_type, input_type, peak_type),
@@ -935,6 +953,7 @@ ggplot(chromosome_norm_df,
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 
+# Cool heatmap but with some additional things
 chromosome_norm_df %>%
   mutate(param_combo = interaction(bam_type, peak_type, sep = " + ")) %>% 
   ggplot(aes(x = chromosome, y = param_combo,

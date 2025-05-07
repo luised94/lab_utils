@@ -182,3 +182,9 @@ Solutions:
 1) Reorder during the assignment
 2) Enforce order during initialization
 3) Assign with for loop or by names
+
+# ggplot2 shapes
+```{r}
+Warning message:
+Using shapes for an ordinal variable is not advised
+```
