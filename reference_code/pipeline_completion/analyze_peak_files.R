@@ -697,12 +697,13 @@ for (current_sample_id in sample_ids_to_plot_chr) {
   # Subset the dataframes that we will plot
   is_summary_row_with_sample_id_bool <- summary_statistics_df$sample_id == current_sample_id
   current_sample_subset_df <- summary_statistics_df[is_summary_row_with_sample_id_bool, ]
+
   is_peak_row_with_sample_id_bool <- peak_statistics_df$sample_id == current_sample_id
   current_peak_subset_df <- peak_statistics_df[is_peak_row_with_sample_id_bool, ]
-#ggplot(peak_statistics_df, aes(x = log10(qvalue), y = fold_enrichment)) +
-#  geom_hex(bins = 50) +
-#  geom_density_2d(color = "red", alpha = 0.5) +
-#  facet_grid(peak_type ~ bam_type)
+
+  is_chrom_row_with_sample_id_bool <- chromosome_distribution_df$sample_id == current_sample_id
+  current_chrom_subset_df <- chromosome_distribution_df[is_peak_row_with_sample_id_bool, ]
+
   # Skip if no rows in the subset dataframe
   if (nrow(current_sample_subset_df) == 0) {
     warning(sprintf("Skipping empty sample: %s", current_sample_id))
@@ -713,34 +714,75 @@ for (current_sample_id in sample_ids_to_plot_chr) {
   message(sprintf(
     paste0("  Subset dataframe with sample_id: %s\n",
            "  Biological name: %s\n",
-           "  Number of rows in subset df: %s"),
+           "  Number of rows in summary subset df: %s\n",
+           "  Number of rows in peak subset: %s\n",
+           "  Number of rows in chrom subset df: %s\n"),
     current_sample_id,
     bio_name,
-    nrow(current_sample_subset_df)
+    nrow(current_sample_subset_df),
+    nrow(current_peak_subset_df)
+    nrow(current_chrom_subset_df)
   ))
 
-  # Create processing group factor
-  current_sample_subset_df$processing_group <- factor(
-    paste(current_sample_subset_df$bam_type, current_sample_subset_df$peak_type, sep = " + ")
+  # Process all subset dataframes with a consistent pattern ------
+  subset_df_names <- ls(pattern = "_subset_df$", envir = .GlobalEnv)
+  message(
+    sprintf("  Found %s subset dataframes:\n", length(subset_df_names)),
+    paste("  ", subset_df_names, collapse = ", ")
   )
 
-  # Sort processing_group by median recovery % (descending)
-  # Create sorted version of processing_group for recovery
-  current_sample_subset_df <- current_sample_subset_df %>%
-    mutate(
-      processing_group_srt_rec = fct_reorder(
-        processing_group,
-        percent_recovered,
-        .fun = median,
-        .desc = TRUE
-      ),
-      processing_group_srt_enr = fct_reorder(
-        processing_group,
-        percent_enriched,
-        .fun = median,
-        .desc = TRUE
+  for (current_df_name in subset_df_names) {
+    message("  --- Processing subset dataframe ---")
+    message(sprintf("Processing dataframe: %s", current_df_name))
+
+    # Get the current dataframe
+    current_df <- get(current_df_name, envir = .GlobalEnv)
+
+    # Skip if it's not a dataframe or doesn't have the required columns
+    if (!is.data.frame(current_df) || 
+        !all(c("bam_type", "peak_type") %in% names(current_df))) {
+      warning(sprintf("Skipping %s - not suitable for processing", current_df_name))
+      next
+    }
+
+    # Create and format processing group factor, and create sorted versions
+    current_df <- current_df %>%
+      mutate(
+        # Create initial processing group
+        processing_group = factor(paste(bam_type, peak_type, sep = " + ")),
+        # Apply string replacements to shorten labels
+        processing_group = str_replace(processing_group, "Deduped", "Dedup"),
+        processing_group = str_replace(processing_group, "Shifted", "Shift"),
+        processing_group = str_replace(processing_group, " \\+ ", " ("),
+        processing_group = paste0(processing_group, ")")  # Close parentheses
       )
-    )
+
+    # Create sorted versions if the dataframe has the required metrics
+    if (all(c("percent_recovered", "percent_enriched") %in% names(current_df))) {
+      current_df <- current_df %>%
+        mutate(
+          # Sort by recovery (descending)
+          processing_group_srt_rec = fct_reorder(
+            processing_group,
+            percent_recovered,
+            .fun = median,
+            .desc = TRUE,
+            na.rm = TRUE
+          ),
+          # Sort by enrichment (descending)
+          processing_group_srt_enr = fct_reorder(
+            processing_group,
+            percent_enriched,
+            .fun = median,
+            .desc = TRUE,
+            na.rm = TRUE
+          )
+        )
+    }
+    # Assign the processed dataframe back to the original variable
+    assign(current_df_name, current_df, envir = .GlobalEnv)
+  }
+
   # --- How many peaks were recovered ---
   peak_recovery_plot <- ggplot(
     current_sample_subset_df,
