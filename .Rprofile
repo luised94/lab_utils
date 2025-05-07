@@ -1,4 +1,8 @@
 message("Sourcing .Rprofile...")
+if (!file.exists("~/.inputrc")){
+  message("To set vi mode for the repl: ")
+  message("Add set editing-mode vi to ~/.inputrc")
+}
 # Source renv when working on my local computer.
 # Prevent renv activation while on cluster.
 #nzchar(Sys.getenv("SLURM_JOBID"))
