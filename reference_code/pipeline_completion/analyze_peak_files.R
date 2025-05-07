@@ -16,6 +16,12 @@
 # Similar to how I control the r scripts in the core_scripts dir.
 # TODO: May create a config in the future but this is just a test set of scripts
 ################################################################################
+# Prevent time-consuming code from running unless it has to. cache_mark
+# Cache the entire processing part of the script
+if (interactive() && !exists("summary_statistics_df"))  {
+cat("Running the summary statistics computation...\n")
+# Code block that is "cached" --------
+
 # Bootstrap phase
 FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
 for (function_filename in FUNCTION_FILENAMES) {
@@ -320,10 +326,6 @@ MAX_ROW_COUNT <- nrow(final_metadata_df)
 ANALYSIS_COLUMNS <- c("number_of_peaks", "peak_width_distribution", "overlap_with_eaton")
 
 DEBUG_MODE <- TRUE
-# Prevent time-consuming code from running unless it has to
-if (interactive() && !exists("summary_statistics_df")){
-cat("Running the summary statistics computation...\n")
-# Code block that is "cached" --------
 # 1. Define types and order
 SUMMARY_COLS <- c("sample_id", "file_path", "num_peaks",
                  "percent_recovered", "percent_enriched",
@@ -682,7 +684,7 @@ sample_ids_to_plot_chr <- all_sample_ids_chr
 # sample_ids_to_plot <- grep("input", all_sample_ids, value = TRUE)
 sample_ids_to_plot_chr <- all_sample_ids_chr[2]
 
-# Cache the for loop and some additional ###########
+# Cache the for loop and some additional | cache_mark ######
 } else if (interactive()) {
   cat("Skipping summary statistics computation: 'summary_statistics_df' already exists.\n",
       "To force a rerun, remove the variable with: rm(summary_statistics_df)\n")
@@ -710,7 +712,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
 
   message(sprintf(
     paste0("  Subset dataframe with sample_id: %s\n",
-           "  Biological name: %s\n"),
+           "  Biological name: %s\n",
            "  Number of rows in subset df: %s"),
     current_sample_id,
     bio_name,
@@ -755,7 +757,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     geom_text(aes(label = round(percent_recovered, 1)),
               vjust = -1, size = 3, show.legend = FALSE) +
     labs(title = "Peak Recovery by Processing Method",
-      subtitle = paste("Sample:", current_sample_id),
+      subtitle = paste("Sample:", bio_name),
       x = "Processing Method (sorted by recovery %)",
       y = "Peaks Recovered (%)",
       color = "Input Control") +
@@ -781,7 +783,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       aes(label = round(percent_enriched, 1)),
           vjust = -1, size = 3, show.legend = FALSE) +
       labs(title = "Peak Enrichment by Processing Method",
-           subtitle = paste("Sample:", current_sample_id),
+           subtitle = paste("Sample:", bio_name),
            x = "Processing Method (sorted by recovery %)",
            y = "Peaks Enriched (%)",
            color = "Input Control") +
@@ -802,7 +804,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       vjust = -0.5, hjust = 1.1,
       color = "black", size = 3.7, fontface = "bold") +
     labs(title = "Number of Peaks Called",
-         subtitle = paste("Sample:", current_sample_id),
+         subtitle = paste("Sample:", bio_name),
          x = "Processing Method", y = "Count") +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -820,7 +822,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
 
     plot_output_path <- file.path(
       PLOT_OUTPUT_DIR,
-      paste0(current_plot_name, "_", current_sample_id, ".svg")
+      paste0(current_plot_name, "_", bio_name, ".svg")
     )
     message(sprintf("  Saving to: %s", plot_output_path))
     #svglite::svglite(
@@ -840,7 +842,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
 message("====================")
 stop("Breakpoint. Run plots...")
 # Create the trade-off plot using your variables
-#recovery_enrichment_scatter_plot <- 
+#recovery_enrichment_scatter_plot <-
 ggplot(
   data = current_sample_subset_df,
   aes(x = percent_recovered, y = percent_enriched,
@@ -955,7 +957,7 @@ ggplot(chromosome_norm_df,
 
 # Cool heatmap but with some additional things
 chromosome_norm_df %>%
-  mutate(param_combo = interaction(bam_type, peak_type, sep = " + ")) %>% 
+  mutate(param_combo = interaction(bam_type, peak_type, sep = " + ")) %>%
   ggplot(aes(x = chromosome, y = param_combo,
              fill = norm_count)) +
   geom_tile(color = "white", linewidth = 0.2) +
