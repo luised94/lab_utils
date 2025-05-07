@@ -720,7 +720,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     current_sample_id,
     bio_name,
     nrow(current_sample_subset_df),
-    nrow(current_peak_subset_df)
+    nrow(current_peak_subset_df),
     nrow(current_chrom_subset_df)
   ))
 
@@ -739,7 +739,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     current_df <- get(current_df_name, envir = .GlobalEnv)
 
     # Skip if it's not a dataframe or doesn't have the required columns
-    if (!is.data.frame(current_df) || 
+    if (!is.data.frame(current_df) ||
         !all(c("bam_type", "peak_type") %in% names(current_df))) {
       warning(sprintf("Skipping %s - not suitable for processing", current_df_name))
       next
