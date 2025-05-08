@@ -225,3 +225,6 @@ Need to find the plotting code for the test scripts.
 
 ## 2025-05-04
 TODO: May need to do a big correlation analysis as a matrix heatmap. I will do that after looking at the visualizations and seeing if I need to rework some scripts.
+
+## 2025-05-08
+TODO: Need to adjust bamcoverage generation to see if file exists and exit gracefully if so.
