@@ -706,7 +706,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
   bio_name <- sample_id_to_bio_name_map[[current_sample_id]]
   # Subset the dataframes that we will plot
   is_summary_row_with_sample_id_bool <- summary_statistics_df$sample_id == current_sample_id
-  current_sample_subset_df <- summary_statistics_df[is_summary_row_with_sample_id_bool, ]
+  current_summary_subset_df <- summary_statistics_df[is_summary_row_with_sample_id_bool, ]
 
   is_peak_row_with_sample_id_bool <- peak_statistics_df$sample_id == current_sample_id
   current_peak_subset_df <- peak_statistics_df[is_peak_row_with_sample_id_bool, ]
@@ -715,10 +715,9 @@ for (current_sample_id in sample_ids_to_plot_chr) {
   current_chrom_subset_df <- chromosome_distribution_df[is_peak_row_with_sample_id_bool, ]
 
   # Skip if no rows in the subset dataframe
-  if (nrow(current_sample_subset_df) == 0) {
+  if (nrow(current_summary_subset_df) == 0) {
     warning(sprintf("Skipping empty sample: %s", current_sample_id))
     next
-
   }
 
   message(sprintf(
@@ -729,7 +728,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
            "  Number of rows in chrom subset df: %s\n"),
     current_sample_id,
     bio_name,
-    nrow(current_sample_subset_df),
+    nrow(current_summary_subset_df),
     nrow(current_peak_subset_df),
     nrow(current_chrom_subset_df)
   ))
@@ -837,7 +836,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
 
   # --- How many peaks were recovered ---
   #peak_recovery_plot <- ggplot(
-    #current_sample_subset_df,
+    #current_summary_subset_df,
     #aes(x = processing_group_srt_rec, y = percent_recovered,
         #color = input_type, group = input_type)) +
     #geom_hline(yintercept = recovery_reference_percent,
@@ -860,7 +859,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
 
   # --- How many peaks are enriched  ---
   #peak_enrichment_plot <- ggplot(
-    #current_sample_subset_df,
+    #current_summary_subset_df,
     #aes(x = processing_group_srt_enr, y = percent_enriched,
         #color = input_type, group = input_type)
     #) +
@@ -885,7 +884,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     #theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
   # --- How many peaks were called ---
-  #peak_count_plot <- ggplot(current_sample_subset_df,
+  #peak_count_plot <- ggplot(current_summary_subset_df,
     #aes(x = processing_group, y = num_peaks, fill = input_type)) +
     #geom_col(position = position_dodge(width = 0.9)) +
     #geom_hline(yintercept = reference_peak_count_int,
@@ -941,7 +940,7 @@ stop("Stop point. Run plots...")
 # Create the trade-off plot using your variables
 #recovery_enrichment_scatter_plot <-
 ggplot(
-  data = current_sample_subset_df,
+  data = current_summary_subset_df,
   aes(x = percent_recovered, y = percent_enriched,
       color = peak_type, shape = bam_type)) +
   geom_point(size = 3, alpha = 0.8) +
@@ -949,7 +948,7 @@ ggplot(
             vjust = -1, size = 3,
             show.legend = FALSE) +
   labs(title = paste("Recovery vs Enrichment Trade-off -", current_sample_id),
-       subtitle = paste("Sample Type:", unique(current_sample_subset_df$sample_type)),
+       subtitle = paste("Sample Type:", unique(current_summary_subset_df$sample_type)),
        x = "% Reference Peaks Recovered",
        y = "% Called Peaks Enriched",
        color = "Peak Type",
