@@ -754,18 +754,6 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       next
     }
 
-    # Create and format processing group factor, and create sorted versions
-    #current_df <- current_df %>%
-    #  mutate(
-    #    # Create initial processing group
-    #    processing_group = factor(paste(bam_type, peak_type, sep = " + ")),
-    #    # Apply string replacements to shorten labels
-    #    processing_group = str_replace(processing_group, "Deduped", "Dedup"),
-    #    processing_group = str_replace(processing_group, "Shifted", "Shift"),
-    #    processing_group = str_replace(processing_group, " \\+ ", " ("),
-    #    processing_group = paste0(processing_group, ")")  # Close parentheses
-    #  )
-
     # Create sorted versions if the dataframe has the required metrics
     # Add a second if, following the early exit if pattern if I decided //
     # to sort the files again.
@@ -800,35 +788,49 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     # Assign the processed dataframe back to the original variable
     assign(current_df_name, current_df, envir = .GlobalEnv)
 
+# Need to adjust the name of the columns to process
     for (column_to_process in columns_to_process) {
       message("    --- Plotting based on processing column ---")
-      name_of_plot <- paste(current_df_name, column_to_process, "plot", sep = "_")
       message(sprintf("      Plotting with: %s", column_to_process))
-      message(sprintf("      Assigning to: %s", name_of_plot))
-# need to assign I think, then I can use paste to create the name
+
       if (all(c("percent_recovered", "percent_enriched") %in% names(current_df))) {
-        plot_to_assign <- ggplot(
-          current_df,
-          aes(x = .data[[column_to_process]], y = percent_recovered,
-              color = input_type, group = input_type)) +
-          geom_hline(yintercept = recovery_reference_percent,
-                    linetype = "dashed", color = "black", linewidth = 0.8) +
-          geom_text(aes(x = Inf, y = recovery_reference_percent,
-                    label = paste("Reference =", recovery_reference_percent, "%")),
-                    vjust = -0.5, hjust = 1.1,
-                    color = "black", size = 3.5) +
-          geom_line(linewidth = 0.7, alpha = 0.5) +
-          geom_point(size = 3) +
-          geom_text(aes(label = round(percent_recovered, 1)),
-                    vjust = -1, size = 3, show.legend = FALSE) +
-          labs(title = "Peak Recovery by Processing Method",
-            subtitle = paste("Sample:", bio_name),
-            x = "Processing Method (sorted by recovery %)",
-            y = "Peaks Recovered (%)",
-            color = "Input Control") +
-          theme_minimal() +
-          theme(axis.text.x = element_text(angle = 45, hjust = 1))
-          assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
+        message("    Processing summary df")
+        for (y_column_to_plot in c("percent_recovered", "percent_enriched")) {
+          name_of_plot <- paste(current_df_name, column_to_process, 
+                                y_column_to_plot, "plot", sep = "_")
+          message(sprintf("      Assigning to: %s", name_of_plot))
+          # --- How many peaks were recovered ---
+          plot_to_assign <- ggplot(
+            current_df,
+            aes(x = .data[[column_to_process]], y = .data[[y_column_to_plot]],
+                color = input_type, group = input_type)) +
+            geom_hline(yintercept = recovery_reference_percent,
+                      linetype = "dashed", color = "black", linewidth = 0.8) +
+            geom_text(aes(x = Inf, y = recovery_reference_percent,
+                      label = paste("Reference =", recovery_reference_percent, "%")),
+                      vjust = -0.5, hjust = 1.1,
+                      color = "black", size = 3.5) +
+            geom_line(linewidth = 0.7, alpha = 0.5) +
+            geom_point(size = 3) +
+            geom_text(aes(label = round(percent_recovered, 1)),
+                      vjust = -1, size = 3, show.legend = FALSE) +
+            labs(title = "Peak Recovery by Processing Method",
+              subtitle = paste("Sample:", bio_name),
+              x = "Processing Method (sorted by recovery %)",
+              y = "Peaks Recovered (%)",
+              color = "Input Control") +
+            theme_minimal() +
+            theme(axis.text.x = element_text(angle = 45, hjust = 1))
+            assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
+
+          }
+      }
+
+      if (all(c("chromosome") %in% names(current_df))) {
+        message("    Processing chromosome df")
+      }
+      if (all(c("fold_enrichment", "qvalue") %in% names(current_df))) {
+        message("    Processing peak df")
       }
     }
     message("  --- Processing subset dataframe end ---")
