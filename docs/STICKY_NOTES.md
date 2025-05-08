@@ -228,3 +228,14 @@ TODO: May need to do a big correlation analysis as a matrix heatmap. I will do t
 
 ## 2025-05-08
 TODO: Need to adjust bamcoverage generation to see if file exists and exit gracefully if so.
+```{troubleshooting}
+Description: troubleshooting the plots for all of the dataframes being analyzed in analyze_peak_files.R
+    > current_chrom_subset_df_processing_group_chromosome_heatmap_plot only has one column and has NA.
+    > current_chrom_subset_df_processing_group_chromsome_counts_plot also doesnt show anything.
+    > current_peak_subset_df_processing_group_2D_qvalue_vs_fold_enrich_plot Axis labels are weird. Move the processing group down, and the x-axis is too tight. Adjust the scale to be natural instead of 0,20. they dont reach 20. Otherwise, I think it is good.
+    > Error, script exited.
+        Plotting: current_peak_subset_df_processing_group_peak_num_vs_enrichment_plot
+          Saving to: /home/luised94/data/preprocessing_test/plots/current_peak_subset_df_processing_group_peak_num_vs_enrichment_plot_Eaton.svg
+        Error in stri_extract_first_regex(string, pattern, opts_regex = opts(pattern)) :
+          Incorrectly nested parentheses in regex pattern. (U_REGEX_MISMATCHED_PAREN, context=`narrow|broad)`)In addition: There were 14 warnings (use warnings() to see them)
+```

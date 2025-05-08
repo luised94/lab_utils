@@ -163,6 +163,9 @@ if [ ! -f "$OUTPUT_BAM" ]; then
       exit 1
   fi
 else
+  echo ""
+fi
+
 # Execute blacklist filtering ------
 # Check if BAM file already exists
 if [ -f "$OUTPUT_BAM" ]; then

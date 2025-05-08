@@ -794,6 +794,9 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       message(sprintf("      Plotting with: %s", column_to_process))
 
       if (all(c("percent_recovered", "percent_enriched") %in% names(current_df))) {
+        message("~~~~~~~~~~~~~~~~~~~~~~")
+        print(head(current_df, 5))
+        message("~~~~~~~~~~~~~~~~~~~~~~")
         message("    Processing summary df")
         for (y_column_to_plot in c("percent_recovered", "percent_enriched")) {
           name_of_plot <- paste(current_df_name, column_to_process,
@@ -844,6 +847,9 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       } # end summary dataframe if statement
 
       if (all(c("chromosome") %in% names(current_df))) {
+        message("~~~~~~~~~~~~~~~~~~~~~~")
+        print(head(current_df, 5))
+        message("~~~~~~~~~~~~~~~~~~~~~~")
         # TODO: Cant assign the variables dynamically in facet_grid. //
         # Need to address in the future potetially. //
         message("    Processing chromosome df")
@@ -894,6 +900,9 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       } # Finish plots of chromosome dataframe
 
       if (all(c("fold_enrichment", "qvalue") %in% names(current_df))) {
+        message("~~~~~~~~~~~~~~~~~~~~~~")
+        print(head(current_df, 5))
+        message("~~~~~~~~~~~~~~~~~~~~~~")
         message("    Processing peak df")
         name_of_plot <- paste(current_df_name, column_to_process,
                               "2D_qvalue_vs_fold_enrich", "plot", sep = "_")
