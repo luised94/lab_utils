@@ -867,15 +867,20 @@ for (current_sample_id in sample_ids_to_plot_chr) {
         plot_to_assign <- current_df %>%
           ggplot(aes(x = chromosome, y = count, fill = .data[[column_to_process]])) +
           geom_col(position = position_dodge(width = 0.8), width = 0.7) +
-          facet_wrap(input_type ~ processing_group, ncol = 2) +
+          facet_wrap(input_type ~ processing_group, ncol = 2, strip.position = "top") +
           scale_fill_brewer(palette = "Set2") +
           labs(title = "Peak Counts by Chromosome",
               subtitle = paste("Sample:", bio_name),
                x = "Chromosome",
-               y = "Peak Count") +
+               y = "Peak Count",
+               fill = column_to_process) +
           theme_minimal() +
           theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-                legend.position = "none")  # Remove legend since facets show groups
+                strip.placement = "outside",
+                strip.background = element_rect(fill = "gray90", color = NA),
+                legend.position = "none",
+                panel.spacing = unit(1, "lines")
+                )
         assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
 
         chromosome_norm_df <- current_df %>%
@@ -888,8 +893,8 @@ for (current_sample_id in sample_ids_to_plot_chr) {
         plot_to_assign <- chromosome_norm_df %>%
           ggplot(aes(x = chromosome, y = processing_group, fill = norm_count)) +
           geom_tile(color = "white", linewidth = 0.2) +
-          geom_text(aes(label = ifelse(norm_count > 5, round(norm_count, 1), "")),
-                    color = "black", size = 2.5) +
+          #geom_text(aes(label = ifelse(norm_count > 5, round(norm_count, 1), "")),
+                    #color = "white", fontface = "bold", size = 3) +
           facet_grid(rows = vars(sample_type),
                      cols = vars(input_type),
                      scales = "free_y") +
@@ -902,7 +907,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
                y = "Processing Parameters") +
           theme_minimal() +
           theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-                panel.spacing = unit(0.5, "lines"),
+                panel.spacing = unit(1, "lines"),
                 strip.text = element_text(face = "bold"))
         assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
       } # Finish plots of chromosome dataframe
