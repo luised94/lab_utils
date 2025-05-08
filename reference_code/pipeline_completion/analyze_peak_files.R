@@ -841,16 +841,19 @@ for (current_sample_id in sample_ids_to_plot_chr) {
                 x = "Processing Method", y = "Count") +
            theme_minimal() +
            theme(axis.text.x = element_text(angle = 45, hjust = 1))
-      } # end if statement
+      } # end summary dataframe if statement
 
       if (all(c("chromosome") %in% names(current_df))) {
+        # TODO: Cant assign the variables dynamically in facet_grid. //
+        # Need to address in the future potetially. //
         message("    Processing chromosome df")
         name_of_plot <- paste(current_df_name, column_to_process,
                               "chromsome_counts", "plot", sep = "_")
+        message(sprintf("      Assigning to: %s", name_of_plot))
         plot_to_assign <- current_df %>%
           ggplot(aes(x = chromosome, y = count, fill = .data[[column_to_process]])) +
           geom_col(position = position_dodge(width = 0.8), width = 0.7) +
-          facet_wrap(input_type ~ .data[[column_to_process]], ncol = 2) +
+          facet_wrap(input_type ~ processing_group, ncol = 2) +
           scale_fill_brewer(palette = "Set2") +
           labs(title = "Peak Counts by Chromosome",
               subtitle = paste("Sample:", bio_name),
@@ -860,12 +863,14 @@ for (current_sample_id in sample_ids_to_plot_chr) {
           theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
                 legend.position = "none")  # Remove legend since facets show groups
         assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
+
         chromosome_norm_df <- current_df %>%
           group_by(file_path) %>%
           mutate(norm_count = count / sum(count) * 100) %>%
           ungroup()
         name_of_plot <- paste(current_df_name, column_to_process,
-                              "chromsoome_heatmap", "plot", sep = "_")
+                              "chromosome_heatmap", "plot", sep = "_")
+        message(sprintf("      Assigning to: %s", name_of_plot))
         plot_to_assign <- chromosome_norm_df %>%
           ggplot(aes(x = chromosome, y = .data[[column_to_process]], fill = norm_count)) +
           geom_tile(color = "white", linewidth = 0.2) +
@@ -886,10 +891,65 @@ for (current_sample_id in sample_ids_to_plot_chr) {
                 panel.spacing = unit(0.5, "lines"),
                 strip.text = element_text(face = "bold"))
         assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
-      }
+      } # Finish plots of chromosome dataframe
+
       if (all(c("fold_enrichment", "qvalue") %in% names(current_df))) {
         message("    Processing peak df")
-      }
+        name_of_plot <- paste(current_df_name, column_to_process,
+                              "2D_qvalue_vs_fold_enrich", "plot", sep = "_")
+        message(sprintf("      Assigning to: %s", name_of_plot))
+        plot_to_assign <- ggplot(current_df, aes(x = log10(qvalue), y = fold_enrichment)) +
+          geom_bin2d(bins = 50) +  # Hex alternative
+          geom_density_2d(color = "red", alpha = 0.5) +  # Highlight density contours
+          facet_grid(input_type ~ processing_group) +  # Uses your pre-defined factor
+          scale_fill_viridis_c(option = "magma", trans = "log10") +
+          labs(title = "Peak Quality: Enrichment vs. Significance",
+               x = "log10(q-value)", 
+               y = "Fold Enrichment",
+               fill = "Peak Count") +
+          coord_cartesian(ylim = c(0, 20)) +  # Focus on biologically relevant range
+          theme_minimal()
+        assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
+
+        name_of_plot <- paste(current_df_name, column_to_process,
+                              "peak_width_distribution", "plot", sep = "_")
+        message(sprintf("      Assigning to: %s", name_of_plot))
+        plot_to_assign <- current_df %>%
+          filter(peak_width < 5000) %>%  # Remove extreme outliers
+          ggplot(aes(x = processing_group, y = peak_width, fill = peak_type)) +
+          geom_violin(scale = "width", trim = TRUE, alpha = 0.7) +
+          geom_boxplot(width = 0.15, outlier.shape = NA, fill = "white", alpha = 0.7) +
+          scale_y_log10() +
+          facet_wrap(~input_type, nrow = 1) +
+          labs(title = "Peak Width Distribution by Processing Method",
+               x = NULL, 
+               y = "Peak Width (bp, log10)") +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1))
+        assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
+
+        name_of_plot <- paste(current_df_name, column_to_process,
+                              "peak_num_vs_enrichment", "plot", sep = "_")
+        message(sprintf("      Assigning to: %s", name_of_plot))
+        plot_to_assign <- current_df %>%
+          group_by(sample_id, processing_group) %>%
+          summarise(
+            median_enrich = median(fold_enrichment),
+            n_peaks = n(),
+            .groups = "drop"
+          ) %>%
+          ggplot(aes(x = median_enrich, y = n_peaks,
+                     size = n_peaks, color = processing_group)) +
+          geom_point(alpha = 0.8) +
+          facet_wrap(~str_extract(processing_group, "narrow|broad)"), scales = "free") +
+          labs(title = "Peak Count vs. Median Enrichment",
+               x = "Median Fold Enrichment",
+               y = "Total Peaks Called",
+               color = "Processing Method",
+               size = "Peak Count") +
+          theme_minimal()
+        assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
+      } # Finish plots of peak dataframe
     }
     message("  --- Processing subset dataframe end ---")
   }
