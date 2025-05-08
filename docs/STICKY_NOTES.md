@@ -238,4 +238,15 @@ Description: troubleshooting the plots for all of the dataframes being analyzed 
           Saving to: /home/luised94/data/preprocessing_test/plots/current_peak_subset_df_processing_group_peak_num_vs_enrichment_plot_Eaton.svg
         Error in stri_extract_first_regex(string, pattern, opts_regex = opts(pattern)) :
           Incorrectly nested parentheses in regex pattern. (U_REGEX_MISMATCHED_PAREN, context=`narrow|broad)`)In addition: There were 14 warnings (use warnings() to see them)
+Conclusions:
+    > Fixed the error with typical print debugging. Was subsetting using the peak logical vector instead of the chromosome.
+    > Chromosome plots still very tight and hard to see if there are any differences. Have to remove the labels from the top and move them to the side.
+    > Removing the 0-20 range helps. Need to adjust the labels.
+    > Error had a missing parenthesis. Plot was clear tho.
+```
+```{troubleshooting}
+Description: Troubleshooting peak and summary plots
+    > Peak width distribution violin/box-plot looks ok but there really does not seem to be an effect.
+Conclusions:
+    > All plots work now. Could focus on cosmetics. Maybe I should output all of them and then do the cosmetics.
 ```
