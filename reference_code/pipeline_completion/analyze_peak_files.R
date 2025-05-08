@@ -712,7 +712,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
   current_peak_subset_df <- peak_statistics_df[is_peak_row_with_sample_id_bool, ]
 
   is_chrom_row_with_sample_id_bool <- chromosome_distribution_df$sample_id == current_sample_id
-  current_chrom_subset_df <- chromosome_distribution_df[is_peak_row_with_sample_id_bool, ]
+  current_chrom_subset_df <- chromosome_distribution_df[is_chrom_row_with_sample_id_bool, ]
 
   # Skip if no rows in the subset dataframe
   if (nrow(current_summary_subset_df) == 0) {
@@ -746,6 +746,10 @@ for (current_sample_id in sample_ids_to_plot_chr) {
 
     # Get the current dataframe
     current_df <- get(current_df_name, envir = .GlobalEnv)
+    #message("~~~ Right after get ~~~")
+    #message("~~~~~~~~~~~~~~~~~~~~~~")
+    #print(head(current_df, 5))
+    #message("~~~~~~~~~~~~~~~~~~~~~~")
 
     # Skip if it's not a dataframe or doesn't have the required columns
     if (!is.data.frame(current_df) ||
@@ -787,6 +791,10 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     )
     # Assign the processed dataframe back to the original variable
     assign(current_df_name, current_df, envir = .GlobalEnv)
+    #message("~~~ Before for loop ~~~")
+    #message("~~~~~~~~~~~~~~~~~~~~~~")
+    #print(head(current_df, 5))
+    #message("~~~~~~~~~~~~~~~~~~~~~~")
 
     # Need to adjust the name of the columns to process
     for (column_to_process in columns_to_process) {
@@ -794,10 +802,10 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       message(sprintf("      Plotting with: %s", column_to_process))
 
       if (all(c("percent_recovered", "percent_enriched") %in% names(current_df))) {
-        message("~~~~~~~~~~~~~~~~~~~~~~")
-        print(head(current_df, 5))
-        message("~~~~~~~~~~~~~~~~~~~~~~")
-        message("    Processing summary df")
+        #message("~~~~~~~~~~~~~~~~~~~~~~")
+        #print(head(current_df, 5))
+        #message("~~~~~~~~~~~~~~~~~~~~~~")
+        #message("    Processing summary df")
         for (y_column_to_plot in c("percent_recovered", "percent_enriched")) {
           name_of_plot <- paste(current_df_name, column_to_process,
                                 y_column_to_plot, "plot", sep = "_")
@@ -847,9 +855,9 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       } # end summary dataframe if statement
 
       if (all(c("chromosome") %in% names(current_df))) {
-        message("~~~~~~~~~~~~~~~~~~~~~~")
-        print(head(current_df, 5))
-        message("~~~~~~~~~~~~~~~~~~~~~~")
+        #message("~~~~~~~~~~~~~~~~~~~~~~")
+        #print(head(current_df, 5))
+        #message("~~~~~~~~~~~~~~~~~~~~~~")
         # TODO: Cant assign the variables dynamically in facet_grid. //
         # Need to address in the future potetially. //
         message("    Processing chromosome df")
@@ -900,9 +908,9 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       } # Finish plots of chromosome dataframe
 
       if (all(c("fold_enrichment", "qvalue") %in% names(current_df))) {
-        message("~~~~~~~~~~~~~~~~~~~~~~")
-        print(head(current_df, 5))
-        message("~~~~~~~~~~~~~~~~~~~~~~")
+        #message("~~~~~~~~~~~~~~~~~~~~~~")
+        #print(head(current_df, 5))
+        #message("~~~~~~~~~~~~~~~~~~~~~~")
         message("    Processing peak df")
         name_of_plot <- paste(current_df_name, column_to_process,
                               "2D_qvalue_vs_fold_enrich", "plot", sep = "_")
