@@ -924,7 +924,6 @@ for (current_sample_id in sample_ids_to_plot_chr) {
                x = "log10(q-value)",
                y = "Fold Enrichment",
                fill = "Peak Count") +
-          coord_cartesian(ylim = c(0, 20)) +  # Focus on biologically relevant range
           theme_minimal()
         assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
 
@@ -958,7 +957,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
           ggplot(aes(x = median_enrich, y = n_peaks,
                      size = n_peaks, color = processing_group)) +
           geom_point(alpha = 0.8) +
-          facet_wrap(~str_extract(processing_group, "narrow|broad)"), scales = "free") +
+          facet_wrap(~str_extract(processing_group, "(narrow|broad)"), scales = "free") +
           labs(title = "Peak Count vs. Median Enrichment",
                x = "Median Fold Enrichment",
                y = "Total Peaks Called",
