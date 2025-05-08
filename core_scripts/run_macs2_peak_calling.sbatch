@@ -63,13 +63,13 @@ log_message "INFO" "MACS2 path: $macs_path"
 BAM_DIR="${EXPERIMENT_DIR}/alignment"
 mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*_sorted.bam" | sort)
 TOTAL_FILES=${#BAM_FILES[@]}
-if [ $TOTAL_FILES -eq 0 ]; then
+if [ "$TOTAL_FILES" -eq 0 ]; then
     log_message "ERROR" "No BAM files found in ${BAM_DIR}"
     exit 1
 fi
 
 # Validate array range
-if [ $SLURM_ARRAY_TASK_ID -gt $TOTAL_FILES ]; then
+if [ "$SLURM_ARRAY_TASK_ID" -gt "$TOTAL_FILES" ]; then
     log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} exceeds number of jobs ${TOTAL_FILES}"
     exit 1
 fi
@@ -80,7 +80,7 @@ BAM_INDEX=$(( SLURM_ARRAY_TASK_ID - 1))
 
 # Get current BAM file and normalization method
 BAM_PATH="${BAM_FILES[$BAM_INDEX]}"
-if [ ! -f $BAM_PATH ]; then
+if [ ! -f "$BAM_PATH" ]; then
     log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} bam path does not exist."
     log_message "WARNING" "Input: ${BAM_PATH}"
     exit 1
