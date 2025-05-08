@@ -796,7 +796,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       if (all(c("percent_recovered", "percent_enriched") %in% names(current_df))) {
         message("    Processing summary df")
         for (y_column_to_plot in c("percent_recovered", "percent_enriched")) {
-          name_of_plot <- paste(current_df_name, column_to_process, 
+          name_of_plot <- paste(current_df_name, column_to_process,
                                 y_column_to_plot, "plot", sep = "_")
           message(sprintf("      Assigning to: %s", name_of_plot))
           # --- How many peaks were recovered ---
@@ -812,12 +812,12 @@ for (current_sample_id in sample_ids_to_plot_chr) {
                       color = "black", size = 3.5) +
             geom_line(linewidth = 0.7, alpha = 0.5) +
             geom_point(size = 3) +
-            geom_text(aes(label = round(percent_recovered, 1)),
+            geom_text(aes(label = round(.data[[y_column_to_plot]], 1)),
                       vjust = -1, size = 3, show.legend = FALSE) +
-            labs(title = "Peak Recovery by Processing Method",
+            labs(title = paste("Peak", y_column_to_plot, "by Processing Method"),
               subtitle = paste("Sample:", bio_name),
-              x = "Processing Method (sorted by recovery %)",
-              y = "Peaks Recovered (%)",
+              x = paste("Processing Method (sorted by", y_column_to_plot, "%)"),
+              y = y_column_to_plot,
               color = "Input Control") +
             theme_minimal() +
             theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -932,7 +932,6 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     print(current_plot_object)
     #dev.off()
     readline(prompt = "Press [enter] to continue plot")
-    break # Add breakpoint to test first one
   }
 
   break # Add breakpoint to test first one
