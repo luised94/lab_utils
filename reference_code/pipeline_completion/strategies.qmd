@@ -137,3 +137,106 @@ class(p)
 inherits(p, "gg")
 inherits(p, "ggplot")
 ```
+
+# Refactoring nested if statements using early exit pattern
+Was nesting a bunch of if statements to do certain actions only if certain files existed. Reversing the logic to exit if something is true instead of doing some thing if it is not true. The logic per se can be reverse but it is about exiting first. What are the conditions under which I should exit first. If none of them are met, continue. Similar to fail-fast for savign time and hopefully ensuring the code is more readable.
+Eventually, the nesting that is left is for hierarchical conditions for exiting and the rest becomes sequential.
+I believe I should add the conditional to exit if the files already exists to my other scripts.
+```{bash}
+# Execute bamCoverage
+if [ ! -f "$OUTPUT_BAM" ]; then
+  log_message "INFO" "Starting blacklist filtering processing"
+  if measure_performance "blacklist_filtering" \
+    alignmentSieve --bam "${BAM_PATH}" \
+        --blackListFileName "$BLACKLIST_BED_FILE" \
+        --outFile "$OUTPUT_BAM" \
+        --numberOfProcessors $(( THREADS / 2 )); then
+      log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+      if measure_performance "index" samtools index "$OUTPUT_BAM"; then
+        log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+      else
+        log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+        exit 1
+      fi
+  else
+      log_error "blacklist processing failed for ${SAMPLE_NAME}"
+      exit 1
+  fi
+else
+# Execute blacklist filtering ------
+# Check if BAM file already exists
+if [ -f "$OUTPUT_BAM" ]; then
+  log_message "SKIP" "File already exists: ${OUTPUT_BAM}"
+  if [ ! -f "${OUTPUT_BAM}.bai" ]; then
+    if measure_performance "index" samtools index "$OUTPUT_BAM"; then
+      log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+    else
+      log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+      exit 1
+    fi
+  else
+
+  if [ -f "${OUTPUT_BAM}.bai" ]; then
+    log_message "SKIP" "File already exists: ${OUTPUT_BAM}.bai"
+    exit 0
+  fi
+
+  if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
+    log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+    exit 1
+  fi
+
+  log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+  exit 0
+fi
+
+# Perform blacklist filtering
+log_message "INFO" "Starting blacklist filtering processing"
+if ! measure_performance "blacklist_filtering" \
+  alignmentSieve --bam "${BAM_PATH}" \
+                 --blackListFileName "$BLACKLIST_BED_FILE" \
+                 --outFile "$OUTPUT_BAM" \
+                 --numberOfProcessors $(( THREADS / 2 )); then
+  log_message "ERROR" "Blacklist processing failed for ${SAMPLE_NAME}"
+  exit 1
+fi
+log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+
+# Index the resulting BAM file
+if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
+  log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+  exit 1
+fi
+```
+The other version for the early exit with less nesting and breaking it down into each step:
+```{bash}
+# Check if output BAM already exists
+if [ -f "$OUTPUT_BAM" ]; then
+  log_message "SKIP" "File already exists: ${OUTPUT_BAM}"
+else
+  log_message "INFO" "Starting blacklist filtering processing"
+  if ! measure_performance "blacklist_filtering" \
+      alignmentSieve --bam "${BAM_PATH}" \
+          --blackListFileName "$BLACKLIST_BED_FILE" \
+          --outFile "$OUTPUT_BAM" \
+          --numberOfProcessors $(( THREADS / 2 )); then
+    log_message "ERROR" "Blacklist processing failed for ${SAMPLE_NAME}"
+    exit 1
+  fi
+  log_message "INFO" "Successfully completed filtering for ${SAMPLE_NAME}"
+fi
+
+# Check if index already exists
+if [ -f "${OUTPUT_BAM}.bai" ]; then
+  log_message "SKIP" "File already exists: ${OUTPUT_BAM}.bai"
+else
+  if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
+    log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+    exit 1
+  fi
+  log_message "INFO" "Successfully completed indexing for ${SAMPLE_NAME}"
+fi
+
+log_message "INFO" "All processing completed successfully for ${SAMPLE_NAME}"
+```
+Each step is verfied independently. Not sure which one is exactly better at this time.

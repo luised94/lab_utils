@@ -97,38 +97,43 @@ log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
 log_message "INFO" "Input: ${BAM_PATH}"
 log_message "INFO" "Output: ${OUTPUT_BAM}"
 
-# Execute bamCoverage
-if [ ! -f "$OUTPUT_BAM" ]; then
-  log_message "INFO" "Starting blacklist filtering processing"
-  if measure_performance "blacklist_filtering" \
-    alignmentSieve --bam "${BAM_PATH}" \
-        --blackListFileName "$BLACKLIST_BED_FILE" \
-        --outFile "$OUTPUT_BAM" \
-        --numberOfProcessors $(( THREADS / 2 )); then
-      log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
-      if measure_performance "index" samtools index "$OUTPUT_BAM"; then
-        log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
-      else
-        log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
-        exit 1
-      fi
-  else
-      log_error "blacklist processing failed for ${SAMPLE_NAME}"
-      exit 1
-  fi
-else
+# Execute blacklist filtering ------
+# Check if BAM file already exists
+if [ -f "$OUTPUT_BAM" ]; then
   log_message "SKIP" "File already exists: ${OUTPUT_BAM}"
-  if [ ! -f "${OUTPUT_BAM}.bai" ]; then
-    if measure_performance "index" samtools index "$OUTPUT_BAM"; then
-      log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
-    else
-      log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
-      exit 1
-    fi
-  else
+
+  if [ -f "${OUTPUT_BAM}.bai" ]; then
     log_message "SKIP" "File already exists: ${OUTPUT_BAM}.bai"
+    exit 0
   fi
+
+  if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
+    log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+    exit 1
+  fi
+
+  log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+  exit 0
 fi
+
+# Perform blacklist filtering
+log_message "INFO" "Starting blacklist filtering processing"
+if ! measure_performance "blacklist_filtering" \
+  alignmentSieve --bam "${BAM_PATH}" \
+                 --blackListFileName "$BLACKLIST_BED_FILE" \
+                 --outFile "$OUTPUT_BAM" \
+                 --numberOfProcessors $(( THREADS / 2 )); then
+  log_message "ERROR" "Blacklist processing failed for ${SAMPLE_NAME}"
+  exit 1
+fi
+log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+
+# Index the resulting BAM file
+if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
+  log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+  exit 1
+fi
+log_message "INFO" "Successfully indexed for ${SAMPLE_NAME}"
 
 # Log completion
 log_message "INFO" "Task completed successfully"
