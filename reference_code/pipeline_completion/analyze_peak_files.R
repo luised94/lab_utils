@@ -872,9 +872,9 @@ for (current_sample_id in sample_ids_to_plot_chr) {
                               "chromosome_heatmap", "plot", sep = "_")
         message(sprintf("      Assigning to: %s", name_of_plot))
         plot_to_assign <- chromosome_norm_df %>%
-          ggplot(aes(x = chromosome, y = .data[[column_to_process]], fill = norm_count)) +
+          ggplot(aes(x = chromosome, y = processing_group, fill = norm_count)) +
           geom_tile(color = "white", linewidth = 0.2) +
-          geom_text(aes(label = ifelse(norm_count > 5, round(norm_count, 1), "")), 
+          geom_text(aes(label = ifelse(norm_count > 5, round(norm_count, 1), "")),
                     color = "black", size = 2.5) +
           facet_grid(rows = vars(sample_type),
                      cols = vars(input_type),
@@ -904,7 +904,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
           facet_grid(input_type ~ processing_group) +  # Uses your pre-defined factor
           scale_fill_viridis_c(option = "magma", trans = "log10") +
           labs(title = "Peak Quality: Enrichment vs. Significance",
-               x = "log10(q-value)", 
+               x = "log10(q-value)",
                y = "Fold Enrichment",
                fill = "Peak Count") +
           coord_cartesian(ylim = c(0, 20)) +  # Focus on biologically relevant range
@@ -922,7 +922,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
           scale_y_log10() +
           facet_wrap(~input_type, nrow = 1) +
           labs(title = "Peak Width Distribution by Processing Method",
-               x = NULL, 
+               x = NULL,
                y = "Peak Width (bp, log10)") +
           theme_minimal() +
           theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -981,7 +981,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     #    bg = "white"
     #)
     # DRY_RUN: Uncomment this line to print plot.
-    #print(current_plot_object)
+    print(current_plot_object)
     #dev.off()
     readline(prompt = "Press [enter] to continue plot")
   }
