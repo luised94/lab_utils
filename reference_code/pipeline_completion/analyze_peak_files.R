@@ -758,6 +758,8 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       )
 
     # Create sorted versions if the dataframe has the required metrics
+    # Add a second if, following the early exit if pattern if I decided //
+    # to sort the files again.
     if (all(c("percent_recovered", "percent_enriched") %in% names(current_df))) {
       current_df <- current_df %>%
         mutate(
@@ -779,8 +781,15 @@ for (current_sample_id in sample_ids_to_plot_chr) {
           )
         )
     }
-    # Assign the processed dataframe back to the original variable
-    assign(current_df_name, current_df, envir = .GlobalEnv)
+    column_names <- names(current_df)
+    columns_to_process <- column_names[grep("processing_group.*", column_names)]
+    message(
+      sprintf("    Number of columns to plot with:\n", length(columns_to_process)),
+      paste("    ", columns_to_process, collapse = ", ")
+    )
+    ## Assign the processed dataframe back to the original variable
+    #assign(current_df_name, current_df, envir = .GlobalEnv)
+    message("  --- Processing subset dataframe end ---")
   }
 
   # --- How many peaks were recovered ---
@@ -876,10 +885,12 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     print(current_plot_object)
     #dev.off()
     readline(prompt = "Press [enter] to continue plot")
+    break # Add breakpoint to test first one
   }
 
   # Optional: Add interactive pause between samples
   # invisible(readline(prompt = "Press [enter] to continue to other sample"))
+  break # Add breakpoint to test first one
 }
 message("====================")
 stop("Breakpoint. Run plots...")
