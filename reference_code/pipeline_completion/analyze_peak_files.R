@@ -290,7 +290,8 @@ for (column_name in names(factor_levels_list)){
         "Validation failed for column '%s':\n  Levels defined but missing: %s\n  Available levels: %s",
         column_name,
         paste(missing_levels, collapse = ", "),
-        paste(actual_levels, collapse = ", ")
+        paste(actual_levels, collapse = ", "),
+        "All values must be explicitly assigned."
         ),
         call. = FALSE
     )
@@ -310,17 +311,19 @@ library(tidyverse)
 library(ggplot2)
 
 # Create and format processing group factor, and create sorted versions
+# Add metadata columns that will be used for plotting later on.
 final_metadata_df <- final_metadata_df %>%
   mutate(
-  # Create initial processing group
-  processing_group = factor(paste(bam_type, peak_type, sep = " + ")),
-  # Apply string replacements to shorten labels
-  processing_group = str_replace(processing_group, "Deduped", "Dedup"),
-  processing_group = str_replace(processing_group, "Shifted", "Shift"),
-  processing_group = str_replace(processing_group, " \\+ ", " ("),
-  processing_group = paste0(processing_group, ")")  # Close parentheses
-)
-# Add metadata columns that will be used for plotting later on.
+    processing_group = factor(
+      paste(bam_type, peak_type, sep = " + "),
+      levels = apply(expand.grid(factor_levels_list), 1, paste, collapse = " + "),
+      ordered = TRUE
+    )
+  )
+
+# Load libraries -------
+library(tidyverse)
+library(ggplot2)
 
 ##################################################################################
 # MAIN
