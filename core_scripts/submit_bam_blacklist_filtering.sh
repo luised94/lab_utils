@@ -44,7 +44,7 @@ printf '%s\n' "${unique_files[@]}" | column -c "${COLUMNS:-$(tput cols)}"
 printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
 
 echo -e "\nWill submit array job with following parameters:"
-echo "Array size: 1-${TOTAL_JOBS}"
+echo "Array size: 1-${BAM_COUNT}"
 echo "Max simultaneous jobs: 16"
 echo "Script: run_bam_blacklist_filtering.sbatch"
 echo "Working directory: ${EXPERIMENT_DIR}"
@@ -65,7 +65,7 @@ while [[ -z "$description" ]]; do
 done
 
 # --- Submit job and capture output ---
-job_submit_output=$(sbatch --array=1-"${TOTAL_JOBS}%16" \
+job_submit_output=$(sbatch --array=1-"${BAM_COUNT}%16" \
     "$HOME/lab_utils/core_scripts/run_bam_blacklist_filtering.sbatch" \
     "$EXPERIMENT_DIR")
 
@@ -79,7 +79,7 @@ job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
     echo "- Cluster: $(hostname)"
     echo "- Experiment dir: $EXPERIMENT_DIR"
     echo "- Command ran: $0"
-    echo "- sbatch command: sbatch --array=1-${TOTAL_JOBS}%16 $HOME/lab_utils/core_scripts/run_bam_blacklist_filtering.sbatch $EXPERIMENT_DIR"
+    echo "- sbatch command: sbatch --array=1-${BAM_COUNT}%16 $HOME/lab_utils/core_scripts/run_bam_blacklist_filtering.sbatch $EXPERIMENT_DIR"
     echo "- Files processed: $BAM_COUNT"
     echo "- Description: $description"
     echo ""
