@@ -79,11 +79,20 @@ job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
     echo "# $job_id"
     echo "- Submission time: $(date --iso-8601=seconds)"
     echo "- Cluster: $(hostname)"
+    # Git metadata
+    (
+        # Ensure the git commands are executed inside the repository.
+        cd "$HOME/lab_utils" || exit
+        echo "- Git commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
+        echo "- Git branch: $(git symbolic-ref --short HEAD 2>/dev/null || echo 'detached')"
+        echo "- Git status: $(git status --porcelain 2>/dev/null | wc -l) uncommitted changes"
+    )
     echo "- Experiment dir: $EXPERIMENT_DIR"
     echo "- Command ran: $0"
     echo "- sbatch command: sbatch --array=1-${FASTQ_COUNT}%16 $HOME/lab_utils/core_scripts/run_fastp_filter.sbatch $EXPERIMENT_DIR"
     echo "- FASTQ files processed: $FASTQ_COUNT"
     echo "- Description: $description"
+    echo "- Logs: {{fill out comments}}"
     echo ""
 } >> "$JOB_LOG"
 echo "Job $job_id submitted successfully. Details logged to $JOB_LOG"
