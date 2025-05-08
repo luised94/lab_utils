@@ -309,6 +309,7 @@ message("User specified columns converted to factors...")
 # Load libraries -------
 library(tidyverse)
 library(ggplot2)
+library(scales)
 
 # Create and format processing group factor, and create sorted versions
 # Add metadata columns that will be used for plotting later on.
@@ -867,19 +868,22 @@ for (current_sample_id in sample_ids_to_plot_chr) {
         plot_to_assign <- current_df %>%
           ggplot(aes(x = chromosome, y = count, fill = .data[[column_to_process]])) +
           geom_col(position = position_dodge(width = 0.8), width = 0.7) +
-          facet_wrap(input_type ~ processing_group, ncol = 2, strip.position = "top") +
-          scale_fill_brewer(palette = "Set2") +
+          facet_grid(input_type ~ processing_group, switch = "x") +
+          scale_fill_brewer(palette = "Set2", name = column_to_process) +
           labs(title = "Peak Counts by Chromosome",
               subtitle = paste("Sample:", bio_name),
                x = "Chromosome",
                y = "Peak Count",
                fill = column_to_process) +
           theme_minimal() +
-          theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-                strip.placement = "outside",
-                strip.background = element_rect(fill = "gray90", color = NA),
-                legend.position = "none",
-                panel.spacing = unit(1, "lines")
+          theme(
+                axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+                strip.background = element_blank(),
+                strip.placement  = "outside",
+                strip.text.x     = element_text(angle = 90, hjust = 1, vjust = 1),
+                plot.margin      = margin(t = 10, r = 10, b = 20, l = 10),
+                panel.spacing    = unit(1, "lines"),
+                legend.position  = "none"
                 )
         assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
 
@@ -898,17 +902,20 @@ for (current_sample_id in sample_ids_to_plot_chr) {
           facet_grid(rows = vars(sample_type),
                      cols = vars(input_type),
                      scales = "free_y") +
-          scale_fill_viridis_c(option = "plasma",
-                               breaks = c(0, 25, 50, 75, 100),
-                               limits = c(0, 100)) +
+          scale_fill_viridis_c(
+            option = "plasma",
+            name   = "Normalized\ncount (%)",
+            breaks = pretty_breaks(n = 5)
+          )
           labs(title = "Chromosomal Peak Distribution (Normalized %)",
                subtitle = paste("Sample:", bio_name),
                x = NULL,
-               y = "Processing Parameters") +
+               y = "Processing Method") +
           theme_minimal() +
-          theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-                panel.spacing = unit(1, "lines"),
-                strip.text = element_text(face = "bold"))
+          theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 0.5),
+                strip.text = element_text(face = "bold"),
+                strip.background = element_blank()
+                )
         assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
       } # Finish plots of chromosome dataframe
 
