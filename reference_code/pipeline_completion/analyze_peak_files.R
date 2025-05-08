@@ -305,6 +305,10 @@ for (col in names(factor_levels_list)) {
 }
 message("User specified columns converted to factors...")
 
+# Load libraries -------
+library(tidyverse)
+library(ggplot2)
+
 # Create and format processing group factor, and create sorted versions
 final_metadata_df <- final_metadata_df %>%
   mutate(
@@ -316,9 +320,6 @@ final_metadata_df <- final_metadata_df %>%
   processing_group = str_replace(processing_group, " \\+ ", " ("),
   processing_group = paste0(processing_group, ")")  # Close parentheses
 )
-# Load libraries -------
-library(tidyverse)
-library(ggplot2)
 # Add metadata columns that will be used for plotting later on.
 
 ##################################################################################
