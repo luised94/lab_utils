@@ -60,6 +60,7 @@ log_message "INFO" "Log directory: ${TASK_LOG_DIR}"
 module purge
 module load python/2.7.13
 module load deeptools/3.0.1
+module load samtools
 log_message "INFO" "Loaded required modules"
 
 # Find BAM files
@@ -97,22 +98,36 @@ log_message "INFO" "Input: ${BAM_PATH}"
 log_message "INFO" "Output: ${OUTPUT_BAM}"
 
 # Execute bamCoverage
-log_message "INFO" "Starting blacklist filtering processing"
-if measure_performance "blacklist_filtering" \
-  alignmentSieve --bam "${BAM_PATH}" \
-      --blackListFileName "$BLACKLIST_BED_FILE" \
-      --outFile "$OUTPUT_BAM" \
-      --numberOfProcessors $(( THREADS / 2 )); then
-    log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+if [ ! -f "$OUTPUT_BAM" ]; then
+  log_message "INFO" "Starting blacklist filtering processing"
+  if measure_performance "blacklist_filtering" \
+    alignmentSieve --bam "${BAM_PATH}" \
+        --blackListFileName "$BLACKLIST_BED_FILE" \
+        --outFile "$OUTPUT_BAM" \
+        --numberOfProcessors $(( THREADS / 2 )); then
+      log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+      if measure_performance "index" samtools index "$OUTPUT_BAM"; then
+        log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+      else
+        log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+        exit 1
+      fi
+  else
+      log_error "blacklist processing failed for ${SAMPLE_NAME}"
+      exit 1
+  fi
+else
+  log_message "SKIP" "File already exists: ${OUTPUT_BAM}"
+  if [ ! -f "${OUTPUT_BAM}.bai" ]; then
     if measure_performance "index" samtools index "$OUTPUT_BAM"; then
       log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
     else
       log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
       exit 1
     fi
-else
-    log_error "blacklist processing failed for ${SAMPLE_NAME}"
-    exit 1
+  else
+    log_message "SKIP" "File already exists: ${OUTPUT_BAM}.bai"
+  fi
 fi
 
 # Log completion
