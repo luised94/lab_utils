@@ -305,6 +305,22 @@ for (col in names(factor_levels_list)) {
 }
 message("User specified columns converted to factors...")
 
+# Create and format processing group factor, and create sorted versions
+final_metadata_df <- final_metadata_df %>%
+  mutate(
+  # Create initial processing group
+  processing_group = factor(paste(bam_type, peak_type, sep = " + ")),
+  # Apply string replacements to shorten labels
+  processing_group = str_replace(processing_group, "Deduped", "Dedup"),
+  processing_group = str_replace(processing_group, "Shifted", "Shift"),
+  processing_group = str_replace(processing_group, " \\+ ", " ("),
+  processing_group = paste0(processing_group, ")")  # Close parentheses
+)
+# Load libraries -------
+library(tidyverse)
+library(ggplot2)
+# Add metadata columns that will be used for plotting later on.
+
 ##################################################################################
 # MAIN
 ##################################################################################
@@ -635,21 +651,13 @@ summary_statistics_df <- summary_statistics_df[!apply(is.na(summary_statistics_d
 #METADATA_COLS_TO_KEEP <- setdiff(names(final_metadata_df), "file_paths")
 
 # Explicit merges
-chromosome_distribution_df <- merge(
-  chromosome_distribution_df,
-  final_metadata_df,
-  by = "file_path"
-)
-peak_statistics_df <- merge(
-  peak_statistics_df,
-  final_metadata_df,
-  by = "file_path"
-)
-summary_statistics_df <- merge(
-  summary_statistics_df,
-  final_metadata_df,
-  by = "file_path"
-)
+chromosome_distribution_df <- merge(chromosome_distribution_df, final_metadata_df,
+                                    by = "file_path")
+peak_statistics_df <- merge(peak_statistics_df, final_metadata_df,
+                            by = "file_path")
+summary_statistics_df <- merge(summary_statistics_df, final_metadata_df,
+                               by = "file_path")
+
 message("Merge complete...")
 #stopifnot(
   #"Percent recovered exceeds 100." = all(summary_statistics_df$percent_recovered <= 100),
@@ -671,8 +679,6 @@ sample_id_to_bio_name_map <- list(
 )
 
 # --- Plot results ---
-library(tidyverse)
-library(ggplot2)
 # Reference values for the plots
 reference_peak_count_int <- length(GENOME_FEATURES)
 recovery_reference_percent <- 100
@@ -746,16 +752,16 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     }
 
     # Create and format processing group factor, and create sorted versions
-    current_df <- current_df %>%
-      mutate(
-        # Create initial processing group
-        processing_group = factor(paste(bam_type, peak_type, sep = " + ")),
-        # Apply string replacements to shorten labels
-        processing_group = str_replace(processing_group, "Deduped", "Dedup"),
-        processing_group = str_replace(processing_group, "Shifted", "Shift"),
-        processing_group = str_replace(processing_group, " \\+ ", " ("),
-        processing_group = paste0(processing_group, ")")  # Close parentheses
-      )
+    #current_df <- current_df %>%
+    #  mutate(
+    #    # Create initial processing group
+    #    processing_group = factor(paste(bam_type, peak_type, sep = " + ")),
+    #    # Apply string replacements to shorten labels
+    #    processing_group = str_replace(processing_group, "Deduped", "Dedup"),
+    #    processing_group = str_replace(processing_group, "Shifted", "Shift"),
+    #    processing_group = str_replace(processing_group, " \\+ ", " ("),
+    #    processing_group = paste0(processing_group, ")")  # Close parentheses
+    #  )
 
     # Create sorted versions if the dataframe has the required metrics
     # Add a second if, following the early exit if pattern if I decided //
