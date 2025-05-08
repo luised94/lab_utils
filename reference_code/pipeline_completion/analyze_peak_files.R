@@ -447,7 +447,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
       peak_id = NA_character_,
       fold_enrichment = NA_real_,
       qvalue = NA_real_,
-      width = NA_real_,
+      peak_width = NA_real_,
       stringsAsFactors = FALSE
     )
     message("  Skipping to next iteration...")
@@ -632,7 +632,7 @@ for (row_index in seq_len(MAX_ROW_COUNT)) {
     file_path = rep(xls_file_path, number_of_peaks),
     peak_id = seq_len(number_of_peaks),
     xls_peak_df[c("fold_enrichment", "qvalue")],
-    width = peak_widths,
+    peak_width = peak_widths,
     stringsAsFactors = FALSE
   )
   message("  Added statistics to peak statistics list...")
@@ -788,7 +788,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     # Assign the processed dataframe back to the original variable
     assign(current_df_name, current_df, envir = .GlobalEnv)
 
-# Need to adjust the name of the columns to process
+    # Need to adjust the name of the columns to process
     for (column_to_process in columns_to_process) {
       message("    --- Plotting based on processing column ---")
       message(sprintf("      Plotting with: %s", column_to_process))
@@ -799,7 +799,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
           name_of_plot <- paste(current_df_name, column_to_process,
                                 y_column_to_plot, "plot", sep = "_")
           message(sprintf("      Assigning to: %s", name_of_plot))
-          # --- How many peaks were recovered ---
+          # --- How many peaks were recovered or enriched ---
           plot_to_assign <- ggplot(
             current_df,
             aes(x = .data[[column_to_process]], y = .data[[y_column_to_plot]],
@@ -822,12 +822,70 @@ for (current_sample_id in sample_ids_to_plot_chr) {
             theme_minimal() +
             theme(axis.text.x = element_text(angle = 45, hjust = 1))
             assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
-
-          }
-      }
+        }
+         # --- How many peaks were called ---
+         peak_count_plot <- ggplot(current_df,
+           aes(x = processing_group, y = num_peaks, fill = input_type)) +
+           geom_col(position = position_dodge(width = 0.9)) +
+           geom_hline(yintercept = reference_peak_count_int,
+                      linetype = "dashed",
+                      linewidth = 0.8,
+                      color = "black") +
+           geom_text(
+             aes(x = Inf, y = reference_peak_count_int,
+                 label = paste("Eaton Peaks =", reference_peak_count_int)),
+             vjust = -0.5, hjust = 1.1,
+             color = "black", size = 3.7, fontface = "bold") +
+           labs(title = "Number of Peaks Called",
+                subtitle = paste("Sample:", bio_name),
+                x = "Processing Method", y = "Count") +
+           theme_minimal() +
+           theme(axis.text.x = element_text(angle = 45, hjust = 1))
+      } # end if statement
 
       if (all(c("chromosome") %in% names(current_df))) {
         message("    Processing chromosome df")
+        name_of_plot <- paste(current_df_name, column_to_process,
+                              "chromsome_counts", "plot", sep = "_")
+        plot_to_assign <- current_df %>%
+          ggplot(aes(x = chromosome, y = count, fill = .data[[column_to_process]])) +
+          geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+          facet_wrap(input_type ~ .data[[column_to_process]], ncol = 2) +
+          scale_fill_brewer(palette = "Set2") +
+          labs(title = "Peak Counts by Chromosome",
+              subtitle = paste("Sample:", bio_name),
+               x = "Chromosome",
+               y = "Peak Count") +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+                legend.position = "none")  # Remove legend since facets show groups
+        assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
+        chromosome_norm_df <- current_df %>%
+          group_by(file_path) %>%
+          mutate(norm_count = count / sum(count) * 100) %>%
+          ungroup()
+        name_of_plot <- paste(current_df_name, column_to_process,
+                              "chromsoome_heatmap", "plot", sep = "_")
+        plot_to_assign <- chromosome_norm_df %>%
+          ggplot(aes(x = chromosome, y = .data[[column_to_process]], fill = norm_count)) +
+          geom_tile(color = "white", linewidth = 0.2) +
+          geom_text(aes(label = ifelse(norm_count > 5, round(norm_count, 1), "")), 
+                    color = "black", size = 2.5) +
+          facet_grid(rows = vars(sample_type),
+                     cols = vars(input_type),
+                     scales = "free_y") +
+          scale_fill_viridis_c(option = "plasma",
+                               breaks = c(0, 25, 50, 75, 100),
+                               limits = c(0, 100)) +
+          labs(title = "Chromosomal Peak Distribution (Normalized %)",
+               subtitle = paste("Sample:", bio_name),
+               x = NULL,
+               y = "Processing Parameters") +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+                panel.spacing = unit(0.5, "lines"),
+                strip.text = element_text(face = "bold"))
+        assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
       }
       if (all(c("fold_enrichment", "qvalue") %in% names(current_df))) {
         message("    Processing peak df")
@@ -835,74 +893,6 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     }
     message("  --- Processing subset dataframe end ---")
   }
-
-  # --- How many peaks were recovered ---
-  #peak_recovery_plot <- ggplot(
-    #current_summary_subset_df,
-    #aes(x = processing_group_srt_rec, y = percent_recovered,
-        #color = input_type, group = input_type)) +
-    #geom_hline(yintercept = recovery_reference_percent,
-               #linetype = "dashed", color = "black", linewidth = 0.8) +
-    #geom_text(aes(x = Inf, y = recovery_reference_percent,
-              #label = paste("Reference =", recovery_reference_percent, "%")),
-              #vjust = -0.5, hjust = 1.1,
-              #color = "black", size = 3.5) +
-    #geom_line(linewidth = 0.7, alpha = 0.5) +
-    #geom_point(size = 3) +
-    #geom_text(aes(label = round(percent_recovered, 1)),
-              #vjust = -1, size = 3, show.legend = FALSE) +
-    #labs(title = "Peak Recovery by Processing Method",
-      #subtitle = paste("Sample:", bio_name),
-      #x = "Processing Method (sorted by recovery %)",
-      #y = "Peaks Recovered (%)",
-      #color = "Input Control") +
-    #theme_minimal() +
-    #theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-  # --- How many peaks are enriched  ---
-  #peak_enrichment_plot <- ggplot(
-    #current_summary_subset_df,
-    #aes(x = processing_group_srt_enr, y = percent_enriched,
-        #color = input_type, group = input_type)
-    #) +
-    #geom_hline(yintercept = recovery_reference_percent,
-               #linetype = "dashed", color = "black", linewidth = 0.8) +
-    #geom_text(
-      #aes(x = Inf, y = recovery_reference_percent,
-          #label = paste("Reference =", recovery_reference_percent, "%")),
-      #vjust = -0.5, hjust = 1.1,
-      #color = "black", size = 3.5) +
-    #geom_line(linewidth = 0.7, alpha = 0.5) +
-    #geom_point(size = 3) +
-    #geom_text(
-      #aes(label = round(percent_enriched, 1)),
-          #vjust = -1, size = 3, show.legend = FALSE) +
-      #labs(title = "Peak Enrichment by Processing Method",
-           #subtitle = paste("Sample:", bio_name),
-           #x = "Processing Method (sorted by recovery %)",
-           #y = "Peaks Enriched (%)",
-           #color = "Input Control") +
-    #theme_minimal() +
-    #theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-  # --- How many peaks were called ---
-  #peak_count_plot <- ggplot(current_summary_subset_df,
-    #aes(x = processing_group, y = num_peaks, fill = input_type)) +
-    #geom_col(position = position_dodge(width = 0.9)) +
-    #geom_hline(yintercept = reference_peak_count_int,
-               #linetype = "dashed",
-               #linewidth = 0.8,
-               #color = "black") +
-    #geom_text(
-      #aes(x = Inf, y = reference_peak_count_int,
-          #label = paste("Eaton Peaks =", reference_peak_count_int)),
-      #vjust = -0.5, hjust = 1.1,
-      #color = "black", size = 3.7, fontface = "bold") +
-    #labs(title = "Number of Peaks Called",
-         #subtitle = paste("Sample:", bio_name),
-         #x = "Processing Method", y = "Count") +
-    #theme_minimal() +
-    #theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
   # Get all ggplot objects from environment
   # This for loop forces me to assing the plots names but //
@@ -923,13 +913,15 @@ for (current_sample_id in sample_ids_to_plot_chr) {
       paste0(current_plot_name, "_", bio_name, ".svg")
     )
     message(sprintf("  Saving to: %s", plot_output_path))
+    # DRY_RUN: Uncomment svglite and dev.off to save.
     #svglite::svglite(
     #    filename = plot_output_path,
     #    width = 10,
     #    height = 8,
     #    bg = "white"
     #)
-    print(current_plot_object)
+    # DRY_RUN: Uncomment this line to print plot.
+    #print(current_plot_object)
     #dev.off()
     readline(prompt = "Press [enter] to continue plot")
   }
@@ -978,7 +970,7 @@ ggplot(peak_statistics_df, aes(x = fold_enrichment, fill = bam_type)) +
        x = "Fold Enrichment", y = "Density") +
   coord_cartesian(xlim = c(0, 20))
 
-ggplot(peak_statistics_df, aes(x = interaction(bam_type, peak_type), y = width)) +
+ggplot(peak_statistics_df, aes(x = interaction(bam_type, peak_type), y = peak_width)) +
   geom_violin(aes(fill = peak_type), scale = "width", trim = TRUE) +
   geom_boxplot(width = 0.1, outlier.shape = NA) +
   scale_y_log10() +
