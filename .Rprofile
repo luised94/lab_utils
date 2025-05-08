@@ -31,4 +31,7 @@ if(interactive()){
     vim_command <- paste("vim", path, sep = " ")
     system(vim_command)
   }
+  git_pull <- function(){
+    system("git pull")
+  }
 }
