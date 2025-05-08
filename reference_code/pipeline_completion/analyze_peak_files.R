@@ -781,86 +781,122 @@ for (current_sample_id in sample_ids_to_plot_chr) {
           )
         )
     }
+
     column_names <- names(current_df)
     columns_to_process <- column_names[grep("processing_group.*", column_names)]
     message(
-      sprintf("    Number of columns to plot with:\n", length(columns_to_process)),
+      sprintf("    Number of columns to plot is %s:\n", length(columns_to_process)),
       paste("    ", columns_to_process, collapse = ", ")
     )
-    ## Assign the processed dataframe back to the original variable
-    #assign(current_df_name, current_df, envir = .GlobalEnv)
+    # Assign the processed dataframe back to the original variable
+    assign(current_df_name, current_df, envir = .GlobalEnv)
+
+    for (column_to_process in columns_to_process) {
+      message("    --- Plotting based on processing column ---")
+      name_of_plot <- paste(current_df_name, column_to_process, "plot", sep = "_")
+      message(sprintf("      Plotting with: %s", column_to_process))
+      message(sprintf("      Assigning to: %s", name_of_plot))
+# need to assign I think, then I can use paste to create the name
+      if (all(c("percent_recovered", "percent_enriched") %in% names(current_df))) {
+        plot_to_assign <- ggplot(
+          current_df,
+          aes(x = .data[[column_to_process]], y = percent_recovered,
+              color = input_type, group = input_type)) +
+          geom_hline(yintercept = recovery_reference_percent,
+                    linetype = "dashed", color = "black", linewidth = 0.8) +
+          geom_text(aes(x = Inf, y = recovery_reference_percent,
+                    label = paste("Reference =", recovery_reference_percent, "%")),
+                    vjust = -0.5, hjust = 1.1,
+                    color = "black", size = 3.5) +
+          geom_line(linewidth = 0.7, alpha = 0.5) +
+          geom_point(size = 3) +
+          geom_text(aes(label = round(percent_recovered, 1)),
+                    vjust = -1, size = 3, show.legend = FALSE) +
+          labs(title = "Peak Recovery by Processing Method",
+            subtitle = paste("Sample:", bio_name),
+            x = "Processing Method (sorted by recovery %)",
+            y = "Peaks Recovered (%)",
+            color = "Input Control") +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1))
+          assign(name_of_plot, plot_to_assign, envir = .GlobalEnv)
+      }
+    }
     message("  --- Processing subset dataframe end ---")
   }
 
   # --- How many peaks were recovered ---
-  peak_recovery_plot <- ggplot(
-    current_sample_subset_df,
-    aes(x = processing_group_srt_rec, y = percent_recovered,
-        color = input_type, group = input_type)) +
-    geom_hline(yintercept = recovery_reference_percent,
-               linetype = "dashed", color = "black", linewidth = 0.8) +
-    geom_text(aes(x = Inf, y = recovery_reference_percent,
-              label = paste("Reference =", recovery_reference_percent, "%")),
-              vjust = -0.5, hjust = 1.1,
-              color = "black", size = 3.5) +
-    geom_line(linewidth = 0.7, alpha = 0.5) +
-    geom_point(size = 3) +
-    geom_text(aes(label = round(percent_recovered, 1)),
-              vjust = -1, size = 3, show.legend = FALSE) +
-    labs(title = "Peak Recovery by Processing Method",
-      subtitle = paste("Sample:", bio_name),
-      x = "Processing Method (sorted by recovery %)",
-      y = "Peaks Recovered (%)",
-      color = "Input Control") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  #peak_recovery_plot <- ggplot(
+    #current_sample_subset_df,
+    #aes(x = processing_group_srt_rec, y = percent_recovered,
+        #color = input_type, group = input_type)) +
+    #geom_hline(yintercept = recovery_reference_percent,
+               #linetype = "dashed", color = "black", linewidth = 0.8) +
+    #geom_text(aes(x = Inf, y = recovery_reference_percent,
+              #label = paste("Reference =", recovery_reference_percent, "%")),
+              #vjust = -0.5, hjust = 1.1,
+              #color = "black", size = 3.5) +
+    #geom_line(linewidth = 0.7, alpha = 0.5) +
+    #geom_point(size = 3) +
+    #geom_text(aes(label = round(percent_recovered, 1)),
+              #vjust = -1, size = 3, show.legend = FALSE) +
+    #labs(title = "Peak Recovery by Processing Method",
+      #subtitle = paste("Sample:", bio_name),
+      #x = "Processing Method (sorted by recovery %)",
+      #y = "Peaks Recovered (%)",
+      #color = "Input Control") +
+    #theme_minimal() +
+    #theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
   # --- How many peaks are enriched  ---
-  peak_enrichment_plot <- ggplot(
-    current_sample_subset_df,
-    aes(x = processing_group_srt_enr, y = percent_enriched,
-        color = input_type, group = input_type)
-    ) +
-    geom_hline(yintercept = recovery_reference_percent,
-               linetype = "dashed", color = "black", linewidth = 0.8) +
-    geom_text(
-      aes(x = Inf, y = recovery_reference_percent,
-          label = paste("Reference =", recovery_reference_percent, "%")),
-      vjust = -0.5, hjust = 1.1,
-      color = "black", size = 3.5) +
-    geom_line(linewidth = 0.7, alpha = 0.5) +
-    geom_point(size = 3) +
-    geom_text(
-      aes(label = round(percent_enriched, 1)),
-          vjust = -1, size = 3, show.legend = FALSE) +
-      labs(title = "Peak Enrichment by Processing Method",
-           subtitle = paste("Sample:", bio_name),
-           x = "Processing Method (sorted by recovery %)",
-           y = "Peaks Enriched (%)",
-           color = "Input Control") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  #peak_enrichment_plot <- ggplot(
+    #current_sample_subset_df,
+    #aes(x = processing_group_srt_enr, y = percent_enriched,
+        #color = input_type, group = input_type)
+    #) +
+    #geom_hline(yintercept = recovery_reference_percent,
+               #linetype = "dashed", color = "black", linewidth = 0.8) +
+    #geom_text(
+      #aes(x = Inf, y = recovery_reference_percent,
+          #label = paste("Reference =", recovery_reference_percent, "%")),
+      #vjust = -0.5, hjust = 1.1,
+      #color = "black", size = 3.5) +
+    #geom_line(linewidth = 0.7, alpha = 0.5) +
+    #geom_point(size = 3) +
+    #geom_text(
+      #aes(label = round(percent_enriched, 1)),
+          #vjust = -1, size = 3, show.legend = FALSE) +
+      #labs(title = "Peak Enrichment by Processing Method",
+           #subtitle = paste("Sample:", bio_name),
+           #x = "Processing Method (sorted by recovery %)",
+           #y = "Peaks Enriched (%)",
+           #color = "Input Control") +
+    #theme_minimal() +
+    #theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
   # --- How many peaks were called ---
-  peak_count_plot <- ggplot(current_sample_subset_df,
-    aes(x = processing_group, y = num_peaks, fill = input_type)) +
-    geom_col(position = position_dodge(width = 0.9)) +
-    geom_hline(yintercept = reference_peak_count_int,
-               linetype = "dashed",
-               linewidth = 0.8,
-               color = "black") +
-    geom_text(
-      aes(x = Inf, y = reference_peak_count_int,
-          label = paste("Eaton Peaks =", reference_peak_count_int)),
-      vjust = -0.5, hjust = 1.1,
-      color = "black", size = 3.7, fontface = "bold") +
-    labs(title = "Number of Peaks Called",
-         subtitle = paste("Sample:", bio_name),
-         x = "Processing Method", y = "Count") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  #peak_count_plot <- ggplot(current_sample_subset_df,
+    #aes(x = processing_group, y = num_peaks, fill = input_type)) +
+    #geom_col(position = position_dodge(width = 0.9)) +
+    #geom_hline(yintercept = reference_peak_count_int,
+               #linetype = "dashed",
+               #linewidth = 0.8,
+               #color = "black") +
+    #geom_text(
+      #aes(x = Inf, y = reference_peak_count_int,
+          #label = paste("Eaton Peaks =", reference_peak_count_int)),
+      #vjust = -0.5, hjust = 1.1,
+      #color = "black", size = 3.7, fontface = "bold") +
+    #labs(title = "Number of Peaks Called",
+         #subtitle = paste("Sample:", bio_name),
+         #x = "Processing Method", y = "Count") +
+    #theme_minimal() +
+    #theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
   # Get all ggplot objects from environment
+  # This for loop forces me to assing the plots names but //
+  # it saves me having to repeat the svglite every time //
+  # I plot and want to save. //
   plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
   for (current_plot_name in plot_object_names) {
     message("  --- Plotting variables ---")
@@ -888,12 +924,10 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     break # Add breakpoint to test first one
   }
 
-  # Optional: Add interactive pause between samples
-  # invisible(readline(prompt = "Press [enter] to continue to other sample"))
   break # Add breakpoint to test first one
 }
 message("====================")
-stop("Breakpoint. Run plots...")
+stop("Stop point. Run plots...")
 # Create the trade-off plot using your variables
 #recovery_enrichment_scatter_plot <-
 ggplot(
