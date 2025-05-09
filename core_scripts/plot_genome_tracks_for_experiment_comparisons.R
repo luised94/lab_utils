@@ -475,24 +475,6 @@ if (RUNTIME_CONFIG$debug_verbose) {
     message("- Comparisons: ", paste(comparisons_to_process, collapse = ", "))
 }
 
-#if (RUNTIME_CONFIG$debug_verbose) {
-#    message("\nCalculating global range for all tracks...")
-#}
-
-#limits_result <- calculate_track_limits(
-#    bigwig_files = bigwig_files,
-#    genome_range = genome_range,
-#    padding_fraction = 0.1,
-#    verbose = RUNTIME_CONFIG$debug_verbose
-#)
-#
-#if (!limits_result$success) {
-#    warning("Failed to calculate y-limits: ", limits_result$error)
-#    y_limits <- c(0, 1000)  # Default fallback
-#} else {
-#    y_limits <- limits_result$data
-#}
-
 ################################################################################
 # Main script logic for plotting experiment comparisons of genomic tracks
 ################################################################################
