@@ -247,6 +247,8 @@ VIEWER_CONFIG <- list(
     display_height = 8
 )
 
+# TODO: Requires overhaul. I like having them inside the list but //
+# TODO: the prefix strategy may be too verbose and annoying. //
 GENOME_TRACK_CONFIG <- list(
     use_custom_visualization = FALSE,  # Control flag
 

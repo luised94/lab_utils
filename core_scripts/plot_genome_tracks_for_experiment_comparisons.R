@@ -159,6 +159,15 @@ if (!is.null(args$override)) {
  ))
 }
 
+################################################################################
+# Required configuration settings validation
+################################################################################
+# Ensure that the variables from the _CONFIG variables are set.
+# TODO: Add simple for loop or lapply that validates the required variables from the _CONFIG variable used in the script.
+#required_configuration_settings <- c()
+
+# Checkpoint handler ---------------------------
+# See the settings before running.
 handle_configuration_checkpoint(
     accept_configuration = accept_configuration,
     experiment_id = experiment_id
@@ -169,6 +178,7 @@ handle_configuration_checkpoint(
 ################################################################################
 # !! Add directories here.
 required_directories <- c("fastq", "documentation", "coverage")
+# Creates directories and stores them in dirs variable.
 dirs <- setup_experiment_dirs(
     experiment_dir = experiment_dir,
     output_dir_name = "plots",
@@ -178,6 +188,7 @@ dirs <- setup_experiment_dirs(
 # Control output directory here.
 dirs$output_dir <- file.path(dirs$plots, "genome_tracks", "experimental_comparisons")
 dir.create(dirs$output_dir, recursive = TRUE, showWarnings = FALSE)
+
 # Find fastq files and extract sample IDs
 fastq_files <- list.files(
     path = dirs$fastq,
@@ -195,6 +206,7 @@ bigwig_files <- list.files(
     pattern = bigwig_pattern,
     full.names = TRUE
 )
+bigwig_basenames <- basename(bigwig_files)
 
 normalization_method <- sub(
     ".*_([^_]+)\\.bw$",
@@ -213,10 +225,11 @@ if (length(fastq_files) == 0) {
     sample_ids <- gsub(
         pattern = GENOME_TRACK_CONFIG$file_sample_id_from_bigwig,
         replacement = "\\1",
-        x = basename(bigwig_files)
+        x = bigwig_basenames
     )
     stopifnot(
-        "Length of samples_ids is not lower than length of bigwig files." = all(nchar(sample_ids) < nchar(basename(bigwig_files)))
+        "Length of samples_ids is not lower than length of bigwig files." =
+         all(nchar(sample_ids) < nchar(basename(bigwig_files)))
     )
 } else {
     # Extract sample IDs from fastq filenames
@@ -226,13 +239,20 @@ if (length(fastq_files) == 0) {
         x = fastq_files
     )
     stopifnot(
-        "Length of samples_ids is not lower than length of fastq files." = all(nchar(sample_ids) < nchar(fastq_files))
+        "Length of samples_ids is not lower than length of fastq files." =
+        all(nchar(sample_ids) < nchar(fastq_files))
     )
 }
 
 if (any(nchar(sample_ids) == 0)) {
-  warning("Empty sample IDs extracted from files: ", 
-          paste(bigwig_basenames[nchar(sample_ids) == 0], collapse = ", "))
+  empty_ids <- bigwig_basenames[nchar(sample_ids) == 0]
+  message(
+    "Some sample_ids are empty.\n",
+    "Number of files with missing ids:", length(empty_ids), "\n",
+    "Affected files: ", paste(empty_ids, collapse = ", "), "\n"
+    )
+  stop("Some sample ids are empty.\nCheck your file name extraction pattern.\nEach sample id must be non-empty.")
+
 }
 
 if (RUNTIME_CONFIG$debug_verbose) {
