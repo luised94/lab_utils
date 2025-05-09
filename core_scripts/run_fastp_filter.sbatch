@@ -93,7 +93,8 @@ mkdir -p "$OUTPUT_QC"
 # Validate output path doesn't already exist (optional)
 if [ -f "$OUTPUT_FASTQ" ]; then
     log_message "WARNING" "Output file already exists: ${OUTPUT_FASTQ}"
-    exit 1
+    log_message "INFO" "Task completed successfully"
+    exit 0
 fi
 
 log_message "INFO" "Processing sample: ${SAMPLE_ID}"
