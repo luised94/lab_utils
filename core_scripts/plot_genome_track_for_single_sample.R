@@ -1,4 +1,17 @@
 #!/usr/bin/env Rscript
+###############################################################################
+# Plot bigwig files generated from bam from same sample but differentially processed
+################################################################################
+# PURPOSE: Plot bigwig files to see if blacklist filtering helps samples with many reads
+#          at the ends or in blacklisted regions
+# USAGE: source("reference_code/pipeline_completion/plot_bigwig_files.R")
+# DEPENDENCIES: GenomicRanges, rtracklayer
+# OUTPUT: svg plots with comparisons for cpm/rpkm/raw and for shifted/raw/deduped for cpm counts
+# AUTHOR: LEMR
+# DATE: 2025-02-25
+# DATE_V1_COMPLETE: 2025-04-08
+# DATE_V2_COMPLETE: 2025-05-02
+################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {

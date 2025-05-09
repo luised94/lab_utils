@@ -25,6 +25,10 @@ The next set of scripts run an sbatch file that contains the information for slu
   > Use the plot_*.R scripts to see the coverage files as genomic tracks.
   > Ensure override_configuration is present in the server using rsync.
   > Recommend running {} and then {}.
+```{bash}
+Rscript plot_*.R --experiment-id=<experiment-id> --accept-configuration --override=
+Rscript plot_*.R --experiment-id=<experiment-id> --accept-configuration --override=
+```
 8. Call peaks (submit_macs2_peak_calling.sh).
 9. TODO: Determine motifs.
 10. TODO: Perform factor analysis.

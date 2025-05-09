@@ -1,4 +1,16 @@
 #!/usr/bin/env Rscript
+###############################################################################
+# Plot bigwig files based on EXPERIMENT_COMPARISONS list.
+################################################################################
+# PURPOSE: Plot specific comparions for an experiment-id specified in the bmc_config.
+# USAGE: ./plot_genome_tracks_for_experiment_comparisons.R --experiment-id=<experiment-id> <options>
+# DEPENDENCIES: GenomicRanges, rtracklayer
+# OUTPUT: svg plots with comparisons defined in the bmc_config EXPERIMENT_COMPARISONS list.
+# AUTHOR: LEMR
+# DATE: 2025-02-25
+# DATE_V1_COMPLETE: 2025-04-08
+# DATE_V2_COMPLETE: 2025-05-02
+################################################################################
 # replace all metadata
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")

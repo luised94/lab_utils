@@ -1,4 +1,15 @@
 #!/usr/bin/env Rscript
+###############################################################################
+# Plot bigwig files from multiple experiment-id
+################################################################################
+# PURPOSE: Plot replicates from multiple distinct experiment-id directories.
+# USAGE: ./plot_genome_tracks_from_replicates.R --experiment-id=<experiment-id> <options>
+# DEPENDENCIES: GenomicRanges, rtracklayer
+# OUTPUT: svg plots with same samples from different experiment-ids 
+# AUTHOR: LEMR
+# DATE: 2025-02-25
+# NOTE: Metadata has to be the same. Should add that assertion
+################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
