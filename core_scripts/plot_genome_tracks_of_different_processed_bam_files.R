@@ -192,10 +192,11 @@ fastq_files <- list.files(
 )
 
 # Find bigwig files
-bigwig_pattern <- sprintf(
-    "processed_.*_sequence_to_S288C_%s\\.bw$",
-    EXPERIMENT_CONFIG$NORMALIZATION$active
-)
+bigwig_pattern <- GENOME_TRACK_CONFIG$file_sample_id_from_bigwig
+#bigwig_pattern <- sprintf(
+#    "processed_.*_sequence_to_S288C_%s\\.bw$",
+#    EXPERIMENT_CONFIG$NORMALIZATION$active
+#)
 
 bigwig_files <- list.files(
     dirs$coverage,
@@ -209,7 +210,7 @@ fastq_basenames <- basename(fastq_files)
 normalization_method <- sub(
     ".*_([^_]+)\\.bw$",
     "\\1",
-    basename(bigwig_files[1])
+    bigwig_basenames[1]
 )
 
 if (length(bigwig_files) == 0) {
