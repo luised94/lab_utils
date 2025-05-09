@@ -467,10 +467,25 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
 
   message(
     sprintf("  Current sample id: %s\n  Amount of bigwig files to plot: %s",
-    current_sample_id, length(current_bigwig_files_subset))
+      current_sample_id, length(current_bigwig_files_subset))
   )
   #message("  Current row:")
   #print(current_row_df)
+
+  # Initialize track list with genome axis
+  tracks <- list(
+    Gviz::GenomeAxisTrack(
+    # name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
+    name = sprintf(
+        GENOME_TRACK_CONFIG$format_genome_axis_track_name, 
+        chromosome_to_plot
+        )
+    )
+  )
+  for (bigwig_file in current_bigwig_files_subset) {
+    message("--- For loop for bigwig file ---")
+
+  }
 }
 # End message -------
 message("Script completed succesfully...")
