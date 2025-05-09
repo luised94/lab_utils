@@ -453,6 +453,15 @@ if (RUNTIME_CONFIG$debug_verbose) {
 is_CPM_bw_file <- grepl("CPM\\.bw$", bigwig_files)
 bigwig_files_subset <- bigwig_files[is_CPM_bw_file]
 
+# Initialize track list with genome axis
+tracks <- list(
+  Gviz::GenomeAxisTrack(
+  name = sprintf(
+    GENOME_TRACK_CONFIG$format_genome_axis_track_name,
+    chromosome_to_plot
+    )
+  )
+)
 MAX_ROW <- nrow(metadata_df)
 for (row_idx in seq_len(MAX_ROW)[1:3]) {
   message("--- For loop for metadata ---")
@@ -472,19 +481,59 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
   #message("  Current row:")
   #print(current_row_df)
 
-  # Initialize track list with genome axis
-  tracks <- list(
-    Gviz::GenomeAxisTrack(
-    # name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
-    name = sprintf(
-        GENOME_TRACK_CONFIG$format_genome_axis_track_name, 
-        chromosome_to_plot
-        )
-    )
-  )
   for (bigwig_file in current_bigwig_files_subset) {
     message("--- For loop for bigwig file ---")
+    message(" Current bigwig file: ", bigwig_file)
+    track_creation_result <- create_sample_track(
+      bigwig_file_path = bigwig_file_path,
+      track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
+      format_args = track_name_arguments,
+      track_color = track_color,
+      track_type = GENOME_TRACK_CONFIG$track_defaults_sample$type,
+      genomic_range = genome_range,
+      track_params = GENOME_TRACK_CONFIG$track_defaults_sample,
+      verbose = RUNTIME_CONFIG$debug_verbose
+    )
 
+    if (track_creation_result$success) {
+      message(sprintf("  Successfully created track for sample: %s", sample_id))
+      tracks[[length(tracks) + 1]] <- track_creation_result$data
+    }
+
+  }
+  # Add feature track if available
+  if (exists("features")) {
+    tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
+      features,
+      name = "Features",
+      size = 0.5,
+      background.title = "lightgray",
+      fontcolor.title = "black",
+      cex.title = 0.6
+    )
+  }
+  #if (RUNTIME_CONFIG$output_dry_run) {
+  if (TRUE) {
+    # Display only
+    execute_track_plot(
+      plot_config = plot_config,
+      plot_params = GENOME_TRACK_CONFIG$plot_defaults,
+      display_plot = TRUE,
+      verbose = RUNTIME_CONFIG$debug_verbose
+    )
+  } else {
+    # Save plot
+    execute_track_plot(
+      plot_config = plot_config,
+      save_path = plot_file,
+      save_params = list(
+        width = GENOME_TRACK_CONFIG$display_width,
+        height = GENOME_TRACK_CONFIG$display_height
+      ),
+      plot_params = GENOME_TRACK_CONFIG$plot_defaults,
+      display_plot = FALSE,
+      verbose = RUNTIME_CONFIG$debug_verbose
+    )
   }
 }
 # End message -------
