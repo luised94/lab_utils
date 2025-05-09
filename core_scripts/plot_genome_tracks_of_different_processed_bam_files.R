@@ -282,7 +282,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
 
 # Load csv, turn into factors, ensure proper order, add sample id column.
 # INQ: Should be "cached"?
-metadata <- load_and_process_experiment_metadata(
+metadata_df <- load_and_process_experiment_metadata(
   metadata_path = metadata_path,
   categories = EXPERIMENT_CONFIG$CATEGORIES,
   column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
@@ -297,21 +297,21 @@ color_scheme <- create_color_scheme(
         input = GENOME_TRACK_CONFIG$color_input
     ),
     categories = list(
-        antibody = unique(metadata$antibody),
-        rescue_allele = unique(metadata$rescue_allele)
+        antibody = unique(metadata_df$antibody),
+        rescue_allele = unique(metadata_df$rescue_allele)
     )
 )
 
 # Shorten sample ids to minimal distinguishing set
 short_sample_ids <- create_minimal_identifiers(
-  metadata$sample_id,
+  metadata_df$sample_id,
   verbose = RUNTIME_CONFIG$debug_verbose
 )
 
 # Create mapping between full and short IDs
 sample_id_mapping <- setNames(
   short_sample_ids,
-  metadata$sample_id
+  metadata_df$sample_id
 )
 
 if (RUNTIME_CONFIG$debug_verbose) {
@@ -319,11 +319,11 @@ if (RUNTIME_CONFIG$debug_verbose) {
   # Metadata Loading
   message("\nMetadata Processing:")
   message(sprintf("  Source: %s", basename(metadata_path)))
-  message(sprintf("  Rows: %d", nrow(metadata)))
-  message(sprintf("  Columns: %d", ncol(metadata)))
+  message(sprintf("  Rows: %d", nrow(metadata_df)))
+  message(sprintf("  Columns: %d", ncol(metadata_df)))
   message("  Required columns present:")
   invisible(lapply(EXPERIMENT_CONFIG$COLUMN_ORDER, function(col) {
-    message(sprintf("    %s: %s", col, col %in% colnames(metadata)))
+    message(sprintf("    %s: %s", col, col %in% colnames(metadata_df)))
   }))
   # Sample ID Mapping
   message("\nSample ID Processing:")
@@ -340,11 +340,11 @@ if (RUNTIME_CONFIG$debug_verbose) {
   message(sprintf("    Input: %s", GENOME_TRACK_CONFIG$color_input))
   message("\n  Category Colors:")
   message("    Antibody:")
-  invisible(lapply(unique(metadata$antibody), function(ab) {
+  invisible(lapply(unique(metadata_df$antibody), function(ab) {
     message(sprintf("      %s: %s", ab, color_scheme$get_color("antibody", ab)))
   }))
   message("    Rescue Allele:")
-  invisible(lapply(unique(metadata$rescue_allele), function(ra) {
+  invisible(lapply(unique(metadata_df$rescue_allele), function(ra) {
     message(sprintf("      %s: %s", ra, color_scheme$get_color("rescue_allele", ra)))
   }))
   message("\n=== Initialization Complete ===")
@@ -445,5 +445,21 @@ if (RUNTIME_CONFIG$debug_verbose) {
     print_debug_info(debug_info)
 }
 
+
+################################################################################
+# MAIN
+################################################################################
+# Filter all of the bigwig files 
+MAX_ROW <- nrow(metadata_df)
+for (row_idx in seq_len(MAX_ROW)) {
+  message("--- For loop for metadata ---")
+  message(
+    sprintf("  Processing row: %s / %s ",
+    row_idx, MAX_ROW)
+  )
+  current_row_df <- metadata_df[row_idx, ]
+  message("  Current row:")
+  print(current_row_df)
+}
 # End message -------
 message("Script completed succesfully...")
