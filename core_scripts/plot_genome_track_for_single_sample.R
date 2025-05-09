@@ -1,10 +1,9 @@
 #!/usr/bin/env Rscript
 ###############################################################################
-# Plot bigwig files generated from bam from same sample but differentially processed
+# 
 ################################################################################
-# PURPOSE: Plot bigwig files to see if blacklist filtering helps samples with many reads
-#          at the ends or in blacklisted regions
-# USAGE: source("reference_code/pipeline_completion/plot_bigwig_files.R")
+# PURPOSE: Not sure if this was a testing script or not.
+# USAGE: ./core_scripts/plot_genome_track_for_single_sample.R
 # DEPENDENCIES: GenomicRanges, rtracklayer
 # OUTPUT: svg plots with comparisons for cpm/rpkm/raw and for shifted/raw/deduped for cpm counts
 # AUTHOR: LEMR
@@ -28,9 +27,6 @@ required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 check_required_packages(required_packages, verbose = TRUE, skip_validation = FALSE)
 
 config_path <- "~/lab_utils/core_scripts/template_bmc_config.R"
-override_path <- "~/lab_utils/core_scripts/override_configuration.R"
-safe_source(config_path)
-safe_source(override_path)
 
 ################################################################################
 # Load and Validate Experiment Configuration and Dependencies
@@ -49,7 +45,7 @@ required_modules <- list(
     ),
     list(
         path = config_path,
-        description = "Functions to load genome track objects for plotting",
+        description = "Load the configuration file with all the settings.",
         required = TRUE
     )
 )

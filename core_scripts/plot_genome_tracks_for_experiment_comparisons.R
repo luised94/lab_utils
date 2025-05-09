@@ -40,7 +40,6 @@ file_identifier <- if (is_template) "template" else args$experiment_id
 config_path <- file.path(file_directory, paste0(file_identifier, "_bmc_config.R"))
 metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
 
-
 args_info <- list(
     title = "Script Configuration",
     "script.name" = get_script_name(),
