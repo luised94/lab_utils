@@ -123,6 +123,7 @@ fi
 
 # Execute bamCoverage
 log_message "INFO" "Starting bamCoverage processing"
+# shellcheck disable=SC2086 # Intentional: $COMMON_PARAMS should be word-split
 if ! measure_performance "bamcoverage" bamCoverage $COMMON_PARAMS; then
     log_error "bamCoverage processing failed for ${SAMPLE_NAME}"
     exit 1

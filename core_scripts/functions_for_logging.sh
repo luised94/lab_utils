@@ -4,6 +4,43 @@
 # Author: Luis
 # Date: 2025-01-08
 
+# FIX: No error handling for any of the functions...
+# setup_logging has to be used before the others are called.
+setup_logging() {
+    local tool_name="$1"
+
+    if [[ -z "$tool_name" || ! "$tool_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        if [[ -z "$tool_name" ]]; then
+            echo "Error: Tool name cannot be empty" >&2
+        else
+            echo "Error: Invalid tool name. Must contain only alphanumeric characters, underscores, and hyphens." >&2
+        fi
+        return 1
+    fi
+
+    if [[ ${#tool_name} -gt 50 ]]; then
+        echo "Error: Tool name too long (max 50 characters)" >&2
+        return 1
+    fi
+
+    local log_root="$HOME/logs" # Or get from config/env var
+    local current_month=$(date +%Y-%m)
+    local month_dir="${log_root}/${current_month}"
+    local tool_dir="${month_dir}/${tool_name}"
+    local job_log_dir="${tool_dir}/job_${SLURM_ARRAY_JOB_ID}"
+    local task_log_dir="${job_log_dir}/task_${SLURM_ARRAY_TASK_ID}"
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+
+    if ! mkdir -p "$task_log_dir"; then
+        echo "Error: Failed to create log directory: $task_log_dir" >&2
+        return 1
+    fi
+
+    printf "MAIN_LOG='%s'\nERROR_LOG='%s'\nPERFORMANCE_LOG='%s'\nTASK_LOG_DIR='%s'\nJOB_LOG_DIR='%s'\nTOOL_DIR='%s'\n" \
+           "${task_log_dir}/main_${timestamp}.log" "${task_log_dir}/error_${timestamp}.log" "${task_log_dir}/performance_${timestamp}.log" \
+           "${task_log_dir}" "${job_log_dir}" "${tool_dir}"
+}
+
 # Function to log messages
 log_message() {
     local level=$1
@@ -47,40 +84,6 @@ validate_array_range() {
     fi
 }
 
-setup_logging() {
-    local tool_name="$1"
-
-    if [[ -z "$tool_name" || ! "$tool_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-        if [[ -z "$tool_name" ]]; then
-            echo "Error: Tool name cannot be empty" >&2
-        else
-            echo "Error: Invalid tool name. Must contain only alphanumeric characters, underscores, and hyphens." >&2
-        fi
-        return 1
-    fi
-
-    if [[ ${#tool_name} -gt 50 ]]; then
-        echo "Error: Tool name too long (max 50 characters)" >&2
-        return 1
-    fi
-
-    local log_root="$HOME/logs" # Or get from config/env var
-    local current_month=$(date +%Y-%m)
-    local month_dir="${log_root}/${current_month}"
-    local tool_dir="${month_dir}/${tool_name}"
-    local job_log_dir="${tool_dir}/job_${SLURM_ARRAY_JOB_ID}"
-    local task_log_dir="${job_log_dir}/task_${SLURM_ARRAY_TASK_ID}"
-    local timestamp=$(date +%Y%m%d_%H%M%S)
-
-    if ! mkdir -p "$task_log_dir"; then
-        echo "Error: Failed to create log directory: $task_log_dir" >&2
-        return 1
-    fi
-
-    printf "MAIN_LOG='%s'\nERROR_LOG='%s'\nPERFORMANCE_LOG='%s'\nTASK_LOG_DIR='%s'\nJOB_LOG_DIR='%s'\nTOOL_DIR='%s'\n" \
-           "${task_log_dir}/main_${timestamp}.log" "${task_log_dir}/error_${timestamp}.log" "${task_log_dir}/performance_${timestamp}.log" \
-           "${task_log_dir}" "${job_log_dir}" "${tool_dir}"
-}
 
 
 #print_args_with_separators() {
