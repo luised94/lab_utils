@@ -481,7 +481,7 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
   #message("  Current row:")
   #print(current_row_df)
 
-  for (bigwig_file in current_bigwig_files_subset) {
+  for (bigwig_file_path in current_bigwig_files_subset) {
     message("--- For loop for bigwig file ---")
     message(" Current bigwig file: ", bigwig_file)
     track_creation_result <- create_sample_track(
