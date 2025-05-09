@@ -484,6 +484,12 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
   for (bigwig_file_path in current_bigwig_files_subset) {
     message("--- For loop for bigwig file ---")
     message(" Current bigwig file: ", bigwig_file)
+
+    # TODO: Grab the last string after underscore, add as track label
+    track_name_arguments <- c(
+      sample_id_mapping[sample_id],
+      track_label
+    )
     track_creation_result <- create_sample_track(
       bigwig_file_path = bigwig_file_path,
       track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
