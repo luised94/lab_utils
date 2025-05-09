@@ -23,9 +23,40 @@ for (function_filename in FUNCTION_FILENAMES) {
 }
 message("Bootstrap phase completed...")
 
-# Proceed if packages are installed. Can be disable.
-REQUIRED_PACKAGES <- c("rtracklayer", "GenomicRanges", "Gviz")
-check_required_packages(REQUIRED_PACKAGES, verbose = TRUE, skip_validation = FALSE)
+################################################################################
+# Handle script arguments
+################################################################################
+# Parse arguments and validate configurations
+description <- "Plot genome tracks in batches"
+args <- parse_common_arguments(description = description)
+experiment_id <- args$experiment_id
+accept_configuration <- args$accept_configuration
+experiment_dir <- args$experiment_dir
+is_template <- args$is_template
+
+file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
+file_identifier <- if (is_template) "template" else args$experiment_id
+
+config_path <- file.path(file_directory, paste0(file_identifier, "_bmc_config.R"))
+metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
+
+
+args_info <- list(
+    title = "Script Configuration",
+    "script.name" = get_script_name(),
+    "script.description" = description
+)
+print_debug_info(modifyList(args_info, args))
+
+################################################################################
+# Load Required Libraries
+################################################################################
+required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
+check_required_packages(
+  packages = required_packages, verbose = TRUE,
+  skip_validation = args$skip_validation
+)
+
 message("Packages confirmed...")
 
 # End message
