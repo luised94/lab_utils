@@ -449,17 +449,28 @@ if (RUNTIME_CONFIG$debug_verbose) {
 ################################################################################
 # MAIN
 ################################################################################
-# Filter all of the bigwig files 
+# Filter all of the bigwig files
+is_CPM_bw_file <- grepl("CPM\\.bw$", bigwig_files)
+bigwig_files_subset <- bigwig_files[is_CPM_bw_file]
+
 MAX_ROW <- nrow(metadata_df)
-for (row_idx in seq_len(MAX_ROW)) {
+for (row_idx in seq_len(MAX_ROW)[1:3]) {
   message("--- For loop for metadata ---")
   message(
     sprintf("  Processing row: %s / %s ",
     row_idx, MAX_ROW)
   )
   current_row_df <- metadata_df[row_idx, ]
-  message("  Current row:")
-  print(current_row_df)
+  current_sample_id <- current_row_df$sample_id
+  is_bw_of_sample_id <- grepl(current_sample_id, bigwig_files_subset)
+  current_bigwig_files_subset <- bigwig_files_subset[is_bw_of_sample_id]
+
+  message(
+    sprintf("  Current sample id: %s\n  Amount of bigwig files to plot: %s",
+    current_sample_id, length(current_bigwig_files_subset))
+  )
+  #message("  Current row:")
+  #print(current_row_df)
 }
 # End message -------
 message("Script completed succesfully...")
