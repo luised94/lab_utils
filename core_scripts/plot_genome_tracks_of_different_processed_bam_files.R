@@ -484,13 +484,14 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
   for (bigwig_file_path in current_bigwig_files_subset) {
     message("  --- For loop for bigwig file ---")
     parts_of_bigwig_file_path <- strsplit(x = bigwig_file_path, split = "_", fixed = TRUE)
-    bigwig_type <- parts_of_bigwig_file_path
+    bigwig_type <- parts_of_bigwig_file_path[[1]][length(parts_of_bigwig_file_path[[1]])-1]
     message("  Current bigwig file: ", bigwig_file_path)
-    message("  Current bigwig file: ", bigwig_file_path)
-    message("  Sample id mapping: ", sample_id_mapping[sample_id])
+    message("  Sample id mapping: ", sample_id_mapping[current_sample_id])
     message("  Row idx: ", as.numeric(row_idx))
     message("  Parts of bigwig_file_path: ")
     print(parts_of_bigwig_file_path)
+    message("    Length of parts vector: ", as.character(length(parts_of_bigwig_file_path[[1]])))
+    message("    Next to last part: ", bigwig_type)
     message("    ~~~~~~~~~~~~~~~~~~~~~~~~~")
 
     # TODO: Grab the last string after underscore, add as track label
@@ -552,6 +553,7 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
   #dev.off()
   message("   Plot saved...")
   message("\n")
+  message("=========================")
 }
 # End message -------
 message("Script completed succesfully...")
