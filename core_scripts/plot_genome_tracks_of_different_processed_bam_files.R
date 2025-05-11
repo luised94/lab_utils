@@ -379,13 +379,13 @@ if (!file.exists(ref_genome_file)) {
 genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
 
 # Create chromosome range
-chromosome_to_plot <- RUNTIME_CONFIG$process_chromosome
-chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
-chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
+CHROMOSOME_TO_PLOT <- RUNTIME_CONFIG$process_chromosome
+CHROMOSOME_WIDTH <- genome_data[CHROMOSOME_TO_PLOT]@ranges@width
+CHROMOSOME_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
 
 GENOME_RANGE_TO_LOAD <- GenomicRanges::GRanges(
-    seqnames = chromosome_roman,
-    ranges = IRanges::IRanges(start = 1, end = chromosome_width),
+    seqnames = CHROMOSOME_ROMAN,
+    ranges = IRanges::IRanges(start = 1, end = CHROMOSOME_WIDTH),
     strand = "*"
 )
 
@@ -429,9 +429,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
     ".Found File" = if(length(ref_genome_file) > 0) ref_genome_file else "None",
     ".File Accessible" = if(length(ref_genome_file) > 0) file.exists(ref_genome_file) else FALSE,
     "Chromosome Details" = NULL,
-    ".Target" = chromosome_to_plot,
-    ".Roman Notation" = chromosome_roman,
-    ".Width" = chromosome_width,
+    ".Target" = CHROMOSOME_TO_PLOT,
+    ".Roman Notation" = CHROMOSOME_ROMAN,
+    ".Width" = CHROMOSOME_WIDTH,
     "Feature Processing" = NULL,
     ".Feature Search Pattern" = GENOME_TRACK_CONFIG$file_feature_pattern,
     ".Feature Found File" = if(length(feature_file) > 0) feature_file else "None",
@@ -459,7 +459,7 @@ track_container <- list(
   Gviz::GenomeAxisTrack(
   name = sprintf(
     GENOME_TRACK_CONFIG$format_genome_axis_track_name,
-    chromosome_to_plot
+    CHROMOSOME_TO_PLOT
     )
   )
 )
@@ -485,6 +485,8 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
   #message("  Current row:")
   #print(current_row_df[, c(EXPERIMENT_CONFIG$COLUMN_ORDER, "sample_id")])
 
+  # Grab the first track to reset the list container.
+  track_container <- list(track_container[[1]])
   for (bigwig_file_path in current_bigwig_files_subset) {
     message("  --- For loop for bigwig file ---")
     parts_of_bigwig_file_path <- strsplit(x = bigwig_file_path, split = "_", fixed = TRUE)
@@ -505,21 +507,21 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
     message("  Track name: ", paste(track_name_arguments, collapse = "."))
     message("  ~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-    #track_creation_result <- create_sample_track(
-    #  bigwig_file_path = bigwig_file_path,
-    #  track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
-    #  format_args = track_name_arguments,
-    #  track_color = track_color,
-    #  track_type = GENOME_TRACK_CONFIG$track_defaults_sample$type,
-    #  genomic_range = GENOME_RANGE_TO_LOAD,
-    #  track_params = GENOME_TRACK_CONFIG$track_defaults_sample,
-    #  verbose = RUNTIME_CONFIG$debug_verbose
-    #)
+    track_creation_result <- create_sample_track(
+      bigwig_file_path = bigwig_file_path,
+      track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
+      format_args = track_name_arguments,
+      track_color = track_color,
+      track_type = GENOME_TRACK_CONFIG$track_defaults_sample$type,
+      genomic_range = GENOME_RANGE_TO_LOAD,
+      track_params = GENOME_TRACK_CONFIG$track_defaults_sample,
+      verbose = RUNTIME_CONFIG$debug_verbose
+   )
 
-    #if (track_creation_result$success) {
-    #  message(sprintf("  Successfully created track for sample: %s", sample_id))
-    #  track_container[[length(track_container) + 1]] <- track_creation_result$data
-    #}
+    if (track_creation_result$success) {
+      message(sprintf("  Successfully created track for sample: %s", sample_id))
+      track_container[[length(track_container) + 1]] <- track_creation_result$data
+    }
 
   }
   current_row_values_for_name <- lapply(
@@ -551,30 +553,33 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
     )
   }
 
-  #svglite::svglite(
-  #  filename = plot_output_path,
-  #  width = 10,
-  #  height = 8,
-  #  bg = "white"
-  #)
-
-  #Gviz::plotTracks(
-  #  trackList = track_container,
-  #  chromosome = CHROMOSOME_ROMAN,
-  #  from = GENOME_RANGE_TO_LOAD@ranges@start,
-  #  to = GENOME_RANGE_TO_LOAD@ranges@width,
-  #  margin = 15,
-  #  innerMargin = 5,
-  #  spacing = 10,
-  #  main = plot_title,
-  #  col.axis = "black",
-  #  cex.axis = 0.8,
-  #  cex.main = 0.7,
-  #  fontface.main = 1,
-  #  background.panel = "transparent"
-  #)
-  #dev.off()
+  if (file.exists(plot_output_path)) {
+    message("Plot output already exists. Skipping...")
+  } else {
+    svglite::svglite(
+      filename = plot_output_path,
+      width = 10,
+      height = 8,
+      bg = "white"
+    )
+    Gviz::plotTracks(
+      trackList = track_container,
+      chromosome = CHROMOSOME_ROMAN,
+      from = GENOME_RANGE_TO_LOAD@ranges@start,
+      to = GENOME_RANGE_TO_LOAD@ranges@width,
+      margin = 15,
+      innerMargin = 5,
+      spacing = 10,
+      main = plot_title,
+      col.axis = "black",
+      cex.axis = 0.8,
+      cex.main = 0.7,
+      fontface.main = 1,
+      background.panel = "transparent"
+    )
+    dev.off()
   message("   Plot saved...")
+  }
   message("\n")
   message("=========================")
 }
