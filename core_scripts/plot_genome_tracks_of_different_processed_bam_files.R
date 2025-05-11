@@ -482,29 +482,37 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
   #print(current_row_df)
 
   for (bigwig_file_path in current_bigwig_files_subset) {
-    message("--- For loop for bigwig file ---")
-    message(" Current bigwig file: ", bigwig_file)
+    message("  --- For loop for bigwig file ---")
+    parts_of_bigwig_file_path <- strsplit(x = bigwig_file_path, split = "_", fixed = TRUE)
+    bigwig_type <- parts_of_bigwig_file_path
+    message("  Current bigwig file: ", bigwig_file_path)
+    message("  Current bigwig file: ", bigwig_file_path)
+    message("  Sample id mapping: ", sample_id_mapping[sample_id])
+    message("  Row idx: ", as.numeric(row_idx))
+    message("  Parts of bigwig_file_path: ")
+    print(parts_of_bigwig_file_path)
+    message("    ~~~~~~~~~~~~~~~~~~~~~~~~~")
 
     # TODO: Grab the last string after underscore, add as track label
-    track_name_arguments <- c(
-      sample_id_mapping[sample_id],
-      track_label
-    )
-    track_creation_result <- create_sample_track(
-      bigwig_file_path = bigwig_file_path,
-      track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
-      format_args = track_name_arguments,
-      track_color = track_color,
-      track_type = GENOME_TRACK_CONFIG$track_defaults_sample$type,
-      genomic_range = genome_range,
-      track_params = GENOME_TRACK_CONFIG$track_defaults_sample,
-      verbose = RUNTIME_CONFIG$debug_verbose
-    )
+    #track_name_arguments <- c(
+    #  sample_id_mapping[sample_id],
+    #  as.numeric(row_idx)
+    #)
+    #track_creation_result <- create_sample_track(
+    #  bigwig_file_path = bigwig_file_path,
+    #  track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
+    #  format_args = track_name_arguments,
+    #  track_color = track_color,
+    #  track_type = GENOME_TRACK_CONFIG$track_defaults_sample$type,
+    #  genomic_range = genome_range,
+    #  track_params = GENOME_TRACK_CONFIG$track_defaults_sample,
+    #  verbose = RUNTIME_CONFIG$debug_verbose
+    #)
 
-    if (track_creation_result$success) {
-      message(sprintf("  Successfully created track for sample: %s", sample_id))
-      tracks[[length(tracks) + 1]] <- track_creation_result$data
-    }
+    #if (track_creation_result$success) {
+    #  message(sprintf("  Successfully created track for sample: %s", sample_id))
+    #  tracks[[length(tracks) + 1]] <- track_creation_result$data
+    #}
 
   }
   # Add feature track if available
@@ -518,29 +526,32 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
       cex.title = 0.6
     )
   }
-  #if (RUNTIME_CONFIG$output_dry_run) {
-  if (TRUE) {
-    # Display only
-    execute_track_plot(
-      plot_config = plot_config,
-      plot_params = GENOME_TRACK_CONFIG$plot_defaults,
-      display_plot = TRUE,
-      verbose = RUNTIME_CONFIG$debug_verbose
-    )
-  } else {
-    # Save plot
-    execute_track_plot(
-      plot_config = plot_config,
-      save_path = plot_file,
-      save_params = list(
-        width = GENOME_TRACK_CONFIG$display_width,
-        height = GENOME_TRACK_CONFIG$display_height
-      ),
-      plot_params = GENOME_TRACK_CONFIG$plot_defaults,
-      display_plot = FALSE,
-      verbose = RUNTIME_CONFIG$debug_verbose
-    )
-  }
+
+  #svglite::svglite(
+  #  filename = plot_output_path,
+  #  width = 10,
+  #  height = 8,
+  #  bg = "white"
+  #)
+
+  #Gviz::plotTracks(
+  #  trackList = track_container,
+  #  chromosome = CHROMOSOME_ROMAN,
+  #  from = GENOME_RANGE_TO_LOAD@ranges@start,
+  #  to = GENOME_RANGE_TO_LOAD@ranges@width,
+  #  margin = 15,
+  #  innerMargin = 5,
+  #  spacing = 10,
+  #  main = plot_title_chr,
+  #  col.axis = "black",
+  #  cex.axis = 0.8,
+  #  cex.main = 0.7,
+  #  fontface.main = 1,
+  #  background.panel = "transparent"
+  #)
+  #dev.off()
+  message("   Plot saved...")
+  message("\n")
 }
 # End message -------
 message("Script completed succesfully...")
