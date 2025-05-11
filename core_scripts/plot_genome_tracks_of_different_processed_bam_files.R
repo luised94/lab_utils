@@ -356,6 +356,7 @@ stopifnot(
   "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
   "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)
 )
+
 # Load reference genome
 ref_genome_file <- list.files(
   path = GENOME_TRACK_CONFIG$file_genome_directory,
@@ -382,7 +383,7 @@ chromosome_to_plot <- RUNTIME_CONFIG$process_chromosome
 chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
 chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
 
-genome_range <- GenomicRanges::GRanges(
+GENOME_RANGE_TO_LOAD <- GenomicRanges::GRanges(
     seqnames = chromosome_roman,
     ranges = IRanges::IRanges(start = 1, end = chromosome_width),
     strand = "*"
@@ -454,7 +455,7 @@ is_CPM_bw_file <- grepl("CPM\\.bw$", bigwig_files)
 bigwig_files_subset <- bigwig_files[is_CPM_bw_file]
 
 # Initialize track list with genome axis
-tracks <- list(
+track_container <- list(
   Gviz::GenomeAxisTrack(
   name = sprintf(
     GENOME_TRACK_CONFIG$format_genome_axis_track_name,
@@ -462,6 +463,8 @@ tracks <- list(
     )
   )
 )
+
+plot_prefix <- "blacklist_processing_effect"
 MAX_ROW <- nrow(metadata_df)
 for (row_idx in seq_len(MAX_ROW)[1:3]) {
   message("--- For loop for metadata ---")
@@ -473,13 +476,14 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
   current_sample_id <- current_row_df$sample_id
   is_bw_of_sample_id <- grepl(current_sample_id, bigwig_files_subset)
   current_bigwig_files_subset <- bigwig_files_subset[is_bw_of_sample_id]
+  track_color <- color_scheme$get_color("antibody", current_row_df[, "antibody"])
 
   message(
-    sprintf("  Current sample id: %s\n  Amount of bigwig files to plot: %s",
-      current_sample_id, length(current_bigwig_files_subset))
+    sprintf("  Current sample id: %s\n  Amount of bigwig files to plot: %s\n Track color: %s",
+      current_sample_id, length(current_bigwig_files_subset), track_color)
   )
   #message("  Current row:")
-  #print(current_row_df)
+  #print(current_row_df[, c(EXPERIMENT_CONFIG$COLUMN_ORDER, "sample_id")])
 
   for (bigwig_file_path in current_bigwig_files_subset) {
     message("  --- For loop for bigwig file ---")
@@ -488,8 +492,8 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
     message("  Current bigwig file: ", bigwig_file_path)
     message("  Sample id mapping: ", sample_id_mapping[current_sample_id])
     message("  Row idx: ", as.numeric(row_idx))
-    message("  Parts of bigwig_file_path: ")
-    print(parts_of_bigwig_file_path)
+    #message("  Parts of bigwig_file_path: ")
+    #print(parts_of_bigwig_file_path)
     message("    Length of parts vector: ", as.character(length(parts_of_bigwig_file_path[[1]])))
     message("    Next to last part: ", bigwig_type)
     message("    ~~~~~~~~~~~~~~~~~~~~~~~~~")
@@ -505,20 +509,32 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
     #  format_args = track_name_arguments,
     #  track_color = track_color,
     #  track_type = GENOME_TRACK_CONFIG$track_defaults_sample$type,
-    #  genomic_range = genome_range,
+    #  genomic_range = GENOME_RANGE_TO_LOAD,
     #  track_params = GENOME_TRACK_CONFIG$track_defaults_sample,
     #  verbose = RUNTIME_CONFIG$debug_verbose
     #)
 
     #if (track_creation_result$success) {
     #  message(sprintf("  Successfully created track for sample: %s", sample_id))
-    #  tracks[[length(tracks) + 1]] <- track_creation_result$data
+    #  track_container[[length(track_container) + 1]] <- track_creation_result$data
     #}
 
   }
+  current_row_values_for_name <- lapply(EXPERIMENT_CONFIG$COLUMN_ORDER, function(column_name){
+                                        as.character(current_row_df[, column_name])
+  })
+  plot_name <- paste0(
+    paste(plot_prefix, current_sample_id, row_idx, sep = "_"),
+    "_",
+    paste(current_row_values_for_name, collapse = "."),
+    ".svg"
+    )
+  plot_output_path <- file.path(dirs$output_dir, plot_name)
+  message("    Plot name: ", plot_name)
+  message("    Plot output path: ", plot_output_path)
   # Add feature track if available
   if (exists("features")) {
-    tracks[[length(tracks) + 1]] <- Gviz::AnnotationTrack(
+    track_container[[length(track_container) + 1]] <- Gviz::AnnotationTrack(
       features,
       name = "Features",
       size = 0.5,
