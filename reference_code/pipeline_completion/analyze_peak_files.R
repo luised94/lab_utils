@@ -322,10 +322,6 @@ final_metadata_df <- final_metadata_df %>%
     )
   )
 
-# Load libraries -------
-library(tidyverse)
-library(ggplot2)
-
 ##################################################################################
 # MAIN
 ##################################################################################
@@ -693,7 +689,7 @@ all_sample_ids_chr <- unique(summary_statistics_df$sample_id)
 # Subset, grep or all as examples
 sample_ids_to_plot_chr <- all_sample_ids_chr
 # sample_ids_to_plot <- grep("input", all_sample_ids, value = TRUE)
-sample_ids_to_plot_chr <- all_sample_ids_chr[2]
+#sample_ids_to_plot_chr <- all_sample_ids_chr[2]
 
 # Cache the for loop and some additional | cache_mark ######
 } else if (interactive()) {
