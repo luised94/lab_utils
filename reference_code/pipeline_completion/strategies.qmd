@@ -243,3 +243,6 @@ fi
 log_message "INFO" "All processing completed successfully for ${SAMPLE_NAME}"
 ```
 Each step is verfied independently. Not sure which one is exactly better at this time.
+
+# How to catch errors
+Wrap sections in tryCatch semantically, atomically, etcetera? Wrap an entire section? I think either printing or assertions would catch the errors as well but I guess the tryCatch is when you dont expect?

@@ -496,6 +496,7 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
       as.character(current_row_df[, "antibody"]),
       bigwig_type
     )
+    track_name <- paste(track_name_arguments, collapse = ".")
 
     message("  Current bigwig file: ", bigwig_file_path)
     message("  Sample id mapping: ", sample_id_mapping[current_sample_id])
@@ -504,38 +505,41 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
     #print(parts_of_bigwig_file_path)
     message("  Length of parts vector: ", as.character(length(parts_of_bigwig_file_path[[1]])))
     message("  Next to last part: ", bigwig_type)
-    message("  Track name: ", paste(track_name_arguments, collapse = "."))
+    message("  Track name: ", track_name)
     message("  ~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-    track_creation_result <- create_sample_track(
-      bigwig_file_path = bigwig_file_path,
-      track_format_name = GENOME_TRACK_CONFIG$format_sample_track_name,
-      format_args = track_name_arguments,
-      track_color = track_color,
-      track_type = GENOME_TRACK_CONFIG$track_defaults_sample$type,
-      genomic_range = GENOME_RANGE_TO_LOAD,
-      track_params = GENOME_TRACK_CONFIG$track_defaults_sample,
-      verbose = RUNTIME_CONFIG$debug_verbose
-   )
-
-    if (track_creation_result$success) {
-      message(sprintf("  Successfully created track for sample: %s", sample_id))
-      track_container[[length(track_container) + 1]] <- track_creation_result$data
-    }
+    current_bigwig_gr <- rtracklayer::import(bigwig_file_path, which = genomic_range)
+    track_data <- Gviz::DataTrack(
+      range = current_bigwig_gr,
+      name = track_name,
+      col = track_color,
+      type = "h",
+      size = 1.2,
+      showaxis = TRUE,
+      showtitle = TRUE,
+      background.title = "white",
+      fontcolor.title = "black",
+      col.border.title = "#e0e0e0",
+      cex.title = 0.6,
+      fontface = 1,
+      title.width = 1.2
+    )
+    track_container[[length(track_container) + 1]] <- track_data
 
   }
+
   current_row_values_for_name <- lapply(
     EXPERIMENT_CONFIG$COLUMN_ORDER,
     function(column_name){
       as.character(current_row_df[, column_name])
     }
-    )
+  )
   plot_name <- paste0(
     paste(plot_prefix, current_sample_id, row_idx, sep = "_"),
     "_",
     paste(current_row_values_for_name, collapse = "."),
     ".svg"
-    )
+  )
   plot_title <- paste(plot_prefix, current_sample_id, row_idx, sep = "_")
   plot_output_path <- file.path(dirs$output_dir, plot_name)
   message("    Plot name: ", plot_name)
@@ -553,9 +557,9 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
     )
   }
 
-  if (file.exists(plot_output_path)) {
-    message("Plot output already exists. Skipping...")
-  } else {
+  #if (file.exists(plot_output_path)) {
+  #  message("Plot output already exists. Skipping...")
+  #} else {
     svglite::svglite(
       filename = plot_output_path,
       width = 10,
@@ -579,7 +583,7 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
     )
     dev.off()
   message("   Plot saved...")
-  }
+  #}
   message("\n")
   message("=========================")
 }
