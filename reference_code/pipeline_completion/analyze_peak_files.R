@@ -998,19 +998,19 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     )
     message(sprintf("  Saving to: %s", plot_output_path))
     # DRY_RUN: Uncomment svglite and dev.off to save.
-    #svglite::svglite(
-    #    filename = plot_output_path,
-    #    width = 10,
-    #    height = 8,
-    #    bg = "white"
-    #)
+    svglite::svglite(
+        filename = plot_output_path,
+        width = 10,
+        height = 8,
+        bg = "white"
+    )
     # DRY_RUN: Uncomment this line to print plot.
-    #print(current_plot_object)
-    #dev.off()
-    readline(prompt = "Press [enter] to continue plot")
+    print(current_plot_object)
+    dev.off()
+    #readline(prompt = "Press [enter] to continue plot")
   }
 
-  break # Add breakpoint to test first one
+  #break # Add breakpoint to test first one
 }
 message("====================")
 stop("Stop point. Run plots...")
