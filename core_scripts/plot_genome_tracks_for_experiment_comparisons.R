@@ -198,20 +198,22 @@ fastq_files <- list.files(
 
 # Find bigwig files
 bigwig_pattern <- sprintf(
-    "processed_.*_sequence_to_S288C_%s\\.bw$",
+    "processed_.*_sequence_to_S288C_blFiltered_%s\\.bw$",
     EXPERIMENT_CONFIG$NORMALIZATION$active
 )
+
 bigwig_files <- list.files(
     dirs$coverage,
     pattern = bigwig_pattern,
     full.names = TRUE
 )
+
 bigwig_basenames <- basename(bigwig_files)
 
 normalization_method <- sub(
     ".*_([^_]+)\\.bw$",
     "\\1",
-    basename(bigwig_files[1])
+    bigwig_basenames[1]
 )
 
 if (length(bigwig_files) == 0) {
@@ -229,7 +231,7 @@ if (length(fastq_files) == 0) {
     )
     stopifnot(
         "Length of samples_ids is not lower than length of bigwig files." =
-         all(nchar(sample_ids) < nchar(basename(bigwig_files)))
+         all(nchar(sample_ids) < nchar(bigwig_basenames))
     )
 } else {
     # Extract sample IDs from fastq filenames

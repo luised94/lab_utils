@@ -131,3 +131,17 @@ Summaries:
 Conclusion:
   > Make the mapping for the subtitles and proper sample names.
 ```
+
+## 2025-05-11
+```{experiment}
+Description: First pass at seeing the effect of blacklist filtering on the 250324Bel dataset
+Summaries:
+  > Input looks good, clear what happens.
+  > Sample 10 does seem to show the effect of removing the edges
+  > Sample 11, 19, 25
+  > Show 25 even though it is terrible but clearly shows 1500 to 150
+  > 56 is one of the samples that suffered from the ends effect. The samples seem to have more problems in general.
+  > As we saw before, it was a lot of the HM1108 samples that had trouble during library prep.
+Conclusion:
+  > Clearly worked. I can move on to the other plots and generate the comparisons using the blacklisted bigwigs. To achieve this, I had to adjust the pattern for finding the bigwig files.
+```

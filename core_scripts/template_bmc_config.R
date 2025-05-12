@@ -209,23 +209,23 @@ FASTQC_CONFIG <- list(
     version_required = "0.11.5",
     version_pattern = "^##FastQC\\s+",
     version_max = 1,
-    
+
     # Parsing patterns
     parse_header = "^##FastQC",
     parse_module_start = ">>",
     parse_module_end = ">>END_MODULE",
     parse_prefix = "#",
-    
+
     # File handling
     file_pattern = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
     file_format = "consolidated_XXXXXX_sequence_fastqc_data.txt",
     file_suffix = ".tab",
     file_base = "fastqc_data",
-    
+
     # Paths and references
     path_qc_dir = "quality_control",
     path_module_ref = file.path(Sys.getenv("HOME"), "data", "fastqc_module_reference.rds"),
-    
+
     # Module configuration
     module_list = character(0)
 )
@@ -236,12 +236,12 @@ FASTQC_CONFIG <- list(
 VIEWER_CONFIG <- list(
     # Paths
     path_base = file.path(Sys.getenv("HOME"), "data"),
-    
+
     # Patterns
     pattern_svg = "\\.svg$",
     pattern_timestamp = "^[0-9]{8}_[0-9]{6}",  # YYYYMMDD_HHMMSS
     pattern_experiment = "^[0-9]{6}Bel",
-    
+
     # Display dimensions
     display_width = 10,
     display_height = 8
@@ -255,7 +255,7 @@ GENOME_TRACK_CONFIG <- list(
     # Display dimensions
     display_width = 10,
     display_height = 8,
-    
+
     # Track Creation
     track_points_default = 1000,
     #track_show_title = TRUE,
@@ -263,11 +263,11 @@ GENOME_TRACK_CONFIG <- list(
     # Track defaults
     track_ylim = c(0, 1000),  # Default y-limits, adjust as needed
     track_sampling_rate = 100,  # Points per base pair for empty tracks
-    
+
     # Track colors
     color_placeholder = "#cccccc",
     color_input = "#808080",
-    
+
     # Track naming
     format_sample_track_name = "%s: %s",
     format_control_track_name = "%s: %s - %s",
@@ -379,7 +379,7 @@ GENOME_TRACK_CONFIG <- list(
         fill = "#8b4513",
         col = "#8b4513"
     ),
-    
+
     # New Plot Defaults
     plot_defaults = list(
         margin = 15,
