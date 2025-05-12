@@ -183,4 +183,7 @@ Summaries:
   > Have way more peaks in my WT ORC sample and the Eaton dataset.
 Conclusion:
   > Use input control, blacklist filtering and narrow. I dont think I should do the shift myself. Maybe also try to find peaks that are more enriched.
+  > See if there is any characteristics that characteristics for the recovered peaks.
+  > Wondering the effect of the sliding window. Should it be 1000kb?
+  > Need to start the biological relationships.
 ```
