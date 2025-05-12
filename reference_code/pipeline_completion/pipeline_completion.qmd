@@ -145,3 +145,11 @@ Summaries:
 Conclusion:
   > Clearly worked. I can move on to the other plots and generate the comparisons using the blacklisted bigwigs. To achieve this, I had to adjust the pattern for finding the bigwig files.
 ```
+```{experiment}
+Description: Seeing the results of filtering reads in blacklist.
+Summaries:
+  > Effect is clear. The files are the ones that had trouble during library prep as stated previously.
+    - See the HM1108.4PS.vs.NONE.repeat2 plots using the view_files -t svg -f command.
+Conclusion:
+  > Blacklist filtering helped. I think maybe I should look at the samples again. The sample in alpha factor looks fine. Maybe I can use that.
+```
