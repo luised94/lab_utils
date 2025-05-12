@@ -466,7 +466,9 @@ track_container <- list(
 
 plot_prefix <- "blacklist_processing_effect"
 MAX_ROW <- nrow(metadata_df)
-for (row_idx in seq_len(MAX_ROW)[1:3]) {
+ROWS_IDX_TO_PLOT <- seq_len(MAX_ROW)[1:3]
+#ROWS_IDX_TO_PLOT <- seq_len(MAX_ROW)
+for (row_idx in ROWS_IDX_TO_PLOT) {
   message("--- For loop for metadata ---")
   message(
     sprintf("  Processing row: %s / %s ",
@@ -557,9 +559,9 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
     )
   }
 
-  #if (file.exists(plot_output_path)) {
-  #  message("Plot output already exists. Skipping...")
-  #} else {
+  if (file.exists(plot_output_path)) {
+    message("Plot output already exists. Skipping...")
+  } else {
     svglite::svglite(
       filename = plot_output_path,
       width = 10,
@@ -583,7 +585,7 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
     )
     dev.off()
   message("   Plot saved...")
-  #}
+  }
   message("\n")
   message("=========================")
 }
