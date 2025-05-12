@@ -153,3 +153,34 @@ Summaries:
 Conclusion:
   > Blacklist filtering helped. I think maybe I should look at the samples again. The sample in alpha factor looks fine. Maybe I can use that.
 ```
+
+## 2025-05-12
+```{experiment}
+Description: Looking at the plots to understand influence of certain peak calling parameters
+Summaries:
+  > Mmmmmm. Normalized count changes for the 4R input when using input control for peak calling. 
+    - Maybe I should have no normalized counts. current_chrom_subset_df_processing_group_chromosome_heatmap_plot_4R_Input.svg
+  > For the chromosome distribution plots, dont see a difference between the different bam processing.
+  > Using the input control is very clear to reduce the amount of peaks called in the input sample.
+  > broad generally results in more peaks. again chromosome distribution does not seem to be affected very much.
+  > 4R 4PS chrom dist plots show pretty big effect of the input control and the broad
+  > No relationship between median enrichment and peaks called?
+  > Negative controls look very different in terms of the enrich vs qvalue plot.
+  > Did not realize the presence of the bin circle (countour).
+  > Input have not as many high qvalue and high fold enrichment (forgot about the scale).
+  > Blacklist filtering removes some of the high q and high fold peaks.
+  > For the input samples, removal of blacklist filtering and input control removes a lot of the peaks.
+  > Peak width distribution looks weird and none of the processing steps eliminated the peaks. Need to look for the Eaton. Maybe I would have to look at the particular peaks to understand more. Broad does increase the peak width. Maybe there is a relationship between the peak width and if they were in the control data set.
+  > Effect on the input for the peak width is pronounced. Basically only peaks of a certain width are left.
+  > Dont really see the effect of processing steps on the negative control of MCM pull down.
+  > Seems like blacklist filtering is a lot of the peaks that are enriched relative to the Eaton control.
+  > For input control, the no input samples dont show difference in peaks enriched across processing steps. Using the input control parameter, shifting causes higher enrichment in the input control.
+  > For UM174 WT in NOCO, blacklist filtering reduces enrichment. For WT ORC in Noco, shows pretty similar enrichment across the processing steps. Broad peaks are actually reduces.
+  > Using input reduces peaks recovered. Broad increases peaks recovered. I recover 90% peaks for Eaton. Using input control in peak calling increases enrichment.
+  > I think overlap percent is probably important.
+  > My WT in Nocodazole also has 90% recovery.
+  > For WT UM174 in alpha, also has pretty big recovery percentage. In Noco, blFiltering reduces the enrichment to lowest. Using input control increases percent enrichment.
+  > Have way more peaks in my WT ORC sample and the Eaton dataset.
+Conclusion:
+  > Use input control, blacklist filtering and narrow. I dont think I should do the shift myself. Maybe also try to find peaks that are more enriched.
+```
