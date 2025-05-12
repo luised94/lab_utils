@@ -746,7 +746,7 @@ for (comparison_name in comparisons_to_process) {
         verbose = RUNTIME_CONFIG$debug_verbose
     )
 
-    for (mode in scaling_modes) {
+    for (mode in scaling_modes[1]) {
         # Create filename for this mode
         plot_filename <- sprintf(
             GENOME_TRACK_CONFIG$filename_format_comparison_template,
@@ -787,7 +787,7 @@ for (comparison_name in comparisons_to_process) {
             #    paste(row_samples_to_visualize$sample_id, collapse = "|"),
             #    project_bigwig_files
             #)]
-            pattern <- sprintf("processed_(%s)_sequence_to_S288C_CPM\\.bw$", 
+            pattern <- sprintf("processed_(%s)_sequence_to_S288C_blFiltered_CPM\\.bw$",
                                paste(row_samples_to_visualize$sample_id, collapse = "|"))
             group_files <- grep(pattern, bigwig_files, value = TRUE, perl = TRUE)
             if (RUNTIME_CONFIG$debug_verbose) {
@@ -834,5 +834,4 @@ for (comparison_name in comparisons_to_process) {
             )
         }
     }
-
 }
