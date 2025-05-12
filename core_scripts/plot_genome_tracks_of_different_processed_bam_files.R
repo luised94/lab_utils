@@ -508,7 +508,7 @@ for (row_idx in seq_len(MAX_ROW)[1:3]) {
     message("  Track name: ", track_name)
     message("  ~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-    current_bigwig_gr <- rtracklayer::import(bigwig_file_path, which = genomic_range)
+    current_bigwig_gr <- rtracklayer::import(bigwig_file_path, which = GENOME_RANGE_TO_LOAD)
     track_data <- Gviz::DataTrack(
       range = current_bigwig_gr,
       name = track_name,
