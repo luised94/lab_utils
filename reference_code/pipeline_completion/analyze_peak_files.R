@@ -943,7 +943,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
                               "peak_width_distribution", "plot", sep = "_")
         message(sprintf("      Assigning to: %s", name_of_plot))
         plot_to_assign <- current_df %>%
-          filter(peak_width < 5000) %>%  # Remove extreme outliers
+          #filter(peak_width < 5000) %>%  # Remove extreme outliers
           ggplot(aes(x = processing_group, y = peak_width, fill = peak_type)) +
           geom_violin(scale = "width", trim = TRUE, alpha = 0.7) +
           geom_boxplot(width = 0.15, outlier.shape = NA, fill = "white", alpha = 0.7) +
@@ -1009,7 +1009,7 @@ for (current_sample_id in sample_ids_to_plot_chr) {
     #    bg = "white"
     #)
     # DRY_RUN: Uncomment this line to print plot.
-    print(current_plot_object)
+    #print(current_plot_object)
     #dev.off()
     readline(prompt = "Press [enter] to continue plot")
   }
