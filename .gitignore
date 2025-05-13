@@ -7,6 +7,7 @@ template_sample_grid.csv
 treestructure*.txt
 **/bmc_config.R
 bmc_config.R
+script_configuration.R
 configuration_flow_cytometry.R
 override_configuration.R
 slurm-*.out
