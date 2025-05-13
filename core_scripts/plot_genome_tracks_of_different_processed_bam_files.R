@@ -450,9 +450,14 @@ if (RUNTIME_CONFIG$debug_verbose) {
 ################################################################################
 # MAIN
 ################################################################################
-# Filter all of the bigwig files
+# Filter all of the bigwig files to CPM only.
 is_CPM_bw_file <- grepl("CPM\\.bw$", bigwig_files)
 bigwig_files_subset <- bigwig_files[is_CPM_bw_file]
+
+#bigwig_file_count_per_sample <- unlist(lapply(seq_len(nrow(metadata_df)) function(row_idx){
+#  is_bw_of_sample_id <- grepl(metadata_df[row_idx, "sample_id"], bigwig_files_subset)
+#  return(sum(is_bw_of_sample_id))
+#}))
 
 # Initialize track list with genome axis
 track_container <- list(
@@ -473,7 +478,6 @@ track_container <- list(
 #  cex.title = 0.6
 #  )
 #}
-
 
 plot_prefix <- "blacklist_processing_effect"
 MAX_ROW <- nrow(metadata_df)
