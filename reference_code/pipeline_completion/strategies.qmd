@@ -1,4 +1,5 @@
-# Create a key column to subset dataframe with another set of keys
+# R
+## Create a key column to subset dataframe with another set of keys
 ```{r}
 # Create the metadata characters and keys for sample and bigwig comparisons (_SB)
 METADATA_CHARACTER_VECTORS_SB <- lapply(final_metadata[c("sample", "bigwig_processing")], as.character)
@@ -11,7 +12,7 @@ message("Keys for metadata subsetting created. Starting for loop...")
 for (CURRENT_KEY_IDX in seq_along(control_joined_keys)) {
 ```
 
-# Determine the unique values for each column of a dataframe.
+## Determine the unique values for each column of a dataframe.
 
 ```{r}
 final_metadata_df <- data.frame(
@@ -52,7 +53,7 @@ lapply(names(unique_categories_lst), function(column_name_chr){
 })
 ```
 
-# Debugging when there is a mismatch between numbers and lengths during assigment
+## Debugging when there is a mismatch between numbers and lengths during assigment
 ## 2025-05-02
 I have mistakenly assigned values of the wrong length multiple times. this could be turned into for loop with more explicit warning. Define array or list with the variable names, use the R functions to find variables and show the value.
 ```{r}
@@ -65,7 +66,7 @@ message(sprintf(
 ))
 ```
 
-# Creating a genomic range from a dataframe
+## Creating a genomic range from a dataframe
 I was doing this manually with the following:
 ```{r}
 gr <- GenomicRanges::GRanges(
@@ -93,7 +94,7 @@ GenomicRanges::makeGRangesFromDataFrame(xls_peak_df, keep.extra.columns = TRUE)
 ```
 Of course there is less flexibility if you want to control the columns that get added. Although you could potentially filter them before or maybe the command has additional parameters (check with ?). Remember to check by printing them out or checking mcols or nrow/length.
 
-# Looping over strings that have been assigned as variables
+## Looping over strings that have been assigned as variables
 Execute many ggplot2 and store in objects then loop over the names in the ls() output.
 ```{r}
 # Get all ggplot objects from environment
@@ -124,7 +125,7 @@ for (current_plot_name in plot_object_names) {
 }
 ```
 
-# Determining the type of a ggplot2 object
+## Determining the type of a ggplot2 object
 ```{r}
 library(ggplot2)
 p <- ggplot(mtcars, aes(x = mpg, y = wt)) + geom_point()
@@ -138,7 +139,7 @@ inherits(p, "gg")
 inherits(p, "ggplot")
 ```
 
-# Refactoring nested if statements using early exit pattern
+## Refactoring nested if statements using early exit pattern
 Was nesting a bunch of if statements to do certain actions only if certain files existed. Reversing the logic to exit if something is true instead of doing some thing if it is not true. The logic per se can be reverse but it is about exiting first. What are the conditions under which I should exit first. If none of them are met, continue. Similar to fail-fast for savign time and hopefully ensuring the code is more readable.
 Eventually, the nesting that is left is for hierarchical conditions for exiting and the rest becomes sequential.
 I believe I should add the conditional to exit if the files already exists to my other scripts.
@@ -244,5 +245,53 @@ log_message "INFO" "All processing completed successfully for ${SAMPLE_NAME}"
 ```
 Each step is verfied independently. Not sure which one is exactly better at this time.
 
-# How to catch errors
+## How to catch errors
 Wrap sections in tryCatch semantically, atomically, etcetera? Wrap an entire section? I think either printing or assertions would catch the errors as well but I guess the tryCatch is when you dont expect?
+
+# Git things
+## Reset a repository to origin state
+While working on the linux cluster and trying to amend a commit I already pushed, I disrupted the state of the linux cluster version, causing a conflict everytime I pulled the remote origin. **Because I did not have any changes worth saving**, I chose to hard reset the repository to the origin state.
+```{bash}
+# If you do have changes
+git stash
+#OR
+git checkout -b backup_branch
+
+git fetch origin
+git reset --hard origin/pipeline_completion
+git status # Confirm
+```
+
+# Bash things
+## Why were my samples not printing in the order I initialized them in an array?
+Bash associative arrays (declared with declare -A) do not maintain insertion order. When you iterate through an associative array in bash, the elements come out in an order based on the internal hash table implementation, not the order you inserted them.
+Also realized I didnt need the associative array at this stage.
+See: https://claude.ai/chat/8cbf7281-0b1c-48ed-b361-8fe21a96404a
+
+## A @ or * inside brackets of accessing an array
+ The difference between [*] and [@] is subtle but important:
+${flags[*]} expands all array elements into a single string, with elements separated by the first character of IFS (usually a space)
+${flags[@]} expands each array element as a separate word
+See: https://claude.ai/chat/8cbf7281-0b1c-48ed-b361-8fe21a96404a
+
+## ShellCheck [[]] && [[]] || is not an if-else statement
+Move to a traditional if statement for unambiguous flow. Ensure regex and arithmetic tests are performed in the right order. Always quote variables in shell scripts to avoid unexpected word-splitting or glob expansion.
+See: https://www.perplexity.ai/search/frag-size-0-9-frag-size-0-echo-HFFIchSoSli2CNG5De7FdQ
+
+# Vim tricks
+## Add something to the beginning or end of a match during substitution command
+```{vim}
+%s/.*/&_df/
+" & represents matched text
+%s/filtered_metadata/&_df/gc
+%s/.*/prefix_&/
+```
+
+## Cool way to trace a variable across the program
+If you want to trace the logic of the code by following a variable, you can hover over the variable name and either follow using * to search for words under the cursor. In R, there will probably be a variable being assigned with <-, so you can go to the beginning using ^ to the first character then press * and n to follow that variable. Repeat ^ * n to follow the logic to the end. Can be turned into a macro. Maybe it can be turned into an across file using quick fix list or something.
+
+## Turn a word (in the vim sense) into capital letters or lower case
+```{vim}
+gUiw " uppercase
+guiw " lowercase
+```

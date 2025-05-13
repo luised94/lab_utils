@@ -13,54 +13,6 @@ I also downloaded the data to my dropbox to have it available without having to 
 1) Run duplicate_files_for_testing.sh to duplicate files to the directory of the tests and explorations being run (~/data/preprocessing_test/ in this case).
 2) 
 
-# Git things
-## Reset a repository to origin state
-While working on the linux cluster and trying to amend a commit I already pushed, I disrupted the state of the linux cluster version, causing a conflict everytime I pulled the remote origin. **Because I did not have any changes worth saving**, I chose to hard reset the repository to the origin state.
-```{bash}
-# If you do have changes
-git stash
-#OR
-git checkout -b backup_branch
-
-git fetch origin
-git reset --hard origin/pipeline_completion
-git status # Confirm
-```
-
-# Bash things
-## Why were my samples not printing in the order I initialized them in an array?
-Bash associative arrays (declared with declare -A) do not maintain insertion order. When you iterate through an associative array in bash, the elements come out in an order based on the internal hash table implementation, not the order you inserted them.
-Also realized I didnt need the associative array at this stage.
-See: https://claude.ai/chat/8cbf7281-0b1c-48ed-b361-8fe21a96404a
-
-## A @ or * inside brackets of accessing an array
- The difference between [*] and [@] is subtle but important:
-${flags[*]} expands all array elements into a single string, with elements separated by the first character of IFS (usually a space)
-${flags[@]} expands each array element as a separate word
-See: https://claude.ai/chat/8cbf7281-0b1c-48ed-b361-8fe21a96404a
-
-## ShellCheck [[]] && [[]] || is not an if-else statement
-Move to a traditional if statement for unambiguous flow. Ensure regex and arithmetic tests are performed in the right order. Always quote variables in shell scripts to avoid unexpected word-splitting or glob expansion.
-See: https://www.perplexity.ai/search/frag-size-0-9-frag-size-0-echo-HFFIchSoSli2CNG5De7FdQ
-
-# Vim tricks
-## Add something to the beginning or end of a match during substitution command
-```{vim}
-%s/.*/&_df/
-" & represents matched text
-%s/filtered_metadata/&_df/gc
-%s/.*/prefix_&/
-```
-
-## Cool way to trace a variable across the program
-If you want to trace the logic of the code by following a variable, you can hover over the variable name and either follow using * to search for words under the cursor. In R, there will probably be a variable being assigned with <-, so you can go to the beginning using ^ to the first character then press * and n to follow that variable. Repeat ^ * n to follow the logic to the end. Can be turned into a macro. Maybe it can be turned into an across file using quick fix list or something.
-
-## Turn a word (in the vim sense) into capital letters or lower case
-```{vim}
-gUiw " uppercase
-guiw " lowercase
-```
-
 # Notes
 Managed to process the data using the different deeptools and macs2 parameters. Couldnt see obvious differences in the plots for peaks called, overlap with reference bed file from Eaton2010 as factors were accounted for. If I remember correctly, the particular samples I used were from the dataset before I started to systematically decontaminate everything using DNAzap. Inspecting my most recent dataset where I simply did arrest at two cell cycle stages, I could see improvements for the input and samples. I think picking a bigger set of the last experiment would be better.
 I would like to reuse the scripts but not have to worry about the other data produced by the previous samples. I may or may not reinclude the samples that I already analyzed in the reanalysis. Second, I will document the commands I ran to remove the files I already produced.
