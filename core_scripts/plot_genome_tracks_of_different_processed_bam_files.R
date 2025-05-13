@@ -463,6 +463,17 @@ track_container <- list(
     )
   )
 )
+#if (exists("features")) {
+#  track_container[[length(track_container) + 1]] <- Gviz::AnnotationTrack(
+#  features,
+#  name = "Features",
+#  size = 0.5,
+#  background.title = "lightgray",
+#  fontcolor.title = "black",
+#  cex.title = 0.6
+#  )
+#}
+
 
 plot_prefix <- "blacklist_processing_effect"
 MAX_ROW <- nrow(metadata_df)
@@ -488,6 +499,7 @@ for (row_idx in ROWS_IDX_TO_PLOT) {
   #print(current_row_df[, c(EXPERIMENT_CONFIG$COLUMN_ORDER, "sample_id")])
 
   # Grab the first track to reset the list container.
+  track_addition_count <- 0
   track_container <- list(track_container[[1]])
   for (bigwig_file_path in current_bigwig_files_subset) {
     message("  --- For loop for bigwig file ---")
@@ -526,6 +538,11 @@ for (row_idx in ROWS_IDX_TO_PLOT) {
       fontface = 1,
       title.width = 1.2
     )
+    #track_container <- append(
+    #  x = track_container,
+    #  values = track_data,
+    #  after = 1 + track_addition_count + 1
+    #)
     track_container[[length(track_container) + 1]] <- track_data
 
   }
