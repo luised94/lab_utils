@@ -5,6 +5,8 @@ configuration_options <- "~/lab_utils/core_scripts/override_configuration.R"
 stopifnot(
     "Configuration for overrides does not exist. Copy template to override_configuration.R" =
     file.exists(configuration_options)
+    "File with logging functions does not exist." =
+    file.exists("~/lab_utils/core_scripts/functions_for_logging.R")
 )
 source(configuration_options)
 
@@ -129,7 +131,7 @@ parse_common_arguments <- function(
 
     # Parse arguments with enhanced error handling
     args <- tryCatch(
-        parse_args(opt_parser),
+        optparse::parse_args(opt_parser),
         error = function(e) {
             cat("\nERROR: Argument parsing failed\n", file = stderr())
             cat(as.character(e), "\n\n", file = stderr())
@@ -400,6 +402,7 @@ parse_flow_cytometry_arguments <- function(
             paste(OUTPUT_FORMATS, collapse = ", ")
         ))
     }
+    # end Validate all arguments --------
 
     #todo: dropbox_path id validation and processing ----------
     # Experiment id validation and processing ----------
@@ -582,7 +585,7 @@ check_required_packages <- function(
         missing = character(0)
     )
 
-    if (verbose) { # Use verbose instead of quietly
+    if (verbose) {
         message("\nValidating required packages:")
         message(paste(rep("-", 50), collapse = ""))
     }

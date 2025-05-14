@@ -250,3 +250,8 @@ Description: Troubleshooting peak and summary plots
 Conclusions:
     > All plots work now. Could focus on cosmetics. Maybe I should output all of them and then do the cosmetics.
 ```
+
+## 2025-05-14
+QUESTION: Should I wrap the main logic around interactive? I have to add the cli vs interactive options.
+QUESTION: Why does requireNamespace check take so long? Is it cached?
+
