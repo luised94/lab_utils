@@ -670,7 +670,7 @@ setup_experiment_dirs <- function(
     for (dir_name in required_input_dirs) {
         full_path <- file.path(experiment_dir, dir_name)
         if (!dir.exists(full_path)) {
-            stop(sprintf("Required experiment subdirectory '%s' not found: %s", 
+            stop(sprintf("Required experiment subdirectory '%s' not found: %s",
                     dir_name,
                     full_path
                 )) #

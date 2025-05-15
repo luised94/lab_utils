@@ -140,7 +140,6 @@ invisible(lapply(required_configs, function(config) {
 
 if(!is.null(args$output_format)) {
     RUNTIME_CONFIG$output_format <- args$output_format
-
     message(sprintf("Setting output format: %s", RUNTIME_CONFIG$output_format))
 }
 

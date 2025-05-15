@@ -255,3 +255,5 @@ Conclusions:
 QUESTION: Should I wrap the main logic around interactive? I have to add the cli vs interactive options.
 QUESTION: Why does requireNamespace check take so long? Is it cached?
 
+## 2025-05-14
+TODO: Need to fix the bmc config and metadata to have the same column names

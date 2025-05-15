@@ -1,4 +1,16 @@
-
+#!/usr/bin/env Rscript
+# Bootstrap phase
+# Also loads OVERRIDE_PRESETS
+FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
+for (function_filename in FUNCTION_FILENAMES) {
+    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
+    normalized_path <- normalizePath(function_filepath)
+    if (!file.exists(normalized_path)) {
+        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
+    }
+    source(normalized_path)
+}
+message("Bootstrap phase completed...")
 if(interactive()) {
   message("Interactive job... sourcing configuration file.")
   script_configuration_path <- "~/lab_utils/core_scripts/script_configuration.R"
@@ -79,5 +91,35 @@ sapply(c(config_paths, metadata_paths), function(file_path){
       file_path
     ))
   }
-
 })
+
+source(config_paths[1])
+################################################################################
+# Setup directories, genome file and file metadata
+################################################################################
+REQUIRED_DIRECTORIES <- c("fastq", "coverage")
+input_directories <- vector("list", length = length(REQUIRED_DIRECTORIES))
+for (dir_name in REQUIRED_DIRECTORIES) {
+  full_path <- file.path(EXPERIMENT_DIR, dir_name)
+  if (!dir.exists(full_path)) {
+    message(paste(
+      "Script requires files that should be in directory",
+      "but the directory does not exist.",
+      sep = "\n"
+    ))
+    stop(sprintf(
+      fmt = "Required experiment subdirectory '%s' not found: %s",
+      dir_name,
+      full_path
+    ))
+  }
+  input_directories[[dir_name]] <- full_path
+}
+OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "genome_tracks", "final_results")
+dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+
+#####################
+# Load the metadata dataframe with all experiments.
+#####################
+for (path in config_path) {
+}
