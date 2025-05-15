@@ -64,11 +64,20 @@ config_paths <- vector("character", length = number_of_experiments)
 metadata_paths <- vector("character", length = number_of_experiments)
 for (experiment_idx in seq_len(number_of_experiments)) {
   config_paths[experiment_idx] <- file.path(
-    EXPERIMENT_DIR[experiment_idx],
+    EXPERIMENT_DIR[experiment_idx], "documentation",
     paste0(EXPERIMENT_IDS[experiment_idx], "_bmc_config.R")
   )
   metadata_paths[experiment_idx] <- file.path(
-    EXPERIMENT_DIR[experiment_idx],
+    EXPERIMENT_DIR[experiment_idx], "documentation",
     paste0(EXPERIMENT_IDS[experiment_idx], "_sample_grid.csv")
   )
 }
+sapply(c(config_paths, metadata_paths), function(file_path){
+  if (!file.exists(file_path)) {
+    stop(sprintf(
+      fmt = "File %s does not exist.\nRun setup_bmc_experiment.R script.",
+      file_path
+    ))
+  }
+
+})
