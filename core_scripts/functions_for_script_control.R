@@ -4,7 +4,7 @@ library(optparse)
 configuration_options <- "~/lab_utils/core_scripts/override_configuration.R"
 stopifnot(
     "Configuration for overrides does not exist. Copy template to override_configuration.R" =
-    file.exists(configuration_options)
+    file.exists(configuration_options),
     "File with logging functions does not exist." =
     file.exists("~/lab_utils/core_scripts/functions_for_logging.R")
 )
