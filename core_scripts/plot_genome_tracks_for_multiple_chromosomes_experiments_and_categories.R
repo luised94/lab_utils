@@ -75,23 +75,28 @@ number_of_experiments <- length(EXPERIMENT_DIR)
 config_paths <- vector("character", length = number_of_experiments)
 metadata_paths <- vector("character", length = number_of_experiments)
 for (experiment_idx in seq_len(number_of_experiments)) {
+  current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
+  current_experiment_id <- EXPERIMENT_IDS[experiment_idx]
+
   config_paths[experiment_idx] <- file.path(
-    EXPERIMENT_DIR[experiment_idx], "documentation",
-    paste0(EXPERIMENT_IDS[experiment_idx], "_bmc_config.R")
+    current_experiment_path, "documentation",
+    paste0(current_experiment_id, "_bmc_config.R")
   )
   metadata_paths[experiment_idx] <- file.path(
-    EXPERIMENT_DIR[experiment_idx], "documentation",
-    paste0(EXPERIMENT_IDS[experiment_idx], "_sample_grid.csv")
+    current_experiment_path, "documentation",
+    paste0(current_experiment_id, "_sample_grid.csv")
   )
 }
-sapply(c(config_paths, metadata_paths), function(file_path){
-  if (!file.exists(file_path)) {
-    stop(sprintf(
-      fmt = "File %s does not exist.\nRun setup_bmc_experiment.R script.",
-      file_path
-    ))
+sapply(c(config_paths, metadata_paths),
+  function(file_path){
+    if (!file.exists(file_path)) {
+      stop(sprintf(
+        fmt = "File %s does not exist.\nRun setup_bmc_experiment.R script.",
+        file_path
+      ))
+    }
   }
-})
+)
 
 source(config_paths[1])
 ################################################################################
@@ -101,29 +106,20 @@ OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 REQUIRED_DIRECTORIES <- c("fastq", "coverage")
-input_directories <- vector("list", length = length(REQUIRED_DIRECTORIES))
 expected_number_of_samples <- 0
 for (experiment_idx in seq_len(number_of_experiments)) {
-  #current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
-  ## Build all required directory paths for this experiment
-  #required_paths <- file.path(exp_path, REQUIRED_DIRECTORIES)
-  #names(required_paths) <- REQUIRED_DIRECTORIES
+  current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
+  current_config_path <- config_paths[experiment_idx]
+  current_metadata_path <- metadata_paths[experiment_idx]
 
-  #missing_dirs <- required_paths[!dir.exists(required_paths)]
-  for (input_dir_idx in seq_len(length(REQUIRED_DIRECTORIES))) {
-    full_path <- file.path(EXPERIMENT_DIR[experiment_idx], REQUIRED_DIRECTORIES[input_dir_idx])
-    input_directories[[input_dir_idx]] <- full_path
+  # Build all required directory paths for this experiment
+  required_paths <- file.path(current_experiment_path, REQUIRED_DIRECTORIES)
+  names(required_paths) <- REQUIRED_DIRECTORIES
+  missing_dirs <- required_paths[!dir.exists(required_paths)]
+  if (length(missing_dirs) > 0) {
+    stop("Missing required experiment subdirectories: ", 
+         paste(missing_dirs, collapse = ", "))
   }
-  names(input_directories) <- REQUIRED_DIRECTORIES
-  invisible(lapply(names(input_directories), function(dir_name){
-    directory_path <- input_directories[[dir_name]]
-    if (!dir.exists(directory_path)){
-      stop(sprintf(
-        fmt = "Required experiment subdirectory: %s",
-        directory_path,
-      ))
-    }
-  }))
 }
 
 #####################
