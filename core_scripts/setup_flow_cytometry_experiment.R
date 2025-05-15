@@ -218,7 +218,7 @@ if (n_samples != expected) {
     print(summary(metadata))         # Show all category distributions
     cat("\n")
 
-    # Control this in the bmc_config.R file.
+    # Control this in the configuration_flow_cytometry.R file.
     # Helps display metadata values to help narrow down where you need to add combinations to filter.
     if (show_all_metadata) {
         print(metadata)
