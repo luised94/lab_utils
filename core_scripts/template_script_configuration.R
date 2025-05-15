@@ -22,19 +22,16 @@ EXPECTED_FORMAT_EXPERIMENT_ID <- "^\\d{6}Bel$"
 EXPERIMENT_IDS <- "250324Bel"
 CHROMOSOMES_TO_PLOT <- c("7", "10", "14")
 VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
-#CONFIGURATION_PATH <- 
 #EXPERIMENT_DIR <- 
-#METADATA_PATH <- 
 #LABEL_MAPPINGS <- list()
-#ACCEPT_CONFIGURATION <-
+ACCEPT_CONFIGURATION <- TRUE
 #REQUIRED_DIRECTORIES <- 
-#SKIP_VALIDATION <- 
+SKIP_PACKAGE_CHECKS <- TRUE
 ##LOG_TO_FILE <- 
 #OUTPUT_DIR <- 
 #OVERRIDE <- NULL
-#OUTPUT_FORMAT <- "svg"
+OUTPUT_FORMAT <- "svg"
 #SCRIPT_TO_RUN <- ""
-#REQUIRED_PACKAGES <- ""
 ######################
 # Validation layer
 ######################
@@ -49,7 +46,7 @@ stopifnot(
 IS_COMMA_SEPARATED <- grepl(",", EXPERIMENT_IDS)
 # Setup experiment directories ----------------
 if (!IS_COMMA_SEPARATED){
-  experiment_dir <- normalizePath(file.path(Sys.getenv("HOME"), "data", EXPERIMENT_IDS))
+  EXPERIMENT_DIR <- normalizePath(file.path(Sys.getenv("HOME"), "data", EXPERIMENT_IDS))
 }
 
 if (IS_COMMA_SEPARATED) {
@@ -74,7 +71,7 @@ if (IS_COMMA_SEPARATED) {
       ))
   }
   EXPERIMENT_IDS <- EXPERIMENT_IDS
-  experiment_dir <- sapply(EXPERIMENT_IDS, function(experiment_id) {
+  EXPERIMENT_DIR <- sapply(EXPERIMENT_IDS, function(experiment_id) {
     normalizePath(file.path(Sys.getenv("HOME"), "data", experiment_id))
   })
   VARIABLES_TO_REMOVE <- c(VARIABLES_TO_REMOVE,
@@ -90,7 +87,7 @@ if (!all(grepl(EXPECTED_FORMAT_EXPERIMENT_ID, EXPERIMENT_IDS, perl = TRUE))){
 }
 
 # Identify missing experiment directories
-missing_dirs <- experiment_dir[!dir.exists(experiment_dir)]
+missing_dirs <- EXPERIMENT_DIR[!dir.exists(EXPERIMENT_DIR)]
 if (length(missing_dirs) > 0) {
   # Build a common message for missing directories
   missing_msg <- sprintf(
