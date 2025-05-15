@@ -97,29 +97,35 @@ source(config_paths[1])
 ################################################################################
 # Setup directories, genome file and file metadata
 ################################################################################
-REQUIRED_DIRECTORIES <- c("fastq", "coverage")
-input_directories <- vector("list", length = length(REQUIRED_DIRECTORIES))
-for (dir_name in REQUIRED_DIRECTORIES) {
-  full_path <- file.path(EXPERIMENT_DIR, dir_name)
-  if (!dir.exists(full_path)) {
-    message(paste(
-      "Script requires files that should be in directory",
-      "but the directory does not exist.",
-      sep = "\n"
-    ))
-    stop(sprintf(
-      fmt = "Required experiment subdirectory '%s' not found: %s",
-      dir_name,
-      full_path
-    ))
-  }
-  input_directories[[dir_name]] <- full_path
-}
 OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+
+REQUIRED_DIRECTORIES <- c("fastq", "coverage")
+input_directories <- vector("list", length = length(REQUIRED_DIRECTORIES))
+expected_number_of_samples <- 0
+for (experiment_idx in seq_len(number_of_experiments)) {
+  #current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
+  ## Build all required directory paths for this experiment
+  #required_paths <- file.path(exp_path, REQUIRED_DIRECTORIES)
+  #names(required_paths) <- REQUIRED_DIRECTORIES
+
+  #missing_dirs <- required_paths[!dir.exists(required_paths)]
+  for (input_dir_idx in seq_len(length(REQUIRED_DIRECTORIES))) {
+    full_path <- file.path(EXPERIMENT_DIR[experiment_idx], REQUIRED_DIRECTORIES[input_dir_idx])
+    input_directories[[input_dir_idx]] <- full_path
+  }
+  names(input_directories) <- REQUIRED_DIRECTORIES
+  invisible(lapply(names(input_directories), function(dir_name){
+    directory_path <- input_directories[[dir_name]]
+    if (!dir.exists(directory_path)){
+      stop(sprintf(
+        fmt = "Required experiment subdirectory: %s",
+        directory_path,
+      ))
+    }
+  }))
+}
 
 #####################
 # Load the metadata dataframe with all experiments.
 #####################
-for (path in config_path) {
-}
