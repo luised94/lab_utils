@@ -144,7 +144,7 @@ xit_file <- list.files(
 
 stopifnot(
     "Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = experiment_id == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID,
-    "Only one xit file expected." = length(xit_file) == 1
+    "Only one xit file expected. Double check directory." = length(xit_file) == 1
 )
 
 message("Modules loaded...")
