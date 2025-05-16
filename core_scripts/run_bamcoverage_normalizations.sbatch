@@ -40,7 +40,8 @@ readonly TOOL_NAME="coverage"
 eval "$(setup_logging ${TOOL_NAME})"
 
 # Normalization methods array
-declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
+#declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
+declare -a NORM_METHODS=("CPM")
 
 # coverage parameters - hardcoded values
 BIN_SIZE=10

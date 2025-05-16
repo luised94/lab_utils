@@ -30,7 +30,8 @@ mkdir -p "$DOCUMENTATION_DIR" "$BAM_DIRECTORY"
 # Initialize BAM files
 mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*.bam" -exec basename {} \;)
 BAM_COUNT=${#unique_files[@]}
-declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
+#declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
+declare -a NORM_METHODS=("CPM")
 TOTAL_JOBS=$((BAM_COUNT * ${#NORM_METHODS[@]}))
 
 #BAM_COUNT=$(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "processed*_sorted.bam" | wc -l)
