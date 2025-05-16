@@ -173,7 +173,4 @@ metadata_aligned <- lapply(
 )
 # Now bind
 metadata_df <- do.call(rbind, metadata_aligned)
-
-#####################
-# Load the metadata dataframe with all experiments.
-#####################
+stopifnot("Metadata does not have expected number of rows." = nrow(metadata_df) == expected_number_of_samples)
