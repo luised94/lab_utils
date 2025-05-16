@@ -238,15 +238,56 @@ message("Finished metadata processing...")
 #    subset by control column,
 #    plot the tracks for multiple chromosomes
 ####################
-DF_EXPERIMENT_IDS <- unique(metadata_df$experiment_id)
-NUMBER_OF_EXPERIMENT_IDS <- length(DF_EXPERIMENT_IDS)
-for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENT_IDS)) {
-  message("--- For loop for metadata ---")
+columns_to_compare <- c("rescue_allele", "suppressor_allele")
+superfluos_columns <- c(
+    "sample_type", "sample_ids",
+    "bigwig_file_paths", "full_name",
+    "short_name"
+    )
+grouping_columns <- setdiff(colnames(metadata_df), superfluos_columns)
+columns_to_fix <- setdiff(grouping_columns, columns_to_compare)
+group_ids <- do.call(paste, c(metadata_df[columns_to_fix], sep = "|"))
+metadata_df$group_id <- group_ids
+unique_groups <- unique(group_ids)
+number_of_groups <- length(unique_groups)
+
+for (group_idx in seq_len(number_of_groups)) {
+  message("=== For loop for group ===")
   message(sprintf(
-    fmt = "  Processing row: %s / %s ",
-    experiment_idx, NUMBER_OF_EXPERIMENT_IDS)
+    fmt = "  Processing group: %s / %s ",
+    group_idx, number_of_groups)
   )
-  current_experiment_id <- DF_EXPERIMENT_IDS[experiment_idx]
-  is_experiment_id_row <- metadata_df$experiment_id == current_experiment_id
-  experiment_id_subset_df <- metadata_df[is_experiment_id_row, ]
+  current_group <- unique_groups[group_idx]
+  is_group_row <- metadata_df$group_id == current_group
+  current_subset_df <- metadata_df[is_group_row, ]
+  number_of_rows <- nrow(current_subset_df)
+  debug_print(list(
+    "title" = "Debug group plotting",
+    ".Number of rows" = number_of_rows,
+    ".Current group" = current_group
+  ))
+
+  for (row_idx in seq_len(number_of_rows)) {
+    message("  --- For loop for row ---")
+    message(sprintf(
+      fmt = "    Processing row: %s / %s ",
+      row_idx, number_of_rows)
+    )
+    # Grab the appropriate data. Load the data
+    message("  --- end row iteration ---")
+  }
+  message("=== end group iteration ===")
+  message("\n")
 }
+#DF_EXPERIMENT_IDS <- unique(metadata_df$experiment_id)
+#NUMBER_OF_EXPERIMENT_IDS <- length(DF_EXPERIMENT_IDS)
+#for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENT_IDS)) {
+  #message("--- For loop for metadata ---")
+  #message(sprintf(
+    #fmt = "  Processing row: %s / %s ",
+    #experiment_idx, NUMBER_OF_EXPERIMENT_IDS)
+  #)
+  #current_experiment_id <- DF_EXPERIMENT_IDS[experiment_idx]
+  #is_experiment_id_row <- metadata_df$experiment_id == current_experiment_id
+  #experiment_id_subset_df <- metadata_df[is_experiment_id_row, ]
+#}
