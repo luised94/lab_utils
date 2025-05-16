@@ -109,8 +109,9 @@ metadata_categories_list <- vector("list", length = number_of_experiments)
 
 # Patterns for files
 #bigwig_pattern <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
-bigwig_pattern <- "processed_.*_sequence_to_S288C_.*CPM\\.bw$"
+bigwig_pattern <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
 fastq_pattern <- "consolidated_.*_sequence\\.fastq$"
+sample_id_capture_pattern <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
 
 expected_number_of_samples <- 0
 REQUIRED_DIRECTORIES <- c("fastq", "coverage")
@@ -153,20 +154,46 @@ for (experiment_idx in seq_len(number_of_experiments)) {
     pattern = bigwig_pattern,
     full.names = TRUE
   )
-  bigwig_basenames <- basename(bigwig_files)
+  #bigwig_basenames <- basename(bigwig_files)
   stopifnot(
     "No fastq files found." = length(fastq_files) > 0,
     "No bigwig files found." = length(bigwig_files) > 0
     )
+  sample_ids <- gsub(
+    pattern = sample_id_capture_pattern,
+    replacement = "\\1",
+    x = fastq_files
+  )
 
+  stopifnot(
+     "Length of samples_ids is not lower than length of fastq files." =
+        all(nchar(sample_ids) < nchar(fastq_files)),
+     "Some of the extracted sample_ids are empty." =
+        all(nchar(sample_ids) > 0),
+     "Extracted sample ids cannot be coerced to numeric." =
+       all(!is.na(as.numeric(sample_ids))),
+     "Number of extracted sample_ids does not match number of current metadata df rows." =
+       nrow(current_metadata_df) == length(sample_ids)
+  )
+
+  expected_number_of_samples <- expected_number_of_samples + EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
   metadata_categories_list[[experiment_idx]] <- EXPERIMENT_CONFIG$CATEGORIES
-  #current_metadata_df$bigwig_file_paths <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+  current_metadata_df$bigwig_file_paths <- bigwig_files
+  current_metadata_df$sample_ids <- sample_ids
+  # Debug
+  debug_print(list(
+    "title" = "Debug metadata loading",
+    ".Number of rows" = nrow(current_metadata_df),
+    ".Number of samples ids" = length(sample_ids),
+    ".Number of bigwig files" = length(bigwig_files),
+    ".Number of expected samples" = EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
+  ))
   # Add determination of sample ids and addition to metadata frame
   metadata_list[[experiment_idx]] <- current_metadata_df
-  expected_number_of_samples <- expected_number_of_samples + EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
   message("--- End iteration ---")
   message("\n")
 } # end for loop
+message("Finished metadata loading...")
 
 # Get the union of the categories
 all_keys <- unique(unlist(lapply(metadata_categories_list, names)))
@@ -194,3 +221,32 @@ metadata_aligned <- lapply(
 # Now bind
 metadata_df <- do.call(rbind, metadata_aligned)
 stopifnot("Metadata does not have expected number of rows." = nrow(metadata_df) == expected_number_of_samples)
+
+# Convert the columns of the metadata_df to factors.
+for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
+  metadata_df[[col_name]] <- factor(
+    metadata_df[[col_name]],
+    levels = merged_categories[[col_name]],
+    ordered = TRUE
+    )
+}
+message("Finished metadata processing...")
+#metadata_df <- metadata_df[do.call(order, metadata_df[intersect(EXPERIMENT_CONFIG$COLUMN_ORDER, colnames(metadata_df))]), ]
+####################
+# Plot bigwig files
+# For each repeat,
+#    subset by control column,
+#    plot the tracks for multiple chromosomes
+####################
+DF_EXPERIMENT_IDS <- unique(metadata_df$experiment_id)
+NUMBER_OF_EXPERIMENT_IDS <- length(DF_EXPERIMENT_IDS)
+for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENT_IDS)) {
+  message("--- For loop for metadata ---")
+  message(sprintf(
+    fmt = "  Processing row: %s / %s ",
+    experiment_idx, NUMBER_OF_EXPERIMENT_IDS)
+  )
+  current_experiment_id <- DF_EXPERIMENT_IDS[experiment_idx]
+  is_experiment_id_row <- metadata_df$experiment_id == current_experiment_id
+  experiment_id_subset_df <- metadata_df[is_experiment_id_row, ]
+}
