@@ -1,4 +1,60 @@
 # R
+## Figuring out how to print variables in a reproducible styled manner
+```{r}
+message(paste(
+    paste0("Current experiment path: ", current_experiment_path),
+    paste0("Current config path: ", current_config_path),
+    paste0("Current metadata path ", current_metadata_path),
+    sep = "\n"
+  ))
+debug_items <- c(
+  "Current experiment path" = current_experiment_path,
+  "Current config path" = current_config_path, 
+  "Current metadata path" = current_metadata_path
+)
+
+cat("DEBUG:\n", 
+    paste0("  ", names(debug_items), ": ", debug_items, collapse = "\n"), 
+    "\n\n")
+# At the top of your script
+path_fmt <- paste(
+  "Current experiment path: %s",
+  "Current config path: %s",
+  "Current metadata path: %s", 
+  sep = "\n"
+)
+
+# Later in your code
+message(sprintf(path_fmt, 
+                current_experiment_path,
+                current_config_path,
+                current_metadata_path))
+
+# And again elsewhere if needed
+message(sprintf(path_fmt, 
+                different_experiment_path,
+                different_config_path,
+                different_metadata_path))
+cat("Current experiment path:", current_experiment_path, "\n",
+    "Current config path:", current_config_path, "\n",
+    "Current metadata path:", current_metadata_path, "\n", 
+    sep = "")
+
+cat(sprintf(
+  "DEBUG PATHS:
+  Experiment: %s
+  Config: %s
+  Metadata: %s\n\n",
+  current_experiment_path,
+  current_config_path,
+  current_metadata_path
+))
+```
+
+### References
+1. https://chat.deepseek.com/a/chat/s/eff61e7d-0aec-4c9a-bb13-2a80a0042894
+2. https://claude.ai/chat/fb548353-8f4a-45ec-ad99-ce82061a0ef4
+3. functions_for_logging.R
 ## Create a key column to subset dataframe with another set of keys
 ```{r}
 # Create the metadata characters and keys for sample and bigwig comparisons (_SB)

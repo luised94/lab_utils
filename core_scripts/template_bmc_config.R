@@ -9,12 +9,6 @@
 #   2. Modify METADATA section with experiment details
 #   3. Update CATEGORIES if experimental design changes
 #   4. Review INVALID_COMBINATIONS and EXPERIMENTAL_CONDITIONS
-# !! ----> REQUIRED UPDATES:
-# !! EXPERIMENT_CONFIG$METADATA <- list(
-# !!     EXPERIMENT_ID = "241010Bel",
-# !!     EXPECTED_SAMPLES = 65,
-# !!     VERSION = "1.0.0"
-# !! )
 # STRUCTURE:
 #   EXPERIMENT_CONFIG/
 #   +-- METADATA/
@@ -29,18 +23,15 @@
 #   +-- COLUMN_ORDER/       # Standard column arrangement
 # Comparison Naming Convention:
 # comp_[Antibody]_[Variables]_vs_[Baseline]_[Context]_[Modifier]
-# 
 # - [Antibody]: Official antibody code (e.g., HM1108, V5, ALFA)
 # - [Variables]: Main experimental factors being compared
 # - [vs_Baseline]: Reference state for comparison (if applicable)
 # - [Context]: Additional conditions (e.g., AuxinTreated, TimeCourse)
 # - [Modifier]: Special analysis flags or time points (e.g., 2h)
-#
 # Examples:
 # comp_HM1108_NoRescue_vs_WT
 # comp_V5_Auxin_2h
 # comp_ALFA_AllAlleles_Auxin_2h
-#
 # Note: Terms like "None", "For", "With", and "And" are avoided for clarity.
 # Time is abbreviated as "0h", "2h", etc. "NoRescue" is used instead of "None".
 #

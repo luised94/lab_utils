@@ -60,7 +60,7 @@ if (IS_COMMA_SEPARATED) {
   }
   # Validate format of each ID
   invalid_ids <- EXPERIMENT_IDS[!grepl(
-    EXPECTED_FORMAT_EXPERIMENT_IDS,
+    EXPECTED_FORMAT_EXPERIMENT_ID,
     EXPERIMENT_IDS,
     perl = TRUE)
     ]

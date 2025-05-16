@@ -98,19 +98,32 @@ sapply(c(config_paths, metadata_paths),
   }
 )
 
-source(config_paths[1])
 ################################################################################
 # Setup directories, genome file and file metadata
 ################################################################################
 OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
-REQUIRED_DIRECTORIES <- c("fastq", "coverage")
+metadata_list <- vector("list", length = number_of_experiments)
+metadata_categories_list <- vector("list", length = number_of_experiments)
+
+# Patterns for files
+bigwig_pattern <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
+fastq_pattern <- "consolidated_.*_sequence\\.fastq$"
+
 expected_number_of_samples <- 0
+REQUIRED_DIRECTORIES <- c("fastq", "coverage")
 for (experiment_idx in seq_len(number_of_experiments)) {
+  message("--- Start experiment idx ---")
   current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
   current_config_path <- config_paths[experiment_idx]
   current_metadata_path <- metadata_paths[experiment_idx]
+  debug_print(list(
+    "title" = "Debug Path information",
+    ".Current Experiment path" = current_experiment_path,
+    ".Current metadata path" = current_metadata_path,
+    ".Current Config path" = current_config_path
+  ))
 
   # Build all required directory paths for this experiment
   required_paths <- file.path(current_experiment_path, REQUIRED_DIRECTORIES)
@@ -120,7 +133,46 @@ for (experiment_idx in seq_len(number_of_experiments)) {
     stop("Missing required experiment subdirectories: ", 
          paste(missing_dirs, collapse = ", "))
   }
-}
+
+  # Load *_CONFIG variables
+  source(current_config_path)
+  current_metadata_df <- read.csv(current_metadata_path, stringsAsFactors = FALSE)
+
+  current_metadata_df$experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+  metadata_categories_list[[experiment_idx]] <- EXPERIMENT_CONFIG$CATEGORIES
+  #current_metadata_df$bigwig_file_paths <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+  # Add determination of sample ids and addition to metadata frame
+  metadata_list[[experiment_idx]] <- current_metadata_df
+  expected_number_of_samples <- expected_number_of_samples + EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
+  message("--- End iteration ---")
+  message("\n")
+} # end for loop
+
+# Get the union of the categories
+all_keys <- unique(unlist(lapply(metadata_categories_list, names)))
+merged_categories <- setNames(
+  lapply(all_keys, function(key) {
+    unique(unlist(lapply(metadata_categories_list, function(lst) lst[[key]])))
+  }),
+  all_keys
+)
+
+# Get union of all column names
+all_cols <- unique(unlist(lapply(metadata_list, names)))
+# Reorder and fill missing columns for each dataframe
+metadata_aligned <- lapply(
+  metadata_list,
+  function(df) {
+    # Add missing cols as NA
+    missing <- setdiff(all_cols, names(df))
+    df[missing] <- NA
+    # Reorder columns
+    df <- df[all_cols]
+    return(df)
+  }
+)
+# Now bind
+metadata_df <- do.call(rbind, metadata_aligned)
 
 #####################
 # Load the metadata dataframe with all experiments.

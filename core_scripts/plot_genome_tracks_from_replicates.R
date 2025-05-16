@@ -289,8 +289,6 @@ for (path in config_path) {
         warning("All experiments must belong to the same project. Found projects: ",
              paste(unique(project_id), collapse = ", "))
     }
-    output_dir <- file.path(Sys.getenv("HOME"), "data", unique(project_id), "plots", "genome_tracks", "replicates")
-    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
     # Find fastq files and extract sample IDs
     fastq_files <- list.files(
         path = dirs$fastq,
@@ -384,7 +382,9 @@ for (path in config_path) {
     project_metadata <- rbind(project_metadata, metadata)
     project_bigwig_files <- c(project_bigwig_files, bigwig_files)
 
-}
+} # end for loop
+output_dir <- file.path(Sys.getenv("HOME"), "data", unique(project_id), "plots", "genome_tracks", "replicates")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 if (nrow(project_metadata) == 0) {
     stop("No metadata entries found after merging all experiments")
