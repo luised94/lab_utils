@@ -108,7 +108,8 @@ metadata_list <- vector("list", length = number_of_experiments)
 metadata_categories_list <- vector("list", length = number_of_experiments)
 
 # Patterns for files
-bigwig_pattern <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
+#bigwig_pattern <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
+bigwig_pattern <- "processed_.*_sequence_to_S288C_.*CPM\\.bw$"
 fastq_pattern <- "consolidated_.*_sequence\\.fastq$"
 
 expected_number_of_samples <- 0
@@ -118,27 +119,46 @@ for (experiment_idx in seq_len(number_of_experiments)) {
   current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
   current_config_path <- config_paths[experiment_idx]
   current_metadata_path <- metadata_paths[experiment_idx]
-  debug_print(list(
-    "title" = "Debug Path information",
-    ".Current Experiment path" = current_experiment_path,
-    ".Current metadata path" = current_metadata_path,
-    ".Current Config path" = current_config_path
-  ))
-
   # Build all required directory paths for this experiment
   required_paths <- file.path(current_experiment_path, REQUIRED_DIRECTORIES)
   names(required_paths) <- REQUIRED_DIRECTORIES
   missing_dirs <- required_paths[!dir.exists(required_paths)]
   if (length(missing_dirs) > 0) {
-    stop("Missing required experiment subdirectories: ", 
+    stop("Missing required experiment subdirectories: ",
          paste(missing_dirs, collapse = ", "))
   }
+  debug_print(list(
+    "title" = "Debug Path information",
+    ".Current Experiment path" = current_experiment_path,
+    ".Current metadata path" = current_metadata_path,
+    ".Current Config path" = current_config_path,
+    ".Fastq path" = required_paths[["fastq"]],
+    ".Coverage path" = required_paths[["coverage"]]
+  ))
 
-  # Load *_CONFIG variables
+  # Load *_CONFIG variables ---------
   source(current_config_path)
   current_metadata_df <- read.csv(current_metadata_path, stringsAsFactors = FALSE)
 
+  # Gather additional metadata --------
   current_metadata_df$experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+  # Find fastq files and extract sample IDs
+  fastq_files <- list.files(
+    path = required_paths[["fastq"]],
+    pattern = fastq_pattern,
+    full.names = FALSE
+  )
+  bigwig_files <- list.files(
+    path = required_paths[["coverage"]],
+    pattern = bigwig_pattern,
+    full.names = TRUE
+  )
+  bigwig_basenames <- basename(bigwig_files)
+  stopifnot(
+    "No fastq files found." = length(fastq_files) > 0,
+    "No bigwig files found." = length(bigwig_files) > 0
+    )
+
   metadata_categories_list[[experiment_idx]] <- EXPERIMENT_CONFIG$CATEGORIES
   #current_metadata_df$bigwig_file_paths <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
   # Add determination of sample ids and addition to metadata frame
