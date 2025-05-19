@@ -354,8 +354,16 @@ experimental_condition_columns <- setdiff(
 )
 metadata_df$experimental_condition_id <- do.call(
   paste,
-  c(metadata_df[experimental_condition_columns], sep = "|")
+  args = c(metadata_df[experimental_condition_columns], sep = "|")
 )
+metadata_df$track_name <- do.call(paste,
+  args = c(
+    lapply(metadata_df[, target_comparison_columns],
+           as.character),
+    sep = "-"
+  )
+)
+
 unique_experimental_conditions <- unique(metadata_df$experimental_condition_id)
 total_number_of_conditions <- length(unique_experimental_conditions)
 total_number_of_samples <- nrow(metadata_df)
@@ -411,6 +419,11 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       message(sprintf(
         fmt = "      Processing row: %s / %s ",
         sample_idx, current_number_of_samples
+      ))
+      current_sample_track_name <- current_condition_df$track_name
+      debug_print(list(
+        "title" = "Sample iteration",
+        ".Track_name" = track_name
       ))
       # Grab the appropriate data. Load the data
       message("    --- end row iteration ---")
