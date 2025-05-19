@@ -203,8 +203,7 @@ merged_categories <- setNames(
 # Get union of all column names
 all_cols <- unique(unlist(lapply(metadata_list, names)))
 # Reorder and fill missing columns for each dataframe
-metadata_aligned <- lapply(
-  metadata_list,
+metadata_aligned <- lapply(metadata_list,
   function(df) {
     # Add missing cols as NA
     missing <- setdiff(all_cols, names(df))
@@ -257,18 +256,22 @@ FEATURE_FILE <- list.files(
 )[1]
 
 if (length(REF_GENOME_FILE) == 0) {
-    stop(sprintf("No reference genome files found matching pattern '%s' in: %s",
-                FILE_GENOME_DIRECTORY,
-                FILE_FEATURE_DIRECTORY))
+  stop(sprintf(
+    fmt = "No reference genome files found matching pattern '%s' in: %s",
+    FILE_GENOME_DIRECTORY,
+    FILE_FEATURE_DIRECTORY
+  ))
 }
 
 if (!file.exists(REF_GENOME_FILE)) {
-    stop(sprintf("Reference genome file not accessible: %s", REF_GENOME_FILE[1]))
+  stop(sprintf("Reference genome file not accessible: %s", REF_GENOME_FILE[1]))
 }
 if (length(FEATURE_FILE) == 0) {
-    warning(sprintf("No feature files found matching pattern '%s' in: %s",
-                   FILE_FEATURE_PATTERN,
-                   FILE_FEATURE_DIRECTORY))
+  warning(sprintf(
+    fmt = "No feature files found matching pattern '%s' in: %s",
+    FILE_FEATURE_PATTERN,
+    FILE_FEATURE_DIRECTORY
+  ))
 }
 
 REFERENCE_GENOME_DSS <- Biostrings::readDNAStringSet(REF_GENOME_FILE)
@@ -293,7 +296,8 @@ if (!is.null(FEATURE_FILE)) {
   GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOME_ROMAN, pruning.mode = "coarse")
 }
 
-stop("Check the genomic ranges.")
+# Breakpoint
+stop("Check the genomic ranges to ensure they were initialized.")
 ####################
 # Plot bigwig files
 # For each repeat,
@@ -321,7 +325,7 @@ metadata_df$experimental_condition_id <- do.call(
 )
 unique_experimental_conditions <- unique(metadata_df$experimental_condition_id)
 total_number_of_conditions <- length(unique_experimental_conditions)
-
+total_number_of_chromosomes <- length(CHROMOSOMES_TO_PLOT)
 
 for (condition_idx in seq_len(total_number_of_conditions)) {
   message("=== For loop for group ===")
@@ -346,21 +350,27 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     next
   }
 
-  for (sample_idx in seq_len(number_of_samples)) {
-    message("  --- For loop for row ---")
+  for (chromosome_idx in seq_len(total_number_of_chromosomes)) {
+    message("  --- For loop for chromosome ---")
     message(sprintf(
-      fmt = "    Processing row: %s / %s ",
+      fmt = "    Processing chromosome: %s / %s ",
+      chromosome_idx, total_number_of_chromosomes
+    ))
+    # Move the sample for loop here.
+    message("  --- end chromosome iteration ---")
+  }
+  for (sample_idx in seq_len(number_of_samples)) {
+    message("    --- For loop for sample ---")
+    message(sprintf(
+      fmt = "      Processing row: %s / %s ",
       sample_idx, number_of_samples
     ))
     # Grab the appropriate data. Load the data
-    message("  --- end row iteration ---")
+    message("    --- end row iteration ---")
   }
 
-  message(sprintf(
-    fmt = "  Ended iteration %s",
-    condition_idx
-  ))
-  message("=== end group iteration ===")
+  message("  Ended condition iteration ", condition_idx)
+  message("=== end condition iteration ===")
   message("\n")
 }
 #DF_EXPERIMENT_IDS <- unique(metadata_df$experiment_id)
