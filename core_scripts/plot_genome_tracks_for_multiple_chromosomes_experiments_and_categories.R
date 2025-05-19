@@ -328,7 +328,7 @@ if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
 # TODO: Move to configuration. //
 target_comparison_columns <- c("rescue_allele", "suppressor_allele")
 plot_name_comparison_column_section <- paste(
-  gsub("_", "", target_comparison_columns)
+  gsub("_", "", target_comparison_columns),
   collapse = "."
 )
 metadata_columns_to_exclude <- c(
@@ -462,8 +462,8 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       current_chromosome,
       gsub("|", ".", current_condition),
       "_",
-      plot_name_comparison_column_section
-      ".svg"
+      plot_name_comparison_column_section,
+      ".svg",
       sep = ""
     )
   debug_print(list(
