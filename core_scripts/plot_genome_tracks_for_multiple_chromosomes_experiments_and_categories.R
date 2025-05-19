@@ -308,6 +308,22 @@ stop("Check the genomic ranges to ensure they were initialized.")
 # For example, remove rows that you dont want to be included in the plots
 # Prefilter the metadata_df
 row_filtering_expression <- quote(rescue_allele == "4R" & suppressor_allele == "NONE")
+if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
+  expr_vars <- all.vars(row_filtering_expression)
+  missing_expr_vars <- setdiff(expr_vars, colnames(metadata_df))
+  if (length(missing_expr_vars) > 0) {
+    stop("Expression refers to columns that don't exist in metadata_df: ",
+         paste(missing_expr_vars, collapse = ", "))
+  }
+  tryCatch({
+    # would need to add more conditionals if I assign to a new variable //
+    metadata_df <- metadata_df[eval(row_filtering_expression, envir = metadata_df), ]
+  }, error = function(e) {
+    stop("Error evaluating row_filtering_expression: ", e$message)
+  })
+} # end if error handling for expression
+# Breakpoint
+stop("Check the expression handling variables and metadata df.")
 
 target_comparison_columns <- c("rescue_allele", "suppressor_allele")
 metadata_columns_to_exclude <- c(
@@ -324,8 +340,10 @@ metadata_df$experimental_condition_id <- do.call(
   c(metadata_df[experiment_condition_columns], sep = "|")
 )
 unique_experimental_conditions <- unique(metadata_df$experimental_condition_id)
+total_number_of_samples <- nrow(metadata_df)
 total_number_of_conditions <- length(unique_experimental_conditions)
 total_number_of_chromosomes <- length(CHROMOSOMES_TO_PLOT)
+
 
 for (condition_idx in seq_len(total_number_of_conditions)) {
   message("=== For loop for group ===")
@@ -336,13 +354,14 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
   current_condition <- unique_experimental_conditions[condition_idx]
   is_condition_row <- metadata_df$experiment_condition_id == current_condition
   current_condition_df <- metadata_df[is_condition_row, ]
-  number_of_samples <- nrow(current_condition_df)
+  current_number_of_samples <- nrow(current_condition_df)
   debug_print(list(
     "title" = "Debug group plotting",
-    ".Number of rows" = number_of_samples,
+    ".Number of rows" = current_number_of_samples,
+    ".Number of original rows" = total_number_of_samples,
     ".Current group" = current_condition
   ))
-  if (number_of_samples == 0) {
+  if (current_number_of_samples == 0) {
     warning(sprintf(
       fmt = "Condition '%s' does not have any samples. ",
       current_condition
@@ -359,11 +378,11 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     # Move the sample for loop here.
     message("  --- end chromosome iteration ---")
   }
-  for (sample_idx in seq_len(number_of_samples)) {
+  for (sample_idx in seq_len(current_number_of_samples)) {
     message("    --- For loop for sample ---")
     message(sprintf(
       fmt = "      Processing row: %s / %s ",
-      sample_idx, number_of_samples
+      sample_idx, current_number_of_samples
     ))
     # Grab the appropriate data. Load the data
     message("    --- end row iteration ---")
