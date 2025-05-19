@@ -1,3 +1,9 @@
+# trying to paste factors with separators
+do.call(paste, lapply(current_condition_df[target_comparison_columns], as.character), collap
+Error in do.call(paste, lapply(current_condition_df[target_comparison_columns],  :
+  unused argument (collapse = ".")
+
+Pass the parameters together with c() to the args parameter for do.call
 # pattern matching error
 ```{error}
 Error in gsub(pattern = GENOME_TRACK_CONFIG$file_sample_id, replacement = "\\1",  :
