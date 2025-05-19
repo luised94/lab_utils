@@ -458,18 +458,18 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       )
     )
     plot_file_name <- paste(
-      "condition_plots_",
-      current_chromosome,
-      gsub("|", ".", current_condition),
-      "_",
+      "condition_plots", "_",
+      current_chromosome, "_",
+      gsub("\\|", ".", current_condition), "_",
       plot_name_comparison_column_section,
       ".svg",
       sep = ""
     )
+    plot_output_file_path <- file.path(OUTPUT_DIR, plot_file_name)
   debug_print(list(
     "title" = "Debug chromosome",
     ".Current chromosome" = current_chromosome,
-    ".Plot name" = plot_file_name
+    ".Plot output file path" = plot_output_file_path
   ))
     # Move the sample for loop here.
     message("  --- end chromosome iteration ---")
