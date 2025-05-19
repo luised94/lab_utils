@@ -352,10 +352,6 @@ experimental_condition_columns <- setdiff(
   colnames(metadata_df),
   union(target_comparison_columns, metadata_columns_to_exclude)
 )
-metadata_df$experimental_condition_id <- do.call(
-  paste,
-  args = c(metadata_df[experimental_condition_columns], sep = "|")
-)
 metadata_df$track_name <- do.call(paste,
   args = c(
     lapply(metadata_df[, target_comparison_columns],
@@ -363,27 +359,27 @@ metadata_df$track_name <- do.call(paste,
     sep = "-"
   )
 )
+metadata_df$experimental_condition_id <- do.call(
+  paste,
+  args = c(metadata_df[experimental_condition_columns], sep = "|")
+)
 
 unique_experimental_conditions <- unique(metadata_df$experimental_condition_id)
-selected_columns <- metadata_df[, experimental_condition_columns, drop = FALSE]
-character_values <- data.frame(
-  lapply(selected_columns, as.character),
+unique_experimental_condition_data <- unique(metadata_df[, experimental_condition_columns, drop = FALSE])
+
+unique_condition_text_df <- data.frame(
+  lapply(unique_experimental_condition_data, as.character),
   stringsAsFactors = FALSE
 )
 # For each row, create "column_name: value" strings
-name_value_lines <- apply(
-character_values,
-1,
-function(single_row_values) {
-paste(
-names(single_row_values),
-single_row_values,
-sep = ": ",
-collapse = "\n"
-)
-}
-)
-condition_plot_titles <- unique(name_value_lines)
+experimental_condition_titles <- apply(
+  unique_condition_text_df, 1, function(single_row_values) {
+    paste(names(single_row_values),
+      single_row_values,
+      sep = ": ",
+      collapse = "\n"
+    )
+})
 
 total_number_of_conditions <- length(unique_experimental_conditions)
 total_number_of_samples <- nrow(metadata_df)
