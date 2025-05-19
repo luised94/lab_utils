@@ -33,7 +33,7 @@ required_configuration_variables <- c(
   "ACCEPT_CONFIGURATION",
   "SKIP_PACKAGE_CHECKS"
 )
-missing_variables <- required_configuration_variables[!exists(required_configuration_variables)]
+missing_variables <- required_configuration_variables[!sapply(required_configuration_variables, exists)]
 if (length(missing_variables) > 0 ) {
   stop("Missing variable. Please define in 'script_configuration.R' file.",
        paste(missing_variables, collapse = ", "))
