@@ -307,7 +307,7 @@ if (!is.null(FEATURE_FILE)) {
 # For example, remove rows that you dont want to be included in the plots
 # Prefilter the metadata_df
 # TODO: Move to configuration. //
-row_filtering_expression <- quote(rescue_allele == "4R" & suppressor_allele == "NONE")
+row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
 if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
   expr_vars <- all.vars(row_filtering_expression)
   missing_expr_vars <- setdiff(expr_vars, colnames(metadata_df))
@@ -322,8 +322,6 @@ if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
     stop("Error evaluating row_filtering_expression: ", e$message)
   })
 } # end if error handling for expression
-# Breakpoint
-stop("Check the expression handling variables and metadata df.")
 
 # Define columns to compare by and exclude columns for grouping
 # TODO: Move to configuration. //
@@ -356,7 +354,7 @@ experimental_condition_columns <- setdiff(
 )
 metadata_df$experimental_condition_id <- do.call(
   paste,
-  c(metadata_df[experiment_condition_columns], sep = "|")
+  c(metadata_df[experimental_condition_columns], sep = "|")
 )
 unique_experimental_conditions <- unique(metadata_df$experimental_condition_id)
 total_number_of_conditions <- length(unique_experimental_conditions)
@@ -364,8 +362,8 @@ total_number_of_samples <- nrow(metadata_df)
 total_number_of_chromosomes <- length(CHROMOSOMES_TO_PLOT)
 
 stopifnot(
-  "No experimental condition columns remain. See experiment_condition_columns" =
-    length(experiment_condition_columns) > 0,
+  "No experimental condition columns remain. See experimental_condition_columns" =
+    length(experimental_condition_columns) > 0,
   "No unique experimental conditions identified. See unique_experimental_conditions." =
     total_number_of_conditions > 0,
   "No samples in metadata df. See metadata_df." =
@@ -381,7 +379,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     condition_idx, total_number_of_conditions)
   )
   current_condition <- unique_experimental_conditions[condition_idx]
-  is_condition_row <- metadata_df$experiment_condition_id == current_condition
+  is_condition_row <- metadata_df$experimental_condition_id == current_condition
   current_condition_df <- metadata_df[is_condition_row, ]
   current_number_of_samples <- nrow(current_condition_df)
   debug_print(list(
