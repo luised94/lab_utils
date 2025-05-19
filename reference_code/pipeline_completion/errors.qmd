@@ -4,6 +4,23 @@ Error in do.call(paste, lapply(current_condition_df[target_comparison_columns], 
   unused argument (collapse = ".")
 
 Pass the parameters together with c() to the args parameter for do.call
+# subscript contains invalid names
+Error: subscript contains invalid names
+Was using character to subset an object. Needs to be a number.
+
+# Loading from file with multiple genome ranges
+Warning message:
+In .merge_two_Seqinfo_objects(x, y) :
+The 2 combined objects have no sequence levels in common. (Use
+suppressWarnings() to suppress this warning.)
+
+I forgot that the import has to be with the proper names for the chromosomes.
+
+# using exists on character vector
+Error in exists(required_configuration_variables) :
+  first argument has length > 1
+Need to use sapply(required_configuration_variables, exists)
+
 # pattern matching error
 ```{error}
 Error in gsub(pattern = GENOME_TRACK_CONFIG$file_sample_id, replacement = "\\1",  :
@@ -11,8 +28,6 @@ Error in gsub(pattern = GENOME_TRACK_CONFIG$file_sample_id, replacement = "\\1",
 In addition: Warning message:
 In gsub(pattern = GENOME_TRACK_CONFIG$file_sample_id, replacement = "\\1",  :
   TRE pattern compilation error 'Invalid contents of {}'
-
-"consolidated_([0-9]{4,6})_sequence\\.fastq"
 "consolidated_([0-9]{4}|[0-9]{5}|[0-9]{6})_sequence\\.fastq"
 ```
 
