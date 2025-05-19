@@ -24,7 +24,8 @@ if(interactive()) {
 
 # Ensure the variables expected in the script were //
 # defined in the configuration file. //
-variables_to_check <- c(
+# See template_script_configuration.R or script_configuration.R
+required_configuration_variables <- c(
   "EXPERIMENT_IDS",
   "EXPERIMENT_DIR",
   "CHROMOSOMES_TO_PLOT",
@@ -32,16 +33,12 @@ variables_to_check <- c(
   "ACCEPT_CONFIGURATION",
   "SKIP_PACKAGE_CHECKS"
 )
-sapply(variables_to_check, function(variable){
-  if (!exists(variable)) {
-    stop(sprintf(
-      fmt = "Variable %s not defined.\nAdjust configuration file.",
-      variable
-    ))
-  }
-})
+missing_variables <- required_configuration_variables[!exists(required_configuration_variables)]
+if (length(missing_variables) > 0 ) {
+  stop("Missing variable. Please define in 'script_configuration.R' file.",
+       paste(missing_variables, collapse = ", "))
+}
 message("All variables defined in the configuration file...")
-
 
 #} else {
 # add the args code?
@@ -121,9 +118,9 @@ for (experiment_idx in seq_len(number_of_experiments)) {
   current_config_path <- config_paths[experiment_idx]
   current_metadata_path <- metadata_paths[experiment_idx]
   # Build all required directory paths for this experiment
-  required_paths <- file.path(current_experiment_path, REQUIRED_DIRECTORIES)
-  names(required_paths) <- REQUIRED_DIRECTORIES
-  missing_dirs <- required_paths[!dir.exists(required_paths)]
+  required_data_paths <- file.path(current_experiment_path, REQUIRED_DIRECTORIES)
+  names(required_data_paths) <- REQUIRED_DIRECTORIES
+  missing_dirs <- required_data_paths[!dir.exists(required_data_paths)]
   if (length(missing_dirs) > 0) {
     stop("Missing required experiment subdirectories: ",
          paste(missing_dirs, collapse = ", "))
@@ -133,8 +130,8 @@ for (experiment_idx in seq_len(number_of_experiments)) {
     ".Current Experiment path" = current_experiment_path,
     ".Current metadata path" = current_metadata_path,
     ".Current Config path" = current_config_path,
-    ".Fastq path" = required_paths[["fastq"]],
-    ".Coverage path" = required_paths[["coverage"]]
+    ".Fastq path" = required_data_paths[["fastq"]],
+    ".Coverage path" = required_data_paths[["coverage"]]
   ))
 
   # Load *_CONFIG variables ---------
@@ -145,12 +142,12 @@ for (experiment_idx in seq_len(number_of_experiments)) {
   current_metadata_df$experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
   # Find fastq files and extract sample IDs
   fastq_files <- list.files(
-    path = required_paths[["fastq"]],
+    path = required_data_paths[["fastq"]],
     pattern = fastq_pattern,
     full.names = FALSE
   )
   bigwig_files <- list.files(
-    path = required_paths[["coverage"]],
+    path = required_data_paths[["coverage"]],
     pattern = bigwig_pattern,
     full.names = TRUE
   )
@@ -180,7 +177,6 @@ for (experiment_idx in seq_len(number_of_experiments)) {
   metadata_categories_list[[experiment_idx]] <- EXPERIMENT_CONFIG$CATEGORIES
   current_metadata_df$bigwig_file_paths <- bigwig_files
   current_metadata_df$sample_ids <- sample_ids
-  # Debug
   debug_print(list(
     "title" = "Debug metadata loading",
     ".Number of rows" = nrow(current_metadata_df),
@@ -232,50 +228,137 @@ for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
 }
 message("Finished metadata processing...")
 #metadata_df <- metadata_df[do.call(order, metadata_df[intersect(EXPERIMENT_CONFIG$COLUMN_ORDER, colnames(metadata_df))]), ]
+################################################################################
+# Setup genome and feature files
+################################################################################
+# Ensure supplementary files for plotting genome tracks are present
+FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
+FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
+FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
+FILE_FEATURE_PATTERN <- "eaton_peaks"
+stopifnot(
+    "Genome directory not found" = dir.exists(FILE_GENOME_DIRECTORY),
+    "Feature directory not found" = dir.exists(FILE_FEATURE_DIRECTORY)
+)
+
+# Load reference genome
+REF_GENOME_FILE <- list.files(
+    path = FILE_GENOME_DIRECTORY,
+    pattern = FILE_GENOME_PATTERN,
+    full.names = TRUE,
+    recursive = TRUE
+)[1]
+
+# Load feature file (annotation)
+FEATURE_FILE <- list.files(
+    path = FILE_FEATURE_DIRECTORY,
+    pattern = FILE_FEATURE_PATTERN,
+    full.names = TRUE
+)[1]
+
+if (length(REF_GENOME_FILE) == 0) {
+    stop(sprintf("No reference genome files found matching pattern '%s' in: %s",
+                FILE_GENOME_DIRECTORY,
+                FILE_FEATURE_DIRECTORY))
+}
+
+if (!file.exists(REF_GENOME_FILE)) {
+    stop(sprintf("Reference genome file not accessible: %s", REF_GENOME_FILE[1]))
+}
+if (length(FEATURE_FILE) == 0) {
+    warning(sprintf("No feature files found matching pattern '%s' in: %s",
+                   FILE_FEATURE_PATTERN,
+                   FILE_FEATURE_DIRECTORY))
+}
+
+REFERENCE_GENOME_DSS <- Biostrings::readDNAStringSet(REF_GENOME_FILE)
+CHROMOSOME_WIDTH <- REFERENCE_GENOME_DSS[CHROMOSOME_TO_PLOT]@ranges@width
+CHROMOSOME_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
+
+GENOME_RANGE_TO_LOAD <- GenomicRanges::GRanges(
+    seqnames = CHROMOSOME_ROMAN,
+    ranges = IRanges::IRanges(start = 1, end = CHROMOSOME_WIDTH),
+    strand = "*"
+)
+
+if (!is.null(FEATURE_FILE)) {
+  GENOME_FEATURES <- rtracklayer::import(FEATURE_FILE)
+  # Convert to chrRoman format
+  GenomeInfoDb::seqlevels(GENOME_FEATURES) <- paste0(
+    "chr",
+    utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(GENOME_FEATURES)))
+  )
+  # Fitler out the rest of the chromosomes
+  # GENOME_FEATURES <- GENOME_FEATURES[seqnames(GENOME_FEATURES) == CHROMOSOME_ROMAN]
+  GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOME_ROMAN, pruning.mode = "coarse")
+}
+
 ####################
 # Plot bigwig files
 # For each repeat,
 #    subset by control column,
 #    plot the tracks for multiple chromosomes
 ####################
-columns_to_compare <- c("rescue_allele", "suppressor_allele")
-superfluos_columns <- c(
+# Define any rows to exclude
+# For example, remove rows that you dont want to be included in the plots
+# Prefilter the metadata_df
+row_filtering_expression <- quote(rescue_allele == "4R" & suppressor_allele == "NONE")
+
+target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+metadata_columns_to_exclude <- c(
     "sample_type", "sample_ids",
     "bigwig_file_paths", "full_name",
     "short_name"
-    )
-grouping_columns <- setdiff(colnames(metadata_df), superfluos_columns)
-columns_to_fix <- setdiff(grouping_columns, columns_to_compare)
-group_ids <- do.call(paste, c(metadata_df[columns_to_fix], sep = "|"))
-metadata_df$group_id <- group_ids
-unique_groups <- unique(group_ids)
-number_of_groups <- length(unique_groups)
+)
+experimental_condition_columns <- setdiff(
+  colnames(metadata_df),
+  union(target_comparison_columns, metadata_columns_to_exclude)
+)
+metadata_df$experimental_condition_id <- do.call(
+  paste,
+  c(metadata_df[experiment_condition_columns], sep = "|")
+)
+unique_experimental_conditions <- unique(metadata_df$experimental_condition_id)
+total_number_of_conditions <- length(unique_experimental_conditions)
 
-for (group_idx in seq_len(number_of_groups)) {
+
+for (condition_idx in seq_len(total_number_of_conditions)) {
   message("=== For loop for group ===")
   message(sprintf(
     fmt = "  Processing group: %s / %s ",
-    group_idx, number_of_groups)
+    condition_idx, total_number_of_conditions)
   )
-  current_group <- unique_groups[group_idx]
-  is_group_row <- metadata_df$group_id == current_group
-  current_subset_df <- metadata_df[is_group_row, ]
-  number_of_rows <- nrow(current_subset_df)
+  current_condition <- unique_experimental_conditions[condition_idx]
+  is_condition_row <- metadata_df$experiment_condition_id == current_condition
+  current_condition_df <- metadata_df[is_condition_row, ]
+  number_of_samples <- nrow(current_condition_df)
   debug_print(list(
     "title" = "Debug group plotting",
-    ".Number of rows" = number_of_rows,
-    ".Current group" = current_group
+    ".Number of rows" = number_of_samples,
+    ".Current group" = current_condition
   ))
+  if (number_of_samples == 0) {
+    warning(sprintf(
+      fmt = "Condition '%s' does not have any samples. ",
+      current_condition
+    ))
+    next
+  }
 
-  for (row_idx in seq_len(number_of_rows)) {
+  for (sample_idx in seq_len(number_of_samples)) {
     message("  --- For loop for row ---")
     message(sprintf(
       fmt = "    Processing row: %s / %s ",
-      row_idx, number_of_rows)
-    )
+      sample_idx, number_of_samples
+    ))
     # Grab the appropriate data. Load the data
     message("  --- end row iteration ---")
   }
+
+  message(sprintf(
+    fmt = "  Ended iteration %s",
+    condition_idx
+  ))
   message("=== end group iteration ===")
   message("\n")
 }
