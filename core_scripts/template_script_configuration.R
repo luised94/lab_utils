@@ -20,16 +20,16 @@ EXPECTED_FORMAT_EXPERIMENT_ID <- "^\\d{6}Bel$"
 ######################
 # Write single experiment id or single character that is comma-separated
 EXPERIMENT_IDS <- "250324Bel"
-CHROMOSOMES_TO_PLOT <- c("7", "10", "14")
+CHROMOSOMES_TO_PLOT <- c(7, 10, 14)
 VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
 ACCEPT_CONFIGURATION <- TRUE
 SKIP_PACKAGE_CHECKS <- TRUE
 OUTPUT_FORMAT <- "svg"
-#EXPERIMENT_DIR <- 
+#EXPERIMENT_DIR <-
 #LABEL_MAPPINGS <- list()
-#REQUIRED_DIRECTORIES <- 
-##LOG_TO_FILE <- 
-#OUTPUT_DIR <- 
+#REQUIRED_DIRECTORIES <-
+##LOG_TO_FILE <-
+#OUTPUT_DIR <-
 #OVERRIDE <- NULL
 #SCRIPT_TO_RUN <- ""
 ######################

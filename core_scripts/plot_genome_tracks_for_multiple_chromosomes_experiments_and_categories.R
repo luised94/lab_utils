@@ -276,8 +276,8 @@ if (length(FEATURE_FILE) == 0) {
 }
 
 REFERENCE_GENOME_DSS <- Biostrings::readDNAStringSet(REF_GENOME_FILE)
-CHROMOSOME_WIDTHS <- REFERENCE_GENOME_DSS[CHROMOSOME_TO_PLOT]@ranges@width
-CHROMOSOME_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
+CHROMOSOME_WIDTHS <- REFERENCE_GENOME_DSS[CHROMOSOMES_TO_PLOT]@ranges@width
+CHROMOSOME_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOMES_TO_PLOT))
 
 GENOME_RANGE_TO_LOAD <- GenomicRanges::GRanges(
     seqnames = CHROMOSOME_ROMAN,
@@ -297,8 +297,6 @@ if (!is.null(FEATURE_FILE)) {
   GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOME_ROMAN, pruning.mode = "coarse")
 }
 
-# Breakpoint
-stop("Check the genomic ranges to ensure they were initialized.")
 ####################
 # Plot bigwig files
 # For each repeat,
