@@ -228,6 +228,7 @@ for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
 }
 message("Finished metadata processing...")
 #metadata_df <- metadata_df[do.call(order, metadata_df[intersect(EXPERIMENT_CONFIG$COLUMN_ORDER, colnames(metadata_df))]), ]
+# Oh. Can this be removed to the configuration file as well?
 ################################################################################
 # Setup genome and feature files
 ################################################################################
@@ -326,6 +327,10 @@ if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
 # Define columns to compare by and exclude columns for grouping
 # TODO: Move to configuration. //
 target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+plot_name_comparison_column_section <- paste(
+  gsub("_", "", target_comparison_columns)
+  collapse = "."
+)
 metadata_columns_to_exclude <- c(
     "sample_type", "sample_ids",
     "bigwig_file_paths", "full_name",
@@ -438,6 +443,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     ))
     current_chromosome <- CHROMOSOMES_IN_ROMAN[chromosome_idx]
     chromosome_title_section <- paste0("Chromosome: ", current_chromosome)
+    #current_genome_range_to_load <- GENOME_RANGE_TO_LOAD[chromosome_idx]
     current_condition_title <- paste(
       current_condition_base_title,
       chromosome_title_section,
@@ -451,6 +457,20 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         background.title = "white"
       )
     )
+    plot_file_name <- paste(
+      "condition_plots_",
+      current_chromosome,
+      gsub("|", ".", current_condition),
+      "_",
+      plot_name_comparison_column_section
+      ".svg"
+      sep = ""
+    )
+  debug_print(list(
+    "title" = "Debug chromosome",
+    ".Current chromosome" = current_chromosome,
+    ".Plot name" = plot_file_name
+  ))
     # Move the sample for loop here.
     message("  --- end chromosome iteration ---")
   }
@@ -462,11 +482,35 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       ))
       current_sample_track_name <- current_condition_df$track_name[sample_idx]
       current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
+      container_length <- length(track_container)
       debug_print(list(
         "title" = "Sample iteration",
         ".Track_name" = current_sample_track_name,
-        ".Bigwig file path" = current_bigwig_file_path
+        ".Bigwig file path" = current_bigwig_file_path,
+        ".Container Length" = container_length
       ))
+      #bigwig_data <- rtracklayer::import(
+      #  current_bigwig_file_path,
+      #  format = "BigWig",
+      #  which = current_genome_range_to_load
+      #)
+      #track_container[[container_length + 1]] <- Gviz::DataTrack(
+      #    range = bigwig_data,
+      #    name = track_name,
+      #    # Apply styling
+      #    showAxis = TRUE,
+      #    showTitle = TRUE,
+      #    type = "h",
+      #    size = 1.2,
+      #    background.title = "white",
+      #    fontcolor.title = "black",
+      #    col.border.title = "#e0e0e0",
+      #    cex.title = 0.7,
+      #    fontface = 1,
+      #    title.width = 1.0,
+      #    col = "darkblue",
+      #    fill = "darkblue"
+      #)
       # Grab the appropriate data. Load the data
       message("    --- end row iteration ---")
     }
