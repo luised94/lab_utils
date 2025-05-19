@@ -359,27 +359,30 @@ metadata_df$track_name <- do.call(paste,
     sep = "-"
   )
 )
+experimental_condition_data <- metadata_df[, experimental_condition_columns, drop = FALSE]
 metadata_df$experimental_condition_id <- do.call(
   paste,
-  args = c(metadata_df[experimental_condition_columns], sep = "|")
+  args = c(experimental_condition_data, sep = "|")
 )
 
 unique_experimental_conditions <- unique(metadata_df$experimental_condition_id)
-unique_experimental_condition_data <- unique(metadata_df[, experimental_condition_columns, drop = FALSE])
+unique_condition_data <- unique(experimental_condition_data)
 
 unique_condition_text_df <- data.frame(
-  lapply(unique_experimental_condition_data, as.character),
+  lapply(unique_condition_data, as.character),
   stringsAsFactors = FALSE
 )
 # For each row, create "column_name: value" strings
 experimental_condition_titles <- apply(
-  unique_condition_text_df, 1, function(single_row_values) {
-    paste(names(single_row_values),
-      single_row_values,
+  unique_condition_text_df, 1,
+  function(row_values) {
+    paste(names(row_values),
+      row_values,
       sep = ": ",
       collapse = "\n"
     )
-})
+  }
+)
 
 total_number_of_conditions <- length(unique_experimental_conditions)
 total_number_of_samples <- nrow(metadata_df)
@@ -395,7 +398,7 @@ stopifnot(
   "No chromosomes to plot. See CHROMOSOMES_TO_PLOT." =
     total_number_of_chromosomes > 0,
   "Expect same number of titles and conditions. See condition_plot_titles and unique_experimental_condtions." =
-    length(condition_plot_titles) == total_number_of_conditions
+    length(experimental_condition_titles) == total_number_of_conditions
 )
 
 for (condition_idx in seq_len(total_number_of_conditions)) {
@@ -404,15 +407,19 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     fmt = "  Processing group: %s / %s ",
     condition_idx, total_number_of_conditions)
   )
+  # Iteration setup ----------
   current_condition <- unique_experimental_conditions[condition_idx]
+  current_condition_base_title <- experimental_condition_titles[condition_idx]
   is_condition_row <- metadata_df$experimental_condition_id == current_condition
   current_condition_df <- metadata_df[is_condition_row, ]
   current_number_of_samples <- nrow(current_condition_df)
+  # Move to each or inside the most nested
   debug_print(list(
     "title" = "Debug group plotting",
     ".Number of rows" = current_number_of_samples,
     ".Number of original rows" = total_number_of_samples,
-    ".Current group" = current_condition
+    ".Current condition" = current_condition,
+    ".Current title" = current_condition_base_title
   ))
 
   if (current_number_of_samples == 0) {
@@ -430,7 +437,20 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       chromosome_idx, total_number_of_chromosomes
     ))
     current_chromosome <- CHROMOSOMES_IN_ROMAN[chromosome_idx]
-    chromosome_title_section <- paste("Chromosome:", current_chromosome, sep = " ")
+    chromosome_title_section <- paste0("Chromosome: ", current_chromosome)
+    current_condition_title <- paste(
+      current_condition_base_title,
+      chromosome_title_section,
+      sep = "\n"
+    )
+    track_container <- list(
+      Gviz::GenomeAxisTrack(
+        name = sprintf("Chr %s Axis", current_chromosome),
+        fontcolor.title = "black",
+        cex.title = 0.7,
+        background.title = "white"
+      )
+    )
     # Move the sample for loop here.
     message("  --- end chromosome iteration ---")
   }
@@ -440,14 +460,32 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         fmt = "      Processing row: %s / %s ",
         sample_idx, current_number_of_samples
       ))
-      current_sample_track_name <- current_condition_df$track_name
+      current_sample_track_name <- current_condition_df$track_name[sample_idx]
+      current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
       debug_print(list(
         "title" = "Sample iteration",
-        ".Track_name" = current_sample_track_name
+        ".Track_name" = current_sample_track_name,
+        ".Bigwig file path" = current_bigwig_file_path
       ))
       # Grab the appropriate data. Load the data
       message("    --- end row iteration ---")
     }
+
+  # [4] Annotation Track (Conditional)
+  #if (exists("GENOME_FEATURES")) {
+  #  track_container[[length(track_container)]] <- Gviz::AnnotationTrack(
+  #    GENOME_FEATURES,
+  #    name = "Features",
+  #    size = 0.5,
+  #    background.title = "lightgray",
+  #    fontcolor.title = "black",
+  #    showAxis = FALSE,
+  #    background.panel = "#f5f5f5",
+  #    cex.title = 0.6,
+  #    fill = "#8b4513",
+  #    col = "#8b4513"
+  #  )
+  #}
 
   message("  Ended condition iteration ", condition_idx)
   message("=== end condition iteration ===")

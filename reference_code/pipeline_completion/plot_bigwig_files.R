@@ -477,21 +477,6 @@ for (comparison_name in names(list_of_comparisons)) {
     }
 
     message("   All samples imported and added to track_container.")
-    # [4] Annotation Track (Conditional)
-    if (exists("GENOME_FEATURES")) {
-        track_container[[length(track_container)]] <- Gviz::AnnotationTrack(
-            GENOME_FEATURES,
-            name = "Features",
-            size = 0.5,
-            background.title = "lightgray",
-            fontcolor.title = "black",
-            showAxis = FALSE,
-            background.panel = "#f5f5f5",
-            cex.title = 0.6,
-            fill = "#8b4513",
-            col = "#8b4513"
-        )
-    }
     # Create descriptive main plot title
     plot_title_chr <- sprintf(
         title_comparison_template,
