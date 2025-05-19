@@ -277,10 +277,10 @@ if (length(FEATURE_FILE) == 0) {
 
 REFERENCE_GENOME_DSS <- Biostrings::readDNAStringSet(REF_GENOME_FILE)
 CHROMOSOME_WIDTHS <- REFERENCE_GENOME_DSS[CHROMOSOMES_TO_PLOT]@ranges@width
-CHROMOSOME_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOMES_TO_PLOT))
+CHROMOSOMES_IN_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOMES_TO_PLOT))
 
 GENOME_RANGE_TO_LOAD <- GenomicRanges::GRanges(
-    seqnames = CHROMOSOME_ROMAN,
+    seqnames = CHROMOSOMES_IN_ROMAN,
     ranges = IRanges::IRanges(start = 1, end = CHROMOSOME_WIDTHS),
     strand = "*"
 )
@@ -293,8 +293,8 @@ if (!is.null(FEATURE_FILE)) {
     utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(GENOME_FEATURES)))
   )
   # Fitler out the rest of the chromosomes
-  # GENOME_FEATURES <- GENOME_FEATURES[seqnames(GENOME_FEATURES) == CHROMOSOME_ROMAN]
-  GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOME_ROMAN, pruning.mode = "coarse")
+  # GENOME_FEATURES <- GENOME_FEATURES[seqnames(GENOME_FEATURES) == CHROMOSOMES_IN_ROMAN]
+  GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOMES_IN_ROMAN, pruning.mode = "coarse")
 }
 
 ####################
@@ -365,6 +365,26 @@ metadata_df$track_name <- do.call(paste,
 )
 
 unique_experimental_conditions <- unique(metadata_df$experimental_condition_id)
+selected_columns <- metadata_df[, experimental_condition_columns, drop = FALSE]
+character_values <- data.frame(
+  lapply(selected_columns, as.character),
+  stringsAsFactors = FALSE
+)
+# For each row, create "column_name: value" strings
+name_value_lines <- apply(
+character_values,
+1,
+function(single_row_values) {
+paste(
+names(single_row_values),
+single_row_values,
+sep = ": ",
+collapse = "\n"
+)
+}
+)
+condition_plot_titles <- unique(name_value_lines)
+
 total_number_of_conditions <- length(unique_experimental_conditions)
 total_number_of_samples <- nrow(metadata_df)
 total_number_of_chromosomes <- length(CHROMOSOMES_TO_PLOT)
@@ -377,7 +397,9 @@ stopifnot(
   "No samples in metadata df. See metadata_df." =
     total_number_of_samples > 0,
   "No chromosomes to plot. See CHROMOSOMES_TO_PLOT." =
-    total_number_of_chromosomes > 0
+    total_number_of_chromosomes > 0,
+  "Expect same number of titles and conditions. See condition_plot_titles and unique_experimental_condtions." =
+    length(condition_plot_titles) == total_number_of_conditions
 )
 
 for (condition_idx in seq_len(total_number_of_conditions)) {
@@ -411,6 +433,8 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       fmt = "    Processing chromosome: %s / %s ",
       chromosome_idx, total_number_of_chromosomes
     ))
+    current_chromosome <- CHROMOSOMES_IN_ROMAN[chromosome_idx]
+    chromosome_title_section <- paste("Chromosome:", current_chromosome, sep = " ")
     # Move the sample for loop here.
     message("  --- end chromosome iteration ---")
   }
@@ -423,7 +447,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       current_sample_track_name <- current_condition_df$track_name
       debug_print(list(
         "title" = "Sample iteration",
-        ".Track_name" = track_name
+        ".Track_name" = current_sample_track_name
       ))
       # Grab the appropriate data. Load the data
       message("    --- end row iteration ---")
