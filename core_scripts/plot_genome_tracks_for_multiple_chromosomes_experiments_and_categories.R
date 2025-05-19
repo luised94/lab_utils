@@ -311,7 +311,7 @@ category_values <- unique(metadata_df[, category_to_color_by])
 number_of_colors <- length(category_values)
 if (number_of_colors <= 8) {
   category_palette <- RColorBrewer::brewer.pal(max(3, number_of_colors), "Set2")
-  category_colors <- category_palette[seq_len(color_count)]
+  category_colors <- category_palette[seq_len(number_of_colors)]
 } else {
   category_colors <- rainbow.colors(number_of_colors)
 }
