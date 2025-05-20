@@ -99,7 +99,7 @@ sapply(c(config_paths, metadata_paths),
 ################################################################################
 # Setup directories, genome file and file metadata
 ################################################################################
-OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "genome_tracks", "final_results")
+OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 metadata_list <- vector("list", length = number_of_experiments)
@@ -481,8 +481,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     plot_output_file_path <- file.path(OUTPUT_DIR, plot_file_name)
     debug_print(list(
       "title" = "Debug chromosome",
-      ".Current chromosome" = current_chromosome,
-      ".Plot output file path" = plot_output_file_path
+      ".Current chromosome" = current_chromosome
     ))
     for (sample_idx in seq_len(current_number_of_samples)) {
       message("    --- For loop for sample ---")
@@ -539,7 +538,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     # Add Annotation Track (Conditional)
     if (exists("GENOME_FEATURES")) {
       current_genome_feature <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, current_chromosome, pruning.mode = "coarse")
-      track_container[[length(track_container)]] <- Gviz::AnnotationTrack(
+      track_container[[length(track_container) + 1]] <- Gviz::AnnotationTrack(
         current_genome_feature,
         name = "Features",
         size = 0.5,
@@ -552,29 +551,35 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         col = "#8b4513"
       )
     }
-    #svglite::svglite(
-    #    filename = plot_output_file_path,
-    #    width = 10,
-    #    height = 8,
-    #    bg = "white"
-    #)
+    debug_print(list(
+      "title" = "Debug chromosome",
+      ".Current chromosome" = current_chromosome,
+      ".Plot output file path" = plot_output_file_path,
+      ". Current track length" = length(track_container)
+    ))
+    svglite::svglite(
+        filename = plot_output_file_path,
+        width = 10,
+        height = 8,
+        bg = "white"
+    )
 
-    #Gviz::plotTracks(
-    #    trackList = track_container,
-    #    chromosome = current_chromosome,
-    #    from = current_genome_range_to_load@ranges@start,
-    #    to = current_genome_range_to_load@ranges@width,
-    #    margin = 15,
-    #    innerMargin = 5,
-    #    spacing = 10,
-    #    main = current_condition_title,
-    #    col.axis = "black",
-    #    cex.axis = 0.8,
-    #    cex.main = 0.7,
-    #    fontface.main = 1,
-    #    background.panel = "transparent"
-    #)
-    #dev.off()
+    Gviz::plotTracks(
+        trackList = track_container,
+        chromosome = current_chromosome,
+        from = current_genome_range_to_load@ranges@start,
+        to = current_genome_range_to_load@ranges@width,
+        margin = 15,
+        innerMargin = 5,
+        spacing = 10,
+        main = current_condition_title,
+        col.axis = "black",
+        cex.axis = 0.8,
+        cex.main = 0.7,
+        fontface.main = 1,
+        background.panel = "transparent"
+    )
+    dev.off()
     message("  --- end chromosome iteration ---")
 
   } # end chromsome for loop
