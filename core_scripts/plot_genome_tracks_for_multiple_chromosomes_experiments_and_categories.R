@@ -404,6 +404,8 @@ experimental_condition_titles <- apply(
 total_number_of_conditions <- length(unique_experimental_conditions)
 total_number_of_samples <- nrow(metadata_df)
 total_number_of_chromosomes <- length(CHROMOSOMES_TO_PLOT)
+# Move to configuration //
+padding_fraction <- 0.1
 
 stopifnot(
   "No experimental condition columns remain. See experimental_condition_columns" =
@@ -483,6 +485,29 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       "title" = "Debug chromosome",
       ".Current chromosome" = current_chromosome
     ))
+    all_track_values <- c()
+    # Calculate track limits for all of the tracks in the plot
+    for (sample_idx in seq_len(current_number_of_samples)) {
+      message("   Measuring track limits")
+      current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
+      bigwig_data <- rtracklayer::import(
+        current_bigwig_file_path,
+        format = "BigWig",
+        which = current_genome_range_to_load
+      )
+      values <- GenomicRanges::values(bigwig_data)$score
+      all_track_values <- c(all_track_values, values)
+    }
+    # Calculate limits
+    if (length(all_track_values) > 0) {
+      y_min <- min(all_track_values, na.rm = TRUE)
+      y_max <- max(all_track_values, na.rm = TRUE)
+      y_range <- y_max - y_min
+      y_limits <- c(
+        max(0, y_min - (y_range * padding_fraction)),
+            y_max + (y_range * padding_fraction)
+        )
+    }
     for (sample_idx in seq_len(current_number_of_samples)) {
       message("    --- For loop for sample ---")
       message(sprintf(
@@ -555,7 +580,8 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       "title" = "Debug chromosome",
       ".Current chromosome" = current_chromosome,
       ".Plot output file path" = plot_output_file_path,
-      ". Current track length" = length(track_container)
+      ". Current track length" = length(track_container),
+      ". Track limits" = paste(y_limits, collapse = ",")
     ))
     svglite::svglite(
         filename = plot_output_file_path,
@@ -569,6 +595,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         chromosome = current_chromosome,
         from = current_genome_range_to_load@ranges@start,
         to = current_genome_range_to_load@ranges@width,
+        ylim = y_limits,
         margin = 15,
         innerMargin = 5,
         spacing = 10,
