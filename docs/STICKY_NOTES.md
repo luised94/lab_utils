@@ -257,3 +257,7 @@ QUESTION: Why does requireNamespace check take so long? Is it cached?
 
 ## 2025-05-14
 TODO: Need to fix the bmc config and metadata to have the same column names
+
+## 2025-05-20
+Collect the plots side by side via illustrator then move on to flow cytometry.
+
