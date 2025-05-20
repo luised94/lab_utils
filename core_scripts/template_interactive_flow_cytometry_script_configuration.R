@@ -13,24 +13,24 @@ OVERRIDE_CONFIGURATION_PATH <- "~/lab_utils/core_scripts/override_configuration.
 ######################
 # CORE_PARAMETERS
 ######################
-EXPECTED_FORMAT_EXPERIMENT_ID <- "^\\d{6}Bel$"
+EXPECTED_FORMAT_EXPERIMENT_ID <- "Exp_\\d{8}_\\d{1,6}"
 
 ######################
 # CONFIGURATION_PARAMETERS
 ######################
 # Write single experiment id or single character that is comma-separated
-EXPERIMENT_IDS <- "250207Bel,250324Bel"
-CHROMOSOMES_TO_PLOT <- c("7", "10", "14")
+EXPERIMENT_IDS <- "Exp_20250515_1"
+DIRECTORY_ID <- "250303_G1_arrest_degrade_and_release"
+ACCEPT_CONFIGURATION <- TRUE
 VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
+SKIP_PACKAGE_CHECKS <- TRUE
+OUTPUT_FORMAT <- "svg"
 #EXPERIMENT_DIR <- 
 #LABEL_MAPPINGS <- list()
-ACCEPT_CONFIGURATION <- TRUE
 #REQUIRED_DIRECTORIES <- 
-SKIP_PACKAGE_CHECKS <- TRUE
 ##LOG_TO_FILE <- 
 #OUTPUT_DIR <- 
 #OVERRIDE <- NULL
-OUTPUT_FORMAT <- "svg"
 #SCRIPT_TO_RUN <- ""
 ######################
 # Validation layer
@@ -43,10 +43,23 @@ stopifnot(
 ######################
 # EXPERIMENT CONFIGURATION SETUP
 ######################
+DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
+FLOW_CYTOMETRY_BRIDGE_PATH <- "Lab/Experiments/flow_cytometry"
+FLOW_CYTOMETRY_DIR <- file.path(DROPBOX_PATH, FLOW_CYTOMETRY_BRIDGE_PATH)
+if(DROPBOX_PATH == "") {
+    message("Environmental variable DROPBOX_PATH not available.")
+    message("Either set with my config directory or manually in the parse_flow_cytometry_arguments.")
+    stop("!!!! DROPBOX_PATH required for proper directory setting.")
+}
+
+stopifnot(
+    "FLOW_CYTOMETRY_DIR does not exist." = dir.exists(FLOW_CYTOMETRY_DIR)
+)
+
 IS_COMMA_SEPARATED <- grepl(",", EXPERIMENT_IDS)
 # Setup experiment directories ----------------
 if (!IS_COMMA_SEPARATED){
-  EXPERIMENT_DIR <- normalizePath(file.path(Sys.getenv("HOME"), "data", EXPERIMENT_IDS))
+  EXPERIMENT_DIR <- normalizePath(FLOW_CYTOMETRY_DIR, EXPERIMENT_IDS))
 }
 
 if (IS_COMMA_SEPARATED) {
@@ -72,7 +85,7 @@ if (IS_COMMA_SEPARATED) {
   }
   EXPERIMENT_IDS <- EXPERIMENT_IDS
   EXPERIMENT_DIR <- sapply(EXPERIMENT_IDS, function(experiment_id) {
-    normalizePath(file.path(Sys.getenv("HOME"), "data", experiment_id))
+    normalizePath(file.path(FLOW_CYTOMETRY_DIR, experiment_id))
   })
   VARIABLES_TO_REMOVE <- c(VARIABLES_TO_REMOVE,
     "split_experiment_ids", "clean_experiment_ids",
