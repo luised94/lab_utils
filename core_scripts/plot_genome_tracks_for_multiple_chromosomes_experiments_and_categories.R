@@ -13,7 +13,7 @@ for (function_filename in FUNCTION_FILENAMES) {
 message("Bootstrap phase completed...")
 if(interactive()) {
   message("Interactive job... sourcing configuration file.")
-  script_configuration_path <- "~/lab_utils/core_scripts/script_configuration.R"
+  script_configuration_path <- "~/lab_utils/core_scripts/interactive_script_configuration.R"
   stopifnot(
     "Script configuration file does not exist. Please copy the template." =
     file.exists(script_configuration_path)
