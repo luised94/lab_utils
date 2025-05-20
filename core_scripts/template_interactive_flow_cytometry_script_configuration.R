@@ -19,7 +19,7 @@ EXPECTED_FORMAT_EXPERIMENT_ID <- "Exp_\\d{8}_\\d{1,6}"
 # CONFIGURATION_PARAMETERS
 ######################
 # Write single experiment id or single character that is comma-separated
-EXPERIMENT_IDS <- "Exp_20250515_1"
+EXPERIMENT_ID <- "Exp_20250515_1"
 DIRECTORY_ID <- "250303_G1_arrest_degrade_and_release"
 ACCEPT_CONFIGURATION <- TRUE
 SKIP_PACKAGE_CHECKS <- TRUE
@@ -39,10 +39,10 @@ VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
 # Validation layer
 ######################
 stopifnot(
-  "EXPERIMENT_IDS is required" =
-    !is.null(EXPERIMENT_IDS),
-  "EXPERIMENT_IDS should be character vector of length 1." =
-    length(EXPERIMENT_IDS) == 1,
+  "EXPERIMENT_ID is required" =
+    !is.null(EXPERIMENT_ID),
+  "EXPERIMENT_ID should be character vector of length 1." =
+    length(EXPERIMENT_ID) == 1,
   "OUTPUT_FORMAT must be svg, pdf or png." =
     OUTPUT_FORMAT %in% c("svg", "pdf", "png"),
   "FLOW_CYTOMETRY_DIR does not exist." =
@@ -57,25 +57,25 @@ if(DROPBOX_PATH == "") {
 ######################
 # EXPERIMENT CONFIGURATION SETUP
 ######################
-IS_COMMA_SEPARATED <- grepl(",", EXPERIMENT_IDS)
+IS_COMMA_SEPARATED <- grepl(",", EXPERIMENT_ID)
 # Setup experiment directories ----------------
 if (!IS_COMMA_SEPARATED){
-  EXPERIMENT_DIR <- normalizePath(FLOW_CYTOMETRY_DIR, EXPERIMENT_IDS))
+  SERIES_DIRECTORY <- normalizePath(file.path(FLOW_CYTOMETRY_DIR, DIRECTORY_ID, EXPERIMENT_ID))
 }
 
 if (IS_COMMA_SEPARATED) {
   # Split and clean the IDs
-  split_experiment_ids <- stri_split_fixed(EXPERIMENT_IDS, ",")[[1]]
+  split_experiment_ids <- stri_split_fixed(EXPERIMENT_ID, ",")[[1]]
   clean_experiment_ids <- trimws(split_experiment_ids)  # Remove any whitespace
-  EXPERIMENT_IDS <-  clean_experiment_ids[clean_experiment_ids != ""]  # Remove empty elements
+  EXPERIMENT_ID <-  clean_experiment_ids[clean_experiment_ids != ""]  # Remove empty elements
   # Check for duplicates
-  if (length(unique(EXPERIMENT_IDS)) != length(EXPERIMENT_IDS)) {
+  if (length(unique(EXPERIMENT_ID)) != length(EXPERIMENT_ID)) {
     stop("Duplicate experiment IDs detected")
   }
   # Validate format of each ID
-  invalid_ids <- EXPERIMENT_IDS[!grepl(
+  invalid_ids <- EXPERIMENT_ID[!grepl(
     EXPECTED_FORMAT_EXPERIMENT_ID,
-    EXPERIMENT_IDS,
+    EXPERIMENT_ID,
     perl = TRUE)
     ]
   if (length(invalid_ids) > 0) {
@@ -84,8 +84,8 @@ if (IS_COMMA_SEPARATED) {
       paste(invalid_ids, collapse = ", ")
       ))
   }
-  EXPERIMENT_IDS <- EXPERIMENT_IDS
-  EXPERIMENT_DIR <- sapply(EXPERIMENT_IDS, function(experiment_id) {
+  EXPERIMENT_ID <- EXPERIMENT_ID
+  EXPERIMENT_DIR <- sapply(EXPERIMENT_ID, function(experiment_id) {
     normalizePath(file.path(FLOW_CYTOMETRY_DIR, experiment_id))
   })
   VARIABLES_TO_REMOVE <- c(VARIABLES_TO_REMOVE,
@@ -93,10 +93,10 @@ if (IS_COMMA_SEPARATED) {
     "invalid_ids")
 }
 
-if (!all(grepl(EXPECTED_FORMAT_EXPERIMENT_ID, EXPERIMENT_IDS, perl = TRUE))){
+if (!all(grepl(EXPECTED_FORMAT_EXPERIMENT_ID, EXPERIMENT_ID, perl = TRUE))){
   stop(sprintf(
     fmt = "Invalid experiment-id format.\nExpected: Exp_[0-9]{8}_[0-9] or '<exp_id1>,<exp_id2>,...'\nReceived: %s",
-    EXPERIMENT_IDS
+    EXPERIMENT_ID
   ))
 }
 

@@ -13,7 +13,7 @@ for (function_filename in FUNCTION_FILENAMES) {
 message("Bootstrap phase completed...")
 if(interactive()) {
   message("Interactive job... sourcing configuration file.")
-  script_configuration_path <- "~/lab_utils/core_scripts/interactive_script_configuration.R"
+  script_configuration_path <- "~/lab_utils/core_scripts/interactive_flow_cytometry_script_configuration.R"
   stopifnot(
     "Script configuration file does not exist. Please copy the template." =
     file.exists(script_configuration_path)
@@ -27,8 +27,8 @@ if(interactive()) {
 # See template_script_configuration.R or script_configuration.R
 required_configuration_variables <- c(
   "EXPERIMENT_IDS",
-  "EXPERIMENT_DIR",
-  "CHROMOSOMES_TO_PLOT",
+  "SERIES_DIRECTORY",
+  "DIRECTORY_ID",
   "OUTPUT_FORMAT",
   "ACCEPT_CONFIGURATION",
   "SKIP_PACKAGE_CHECKS"
@@ -40,27 +40,49 @@ if (length(missing_variables) > 0 ) {
 }
 message("All variables defined in the configuration file...")
 
-################################################################################
-# Verify Required Libraries
-################################################################################
-# Add the packages that are used in the script.
-required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
-if (!is.character(required_packages) || length(required_packages) == 0) {
-  stop("required_packages must be a non-empty character vector")
-}
 
-if (!SKIP_PACKAGE_CHECKS) {
-  for (pkg in required_packages) {
-    if (!requireNamespace(pkg, quietly = TRUE)) {
-      stop(sprintf(
-        fmt = "Package '%s' is missing.\nPlease install using renv or base R.",
-        pkg
-      ))
+########################################
+# Confirm packages
+########################################
+# Check for required packages -------------
+# TODO: Add verification for package versions
+REQUIRED_PACKAGES <- list(
+    "dplyr" = "1.1.4",
+    "flowCore" = "2.17.1",
+    "ggcyto" = "1.26.4",
+    "gtools" = "3.9.5",
+    "BH" = "1.87.0.1",
+    "ggplot2" = "3.5.1",
+    "RProtoBufLib" = "2.13.1",
+    "cytolib" = "2.19.3"
+)
+# Verify packages are available and versions are at least minimum version in list
+lapply(names(REQUIRED_PACKAGES),
+  function(package_name){
+    # Check availability (stop if missing - essential)
+    if (!requireNamespace(package_name, quietly = TRUE)) {
+      stop(paste0("Required package '", package_name, "' is not installed. ",
+      "Please install using renv or if related to flow cytometry, see install instructions."),
+      call. = FALSE) # Stop execution if a core package is missing
     }
-  }
-  SKIP_PACKAGE_CHECKS <- TRUE
-}
 
+    # Get the currently installed version
+    current_version <- as.character(packageVersion(package_name))
+    # Get the known compatible version
+    known_version <- REQUIRED_PACKAGES[[package_name]]
+    # Compare versions - issue warning if they don't match exactly
+    if (compareVersion(current_version, known_version) != 0) {
+      warning_message <- paste0(
+      "Package '", package_name, "' version installed (", current_version, ") ",
+      "differs from the known compatible version (", known_version, "). ",
+      "This *may* lead to unexpected behavior. ",
+      "Consider synchronizing by running 'renv::restore()'."
+      )
+      warning(warning_message, call. = FALSE) # Use call. = FALSE for cleaner warning output
+    }
+}) # END lapply
+
+# If the loop completes without stopping, all packages are available and meet minimum version requirements.
 message("All required packages available...")
 ################################################################################
 # Setup experiment-specific configuration path
