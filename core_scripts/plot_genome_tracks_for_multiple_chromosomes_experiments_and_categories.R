@@ -338,7 +338,7 @@ if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
 
 # Define columns to compare by and exclude columns for grouping
 # TODO: Move to configuration. //
-target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+target_comparison_columns <- c("rescue_allele", "suppressor_allele", "repeats")
 plot_name_comparison_column_section <- paste(
   gsub("_", "", target_comparison_columns),
   collapse = "."
