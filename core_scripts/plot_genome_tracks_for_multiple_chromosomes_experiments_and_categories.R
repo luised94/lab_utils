@@ -477,7 +477,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       current_chromosome, "_",
       gsub("\\|", ".", current_condition), "_",
       plot_name_comparison_column_section,
-      ".svg",
+      paste0(".", OUTPUT_FORMAT),
       sep = ""
     )
     plot_output_file_path <- file.path(OUTPUT_DIR, plot_file_name)
@@ -583,12 +583,34 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       ". Current track length" = length(track_container),
       ". Track limits" = paste(y_limits, collapse = ",")
     ))
-    svglite::svglite(
+
+    if (OUTPUT_FORMAT == "pdf") {
+      pdf(
+        filename = plot_output_file_path,
+        width = 10,
+        height = 8,
+        bg = "white",
+        useDingbats = FALSE
+      )
+    }
+    if (OUTPUT_FORMAT == "svg") {
+      svglite::svglite(
         filename = plot_output_file_path,
         width = 10,
         height = 8,
         bg = "white"
-    )
+      )
+    }
+    if (OUTPUT_FORMAT == "png") {
+      png(
+        filename = plot_output_file_path,
+        width = 10,
+        height = 8,
+        units = "in",
+        res = 600,
+        bg = "white"
+      )
+    }
 
     Gviz::plotTracks(
         trackList = track_container,

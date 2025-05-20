@@ -36,8 +36,12 @@ OUTPUT_FORMAT <- "svg"
 # Validation layer
 ######################
 stopifnot(
-  "EXPERIMENT_IDS is required" = !is.null(EXPERIMENT_IDS),
-  "EXPERIMENT_IDS should be character vector of length 1." = length(EXPERIMENT_IDS) == 1
+  "EXPERIMENT_IDS is required" =
+    !is.null(EXPERIMENT_IDS),
+  "EXPERIMENT_IDS should be character vector of length 1." =
+    length(EXPERIMENT_IDS) == 1,
+  "OUTPUT_FORMAT must be svg, pdf or png." =
+    OUTPUT_FORMAT %in% c("svg", "pdf", "png")
 )
 
 ######################
