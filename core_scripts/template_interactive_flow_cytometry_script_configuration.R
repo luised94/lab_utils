@@ -22,9 +22,12 @@ EXPECTED_FORMAT_EXPERIMENT_ID <- "Exp_\\d{8}_\\d{1,6}"
 EXPERIMENT_IDS <- "Exp_20250515_1"
 DIRECTORY_ID <- "250303_G1_arrest_degrade_and_release"
 ACCEPT_CONFIGURATION <- TRUE
-VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
 SKIP_PACKAGE_CHECKS <- TRUE
 OUTPUT_FORMAT <- "svg"
+DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
+FLOW_CYTOMETRY_BRIDGE_PATH <- "Lab/Experiments/flow_cytometry"
+FLOW_CYTOMETRY_DIR <- file.path(DROPBOX_PATH, FLOW_CYTOMETRY_BRIDGE_PATH)
+VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
 #EXPERIMENT_DIR <- 
 #LABEL_MAPPINGS <- list()
 #REQUIRED_DIRECTORIES <- 
@@ -36,26 +39,24 @@ OUTPUT_FORMAT <- "svg"
 # Validation layer
 ######################
 stopifnot(
-  "EXPERIMENT_IDS is required" = !is.null(EXPERIMENT_IDS),
-  "EXPERIMENT_IDS should be character vector of length 1." = length(EXPERIMENT_IDS) == 1
+  "EXPERIMENT_IDS is required" =
+    !is.null(EXPERIMENT_IDS),
+  "EXPERIMENT_IDS should be character vector of length 1." =
+    length(EXPERIMENT_IDS) == 1,
+  "OUTPUT_FORMAT must be svg, pdf or png." =
+    OUTPUT_FORMAT %in% c("svg", "pdf", "png"),
+  "FLOW_CYTOMETRY_DIR does not exist." =
+    dir.exists(FLOW_CYTOMETRY_DIR)
 )
-
-######################
-# EXPERIMENT CONFIGURATION SETUP
-######################
-DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
-FLOW_CYTOMETRY_BRIDGE_PATH <- "Lab/Experiments/flow_cytometry"
-FLOW_CYTOMETRY_DIR <- file.path(DROPBOX_PATH, FLOW_CYTOMETRY_BRIDGE_PATH)
 if(DROPBOX_PATH == "") {
     message("Environmental variable DROPBOX_PATH not available.")
     message("Either set with my config directory or manually in the parse_flow_cytometry_arguments.")
     stop("!!!! DROPBOX_PATH required for proper directory setting.")
 }
 
-stopifnot(
-    "FLOW_CYTOMETRY_DIR does not exist." = dir.exists(FLOW_CYTOMETRY_DIR)
-)
-
+######################
+# EXPERIMENT CONFIGURATION SETUP
+######################
 IS_COMMA_SEPARATED <- grepl(",", EXPERIMENT_IDS)
 # Setup experiment directories ----------------
 if (!IS_COMMA_SEPARATED){
@@ -79,7 +80,7 @@ if (IS_COMMA_SEPARATED) {
     ]
   if (length(invalid_ids) > 0) {
     stop(sprintf(
-      "Invalid experiment-id format(s):\n%s\nExpected format: YYMMDD'Bel'",
+      "Invalid experiment-id format(s):\n%s\nExpected format: Exp_[0-9]{8}_[0-9]",
       paste(invalid_ids, collapse = ", ")
       ))
   }
@@ -94,7 +95,7 @@ if (IS_COMMA_SEPARATED) {
 
 if (!all(grepl(EXPECTED_FORMAT_EXPERIMENT_ID, EXPERIMENT_IDS, perl = TRUE))){
   stop(sprintf(
-    fmt = "Invalid experiment-id format.\nExpected: YYMMDD'Bel' or '<exp_id1>,<exp_id2>,...'\nReceived: %s",
+    fmt = "Invalid experiment-id format.\nExpected: Exp_[0-9]{8}_[0-9] or '<exp_id1>,<exp_id2>,...'\nReceived: %s",
     EXPERIMENT_IDS
   ))
 }
@@ -102,9 +103,9 @@ if (!all(grepl(EXPECTED_FORMAT_EXPERIMENT_ID, EXPERIMENT_IDS, perl = TRUE))){
 # Identify missing experiment directories
 missing_dirs <- EXPERIMENT_DIR[!dir.exists(EXPERIMENT_DIR)]
 if (length(missing_dirs) > 0) {
-  # Build a common message for missing directories
-  missing_msg <- sprintf(
-    fmt = "The following directories are missing:\n%s",
+    # Build a common message for missing directories
+    missing_msg <- sprintf(
+      fmt = "The following directories are missing:\n%s",
     paste(missing_dirs, collapse = "\n")
   )
   # Stop script if directories do not exist.
