@@ -538,8 +538,8 @@ handle_configuration_checkpoint <- function(
             "\nNo analysis or processing will be performed at this time.",
             "\n\nTo run the full script and perform the analysis, re-run with the",
             " --accept-configuration flag. For example:\n",
-            sprintf("\n    Rscript %s --experiment-id=%s --accept-configuration\n",
-                   script_name, experiment_id),
+            sprintf("\n    Rscript %s --directory-id=<target_dir> --experiment-id=%s --accept-configuration\n",
+            script_name, experiment_id),
             "\n", separator,
             sep = ""
         ))
