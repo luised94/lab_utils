@@ -584,34 +584,22 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       ". Track limits" = paste(y_limits, collapse = ",")
     ))
 
-    if (OUTPUT_FORMAT == "pdf") {
-      pdf(
-        filename = plot_output_file_path,
-        width = 10,
-        height = 8,
-        bg = "white",
-        useDingbats = FALSE
-      )
-    }
-    if (OUTPUT_FORMAT == "svg") {
-      svglite::svglite(
-        filename = plot_output_file_path,
-        width = 10,
-        height = 8,
-        bg = "white"
-      )
-    }
-    if (OUTPUT_FORMAT == "png") {
-      png(
-        filename = plot_output_file_path,
-        width = 10,
-        height = 8,
-        units = "in",
-        res = 600,
-        bg = "white"
-      )
-    }
 
+    do.call(
+      what = switch(OUTPUT_FORMAT,
+        pdf = pdf,
+        svg = svglite::svglite,
+        png = png
+        ),
+      args = switch(OUTPUT_FORMAT,
+        pdf = list(file = plot_output_file_path, width = 10, height = 8, 
+                   bg = "white", useDingbats = FALSE),
+        svg = list(filename = plot_output_file_path, width = 10, height = 8,
+                   bg = "white"),
+        png = list(filename = plot_output_file_path, width = 10, height = 8,
+                   units = "in", res = 600, bg = "white")
+        )
+    )
     Gviz::plotTracks(
         trackList = track_container,
         chromosome = current_chromosome,
@@ -629,6 +617,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         background.panel = "transparent"
     )
     dev.off()
+    message("  Saved plot...")
     message("  --- end chromosome iteration ---")
 
   } # end chromsome for loop
