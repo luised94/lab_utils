@@ -1,3 +1,14 @@
+# Grouping data while using the wrong column names
+Error in `group_by()` at dplyr/R/summarise.R:128:3:
+? In argument: `across(all_of(c(CONTROL_COLUMNS, "timepoints")))`.
+Caused by error in `across()`:
+? In argument: `all_of(c(CONTROL_COLUMNS, "timepoints"))`.
+Caused by error in `all_of()` at rlang/R/eval-tidy.R:121:3:
+! Can't subset elements that don't exist.
+? Element `suppressor_allele` doesn't exist.
+Run `rlang::last_trace()` to see where the error occurred.
+There were 50 or more warnings (use warnings() to see the first 50)
+
 # trying to paste factors with separators
 do.call(paste, lapply(current_condition_df[target_comparison_columns], as.character), collap
 Error in do.call(paste, lapply(current_condition_df[target_comparison_columns],  :

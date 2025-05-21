@@ -150,7 +150,8 @@ message("Loading all flow cytometry files...")
 flow_set <- flowCore::read.flowSet(files = metadata$file_paths)
 
 stopifnot(
-  "Number of rows in metadata does not equal number of flow experiment. Potential missing data." = length(flow_set) == nrow(metadata)
+  "Number of rows in metadata does not equal number of flow experiment. Potential missing data." =
+    length(flow_set) == nrow(metadata)
 )
 
 # Assign metadata

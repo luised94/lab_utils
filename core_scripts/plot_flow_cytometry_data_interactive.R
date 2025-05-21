@@ -123,7 +123,7 @@ METADATA_FILE_PATH <- list.files(
 
 CONFIG_FILE_PATH <- list.files(
     path = SERIES_DIRECTORY,
-    pattern = paste0(EXPERIMENT_ID, "\\flow_cytometry_config.R$"),
+    pattern = paste0(EXPERIMENT_ID, "\\_flow_cytometry_config.R$"),
     recursive = FALSE,
     full.names = TRUE,
     include.dirs = FALSE
@@ -136,7 +136,7 @@ stopifnot(
     length(METADATA_FILE_PATH) == 1,
   "Only one experiment directory expected." =
     length(EXPERIMENT_DIRECTORY_PATH) == 1,
-  "Only one experiment directory expected." =
+  "Only one configuration file expected." =
     length(CONFIG_FILE_PATH) == 1
 )
 
@@ -193,6 +193,10 @@ message("Finished metadata_df processing...")
 ########################################
 # MAIN
 ########################################
+library(dplyr)
+library(flowCore)
+library(ggcyto)
+library(gtools)
 # Setup for processing --------
 DEPENDENT_COLUMN <- EXPERIMENT_CONFIG$FACET_FACTOR
 
@@ -222,8 +226,8 @@ flowCore::pData(flow_set) <- metadata_df
 message("Filtering flow set using IQR...")
 filtered_flow_set <- lapply(seq_along(flow_set), function(sample_index) {
   flow_frame <- flow_set[[sample_index]]
-  event_data <- exprs(flow_frame)
-  sample_name <- sampleNames(flow_set)[sample_index]
+  event_data <- flowCore::exprs(flow_frame)
+  sample_name <- flowCore::sampleNames(flow_set)[sample_index]
 
   # Initialize logical filter for events
   events_to_keep <- rep(TRUE, nrow(event_data))
@@ -245,7 +249,7 @@ filtered_flow_set <- lapply(seq_along(flow_set), function(sample_index) {
   )
 
   # Apply filter to retain selected events
-  exprs(flow_frame) <- event_data[events_to_keep, ]
+  flowCore::exprs(flow_frame) <- event_data[events_to_keep, ]
 
   # Report filtering results
   cat("Sample ", sample_name, " retained ", sum(events_to_keep), "/", 
