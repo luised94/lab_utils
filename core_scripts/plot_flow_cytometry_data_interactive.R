@@ -30,6 +30,7 @@ required_configuration_variables <- c(
   "SERIES_DIRECTORY",
   "DIRECTORY_ID",
   "OUTPUT_FORMAT",
+  "OUTPUT_EXTENSION",
   "ACCEPT_CONFIGURATION",
   "SKIP_PACKAGE_CHECKS"
 )
@@ -166,7 +167,7 @@ OUTPUT_DIRS <- sapply(SUBDIRS,
     return(subdirectory)
   }
 )
-PLOT_OUT_DIR <- OUTPUT_DIRS[["plots"]]
+PLOT_OUTPUT_DIR <- OUTPUT_DIRS[["plots"]]
 
 message("Variables and directories initialized...")
 ################################################################################
@@ -329,18 +330,8 @@ fsca_global_range <- channel_global_ranges %>%
 fsca_breaks <- c(min(fsca_global_range), max(fsca_global_range))
 ssca_breaks <- c(min(ssca_global_range), max(ssca_global_range))
 
-# Define the file names
-fl1a_file_output <- file.path(
-    PLOT_OUT_DIR,
-    paste(EXPERIMENT_ID, "fl1a_density_plot.pdf", sep = "_")
-)
+#
 
-fsca_vs_ssca_file_output <- file.path(
-    PLOT_OUT_DIR,
-    paste(EXPERIMENT_ID, "fsca_vs_ssca_plot.pdf", sep = "_")
-)
-# Breakpoint
-stop("See the values of the metadata and whatnot. Try the new plots.")
 message("Plotting fl1a and fsca vs ssca plots...")
 fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
   geom_density(
@@ -469,22 +460,34 @@ fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
   )
 
 message("Saving plots...")
-# Save the plot using ggsave. No worries about devices
-ggsave(
-  filename = fl1a_file_output, 
-  plot = fl1a_plot,
-  width = 10,       # Specify width
-  height = 8,       # Specify height
-  units = "in",     # Units for dimensions
-  dpi = 300         # Resolution
-)
+plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
+for (current_plot_name in plot_object_names) {
+  message("  --- Plotting variables ---")
+  message(sprintf("  Plotting: %s", current_plot_name))
+  current_plot_object <- get(current_plot_name, envir = .GlobalEnv)
+  if (!inherits(current_plot_object, "ggplot")) {
+    warning("Skipping ", current_plot_name, " - not a ggplot object")
+    next
+  }
+  plot_output_path <- file.path(
+    PLOT_OUTPUT_DIR,
+    paste0(EXPERIMENT_ID, current_plot_name, OUTPUT_EXTENSION)
+  )
+  message("  Saving to: ", plot_output_path)
+  if (file.exists(plot_output_path)) {
+    message("File already exists. Skipping")
+    next
+  }
+  # Save the plot using ggsave. No worries about devices
+  #ggsave(
+  #  filename = plot_output_path,
+  #  plot = current_plot_object,
+  #    width = 10,       # Specify width
+  #    height = 8,       # Specify height
+  #    units = "in",     # Units for dimensions
+  #    dpi = 300         # Resolution
+  #  )
+}
+message("All plots saved...")
 
-ggsave(
-  filename = fsca_vs_ssca_file_output,
-  plot = fsca_vs_ssca_plot,
-  width = 12,
-  height = 8,
-  units = "in",
-  dpi = 300
-)
 message("All done...")

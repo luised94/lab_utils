@@ -23,7 +23,9 @@ EXPERIMENT_ID <- "Exp_20250515_1"
 DIRECTORY_ID <- "250515_G1_arrest_release_arrest"
 ACCEPT_CONFIGURATION <- TRUE
 SKIP_PACKAGE_CHECKS <- TRUE
-OUTPUT_FORMAT <- "svg"
+OUTPUT_FORMAT <- "pdf"
+VALID_OUTPUT_FORMATS <- c("svg", "pdf", "png")
+OUTPUT_EXTENSION <- paste0(".", OUTPUT_FORMAT)
 DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
 FLOW_CYTOMETRY_BRIDGE_PATH <- "Lab/Experiments/flow_cytometry"
 FLOW_CYTOMETRY_DIR <- file.path(DROPBOX_PATH, FLOW_CYTOMETRY_BRIDGE_PATH)
@@ -44,7 +46,7 @@ stopifnot(
   "EXPERIMENT_ID should be character vector of length 1." =
     length(EXPERIMENT_ID) == 1,
   "OUTPUT_FORMAT must be svg, pdf or png." =
-    OUTPUT_FORMAT %in% c("svg", "pdf", "png"),
+    OUTPUT_FORMAT %in% VALID_OUTPUT_FORMATS,
   "FLOW_CYTOMETRY_DIR does not exist." =
     dir.exists(FLOW_CYTOMETRY_DIR)
 )
