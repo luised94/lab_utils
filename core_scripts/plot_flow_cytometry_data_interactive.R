@@ -339,7 +339,7 @@ fsca_vs_ssca_file_output <- file.path(
     paste(EXPERIMENT_ID, "fsca_vs_ssca_plot.pdf", sep = "_")
 )
 # Breakpoint
-stop("See the values of the metadata and whatnot")
+stop("See the values of the metadata and whatnot. Try the new plots.")
 message("Plotting fl1a and fsca vs ssca plots...")
 fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
   geom_density(

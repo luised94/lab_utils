@@ -20,14 +20,14 @@ EXPECTED_FORMAT_EXPERIMENT_ID <- "Exp_\\d{8}_\\d{1,6}"
 ######################
 # Write single experiment id or single character that is comma-separated
 EXPERIMENT_ID <- "Exp_20250515_1"
-DIRECTORY_ID <- "250303_G1_arrest_degrade_and_release"
+DIRECTORY_ID <- "250515_G1_arrest_release_arrest"
 ACCEPT_CONFIGURATION <- TRUE
 SKIP_PACKAGE_CHECKS <- TRUE
 OUTPUT_FORMAT <- "svg"
 DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
 FLOW_CYTOMETRY_BRIDGE_PATH <- "Lab/Experiments/flow_cytometry"
 FLOW_CYTOMETRY_DIR <- file.path(DROPBOX_PATH, FLOW_CYTOMETRY_BRIDGE_PATH)
-VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
+VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED")
 OVERRIDE_THE_CONFIG <- NULL
 #EXPERIMENT_DIR <- 
 #LABEL_MAPPINGS <- list()
