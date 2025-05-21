@@ -50,7 +50,7 @@ REQUIRED_PACKAGES <- list(
   "ggcyto" = "1.26.4",
   "gtools" = "3.9.5",
   "BH" = "1.87.0.1",
-  "ggplot2" = "3.5.1",
+  "ggplot2" = "3.3.0",
   "RProtoBufLib" = "2.13.1",
   "cytolib" = "2.19.3"
 )
@@ -166,6 +166,7 @@ OUTPUT_DIRS <- sapply(SUBDIRS,
     return(subdirectory)
   }
 )
+PLOT_OUT_DIR <- OUTPUT_DIRS[["plots"]]
 
 message("Variables and directories initialized...")
 ################################################################################
@@ -330,12 +331,12 @@ ssca_breaks <- c(min(ssca_global_range), max(ssca_global_range))
 
 # Define the file names
 fl1a_file_output <- file.path(
-    OUTPUT_DIRS[2],
+    PLOT_OUT_DIR,
     paste(EXPERIMENT_ID, "fl1a_density_plot.pdf", sep = "_")
 )
 
 fsca_vs_ssca_file_output <- file.path(
-    OUTPUT_DIRS[2],
+    PLOT_OUT_DIR,
     paste(EXPERIMENT_ID, "fsca_vs_ssca_plot.pdf", sep = "_")
 )
 # Breakpoint

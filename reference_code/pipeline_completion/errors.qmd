@@ -1,3 +1,32 @@
+# %||% is non-function
+Error in guides$setup(scales, aesthetics, default = params$guide_default %||%  :
+attempt to apply non-function
+
+Need to load particular library to prevent conflicts. I remembered I had dealt with this before. ggplot2 3.3.0 is required to avoid the conflict. I was sure that 3.5.1 had worked but maybe I misremembered. ggcyto has a minimal requirement for ggplot2.
+
+```{r}
+renv::remove("ggplot2")
+renv::install("ggplot2@3.3.0")
+```
+## References:
+1. https://www.perplexity.ai/search/archive-flowcore-ggcyto-ggplot-_ZkE955bSoeQRacvinaf_g
+# deprecated arguments in ggplot2
+Warning messages:
+1: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+? Please use `linewidth` instead.
+This warning is displayed once every 8 hours.
+Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.
+2: The `size` argument of `element_rect()` is deprecated as of ggplot2 3.4.0.
+? Please use the `linewidth` argument instead.
+This warning is displayed once every 8 hours.
+Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.
+3: The `size` argument of `element_line()` is deprecated as of ggplot2 3.4.0.
+? Please use the `linewidth` argument instead.
+This warning is displayed once every 8 hours.
+Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.
+
+Just replace the arguments.
+could use previously encountered errors as context.
 # Grouping data while using the wrong column names
 Error in `group_by()` at dplyr/R/summarise.R:128:3:
 ? In argument: `across(all_of(c(CONTROL_COLUMNS, "timepoints")))`.
