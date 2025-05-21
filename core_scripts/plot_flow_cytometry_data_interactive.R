@@ -206,15 +206,14 @@ DEPENDENT_COLUMN <- EXPERIMENT_CONFIG$FACET_FACTOR
 CONTROL_COLUMNS <- EXPERIMENT_CONFIG$CONTROL_COLUMNS
 
 CHANNELS_TO_PLOT <- c("FL1-A", "FSC-A", "SSC-A")
-message("Metadata_df file loaded...")
 
-message("Loading all flow cytometry files...")
 flow_set <- flowCore::read.flowSet(files = metadata_df$file_paths)
 
 stopifnot(
   "Number of rows in metadata_df does not equal number of flow experiment." =
     length(flow_set) == nrow(metadata_df)
 )
+message("Loaded all flow cytometry files...")
 
 # Assign metadata_df
 # metadata has to have the same name as the flow set
@@ -330,9 +329,142 @@ fsca_global_range <- channel_global_ranges %>%
 fsca_breaks <- c(min(fsca_global_range), max(fsca_global_range))
 ssca_breaks <- c(min(ssca_global_range), max(ssca_global_range))
 
-#
+# Configuration: Define selection criteria as an expression
+OVERLAY_CONDITION <- quote(
+  cell_cycle_treatment == "async" & 
+  staining == "YES" &
+  rescue_allele == "4R"
+  # Add other criteria as needed, e.g.: rescue_allele == "WT"
+)
+# Extract metadata once for efficiency
+fs_pdata <- pData(filtered_flow_set)
 
-message("Plotting fl1a and fsca vs ssca plots...")
+message("Plotting...")
+# Check if async category exists before plotting
+if("async" %in% fs_pdata$cell_cycle_treatment) {
+
+  # Filter async samples using base R for compatibility
+  async_idx <- which(fs_pdata$cell_cycle_treatment == "async")
+  async_samples <- filtered_flow_set[async_idx]
+
+  # Create plot only if async samples exist
+  if(length(async_samples) > 0) {
+    async_staining_plot <- ggcyto(async_samples, aes(x = `FL1-A`, color = staining)) +
+      geom_density(
+        aes(y = after_stat(scaled)),
+        size = 0.3,  # Use size instead of linewidth
+        alpha = 0.5
+      ) +
+      facet_grid(. ~ rescue_allele) +
+      scale_color_manual(
+        values = c("YES" = "#E64B35", "NO" = "#4DBBD5"),
+        name = "Staining Status"
+      ) +
+      labs(
+        title = "Staining Effect in Asynchronous Samples",
+        x = "FL1-A Intensity",
+        y = "Density"
+      ) +
+      theme_minimal() +
+      theme(
+        panel.border = element_rect(color = "black", fill = NA, size = 0.8),
+        strip.background = element_blank(),
+        legend.position = "bottom"
+      )
+  }
+}
+# 1. Validate expression variables exist
+expr_vars <- all.vars(OVERLAY_CONDITION)
+missing_vars <- setdiff(expr_vars, colnames(fs_pdata))
+if(length(missing_vars) > 0) {
+  stop("Overlay condition contains invalid variables: ", 
+       paste(missing_vars, collapse = ", "))
+}
+
+# 2. Evaluate condition safely
+overlay_idx <- tryCatch(
+  eval(OVERLAY_CONDITION, envir = fs_pdata),
+  error = function(e) {
+    warning("Invalid overlay condition: ", e$message)
+    return(logical(nrow(fs_pdata)))
+  }
+)
+# 3. Check for single sample match
+if(sum(overlay_idx) != 1) {
+  warning(paste("Overlay condition matches", sum(overlay_idx), 
+          "samples. Requires exactly 1. Skipping overlay."))
+  overlay_data <- NULL
+} else {
+  # Extract matched sample data
+  overlay_sample <- filtered_flow_set[[which(overlay_idx)]]
+  overlay_data <- data.frame(
+    `FL1-A` = exprs(overlay_sample)[, "FL1-A"],
+    check.names = FALSE
+  )
+}
+
+# Build base plot
+fl1a_plot <- ggcyto(filtered_flow_set[fs_pdata$cell_cycle_treatment != "async", ], 
+                   aes(x = `FL1-A`)) +
+  geom_density(
+    aes(y = after_stat(scaled)),
+    fill = "#4292C6",
+    color = "#2166AC",
+    alpha = 0.3,
+    size = 0.3
+  )
+
+# Conditionally add overlay
+if(!is.null(overlay_data)) {
+  fl1a_plot <- fl1a_plot +
+    geom_density(
+      data = overlay_data,
+      aes(x = `FL1-A`, y = after_stat(scaled)),
+      color = "#636363",
+      size = 0.4,
+      alpha = 0.2,
+      inherit.aes = FALSE
+    ) +
+    labs(subtitle = paste("With control overlay:", 
+                         identifier(overlay_sample)))
+}
+
+# Add common elements
+fl1a_plot <- fl1a_plot +
+  facet_grid(timepoints ~ group, switch = "y") +
+  geom_vline(
+    data = timepoint_medians,
+    aes(xintercept = median_FL1A),
+    color = "#08306B",
+    linetype = "dashed",
+    size = 0.4
+  ) +
+  scale_x_continuous(
+    breaks = fl1a_global_range,
+    labels = format(fl1a_global_range, scientific = FALSE),
+    expand = c(0.02, 0)
+  ) +
+  labs(
+    title = "FL1-A Intensity Distribution",
+    y = "Timepoint (minutes)",
+    x = "FL1-A Intensity"
+  ) +
+  theme_minimal()
+
+# Add conditional annotation
+if(!is.null(overlay_data)) {
+  fl1a_plot <- fl1a_plot +
+    annotate(
+      "text",
+      x = max(fl1a_global_range) * 0.95,
+      y = 0.95,
+      label = paste("Control Overlay:", identifier(overlay_sample)),
+      color = "#636363",
+      size = 2.5,
+      hjust = 1
+    )
+}
+
 fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
   geom_density(
     aes(y = after_stat(scaled)),
@@ -392,6 +524,7 @@ fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
 
   )
 
+# Need to add the plots from the cold spring harbor paper
 fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
   # ===== DATA VISUALIZATION =====
   # Hexbin plot with viridis color scale
@@ -471,7 +604,7 @@ for (current_plot_name in plot_object_names) {
   }
   plot_output_path <- file.path(
     PLOT_OUTPUT_DIR,
-    paste0(EXPERIMENT_ID, current_plot_name, OUTPUT_EXTENSION)
+    paste0(EXPERIMENT_ID, "_", current_plot_name, OUTPUT_EXTENSION)
   )
   message("  Saving to: ", plot_output_path)
   if (file.exists(plot_output_path)) {
@@ -479,14 +612,15 @@ for (current_plot_name in plot_object_names) {
     next
   }
   # Save the plot using ggsave. No worries about devices
-  #ggsave(
-  #  filename = plot_output_path,
-  #  plot = current_plot_object,
-  #    width = 10,       # Specify width
-  #    height = 8,       # Specify height
-  #    units = "in",     # Units for dimensions
-  #    dpi = 300         # Resolution
-  #  )
+  # Comment to DRY_RUN.
+  ggsave(
+    filename = plot_output_path,
+    plot = current_plot_object,
+      width = 10,       # Specify width
+      height = 8,       # Specify height
+      units = "in",     # Units for dimensions
+      dpi = 300         # Resolution
+    )
 }
 message("All plots saved...")
 
