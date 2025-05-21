@@ -26,7 +26,7 @@ if(interactive()) {
 # defined in the configuration file. //
 # See template_script_configuration.R or script_configuration.R
 required_configuration_variables <- c(
-  "EXPERIMENT_IDS",
+  "EXPERIMENT_ID",
   "SERIES_DIRECTORY",
   "DIRECTORY_ID",
   "OUTPUT_FORMAT",
@@ -40,21 +40,19 @@ if (length(missing_variables) > 0 ) {
 }
 message("All variables defined in the configuration file...")
 
-
 ########################################
 # Confirm packages
 ########################################
 # Check for required packages -------------
-# TODO: Add verification for package versions
 REQUIRED_PACKAGES <- list(
-    "dplyr" = "1.1.4",
-    "flowCore" = "2.17.1",
-    "ggcyto" = "1.26.4",
-    "gtools" = "3.9.5",
-    "BH" = "1.87.0.1",
-    "ggplot2" = "3.5.1",
-    "RProtoBufLib" = "2.13.1",
-    "cytolib" = "2.19.3"
+  "dplyr" = "1.1.4",
+  "flowCore" = "2.17.1",
+  "ggcyto" = "1.26.4",
+  "gtools" = "3.9.5",
+  "BH" = "1.87.0.1",
+  "ggplot2" = "3.5.1",
+  "RProtoBufLib" = "2.13.1",
+  "cytolib" = "2.19.3"
 )
 # Verify packages are available and versions are at least minimum version in list
 lapply(names(REQUIRED_PACKAGES),
@@ -85,246 +83,8 @@ lapply(names(REQUIRED_PACKAGES),
 # If the loop completes without stopping, all packages are available and meet minimum version requirements.
 message("All required packages available...")
 ################################################################################
-# Setup experiment-specific configuration path
+# Setup directories
 ################################################################################
-number_of_experiments <- length(EXPERIMENT_DIR)
-config_paths <- vector("character", length = number_of_experiments)
-metadata_paths <- vector("character", length = number_of_experiments)
-for (experiment_idx in seq_len(number_of_experiments)) {
-  current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
-  current_experiment_id <- EXPERIMENT_IDS[experiment_idx]
-
-  config_paths[experiment_idx] <- file.path(
-    current_experiment_path, "documentation",
-    paste0(current_experiment_id, "_bmc_config.R")
-  )
-  metadata_paths[experiment_idx] <- file.path(
-    current_experiment_path, "documentation",
-    paste0(current_experiment_id, "_sample_grid.csv")
-  )
-}
-# Refactor
-sapply(c(config_paths, metadata_paths),
-  function(file_path){
-    if (!file.exists(file_path)) {
-      stop(sprintf(
-        fmt = "File %s does not exist.\nRun setup_bmc_experiment.R script.",
-        file_path
-      ))
-    }
-  }
-)
-
-################################################################################
-# Setup directories, genome file and file metadata
-################################################################################
-OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
-dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
-
-metadata_list <- vector("list", length = number_of_experiments)
-metadata_categories_list <- vector("list", length = number_of_experiments)
-
-# Patterns for files
-#bigwig_pattern <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
-bigwig_pattern <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
-fastq_pattern <- "consolidated_.*_sequence\\.fastq$"
-sample_id_capture_pattern <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
-
-expected_number_of_samples <- 0
-REQUIRED_DIRECTORIES <- c("fastq", "coverage")
-for (experiment_idx in seq_len(number_of_experiments)) {
-  message("--- Start experiment idx ---")
-  current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
-  current_config_path <- config_paths[experiment_idx]
-  current_metadata_path <- metadata_paths[experiment_idx]
-  # Build all required directory paths for this experiment
-  required_data_paths <- file.path(current_experiment_path, REQUIRED_DIRECTORIES)
-  names(required_data_paths) <- REQUIRED_DIRECTORIES
-  missing_dirs <- required_data_paths[!dir.exists(required_data_paths)]
-  if (length(missing_dirs) > 0) {
-    stop("Missing required experiment subdirectories: ",
-         paste(missing_dirs, collapse = ", "))
-  }
-  debug_print(list(
-    "title" = "Debug Path information",
-    ".Current Experiment path" = current_experiment_path,
-    ".Current metadata path" = current_metadata_path,
-    ".Current Config path" = current_config_path,
-    ".Fastq path" = required_data_paths[["fastq"]],
-    ".Coverage path" = required_data_paths[["coverage"]]
-  ))
-
-  # Load *_CONFIG variables ---------
-  source(current_config_path)
-  current_metadata_df <- read.csv(current_metadata_path, stringsAsFactors = FALSE)
-
-  # Gather additional metadata --------
-  current_metadata_df$experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
-  # Find fastq files and extract sample IDs
-  fastq_files <- list.files(
-    path = required_data_paths[["fastq"]],
-    pattern = fastq_pattern,
-    full.names = FALSE
-  )
-  bigwig_files <- list.files(
-    path = required_data_paths[["coverage"]],
-    pattern = bigwig_pattern,
-    full.names = TRUE
-  )
-  #bigwig_basenames <- basename(bigwig_files)
-  stopifnot(
-    "No fastq files found." = length(fastq_files) > 0,
-    "No bigwig files found." = length(bigwig_files) > 0
-  )
-  sample_ids <- gsub(
-    pattern = sample_id_capture_pattern,
-    replacement = "\\1",
-    x = fastq_files
-  )
-
-  stopifnot(
-     "Length of samples_ids is not lower than length of fastq files." =
-        all(nchar(sample_ids) < nchar(fastq_files)),
-     "Some of the extracted sample_ids are empty." =
-        all(nchar(sample_ids) > 0),
-     "Extracted sample ids cannot be coerced to numeric." =
-       all(!is.na(as.numeric(sample_ids))),
-     "Number of extracted sample_ids does not match number of current metadata df rows." =
-       nrow(current_metadata_df) == length(sample_ids)
-  )
-
-  expected_number_of_samples <- expected_number_of_samples + EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
-  metadata_categories_list[[experiment_idx]] <- EXPERIMENT_CONFIG$CATEGORIES
-  current_metadata_df$bigwig_file_paths <- bigwig_files
-  current_metadata_df$sample_ids <- sample_ids
-  debug_print(list(
-    "title" = "Debug metadata loading",
-    ".Number of rows" = nrow(current_metadata_df),
-    ".Number of samples ids" = length(sample_ids),
-    ".Number of bigwig files" = length(bigwig_files),
-    ".Number of expected samples" = EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
-  ))
-  # Add determination of sample ids and addition to metadata frame
-  metadata_list[[experiment_idx]] <- current_metadata_df
-  message("--- End iteration ---")
-  message("\n")
-} # end for loop
-message("Finished metadata loading...")
-
-# Get the union of the categories
-all_keys <- unique(unlist(lapply(metadata_categories_list, names)))
-merged_categories <- setNames(
-  lapply(all_keys, function(key) {
-    unique(unlist(lapply(metadata_categories_list, function(lst) lst[[key]])))
-  }),
-  all_keys
-)
-
-# Get union of all column names
-all_cols <- unique(unlist(lapply(metadata_list, names)))
-# Reorder and fill missing columns for each dataframe
-metadata_aligned <- lapply(metadata_list,
-  function(df) {
-    # Add missing cols as NA
-    missing <- setdiff(all_cols, names(df))
-    df[missing] <- NA
-    # Reorder columns
-    df <- df[all_cols]
-    return(df)
-  }
-)
-# Now bind
-metadata_df <- do.call(rbind, metadata_aligned)
-stopifnot("Metadata does not have expected number of rows." = nrow(metadata_df) == expected_number_of_samples)
-
-# Convert the columns of the metadata_df to factors.
-for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
-  metadata_df[[col_name]] <- factor(
-    metadata_df[[col_name]],
-    levels = merged_categories[[col_name]],
-    ordered = TRUE
-  )
-}
-message("Finished metadata processing...")
-#!/usr/bin/env Rscript
-################################################################################
-# Flow cytometry Plot all samples
-################################################################################
-# PURPOSE:
-#     Determine if experiment metadata and categories are correct and output the 
-#     configuration file to use in analysis scripts.
-# USAGE:
-#     Run from command line as script. Update template configuration by setting 
-#     categories, expected samples and experiment id.
-# INPUTS:
-#   - cli arguments --directory-path and --experiment-id
-#   - Output from the setup_flow_cytometry_experiment.R and the data
-#   - Once confirmed, add --accept-configuration
-# OUTPUTS: PDF with plot file, log file with reference to repository state, processed data
-# CONTROLS:
-#   RUNTIME_CONFIG$output_dry_run
-#   RUNTIME_CONFIG$debug_verbose
-#   RUNTIME_CONFIG$debug_interactive
-# DEPENDENCIES:
-#   - R base packages only
-#   - ~/lab_utils/core_scripts/bmc_config.R
-# AUTHOR: Luis
-# DATE: 2025-03-11
-# VERSION: 1.0.0
-################################################################################
-# Bootstrap phase
-function_filenames <- c("logging", "script_control", "file_operations")
-for (function_filename in function_filenames) {
-    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
-    normalized_path <- normalizePath(function_filepath)
-    if (!file.exists(normalized_path)) {
-        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
-    }
-    source(normalized_path)
-}
-
-message("All function files loaded...")
-################################################################################
-# Handle script arguments
-################################################################################
-# Parse arguments and validate configurations
-description <- "Setup flow cytometry experiments"
-args <- parse_flow_cytometry_arguments(description = description)
-args_info <- list(
-    title = "Script Configuration",
-    "script.name" = get_script_name(),
-    "script.description" = description
-)
-
-print_debug_info(modifyList(args_info, args))
-SERIES_DIRECTORY <- args$directory_path
-EXPERIMENT_ID <- args$experiment_id
-ACCEPT_CONFIGURATION <- args$accept_configuration
-#EXPERIMENT_DIR <- args$experiment_dir
-
-# Experiment ID Validation
-stopifnot(
-    "Only one experiment id required for this script" = length(EXPERIMENT_ID) == 1
-)
-
-message("Arguments parsed...")
-################################################################################
-# Setup and validation
-################################################################################
-# Ensure files and directories exist, parse_flow_cytometry_arguments checks as well.
-DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
-FLOW_CYTOMETRY_BRIDGE_PATH <- "Lab/Experiments/flow_cytometry"
-if(DROPBOX_PATH == "") {
-    message("Environmental variable DROPBOX_PATH not available.")
-    message("Either set with my config directory or manually in the parse_flow_cytometry_arguments.")
-    stop("!!!! DROPBOX_PATH required for proper directory setting.")
-}
-
-FLOW_CYTOMETRY_DIR <- file.path(DROPBOX_PATH, FLOW_CYTOMETRY_BRIDGE_PATH)
-stopifnot(
-    "FLOW_CYTOMETRY_DIR does not exist." = dir.exists(FLOW_CYTOMETRY_DIR)
-)
-
 XIT_FILEPATH <- list.files(
     path = SERIES_DIRECTORY,
     pattern = paste0(EXPERIMENT_ID, "\\.xit$"),
@@ -339,6 +99,8 @@ PATHS_IN_SERIES_DIRECTORY <- dir(
     recursive = FALSE
 )
 
+# WARNING: I think I need to subset this if I have more than //
+# one experiment in the series directory.
 EXPERIMENT_DIRECTORY_PATH <- PATHS_IN_SERIES_DIRECTORY[
     utils::file_test("-d", PATHS_IN_SERIES_DIRECTORY)
 ]
@@ -368,13 +130,18 @@ CONFIG_FILE_PATH <- list.files(
 )
 
 stopifnot(
-    "Only one xit file expected." = length(XIT_FILEPATH) == 1,
-    "Only one metadata file expected." = length(METADATA_FILE_PATH) == 1,
-    "Only one experiment directory expected." = length(EXPERIMENT_DIRECTORY_PATH) == 1,
-    "Only one experiment directory expected." = length(CONFIG_FILE_PATH) == 1
+  "Only one xit file expected." =
+    length(XIT_FILEPATH) == 1,
+  "Only one metadata_df file expected." =
+    length(METADATA_FILE_PATH) == 1,
+  "Only one experiment directory expected." =
+    length(EXPERIMENT_DIRECTORY_PATH) == 1,
+  "Only one experiment directory expected." =
+    length(CONFIG_FILE_PATH) == 1
 )
 
-success <- safe_source(CONFIG_FILE_PATH, verbose = TRUE)
+# Load *_CONFIG variables ---------
+source(CONFIG_FILE_PATH)
 required_configs <- c("EXPERIMENT_CONFIG", "RUNTIME_CONFIG")
 validate_configs(required_configs)
 invisible(lapply(required_configs, function(config) {
@@ -383,133 +150,70 @@ invisible(lapply(required_configs, function(config) {
 
 EXPECTED_SAMPLES <- EXPERIMENT_CONFIG$EXPECTED_SAMPLES
 stopifnot(
-    "Script EXPERIMENT_ID is not the same as CONFIG EXPERIMENT_ID" = EXPERIMENT_ID == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID,
-    "Only one xit file expected." = length(xit_file) == 1,
-    "Number of fcs files should be the same as EXPECTED_SAMPLES." = length(FCS_FILE_PATHS) == EXPECTED_SAMPLES
+  "Script EXPERIMENT_ID is not the same as CONFIG EXPERIMENT_ID" =
+    EXPERIMENT_ID == EXPERIMENT_CONFIG$METADATA_df$EXPERIMENT_ID,
+  "Only one xit file expected." =
+    length(XIT_FILEPATH) == 1,
+  "Number of fcs files should be the same as EXPECTED_SAMPLES." =
+    length(FCS_FILE_PATHS) == EXPECTED_SAMPLES
 )
 
 SUBDIRS <- c("processed_data", "plots")
-OUTPUT_DIRS <- sapply(SUBDIRS, function(SUBDIR) {
+OUTPUT_DIRS <- sapply(SUBDIRS, 
+  function(SUBDIR) {
     subdirectory <- file.path(EXPERIMENT_DIRECTORY_PATH, SUBDIR)
     dir.create(subdirectory, recursive = TRUE, showWarnings = FALSE)
     return(subdirectory)
-})
+  }
+)
 
 message("Variables and directories initialized...")
 ################################################################################
-# Directory Setup and User Confirmation
+# Load sample metadata_df
 ################################################################################
-# Handle configuration override (independent)
-if (!is.null(args$override)) {
-    structured_log_info("Starting override")
-    override_result <- apply_runtime_override(
-        config = RUNTIME_CONFIG,
-        preset_name = args$override,
-        preset_list = OVERRIDE_PRESETS
-    )
-    RUNTIME_CONFIG <- override_result$modified
-
-    print_debug_info(
-        modifyList(
-            list(
-                title = "Final Configuration",
-                "override.mode" = override_result$mode
-                ),
-            RUNTIME_CONFIG
-        )
-    )
-    message("Override complete...")
+metadata_df <- read.csv(METADATA_FILE_PATH, stringsAsFactors = FALSE)
+#metadata_categories <- EXPERIMENT_CONFIG$CATEGORIES
+#metadata_df$experiment_id <- EXPERIMENT_CONFIG$METADATA_df$EXPERIMENT_ID
+metadata_df$file_paths <- gtools::mixedsort(FCS_FILE_PATHS)
+# Convert the columns of the metadata_df to factors.
+for (col_name in intersect(names(EXPERIMENT_CONFIG$CATEGORIES), colnames(metadata_df))) {
+  metadata_df[[col_name]] <- factor(
+    metadata_df[[col_name]],
+    levels = EXPERIMENT_CONFIG$CATEGORIES[[col_name]],
+    ordered = TRUE
+  )
 }
 
-handle_configuration_checkpoint(
-    accept_configuration = ACCEPT_CONFIGURATION,
-    experiment_id = EXPERIMENT_ID
-)
-
-message("Configuration accepted...")
-########################################
-# Confirm packages
-########################################
-# Check for required packages -------------
-# TODO: Add verification for package versions
-REQUIRED_PACKAGES <- list(
-    "dplyr" = "1.1.4",
-    "flowCore" = "2.17.1",
-    "ggcyto" = "1.26.4",
-    "gtools" = "3.9.5",
-    "BH" = "1.87.0.1",
-    "ggplot2" = "3.5.1",
-    "RProtoBufLib" = "2.13.1",
-    "cytolib" = "2.19.3"
-)
-# Verify packages are available and versions are at least minimum version in list
-lapply(names(REQUIRED_PACKAGES),
-    function(package_name){
-        # Check availability (stop if missing - essential)
-        if (!requireNamespace(package_name, quietly = TRUE)) {
-             stop(paste0("Required package '", package_name, "' is not installed. ",
-                         "Please install using renv or if related to flow cytometry, see install instructions."),
-                  call. = FALSE) # Stop execution if a core package is missing
-        }
-
-        # Get the currently installed version
-        current_version <- as.character(packageVersion(package_name))
-        # Get the known compatible version
-        known_version <- REQUIRED_PACKAGES[[package_name]]
-
-        # Compare versions - issue warning if they don't match exactly
-        if (compareVersion(current_version, known_version) != 0) {
-            warning_message <- paste0(
-                "Package '", package_name, "' version installed (", current_version, ") ",
-                "differs from the known compatible version (", known_version, "). ",
-                "This *may* lead to unexpected behavior. ",
-                "Consider synchronizing by running 'renv::restore()'."
-            )
-            warning(warning_message, call. = FALSE) # Use call. = FALSE for cleaner warning output
-        }
-}) # END lapply
-
-# If the loop completes without stopping, all packages are available and meet minimum version requirements.
-message("All required packages are available.")
-
-################################################################################
-# Load sample metadata
-################################################################################
-metadata <- load_and_process_experiment_metadata(
-    metadata_path = metadata_path,
-    categories = EXPERIMENT_CONFIG$CATEGORIES,
-    column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
-    sample_ids = NULL,
-    stop_on_missing_columns = TRUE
-)
 stopifnot(
-    "Number of rows in metadata must equal expected number of samples." = nrow(metadata) == EXPECTED_SAMPLES
+  "Metadata_df does not have expected number of rows." =
+    nrow(metadata_df) == EXPECTED_SAMPLES
 )
 
-metadata$file_paths <- gtools::mixedsort(FCS_FILE_PATHS)
-
-# Setup for processing --------
-DEPENDENT_COLUMN <- EXPERIMENT_CONFIG$FACET_FACTOR
-
-# Set in the configuration with CONTROL_FACTORS variable!
-CONTROL_COLUMNS <- EXPERIMENT_CONFIG$CONTROL_COLUMNS
-
-CHANNELS_TO_PLOT <- c("FL1-A", "FSC-A", "SSC-A")
-message("Metadata file loaded...")
-
+message("Finished metadata_df processing...")
 ########################################
 # MAIN
 ########################################
+# Setup for processing --------
+DEPENDENT_COLUMN <- EXPERIMENT_CONFIG$FACET_FACTOR
+
+# Set in the configuration with CONTROL_COLUMNS variable!
+CONTROL_COLUMNS <- EXPERIMENT_CONFIG$CONTROL_COLUMNS
+
+CHANNELS_TO_PLOT <- c("FL1-A", "FSC-A", "SSC-A")
+message("Metadata_df file loaded...")
+
 message("Loading all flow cytometry files...")
-flow_set <- flowCore::read.flowSet(files = metadata$file_paths)
+flow_set <- flowCore::read.flowSet(files = metadata_df$file_paths)
 
 stopifnot(
-    "Number of rows in metadata does not equal number of flow experiment. Potential missing data." = length(flow_set) == nrow(metadata)
+  "Number of rows in metadata_df does not equal number of flow experiment." =
+    length(flow_set) == nrow(metadata_df)
 )
 
-# Assign metadata
-rownames(metadata) <- basename(metadata$file_paths)
-flowCore::pData(flow_set) <- metadata
+# Assign metadata_df
+# metadata has to have the same name as the flow set
+rownames(metadata_df) <- basename(metadata_df$file_paths)
+flowCore::pData(flow_set) <- metadata_df
 
 # Filter and save all datasets ----------
 # filtered_flow_set is a list, not an S4 class like flow_set
@@ -546,14 +250,17 @@ filtered_flow_set <- lapply(seq_along(flow_set), function(sample_index) {
   # Report filtering results
   cat("Sample ", sample_name, " retained ", sum(events_to_keep), "/", 
       nrow(event_data), "events (", 
-      round(100*sum(events_to_keep)/nrow(event_data), 1), "%)\n", sep="")
-    stopifnot("Filtered events exceed original count!" = 
-          sum(events_to_keep) <= nrow(event_data))
+      round(100*sum(events_to_keep)/nrow(event_data), 1), "%)\n", sep=""
+  )
+  stopifnot(
+    "Filtered events exceed original count!" = 
+      sum(events_to_keep) <= nrow(event_data)
+  )
 
   return(flow_frame)
 })
 
-# Convert list back to flowSet S4 class and restore metadata
+# Convert list back to flowSet S4 class and restore metadata_df
 filtered_flow_set <- as(filtered_flow_set, "flowSet")
 sampleNames(filtered_flow_set) <- sampleNames(flow_set)
 pData(filtered_flow_set) <- pData(flow_set)
@@ -569,25 +276,26 @@ timepoint_medians <- median_df %>%
 
 # Add group column to timepoint_medians for proper facet matching
 timepoint_medians$group <- factor(
-    apply(timepoint_medians[, CONTROL_COLUMNS], 1, paste, collapse = "_"),
-    levels = unique(apply(timepoint_medians[, CONTROL_COLUMNS], 1, paste, collapse = "_")),
-    ordered = TRUE
+  apply(timepoint_medians[, CONTROL_COLUMNS], 1, paste, collapse = "_"),
+  levels = unique(apply(timepoint_medians[, CONTROL_COLUMNS], 1, paste, collapse = "_")),
+  ordered = TRUE
 )
 
 # Calculate global ranges for each channel
-channel_global_ranges <- do.call(rbind, 
-    lapply(CHANNELS_TO_PLOT, function(flow_channel) {
-        channel_ranges <- fsApply(
-            filtered_flow_set, function(flow_frame) range(exprs(flow_frame)[, flow_channel])
-        )
-        # Implicit return
-        data.frame(
-          channel = flow_channel,
-          min_value = min(channel_ranges),
-          max_value = max(channel_ranges),
-          stringsAsFactors = FALSE
-        )
-}))
+channel_global_ranges <- do.call(what = rbind,
+  args = lapply(CHANNELS_TO_PLOT, function(flow_channel) {
+    channel_ranges <- fsApply(
+    filtered_flow_set, function(flow_frame) range(exprs(flow_frame)[, flow_channel])
+    )
+    # Implicit return
+    data.frame(
+      channel = flow_channel,
+      min_value = min(channel_ranges),
+      max_value = max(channel_ranges),
+      stringsAsFactors = FALSE
+    )
+  }
+))
 
 # Add a grouping column to pData as an ordered factor
 pData(filtered_flow_set)$group <- factor(
@@ -626,13 +334,14 @@ fsca_vs_ssca_file_output <- file.path(
     OUTPUT_DIRS[2],
     paste(EXPERIMENT_ID, "fsca_vs_ssca_plot.pdf", collapse = "_")
 )
-
+# Breakpoint
+stop("See the values of the metadata and whatnot")
 message("Plotting fl1a and fsca vs ssca plots...")
 fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
   geom_density(
     aes(y = after_stat(scaled)),
     fill = "#4292C6",
- 
+
     color = "#2166AC",
     #color = "#08306B", # First color.
     alpha = 0.3,
@@ -665,13 +374,13 @@ fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
     panel.grid.minor = element_blank(),
     panel.border = element_rect(color = "black", fill = NA, size = 0.8),
     panel.spacing = unit(0.3, "lines"),
-   
+
     strip.text.y.left = element_text(angle = 0, face = "bold"),
 
     # Facet label formatting
     strip.background = element_blank(),
     strip.text.x = element_text(size = 6, angle = 0, hjust = 1, margin = margin(b = 5), face = "bold"),
-    
+
     # Axis formatting
     axis.title = element_text(face = "bold", size = 9),
     axis.text.x = element_text(size = 6, angle = 45, hjust = 1, color = "gray30"),
@@ -679,7 +388,7 @@ fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
     axis.ticks.x = element_line(color = "gray60", size = 0.3),
     axis.text.y = element_blank(),
     axis.ticks.y = element_blank(),
-    
+
     # Title formatting
     plot.title = element_text(face = "bold", size = 12, margin = margin(b = 5)),
     plot.subtitle = element_text(size = 10, color = "gray30", margin = margin(b = 10)),
@@ -692,11 +401,11 @@ fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
   # Hexbin plot with viridis color scale
   geom_hex(bins = 100, aes(fill = after_stat(density))) +
   scale_fill_viridis_c(option = "plasma", name = "Density") +
-  
+
   # ===== FACETING =====
   # Use facet_grid instead of facet_wrap to have timepoints appear only once per row
   facet_grid(timepoints ~ group) +
-  
+
   # ===== AXIS SCALING =====
   # Show only min and max on axes
   scale_x_continuous(
@@ -711,7 +420,7 @@ fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
     labels = format(ssca_breaks, scientific = TRUE, digits = 2),
     expand = c(0.02, 0)
   ) +
-  
+
   # ===== LABELING =====
   labs(
     title = "Cell Size and Granularity Distribution",
@@ -719,7 +428,7 @@ fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
     x = "FSC-A (cell size)",
     y = "SSC-A (granularity)"
   ) +
-  
+
   # ===== THEME CUSTOMIZATION =====
   theme_minimal() +
   theme(
@@ -729,25 +438,25 @@ fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
     panel.grid.minor = element_line(color = "grey90", size = 0.1),
     panel.border = element_rect(color = "black", fill = NA, size = 0.8),
     panel.spacing = unit(0.3, "lines"),
-    
+
     # Facet label formatting - timepoints on left only
     strip.background = element_blank(),
     strip.text.x = element_text(size = 6, face = "bold", margin = margin(b = 5)),
     strip.text.y.left = element_text(angle = 0, face = "bold"),
-    
+
     # Axis formatting
     axis.title = element_text(face = "bold", size = 9),
     axis.text.y = element_text(size = 6, color = "gray30"),
     axis.text.x = element_text(size = 6, angle = 45, color = "gray30", margin = margin(t = 5)),
     axis.line = element_line(color = "gray60", size = 0.3),
     axis.ticks = element_line(color = "gray60", size = 0.3),
-    
+
     # Legend formatting
     legend.position = "right",
     legend.key.size = unit(0.8, "lines"),
     legend.title = element_text(size = 8, face = "bold"),
     legend.text = element_text(size = 7),
-    
+
     # Title formatting
     plot.title = element_text(face = "bold", size = 12, margin = margin(b = 5)),
     plot.subtitle = element_text(size = 8, color = "gray30", margin = margin(b = 10)),

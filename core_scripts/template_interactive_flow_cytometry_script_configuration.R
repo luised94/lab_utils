@@ -28,12 +28,12 @@ DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
 FLOW_CYTOMETRY_BRIDGE_PATH <- "Lab/Experiments/flow_cytometry"
 FLOW_CYTOMETRY_DIR <- file.path(DROPBOX_PATH, FLOW_CYTOMETRY_BRIDGE_PATH)
 VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
+OVERRIDE_THE_CONFIG <- NULL
 #EXPERIMENT_DIR <- 
 #LABEL_MAPPINGS <- list()
 #REQUIRED_DIRECTORIES <- 
 ##LOG_TO_FILE <- 
 #OUTPUT_DIR <- 
-#OVERRIDE <- NULL
 #SCRIPT_TO_RUN <- ""
 ######################
 # Validation layer
@@ -60,7 +60,7 @@ if(DROPBOX_PATH == "") {
 IS_COMMA_SEPARATED <- grepl(",", EXPERIMENT_ID)
 # Setup experiment directories ----------------
 if (!IS_COMMA_SEPARATED){
-  SERIES_DIRECTORY <- normalizePath(file.path(FLOW_CYTOMETRY_DIR, DIRECTORY_ID, EXPERIMENT_ID))
+  SERIES_DIRECTORY <- normalizePath(file.path(FLOW_CYTOMETRY_DIR, DIRECTORY_ID))
 }
 
 if (IS_COMMA_SEPARATED) {
@@ -103,9 +103,9 @@ if (!all(grepl(EXPECTED_FORMAT_EXPERIMENT_ID, EXPERIMENT_ID, perl = TRUE))){
 # Identify missing experiment directories
 missing_dirs <- EXPERIMENT_DIR[!dir.exists(EXPERIMENT_DIR)]
 if (length(missing_dirs) > 0) {
-    # Build a common message for missing directories
-    missing_msg <- sprintf(
-      fmt = "The following directories are missing:\n%s",
+  # Build a common message for missing directories
+  missing_msg <- sprintf(
+    fmt = "The following directories are missing:\n%s",
     paste(missing_dirs, collapse = "\n")
   )
   # Stop script if directories do not exist.

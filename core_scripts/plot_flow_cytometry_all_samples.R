@@ -120,10 +120,10 @@ CONFIG_FILE_PATH <- list.files(
 )
 
 stopifnot(
-    "Only one xit file expected." = length(XIT_FILEPATH) == 1,
-    "Only one metadata file expected." = length(METADATA_FILE_PATH) == 1,
-    "Only one experiment directory expected." = length(EXPERIMENT_DIRECTORY_PATH) == 1,
-    "Only one experiment directory expected." = length(CONFIG_FILE_PATH) == 1
+  "Only one xit file expected." = length(XIT_FILEPATH) == 1,
+  "Only one metadata file expected." = length(METADATA_FILE_PATH) == 1,
+  "Only one experiment directory expected." = length(EXPERIMENT_DIRECTORY_PATH) == 1,
+  "Only one experiment directory expected." = length(CONFIG_FILE_PATH) == 1
 )
 
 success <- safe_source(CONFIG_FILE_PATH, verbose = TRUE)
