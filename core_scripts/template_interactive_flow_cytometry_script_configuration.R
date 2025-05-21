@@ -63,35 +63,35 @@ if (!IS_COMMA_SEPARATED){
   SERIES_DIRECTORY <- normalizePath(file.path(FLOW_CYTOMETRY_DIR, DIRECTORY_ID))
 }
 
-if (IS_COMMA_SEPARATED) {
-  # Split and clean the IDs
-  split_experiment_ids <- stri_split_fixed(EXPERIMENT_ID, ",")[[1]]
-  clean_experiment_ids <- trimws(split_experiment_ids)  # Remove any whitespace
-  EXPERIMENT_ID <-  clean_experiment_ids[clean_experiment_ids != ""]  # Remove empty elements
-  # Check for duplicates
-  if (length(unique(EXPERIMENT_ID)) != length(EXPERIMENT_ID)) {
-    stop("Duplicate experiment IDs detected")
-  }
-  # Validate format of each ID
-  invalid_ids <- EXPERIMENT_ID[!grepl(
-    EXPECTED_FORMAT_EXPERIMENT_ID,
-    EXPERIMENT_ID,
-    perl = TRUE)
-    ]
-  if (length(invalid_ids) > 0) {
-    stop(sprintf(
-      "Invalid experiment-id format(s):\n%s\nExpected format: Exp_[0-9]{8}_[0-9]",
-      paste(invalid_ids, collapse = ", ")
-      ))
-  }
-  EXPERIMENT_ID <- EXPERIMENT_ID
-  EXPERIMENT_DIR <- sapply(EXPERIMENT_ID, function(experiment_id) {
-    normalizePath(file.path(FLOW_CYTOMETRY_DIR, experiment_id))
-  })
-  VARIABLES_TO_REMOVE <- c(VARIABLES_TO_REMOVE,
-    "split_experiment_ids", "clean_experiment_ids",
-    "invalid_ids")
-}
+#if (IS_COMMA_SEPARATED) {
+#  # Split and clean the IDs
+#  split_experiment_ids <- stri_split_fixed(EXPERIMENT_ID, ",")[[1]]
+#  clean_experiment_ids <- trimws(split_experiment_ids)  # Remove any whitespace
+#  EXPERIMENT_ID <-  clean_experiment_ids[clean_experiment_ids != ""]  # Remove empty elements
+#  # Check for duplicates
+#  if (length(unique(EXPERIMENT_ID)) != length(EXPERIMENT_ID)) {
+#    stop("Duplicate experiment IDs detected")
+#  }
+#  # Validate format of each ID
+#  invalid_ids <- EXPERIMENT_ID[!grepl(
+#    EXPECTED_FORMAT_EXPERIMENT_ID,
+#    EXPERIMENT_ID,
+#    perl = TRUE)
+#    ]
+#  if (length(invalid_ids) > 0) {
+#    stop(sprintf(
+#      "Invalid experiment-id format(s):\n%s\nExpected format: Exp_[0-9]{8}_[0-9]",
+#      paste(invalid_ids, collapse = ", ")
+#      ))
+#  }
+#  EXPERIMENT_ID <- EXPERIMENT_ID
+#  EXPERIMENT_DIR <- sapply(EXPERIMENT_ID, function(experiment_id) {
+#    normalizePath(file.path(FLOW_CYTOMETRY_DIR, experiment_id))
+#  })
+#  VARIABLES_TO_REMOVE <- c(VARIABLES_TO_REMOVE,
+#    "split_experiment_ids", "clean_experiment_ids",
+#    "invalid_ids")
+#}
 
 if (!all(grepl(EXPECTED_FORMAT_EXPERIMENT_ID, EXPERIMENT_ID, perl = TRUE))){
   stop(sprintf(
@@ -100,25 +100,30 @@ if (!all(grepl(EXPECTED_FORMAT_EXPERIMENT_ID, EXPERIMENT_ID, perl = TRUE))){
   ))
 }
 
+
+stopifnot(
+  "Series directory does not exists" =
+    dir.exists(SERIES_DIRECTORY)
+)
 # Identify missing experiment directories
-missing_dirs <- EXPERIMENT_DIR[!dir.exists(EXPERIMENT_DIR)]
-if (length(missing_dirs) > 0) {
-  # Build a common message for missing directories
-  missing_msg <- sprintf(
-    fmt = "The following directories are missing:\n%s",
-    paste(missing_dirs, collapse = "\n")
-  )
-  # Stop script if directories do not exist.
-  stop(sprintf(
-    fmt = paste("Error: Experiment directories are required for script '%s' to run.\n",
-          "%s\n"),
-    SCRIPT_TO_RUN,
-    missing_msg,
-    ), call. = FALSE
-  )
-  VARIABLES_TO_REMOVE <- c(VARIABLES_TO_REMOVE,
-    "missing_msg")
-}
+#missing_dirs <- EXPERIMENT_DIR[!dir.exists(EXPERIMENT_DIR)]
+#if (length(missing_dirs) > 0) {
+#  # Build a common message for missing directories
+#  missing_msg <- sprintf(
+#    fmt = "The following directories are missing:\n%s",
+#    paste(missing_dirs, collapse = "\n")
+#  )
+#  # Stop script if directories do not exist.
+#  stop(sprintf(
+#    fmt = paste("Error: Experiment directories are required for script '%s' to run.\n",
+#          "%s\n"),
+#    SCRIPT_TO_RUN,
+#    missing_msg,
+#    ), call. = FALSE
+#  )
+#  VARIABLES_TO_REMOVE <- c(VARIABLES_TO_REMOVE,
+#    "missing_msg")
+#}
 
 message("All experiment directories exist...")
 # end experiment directory setup -------------------

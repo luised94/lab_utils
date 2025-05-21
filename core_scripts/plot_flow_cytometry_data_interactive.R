@@ -331,12 +331,12 @@ ssca_breaks <- c(min(ssca_global_range), max(ssca_global_range))
 # Define the file names
 fl1a_file_output <- file.path(
     OUTPUT_DIRS[2],
-    paste(EXPERIMENT_ID, "fl1a_density_plot.pdf", collapse = "_")
+    paste(EXPERIMENT_ID, "fl1a_density_plot.pdf", sep = "_")
 )
 
 fsca_vs_ssca_file_output <- file.path(
     OUTPUT_DIRS[2],
-    paste(EXPERIMENT_ID, "fsca_vs_ssca_plot.pdf", collapse = "_")
+    paste(EXPERIMENT_ID, "fsca_vs_ssca_plot.pdf", sep = "_")
 )
 # Breakpoint
 stop("See the values of the metadata and whatnot")
