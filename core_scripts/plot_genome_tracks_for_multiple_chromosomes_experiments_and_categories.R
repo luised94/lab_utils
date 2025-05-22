@@ -30,6 +30,9 @@ required_configuration_variables <- c(
   "EXPERIMENT_DIR",
   "CHROMOSOMES_TO_PLOT",
   "OUTPUT_FORMAT",
+  "BIGWIG_PATTERN",
+  "FASTQ_PATTERN",
+  "SAMPLE_ID_CAPTURE_PATTERN",
   "ACCEPT_CONFIGURATION",
   "SKIP_PACKAGE_CHECKS"
 )
@@ -106,10 +109,10 @@ metadata_list <- vector("list", length = number_of_experiments)
 metadata_categories_list <- vector("list", length = number_of_experiments)
 
 # Patterns for files
-#bigwig_pattern <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
-bigwig_pattern <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
-fastq_pattern <- "consolidated_.*_sequence\\.fastq$"
-sample_id_capture_pattern <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
+# From config: BIGWIG_PATTERN, FASTQ_PATTERN, SAMPLE_ID_CAPTURE_PATTERN
+BIGWIG_PATTERN <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
+FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
+SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
 
 expected_number_of_samples <- 0
 REQUIRED_DIRECTORIES <- c("fastq", "coverage")
@@ -144,12 +147,12 @@ for (experiment_idx in seq_len(number_of_experiments)) {
   # Find fastq files and extract sample IDs
   fastq_files <- list.files(
     path = required_data_paths[["fastq"]],
-    pattern = fastq_pattern,
+    pattern = FASTQ_PATTERN,
     full.names = FALSE
   )
   bigwig_files <- list.files(
     path = required_data_paths[["coverage"]],
-    pattern = bigwig_pattern,
+    pattern = BIGWIG_PATTERN,
     full.names = TRUE
   )
   #bigwig_basenames <- basename(bigwig_files)
@@ -158,7 +161,7 @@ for (experiment_idx in seq_len(number_of_experiments)) {
     "No bigwig files found." = length(bigwig_files) > 0
   )
   sample_ids <- gsub(
-    pattern = sample_id_capture_pattern,
+    pattern = SAMPLE_ID_CAPTURE_PATTERN,
     replacement = "\\1",
     x = fastq_files
   )

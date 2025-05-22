@@ -25,6 +25,9 @@ VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
 ACCEPT_CONFIGURATION <- TRUE
 SKIP_PACKAGE_CHECKS <- TRUE
 OUTPUT_FORMAT <- "svg"
+BIGWIG_PATTERN <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
+FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
+SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
 #EXPERIMENT_DIR <-
 #LABEL_MAPPINGS <- list()
 #REQUIRED_DIRECTORIES <-
