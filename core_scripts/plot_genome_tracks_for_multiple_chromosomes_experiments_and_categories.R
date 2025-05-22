@@ -24,7 +24,8 @@ if(interactive()) {
 
 # Ensure the variables expected in the script were //
 # defined in the configuration file. //
-# See template_script_configuration.R or script_configuration.R
+# See template_interactive_script_configuration.R or //
+# interactive_script_configuration.R //
 required_configuration_variables <- c(
   "EXPERIMENT_IDS",
   "EXPERIMENT_DIR",
@@ -56,13 +57,12 @@ if (!is.character(required_packages) || length(required_packages) == 0) {
 }
 
 if (!SKIP_PACKAGE_CHECKS) {
-  for (pkg in required_packages) {
-    if (!requireNamespace(pkg, quietly = TRUE)) {
-      stop(sprintf(
-        fmt = "Package '%s' is missing.\nPlease install using renv or base R.",
-        pkg
-      ))
-    }
+  missing_packages <- required_packages[!sapply(
+    X = required_packages, FUN = requireNamespace, quietly = TRUE
+  )]
+  if (length(missing_packages) > 0 ) {
+    stop("Missing packages. Please install using renv:\n",
+         paste(missing_packages, collapse = ", "))
   }
   SKIP_PACKAGE_CHECKS <- TRUE
 }
@@ -87,35 +87,36 @@ for (experiment_idx in seq_len(number_of_experiments)) {
     paste0(current_experiment_id, "_sample_grid.csv")
   )
 }
-# Refactor
-sapply(c(config_paths, metadata_paths),
-  function(file_path){
-    if (!file.exists(file_path)) {
-      stop(sprintf(
-        fmt = "File %s does not exist.\nRun setup_bmc_experiment.R script.",
-        file_path
-      ))
-    }
-  }
-)
+required_configuration_paths <- c(config_paths, metadata_paths)
+missing_configuration_paths <- required_configuration_paths[!sapply(
+  X = required_configuration_paths, FUN = file.exists
+)]
+if ( length(missing_configuration_paths) > 0 ) {
+  stop("Missing configuration paths. Please setup.\n",
+       paste(missing_configuration_paths, collapse = ", "))
+}
 
 ################################################################################
 # Setup directories, genome file and file metadata
 ################################################################################
+# Three pattern variables must be defined in configuration
+# Config: interactive_script_configuration.R
+# They are validated at init
+#  BIGWIG_PATTERN: (for genome track files)
+#  FASTQ_PATTERN: (for sequence files)
+#  SAMPLE_ID_CAPTURE_PATTERN: (for sample ID extraction)
+
 OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
-metadata_list <- vector("list", length = number_of_experiments)
-metadata_categories_list <- vector("list", length = number_of_experiments)
-
-# Patterns for files
-# From config: BIGWIG_PATTERN, FASTQ_PATTERN, SAMPLE_ID_CAPTURE_PATTERN
-BIGWIG_PATTERN <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
-FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
-SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
-
 expected_number_of_samples <- 0
 REQUIRED_DIRECTORIES <- c("fastq", "coverage")
+# For loop to load metadata
+# Loop through number of experiments, find the fastq files and bigwig files.//
+# Get sample ids from fastq, add bigwig files to loaded metadata, add dataframe //
+# to list for further processing and binding
+metadata_list <- vector("list", length = number_of_experiments)
+metadata_categories_list <- vector("list", length = number_of_experiments)
 for (experiment_idx in seq_len(number_of_experiments)) {
   message("--- Start experiment idx ---")
   current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
@@ -192,7 +193,7 @@ for (experiment_idx in seq_len(number_of_experiments)) {
   metadata_list[[experiment_idx]] <- current_metadata_df
   message("--- End iteration ---")
   message("\n")
-} # end for loop
+} # end For loop to load metadata
 message("Finished metadata loading...")
 
 # Get the union of the categories
