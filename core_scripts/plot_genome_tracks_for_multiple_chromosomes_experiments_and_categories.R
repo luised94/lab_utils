@@ -27,16 +27,11 @@ if(interactive()) {
 # See template_interactive_script_configuration.R or //
 # interactive_script_configuration.R //
 required_configuration_variables <- c(
-  "EXPERIMENT_IDS",
-  "EXPERIMENT_DIR",
-  "CHROMOSOMES_TO_PLOT",
-  "OUTPUT_FORMAT",
-  "OUTPUT_EXTENSION",
-  "BIGWIG_PATTERN",
-  "FASTQ_PATTERN",
-  "SAMPLE_ID_CAPTURE_PATTERN",
-  "ACCEPT_CONFIGURATION",
-  "SKIP_PACKAGE_CHECKS"
+  "EXPERIMENT_IDS", "EXPERIMENT_DIR",
+  "CHROMOSOMES_TO_PLOT", "OUTPUT_FORMAT",
+  "OUTPUT_EXTENSION", "BIGWIG_PATTERN",
+  "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
+  "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
 missing_variables <- required_configuration_variables[!sapply(required_configuration_variables, exists)]
 if (length(missing_variables) > 0 ) {
@@ -482,7 +477,8 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       "condition_plots", "_",
       current_chromosome, "_",
       gsub("\\|", ".", current_condition), "_",
-      plot_name_comparison_column_section,
+      plot_name_comparison_column_section, "_",
+      BAM_PROCESSING, "_", BIGWIG_NORM_METHOD,
       OUTPUT_EXTENSION,
       sep = ""
     )

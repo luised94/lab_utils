@@ -27,7 +27,12 @@ SKIP_PACKAGE_CHECKS <- TRUE
 OUTPUT_FORMAT <- "svg"
 OUTPUT_EXTENSION <- paste0(".", OUTPUT_FORMAT)
 VALID_OUTPUT_FORMATS <- c("svg", "pdf", "png")
-BIGWIG_PATTERN <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
+BAM_PROCESSING <- "blFiltered"
+BIGWIG_NORM_METHOD <- "RAW"
+BIGWIG_PATTERN <- sprintf(
+  fmt = "processed_.*_sequence_to_S288C_%s_%s\\.bw$",
+  BAM_PROCESSING, BIGWIG_NORM_METHOD
+)
 FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
 SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
 #EXPERIMENT_DIR <-
