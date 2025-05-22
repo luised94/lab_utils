@@ -9,7 +9,7 @@
 #SBATCH --mail-user=luised94@mit.edu
 # Script: run_bamcoverage_array.sbatch
 # Purpose: Executes deepTools bamCoverage as SLURM array job for multiple BAM files
-# Usage: sbatch --array=1-N%16 run_bamcoverage_array.sbatch <experiment_directory>
+# Usage: sbatch --array=1-N%16 run_bam_coverage_raw.sbatch <experiment_directory>
 # Date: 2024-11-03
 
 # Function to display usage
@@ -39,13 +39,8 @@ source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 readonly TOOL_NAME="coverage"
 eval "$(setup_logging ${TOOL_NAME})"
 
-# Normalization methods array
-#declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
-declare -a NORM_METHODS=("CPM")
-
 # coverage parameters - hardcoded values
 BIN_SIZE=10
-EFFECTIVE_GENOME_SIZE=12157105
 MIN_MAPPING_QUALITY=20
 
 # Create log directories
@@ -65,7 +60,6 @@ module load deeptools/3.0.1
 BAM_DIR="${EXPERIMENT_DIR}/alignment"
 mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*.bam" | sort)
 TOTAL_FILES=${#BAM_FILES[@]}
-TOTAL_JOBS=$((TOTAL_FILES * ${#NORM_METHODS[@]}))
 if [ "$TOTAL_FILES" -eq 0 ]; then
     log_message "ERROR" "No BAM files found in ${BAM_DIR}"
     exit 1
@@ -79,12 +73,10 @@ fi
 
 # Get current BAM file
 # Calculate array indices
-BAM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) / ${#NORM_METHODS[@]} ))
-NORM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) % ${#NORM_METHODS[@]} ))
+BAM_INDEX=$(( SLURM_ARRAY_TASK_ID - 1 ))
 
 # Get current BAM file and normalization method
 BAM_PATH="${BAM_FILES[$BAM_INDEX]}"
-NORM_METHOD="${NORM_METHODS[$NORM_INDEX]}"
 if [ ! -f "$BAM_PATH" ]; then
     log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} bam path does not exist."
     log_message "WARNING" "Input: ${BAM_PATH}"
@@ -92,10 +84,10 @@ if [ ! -f "$BAM_PATH" ]; then
 fi
 # Set output name
 SAMPLE_NAME=$(basename --suffix=.bam "$BAM_PATH" )
-OUTPUT_BIGWIG="${EXPERIMENT_DIR}/coverage/${SAMPLE_NAME}_${NORM_METHOD}.bw"
+OUTPUT_BIGWIG="${EXPERIMENT_DIR}/coverage/${SAMPLE_NAME}_RAW.bw"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
-log_message "INFO" "Normalization method: ${NORM_METHOD}"
+log_message "INFO" "Normalization method: RAW"
 log_message "INFO" "Input: ${BAM_PATH}"
 log_message "INFO" "Output: ${OUTPUT_BIGWIG}"
 
@@ -104,15 +96,8 @@ COMMON_PARAMS="--bam ${BAM_PATH} \
     --outFileName ${OUTPUT_BIGWIG} \
     --binSize ${BIN_SIZE} \
     --minMappingQuality ${MIN_MAPPING_QUALITY} \
-    --ignoreDuplicates \
-    --normalizeUsing ${NORM_METHOD} \
     --numberOfProcessors ${SLURM_CPUS_PER_TASK}"
 
-# Add RPGC-specific parameters
-if [ "${NORM_METHOD}" == "RPGC" ]; then
-    COMMON_PARAMS+=" --effectiveGenomeSize ${EFFECTIVE_GENOME_SIZE}"
-    log_message "INFO" "Added effectiveGenomeSize parameter for RPGC normalization"
-fi
 log_message "INFO" "Parameters used:\n"
 log_message "INFO" "$COMMON_PARAMS"
 

@@ -1,8 +1,9 @@
 #!/bin/bash
 # submit_bamcoverage_normalizations.sh
-# Usage: $./submit_bamcoverage_normalizations.sh $HOME/data/<experiment_directory>
+# Usage: $./submit_bam_coverage_raw.sbatch /data/<experiment_directory>
 #
 # Immediately exit if not on luria.
+# Will not submit on interactive node session
 if [[ "$(hostname)" != "luria" ]]; then
     echo "Error: This script must be run on luria cluster"
     exit 1
@@ -31,8 +32,7 @@ mkdir -p "$DOCUMENTATION_DIR" "$BAM_DIRECTORY"
 mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*.bam" -exec basename {} \;)
 BAM_COUNT=${#unique_files[@]}
 #declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
-declare -a NORM_METHODS=("CPM")
-TOTAL_JOBS=$((BAM_COUNT * ${#NORM_METHODS[@]}))
+TOTAL_JOBS=$(( BAM_COUNT ))
 
 #BAM_COUNT=$(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "processed*_sorted.bam" | wc -l)
 echo "Found ${BAM_COUNT} BAM files"
@@ -51,7 +51,7 @@ printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
 echo -e "\nWill submit array job with following parameters:"
 echo "Array size: 1-${TOTAL_JOBS}"
 echo "Max simultaneous jobs: 16"
-echo "Script: run_bamcoverage_normalizations.sbatch"
+echo "Script: run_bam_coverage_raw.sbatch"
 echo "Working directory: ${EXPERIMENT_DIR}"
 
 read -rp "Proceed with job submission? (y/n): " confirm
@@ -71,7 +71,7 @@ done
 
 # --- Submit job and capture output ---
 job_submit_output=$(sbatch --array=1-"${TOTAL_JOBS}%16" \
-    "$HOME/lab_utils/core_scripts/run_bamcoverage_normalizations.sbatch" \
+    "$HOME/lab_utils/core_scripts/run_bam_coverage_raw.sbatch" \
     "$EXPERIMENT_DIR")
 
 # Extract job ID (works with both "Submitted batch job 12345" and "12345")
@@ -92,7 +92,7 @@ job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
     )
     echo "- Experiment dir: $EXPERIMENT_DIR"
     echo "- Command ran: $0"
-    echo "- sbatch command: sbatch --array=1-${TOTAL_JOBS}%16 $HOME/lab_utils/core_scripts/run_bamcoverage_normalizations.sbatch $EXPERIMENT_DIR"
+    echo "- sbatch command: sbatch --array=1-${TOTAL_JOBS}%16 $HOME/lab_utils/core_scripts/run_bam_coverage_raw.sbatch $EXPERIMENT_DIR"
     echo "- Files processed: $BAM_COUNT"
     echo "- Description: $description"
     echo "- Logs: {{fill out comments}}"
