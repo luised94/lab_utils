@@ -477,8 +477,8 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       current_chromosome, "_",
       gsub("\\|", ".", current_condition), "_",
       plot_name_comparison_column_section, "_",
-      BAM_PROCESSING, "_", BIGWIG_NORM_METHOD,
-      mode, "_",
+      BAM_PROCESSING, "_", BIGWIG_NORM_METHOD, "_",
+      mode,
       OUTPUT_EXTENSION,
       sep = ""
     )
@@ -592,43 +592,45 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       ". Track limits" = paste(y_limits, collapse = ",")
     ))
 
-    #do.call(
-    #  what = switch(OUTPUT_FORMAT,
-    #    pdf = pdf,
-    #    svg = svglite::svglite,
-    #    png = png
-    #    ),
-    #  args = switch(OUTPUT_FORMAT,
-    #    pdf = list(file = plot_output_file_path, width = 10, height = 8, 
-    #               bg = "white", compress = TRUE, colormodel = "srgb", useDingbats = FALSE),
-    #    svg = list(filename = plot_output_file_path, width = 10, height = 8,
-    #               bg = "white"),
-    #    png = list(filename = plot_output_file_path, width = 10, height = 8,
-    #               units = "in", res = 600, bg = "white")
-    #    )
-    #)
-    #Gviz::plotTracks(
-    #    trackList = track_container,
-    #    chromosome = current_chromosome,
-    #    from = current_genome_range_to_load@ranges@start,
-    #    to = current_genome_range_to_load@ranges@width,
-    #    ylim = y_limits,
-    #    margin = 15,
-    #    innerMargin = 5,
-    #    spacing = 10,
-    #    main = current_condition_title,
-    #    col.axis = "black",
-    #    cex.axis = 0.8,
-    #    cex.main = 0.7,
-    #    fontface.main = 1,
-    #    background.panel = "transparent"
-    #)
-    #dev.off()
+    do.call(
+      what = switch(OUTPUT_FORMAT,
+        pdf = pdf,
+        svg = svglite::svglite,
+        png = png
+        ),
+      args = switch(OUTPUT_FORMAT,
+        pdf = list(file = plot_output_file_path, width = 10, height = 8,
+                   bg = "white", compress = TRUE, colormodel = "srgb", useDingbats = FALSE),
+        svg = list(filename = plot_output_file_path, width = 10, height = 8,
+                   bg = "white"),
+        png = list(filename = plot_output_file_path, width = 10, height = 8,
+                   units = "in", res = 600, bg = "white")
+        )
+    )
+    Gviz::plotTracks(
+        trackList = track_container,
+        chromosome = current_chromosome,
+        from = current_genome_range_to_load@ranges@start,
+        to = current_genome_range_to_load@ranges@width,
+        ylim = y_limits,
+        margin = 15,
+        innerMargin = 5,
+        spacing = 10,
+        main = current_condition_title,
+        col.axis = "black",
+        cex.axis = 0.8,
+        cex.main = 0.7,
+        fontface.main = 1,
+        background.panel = "transparent"
+    )
+    dev.off()
     message("  Saved plot...")
-    message("  --- end chromosome iteration ---")
+    message("  --- end scaling  iteration ---")
 
-  } # end chromsome for loop
+  } # end scaling mode for loop
+  message("  --- end chromosome iteration ---")
 
+} # end chromosome for loop
   message("  Ended condition iteration ", condition_idx)
   message("=== end condition iteration ===")
   message("\n")
