@@ -25,6 +25,8 @@ VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
 ACCEPT_CONFIGURATION <- TRUE
 SKIP_PACKAGE_CHECKS <- TRUE
 OUTPUT_FORMAT <- "svg"
+OUTPUT_EXTENSION <- paste0(".", OUTPUT_FORMAT)
+VALID_OUTPUT_FORMATS <- c("svg", "pdf", "png")
 BIGWIG_PATTERN <- "processed_.*_sequence_to_S288C_blFiltered_CPM\\.bw$"
 FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
 SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
@@ -44,7 +46,7 @@ stopifnot(
   "EXPERIMENT_IDS should be character vector of length 1." =
     length(EXPERIMENT_IDS) == 1,
   "OUTPUT_FORMAT must be svg, pdf or png." =
-    OUTPUT_FORMAT %in% c("svg", "pdf", "png")
+    OUTPUT_FORMAT %in% VALID_OUTPUT_FORMATS
 )
 
 ######################
@@ -69,13 +71,13 @@ if (IS_COMMA_SEPARATED) {
   invalid_ids <- EXPERIMENT_IDS[!grepl(
     EXPECTED_FORMAT_EXPERIMENT_ID,
     EXPERIMENT_IDS,
-    perl = TRUE)
-    ]
+    perl = TRUE
+  )]
   if (length(invalid_ids) > 0) {
     stop(sprintf(
       "Invalid experiment-id format(s):\n%s\nExpected format: YYMMDD'Bel'",
       paste(invalid_ids, collapse = ", ")
-      ))
+    ))
   }
   EXPERIMENT_IDS <- EXPERIMENT_IDS
   EXPERIMENT_DIR <- sapply(EXPERIMENT_IDS, function(experiment_id) {
@@ -84,7 +86,7 @@ if (IS_COMMA_SEPARATED) {
   VARIABLES_TO_REMOVE <- c(VARIABLES_TO_REMOVE,
     "split_experiment_ids", "clean_experiment_ids",
     "invalid_ids")
-}
+} # end if comma processing statement
 
 if (!all(grepl(EXPECTED_FORMAT_EXPERIMENT_ID, EXPERIMENT_IDS, perl = TRUE))){
   stop(sprintf(
@@ -95,22 +97,10 @@ if (!all(grepl(EXPECTED_FORMAT_EXPERIMENT_ID, EXPERIMENT_IDS, perl = TRUE))){
 
 # Identify missing experiment directories
 missing_dirs <- EXPERIMENT_DIR[!dir.exists(EXPERIMENT_DIR)]
-if (length(missing_dirs) > 0) {
-  # Build a common message for missing directories
-  missing_msg <- sprintf(
-    fmt = "The following directories are missing:\n%s",
-    paste(missing_dirs, collapse = "\n")
+if ( length(missing_dirs) > 0 ) {
+  stop("The following directories are missing:\n",
+        paste(missing_dirs, collapse = "\n")
   )
-  # Stop script if directories do not exist.
-  stop(sprintf(
-    fmt = paste("Error: Experiment directories are required for script '%s' to run.\n",
-          "%s\n"),
-    SCRIPT_TO_RUN,
-    missing_msg,
-    ), call. = FALSE
-  )
-  VARIABLES_TO_REMOVE <- c(VARIABLES_TO_REMOVE,
-    "missing_msg")
 }
 
 message("All experiment directories exist...")

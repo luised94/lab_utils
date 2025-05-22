@@ -140,6 +140,7 @@ stopifnot(
   "Only one configuration file expected." =
     length(CONFIG_FILE_PATH) == 1
 )
+message("Directories found...")
 
 # Load *_CONFIG variables ---------
 source(CONFIG_FILE_PATH)
@@ -160,13 +161,11 @@ stopifnot(
 )
 
 SUBDIRS <- c("processed_data", "plots")
-OUTPUT_DIRS <- sapply(SUBDIRS, 
-  function(SUBDIR) {
+OUTPUT_DIRS <- sapply(SUBDIRS, function(SUBDIR) {
     subdirectory <- file.path(EXPERIMENT_DIRECTORY_PATH, SUBDIR)
     dir.create(subdirectory, recursive = TRUE, showWarnings = FALSE)
     return(subdirectory)
-  }
-)
+})
 PLOT_OUTPUT_DIR <- OUTPUT_DIRS[["plots"]]
 
 message("Variables and directories initialized...")

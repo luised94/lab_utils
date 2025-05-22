@@ -31,6 +31,7 @@ required_configuration_variables <- c(
   "EXPERIMENT_DIR",
   "CHROMOSOMES_TO_PLOT",
   "OUTPUT_FORMAT",
+  "OUTPUT_EXTENSION",
   "BIGWIG_PATTERN",
   "FASTQ_PATTERN",
   "SAMPLE_ID_CAPTURE_PATTERN",
@@ -114,7 +115,7 @@ REQUIRED_DIRECTORIES <- c("fastq", "coverage")
 # For loop to load metadata
 # Loop through number of experiments, find the fastq files and bigwig files.//
 # Get sample ids from fastq, add bigwig files to loaded metadata, add dataframe //
-# to list for further processing and binding
+# to list for further processing and binding //
 metadata_list <- vector("list", length = number_of_experiments)
 metadata_categories_list <- vector("list", length = number_of_experiments)
 for (experiment_idx in seq_len(number_of_experiments)) {
@@ -156,7 +157,6 @@ for (experiment_idx in seq_len(number_of_experiments)) {
     pattern = BIGWIG_PATTERN,
     full.names = TRUE
   )
-  #bigwig_basenames <- basename(bigwig_files)
   stopifnot(
     "No fastq files found." = length(fastq_files) > 0,
     "No bigwig files found." = length(bigwig_files) > 0
@@ -237,13 +237,14 @@ message("Finished metadata processing...")
 # Setup genome and feature files
 ################################################################################
 # Ensure supplementary files for plotting genome tracks are present
+# TODO: Move to configuration. //
 FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
 FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
 FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
 FILE_FEATURE_PATTERN <- "eaton_peaks"
 stopifnot(
-    "Genome directory not found" = dir.exists(FILE_GENOME_DIRECTORY),
-    "Feature directory not found" = dir.exists(FILE_FEATURE_DIRECTORY)
+  "Genome directory not found" = dir.exists(FILE_GENOME_DIRECTORY),
+  "Feature directory not found" = dir.exists(FILE_FEATURE_DIRECTORY)
 )
 
 # Load reference genome
@@ -308,6 +309,7 @@ if (!is.null(FEATURE_FILE)) {
 #    subset by control column,
 #    plot the tracks for multiple chromosomes
 ####################
+# TODO: Move to configuration. //
 category_to_color_by <- "antibody"
 category_seed <- sum(utf8ToInt(category_to_color_by))
 set.seed(category_seed)
@@ -481,7 +483,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       current_chromosome, "_",
       gsub("\\|", ".", current_condition), "_",
       plot_name_comparison_column_section,
-      paste0(".", OUTPUT_FORMAT),
+      OUTPUT_EXTENSION,
       sep = ""
     )
     plot_output_file_path <- file.path(OUTPUT_DIR, plot_file_name)
@@ -527,7 +529,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       container_length <- length(track_container)
       debug_print(list(
         "title" = "Sample iteration",
-        ".Track_name" = current_sample_track_name,
+        ".Track name" = current_sample_track_name,
         ".Bigwig file path" = current_bigwig_file_path,
         ".Container Length" = container_length,
         ".Track color" = track_color
