@@ -405,8 +405,6 @@ experimental_condition_titles <- apply(
 total_number_of_conditions <- length(unique_experimental_conditions)
 total_number_of_samples <- nrow(metadata_df)
 total_number_of_chromosomes <- length(CHROMOSOMES_TO_PLOT)
-# Move to configuration //
-padding_fraction <- 0.1
 
 stopifnot(
   "No experimental condition columns remain. See experimental_condition_columns" =
@@ -473,12 +471,14 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         background.title = "white"
       )
     )
+  for (mode in GENOME_TRACK_Y_AXIS_SCALING) {
     plot_file_name <- paste(
       "condition_plots", "_",
       current_chromosome, "_",
       gsub("\\|", ".", current_condition), "_",
       plot_name_comparison_column_section, "_",
       BAM_PROCESSING, "_", BIGWIG_NORM_METHOD,
+      mode, "_",
       OUTPUT_EXTENSION,
       sep = ""
     )
@@ -488,27 +488,33 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       ".Current chromosome" = current_chromosome
     ))
     all_track_values <- c()
-    # Calculate track limits for all of the tracks in the plot
-    for (sample_idx in seq_len(current_number_of_samples)) {
-      message("   Measuring track limits")
-      current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
-      bigwig_data <- rtracklayer::import(
-        current_bigwig_file_path,
-        format = "BigWig",
-        which = current_genome_range_to_load
-      )
-      values <- GenomicRanges::values(bigwig_data)$score
-      all_track_values <- c(all_track_values, values)
-    }
-    # Calculate limits
-    if (length(all_track_values) > 0) {
-      y_min <- min(all_track_values, na.rm = TRUE)
-      y_max <- max(all_track_values, na.rm = TRUE)
-      y_range <- y_max - y_min
-      y_limits <- c(
-        max(0, y_min - (y_range * padding_fraction)),
-            y_max + (y_range * padding_fraction)
+    if (mode == "local") {
+      message("Mode set to local...")
+      # Calculate track limits for all of the tracks in the plot
+      for (sample_idx in seq_len(current_number_of_samples)) {
+        message("   Measuring track limits")
+        current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
+        bigwig_data <- rtracklayer::import(
+          current_bigwig_file_path,
+          format = "BigWig",
+          which = current_genome_range_to_load
         )
+        values <- GenomicRanges::values(bigwig_data)$score
+        all_track_values <- c(all_track_values, values)
+      }
+      # Calculate limits
+      if (length(all_track_values) > 0) {
+        y_min <- min(all_track_values, na.rm = TRUE)
+        y_max <- max(all_track_values, na.rm = TRUE)
+        y_range <- y_max - y_min
+        y_limits <- c(
+          max(0, y_min - (y_range * PADDING_FRACTION)),
+              y_max + (y_range * PADDING_FRACTION)
+          )
+      }
+    } else {
+      message("Mode set to individual...")
+      y_limits <- NULL
     }
     for (sample_idx in seq_len(current_number_of_samples)) {
       message("    --- For loop for sample ---")
@@ -586,39 +592,38 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       ". Track limits" = paste(y_limits, collapse = ",")
     ))
 
-
-    do.call(
-      what = switch(OUTPUT_FORMAT,
-        pdf = pdf,
-        svg = svglite::svglite,
-        png = png
-        ),
-      args = switch(OUTPUT_FORMAT,
-        pdf = list(file = plot_output_file_path, width = 10, height = 8, 
-                   bg = "white", compress = TRUE, colormodel = "srgb", useDingbats = FALSE),
-        svg = list(filename = plot_output_file_path, width = 10, height = 8,
-                   bg = "white"),
-        png = list(filename = plot_output_file_path, width = 10, height = 8,
-                   units = "in", res = 600, bg = "white")
-        )
-    )
-    Gviz::plotTracks(
-        trackList = track_container,
-        chromosome = current_chromosome,
-        from = current_genome_range_to_load@ranges@start,
-        to = current_genome_range_to_load@ranges@width,
-        ylim = y_limits,
-        margin = 15,
-        innerMargin = 5,
-        spacing = 10,
-        main = current_condition_title,
-        col.axis = "black",
-        cex.axis = 0.8,
-        cex.main = 0.7,
-        fontface.main = 1,
-        background.panel = "transparent"
-    )
-    dev.off()
+    #do.call(
+    #  what = switch(OUTPUT_FORMAT,
+    #    pdf = pdf,
+    #    svg = svglite::svglite,
+    #    png = png
+    #    ),
+    #  args = switch(OUTPUT_FORMAT,
+    #    pdf = list(file = plot_output_file_path, width = 10, height = 8, 
+    #               bg = "white", compress = TRUE, colormodel = "srgb", useDingbats = FALSE),
+    #    svg = list(filename = plot_output_file_path, width = 10, height = 8,
+    #               bg = "white"),
+    #    png = list(filename = plot_output_file_path, width = 10, height = 8,
+    #               units = "in", res = 600, bg = "white")
+    #    )
+    #)
+    #Gviz::plotTracks(
+    #    trackList = track_container,
+    #    chromosome = current_chromosome,
+    #    from = current_genome_range_to_load@ranges@start,
+    #    to = current_genome_range_to_load@ranges@width,
+    #    ylim = y_limits,
+    #    margin = 15,
+    #    innerMargin = 5,
+    #    spacing = 10,
+    #    main = current_condition_title,
+    #    col.axis = "black",
+    #    cex.axis = 0.8,
+    #    cex.main = 0.7,
+    #    fontface.main = 1,
+    #    background.panel = "transparent"
+    #)
+    #dev.off()
     message("  Saved plot...")
     message("  --- end chromosome iteration ---")
 

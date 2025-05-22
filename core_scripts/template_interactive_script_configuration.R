@@ -35,6 +35,10 @@ BIGWIG_PATTERN <- sprintf(
 )
 FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
 SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
+GENOME_TRACK_Y_AXIS_SCALING <- c("individual")
+# TODO: Need to do global but not configured yet
+VALID_GENOME_TRACK_SCALING_MODES <- c("local", "individual")
+PADDING_FRACTION <- 0.1
 #EXPERIMENT_DIR <-
 #LABEL_MAPPINGS <- list()
 #REQUIRED_DIRECTORIES <-
