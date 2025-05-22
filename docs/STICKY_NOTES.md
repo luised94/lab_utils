@@ -261,3 +261,5 @@ TODO: Need to fix the bmc config and metadata to have the same column names
 ## 2025-05-20
 Collect the plots side by side via illustrator then move on to flow cytometry.
 
+## 2025-05-21
+Something just looks wrong about the plots. They look terrible. I know duplication removal and normalization makes it look bad. Just want to see the raw data to make sure I am not missing anything. The terrible samples should remain the same.
