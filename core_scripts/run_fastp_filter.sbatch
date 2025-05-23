@@ -28,7 +28,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 # Function to log messages
-source $HOME/lab_utils/core_scripts/functions_for_logging.sh
+source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 readonly TOOL_NAME="fastp"
 eval "$(setup_logging ${TOOL_NAME})"
 
@@ -56,7 +56,7 @@ FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
 mapfile -t FASTQ_FILES < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "consolidated*.fastq" | sort)
 TOTAL_FILES=${#FASTQ_FILES[@]}
 
-if [ $TOTAL_FILES -eq 0 ]; then
+if [ "$TOTAL_FILES" -eq 0 ]; then
     log_message "ERROR" "No fastq files found in ${FASTQ_DIR}"
     exit 1
 fi
@@ -88,12 +88,13 @@ fi
 # Construct output path
 OUTPUT_FASTQ="${EXPERIMENT_DIR}/fastq/processed_${SAMPLE_ID}_sequence.fastq"
 OUTPUT_QC="${EXPERIMENT_DIR}/quality_control"
-mkdir -p $OUTPUT_QC
+mkdir -p "$OUTPUT_QC"
 
 # Validate output path doesn't already exist (optional)
 if [ -f "$OUTPUT_FASTQ" ]; then
     log_message "WARNING" "Output file already exists: ${OUTPUT_FASTQ}"
-    exit 1
+    log_message "INFO" "Task completed successfully"
+    exit 0
 fi
 
 log_message "INFO" "Processing sample: ${SAMPLE_ID}"

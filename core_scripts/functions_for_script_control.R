@@ -4,7 +4,13 @@ library(optparse)
 configuration_options <- "~/lab_utils/core_scripts/override_configuration.R"
 stopifnot(
     "Configuration for overrides does not exist. Copy template to override_configuration.R" =
+<<<<<<< HEAD
     file.exists(configuration_options)
+=======
+    file.exists(configuration_options),
+    "File with logging functions does not exist." =
+    file.exists("~/lab_utils/core_scripts/functions_for_logging.R")
+>>>>>>> pipeline_completion
 )
 source(configuration_options)
 
@@ -129,7 +135,7 @@ parse_common_arguments <- function(
 
     # Parse arguments with enhanced error handling
     args <- tryCatch(
-        parse_args(opt_parser),
+        optparse::parse_args(opt_parser),
         error = function(e) {
             cat("\nERROR: Argument parsing failed\n", file = stderr())
             cat(as.character(e), "\n\n", file = stderr())
@@ -400,6 +406,10 @@ parse_flow_cytometry_arguments <- function(
             paste(OUTPUT_FORMATS, collapse = ", ")
         ))
     }
+<<<<<<< HEAD
+=======
+    # end Validate all arguments --------
+>>>>>>> pipeline_completion
 
     #todo: dropbox_path id validation and processing ----------
     # Experiment id validation and processing ----------
@@ -535,8 +545,8 @@ handle_configuration_checkpoint <- function(
             "\nNo analysis or processing will be performed at this time.",
             "\n\nTo run the full script and perform the analysis, re-run with the",
             " --accept-configuration flag. For example:\n",
-            sprintf("\n    Rscript %s --experiment-id=%s --accept-configuration\n",
-                   script_name, experiment_id),
+            sprintf("\n    Rscript %s --directory-id=<target_dir> --experiment-id=%s --accept-configuration\n",
+            script_name, experiment_id),
             "\n", separator,
             sep = ""
         ))
@@ -582,7 +592,7 @@ check_required_packages <- function(
         missing = character(0)
     )
 
-    if (verbose) { # Use verbose instead of quietly
+    if (verbose) {
         message("\nValidating required packages:")
         message(paste(rep("-", 50), collapse = ""))
     }
@@ -667,7 +677,11 @@ setup_experiment_dirs <- function(
     for (dir_name in required_input_dirs) {
         full_path <- file.path(experiment_dir, dir_name)
         if (!dir.exists(full_path)) {
+<<<<<<< HEAD
             stop(sprintf("Required experiment subdirectory '%s' not found: %s", 
+=======
+            stop(sprintf("Required experiment subdirectory '%s' not found: %s",
+>>>>>>> pipeline_completion
                     dir_name,
                     full_path
                 )) #

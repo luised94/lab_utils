@@ -4,6 +4,7 @@
 
 # Helper function -------------
 print_vars <- function(variable_names, environment_variables) {
+<<<<<<< HEAD
     stopifnot(
         "variable_names must be character." = is.character(variable_names),
         "variable_names must be in environment ls." = all(variable_names %in% environment_variables)
@@ -12,6 +13,16 @@ print_vars <- function(variable_names, environment_variables) {
         if(!typeof(get(variable)) == "closure") {
             cat(sprintf("%-25s = \n    %s\n", variable, paste(get(variable), collapse=", ")))
         }
+=======
+  stopifnot(
+    "variable_names must be character." = is.character(variable_names),
+    "variable_names must be in environment ls." = all(variable_names %in% environment_variables)
+  )
+  for (variable in variable_names) {
+    if (!typeof(get(variable)) == "closure") {
+      cat(sprintf("%-25s = \n    %s\n", variable, paste(get(variable), collapse = ", ")))
+    }
+>>>>>>> pipeline_completion
   }
 }
 
@@ -24,10 +35,17 @@ print_vars <- function(variable_names, environment_variables) {
 # Set manually here or in bash or use my_config repository
 DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
 FLOW_CYTOMETRY_BRIDGE_PATH <- "Lab/Experiments/flow_cytometry"
+<<<<<<< HEAD
 if(DROPBOX_PATH == "") {
     message("Environmental variable DROPBOX_PATH not available.")
     message("Either set with my config directory or manually in the parse_flow_cytometry_arguments.")
     stop("!!!! DROPBOX_PATH required for proper directory setting.")
+=======
+if (DROPBOX_PATH == "") {
+  message("Environmental variable DROPBOX_PATH not available.")
+  message("Either set with my config directory or manually in the parse_flow_cytometry_arguments.")
+  stop("!!!! DROPBOX_PATH required for proper directory setting.")
+>>>>>>> pipeline_completion
 }
 
 FLOW_CYTOMETRY_DIR <- file.path(DROPBOX_PATH, FLOW_CYTOMETRY_BRIDGE_PATH)
@@ -38,6 +56,7 @@ EXPERIMENT_ID <- "Exp_20250310_1"
 SERIES_DIRECTORY <- file.path(FLOW_CYTOMETRY_DIR, SERIES_NAME)
 
 XIT_FILEPATH <- list.files(
+<<<<<<< HEAD
     path = SERIES_DIRECTORY,
     pattern = paste0(EXPERIMENT_ID, "\\.xit$"),
     recursive = FALSE,
@@ -53,10 +72,28 @@ PATHS_IN_SERIES_DIRECTORY <- dir(
 
 EXPERIMENT_DIRECTORY_PATH <- PATHS_IN_SERIES_DIRECTORY[
     utils::file_test("-d", PATHS_IN_SERIES_DIRECTORY)
+=======
+  path = SERIES_DIRECTORY,
+  pattern = paste0(EXPERIMENT_ID, "\\.xit$"),
+  recursive = FALSE,
+  include.dirs = FALSE
+)
+
+PATHS_IN_SERIES_DIRECTORY <- dir(
+  path = SERIES_DIRECTORY,
+  pattern = EXPERIMENT_ID,
+  full.names = TRUE,
+  recursive = FALSE
+)
+
+EXPERIMENT_DIRECTORY_PATH <- PATHS_IN_SERIES_DIRECTORY[
+  utils::file_test("-d", PATHS_IN_SERIES_DIRECTORY)
+>>>>>>> pipeline_completion
 ]
 
 EXPECTED_SAMPLES <- 42
 FCS_FILE_PATHS <- list.files(
+<<<<<<< HEAD
     path = EXPERIMENT_DIRECTORY_PATH,
     pattern = "\\.fcs$",
     recursive = FALSE,
@@ -77,17 +114,47 @@ stopifnot(
     "Only one metadata file expected." = length(METADATA_FILE_PATH) == 1,
     "Only one experiment directory expected." = length(EXPERIMENT_DIRECTORY_PATH) == 1,
     "Number of fcs files should be the same as EXPECTED_SAMPLES." = length(FCS_FILE_PATHS) == EXPECTED_SAMPLES
+=======
+  path = EXPERIMENT_DIRECTORY_PATH,
+  pattern = "\\.fcs$",
+  recursive = FALSE,
+  full.names = TRUE,
+  include.dirs = FALSE
+)
+
+METADATA_FILE_PATH <- list.files(
+  path = SERIES_DIRECTORY,
+  pattern = paste0(EXPERIMENT_ID, "\\_sample_grid.csv$"),
+  recursive = FALSE,
+  full.names = TRUE,
+  include.dirs = FALSE
+)
+
+stopifnot(
+  "Only one xit file expected." = length(XIT_FILEPATH) == 1,
+  "Only one metadata file expected." = length(METADATA_FILE_PATH) == 1,
+  "Only one experiment directory expected." = length(EXPERIMENT_DIRECTORY_PATH) == 1,
+  "Number of fcs files should be the same as EXPECTED_SAMPLES." = length(FCS_FILE_PATHS) == EXPECTED_SAMPLES
+>>>>>>> pipeline_completion
 )
 
 OUTPUT_DIR <- "~/data/flow_cytometry_test"
 SUBDIRS <- c("processed_data", "plots")
 sapply(SUBDIRS, function(SUBDIR) {
+<<<<<<< HEAD
     dir.create(file.path(OUTPUT_DIR, SUBDIR), recursive = TRUE, showWarnings = FALSE)
+=======
+  dir.create(file.path(OUTPUT_DIR, SUBDIR), recursive = TRUE, showWarnings = FALSE)
+>>>>>>> pipeline_completion
 })
 
 # Setup constants --------
 # For creating sting identifier for rapid subsetting
+<<<<<<< HEAD
 COLUMN_SEPARATOR <-  "\x01"
+=======
+COLUMN_SEPARATOR <- "\x01"
+>>>>>>> pipeline_completion
 message("All variables initialized...")
 # Print the variable to quickly inspect.
 # print_vars(ls(), ls())
@@ -119,7 +186,11 @@ if (current_version > max_version) {
 # Use gtools to account for unpadded digits in FCS file format.
 metadata <- read.csv(METADATA_FILE_PATH)
 metadata$file_paths <- gtools::mixedsort(FCS_FILE_PATHS)
+<<<<<<< HEAD
 #print(head(metadata))
+=======
+# print(head(metadata))
+>>>>>>> pipeline_completion
 
 # Setup for processing --------
 DEPENDENT_COLUMN <- "timepoints"
@@ -142,6 +213,7 @@ EXPECTED_SAMPLES_AFTER_SUBSETTING <- length(unique(metadata[, DEPENDENT_COLUMN])
 EXPECTED_SEPARATOR_COUNT <- length(CONTROL_COLUMNS) - 1
 SEPARATOR_COUNTS <- lengths(gregexpr(COLUMN_SEPARATOR, metadata_keys))
 MISSING_CONTROL_IDS <- control_keys[!control_keys %in% metadata_keys]
+<<<<<<< HEAD
 NUMBER_OF_SAMPLES_SUBSET_WITH_CONTROL_KEYS <- lengths(lapply(control_keys, function(key){ metadata[metadata_keys %in% key, ] }))
 
 stopifnot(
@@ -154,6 +226,22 @@ if(!all(SEPARATOR_COUNTS == EXPECTED_SEPARATOR_COUNT)) {
   invalid_keys <- which(SEPARATOR_COUNTS != EXPECTED_SEPARATOR_COUNT)
   stop(sprintf(
     "!!!! Separator count mismatch in keys. Invalid key structure in rows = \n%s !!!!", 
+=======
+NUMBER_OF_SAMPLES_SUBSET_WITH_CONTROL_KEYS <- lengths(lapply(control_keys, function(key) {
+  metadata[metadata_keys %in% key, ]
+}))
+
+stopifnot(
+  "COLUMN_SEPARATOR must not be in FCS_FILE_PATHS strings." = all(grepl(COLUMN_SEPARATOR, x = metadata$file_paths)) == FALSE,
+  "Number of rows in metadata not the same length as number of paths." = nrow(metadata) == length(FCS_FILE_PATHS),
+  "Number of rows in metadata not the same as expected number of samples." = nrow(metadata) == EXPECTED_SAMPLES
+)
+
+if (!all(SEPARATOR_COUNTS == EXPECTED_SEPARATOR_COUNT)) {
+  invalid_keys <- which(SEPARATOR_COUNTS != EXPECTED_SEPARATOR_COUNT)
+  stop(sprintf(
+    "!!!! Separator count mismatch in keys. Invalid key structure in rows = \n%s !!!!",
+>>>>>>> pipeline_completion
     toString(head(invalid_keys, 10))
   ))
 }
@@ -184,6 +272,7 @@ message("Starting main script logic...")
 # Initial plots --------
 # Execute for each control_key
 for (key_idx in 1:length(control_keys)) {
+<<<<<<< HEAD
     # Setup variables ------------
     control_key <- control_keys[key_idx]
     keys_in_current_key <- metadata_keys %in% control_key
@@ -209,4 +298,30 @@ for (key_idx in 1:length(control_keys)) {
         message("Initially processing first control key...")
     }
 
+=======
+  # Setup variables ------------
+  control_key <- control_keys[key_idx]
+  keys_in_current_key <- metadata_keys %in% control_key
+  cat(sprintf("Processing %s key\n", key_idx))
+  cat(sprintf("Using key = %s \n", control_key))
+
+  # Subset the metadata using metadata keys -----
+  # Vectorized subsetting using fast %in% operator
+  # Alternative: control_samples <- merge(metadata, UNIQUE_CONTROL_COMBINATIONS, by = control_cols)
+  rows_to_analyze <- metadata[keys_in_current_key, ]
+  cat("Dimensions of rows_to_analyze =", dim(rows_to_analyze), "\n")
+  message("Sample subsetting complete...")
+
+  # Process rows in subset metadata -----
+  message("Starting row processing...")
+
+  # Load fcs file
+  subset_flowSet <- flowCore::read.flowSet(files = rows_to_analyze$file_paths)
+  rownames(rows_to_analyze) <- basename(rows_to_analyze$file_paths)
+  flowCore::pData(subset_flowSet) <- rows_to_analyze
+
+  if (key_idx == 1) {
+    message("Initially processing first control key...")
+  }
+>>>>>>> pipeline_completion
 }

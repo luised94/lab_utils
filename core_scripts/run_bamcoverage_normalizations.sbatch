@@ -35,12 +35,13 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
 fi
 
 # Logging functions
-source $HOME/lab_utils/core_scripts/functions_for_logging.sh
+source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 readonly TOOL_NAME="coverage"
 eval "$(setup_logging ${TOOL_NAME})"
 
 # Normalization methods array
-declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
+#declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
+declare -a NORM_METHODS=("CPM")
 
 # coverage parameters - hardcoded values
 BIN_SIZE=10
@@ -57,21 +58,21 @@ log_message "INFO" "Log directory: ${TASK_LOG_DIR}"
 
 # Load required modules
 module purge
-module load python
-module load deeptools
+module load python/2.7.13
+module load deeptools/3.0.1
 
 # Find BAM files
 BAM_DIR="${EXPERIMENT_DIR}/alignment"
-mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*_sorted.bam" | sort)
+mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*.bam" | sort)
 TOTAL_FILES=${#BAM_FILES[@]}
 TOTAL_JOBS=$((TOTAL_FILES * ${#NORM_METHODS[@]}))
-if [ $TOTAL_FILES -eq 0 ]; then
+if [ "$TOTAL_FILES" -eq 0 ]; then
     log_message "ERROR" "No BAM files found in ${BAM_DIR}"
     exit 1
 fi
 
 # Validate array range
-if [ $SLURM_ARRAY_TASK_ID -gt $TOTAL_JOBS ]; then
+if [ "$SLURM_ARRAY_TASK_ID" -gt "$TOTAL_JOBS" ]; then
     log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} exceeds number of jobs ${TOTAL_FILES}"
     exit 1
 fi
@@ -84,13 +85,13 @@ NORM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) % ${#NORM_METHODS[@]} ))
 # Get current BAM file and normalization method
 BAM_PATH="${BAM_FILES[$BAM_INDEX]}"
 NORM_METHOD="${NORM_METHODS[$NORM_INDEX]}"
-if [ ! -f $BAM_PATH ]; then
+if [ ! -f "$BAM_PATH" ]; then
     log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} bam path does not exist."
     log_message "WARNING" "Input: ${BAM_PATH}"
     exit 1
 fi
 # Set output name
-SAMPLE_NAME=$(basename --suffix=_sorted.bam "$BAM_PATH" )
+SAMPLE_NAME=$(basename --suffix=.bam "$BAM_PATH" )
 OUTPUT_BIGWIG="${EXPERIMENT_DIR}/coverage/${SAMPLE_NAME}_${NORM_METHOD}.bw"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
@@ -112,17 +113,23 @@ if [ "${NORM_METHOD}" == "RPGC" ]; then
     COMMON_PARAMS+=" --effectiveGenomeSize ${EFFECTIVE_GENOME_SIZE}"
     log_message "INFO" "Added effectiveGenomeSize parameter for RPGC normalization"
 fi
+log_message "INFO" "Parameters used:\n"
+log_message "INFO" "$COMMON_PARAMS"
+
+if [ -f "$OUTPUT_BIGWIG" ]; then
+  log_message "SKIP" "File already exists: ${OUTPUT_BIGWIG}"
+  log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+  exit 0
+fi
 
 # Execute bamCoverage
 log_message "INFO" "Starting bamCoverage processing"
-if measure_performance "bamcoverage" bamCoverage $COMMON_PARAMS; then
-    log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
-else
+# shellcheck disable=SC2086 # Intentional: $COMMON_PARAMS should be word-split
+if ! measure_performance "bamcoverage" bamCoverage $COMMON_PARAMS; then
     log_error "bamCoverage processing failed for ${SAMPLE_NAME}"
     exit 1
 fi
 
-log_message "INFO" "Parameters used:\n"
-log_message "INFO" "$COMMON_PARAMS"
+log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
 # Log completion
 log_message "INFO" "Task completed successfully"

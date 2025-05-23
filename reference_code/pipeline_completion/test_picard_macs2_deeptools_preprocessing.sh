@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Description: DEPRECATED. Constains logic for all of the steps without systematic organization
 
 #set -euo pipefail
 
@@ -19,6 +20,7 @@ if [[ ! -f "$PICARD_JAR" ]]; then
 fi
 
 # Initialize Conda and MACS2 environment
+# shellcheck source=/home/luis/lab_utils/core_scripts/setup_conda_and_macs2.sh
 source ~/lab_utils/core_scripts/setup_conda_and_macs2.sh || exit 1
 
 ##############################################
@@ -194,7 +196,7 @@ for sample_type in "${!COVERAGE_PATHS[@]}"; do
         bamCoverage \
             -b "$input_bam" \
             -o "$OUTDIR/${sample_type}_${output_suffix}.bw" \
-            $norm_flag \
+            "$norm_flag" \
             --binSize 25 \
             --effectiveGenomeSize $GENOME_SIZE \
             --smoothLength 75 \
@@ -211,7 +213,7 @@ declare -A MACS_PARAMS=(
 
 for sample_type in "${!MACS_PARAMS[@]}"; do
     macs2 callpeak \
-        ${MACS_PARAMS[$sample_type]} \
+        "${MACS_PARAMS[$sample_type]}" \
         -n "${OUTPUT_PREFIX}_${sample_type}" \
         -g "$GENOME_SIZE" \
         --nomodel \

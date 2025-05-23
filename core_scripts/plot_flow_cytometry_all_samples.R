@@ -120,10 +120,17 @@ CONFIG_FILE_PATH <- list.files(
 )
 
 stopifnot(
+<<<<<<< HEAD
     "Only one xit file expected." = length(XIT_FILEPATH) == 1,
     "Only one metadata file expected." = length(METADATA_FILE_PATH) == 1,
     "Only one experiment directory expected." = length(EXPERIMENT_DIRECTORY_PATH) == 1,
     "Only one experiment directory expected." = length(CONFIG_FILE_PATH) == 1
+=======
+  "Only one xit file expected." = length(XIT_FILEPATH) == 1,
+  "Only one metadata file expected." = length(METADATA_FILE_PATH) == 1,
+  "Only one experiment directory expected." = length(EXPERIMENT_DIRECTORY_PATH) == 1,
+  "Only one experiment directory expected." = length(CONFIG_FILE_PATH) == 1
+>>>>>>> pipeline_completion
 )
 
 success <- safe_source(CONFIG_FILE_PATH, verbose = TRUE)
@@ -279,6 +286,7 @@ filtered_flow_set <- lapply(seq_along(flow_set), function(sample_index) {
   # For each channel, identify events within 1.5*IQR of Q1 and Q3
   # Then combine these filters using a logical AND operation
   events_to_keep <- Reduce(
+<<<<<<< HEAD
         `&`, 
         lapply(c("FSC-A", "SSC-A", "FL1-A"), function(channel_name) {
             channel_values <- event_data[, channel_name]
@@ -289,6 +297,20 @@ filtered_flow_set <- lapply(seq_along(flow_set), function(sample_index) {
             (channel_values >= lower_bound) & (channel_values <= upper_bound)
         })
     )
+=======
+    `&`, 
+    lapply(c("FSC-A", "SSC-A", "FL1-A"), function(channel_name) {
+      channel_values <- event_data[, channel_name]
+      channel_quantiles <- quantile(channel_values, probs = c(0.25, 0.75), na.rm = TRUE)
+      interquantile_range <- channel_quantiles[2] - channel_quantiles[1]
+      lower_bound <- channel_quantiles[1] - 1.5 * interquantile_range
+      upper_bound <- channel_quantiles[2] + 1.5 * interquantile_range
+
+      #-- return
+      (channel_values >= lower_bound) & (channel_values <= upper_bound)
+    })
+  )
+>>>>>>> pipeline_completion
 
   # Apply filter to retain selected events
   exprs(flow_frame) <- event_data[events_to_keep, ]
@@ -396,11 +418,19 @@ fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
     linetype = "dashed",
     size = 0.4
   ) +
+<<<<<<< HEAD
 scale_x_continuous(
   breaks = fl1a_global_range,
     labels = format(fl1a_global_range, scientific = FALSE),
     expand = c(0.02, 0)
 ) +
+=======
+  scale_x_continuous(
+    breaks = fl1a_global_range,
+    labels = format(fl1a_global_range, scientific = FALSE),
+    expand = c(0.02, 0)
+  ) +
+>>>>>>> pipeline_completion
   labs(
     title = "FL1-A Intensity Distribution",
     subtitle = "By Timepoint and Experimental Condition",

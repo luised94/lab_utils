@@ -1741,28 +1741,26 @@
     },
     "ggplot2": {
       "Package": "ggplot2",
-      "Version": "3.5.1",
+      "Version": "3.3.0",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "MASS",
         "R",
-        "cli",
+        "digest",
         "glue",
         "grDevices",
         "grid",
         "gtable",
         "isoband",
-        "lifecycle",
         "mgcv",
         "rlang",
         "scales",
         "stats",
         "tibble",
-        "vctrs",
         "withr"
       ],
-      "Hash": "44c6a2f8202d5b7e878ea274b1092426"
+      "Hash": "911561e07da928345f1ae2d69f97f3ea"
     },
     "gh": {
       "Package": "gh",

@@ -1,0 +1,353 @@
+# R
+## Figuring out how to print variables in a reproducible styled manner
+```{r}
+message(paste(
+    paste0("Current experiment path: ", current_experiment_path),
+    paste0("Current config path: ", current_config_path),
+    paste0("Current metadata path ", current_metadata_path),
+    sep = "\n"
+  ))
+debug_items <- c(
+  "Current experiment path" = current_experiment_path,
+  "Current config path" = current_config_path, 
+  "Current metadata path" = current_metadata_path
+)
+
+cat("DEBUG:\n", 
+    paste0("  ", names(debug_items), ": ", debug_items, collapse = "\n"), 
+    "\n\n")
+# At the top of your script
+path_fmt <- paste(
+  "Current experiment path: %s",
+  "Current config path: %s",
+  "Current metadata path: %s", 
+  sep = "\n"
+)
+
+# Later in your code
+message(sprintf(path_fmt, 
+                current_experiment_path,
+                current_config_path,
+                current_metadata_path))
+
+# And again elsewhere if needed
+message(sprintf(path_fmt, 
+                different_experiment_path,
+                different_config_path,
+                different_metadata_path))
+cat("Current experiment path:", current_experiment_path, "\n",
+    "Current config path:", current_config_path, "\n",
+    "Current metadata path:", current_metadata_path, "\n", 
+    sep = "")
+
+cat(sprintf(
+  "DEBUG PATHS:
+  Experiment: %s
+  Config: %s
+  Metadata: %s\n\n",
+  current_experiment_path,
+  current_config_path,
+  current_metadata_path
+))
+```
+
+### References
+1. https://chat.deepseek.com/a/chat/s/eff61e7d-0aec-4c9a-bb13-2a80a0042894
+2. https://claude.ai/chat/fb548353-8f4a-45ec-ad99-ce82061a0ef4
+3. functions_for_logging.R
+## Create a key column to subset dataframe with another set of keys
+```{r}
+# Create the metadata characters and keys for sample and bigwig comparisons (_SB)
+METADATA_CHARACTER_VECTORS_SB <- lapply(final_metadata[c("sample", "bigwig_processing")], as.character)
+METADATA_JOINED_KEYS_SB <- do.call(paste, c(METADATA_CHARACTER_VECTORS_SB, sep = METADATA_COLUMN_SEPARATOR))
+
+CONTROL_BAM_COMBINATIONS_CHARACTERS <- lapply(VALID_BAM_PROCESSING_COMBINATIONS, as.character)
+control_joined_keys <- do.call(paste, c(CONTROL_BAM_COMBINATIONS_CHARACTERS, sep = METADATA_COLUMN_SEPARATOR))
+message("Keys for metadata subsetting created. Starting for loop...")
+
+for (CURRENT_KEY_IDX in seq_along(control_joined_keys)) {
+```
+
+## Determine the unique values for each column of a dataframe.
+
+```{r}
+final_metadata_df <- data.frame(
+  sample_type = metadata_df[, 1],
+  condition_idx = metadata_df[, 2],
+  bam_type = metadata_df$bam_type,
+  normalization_method = unlist(normalization_method),
+  file_path = BIGWIG_FILES,
+  stringsAsFactors = FALSE
+)
+# Determine unique values for each categories
+message("Determining unique categories...")
+metadata_columns <- setdiff(names(final_metadata_df), "file_path")
+unique_categories_lst <- vector("list", length(metadata_columns))
+message("Before...")
+print(unique_categories_lst)
+for (array_index in 1:length(metadata_columns)) {
+  column_name_chr <- metadata_columns[array_index]
+  print(column_name_chr)
+  unique_values <- unique(final_metadata_df[, column_name_chr])
+  print(unique_values)
+  unique_categories_lst[[array_index]] <- unique_values
+}
+message("After...")
+print(unique_categories_lst)
+names(unique_categories_lst) <- metadata_columns
+lapply(names(unique_categories_lst), function(column_name_chr){
+  message(sprintf("--- Column %s ---", column_name_chr))
+  #message("  ---Style 1 ---")
+  #for (value in unique_categories_lst[[column_name_chr]]) {
+    #pad_value <- paste0("|_ ", value)
+    #print(pad_value)
+  #}
+  message("  --- Style 2 ---")
+  collapsed_values <- paste(unique_categories_lst[[column_name_chr]], collapse = ",")
+  print(collapsed_values)
+  return()
+})
+```
+
+## Debugging when there is a mismatch between numbers and lengths during assigment
+## 2025-05-02
+I have mistakenly assigned values of the wrong length multiple times. this could be turned into for loop with more explicit warning. Define array or list with the variable names, use the R functions to find variables and show the value.
+```{r}
+# Substitute for appropriate values
+message(sprintf(
+  "Lengths: sample_id=%d, file_path=%d, peaks=%d, fold_enr=%d, qval=%d, widths=%d",
+  length(current_sample_id), length(xls_file_path), 
+  length(peak_widths), length(xls_peak_df$fold_enrichment),
+  length(xls_peak_df$qvalue), length(peak_widths)
+))
+```
+
+## Creating a genomic range from a dataframe
+I was doing this manually with the following:
+```{r}
+gr <- GenomicRanges::GRanges(
+  seqnames = xls_peak_df$chromosome,
+  ranges = IRanges::IRanges(
+    # Convert from 0-based to 1-based: Input BED is 0-based; GRanges are 1-based. start+1L converts.
+    start = xls_peak_df$start + 1L,
+    end = xls_peak_df$end
+  ),
+  strand = "*"
+  #strand = if("strand" %in% names(xls_peak_df)) xls_peak_df$strand else "*"
+)
+
+# Add metadata columns (everything except chr, start, end)
+meta_cols <- setdiff(names(xls_peak_df), c("chromosome", "start", "end"))
+if (length(meta_cols) > 0) {
+  #message("Metadata columns:\n", paste(meta_cols, collapse=", "))
+  GenomicRanges::mcols(gr) <- xls_peak_df[, meta_cols, drop = FALSE]
+}
+```
+
+Turns out there is a simpler way to achieve a similar result:
+```{r}
+GenomicRanges::makeGRangesFromDataFrame(xls_peak_df, keep.extra.columns = TRUE)
+```
+Of course there is less flexibility if you want to control the columns that get added. Although you could potentially filter them before or maybe the command has additional parameters (check with ?). Remember to check by printing them out or checking mcols or nrow/length.
+
+## Looping over strings that have been assigned as variables
+Execute many ggplot2 and store in objects then loop over the names in the ls() output.
+```{r}
+# Get all ggplot objects from environment
+plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
+for (current_plot_name in plot_object_names) {
+  message("  --- Plotting variables ---")
+  message(sprintf("  Plotting: %s", current_plot_name))
+  # Retrieve the actual plot object
+  current_plot_object <- get(current_plot_name, envir = .GlobalEnv)
+  # Robust type checking
+  if (!inherits(current_plot_object, "ggplot")) {
+    warning("Skipping ", current_plot_name, " - not a ggplot object")
+    next
+  }
+  plot_output_path <- file.path(
+    PLOT_OUTPUT_DIR,
+    paste0(current_sample_id, "_", plot_variable, ".svg")
+  )
+  message(sprintf("Savign to: %s", plot_output_name))
+  svglite::svglite(
+      filename = plot_output_path,
+      width = 10,
+      height = 8,
+      bg = "white"
+  )
+  print(current_plot_object)
+  dev.off()
+}
+```
+
+## Determining the type of a ggplot2 object
+```{r}
+library(ggplot2)
+p <- ggplot(mtcars, aes(x = mpg, y = wt)) + geom_point()
+
+# Check what classes the object has
+class(p)
+# Expected: [1] "gg"     "ggplot"
+
+# Both of these will return TRUE
+inherits(p, "gg")
+inherits(p, "ggplot")
+```
+
+## Refactoring nested if statements using early exit pattern
+Was nesting a bunch of if statements to do certain actions only if certain files existed. Reversing the logic to exit if something is true instead of doing some thing if it is not true. The logic per se can be reverse but it is about exiting first. What are the conditions under which I should exit first. If none of them are met, continue. Similar to fail-fast for savign time and hopefully ensuring the code is more readable.
+Eventually, the nesting that is left is for hierarchical conditions for exiting and the rest becomes sequential.
+I believe I should add the conditional to exit if the files already exists to my other scripts.
+```{bash}
+# Execute bamCoverage
+if [ ! -f "$OUTPUT_BAM" ]; then
+  log_message "INFO" "Starting blacklist filtering processing"
+  if measure_performance "blacklist_filtering" \
+    alignmentSieve --bam "${BAM_PATH}" \
+        --blackListFileName "$BLACKLIST_BED_FILE" \
+        --outFile "$OUTPUT_BAM" \
+        --numberOfProcessors $(( THREADS / 2 )); then
+      log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+      if measure_performance "index" samtools index "$OUTPUT_BAM"; then
+        log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+      else
+        log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+        exit 1
+      fi
+  else
+      log_error "blacklist processing failed for ${SAMPLE_NAME}"
+      exit 1
+  fi
+else
+  echo ""
+fi
+
+# Execute blacklist filtering ------
+# Check if BAM file already exists
+if [ -f "$OUTPUT_BAM" ]; then
+  log_message "SKIP" "File already exists: ${OUTPUT_BAM}"
+  if [ ! -f "${OUTPUT_BAM}.bai" ]; then
+    if measure_performance "index" samtools index "$OUTPUT_BAM"; then
+      log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+    else
+      log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+      exit 1
+    fi
+  else
+
+  if [ -f "${OUTPUT_BAM}.bai" ]; then
+    log_message "SKIP" "File already exists: ${OUTPUT_BAM}.bai"
+    exit 0
+  fi
+
+  if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
+    log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+    exit 1
+  fi
+
+  log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+  exit 0
+fi
+
+# Perform blacklist filtering
+log_message "INFO" "Starting blacklist filtering processing"
+if ! measure_performance "blacklist_filtering" \
+  alignmentSieve --bam "${BAM_PATH}" \
+                 --blackListFileName "$BLACKLIST_BED_FILE" \
+                 --outFile "$OUTPUT_BAM" \
+                 --numberOfProcessors $(( THREADS / 2 )); then
+  log_message "ERROR" "Blacklist processing failed for ${SAMPLE_NAME}"
+  exit 1
+fi
+log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+
+# Index the resulting BAM file
+if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
+  log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+  exit 1
+fi
+```
+The other version for the early exit with less nesting and breaking it down into each step:
+```{bash}
+# Check if output BAM already exists
+if [ -f "$OUTPUT_BAM" ]; then
+  log_message "SKIP" "File already exists: ${OUTPUT_BAM}"
+else
+  log_message "INFO" "Starting blacklist filtering processing"
+  if ! measure_performance "blacklist_filtering" \
+      alignmentSieve --bam "${BAM_PATH}" \
+          --blackListFileName "$BLACKLIST_BED_FILE" \
+          --outFile "$OUTPUT_BAM" \
+          --numberOfProcessors $(( THREADS / 2 )); then
+    log_message "ERROR" "Blacklist processing failed for ${SAMPLE_NAME}"
+    exit 1
+  fi
+  log_message "INFO" "Successfully completed filtering for ${SAMPLE_NAME}"
+fi
+
+# Check if index already exists
+if [ -f "${OUTPUT_BAM}.bai" ]; then
+  log_message "SKIP" "File already exists: ${OUTPUT_BAM}.bai"
+else
+  if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
+    log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+    exit 1
+  fi
+  log_message "INFO" "Successfully completed indexing for ${SAMPLE_NAME}"
+fi
+
+log_message "INFO" "All processing completed successfully for ${SAMPLE_NAME}"
+```
+Each step is verfied independently. Not sure which one is exactly better at this time.
+
+## How to catch errors
+Wrap sections in tryCatch semantically, atomically, etcetera? Wrap an entire section? I think either printing or assertions would catch the errors as well but I guess the tryCatch is when you dont expect?
+
+# Git things
+## Reset a repository to origin state
+While working on the linux cluster and trying to amend a commit I already pushed, I disrupted the state of the linux cluster version, causing a conflict everytime I pulled the remote origin. **Because I did not have any changes worth saving**, I chose to hard reset the repository to the origin state.
+```{bash}
+# If you do have changes
+git stash
+#OR
+git checkout -b backup_branch
+
+git fetch origin
+git reset --hard origin/pipeline_completion
+git status # Confirm
+```
+
+# Bash things
+## Why were my samples not printing in the order I initialized them in an array?
+Bash associative arrays (declared with declare -A) do not maintain insertion order. When you iterate through an associative array in bash, the elements come out in an order based on the internal hash table implementation, not the order you inserted them.
+Also realized I didnt need the associative array at this stage.
+See: https://claude.ai/chat/8cbf7281-0b1c-48ed-b361-8fe21a96404a
+
+## A @ or * inside brackets of accessing an array
+ The difference between [*] and [@] is subtle but important:
+${flags[*]} expands all array elements into a single string, with elements separated by the first character of IFS (usually a space)
+${flags[@]} expands each array element as a separate word
+See: https://claude.ai/chat/8cbf7281-0b1c-48ed-b361-8fe21a96404a
+
+## ShellCheck [[]] && [[]] || is not an if-else statement
+Move to a traditional if statement for unambiguous flow. Ensure regex and arithmetic tests are performed in the right order. Always quote variables in shell scripts to avoid unexpected word-splitting or glob expansion.
+See: https://www.perplexity.ai/search/frag-size-0-9-frag-size-0-echo-HFFIchSoSli2CNG5De7FdQ
+
+# Vim tricks
+## Add something to the beginning or end of a match during substitution command
+```{vim}
+%s/.*/&_df/
+" & represents matched text
+%s/filtered_metadata/&_df/gc
+%s/.*/prefix_&/
+```
+
+## Cool way to trace a variable across the program
+If you want to trace the logic of the code by following a variable, you can hover over the variable name and either follow using * to search for words under the cursor. In R, there will probably be a variable being assigned with <-, so you can go to the beginning using ^ to the first character then press * and n to follow that variable. Repeat ^ * n to follow the logic to the end. Can be turned into a macro. Maybe it can be turned into an across file using quick fix list or something.
+
+## Turn a word (in the vim sense) into capital letters or lower case
+```{vim}
+gUiw " uppercase
+guiw " lowercase
+```

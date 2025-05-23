@@ -291,6 +291,8 @@ create_placeholder_track <- function(
 #'   - success: logical indicating if track was created
 #'   - data: DataTrack object if successful, NULL if not
 #'   - error: error message if any
+# TODO: Really have to reconsider if this needs to be a function in this manner //
+# has a lot of code because of debugging, validation and return. //
 create_sample_track <- function(
     bigwig_file_path,
     track_format_name,
@@ -652,7 +654,7 @@ execute_track_plot <- function(
     plot_params = list(),
     display_plot = FALSE,
     verbose = TRUE,
-    output_format = "svg"  # New parameter for output format
+    output_format = "svg"
 ) {
     # Validate inputs
     stopifnot(

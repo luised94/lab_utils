@@ -1,4 +1,14 @@
 #!/usr/bin/env Rscript
+###############################################################################
+# Plot bigwig files sequentially and in order
+################################################################################
+# PURPOSE: See all of the files in order
+# USAGE: ./plot_genome_tracks_in_batches.R --experiment-id=<experiment-id> <options>
+# DEPENDENCIES: GenomicRanges, rtracklayer
+# OUTPUT: svg plots with comparisons for cpm/rpkm/raw and for shifted/raw/deduped for cpm counts
+# AUTHOR: LEMR
+# DATE: 2025-02-25
+################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {

@@ -87,6 +87,12 @@ fi
 SAMPLE_NAME=$(basename --suffix=.fastq "$FASTQ_PATH" )
 OUTPUT_BAM="${EXPERIMENT_DIR}/alignment/${SAMPLE_NAME}_to_S288C_sorted.bam"
 
+if [ -f "${OUTPUT_BAM}" ]; then
+  log_message "SKIP" "File already exists: ${OUTPUT_BAM}"
+  log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+  exit 0
+fi
+
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
 log_message "INFO" "Input: ${FASTQ_PATH}"
 log_message "INFO" "Output: ${OUTPUT_BAM}"

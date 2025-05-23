@@ -12,6 +12,7 @@
 # Usage: sbatch --array=1-N%16 run_bamcoverage_array.sbatch <experiment_directory>
 # Dependencies: submit_macs2_peak_calling.sh, macs2, miniforge, slurm
 # Date: 2024-12-26
+# Incomplete
 
 # Function to display usage
 display_usage() {
@@ -63,13 +64,13 @@ log_message "INFO" "MACS2 path: $macs_path"
 BAM_DIR="${EXPERIMENT_DIR}/alignment"
 mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*_sorted.bam" | sort)
 TOTAL_FILES=${#BAM_FILES[@]}
-if [ $TOTAL_FILES -eq 0 ]; then
+if [ "$TOTAL_FILES" -eq 0 ]; then
     log_message "ERROR" "No BAM files found in ${BAM_DIR}"
     exit 1
 fi
 
 # Validate array range
-if [ $SLURM_ARRAY_TASK_ID -gt $TOTAL_FILES ]; then
+if [ "$SLURM_ARRAY_TASK_ID" -gt "$TOTAL_FILES" ]; then
     log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} exceeds number of jobs ${TOTAL_FILES}"
     exit 1
 fi
@@ -80,7 +81,7 @@ BAM_INDEX=$(( SLURM_ARRAY_TASK_ID - 1))
 
 # Get current BAM file and normalization method
 BAM_PATH="${BAM_FILES[$BAM_INDEX]}"
-if [ ! -f $BAM_PATH ]; then
+if [ ! -f "$BAM_PATH" ]; then
     log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} bam path does not exist."
     log_message "WARNING" "Input: ${BAM_PATH}"
     exit 1
@@ -88,7 +89,9 @@ fi
 
 # Set output name
 SAMPLE_NAME=$(basename --suffix=_sorted.bam "$BAM_PATH" )
-OUTPUT_PEAK="${EXPERIMENT_DIR}/peak_calling/${SAMPLE_NAME}_"
+#OUTPUT_PEAK="${EXPERIMENT_DIR}/peak_calling/${SAMPLE_NAME}_"
+OUTDIR="${EXPERIMENT_DIR}/peaks/"
+OUTPUT_PEAK="${SAMPLE_NAME}_"
 
 log_message "INFO" "Processing sample: ${SAMPLE_NAME}"
 log_message "INFO" "Normalization method: ${NORM_METHOD}"
@@ -104,13 +107,19 @@ log_message "INFO" "Output: ${OUTPUT_PEAK}"
 # --bdg : Generate bedGraph files for visualization
 # --SPMR : Normalize to signal per million reads
 
+if [ -f "$OUTDIR/${OUTPUT_PEAK}_peaks.xls" ]; then
+    log_message "SKIP" "File already exists: $OUTDIR/${OUTPUT_PEAK}_peaks.xls"
+    log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+    exit 0
+fi
+
 # Execute bamCoverage
 log_message "INFO" "Starting bamCoverage processing"
 if measure_performance "peak_calling" \
     macs2 callpeak \
         -t "$TEST_SAMPLE" \
         -c "$INPUT_CONTROL" \
-        -n "${OUTPUT_PREFIX}_241010Bel" \
+        -n "${OUTPUT_PEAK}_" \
         -g "1.2e7" \
         --nomodel \
         --extsize 147 \

@@ -1,4 +1,5 @@
 #!/bin/bash
+# DEPRECATED
 
 # Exit on error
 set -e

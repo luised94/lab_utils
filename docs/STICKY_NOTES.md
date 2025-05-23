@@ -32,15 +32,14 @@ Dont think I have to repeat ORC two more times but probably will have to...
 ## 2024 04 28
 - Creating a new branch for flow_cytomery since I am also attempting to use renv for package management.
 Step-by-step: for future reference
-'''{bash}
+```{bash}
 git branch feature/flow_cytometry
 
 #Procede with feature development. In this case, creating the module for analysing flow_cytometry data.
 git checkout feature/flow_cytometry
 # Return to main
 git checkout main
-
-'''
+```
 
 ## 2024-07-11
 
@@ -188,3 +187,82 @@ todo: Create the genomic tracks, finish the test module, update configs for the 
 I think I added a bunch of nonsense to most of my scripts with the loading modules and printing a lot of things, especially without having more control over what prints out to the screen.
 They currently work at least but I may need to remove it.
 Scripts to generate publication figures will be more targeted and streamlined either way.
+<<<<<<< HEAD
+=======
+
+## 2025-04-07
+Similar problems with functions. They are probably doing too much but not as bad as last time.
+Need to run the script for the bigwig files to see the effects of bam and bigwig processing. Should be fine to source from R after loading.
+
+## 2025-04-23
+Updated the pipeline completion scripts
+Have a blacklist file now to start.
+Need to rework the deduplication and shifting script to do blacklist removal after deduplication then do the shifting and fragment length prediction
+Remove redundant operations from the deduplication script (like defining selected sample keys) by extracting metadata from the filename like I did in 003 and 004 scripts.
+Remove or comment the logic for coverage calculation with blacklist
+
+## 2025-04-25
+Separated the file into different steps and tried to refactor most of the files.
+This will definitely affect the downstream R scripts and will have to adjust how the metadata for each of the files is done. Could make the names independent instead of building them up.
+E g name_of_bam_none_none.bam name_of_bam_deduped_none.bam etcetera.
+Otherwise will have to handle missing columns. (maybe minimum is 3, "left align" the metadata then fill with default value, so like a lower part of a matrix from the diagonal match or fitted with the other half like a puzzle piece )
+Need to find the plotting code but other than that I think its looking good.
+Will comment the code to run as dry-run to double check then run.
+
+## 2025-04-29
+Almost done with the tests. Need to plot bigwig files and the peak file statistics
+Bigwig file script runs, just need to plot and save to file to see if there are no errors.
+For the peak files, can adapt the metadata processing but just need to go through all of the files to grab statistics and then decide on the plots.
+
+## 2025-04-29
+Finally got the data for the experiment.
+I think I also got the pipeline completion scripts to run. Just need to see the output and generate the plots.
+Considering creating one consolidated script that processes a file from fastq to bw, peaks, etcetera once I am sure I have the complete picture.
+Need to find the plotting code for the test scripts.
+
+## 2025-05-01
+[DONE]TODO: Need to address the labels for the bigwig files. Either set manually in a mapping with the comparison quote (nested list with quote and the columns to use) or in the configuration file.
+[IGNORE]TODO: Add border to the genome tracks?
+[IGNORE]TODO: Create the map of the bad files?
+
+## 2025-05-04
+TODO: May need to do a big correlation analysis as a matrix heatmap. I will do that after looking at the visualizations and seeing if I need to rework some scripts.
+
+## 2025-05-08
+TODO: Need to adjust bamcoverage generation to see if file exists and exit gracefully if so.
+```{troubleshooting}
+Description: troubleshooting the plots for all of the dataframes being analyzed in analyze_peak_files.R
+    > current_chrom_subset_df_processing_group_chromosome_heatmap_plot only has one column and has NA.
+    > current_chrom_subset_df_processing_group_chromsome_counts_plot also doesnt show anything.
+    > current_peak_subset_df_processing_group_2D_qvalue_vs_fold_enrich_plot Axis labels are weird. Move the processing group down, and the x-axis is too tight. Adjust the scale to be natural instead of 0,20. they dont reach 20. Otherwise, I think it is good.
+    > Error, script exited.
+        Plotting: current_peak_subset_df_processing_group_peak_num_vs_enrichment_plot
+          Saving to: /home/luised94/data/preprocessing_test/plots/current_peak_subset_df_processing_group_peak_num_vs_enrichment_plot_Eaton.svg
+        Error in stri_extract_first_regex(string, pattern, opts_regex = opts(pattern)) :
+          Incorrectly nested parentheses in regex pattern. (U_REGEX_MISMATCHED_PAREN, context=`narrow|broad)`)In addition: There were 14 warnings (use warnings() to see them)
+Conclusions:
+    > Fixed the error with typical print debugging. Was subsetting using the peak logical vector instead of the chromosome.
+    > Chromosome plots still very tight and hard to see if there are any differences. Have to remove the labels from the top and move them to the side.
+    > Removing the 0-20 range helps. Need to adjust the labels.
+    > Error had a missing parenthesis. Plot was clear tho.
+```
+```{troubleshooting}
+Description: Troubleshooting peak and summary plots
+    > Peak width distribution violin/box-plot looks ok but there really does not seem to be an effect.
+Conclusions:
+    > All plots work now. Could focus on cosmetics. Maybe I should output all of them and then do the cosmetics.
+```
+
+## 2025-05-14
+QUESTION: Should I wrap the main logic around interactive? I have to add the cli vs interactive options.
+QUESTION: Why does requireNamespace check take so long? Is it cached?
+
+## 2025-05-14
+TODO: Need to fix the bmc config and metadata to have the same column names
+
+## 2025-05-20
+Collect the plots side by side via illustrator then move on to flow cytometry.
+
+## 2025-05-21
+Something just looks wrong about the plots. They look terrible. I know duplication removal and normalization makes it look bad. Just want to see the raw data to make sure I am not missing anything. The terrible samples should remain the same.
+>>>>>>> pipeline_completion

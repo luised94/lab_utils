@@ -9,12 +9,6 @@
 #   2. Modify METADATA section with experiment details
 #   3. Update CATEGORIES if experimental design changes
 #   4. Review INVALID_COMBINATIONS and EXPERIMENTAL_CONDITIONS
-# !! ----> REQUIRED UPDATES:
-# !! EXPERIMENT_CONFIG$METADATA <- list(
-# !!     EXPERIMENT_ID = "241010Bel",
-# !!     EXPECTED_SAMPLES = 65,
-# !!     VERSION = "1.0.0"
-# !! )
 # STRUCTURE:
 #   EXPERIMENT_CONFIG/
 #   +-- METADATA/
@@ -29,18 +23,15 @@
 #   +-- COLUMN_ORDER/       # Standard column arrangement
 # Comparison Naming Convention:
 # comp_[Antibody]_[Variables]_vs_[Baseline]_[Context]_[Modifier]
-# 
 # - [Antibody]: Official antibody code (e.g., HM1108, V5, ALFA)
 # - [Variables]: Main experimental factors being compared
 # - [vs_Baseline]: Reference state for comparison (if applicable)
 # - [Context]: Additional conditions (e.g., AuxinTreated, TimeCourse)
 # - [Modifier]: Special analysis flags or time points (e.g., 2h)
-#
 # Examples:
 # comp_HM1108_NoRescue_vs_WT
 # comp_V5_Auxin_2h
 # comp_ALFA_AllAlleles_Auxin_2h
-#
 # Note: Terms like "None", "For", "With", and "And" are avoided for clarity.
 # Time is abbreviated as "0h", "2h", etc. "NoRescue" is used instead of "None".
 #
@@ -209,23 +200,23 @@ FASTQC_CONFIG <- list(
     version_required = "0.11.5",
     version_pattern = "^##FastQC\\s+",
     version_max = 1,
-    
+
     # Parsing patterns
     parse_header = "^##FastQC",
     parse_module_start = ">>",
     parse_module_end = ">>END_MODULE",
     parse_prefix = "#",
-    
+
     # File handling
     file_pattern = "consolidated_([0-9]{5,6})_sequence_fastqc_data\\.txt$",
     file_format = "consolidated_XXXXXX_sequence_fastqc_data.txt",
     file_suffix = ".tab",
     file_base = "fastqc_data",
-    
+
     # Paths and references
     path_qc_dir = "quality_control",
     path_module_ref = file.path(Sys.getenv("HOME"), "data", "fastqc_module_reference.rds"),
-    
+
     # Module configuration
     module_list = character(0)
 )
@@ -236,24 +227,26 @@ FASTQC_CONFIG <- list(
 VIEWER_CONFIG <- list(
     # Paths
     path_base = file.path(Sys.getenv("HOME"), "data"),
-    
+
     # Patterns
     pattern_svg = "\\.svg$",
     pattern_timestamp = "^[0-9]{8}_[0-9]{6}",  # YYYYMMDD_HHMMSS
     pattern_experiment = "^[0-9]{6}Bel",
-    
+
     # Display dimensions
     display_width = 10,
     display_height = 8
 )
 
+# TODO: Requires overhaul. I like having them inside the list but //
+# TODO: the prefix strategy may be too verbose and annoying. //
 GENOME_TRACK_CONFIG <- list(
     use_custom_visualization = FALSE,  # Control flag
 
     # Display dimensions
     display_width = 10,
     display_height = 8,
-    
+
     # Track Creation
     track_points_default = 1000,
     #track_show_title = TRUE,
@@ -261,11 +254,11 @@ GENOME_TRACK_CONFIG <- list(
     # Track defaults
     track_ylim = c(0, 1000),  # Default y-limits, adjust as needed
     track_sampling_rate = 100,  # Points per base pair for empty tracks
-    
+
     # Track colors
     color_placeholder = "#cccccc",
     color_input = "#808080",
-    
+
     # Track naming
     format_sample_track_name = "%s: %s",
     format_control_track_name = "%s: %s - %s",
@@ -282,6 +275,7 @@ GENOME_TRACK_CONFIG <- list(
     file_pattern = "consolidated_.*_sequence\\.fastq$",
     file_sample_id = "consolidated_([0-9]{1,6})_sequence\\.fastq",
     file_sample_id_from_bigwig = "processed_([0-9]{1,6})_sequence_to_S288C_(RPKM|CPM|BPM|RPGC)\\.bw",
+    #file_sample_id_from_bigwig = "processed_([0-9]{1,6})_sequence_to_S288C_.*_(RPKM|CPM|BPM|RPGC)\\.bw",
     file_genome_pattern = "S288C_refgenome.fna",
     file_genome_directory = file.path(Sys.getenv("HOME"), "data", "REFGENS"),
     file_feature_directory = file.path(Sys.getenv("HOME"), "data", "feature_files"),
@@ -376,7 +370,7 @@ GENOME_TRACK_CONFIG <- list(
         fill = "#8b4513",
         col = "#8b4513"
     ),
-    
+
     # New Plot Defaults
     plot_defaults = list(
         margin = 15,

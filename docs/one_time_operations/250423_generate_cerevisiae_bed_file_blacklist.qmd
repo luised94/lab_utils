@@ -1,0 +1,47 @@
+---
+title: Creating the blacklist bedfile
+date: 2025-04-23
+---
+
+# Introduction
+It is common practice to exclude certain regions of the genome when doing analysis that required normalization such as coverage normalization and peak calling. These are typically called blacklisted regions.
+I tried to search for a handy made bed file of these regions for Saccharomyces cerevisiae but I could not find one. Therefore, I decided to use the SGD tab file (240830_SGD_features.tab) to create a set of bed files for different feature files, a combined bed file and a blacklisted region.
+This document captures some of the key scripts used as well as some tests.
+
+# Procedure and tests
+I wrote two scripts to generate the bed files using R. These are:
+1) core_scripts/convert_sgd_tab_to_bed.R
+2) core_scripts/core_scripts/generate_blacklist_file_from_sgd_files.R
+
+They outputted the bed files correctly to my knowledge but the blacklist file caused an error.
+```{error}
+Your blacklist file(s) has (have) regions that overlap. Proceeding with such a file would result in deepTools incorrectly calculating scaling factors. As such, you MUST fix this issue before being able to proceed.
+```
+
+A quick way to solve this issue is to use bedtools merge but that requires the bed files to be sorted. I decided to quickly patch the files I was using since I was working on completing my pipeline for chromatin immunoprecipitation analysis.
+These are the required commands:
+```{bash}
+sort -k1,1V -k2,2n 20250423_saccharomyces_cerevisiae_s288c_blacklist.bed > sorting_test.bed
+bedtools merge -i sorting_test.bed > merged_test.bed
+# Each of the files was quickly inspected with vim
+# I also verified if the sorting left the other features
+sort -k1,1V -k2,2n 20250423_sgd_features_combined.bed > sorting_tes_features.bed
+# Create the files
+sort -k1,1V -k2,2n 20250423_sgd_features_combined.bed > 20250423_sorted_saccharomyces_cerevisiae_s288c_blacklist.bed
+bedtools merge -i  20250423_sorted_saccharomyces_cerevisiae_s288c_blacklist.bed > 20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed
+```
+
+Sorting was pretty fast (only ~1000 lines). Merge reduced lines from 944 to 900.
+Features remain after sorting (the fields stick together).
+
+I reran the script and got a warning:
+```{warning}
+WARNING: The minimum distance between intervals in your blacklist is 129. It makes little biological sense to include small regions between two blacklisted regions. Instead, these should likely be blacklisted as well.
+```
+
+Now I need to add some of these modifications to my R scripts to ensure they are pre-sorted and ready for bedtools.
+
+# Reference
+* https://claude.ai/chat/c6dfffde-4b95-44b7-8bc6-17d20597ee66
+* https://claude.ai/chat/8cbf7281-0b1c-48ed-b361-8fe21a96404a
+* https://gemini.google.com/app/d0bab7f3a035c234

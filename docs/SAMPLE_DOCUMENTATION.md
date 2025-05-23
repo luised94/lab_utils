@@ -17,3 +17,17 @@ Chromatin immunoprecipitation after troubleshooting the MCM IPs further. In this
 
 ## EatonBel
 Reference samples from Eaton 2010. Used for comparison to previous experiments.
+
+## 250207Bel
+Description: Chromatin immunoprecipitation after arresting cells in either alpha factor or nocodaloze. IP with HM1108 and UM174. Two repeats.
+```{conclusions}
+Preliminary: Very interesting results but unfortunately one of the repeats did not work due to alpha factor arrest problems
+```
+
+## 250324Bel
+Received: 2025-04-29
+Description:
+  > Chromatin immunoprecipitation after arresting cells in either alpha factor or nocodaloze. IP with HM1108 and UM174. Two repeats.
+  > Repeat to have at least two biological replicates
+Related: 250207Bel
+Jobs: 10105558
