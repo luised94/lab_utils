@@ -99,18 +99,15 @@ for filepath in "${FILES[@]}"; do
     echo "    Normalization method norm_suffix: $norm_suffix"
 
     # --- Case 1: Process WITHOUT blacklist ---
-    output_name="${OUTPUT_DIR}${key}_${norm_suffix}"
     #output_name_no_bl="${OUTPUT_DIR}${key}_${norm_suffix}_noBlacklist.bw"
     for bin_size in "${BIN_SIZES[@]}";
     do
-      output_name="${output_name}_${bin_size}"
       echo "    ---Bin size information ---"
       echo "    Bin size: $bin_size"
-      echo "    Current output name: $output_name"
       base_flags+=(--binSize "$bin_size")
       for smooth_length in "${SMOOTH_LENGTHS[@]}"
       do
-        output_name="${output_name}_${smooth_length}.bw"
+        output_name="${OUTPUT_DIR}${key}_${norm_suffix}_${bin_size}_${smooth_length}.bw"
         echo "    ---Smooth Length information ---"
         echo "    Smooth Length: $smooth_length"
         echo "    Current output name: $output_name"
