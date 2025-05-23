@@ -144,7 +144,11 @@ xit_file <- list.files(
 
 stopifnot(
     "Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = experiment_id == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID,
+<<<<<<< HEAD
     "Only one xit file expected." = length(xit_file) == 1
+=======
+    "Only one xit file expected. Double check directory." = length(xit_file) == 1
+>>>>>>> pipeline_completion
 )
 
 message("Modules loaded...")
@@ -218,7 +222,11 @@ if (n_samples != expected) {
     print(summary(metadata))         # Show all category distributions
     cat("\n")
 
+<<<<<<< HEAD
     # Control this in the bmc_config.R file.
+=======
+    # Control this in the configuration_flow_cytometry.R file.
+>>>>>>> pipeline_completion
     # Helps display metadata values to help narrow down where you need to add combinations to filter.
     if (show_all_metadata) {
         print(metadata)

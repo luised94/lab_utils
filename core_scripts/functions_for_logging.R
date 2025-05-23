@@ -488,6 +488,97 @@ setup_logging <- function(
     return(log_file)
 }
 
+debug_print <- function(debug_info, indent_char = "  ", title_separator = "=") {
+  # Basic input validation
+  if (!is.list(debug_info) || length(debug_info) == 0) {
+    stop("debug_info must be a non-empty list")
+  }
+  # Get title or use default
+  title <- debug_info$title
+  if (is.null(title)) title <- "DEBUG INFO"
+  # Calculate separator length based on title
+  separator_length <- max(nchar(title) + 4, 40)
+  separator <- paste(rep(title_separator, separator_length), collapse = "")
+  # Print header
+  cat("\n", separator, "\n", sep = "")
+  cat(" ", title, "\n", sep = "")
+  cat(separator, "\n", sep = "")
+  # Process and print each debug item (excluding title)
+  for (key in names(debug_info)) {
+    if (key == "title") next  # Skip title as it's handled separately
+    value <- debug_info[[key]]
+    # Extract indentation level from key (dots at beginning)
+    indent_level <- nchar(gsub("[^.].*$", "", key))
+    indent <- paste(rep(indent_char, indent_level), collapse = "")
+    # Clean key by removing leading dots
+    clean_key <- gsub("^[.]+", "", key)
+    # Format and print the line
+    if (is.null(value)) {
+      cat(indent, clean_key, ":", "\n", sep = "")
+    } else {
+      cat(indent, clean_key, ": ", as.character(value), "\n", sep = "")
+    }
+  }
+  
+  # Print footer
+  cat(separator, "\n\n", sep = "")
+  
+  # Return the debug_info invisibly for potential chaining
+  invisible(debug_info)
+}
+#quick_debug <- function(title, ...) {
+#  cat("====", title, "====\n")
+#  list(...) |> 
+#    lapply(\(x) cat(" ", names(x), ":", x, "\n")) |> 
+#    invisible()
+#  cat("===============\n")
+#}
+#quick_debug <- function(title, ...) {
+#  items <- list(...)
+#  if (is.null(names(items))) names(items) <- rep("", length(items))
+#  cat("====", title, "====\n")
+#  for (i in seq_along(items)) {
+#    if (names(items)[i] != "") {
+#      cat("  ", names(items)[i], ": ", items[[i]], "\n")
+#    } else {
+#      cat("  ", items[[i]], "\n")
+#    }
+#  }
+#  cat("===============\n")
+#}
+
+#print_debug <- function(debug_info, indent = "  ", title_char = "#") {
+#  # Validate input
+#  if (!is.list(debug_info)) stop("debug_info must be a list")
+#  if (is.null(debug_info$title)) stop("debug_info must contain a 'title' element")
+#  
+#  # Prepare output
+#  output_lines <- character()
+#  max_length <- 0
+#  
+#  # Process each item (excluding title)
+#  for (key in setdiff(names(debug_info), "title")) {
+#    value <- debug_info[[key]]
+#    line <- sprintf("%s%s: %s", indent, key, 
+#                   if (is.null(value)) "" else as.character(value))
+#    output_lines <- c(output_lines, line)
+#    max_length <- max(max_length, nchar(line))
+#  }
+#  
+#  # Create separator based on longest line
+#  separator <- strrep("=", max_length + nchar(title_char) + 3)
+#  
+#  # Build final output
+#  cat(
+#    separator, "\n",
+#    title_char, " ", debug_info$title, "\n",
+#    separator, "\n",
+#    paste(output_lines, collapse = "\n"), "\n",
+#    separator, "\n",
+#    sep = ""
+#  )
+#}
+
 # Usage Example
 #if (logging_enabled) {
 #    log_file <- setup_logging("my_tool")

@@ -1,0 +1,7 @@
+---
+title: Fix category titles
+---
+
+For 250324Bel and 250207Bel, two of the columns had different names, repeats with replicates, and cell_cycle_treatment with cell_cycle_arrest. Change replicates to repeats manually via nvim.
+Use substitution command to replace all of the instances.
+Performed in local while testing and in cluster.

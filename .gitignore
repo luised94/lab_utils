@@ -1,3 +1,5 @@
+fonts.dir
+interactive_flow_cytometry_script_configuration.R
 repository_aggregate.md
 fonts.dir
 reference_code/pipeline_completion/test_configuration.R
@@ -6,6 +8,10 @@ template_sample_grid.csv
 treestructure*.txt
 **/bmc_config.R
 bmc_config.R
+<<<<<<< HEAD
+=======
+interactive_script_configuration.R
+>>>>>>> pipeline_completion
 configuration_flow_cytometry.R
 override_configuration.R
 slurm-*.out

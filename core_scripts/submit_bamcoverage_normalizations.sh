@@ -23,20 +23,24 @@ if [ ! -d "$EXPERIMENT_DIR" ]; then
 fi
 
 BAM_DIRECTORY="${EXPERIMENT_DIR}/alignment"
+DOCUMENTATION_DIR="${EXPERIMENT_DIR}/documentation"
+JOB_LOG="${DOCUMENTATION_DIR}/slurm_job_info.md"
+mkdir -p "$DOCUMENTATION_DIR" "$BAM_DIRECTORY"
 
-# Count BAM files
-BAM_COUNT=$(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*_sorted.bam" | wc -l)
-echo "Found ${BAM_COUNT} BAM files"
-
-declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
+# Initialize BAM files
+mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*.bam" -exec basename {} \;)
+BAM_COUNT=${#unique_files[@]}
+#declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
+declare -a NORM_METHODS=("CPM")
 TOTAL_JOBS=$((BAM_COUNT * ${#NORM_METHODS[@]}))
+
+#BAM_COUNT=$(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "processed*_sorted.bam" | wc -l)
+echo "Found ${BAM_COUNT} BAM files"
 echo "Found ${TOTAL_JOBS} jobs to run"
-if [ $BAM_COUNT -eq 0 ]; then
+if [ "$BAM_COUNT" -eq 0 ]; then
     echo "Error: No BAM files found in ${BAM_DIRECTORY}"
     exit 1
 fi
-
-mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "processed*_sorted.bam" -exec basename {} \;)
 
 # Format file listing with columns and headers
 echo -e "\nBAM files found:"
@@ -45,16 +49,53 @@ printf '%s\n' "${unique_files[@]}" | column -c "${COLUMNS:-$(tput cols)}"
 printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
 
 echo -e "\nWill submit array job with following parameters:"
-echo "Array size: 1-${BAM_COUNT}"
+echo "Array size: 1-${TOTAL_JOBS}"
 echo "Max simultaneous jobs: 16"
 echo "Script: run_bamcoverage_normalizations.sbatch"
 echo "Working directory: ${EXPERIMENT_DIR}"
 
-read -p "Proceed with job submission? (y/n): " confirm
+read -rp "Proceed with job submission? (y/n): " confirm
 if [[ ! $confirm =~ ^[Yy]$ ]]; then
     echo "Job submission cancelled"
     exit 0
 fi
 
-# Submit job
-sbatch --array=1-${TOTAL_JOBS}%16 "$HOME/lab_utils/core_scripts/run_bamcoverage_normalizations.sbatch" "$EXPERIMENT_DIR"
+# --- Capture job description ---
+description=""
+while [[ -z "$description" ]]; do
+    read -rp "Enter job purpose (e.g., 'Filter reads for sample X'): " description
+    if [[ -z "$description" ]]; then
+        echo "Error: Description cannot be empty" >&2
+    fi
+done
+
+# --- Submit job and capture output ---
+job_submit_output=$(sbatch --array=1-"${TOTAL_JOBS}%16" \
+    "$HOME/lab_utils/core_scripts/run_bamcoverage_normalizations.sbatch" \
+    "$EXPERIMENT_DIR")
+
+# Extract job ID (works with both "Submitted batch job 12345" and "12345")
+job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
+
+# --- Log job details ---
+{
+    echo "# $job_id"
+    echo "- Submission time: $(date --iso-8601=seconds)"
+    echo "- Cluster: $(hostname)"
+    # Git metadata
+    (
+        # Ensure the git commands are executed inside the repository.
+        cd "$HOME/lab_utils" || exit
+        echo "- Git commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
+        echo "- Git branch: $(git symbolic-ref --short HEAD 2>/dev/null || echo 'detached')"
+        echo "- Git status: $(git status --porcelain 2>/dev/null | wc -l) uncommitted changes"
+    )
+    echo "- Experiment dir: $EXPERIMENT_DIR"
+    echo "- Command ran: $0"
+    echo "- sbatch command: sbatch --array=1-${TOTAL_JOBS}%16 $HOME/lab_utils/core_scripts/run_bamcoverage_normalizations.sbatch $EXPERIMENT_DIR"
+    echo "- Files processed: $BAM_COUNT"
+    echo "- Description: $description"
+    echo "- Logs: {{fill out comments}}"
+    echo ""
+} >> "$JOB_LOG"
+echo "Job $job_id submitted successfully. Details logged to $JOB_LOG"

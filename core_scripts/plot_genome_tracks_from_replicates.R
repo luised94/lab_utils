@@ -1,4 +1,15 @@
 #!/usr/bin/env Rscript
+###############################################################################
+# Plot bigwig files from multiple experiment-id
+################################################################################
+# PURPOSE: Plot replicates from multiple distinct experiment-id directories.
+# USAGE: ./plot_genome_tracks_from_replicates.R --experiment-id=<experiment-id> <options>
+# DEPENDENCIES: GenomicRanges, rtracklayer
+# OUTPUT: svg plots with same samples from different experiment-ids 
+# AUTHOR: LEMR
+# DATE: 2025-02-25
+# NOTE: Metadata has to be the same. Should add that assertion
+################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
@@ -278,8 +289,6 @@ for (path in config_path) {
         warning("All experiments must belong to the same project. Found projects: ",
              paste(unique(project_id), collapse = ", "))
     }
-    output_dir <- file.path(Sys.getenv("HOME"), "data", unique(project_id), "plots", "genome_tracks", "replicates")
-    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
     # Find fastq files and extract sample IDs
     fastq_files <- list.files(
         path = dirs$fastq,
@@ -373,7 +382,9 @@ for (path in config_path) {
     project_metadata <- rbind(project_metadata, metadata)
     project_bigwig_files <- c(project_bigwig_files, bigwig_files)
 
-}
+} # end for loop
+output_dir <- file.path(Sys.getenv("HOME"), "data", unique(project_id), "plots", "genome_tracks", "replicates")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 if (nrow(project_metadata) == 0) {
     stop("No metadata entries found after merging all experiments")

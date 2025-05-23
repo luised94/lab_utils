@@ -1,4 +1,16 @@
 #!/usr/bin/env Rscript
+###############################################################################
+# 
+################################################################################
+# PURPOSE: Not sure if this was a testing script or not.
+# USAGE: ./core_scripts/plot_genome_track_for_single_sample.R
+# DEPENDENCIES: GenomicRanges, rtracklayer
+# OUTPUT: svg plots with comparisons for cpm/rpkm/raw and for shifted/raw/deduped for cpm counts
+# AUTHOR: LEMR
+# DATE: 2025-02-25
+# DATE_V1_COMPLETE: 2025-04-08
+# DATE_V2_COMPLETE: 2025-05-02
+################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
@@ -15,9 +27,6 @@ required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 check_required_packages(required_packages, verbose = TRUE, skip_validation = FALSE)
 
 config_path <- "~/lab_utils/core_scripts/template_bmc_config.R"
-override_path <- "~/lab_utils/core_scripts/override_configuration.R"
-safe_source(config_path)
-safe_source(override_path)
 
 ################################################################################
 # Load and Validate Experiment Configuration and Dependencies
@@ -36,7 +45,7 @@ required_modules <- list(
     ),
     list(
         path = config_path,
-        description = "Functions to load genome track objects for plotting",
+        description = "Load the configuration file with all the settings.",
         required = TRUE
     )
 )

@@ -9,6 +9,7 @@ library(gtools)
 
 # Helper function -------------
 print_vars <- function(variable_names, environment_variables) {
+<<<<<<< HEAD
     stopifnot(
         "variable_names must be character." = is.character(variable_names),
         "variable_names must be in environment ls." = all(variable_names %in% environment_variables)
@@ -17,6 +18,16 @@ print_vars <- function(variable_names, environment_variables) {
         if(!typeof(get(variable)) == "closure") {
             cat(sprintf("%-25s = \n    %s\n", variable, paste(get(variable), collapse=", ")))
         }
+=======
+  stopifnot(
+    "variable_names must be character." = is.character(variable_names),
+    "variable_names must be in environment ls." = all(variable_names %in% environment_variables)
+  )
+  for (variable in variable_names) {
+    if (!typeof(get(variable)) == "closure") {
+      cat(sprintf("%-25s = \n    %s\n", variable, paste(get(variable), collapse = ", ")))
+    }
+>>>>>>> pipeline_completion
   }
 }
 
@@ -29,10 +40,17 @@ print_vars <- function(variable_names, environment_variables) {
 # Set manually here or in bash or use my_config repository
 DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
 FLOW_CYTOMETRY_BRIDGE_PATH <- "Lab/Experiments/flow_cytometry"
+<<<<<<< HEAD
 if(DROPBOX_PATH == "") {
     message("Environmental variable DROPBOX_PATH not available.")
     message("Either set with my config directory or manually in the parse_flow_cytometry_arguments.")
     stop("!!!! DROPBOX_PATH required for proper directory setting.")
+=======
+if (DROPBOX_PATH == "") {
+  message("Environmental variable DROPBOX_PATH not available.")
+  message("Either set with my config directory or manually in the parse_flow_cytometry_arguments.")
+  stop("!!!! DROPBOX_PATH required for proper directory setting.")
+>>>>>>> pipeline_completion
 }
 
 FLOW_CYTOMETRY_DIR <- file.path(DROPBOX_PATH, FLOW_CYTOMETRY_BRIDGE_PATH)
@@ -43,6 +61,7 @@ EXPERIMENT_ID <- "Exp_20250310_1"
 SERIES_DIRECTORY <- file.path(FLOW_CYTOMETRY_DIR, SERIES_NAME)
 
 XIT_FILEPATH <- list.files(
+<<<<<<< HEAD
     path = SERIES_DIRECTORY,
     pattern = paste0(EXPERIMENT_ID, "\\.xit$"),
     recursive = FALSE,
@@ -58,10 +77,28 @@ PATHS_IN_SERIES_DIRECTORY <- dir(
 
 EXPERIMENT_DIRECTORY_PATH <- PATHS_IN_SERIES_DIRECTORY[
     utils::file_test("-d", PATHS_IN_SERIES_DIRECTORY)
+=======
+  path = SERIES_DIRECTORY,
+  pattern = paste0(EXPERIMENT_ID, "\\.xit$"),
+  recursive = FALSE,
+  include.dirs = FALSE
+)
+
+PATHS_IN_SERIES_DIRECTORY <- dir(
+  path = SERIES_DIRECTORY,
+  pattern = EXPERIMENT_ID,
+  full.names = TRUE,
+  recursive = FALSE
+)
+
+EXPERIMENT_DIRECTORY_PATH <- PATHS_IN_SERIES_DIRECTORY[
+  utils::file_test("-d", PATHS_IN_SERIES_DIRECTORY)
+>>>>>>> pipeline_completion
 ]
 
 EXPECTED_SAMPLES <- 42
 FCS_FILE_PATHS <- list.files(
+<<<<<<< HEAD
     path = EXPERIMENT_DIRECTORY_PATH,
     pattern = "\\.fcs$",
     recursive = FALSE,
@@ -82,17 +119,47 @@ stopifnot(
     "Only one metadata file expected." = length(METADATA_FILE_PATH) == 1,
     "Only one experiment directory expected." = length(EXPERIMENT_DIRECTORY_PATH) == 1,
     "Number of fcs files should be the same as EXPECTED_SAMPLES." = length(FCS_FILE_PATHS) == EXPECTED_SAMPLES
+=======
+  path = EXPERIMENT_DIRECTORY_PATH,
+  pattern = "\\.fcs$",
+  recursive = FALSE,
+  full.names = TRUE,
+  include.dirs = FALSE
+)
+
+METADATA_FILE_PATH <- list.files(
+  path = SERIES_DIRECTORY,
+  pattern = paste0(EXPERIMENT_ID, "\\_sample_grid.csv$"),
+  recursive = FALSE,
+  full.names = TRUE,
+  include.dirs = FALSE
+)
+
+stopifnot(
+  "Only one xit file expected." = length(XIT_FILEPATH) == 1,
+  "Only one metadata file expected." = length(METADATA_FILE_PATH) == 1,
+  "Only one experiment directory expected." = length(EXPERIMENT_DIRECTORY_PATH) == 1,
+  "Number of fcs files should be the same as EXPECTED_SAMPLES." = length(FCS_FILE_PATHS) == EXPECTED_SAMPLES
+>>>>>>> pipeline_completion
 )
 
 OUTPUT_DIR <- "~/data/flow_cytometry_test"
 SUBDIRS <- c("processed_data", "plots")
 sapply(SUBDIRS, function(SUBDIR) {
+<<<<<<< HEAD
     dir.create(file.path(OUTPUT_DIR, SUBDIR), recursive = TRUE, showWarnings = FALSE)
+=======
+  dir.create(file.path(OUTPUT_DIR, SUBDIR), recursive = TRUE, showWarnings = FALSE)
+>>>>>>> pipeline_completion
 })
 
 # Setup constants --------
 # For creating sting identifier for rapid subsetting
+<<<<<<< HEAD
 COLUMN_SEPARATOR <-  "\x01"
+=======
+COLUMN_SEPARATOR <- "\x01"
+>>>>>>> pipeline_completion
 message("All variables initialized...")
 # Print the variable to quickly inspect.
 # print_vars(ls(), ls())
@@ -124,7 +191,11 @@ if (current_version > max_version) {
 # Use gtools to account for unpadded digits in FCS file format.
 metadata <- read.csv(METADATA_FILE_PATH)
 metadata$file_paths <- gtools::mixedsort(FCS_FILE_PATHS)
+<<<<<<< HEAD
 #print(head(metadata))
+=======
+# print(head(metadata))
+>>>>>>> pipeline_completion
 
 # Setup for processing --------
 DEPENDENT_COLUMN <- "timepoints"
@@ -136,10 +207,17 @@ UNIQUE_CONTROL_COMBINATIONS <- unique(metadata[, CONTROL_COLUMNS])
 CHANNELS_TO_PLOT <- c("FL1-A", "FSC-A", "SSC-A")
 # Category levels for proper ordering
 CATEGORIES <- list(
+<<<<<<< HEAD
     rescue_allele = c("NONE", "WT", "4R"),
     suppressor_allele = c("NONE", "4PS"),
     auxin_treatment = c("NO", "YES"),
     timepoints = c("0", "20", "40", "60", "80", "100", "120")
+=======
+  rescue_allele = c("NONE", "WT", "4R"),
+  suppressor_allele = c("NONE", "4PS"),
+  auxin_treatment = c("NO", "YES"),
+  timepoints = c("0", "20", "40", "60", "80", "100", "120")
+>>>>>>> pipeline_completion
 )
 
 ########################################
@@ -150,7 +228,12 @@ message("Loading all flow cytometry files...")
 flow_set <- flowCore::read.flowSet(files = metadata$file_paths)
 
 stopifnot(
+<<<<<<< HEAD
     "Number of rows in metadata does not equal number of flow experiment. Potential missing data." = length(flow_set) == nrow(metadata)
+=======
+  "Number of rows in metadata does not equal number of flow experiment. Potential missing data." =
+    length(flow_set) == nrow(metadata)
+>>>>>>> pipeline_completion
 )
 
 # Assign metadata
@@ -158,11 +241,20 @@ rownames(metadata) <- basename(metadata$file_paths)
 flowCore::pData(flow_set) <- metadata
 
 # Convert metadata columns to ordered factors
+<<<<<<< HEAD
 for(col in names(CATEGORIES)) {
   if(col %in% colnames(pData(flow_set))) {
     pData(flow_set)[[col]] <- factor(pData(flow_set)[[col]],
                                     levels = CATEGORIES[[col]],
                                     ordered = TRUE)
+=======
+for (col in names(CATEGORIES)) {
+  if (col %in% colnames(pData(flow_set))) {
+    pData(flow_set)[[col]] <- factor(pData(flow_set)[[col]],
+      levels = CATEGORIES[[col]],
+      ordered = TRUE
+    )
+>>>>>>> pipeline_completion
   }
 }
 
@@ -193,11 +285,23 @@ filtered_flow_set <- lapply(seq_along(flow_set), function(sample_index) {
   exprs(flow_frame) <- event_data[events_to_keep, ]
 
   # Report filtering results
+<<<<<<< HEAD
   cat("Sample ", sample_name, " retained ", sum(events_to_keep), "/", 
       nrow(event_data), "events (", 
       round(100*sum(events_to_keep)/nrow(event_data), 1), "%)\n", sep="")
     stopifnot("Filtered events exceed original count!" = 
           sum(events_to_keep) <= nrow(event_data))
+=======
+  cat("Sample ", sample_name, " retained ", sum(events_to_keep), "/",
+    nrow(event_data), "events (",
+    round(100 * sum(events_to_keep) / nrow(event_data), 1), "%)\n",
+    sep = ""
+  )
+  stopifnot(
+    "Filtered events exceed original count!" =
+      sum(events_to_keep) <= nrow(event_data)
+  )
+>>>>>>> pipeline_completion
 
   return(flow_frame)
 })
@@ -219,9 +323,15 @@ timepoint_medians <- median_df %>%
 # Add group column to timepoint_medians for proper facet matching
 timepoint_medians$group <- factor(
 
+<<<<<<< HEAD
     apply(timepoint_medians[, CONTROL_COLUMNS], 1, paste, collapse = "_"),
     levels = unique(apply(timepoint_medians[, CONTROL_COLUMNS], 1, paste, collapse = "_")),
     ordered = TRUE
+=======
+  apply(timepoint_medians[, CONTROL_COLUMNS], 1, paste, collapse = "_"),
+  levels = unique(apply(timepoint_medians[, CONTROL_COLUMNS], 1, paste, collapse = "_")),
+  ordered = TRUE
+>>>>>>> pipeline_completion
 )
 
 # Calculate global ranges for each channel
@@ -255,9 +365,14 @@ fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
   geom_density(
     aes(y = after_stat(scaled)),
     fill = "#4292C6",
+<<<<<<< HEAD
  
     color = "#2166AC",
     #color = "#08306B", # First color.
+=======
+    color = "#2166AC",
+    # color = "#08306B", # First color.
+>>>>>>> pipeline_completion
     alpha = 0.3,
     size = 0.3
   ) +
@@ -269,6 +384,7 @@ fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
     linetype = "dashed",
     size = 0.4
   ) +
+<<<<<<< HEAD
 scale_x_continuous(
   breaks = fl1a_global_range,
     labels = format(fl1a_global_range, scientific = FALSE),
@@ -280,6 +396,19 @@ scale_x_continuous(
     #  breaks = fl1a_global_range,
     #  labels = format(fl1a_global_range, scientific = FALSE)
     #) +
+=======
+  scale_x_continuous(
+    breaks = fl1a_global_range,
+    labels = format(fl1a_global_range, scientific = FALSE),
+    expand = c(0.02, 0)
+  ) +
+  ## Replace coord_cartesian() with scale_x_continuous()
+  # scale_x_continuous(
+  #  limits = fl1a_global_range,
+  #  breaks = fl1a_global_range,
+  #  labels = format(fl1a_global_range, scientific = FALSE)
+  # ) +
+>>>>>>> pipeline_completion
   labs(
     title = "FL1-A Intensity Distribution",
     subtitle = "By Timepoint and Experimental Condition",
@@ -294,13 +423,20 @@ scale_x_continuous(
     panel.grid.minor = element_blank(),
     panel.border = element_rect(color = "black", fill = NA, size = 0.8),
     panel.spacing = unit(0.3, "lines"),
+<<<<<<< HEAD
    
+=======
+>>>>>>> pipeline_completion
     strip.text.y.left = element_text(angle = 0, face = "bold"),
 
     # Facet label formatting
     strip.background = element_blank(),
     strip.text.x = element_text(size = 6, angle = 0, hjust = 1, margin = margin(b = 5), face = "bold"),
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> pipeline_completion
     # Axis formatting
     axis.title = element_text(face = "bold", size = 9),
     axis.text.x = element_text(size = 6, angle = 45, hjust = 1, color = "gray30"),
@@ -308,22 +444,38 @@ scale_x_continuous(
     axis.ticks.x = element_line(color = "gray60", size = 0.3),
     axis.text.y = element_blank(),
     axis.ticks.y = element_blank(),
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> pipeline_completion
     # Title formatting
     plot.title = element_text(face = "bold", size = 12, margin = margin(b = 5)),
     plot.subtitle = element_text(size = 10, color = "gray30", margin = margin(b = 10)),
     plot.margin = margin(t = 10, r = 15, b = 10, l = 15)
+<<<<<<< HEAD
 
+=======
+>>>>>>> pipeline_completion
   )
 
 # Save using ggsave - no need to worry about graphics devices
 ggsave(
+<<<<<<< HEAD
   filename = "~/flow_cytometry_test/fl1a_density_plot.pdf", 
   plot = fl1a_plot,
   width = 10,       # Specify width
   height = 8,       # Specify height
   units = "in",     # Units for dimensions
   dpi = 300         # Resolution
+=======
+  filename = "~/flow_cytometry_test/fl1a_density_plot.pdf",
+  plot = fl1a_plot,
+  width = 10, # Specify width
+  height = 8, # Specify height
+  units = "in", # Units for dimensions
+  dpi = 300 # Resolution
+>>>>>>> pipeline_completion
 )
 
 ssca_global_range <- channel_global_ranges %>%
@@ -349,11 +501,19 @@ fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
   # Hexbin plot with viridis color scale
   geom_hex(bins = 100, aes(fill = after_stat(density))) +
   scale_fill_viridis_c(option = "plasma", name = "Density") +
+<<<<<<< HEAD
   
   # ===== FACETING =====
   # Use facet_grid instead of facet_wrap to have timepoints appear only once per row
   facet_grid(timepoints ~ group) +
   
+=======
+
+  # ===== FACETING =====
+  # Use facet_grid instead of facet_wrap to have timepoints appear only once per row
+  facet_grid(timepoints ~ group) +
+
+>>>>>>> pipeline_completion
   # ===== AXIS SCALING =====
   # Show only min and max on axes
   scale_x_continuous(
@@ -368,7 +528,11 @@ fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
     labels = format(ssca_breaks, scientific = TRUE, digits = 2),
     expand = c(0.02, 0)
   ) +
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> pipeline_completion
   # ===== LABELING =====
   labs(
     title = "Cell Size and Granularity Distribution",
@@ -376,7 +540,11 @@ fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
     x = "FSC-A (cell size)",
     y = "SSC-A (granularity)"
   ) +
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> pipeline_completion
   # ===== THEME CUSTOMIZATION =====
   theme_minimal() +
   theme(
@@ -386,25 +554,41 @@ fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
     panel.grid.minor = element_line(color = "grey90", size = 0.1),
     panel.border = element_rect(color = "black", fill = NA, size = 0.8),
     panel.spacing = unit(0.3, "lines"),
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> pipeline_completion
     # Facet label formatting - timepoints on left only
     strip.background = element_blank(),
     strip.text.x = element_text(size = 6, face = "bold", margin = margin(b = 5)),
     strip.text.y.left = element_text(angle = 0, face = "bold"),
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> pipeline_completion
     # Axis formatting
     axis.title = element_text(face = "bold", size = 9),
     axis.text.y = element_text(size = 6, color = "gray30"),
     axis.text.x = element_text(size = 6, angle = 45, color = "gray30", margin = margin(t = 5)),
     axis.line = element_line(color = "gray60", size = 0.3),
     axis.ticks = element_line(color = "gray60", size = 0.3),
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> pipeline_completion
     # Legend formatting
     legend.position = "right",
     legend.key.size = unit(0.8, "lines"),
     legend.title = element_text(size = 8, face = "bold"),
     legend.text = element_text(size = 7),
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> pipeline_completion
     # Title formatting
     plot.title = element_text(face = "bold", size = 12, margin = margin(b = 5)),
     plot.subtitle = element_text(size = 8, color = "gray30", margin = margin(b = 10)),

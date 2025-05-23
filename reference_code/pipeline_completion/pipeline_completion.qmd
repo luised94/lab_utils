@@ -8,3 +8,134 @@ The purpose of these scripts is to test combinations of parameters for the comma
 The files used are positive controls from one of my experiments and from a reference article (Eaton 2010).
 Most of the scripts use the files from their directory locations but I realized that it was better to copy the files to the testing directory.
 I also downloaded the data to my dropbox to have it available without having to use a vpn to access the cluster (sometimes it never connects and I have to restart my computer).
+
+# Quick guide
+1) Run duplicate_files_for_testing.sh to duplicate files to the directory of the tests and explorations being run (~/data/preprocessing_test/ in this case).
+2) 
+
+# Notes
+Managed to process the data using the different deeptools and macs2 parameters. Couldnt see obvious differences in the plots for peaks called, overlap with reference bed file from Eaton2010 as factors were accounted for. If I remember correctly, the particular samples I used were from the dataset before I started to systematically decontaminate everything using DNAzap. Inspecting my most recent dataset where I simply did arrest at two cell cycle stages, I could see improvements for the input and samples. I think picking a bigger set of the last experiment would be better.
+I would like to reuse the scripts but not have to worry about the other data produced by the previous samples. I may or may not reinclude the samples that I already analyzed in the reanalysis. Second, I will document the commands I ran to remove the files I already produced.
+
+## 2025-04-22
+Reference bam file was not present in the align directory. Not sure why. Will adjust the peak calling and coverage files into their own files.
+Added numbers since the order of each file should be clear and consistent now.
+Very worried that I am analyzing the wrong files even though I double checked the numbers and I saw the bigwig file.
+
+## 2025-04-29
+Had to refactor a substantial amount of code after changing name conventions while processing the bam files. Still not sure about if I chose the wrong files.
+Received the files for the repeat experiments.
+See error # file had missing data after macs2 call # to see the case for what happens when same file is used as control for peak calling. No data was present. Great I think.
+
+## 2025-05-02
+```{experiment}
+Description: Looking at bigwig files after different processing files
+Summaries:
+  > Raw looks like there is more signal. This is removed by deduplication
+  > Blacklist removal is pretty clear, some empty sections in the plots.
+  > Shifting bams shifted the scale (max 40 before to 50), seems like it does have an effect.
+  > Some of the tall peaks at the edges are not removed by blacklisting. Maybe my blacklist is missing some features.
+  > Seems like blacklist filtering can alter scale.
+    -20250502_144238_bam_processing_effect_sample_type-input_condition_idx-001_normalization_method-cpm.svg
+  > Rpkm scale is different (60 vs 2000) but looks visually the same
+    -20250502_144238_normalization_effect_sample_type-input_bam_type-blFiltered_condition_idx-001.svg
+  > The two peaks at the ends in eaton data are not removed by blacklist filtering
+    -20250502_144238_normalization_effect_sample_type-reference_bam_type-blFiltered_condition_idx-001.svg
+  > My test 001 looks very similar to the eaton reference. Great!
+    -20250502_144238_sample_type_comparison_bam_type-blFiltered_normalization_method-rpkm.svg
+  > Scale difference in raw is crazy. 600 for mine and 300 for eaton.
+    -20250502_144238_sample_type_comparison_bam_type-raw_normalization_method-cpm.svg
+Conclusion:
+  The processing step that has the most impactful effect on the biwig data is the deduplication step. Blacklist is clearly working. Shifting I think has an effect but I may need a more positive shift like just moving everything to the edge to ensure the process has an effect. My test 001 (WT_NONE_NOCO_HM1108_2_positive) looks very similar to the eaton reference. Finally, presenting the raw data creates a very striking contrast between the peaks and the background. Maybe it would be good to show.
+```
+
+## 2025-05-07
+These are the samples that were used:
+1) WT_NONE_ALPHA_Input_2_input
+  ['input_001']="$HOME/data/250207Bel/alignment/processed_126041_sequence_to_S288C_sorted.bam"
+2) Eaton2010
+  ['reference_001']="$HOME/data/100303Bel/alignment/processed_034475_sequence_to_S288C_sorted.bam"
+3) WT_NONE_NOCO_HM1108_2_positive
+  ['test_001']="$HOME/data/250207Bel/alignment/processed_126050_sequence_to_S288C_sorted.bam"
+4) 4R_4PS_NOCO_HM1108_2_treatment
+  ['test_002']="$HOME/data/250207Bel/alignment/processed_126058_sequence_to_S288C_sorted.bam"
+5) WT_NONE_ALPHA_UM174_2_positive
+  ['test_003']="$HOME/data/250207Bel/alignment/processed_126065_sequence_to_S288C_sorted.bam"
+6) WT_NONE_NOCO_UM174_2_positive
+  ['test_004']="$HOME/data/250207Bel/alignment/processed_126066_sequence_to_S288C_sorted.bam"
+7) 4R_NONE_ALPHA_Input_2_input
+  ['test_005']="$HOME/data/250207Bel/alignment/processed_126042_sequence_to_S288C_sorted.bam"
+```{experiment}
+Description: Running some plots before reworking.
+Summaries:
+  > Recovery-enrichment scatter
+    - Adjust the shape. Use color or something.
+  > Recovery-enrichment scatter facetted
+    - By sample maybe?
+  > Q-value distribution. Definitely have more towards the right for the positive samples
+    - 
+  > Fold-enrichment could be sensitive to blacklist filtering. Not really what I was expecting. I thought the positive controls would have more enrichment.
+  > Peak width definitely does not look good with violin. Need to adjust the text x axis angle since I cant tell what is what.
+  > I should potentially sort by factor or by another metric.
+  > For the chromosome distribution should definitely do by sample id and change to the heatmap, then each of the rows could be one of the processing combinations instead of by sample. So at least two factorings before plotting.
+  > The cool heatmap is the geom_tile. Definitely need to break down by sample.
+  > Create the mapping for the names to add to the plot subtitles.
+Conclusion:
+  > Make the mapping for the subtitles and proper sample names.
+```
+
+## 2025-05-11
+```{experiment}
+Description: First pass at seeing the effect of blacklist filtering on the 250324Bel dataset
+Summaries:
+  > Input looks good, clear what happens.
+  > Sample 10 does seem to show the effect of removing the edges
+  > Sample 11, 19, 25
+  > Show 25 even though it is terrible but clearly shows 1500 to 150
+  > 56 is one of the samples that suffered from the ends effect. The samples seem to have more problems in general.
+  > As we saw before, it was a lot of the HM1108 samples that had trouble during library prep.
+Conclusion:
+  > Clearly worked. I can move on to the other plots and generate the comparisons using the blacklisted bigwigs. To achieve this, I had to adjust the pattern for finding the bigwig files.
+```
+```{experiment}
+Description: Seeing the results of filtering reads in blacklist.
+Summaries:
+  > Effect is clear. The files are the ones that had trouble during library prep as stated previously.
+    - See the HM1108.4PS.vs.NONE.repeat2 plots using the view_files -t svg -f command.
+Conclusion:
+  > Blacklist filtering helped. I think maybe I should look at the samples again. The sample in alpha factor looks fine. Maybe I can use that.
+```
+
+## 2025-05-12
+```{experiment}
+Description: Looking at the plots to understand influence of certain peak calling parameters
+Summaries:
+  > Mmmmmm. Normalized count changes for the 4R input when using input control for peak calling. 
+    - Maybe I should have no normalized counts. current_chrom_subset_df_processing_group_chromosome_heatmap_plot_4R_Input.svg
+  > For the chromosome distribution plots, dont see a difference between the different bam processing.
+  > Using the input control is very clear to reduce the amount of peaks called in the input sample.
+  > broad generally results in more peaks. again chromosome distribution does not seem to be affected very much.
+  > 4R 4PS chrom dist plots show pretty big effect of the input control and the broad
+  > No relationship between median enrichment and peaks called?
+  > Negative controls look very different in terms of the enrich vs qvalue plot.
+  > Did not realize the presence of the bin circle (countour).
+  > Input have not as many high qvalue and high fold enrichment (forgot about the scale).
+  > Blacklist filtering removes some of the high q and high fold peaks.
+  > For the input samples, removal of blacklist filtering and input control removes a lot of the peaks.
+  > Peak width distribution looks weird and none of the processing steps eliminated the peaks. Need to look for the Eaton. Maybe I would have to look at the particular peaks to understand more. Broad does increase the peak width. Maybe there is a relationship between the peak width and if they were in the control data set.
+  > Effect on the input for the peak width is pronounced. Basically only peaks of a certain width are left.
+  > Dont really see the effect of processing steps on the negative control of MCM pull down.
+  > Seems like blacklist filtering is a lot of the peaks that are enriched relative to the Eaton control.
+  > For input control, the no input samples dont show difference in peaks enriched across processing steps. Using the input control parameter, shifting causes higher enrichment in the input control.
+  > For UM174 WT in NOCO, blacklist filtering reduces enrichment. For WT ORC in Noco, shows pretty similar enrichment across the processing steps. Broad peaks are actually reduces.
+  > Using input reduces peaks recovered. Broad increases peaks recovered. I recover 90% peaks for Eaton. Using input control in peak calling increases enrichment.
+  > I think overlap percent is probably important.
+  > My WT in Nocodazole also has 90% recovery.
+  > For WT UM174 in alpha, also has pretty big recovery percentage. In Noco, blFiltering reduces the enrichment to lowest. Using input control increases percent enrichment.
+  > Have way more peaks in my WT ORC sample and the Eaton dataset.
+Conclusion:
+  > Use input control, blacklist filtering and narrow. I dont think I should do the shift myself. Maybe also try to find peaks that are more enriched.
+  > See if there is any characteristics that characteristics for the recovered peaks.
+  > Wondering the effect of the sliding window. Should it be 1000kb?
+  > Need to start the biological relationships.
+```

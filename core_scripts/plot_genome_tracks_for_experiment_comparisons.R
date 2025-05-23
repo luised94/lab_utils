@@ -1,4 +1,16 @@
 #!/usr/bin/env Rscript
+###############################################################################
+# Plot bigwig files based on EXPERIMENT_COMPARISONS list.
+################################################################################
+# PURPOSE: Plot specific comparions for an experiment-id specified in the bmc_config.
+# USAGE: ./plot_genome_tracks_for_experiment_comparisons.R --experiment-id=<experiment-id> <options>
+# DEPENDENCIES: GenomicRanges, rtracklayer
+# OUTPUT: svg plots with comparisons defined in the bmc_config EXPERIMENT_COMPARISONS list.
+# AUTHOR: LEMR
+# DATE: 2025-02-25
+# DATE_V1_COMPLETE: 2025-04-08
+# DATE_V2_COMPLETE: 2025-05-02
+################################################################################
 # replace all metadata
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")
@@ -28,7 +40,6 @@ file_identifier <- if (is_template) "template" else args$experiment_id
 config_path <- file.path(file_directory, paste0(file_identifier, "_bmc_config.R"))
 metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
 
-
 args_info <- list(
     title = "Script Configuration",
     "script.name" = get_script_name(),
@@ -49,6 +60,8 @@ check_required_packages(
 ################################################################################
 # Load and Validate Experiment Configuration and Dependencies
 ################################################################################
+# TODO: Consolidate this into the previous for loop? Or use second for loop with safe_source //
+# Would need to remove the print_debug_info call. I probably need to adjust that function anyways. //
 # Define required dependencies
 required_modules <- list(
     list(
@@ -146,6 +159,15 @@ if (!is.null(args$override)) {
  ))
 }
 
+################################################################################
+# Required configuration settings validation
+################################################################################
+# Ensure that the variables from the _CONFIG variables are set.
+# TODO: Add simple for loop or lapply that validates the required variables from the _CONFIG variable used in the script.
+#required_configuration_settings <- c()
+
+# Checkpoint handler ---------------------------
+# See the settings before running.
 handle_configuration_checkpoint(
     accept_configuration = accept_configuration,
     experiment_id = experiment_id
@@ -156,7 +178,9 @@ handle_configuration_checkpoint(
 ################################################################################
 # !! Add directories here.
 required_directories <- c("fastq", "documentation", "coverage")
-dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
+# Creates directories and stores them in dirs variable.
+dirs <- setup_experiment_dirs(
+    experiment_dir = experiment_dir,
     output_dir_name = "plots",
     required_input_dirs = required_directories
 )
@@ -164,6 +188,7 @@ dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
 # Control output directory here.
 dirs$output_dir <- file.path(dirs$plots, "genome_tracks", "experimental_comparisons")
 dir.create(dirs$output_dir, recursive = TRUE, showWarnings = FALSE)
+
 # Find fastq files and extract sample IDs
 fastq_files <- list.files(
     path = dirs$fastq,
@@ -173,20 +198,24 @@ fastq_files <- list.files(
 
 # Find bigwig files
 bigwig_pattern <- sprintf(
-    "processed_.*_sequence_to_S288C_%s\\.bw$",
+    "processed_.*_sequence_to_S288C_blFiltered_%s\\.bw$",
     EXPERIMENT_CONFIG$NORMALIZATION$active
 )
+
 bigwig_files <- list.files(
     dirs$coverage,
     pattern = bigwig_pattern,
     full.names = TRUE
 )
 
+bigwig_basenames <- basename(bigwig_files)
+
 normalization_method <- sub(
     ".*_([^_]+)\\.bw$",
     "\\1",
-    basename(bigwig_files[1])
+    bigwig_basenames[1]
 )
+
 if (length(bigwig_files) == 0) {
     stop("No bigwig files found in specified directory")
 }
@@ -198,10 +227,11 @@ if (length(fastq_files) == 0) {
     sample_ids <- gsub(
         pattern = GENOME_TRACK_CONFIG$file_sample_id_from_bigwig,
         replacement = "\\1",
-        x = basename(bigwig_files)
+        x = bigwig_basenames
     )
     stopifnot(
-        "Length of samples_ids is not lower than length of bigwig files." = all(nchar(sample_ids) < nchar(basename(bigwig_files)))
+        "Length of samples_ids is not lower than length of bigwig files." =
+         all(nchar(sample_ids) < nchar(bigwig_basenames))
     )
 } else {
     # Extract sample IDs from fastq filenames
@@ -211,13 +241,20 @@ if (length(fastq_files) == 0) {
         x = fastq_files
     )
     stopifnot(
-        "Length of samples_ids is not lower than length of fastq files." = all(nchar(sample_ids) < nchar(fastq_files))
+        "Length of samples_ids is not lower than length of fastq files." =
+        all(nchar(sample_ids) < nchar(fastq_files))
     )
 }
 
 if (any(nchar(sample_ids) == 0)) {
-  warning("Empty sample IDs extracted from files: ", 
-          paste(bigwig_basenames[nchar(sample_ids) == 0], collapse = ", "))
+  empty_ids <- bigwig_basenames[nchar(sample_ids) == 0]
+  message(
+    "Some sample_ids are empty.\n",
+    "Number of files with missing ids:", length(empty_ids), "\n",
+    "Affected files: ", paste(empty_ids, collapse = ", "), "\n"
+    )
+  stop("Some sample ids are empty.\nCheck your file name extraction pattern.\nEach sample id must be non-empty.")
+
 }
 
 if (RUNTIME_CONFIG$debug_verbose) {
@@ -250,6 +287,8 @@ if (RUNTIME_CONFIG$debug_verbose) {
     invisible(lapply(head(sample_ids, 3), function(id) message("      ", id)))
 }
 
+# Load csv, turn into factors, ensure proper order, add sample id column.
+# INQ: Should be "cached"?
 metadata <- load_and_process_experiment_metadata(
     metadata_path = metadata_path,
     categories = EXPERIMENT_CONFIG$CATEGORIES,
@@ -438,28 +477,11 @@ if (RUNTIME_CONFIG$debug_verbose) {
     message("- Comparisons: ", paste(comparisons_to_process, collapse = ", "))
 }
 
-#if (RUNTIME_CONFIG$debug_verbose) {
-#    message("\nCalculating global range for all tracks...")
-#}
-
-#limits_result <- calculate_track_limits(
-#    bigwig_files = bigwig_files,
-#    genome_range = genome_range,
-#    padding_fraction = 0.1,
-#    verbose = RUNTIME_CONFIG$debug_verbose
-#)
-#
-#if (!limits_result$success) {
-#    warning("Failed to calculate y-limits: ", limits_result$error)
-#    y_limits <- c(0, 1000)  # Default fallback
-#} else {
-#    y_limits <- limits_result$data
-#}
-
 ################################################################################
 # Main script logic for plotting experiment comparisons of genomic tracks
 ################################################################################
 scaling_modes <- c("local", "individual")
+#scaling_modes <- "local"
 for (comparison_name in comparisons_to_process) {
     # Metadata processing and sample selection
     comparison_expression <- EXPERIMENT_CONFIG$COMPARISONS[[comparison_name]]
@@ -701,7 +723,7 @@ for (comparison_name in comparisons_to_process) {
             cex.title = 0.6
         )
     }
-                                                                                     
+
     base_comparison_name <- gsub("^comp_", "", comparison_name)  # Remove prefix
     sanitized_comparison_name <- gsub("_", ".", base_comparison_name)      # Convert underscores
 
@@ -714,7 +736,7 @@ for (comparison_name in comparisons_to_process) {
         TIME_CONFIG$current_timestamp,
         normalization_method
     )
-                                                                                     
+
     plot_config <- create_track_plot_config(
         tracks = tracks,
         chromosome = chromosome_roman,
@@ -723,8 +745,8 @@ for (comparison_name in comparisons_to_process) {
         visualization_params = GENOME_TRACK_CONFIG$plot_defaults,
         verbose = RUNTIME_CONFIG$debug_verbose
     )
-                                                                                     
-    for (mode in scaling_modes) {
+
+    for (mode in scaling_modes[1]) {
         # Create filename for this mode
         plot_filename <- sprintf(
             GENOME_TRACK_CONFIG$filename_format_comparison_template,
@@ -734,12 +756,12 @@ for (comparison_name in comparisons_to_process) {
             chromosome_to_plot,
             mode
          )
-                                                                                     
+
          plot_file <- file.path(
              dirs$output_dir,
              plot_filename
          )
-                                                                                     
+
         if (RUNTIME_CONFIG$debug_verbose) {
             message(paste(rep("-", 80), collapse = ""))
             message(sprintf("\nScaling mode: %s", mode))
@@ -765,7 +787,7 @@ for (comparison_name in comparisons_to_process) {
             #    paste(row_samples_to_visualize$sample_id, collapse = "|"),
             #    project_bigwig_files
             #)]
-            pattern <- sprintf("processed_(%s)_sequence_to_S288C_CPM\\.bw$", 
+            pattern <- sprintf("processed_(%s)_sequence_to_S288C_blFiltered_CPM\\.bw$",
                                paste(row_samples_to_visualize$sample_id, collapse = "|"))
             group_files <- grep(pattern, bigwig_files, value = TRUE, perl = TRUE)
             if (RUNTIME_CONFIG$debug_verbose) {
@@ -776,7 +798,7 @@ for (comparison_name in comparisons_to_process) {
                             length(group_files), nrow(row_samples_to_visualize)))
                 }
             }
-
+            # INQ: Could cache this result as well and turn into independent script.
             local_limits_result <- calculate_track_limits(
                 bigwig_files = group_files,
                 genome_range = genome_range,
@@ -812,5 +834,4 @@ for (comparison_name in comparisons_to_process) {
             )
         }
     }
-
 }
