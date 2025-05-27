@@ -277,6 +277,7 @@ for (col in names(factor_levels_list)) {
 #################################################################################
 # MAIN
 #################################################################################
+# TODO: Will be able to remove most of the processing code
 # Create output directory if it doesn't exist
 PLOT_OUTPUT_DIR <- file.path(Sys.getenv("HOME"), "data", "preprocessing_test", "plots")
 dir.create(PLOT_OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
@@ -311,7 +312,6 @@ list_of_comparisons <- list(
     filter = NULL
   )
 )
-# TODO: Add scaling mode
 # scaling_modes <- c("local", "individual")
 message("====================")
 for (comparison_name in names(list_of_comparisons)) {
@@ -396,7 +396,10 @@ for (comparison_name in names(list_of_comparisons)) {
       filename_parts <- c(filename_parts, paste(fixed_strings, collapse="_"))
     }
     # Join parts with underscores and add extension
-    filename <- paste0(paste(filename_parts, collapse="_"), ".svg")
+    filename <- paste0(
+      paste(filename_parts, collapse="_"), 
+      paste0(".", OUTPUT_FORMAT),
+    )
     # Replace multiple underscores with single one
     filename <- gsub("_+", "_", filename)
     filename <- paste0(current_timestamp, "_", filename)
@@ -501,6 +504,38 @@ for (comparison_name in names(list_of_comparisons)) {
     message(plot_title_chr)
     message("~~~~~~~~~~~~~~~~~~~~~~")
 
+    do.call(
+      what = switch(OUTPUT_FORMAT,
+        pdf = pdf,
+        svg = svglite::svglite,
+        png = png
+        ),
+      args = switch(OUTPUT_FORMAT,
+        pdf = list(file = plot_output_file_path, width = 10, height = 8,
+                   bg = "white", compress = TRUE, colormodel = "srgb", useDingbats = FALSE),
+        svg = list(filename = plot_output_file_path, width = 10, height = 8,
+                   bg = "white"),
+        png = list(filename = plot_output_file_path, width = 10, height = 8,
+                   units = "in", res = 600, bg = "white")
+        )
+    )
+    Gviz::plotTracks(
+        trackList = track_container,
+        chromosome = CHROMOSOME_ROMAN,
+        from = GENOME_RANGE_TO_LOAD@ranges@start,
+        to = GENOME_RANGE_TO_LOAD@ranges@width,
+        #ylim = y_limits,
+        margin = 15,
+        innerMargin = 5,
+        spacing = 10,
+        main = current_condition_title,
+        col.axis = "black",
+        cex.axis = 0.8,
+        cex.main = 0.7,
+        fontface.main = 1,
+        background.panel = "transparent"
+    )
+    dev.off()
     svglite::svglite(
         filename = plot_output_path,
         width = 10,
