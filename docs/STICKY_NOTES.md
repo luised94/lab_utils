@@ -270,4 +270,4 @@ Can remove genome axis and add the coordinates at the bottom of the plots.
 Can use illustrator to turn the plots into two columns or see if combination of Gviz and base R will do it.
 Complete the peak calling scripts
 Determine the reproducible samples.
-
+OBS: bamCoverage gives warning if smoothLength is smaller than bin size.

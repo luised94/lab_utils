@@ -179,6 +179,8 @@ filenames_without_extension <- gsub(ESCAPED_EXTENSIONS, "", file_basenames)
 clean_filenames <- gsub("_peaks$", "", filenames_without_extension) # Remove _peaks suffix added by MACS2
 
 # TODO: I think I can skip this part since they should have the same number of columns
+# Change processing to just name the columns basically. The only categoris that will vary are the 
+# bin size and smooth length columns
 # Split filenames by underscores to extract metadata components
 filename_parts <- strsplit(clean_filenames, split = "_")
 max_parts <- max(sapply(filename_parts, length))
@@ -225,6 +227,7 @@ for (row_idx in 1:nrow(metadata_df)) {
 
 # COMBINE ALL METADATA INTO FINAL DATA FRAME
 # Assuming first two columns are sample type and condition idx
+# Need to adjust the columns names
 final_metadata_df <- data.frame(
   sample_type = metadata_df[, 1],
   condition_idx = metadata_df[, 2],
@@ -235,7 +238,6 @@ final_metadata_df <- data.frame(
 )
 
 # Assertions
-# TODO: Need to see if I should extract the number into variables to improve readability. //
 stopifnot(
     "No NAs found in the final_metadata_df." = !any(is.na(final_metadata_df)),
     "Metadata has expected dimensions." =
@@ -262,7 +264,9 @@ lapply(metadata_columns_vec, function(col_name) {
 # the order for the factors. This will control the plotting order.
 factor_levels_list <- list(
   bam_type = c("raw", "deduped", "shifted", "blFiltered"),
-  normalization_method = c("raw", "cpm", "rpkm")
+  normalization_method = c("raw", "cpm", "rpkm"),
+  bin_sizes = c(10, 25, 50, 100, 200, 500),
+  smooth_lengths = c(25, 50, 100, 200, 500, 1000, 2000)
 )
 stopifnot(all(names(factor_levels_list) %in% names(final_metadata_df)))
 
@@ -529,29 +533,6 @@ for (comparison_name in names(list_of_comparisons)) {
         innerMargin = 5,
         spacing = 10,
         main = current_condition_title,
-        col.axis = "black",
-        cex.axis = 0.8,
-        cex.main = 0.7,
-        fontface.main = 1,
-        background.panel = "transparent"
-    )
-    dev.off()
-    svglite::svglite(
-        filename = plot_output_path,
-        width = 10,
-        height = 8,
-        bg = "white"
-    )
-
-    Gviz::plotTracks(
-        trackList = track_container,
-        chromosome = CHROMOSOME_ROMAN,
-        from = GENOME_RANGE_TO_LOAD@ranges@start,
-        to = GENOME_RANGE_TO_LOAD@ranges@width,
-        margin = 15,
-        innerMargin = 5,
-        spacing = 10,
-        main = plot_title_chr,
         col.axis = "black",
         cex.axis = 0.8,
         cex.main = 0.7,
