@@ -51,10 +51,10 @@ mkdir -p "${SUB_DIRS[@]/#/$OUTDIR/}"
 # leave as raw
 declare -a NORMALIZATION_METHOD=("raw")  
 THREADS=8 # int, number of cores
-GENOME_SIZE=12000000  # 1.2e7 in integer form, bp
-# Extreme + standard range
-BIN_SIZES=(1 2 5 10 25 50 100 200 500)
-SMOOTH_LENGTHS=(0 5 10 25 50 100 200 500 1000 2000)
+#GENOME_SIZE=12000000  # 1.2e7 in integer form, bp
+# Test multiple combinations of bin size and lengths
+BIN_SIZES=(10 25 50 100 200 500)
+SMOOTH_LENGTHS=(25 50 100 200 500 1000 2000)
 
 # Initialization of array with keys and file paths
 # Create an array of files
@@ -89,8 +89,8 @@ for filepath in "${FILES[@]}"; do
     norm_suffix=${norm_method,,}
     base_flags=(
         --bam "$filepath"
-        --effectiveGenomeSize "$GENOME_SIZE"
         --numberOfProcessors $(( THREADS / 2))
+        #--effectiveGenomeSize "$GENOME_SIZE"
         #--ignoreDuplicates
     )
     # Add normalization flag only if not raw (case-insensitive comparison)
@@ -104,21 +104,23 @@ for filepath in "${FILES[@]}"; do
     do
       echo "    ---Bin size information ---"
       echo "    Bin size: $bin_size"
-      base_flags+=(--binSize "$bin_size")
+      #+=(--binSize "$bin_size")
+      flags_with_bin=("${base_flags[@]}" --binSize "$bin_size")
       for smooth_length in "${SMOOTH_LENGTHS[@]}"
       do
         output_name="${OUTPUT_DIR}${key}_${norm_suffix}_${bin_size}_${smooth_length}.bw"
         echo "    ---Smooth Length information ---"
         echo "    Smooth Length: $smooth_length"
         echo "    Current output name: $output_name"
-        base_flags+=(--smoothLength "$smooth_length")
+        flags_with_smooth_length=("${flags_with_bin[@]}" --smoothLength "$smooth_length")
+        #base_flags+=(--smoothLength "$smooth_length")
         echo "    Output without blacklist: $output_name"
         if [[ -f "$output_name" ]];
         then
             echo "Output file already exists. Skipping: $output_name"
         else
           # Create flags specifically for the NO blacklist run, adding the output file
-          flags_no_bl=("${base_flags[@]}" -o "$output_name")
+          flags_no_bl=("${flags_with_smooth_length[@]}" -o "$output_name")
           echo "Executing coverage calculation without blacklist..."
           # Print the command that would be executed
           echo "COMMAND: bamCoverage ${flags_no_bl[*]}"

@@ -263,3 +263,11 @@ Collect the plots side by side via illustrator then move on to flow cytometry.
 
 ## 2025-05-21
 Something just looks wrong about the plots. They look terrible. I know duplication removal and normalization makes it look bad. Just want to see the raw data to make sure I am not missing anything. The terrible samples should remain the same.
+
+## 2025-05-27
+Will finish the effect of smoothing today.
+Can remove genome axis and add the coordinates at the bottom of the plots.
+Can use illustrator to turn the plots into two columns or see if combination of Gviz and base R will do it.
+Complete the peak calling scripts
+Determine the reproducible samples.
+
