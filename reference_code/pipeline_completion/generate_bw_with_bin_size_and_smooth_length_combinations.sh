@@ -58,7 +58,7 @@ SMOOTH_LENGTHS=(25 50 100 200 500 1000 2000)
 
 # Initialization of array with keys and file paths
 # Create an array of files
-mapfile -t FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw*.bam" | sort)
+mapfile -t FILES < <(find ~/data/preprocessing_test/align -maxdepth 1 -type f -name "*_raw.bam" | sort)
 
 # Check if any files were found
 if [ ${#FILES[@]} -eq 0 ];
