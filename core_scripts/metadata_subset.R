@@ -1,26 +1,46 @@
-INVALID_COMBINATIONS <- list(
-    # Group 1: orc1-161 restrictions
-    orc1_161_restrictions = quote(
-        orc_phenotype == "orc1-161" & 
-        (temperature == "23" |                  # no orc1-161 at 23øC
-         antibody == "ORC" |                    # no orc1-161 with ORC
-         cell_cycle %in% c("async", "alpha"))      # no orc1-161 in async or alpha
+#CATEGORIES = list(
+#    rescue_allele = c("WT", "4R"),
+#    suppressor_allele = c("NONE", "1EK","3PL","4PS","5EK","6EK","TGE","Cdc6OE"),
+#    cell_cycle_arrest = c("ALPHA", "NOCO"),
+#    antibody = c("Input", "HM1108", "UM174"),
+#    repeats = c("1", "2")
+#)
+#experiment_id <- c("250207Bel", "250324Bel")
+#if (length(EXPERIMENT_CONFIG$INVALID_COMBINATIONS) > 0) {
+#    invalid_idx <- Reduce(
+#        `|`,
+#        lapply(EXPERIMENT_CONFIG$INVALID_COMBINATIONS, eval, envir = metadata)
+#    )
+#    metadata <- subset(metadata, !invalid_idx)
+#}
+
+# Apply experimental conditions
+#valid_idx <- Reduce(
+#    `|`,
+#    lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = metadata)
+#)
+#metadata <- subset(metadata, valid_idx)
+SUBSET_REPRODUCIBLE_SAMPLES <- list(
+    inputs = quote(
+      antibody == "Input"
     ),
-    # Group 2: ORC antibody restrictions
-    orc_restrictions = quote(
-        antibody == "ORC" &
-        (temperature == "23" |                  # no ORC at 23øC
-         cell_cycle %in% c("alpha", "async"))      # no ORC in alpha or async
+    orc_repeats_in_noco = quote(
+      antibody == "ORC" & cell_cycle_arrest == "NOCO" &
+      !(repeats != "2" & experiment_id == "250324Bel")
     ),
-    # Group 2: ORC antibody restrictions
-    orc_restrictions = quote(
-        antibody == "ORC" & 
-        (temperature == "23" |                  # no ORC at 23øC
-         cell_cycle %in% c("alpha", "async"))      # no ORC in alpha or async
+    orc_repeats_in_alpha = quote(
+      antibody == "ORC" & cell_cycle_arrest == "ALPHA" &
+      ((repeats == "1" & experiment_id == "250324Bel") |
+      (repeats == "2" & experiment_id == "250207Bel"))
+
     ),
-    # Group 3: Nucleosome and temperature restrictions
-    nucleosome_temp_restrictions = quote(
-        (antibody == "Nucleosomes" & temperature == "23" & cell_cycle %in% c("alpha", "nocodazole")) | # no Nucleosomes at 23øC in alpha/nocodazole
-        (temperature == "37" & cell_cycle == "async")    # no async at 37øC
+    mcm_repeats_in_alpha = quote(
+      repeats == "2" & antibody == "UM174" & cell_cycle_arrest == "ALPHA"
+    ),
+    mcm_repeats_in_noco = quote(
+      !(repeats == "1" & antibody == "UM174" & suppressor_allele %in% c("5EK", "6EK"))
+    ),
+    cdc6_repeats = quote(
+      suppressor_allele == "Cdc6OE"
     )
-),
+)
