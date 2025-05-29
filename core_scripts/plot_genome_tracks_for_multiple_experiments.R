@@ -1,4 +1,3 @@
-
 #!/usr/bin/env Rscript
 # Bootstrap phase
 # Also loads OVERRIDE_PRESETS
@@ -79,11 +78,14 @@ for (experiment_idx in seq_len(number_of_experiments)) {
     current_experiment_path, "documentation",
     paste0(current_experiment_id, "_bmc_config.R")
   )
+  
   metadata_paths[experiment_idx] <- file.path(
     current_experiment_path, "documentation",
     paste0(current_experiment_id, "_sample_grid.csv")
   )
 }
+names(config_paths) <- EXPERIMENT_IDS
+names(metadata_paths) <- EXPERIMENT_IDS
 required_configuration_paths <- c(config_paths, metadata_paths)
 missing_configuration_paths <- required_configuration_paths[!sapply(
   X = required_configuration_paths, FUN = file.exists
@@ -96,7 +98,7 @@ if ( length(missing_configuration_paths) > 0 ) {
 ################################################################################
 # Setup directories, genome file and file metadata
 ################################################################################
-# Three pattern variables must be defined in configuration
+# Three pattern variables must be defined in configuration file.
 # Config: interactive_script_configuration.R
 # They are validated at init
 #  BIGWIG_PATTERN: (for genome track files)
@@ -226,6 +228,13 @@ for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
     ordered = TRUE
   )
 }
+message("Converted columns to factors...")
+reproducible_subset_quote_list <- "~/lab_utils/core_scripts/metadata_subset.R"
+if (!file.exists(reproducible_subset_quote_list)) {
+  message("File with subset logic for reproducible samples not found...")
+  stop("Please create or copy the file.")
+}
+source(reproducible_subset_quote_list)
 message("Finished metadata processing...")
 #metadata_df <- metadata_df[do.call(order, metadata_df[intersect(EXPERIMENT_CONFIG$COLUMN_ORDER, colnames(metadata_df))]), ]
 # Oh. Can this be removed to the configuration file as well?
