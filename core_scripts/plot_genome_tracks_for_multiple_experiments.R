@@ -78,7 +78,7 @@ for (experiment_idx in seq_len(number_of_experiments)) {
     current_experiment_path, "documentation",
     paste0(current_experiment_id, "_bmc_config.R")
   )
-  
+
   metadata_paths[experiment_idx] <- file.path(
     current_experiment_path, "documentation",
     paste0(current_experiment_id, "_sample_grid.csv")
@@ -240,7 +240,7 @@ if (!is.null(SUBSET_REPRODUCIBLE_SAMPLES)) {
   message("Subsetting metadata to reproducible samples...")
   is_reproducible_sample <- Reduce(
     `|`,
-    lapply(SUBSET_REPRODUCIBLE_SAMPLES, eval, envir = metadata)
+    lapply(SUBSET_REPRODUCIBLE_SAMPLES, eval, envir = metadata_df)
   )
   metadata_df <- subset(metadata_df, is_reproducible_sample)
 }
