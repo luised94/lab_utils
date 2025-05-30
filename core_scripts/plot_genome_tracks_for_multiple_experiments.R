@@ -236,6 +236,8 @@ if (!file.exists(reproducible_subset_quote_list)) {
 }
 source(reproducible_subset_quote_list)
 message("Finished metadata processing...")
+# Breakpoint
+stop("confirm the metadata was loaded...")
 #metadata_df <- metadata_df[do.call(order, metadata_df[intersect(EXPERIMENT_CONFIG$COLUMN_ORDER, colnames(metadata_df))]), ]
 # Oh. Can this be removed to the configuration file as well?
 ################################################################################
