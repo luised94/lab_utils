@@ -365,17 +365,18 @@ if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
 
 # Define columns to compare by and exclude columns for grouping
 # TODO: Move to configuration. //
-target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+#target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+target_comparison_columns <- c("rescue_allele", "suppressor_allele", "experiment_id")
+column_to_denote_replicate <- "experiment_id"
 plot_name_comparison_column_section <- paste(
   gsub("_", "", target_comparison_columns),
   collapse = "."
 )
 metadata_columns_to_exclude <- c(
-    "sample_type", "sample_ids",
-    "bigwig_file_paths", "full_name",
-    "short_name"
+  "sample_type", "sample_ids",
+  "bigwig_file_paths", "full_name",
+  "short_name"
 )
-
 missing_excluded_columns <- setdiff(metadata_columns_to_exclude, colnames(metadata_df))
 missing_comparison_columns <- setdiff(target_comparison_columns, colnames(metadata_df))
 
@@ -411,11 +412,11 @@ metadata_df$experimental_condition_id <- do.call(
 
 unique_experimental_conditions <- unique(metadata_df$experimental_condition_id)
 unique_condition_data <- unique(experimental_condition_data)
-
 unique_condition_text_df <- data.frame(
   lapply(unique_condition_data, as.character),
   stringsAsFactors = FALSE
 )
+
 # For each row, create "column_name: value" strings
 experimental_condition_titles <- apply(
   X = unique_condition_text_df, MARGIN = 1,
@@ -543,6 +544,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       y_limits <- NULL
     }
     for (sample_idx in seq_len(current_number_of_samples)) {
+      # add for loop here I think were we go through the two replicates
       message("    --- For loop for sample ---")
       message(sprintf(
         fmt = "      Processing row: %s / %s ",
@@ -618,38 +620,38 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       ". Track limits" = paste(y_limits, collapse = ",")
     ))
 
-    do.call(
-      what = switch(OUTPUT_FORMAT,
-        pdf = pdf,
-        svg = svglite::svglite,
-        png = png
-        ),
-      args = switch(OUTPUT_FORMAT,
-        pdf = list(file = plot_output_file_path, width = 10, height = 8,
-                   bg = "white", compress = TRUE, colormodel = "srgb", useDingbats = FALSE),
-        svg = list(filename = plot_output_file_path, width = 10, height = 8,
-                   bg = "white"),
-        png = list(filename = plot_output_file_path, width = 10, height = 8,
-                   units = "in", res = 600, bg = "white")
-        )
-    )
-    Gviz::plotTracks(
-        trackList = track_container,
-        chromosome = current_chromosome,
-        from = current_genome_range_to_load@ranges@start,
-        to = current_genome_range_to_load@ranges@width,
-        ylim = y_limits,
-        margin = 15,
-        innerMargin = 5,
-        spacing = 10,
-        main = current_condition_title,
-        col.axis = "black",
-        cex.axis = 0.8,
-        cex.main = 0.7,
-        fontface.main = 1,
-        background.panel = "transparent"
-    )
-    dev.off()
+    #do.call(
+    #  what = switch(OUTPUT_FORMAT,
+    #    pdf = pdf,
+    #    svg = svglite::svglite,
+    #    png = png
+    #    ),
+    #  args = switch(OUTPUT_FORMAT,
+    #    pdf = list(file = plot_output_file_path, width = 10, height = 8,
+    #               bg = "white", compress = TRUE, colormodel = "srgb", useDingbats = FALSE),
+    #    svg = list(filename = plot_output_file_path, width = 10, height = 8,
+    #               bg = "white"),
+    #    png = list(filename = plot_output_file_path, width = 10, height = 8,
+    #               units = "in", res = 600, bg = "white")
+    #    )
+    #)
+    #Gviz::plotTracks(
+    #    trackList = track_container,
+    #    chromosome = current_chromosome,
+    #    from = current_genome_range_to_load@ranges@start,
+    #    to = current_genome_range_to_load@ranges@width,
+    #    ylim = y_limits,
+    #    margin = 15,
+    #    innerMargin = 5,
+    #    spacing = 10,
+    #    main = current_condition_title,
+    #    col.axis = "black",
+    #    cex.axis = 0.8,
+    #    cex.main = 0.7,
+    #    fontface.main = 1,
+    #    background.panel = "transparent"
+    #)
+    #dev.off()
     message("  Saved plot...")
     message("  --- end scaling  iteration ---")
 
