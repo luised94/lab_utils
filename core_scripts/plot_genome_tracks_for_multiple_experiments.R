@@ -228,6 +228,7 @@ for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
     ordered = TRUE
   )
 }
+number_rows_before_subset <- nrow(metadata_df)
 message("Converted columns to factors...")
 reproducible_subset_quote_list <- "~/lab_utils/core_scripts/metadata_subset.R"
 if (!file.exists(reproducible_subset_quote_list)) {
@@ -235,7 +236,20 @@ if (!file.exists(reproducible_subset_quote_list)) {
   stop("Please create or copy the file.")
 }
 source(reproducible_subset_quote_list)
+if (!is.null(SUBSET_REPRODUCIBLE_SAMPLES)) {
+  message("Subsetting metadata to reproducible samples...")
+  is_reproducible_sample <- Reduce(
+    `|`,
+    lapply(SUBSET_REPRODUCIBLE_SAMPLES, eval, envir = metadata)
+  )
+  metadata_df <- subset(metadata_df, is_reproducible_sample)
+}
 message("Finished metadata processing...")
+debug_print(list(
+  "title" = "Debug after metadata",
+  ".Number of rows before subsetting" = number_rows_before_subset,
+  ".Number of rows after subsetting" = nrow(metadata_df)
+))
 # Breakpoint
 stop("confirm the metadata was loaded...")
 #metadata_df <- metadata_df[do.call(order, metadata_df[intersect(EXPERIMENT_CONFIG$COLUMN_ORDER, colnames(metadata_df))]), ]

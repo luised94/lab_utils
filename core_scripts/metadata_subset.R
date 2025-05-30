@@ -20,6 +20,9 @@
 #    lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = metadata)
 #)
 #metadata <- subset(metadata, valid_idx)
+# Set to NULL 
+# Should probably move to configuration
+# Rename to focus list or something
 SUBSET_REPRODUCIBLE_SAMPLES <- list(
     inputs = quote(
       antibody == "Input"
