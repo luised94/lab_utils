@@ -250,6 +250,43 @@ debug_print(list(
   ".Number of rows before subsetting" = number_rows_before_subset,
   ".Number of rows after subsetting" = nrow(metadata_df)
 ))
+
+# Add the replicate group
+# TODO: Move to configuration. //
+# TODO: I think I need to add the experiment_id and repeats column from this one.
+columns_to_exclude_from_replicate_determination <- c(
+  "sample_type", "sample_ids",
+  "bigwig_file_paths", "full_name",
+  "short_name"
+)
+missing_excluded_replicates <- setdiff(
+  columns_to_exclude_from_replicate_determination,
+  colnames(metadata_df)
+)
+# Validate excluded columns (warning only, not critical)
+if (length(missing_excluded_replicates) > 0) {
+  warning("Some excluded columns don't exist in metadata_df: ",
+          paste(missing_excluded_replicates, collapse = ", "))
+  # Remove non-existent columns from the exclusion list
+  columns_to_exclude_from_replicate_determination <- intersect(
+    columns_to_exclude_from_replicate_determination,
+    colnames(metadata_df)
+  )
+}
+
+replicate_columns <- setdiff(
+  colnames(metadata_df),
+  columns_to_exclude_from_replicate_determination,
+)
+replicate_determining_data <- metadata_df[, replicate_columns, drop = FALSE]
+metadata_df$replicate_group <- do.call(
+  paste,
+  args = c(replicate_determining_data, sep = "|")
+)
+unique_replicate_conditions <- unique(metadata_df$replicate_group)
+# TODO: Add the for loop inside the initial for loop to do this. //
+# then it should process the samples into overlap or by averaging. //
+# Will need to duplicate and rename the two scripts to differentiate. //
 # Breakpoint
 stop("confirm the metadata was loaded...")
 #metadata_df <- metadata_df[do.call(order, metadata_df[intersect(EXPERIMENT_CONFIG$COLUMN_ORDER, colnames(metadata_df))]), ]
@@ -331,6 +368,8 @@ if (!is.null(FEATURE_FILE)) {
 #    plot the tracks for multiple chromosomes
 ####################
 # TODO: Move to configuration. //
+# TODO: Will need to adjust this logic to the replicate group I think. //
+# Just do the same color for order of loading //
 category_to_color_by <- "antibody"
 category_seed <- sum(utf8ToInt(category_to_color_by))
 set.seed(category_seed)
@@ -343,7 +382,7 @@ if (number_of_colors <= 8) {
   category_colors <- rainbow.colors(number_of_colors)
 }
 names(category_colors) <- category_values
-# Define any rows to exclude
+# Define any rows to exclude ----------
 # For example, remove rows that you dont want to be included in the plots
 # Prefilter the metadata_df
 # TODO: Move to configuration. //
@@ -363,10 +402,12 @@ if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
   })
 } # end if error handling for expression
 
-# Define columns to compare by and exclude columns for grouping
+#--------
+# Define columns to compare by and exclude columns for grouping 
+#--------
 # TODO: Move to configuration. //
 #target_comparison_columns <- c("rescue_allele", "suppressor_allele")
-target_comparison_columns <- c("rescue_allele", "suppressor_allele", "experiment_id")
+target_comparison_columns <- c("rescue_allele", "suppressor_allele")
 column_to_denote_replicate <- "experiment_id"
 plot_name_comparison_column_section <- paste(
   gsub("_", "", target_comparison_columns),
