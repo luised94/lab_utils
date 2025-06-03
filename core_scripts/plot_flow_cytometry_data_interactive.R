@@ -328,18 +328,54 @@ fsca_global_range <- channel_global_ranges %>%
 fsca_breaks <- c(min(fsca_global_range), max(fsca_global_range))
 ssca_breaks <- c(min(ssca_global_range), max(ssca_global_range))
 
-# Configuration: Define selection criteria as an expression
-OVERLAY_CONDITION <- quote(
-  cell_cycle_treatment == "async" & 
-  staining == "YES" &
-  rescue_allele == "4R"
-  # Add other criteria as needed, e.g.: rescue_allele == "WT"
-)
 # Extract metadata once for efficiency
 fs_pdata <- pData(filtered_flow_set)
 
+# Configuration: Define selection criteria as an expression
+# Example: 
+#OVERLAY_CONDITION <- quote(
+#  cell_cycle_treatment == "async" & 
+#  staining == "YES" &
+#  rescue_allele == "4R"
+#  # Add other criteria as needed, e.g.: rescue_allele == "WT"
+#)
+OVERLAY_CONDITION <- NULL
+if (!is.null(OVERLAY_CONDITION)) {
+  # Validate expression variables exist
+  expr_vars <- all.vars(OVERLAY_CONDITION)
+  missing_vars <- setdiff(expr_vars, colnames(fs_pdata))
+  if(length(missing_vars) > 0) {
+    stop("Overlay condition contains invalid variables: ", 
+         paste(missing_vars, collapse = ", "))
+  }
+
+  # 2. Evaluate condition safely
+  overlay_idx <- tryCatch(
+    eval(OVERLAY_CONDITION, envir = fs_pdata),
+    error = function(e) {
+      warning("Invalid overlay condition: ", e$message)
+      return(logical(nrow(fs_pdata)))
+    }
+  )
+  # 3. Check for single sample match
+  if(sum(overlay_idx) != 1) {
+    warning(paste("Overlay condition matches", sum(overlay_idx), 
+            "samples. Requires exactly 1. Skipping overlay."))
+    overlay_data <- NULL
+  } else {
+    # Extract matched sample data
+    overlay_sample <- filtered_flow_set[[which(overlay_idx)]]
+    overlay_data <- data.frame(
+      `FL1-A` = exprs(overlay_sample)[, "FL1-A"],
+      check.names = FALSE
+    )
+  }
+}
+
 message("Plotting...")
 # Check if async category exists before plotting
+# TODO: Need to adjust how to set this condition potentially. //
+# I forgot to take the async sample for one set. //
 if("async" %in% fs_pdata$cell_cycle_treatment) {
 
   # Filter async samples using base R for compatibility
@@ -372,35 +408,7 @@ if("async" %in% fs_pdata$cell_cycle_treatment) {
       )
   }
 }
-# 1. Validate expression variables exist
-expr_vars <- all.vars(OVERLAY_CONDITION)
-missing_vars <- setdiff(expr_vars, colnames(fs_pdata))
-if(length(missing_vars) > 0) {
-  stop("Overlay condition contains invalid variables: ", 
-       paste(missing_vars, collapse = ", "))
-}
 
-# 2. Evaluate condition safely
-overlay_idx <- tryCatch(
-  eval(OVERLAY_CONDITION, envir = fs_pdata),
-  error = function(e) {
-    warning("Invalid overlay condition: ", e$message)
-    return(logical(nrow(fs_pdata)))
-  }
-)
-# 3. Check for single sample match
-if(sum(overlay_idx) != 1) {
-  warning(paste("Overlay condition matches", sum(overlay_idx), 
-          "samples. Requires exactly 1. Skipping overlay."))
-  overlay_data <- NULL
-} else {
-  # Extract matched sample data
-  overlay_sample <- filtered_flow_set[[which(overlay_idx)]]
-  overlay_data <- data.frame(
-    `FL1-A` = exprs(overlay_sample)[, "FL1-A"],
-    check.names = FALSE
-  )
-}
 
 # Build base plot
 fl1a_plot <- ggcyto(filtered_flow_set[fs_pdata$cell_cycle_treatment != "async", ], 
