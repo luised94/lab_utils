@@ -1,3 +1,50 @@
+# Flow cytometry dont have the same column names
+000013_01-Tube-B1.fcs doesn't have the identical colnames as the other samples!
+000014_01-Tube-B2.fcs doesn't have the identical colnames as the other samples!
+000015_01-Tube-B3.fcs doesn't have the identical colnames as the other samples!
+000016_01-Tube-B4.fcs doesn't have the identical colnames as the other samples!
+000017_01-Tube-B5.fcs doesn't have the identical colnames as the other samples!
+000018_01-Tube-B6.fcs doesn't have the identical colnames as the other samples!
+000019_01-Tube-B7.fcs doesn't have the identical colnames as the other samples!
+Error in validObject(.Object) :
+  invalid class "flowSet" object: Some items identified in the data environment either have the wrong dimension or type.
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+
+Turns out that I did not adjust the acquisition settings for the wells noted in the error message above. I must have not selected the wells in CytExpert software when I imported my default acquistion file (juliet_defaults.acq I think). According to @Rosebrock2017, as long as you kept the samples at 4 °C and in the dark, you should be able to just run the samples again.
+
+```{r}
+# Simple debugging checks
+# Replace with actual paths from metadata_df or //
+# or subset the dataframe with the appropriate index // 
+# For Exp_20250602_1
+good_file_path <- metadata_df$file_paths[1]  # Non-problematic file
+bad_file_path <- metadata_df$file_paths[19] # Problematic file
+
+# Read files
+good_fcs <- read.FCS(good_file_path)
+bad_fcs <- read.FCS(bad_file_path)
+# Compare column names
+cat("Reference columns (good file):\n")
+print(colnames(good_fcs))
+
+cat("\nProblematic columns (bad file):\n")
+print(colnames(bad_fcs))
+
+# Check differences
+cat("\nColumns in good but not bad:", setdiff(colnames(good_fcs), colnames(bad_fcs)))
+cat("\nColumns in bad but not good:", setdiff(colnames(bad_fcs), colnames(good_fcs)))
+
+# Compare number of columns
+cat("\n\nNumber of columns - Good:", ncol(good_fcs), " Bad:", ncol(bad_fcs))
+
+# Compare marker names (descriptions)
+cat("\n\nMarkers in good file:", pData(parameters(good_fcs))$desc)
+cat("\nMarkers in bad file:", pData(parameters(bad_fcs))$desc)
+```
+
+## References
+1. https://chat.deepseek.com/a/chat/s/54d6d763-8a38-483e-91ef-8048fd5da6a1
+
 # %||% is non-function
 Error in guides$setup(scales, aesthetics, default = params$guide_default %||%  :
 attempt to apply non-function
