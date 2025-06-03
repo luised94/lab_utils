@@ -201,8 +201,31 @@ if (length(EXPERIMENT_CONFIG$INVALID_COMBINATIONS) > 0) {
 #    lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = metadata)
 #)
 #metadata <- subset(metadata, valid_idx)
+################################################################################
+# Metadata Formatting and Organization
+################################################################################
+# Enforce factor levels from config
+for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
+    if (col_name %in% colnames(metadata)) {
+        metadata[[col_name]] <- factor(
+            metadata[[col_name]],
+            levels = EXPERIMENT_CONFIG$CATEGORIES[[col_name]],
+            ordered = TRUE
+        )
+    }
+}
 
+# Sort metadata according to column order
+metadata <- metadata[
+    do.call(
+        order,
+        metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
+    ),
+]
+
+#--------------------
 # Verify sample count
+#--------------------
 n_samples <- nrow(metadata)
 expected <- EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
 if (n_samples != expected) {
@@ -234,28 +257,7 @@ cat(sprintf("Total samples: %d\n", nrow(metadata)))
 cat("\nDiagnostic Information:\n")
 cat("----------------------\n")
 print(table(metadata[, category_to_show]))
-
-################################################################################
-# Metadata Formatting and Organization
-################################################################################
-# Enforce factor levels from config
-for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
-    if (col_name %in% colnames(metadata)) {
-        metadata[[col_name]] <- factor(
-            metadata[[col_name]],
-            levels = EXPERIMENT_CONFIG$CATEGORIES[[col_name]],
-            ordered = TRUE
-        )
-    }
-}
-
-# Sort metadata according to column order
-metadata <- metadata[
-    do.call(
-        order,
-        metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
-    ),
-]
+cat("----------------------\n")
 
 # Generate sample names
 metadata$full_name <- apply(metadata, 1, paste, collapse = "_")
