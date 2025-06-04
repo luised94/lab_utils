@@ -339,6 +339,7 @@ fs_pdata <- pData(filtered_flow_set)
 #  rescue_allele == "4R"
 #  # Add other criteria as needed, e.g.: rescue_allele == "WT"
 #)
+message("Considering overlay condition...")
 OVERLAY_CONDITION <- NULL
 if (!is.null(OVERLAY_CONDITION)) {
   # Validate expression variables exist
@@ -372,7 +373,7 @@ if (!is.null(OVERLAY_CONDITION)) {
   }
 }
 
-message("Plotting...")
+message("Considering async samples...")
 # Check if async category exists before plotting
 # TODO: Need to adjust how to set this condition potentially. //
 # I forgot to take the async sample for one set. //
@@ -410,6 +411,7 @@ if("async" %in% fs_pdata$cell_cycle_treatment) {
 }
 
 
+message("Plotting fl1a_plot...")
 # Build base plot
 fl1a_plot <- ggcyto(filtered_flow_set[fs_pdata$cell_cycle_treatment != "async", ], 
                    aes(x = `FL1-A`)) +
@@ -422,7 +424,7 @@ fl1a_plot <- ggcyto(filtered_flow_set[fs_pdata$cell_cycle_treatment != "async", 
   )
 
 # Conditionally add overlay
-if(!is.null(overlay_data)) {
+if(exists("overlay_data")) {
   fl1a_plot <- fl1a_plot +
     geom_density(
       data = overlay_data,
@@ -459,7 +461,7 @@ fl1a_plot <- fl1a_plot +
   theme_minimal()
 
 # Add conditional annotation
-if(!is.null(overlay_data)) {
+if(exists("overlay_data")) {
   fl1a_plot <- fl1a_plot +
     annotate(
       "text",
@@ -472,132 +474,133 @@ if(!is.null(overlay_data)) {
     )
 }
 
-fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
-  geom_density(
-    aes(y = after_stat(scaled)),
-    fill = "#4292C6",
+#fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
+#  geom_density(
+#    aes(y = after_stat(scaled)),
+#    fill = "#4292C6",
+#
+#    color = "#2166AC",
+#    #color = "#08306B", # First color.
+#    alpha = 0.3,
+#    size = 0.3
+#  ) +
+#  facet_grid(timepoints ~ group, switch = "y") +
+#  geom_vline(
+#    data = timepoint_medians,
+#    aes(xintercept = median_FL1A),
+#    color = "#E64B35",
+#    linetype = "dashed",
+#    size = 0.4
+#  ) +
+#  scale_x_continuous(
+#    breaks = fl1a_global_range,
+#    labels = format(fl1a_global_range, scientific = FALSE),
+#    expand = c(0.02, 0)
+#  ) +
+#  labs(
+#    title = "FL1-A Intensity Distribution",
+#    subtitle = "By Timepoint and Experimental Condition",
+#    y = "Timepoint (minutes)",
+#    x = "FL1-A Intensity"
+#  ) +
+#  theme_minimal() +
+#  theme(
+#    # Panel customization
+#    panel.background = element_blank(),
+#    panel.grid.major = element_line(color = "grey80", size = 0.2),
+#    panel.grid.minor = element_blank(),
+#    panel.border = element_rect(color = "black", fill = NA, size = 0.8),
+#    panel.spacing = unit(0.3, "lines"),
+#
+#    strip.text.y.left = element_text(angle = 0, face = "bold"),
+#
+#    # Facet label formatting
+#    strip.background = element_blank(),
+#    strip.text.x = element_text(size = 6, angle = 0, hjust = 1, margin = margin(b = 5), face = "bold"),
+#
+#    # Axis formatting
+#    axis.title = element_text(face = "bold", size = 9),
+#    axis.text.x = element_text(size = 6, angle = 45, hjust = 1, color = "gray30"),
+#    axis.line.x = element_line(color = "gray60", size = 0.3),
+#    axis.ticks.x = element_line(color = "gray60", size = 0.3),
+#    axis.text.y = element_blank(),
+#    axis.ticks.y = element_blank(),
+#
+#    # Title formatting
+#    plot.title = element_text(face = "bold", size = 12, margin = margin(b = 5)),
+#    plot.subtitle = element_text(size = 10, color = "gray30", margin = margin(b = 10)),
+#    plot.margin = margin(t = 10, r = 15, b = 10, l = 15)
+#
+#  )
 
-    color = "#2166AC",
-    #color = "#08306B", # First color.
-    alpha = 0.3,
-    size = 0.3
-  ) +
-  facet_grid(timepoints ~ group, switch = "y") +
-  geom_vline(
-    data = timepoint_medians,
-    aes(xintercept = median_FL1A),
-    color = "#E64B35",
-    linetype = "dashed",
-    size = 0.4
-  ) +
-  scale_x_continuous(
-    breaks = fl1a_global_range,
-    labels = format(fl1a_global_range, scientific = FALSE),
-    expand = c(0.02, 0)
-  ) +
-  labs(
-    title = "FL1-A Intensity Distribution",
-    subtitle = "By Timepoint and Experimental Condition",
-    y = "Timepoint (minutes)",
-    x = "FL1-A Intensity"
-  ) +
-  theme_minimal() +
-  theme(
-    # Panel customization
-    panel.background = element_blank(),
-    panel.grid.major = element_line(color = "grey80", size = 0.2),
-    panel.grid.minor = element_blank(),
-    panel.border = element_rect(color = "black", fill = NA, size = 0.8),
-    panel.spacing = unit(0.3, "lines"),
-
-    strip.text.y.left = element_text(angle = 0, face = "bold"),
-
-    # Facet label formatting
-    strip.background = element_blank(),
-    strip.text.x = element_text(size = 6, angle = 0, hjust = 1, margin = margin(b = 5), face = "bold"),
-
-    # Axis formatting
-    axis.title = element_text(face = "bold", size = 9),
-    axis.text.x = element_text(size = 6, angle = 45, hjust = 1, color = "gray30"),
-    axis.line.x = element_line(color = "gray60", size = 0.3),
-    axis.ticks.x = element_line(color = "gray60", size = 0.3),
-    axis.text.y = element_blank(),
-    axis.ticks.y = element_blank(),
-
-    # Title formatting
-    plot.title = element_text(face = "bold", size = 12, margin = margin(b = 5)),
-    plot.subtitle = element_text(size = 10, color = "gray30", margin = margin(b = 10)),
-    plot.margin = margin(t = 10, r = 15, b = 10, l = 15)
-
-  )
-
+#message("Plotting fsca_vs_ssca_plot...")
 # Need to add the plots from the cold spring harbor paper
-fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
-  # ===== DATA VISUALIZATION =====
-  # Hexbin plot with viridis color scale
-  geom_hex(bins = 100, aes(fill = after_stat(density))) +
-  scale_fill_viridis_c(option = "plasma", name = "Density") +
-
-  # ===== FACETING =====
-  # Use facet_grid instead of facet_wrap to have timepoints appear only once per row
-  facet_grid(timepoints ~ group) +
-
-  # ===== AXIS SCALING =====
-  # Show only min and max on axes
-  scale_x_continuous(
-    limits = fsca_global_range,
-    breaks = fsca_breaks,
-    labels = format(fsca_breaks, scientific = TRUE, digits = 2),
-    expand = c(0.02, 0)
-  ) +
-  scale_y_continuous(
-    limits = ssca_global_range,
-    breaks = ssca_breaks,
-    labels = format(ssca_breaks, scientific = TRUE, digits = 2),
-    expand = c(0.02, 0)
-  ) +
-
-  # ===== LABELING =====
-  labs(
-    title = "Cell Size and Granularity Distribution",
-    subtitle = "FSC-A (cell size) vs SSC-A (cell granularity)",
-    x = "FSC-A (cell size)",
-    y = "SSC-A (granularity)"
-  ) +
-
-  # ===== THEME CUSTOMIZATION =====
-  theme_minimal() +
-  theme(
-    # Panel customization
-    panel.background = element_blank(),
-    panel.grid.major = element_line(color = "grey80", size = 0.2),
-    panel.grid.minor = element_line(color = "grey90", size = 0.1),
-    panel.border = element_rect(color = "black", fill = NA, size = 0.8),
-    panel.spacing = unit(0.3, "lines"),
-
-    # Facet label formatting - timepoints on left only
-    strip.background = element_blank(),
-    strip.text.x = element_text(size = 6, face = "bold", margin = margin(b = 5)),
-    strip.text.y.left = element_text(angle = 0, face = "bold"),
-
-    # Axis formatting
-    axis.title = element_text(face = "bold", size = 9),
-    axis.text.y = element_text(size = 6, color = "gray30"),
-    axis.text.x = element_text(size = 6, angle = 45, color = "gray30", margin = margin(t = 5)),
-    axis.line = element_line(color = "gray60", size = 0.3),
-    axis.ticks = element_line(color = "gray60", size = 0.3),
-
-    # Legend formatting
-    legend.position = "right",
-    legend.key.size = unit(0.8, "lines"),
-    legend.title = element_text(size = 8, face = "bold"),
-    legend.text = element_text(size = 7),
-
-    # Title formatting
-    plot.title = element_text(face = "bold", size = 12, margin = margin(b = 5)),
-    plot.subtitle = element_text(size = 8, color = "gray30", margin = margin(b = 10)),
-    plot.margin = margin(t = 10, r = 15, b = 10, l = 15)
-  )
+#fsca_vs_ssca_plot <- ggcyto(filtered_flow_set, aes(x = `FSC-A`, y = `SSC-A`)) +
+#  # ===== DATA VISUALIZATION =====
+#  # Hexbin plot with viridis color scale
+#  geom_hex(bins = 100, aes(fill = after_stat(density))) +
+#  scale_fill_viridis_c(option = "plasma", name = "Density") +
+#
+#  # ===== FACETING =====
+#  # Use facet_grid instead of facet_wrap to have timepoints appear only once per row
+#  facet_grid(timepoints ~ group) +
+#
+#  # ===== AXIS SCALING =====
+#  # Show only min and max on axes
+#  scale_x_continuous(
+#    limits = fsca_global_range,
+#    breaks = fsca_breaks,
+#    labels = format(fsca_breaks, scientific = TRUE, digits = 2),
+#    expand = c(0.02, 0)
+#  ) +
+#  scale_y_continuous(
+#    limits = ssca_global_range,
+#    breaks = ssca_breaks,
+#    labels = format(ssca_breaks, scientific = TRUE, digits = 2),
+#    expand = c(0.02, 0)
+#  ) +
+#
+#  # ===== LABELING =====
+#  labs(
+#    title = "Cell Size and Granularity Distribution",
+#    subtitle = "FSC-A (cell size) vs SSC-A (cell granularity)",
+#    x = "FSC-A (cell size)",
+#    y = "SSC-A (granularity)"
+#  ) +
+#
+#  # ===== THEME CUSTOMIZATION =====
+#  theme_minimal() +
+#  theme(
+#    # Panel customization
+#    panel.background = element_blank(),
+#    panel.grid.major = element_line(color = "grey80", size = 0.2),
+#    panel.grid.minor = element_line(color = "grey90", size = 0.1),
+#    panel.border = element_rect(color = "black", fill = NA, size = 0.8),
+#    panel.spacing = unit(0.3, "lines"),
+#
+#    # Facet label formatting - timepoints on left only
+#    strip.background = element_blank(),
+#    strip.text.x = element_text(size = 6, face = "bold", margin = margin(b = 5)),
+#    strip.text.y.left = element_text(angle = 0, face = "bold"),
+#
+#    # Axis formatting
+#    axis.title = element_text(face = "bold", size = 9),
+#    axis.text.y = element_text(size = 6, color = "gray30"),
+#    axis.text.x = element_text(size = 6, angle = 45, color = "gray30", margin = margin(t = 5)),
+#    axis.line = element_line(color = "gray60", size = 0.3),
+#    axis.ticks = element_line(color = "gray60", size = 0.3),
+#
+#    # Legend formatting
+#    legend.position = "right",
+#    legend.key.size = unit(0.8, "lines"),
+#    legend.title = element_text(size = 8, face = "bold"),
+#    legend.text = element_text(size = 7),
+#
+#    # Title formatting
+#    plot.title = element_text(face = "bold", size = 12, margin = margin(b = 5)),
+#    plot.subtitle = element_text(size = 8, color = "gray30", margin = margin(b = 10)),
+#    plot.margin = margin(t = 10, r = 15, b = 10, l = 15)
+#  )
 
 message("Saving plots...")
 plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
@@ -629,6 +632,6 @@ for (current_plot_name in plot_object_names) {
       dpi = 300         # Resolution
     )
 }
-message("All plots saved...")
 
+message("All plots saved...")
 message("All done...")
