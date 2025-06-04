@@ -276,7 +276,7 @@ if (length(missing_excluded_replicates) > 0) {
 
 replicate_columns <- setdiff(
   colnames(metadata_df),
-  columns_to_exclude_from_replicate_determination,
+  columns_to_exclude_from_replicate_determination
 )
 replicate_determining_data <- metadata_df[, replicate_columns, drop = FALSE]
 metadata_df$replicate_group <- do.call(
@@ -403,7 +403,7 @@ if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
 } # end if error handling for expression
 
 #--------
-# Define columns to compare by and exclude columns for grouping 
+# Define columns to compare by and exclude columns for grouping
 #--------
 # TODO: Move to configuration. //
 #target_comparison_columns <- c("rescue_allele", "suppressor_allele")
