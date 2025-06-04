@@ -257,7 +257,8 @@ debug_print(list(
 columns_to_exclude_from_replicate_determination <- c(
   "sample_type", "sample_ids",
   "bigwig_file_paths", "full_name",
-  "short_name"
+  "short_name", "experiment_id",
+  "repeats"
 )
 missing_excluded_replicates <- setdiff(
   columns_to_exclude_from_replicate_determination,
@@ -284,6 +285,21 @@ metadata_df$replicate_group <- do.call(
   args = c(replicate_determining_data, sep = "|")
 )
 unique_replicate_conditions <- unique(metadata_df$replicate_group)
+
+number_of_replicates_per_group <- unlist(lapply(unique_replicate_conditions,
+  FUN = function(replicate_condition){
+    is_replicate_condition <- metadata_df$replicate_group == replicate_condition
+    return(sum(is_replicate_condition))
+}))
+
+EXPECTED_NUMBER_OF_REPLICATES <- 2
+have_at_least_two_replicates <- number_of_replicates_per_group >= EXPECTED_NUMBER_OF_REPLICATES
+
+if(!(all(have_at_least_two_replicates))) {
+  stop("Not all of the replicate conditions have at least two replicates",
+       paste(unique_replicate_conditions[have_at_least_two_replicates], collapse = "\n")
+  )
+}
 # TODO: Add the for loop inside the initial for loop to do this. //
 # then it should process the samples into overlap or by averaging. //
 # Will need to duplicate and rename the two scripts to differentiate. //
