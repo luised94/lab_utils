@@ -280,6 +280,7 @@ replicate_columns <- setdiff(
   columns_to_exclude_from_replicate_determination
 )
 replicate_determining_data <- metadata_df[, replicate_columns, drop = FALSE]
+# TODO: Subset again with this to create the overlay or averaging. //
 metadata_df$replicate_group <- do.call(
   paste,
   args = c(replicate_determining_data, sep = "|")
