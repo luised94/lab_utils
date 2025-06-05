@@ -411,7 +411,6 @@ if(!(all(have_at_least_two_replicates))) {
 # TODO: Move to configuration. //
 #target_comparison_columns <- c("rescue_allele", "suppressor_allele")
 target_comparison_columns <- c("rescue_allele", "suppressor_allele")
-column_to_denote_replicate <- "experiment_id"
 plot_name_comparison_column_section <- paste(
   gsub("_", "", target_comparison_columns),
   collapse = "."
@@ -421,6 +420,12 @@ metadata_columns_to_exclude <- c(
   "bigwig_file_paths", "full_name",
   "short_name"
 )
+#columns_to_exclude_from_replicate_determination <- c(
+#  "sample_type", "sample_ids",
+#  "bigwig_file_paths", "full_name",
+#  "short_name", "experiment_id",
+#  "repeats"
+#)
 missing_excluded_columns <- setdiff(metadata_columns_to_exclude, colnames(metadata_df))
 missing_comparison_columns <- setdiff(target_comparison_columns, colnames(metadata_df))
 
@@ -472,6 +477,8 @@ experimental_condition_titles <- apply(
     )
   }
 )
+#metadata_df <- metadata_df[do.call(order, metadata_df[intersect(EXPERIMENT_CONFIG$COLUMN_ORDER, colnames(metadata_df))]), ]
+# Oh. Can this be removed to the configuration file as well?
 
 total_number_of_conditions <- length(unique_experimental_conditions)
 total_number_of_samples <- nrow(metadata_df)
@@ -496,32 +503,34 @@ stopifnot(
 # QUESTION: How do I do replicates with antibody and replicate. Hmmmm. //
 # May need to depend on illustrator for adjustments or do the average //
 # the presentation.
-#category_to_color_by <- "antibody"
-category_to_color_by <- "replicate_group"
+#CATEGORY_TO_COLOR_BY <- "antibody"
+CATEGORY_TO_COLOR_BY <- "replicate_group"
 stopifnot(
   "Category to color by not in column. See category_to_color_by." =
-    category_to_color_by %in% colnames(metadata_df)
+    CATEGORY_TO_COLOR_BY %in% colnames(metadata_df)
 )
-category_seed <- sum(utf8ToInt(category_to_color_by))
+category_seed <- sum(utf8ToInt(CATEGORY_TO_COLOR_BY))
 set.seed(category_seed)
 # TODO: Not the group but number of replicates
-category_values <- unique(metadata_df[, category_to_color_by])
-number_of_colors <- length(category_values)
-if (number_of_colors <= 8) {
-  category_palette <- RColorBrewer::brewer.pal(max(3, number_of_colors), "Set2")
-  category_colors <- category_palette[seq_len(number_of_colors)]
+
+#CATEGORY_VALUES <- unique(metadata_df[, CATEGORY_TO_COLOR_BY])
+#NUMBER_OF_COLORS <- length(CATEGORY_VALUES)
+MAXIMUM_NUMBER_OF_REPLICATES <- max(number_of_replicates_per_group)
+CATEGORY_VALUES <- seq_len(MAXIMUM_NUMBER_OF_REPLICATES)
+NUMBER_OF_COLORS <- MAXIMUM_NUMBER_OF_REPLICATES
+if (NUMBER_OF_COLORS <= 8) {
+  CATEGORY_PALETTE <- RColorBrewer::brewer.pal(max(3, NUMBER_OF_COLORS), "Set2")
+  CATEGORY_COLORS <- CATEGORY_PALETTE[seq_len(NUMBER_OF_COLORS)]
 } else {
-  category_colors <- rainbow(number_of_colors)
+  CATEGORY_COLORS <- rainbow(NUMBER_OF_COLORS)
 }
-names(category_colors) <- category_values
+names(CATEGORY_COLORS) <- CATEGORY_VALUES
 
 # TODO: Add the for loop inside the initial for loop to do this. //
 # then it should process the samples into overlap or by averaging. //
 # Will need to duplicate and rename the two scripts to differentiate. //
 # Breakpoint
 stop("confirm the metadata was loaded...")
-#metadata_df <- metadata_df[do.call(order, metadata_df[intersect(EXPERIMENT_CONFIG$COLUMN_ORDER, colnames(metadata_df))]), ]
-# Oh. Can this be removed to the configuration file as well?
 
 ####################
 # Plot bigwig files
@@ -534,8 +543,8 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
   message("=== For loop for group ===")
   message(sprintf(
     fmt = "  Processing group: %s / %s ",
-    condition_idx, total_number_of_conditions)
-  )
+    condition_idx, total_number_of_conditions
+  ))
   # Iteration setup ----------
   current_condition <- unique_experimental_conditions[condition_idx]
   current_condition_base_title <- experimental_condition_titles[condition_idx]
@@ -643,9 +652,9 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       # Iteration setup -----------
       current_sample_track_name <- current_condition_df$track_name[sample_idx]
       current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
-      # Could be extracted out by determining if category_to_color_by is in target_comparison_columns
-      current_color_key <- current_condition_df[sample_idx, category_to_color_by]
-      track_color <- category_colors[[current_color_key]]
+      # Could be extracted out by determining if CATEGORY_TO_COLOR_BY is in target_comparison_columns
+      #current_color_key <- current_condition_df[sample_idx, CATEGORY_TO_COLOR_BY]
+      #track_color <- CATEGORY_COLORS[[current_color_key]]
       container_length <- length(track_container)
       debug_print(list(
         "title" = "Sample iteration",
