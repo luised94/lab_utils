@@ -1,3 +1,13 @@
+# rainbow.colors does not exist
+Error in rainbow.colors(number_of_colors) :
+  could not find function "rainbow.colors"
+
+Function requires the RPMG package. The proper base function is rainbow().
+## References
+1. https://www.perplexity.ai/search/help-address-the-following-err-f7bF4A.aQyOxtQN4jkm_SQ
+
+---
+
 # Flow cytometry dont have the same column names
 000013_01-Tube-B1.fcs doesn't have the identical colnames as the other samples!
 000014_01-Tube-B2.fcs doesn't have the identical colnames as the other samples!

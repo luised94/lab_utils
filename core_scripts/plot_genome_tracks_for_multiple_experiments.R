@@ -511,7 +511,7 @@ if (number_of_colors <= 8) {
   category_palette <- RColorBrewer::brewer.pal(max(3, number_of_colors), "Set2")
   category_colors <- category_palette[seq_len(number_of_colors)]
 } else {
-  category_colors <- rainbow.colors(number_of_colors)
+  category_colors <- rainbow(number_of_colors)
 }
 names(category_colors) <- category_values
 
