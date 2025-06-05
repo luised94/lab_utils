@@ -169,21 +169,24 @@ if ( length(missing_configuration_paths) > 0 ) {
 OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
+#------------------------------
 # Three pattern variables must be defined in configuration file.
 # Config: interactive_script_configuration.R
 # They are validated at init
 #  BIGWIG_PATTERN: (for genome track files)
 #  FASTQ_PATTERN: (for sequence files)
 #  SAMPLE_ID_CAPTURE_PATTERN: (for sample ID extraction)
+#------------------------------
 
 expected_number_of_samples <- 0 # define accumulator
 REQUIRED_DIRECTORIES <- c("fastq", "coverage")
+metadata_list <- vector("list", length = number_of_experiments)
+metadata_categories_list <- vector("list", length = number_of_experiments)
+
 # For loop to load metadata
 # Loop through number of experiments, find the fastq files and bigwig files.//
 # Get sample ids from fastq, add bigwig files to loaded metadata, add dataframe //
 # to list for further processing and binding //
-metadata_list <- vector("list", length = number_of_experiments)
-metadata_categories_list <- vector("list", length = number_of_experiments)
 for (experiment_idx in seq_len(number_of_experiments)) {
   message("--- Start experiment idx ---")
   current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
@@ -197,6 +200,7 @@ for (experiment_idx in seq_len(number_of_experiments)) {
     stop("Missing required experiment subdirectories: ",
          paste(missing_dirs, collapse = ", "))
   }
+
   debug_print(list(
     "title" = "Debug Path information",
     ".Current Experiment path" = current_experiment_path,
@@ -300,6 +304,7 @@ for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
 }
 number_rows_before_subset <- nrow(metadata_df)
 message("Converted columns to factors...")
+# TODO: Move this to configuration. //
 reproducible_subset_quote_list <- "~/lab_utils/core_scripts/metadata_subset.R"
 if (!file.exists(reproducible_subset_quote_list)) {
   message("File with subset logic for reproducible samples not found...")
@@ -314,16 +319,45 @@ if (!is.null(SUBSET_REPRODUCIBLE_SAMPLES)) {
   )
   metadata_df <- subset(metadata_df, is_reproducible_sample)
 }
-message("Finished metadata processing...")
+
+number_of_rows_after_reproducibility_subset <- nrow(metadata_df)
+message("Finished metadata reproducible subsetting...")
+
+# Define any rows to exclude ----------
+# For example, remove rows that you dont want to be included in the plots
+# Prefilter the metadata_df
+# TODO: Move to configuration. //
+# QUESTION: Keeping the expression here is good to see flow but it is a configuration setting. //
+# Consider just assigning it here and keeping the other values in a list or something.//
+# that way it is clear that it comes from the configuration.
+row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
+if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
+  expr_vars <- all.vars(row_filtering_expression)
+  missing_expr_vars <- setdiff(expr_vars, colnames(metadata_df))
+  if (length(missing_expr_vars) > 0) {
+    stop("Expression refers to columns that don't exist in metadata_df: ",
+         paste(missing_expr_vars, collapse = ", "))
+  }
+  tryCatch({
+    # would need to add more conditionals if I assign to a new variable //
+    metadata_df <- metadata_df[eval(row_filtering_expression, envir = metadata_df), ]
+  }, error = function(e) {
+    stop("Error evaluating row_filtering_expression: ", e$message)
+  })
+} # end if error handling for expression
+number_of_rows_after_optional_subsetting <- nrow(metadata_df)
+message("Finished metadata additional optional subsetting...")
+
 debug_print(list(
   "title" = "Debug after metadata",
   ".Number of rows before subsetting" = number_rows_before_subset,
-  ".Number of rows after subsetting" = nrow(metadata_df)
+  ".Number of rows after subsetting" = number_of_rows_after_reproducibility_subset,
+  ".Number of rows after subsetting" = number_of_rows_after_optional_subsetting
 ))
 
 # Add the replicate group
 # TODO: Move to configuration. //
-# TODO: I think I need to add the experiment_id and repeats column from this one.
+# TODO: I think I need to add the experiment_id and repeats column from this one. //
 columns_to_exclude_from_replicate_determination <- c(
   "sample_type", "sample_ids",
   "bigwig_file_paths", "full_name",
@@ -334,7 +368,7 @@ missing_excluded_replicates <- setdiff(
   columns_to_exclude_from_replicate_determination,
   colnames(metadata_df)
 )
-# Validate excluded columns (warning only, not critical)
+# Validate excluded columns
 if (length(missing_excluded_replicates) > 0) {
   stop("Some excluded columns don't exist in metadata_df: ",
           paste(missing_excluded_replicates, collapse = ", "))
@@ -365,46 +399,11 @@ number_of_replicates_per_group <- unlist(lapply(unique_replicate_conditions,
 
 EXPECTED_NUMBER_OF_REPLICATES <- 2
 have_at_least_two_replicates <- number_of_replicates_per_group >= EXPECTED_NUMBER_OF_REPLICATES
-
 if(!(all(have_at_least_two_replicates))) {
   stop("Not all of the replicate conditions have at least two replicates",
        paste(unique_replicate_conditions[have_at_least_two_replicates], collapse = "\n")
   )
 }
-# TODO: Move to configuration. //
-# TODO: Will need to adjust this logic to the replicate group I think. //
-# Just do the same color for order of loading //
-category_to_color_by <- "antibody"
-category_seed <- sum(utf8ToInt(category_to_color_by))
-set.seed(category_seed)
-category_values <- unique(metadata_df[, category_to_color_by])
-number_of_colors <- length(category_values)
-if (number_of_colors <= 8) {
-  category_palette <- RColorBrewer::brewer.pal(max(3, number_of_colors), "Set2")
-  category_colors <- category_palette[seq_len(number_of_colors)]
-} else {
-  category_colors <- rainbow.colors(number_of_colors)
-}
-names(category_colors) <- category_values
-# Define any rows to exclude ----------
-# For example, remove rows that you dont want to be included in the plots
-# Prefilter the metadata_df
-# TODO: Move to configuration. //
-row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
-if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
-  expr_vars <- all.vars(row_filtering_expression)
-  missing_expr_vars <- setdiff(expr_vars, colnames(metadata_df))
-  if (length(missing_expr_vars) > 0) {
-    stop("Expression refers to columns that don't exist in metadata_df: ",
-         paste(missing_expr_vars, collapse = ", "))
-  }
-  tryCatch({
-    # would need to add more conditionals if I assign to a new variable //
-    metadata_df <- metadata_df[eval(row_filtering_expression, envir = metadata_df), ]
-  }, error = function(e) {
-    stop("Error evaluating row_filtering_expression: ", e$message)
-  })
-} # end if error handling for expression
 
 #--------
 # Define columns to compare by and exclude columns for grouping
@@ -490,6 +489,31 @@ stopifnot(
   "Expect same number of titles and conditions. See condition_plot_titles and unique_experimental_condtions." =
     length(experimental_condition_titles) == total_number_of_conditions
 )
+
+# TODO: Move to configuration. //
+# TODO: Will need to adjust this logic to the replicate group I think. //
+# Just do the same color for order of loading. //
+# QUESTION: How do I do replicates with antibody and replicate. Hmmmm. //
+# May need to depend on illustrator for adjustments or do the average //
+# the presentation.
+#category_to_color_by <- "antibody"
+category_to_color_by <- "replicate_group"
+stopifnot(
+  "Category to color by not in column. See category_to_color_by." =
+    category_to_color_by %in% colnames(metadata_df)
+)
+category_seed <- sum(utf8ToInt(category_to_color_by))
+set.seed(category_seed)
+# TODO: Not the group but number of replicates
+category_values <- unique(metadata_df[, category_to_color_by])
+number_of_colors <- length(category_values)
+if (number_of_colors <= 8) {
+  category_palette <- RColorBrewer::brewer.pal(max(3, number_of_colors), "Set2")
+  category_colors <- category_palette[seq_len(number_of_colors)]
+} else {
+  category_colors <- rainbow.colors(number_of_colors)
+}
+names(category_colors) <- category_values
 
 # TODO: Add the for loop inside the initial for loop to do this. //
 # then it should process the samples into overlap or by averaging. //
@@ -577,6 +601,12 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     all_track_values <- c()
     if (mode == "local") {
       message("Mode set to local...")
+      # TODO: Add the for loop here for overlay or processing into average //
+      # Need to double check that after the initial subset, I can further //
+      # subset via the replicate group. I guess I will need to keep this //
+      # per sample for loop. //
+      # COMMENT: Ah dang. The local individual plotting mode is too much. //
+      # Maybe remove that option and go with individual for now.
       # Calculate track limits for all of the tracks in the plot
       for (sample_idx in seq_len(current_number_of_samples)) {
         message("   Measuring track limits")
