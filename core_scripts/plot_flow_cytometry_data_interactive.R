@@ -199,7 +199,7 @@ library(flowCore)
 library(ggcyto)
 library(gtools)
 # Setup for processing --------
-DEPENDENT_COLUMN <- EXPERIMENT_CONFIG$FACET_FACTOR
+#DEPENDENT_COLUMN <- EXPERIMENT_CONFIG$FACET_FACTOR
 
 # Set in the configuration with CONTROL_COLUMNS variable!
 CONTROL_COLUMNS <- EXPERIMENT_CONFIG$CONTROL_COLUMNS
@@ -373,48 +373,49 @@ if (!is.null(OVERLAY_CONDITION)) {
   }
 }
 
-message("Considering async samples...")
-# Check if async category exists before plotting
-# TODO: Need to adjust how to set this condition potentially. //
-# I forgot to take the async sample for one set. //
-if("async" %in% fs_pdata$cell_cycle_treatment) {
-
-  # Filter async samples using base R for compatibility
-  async_idx <- which(fs_pdata$cell_cycle_treatment == "async")
-  async_samples <- filtered_flow_set[async_idx]
-
-  # Create plot only if async samples exist
-  if(length(async_samples) > 0) {
-    async_staining_plot <- ggcyto(async_samples, aes(x = `FL1-A`, color = staining)) +
-      geom_density(
-        aes(y = after_stat(scaled)),
-        size = 0.3,  # Use size instead of linewidth
-        alpha = 0.5
-      ) +
-      facet_grid(. ~ rescue_allele) +
-      scale_color_manual(
-        values = c("YES" = "#E64B35", "NO" = "#4DBBD5"),
-        name = "Staining Status"
-      ) +
-      labs(
-        title = "Staining Effect in Asynchronous Samples",
-        x = "FL1-A Intensity",
-        y = "Density"
-      ) +
-      theme_minimal() +
-      theme(
-        panel.border = element_rect(color = "black", fill = NA, size = 0.8),
-        strip.background = element_blank(),
-        legend.position = "bottom"
-      )
-  }
-}
+#message("Considering async samples...")
+## Check if async category exists before plotting
+## TODO: Need to adjust how to set this condition potentially. //
+## I forgot to take the async sample for one set. //
+#if("async" %in% fs_pdata$cell_cycle_treatment) {
+#
+#  # Filter async samples using base R for compatibility
+#  async_idx <- which(fs_pdata$cell_cycle_treatment == "async")
+#  async_samples <- filtered_flow_set[async_idx]
+#
+#  # Create plot only if async samples exist
+#  if(length(async_samples) > 0) {
+#    #async_staining_plot <- ggcyto(async_samples, aes(x = `FL1-A`, color = staining)) +
+#    async_staining_plot <- ggcyto(async_samples, aes(x = `FL1-A`)) +
+#      geom_density(
+#        aes(y = after_stat(scaled)),
+#        size = 0.3,  # Use size instead of linewidth
+#        alpha = 0.5
+#      ) +
+#      facet_grid(. ~ rescue_allele) +
+#      #scale_color_manual(
+#      #  values = c("YES" = "#E64B35", "NO" = "#4DBBD5"),
+#      #  name = "Staining Status"
+#      #) +
+#      labs(
+#        title = "Staining Effect in Asynchronous Samples",
+#        x = "FL1-A Intensity",
+#        y = "Density"
+#      ) +
+#      theme_minimal() +
+#      theme(
+#        panel.border = element_rect(color = "black", fill = NA, size = 0.8),
+#        strip.background = element_blank(),
+#        legend.position = "bottom"
+#      )
+#  }
+#}
 
 
 message("Plotting fl1a_plot...")
 # Build base plot
-fl1a_plot <- ggcyto(filtered_flow_set[fs_pdata$cell_cycle_treatment != "async", ], 
-                   aes(x = `FL1-A`)) +
+#fl1a_plot <- ggcyto(filtered_flow_set[fs_pdata$cell_cycle_treatment != "async", ], 
+fl1a_plot <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
   geom_density(
     aes(y = after_stat(scaled)),
     fill = "#4292C6",
@@ -435,7 +436,7 @@ if(exists("overlay_data")) {
       inherit.aes = FALSE
     ) +
     labs(subtitle = paste("With control overlay:", 
-                         identifier(overlay_sample)))
+      identifier(overlay_sample)))
 }
 
 # Add common elements
@@ -618,7 +619,7 @@ for (current_plot_name in plot_object_names) {
   )
   message("  Saving to: ", plot_output_path)
   if (file.exists(plot_output_path)) {
-    message("File already exists. Skipping")
+    warning("File already exists. Skipping")
     next
   }
   # Save the plot using ggsave. No worries about devices
