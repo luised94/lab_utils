@@ -565,17 +565,20 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       current_bigwig_file_path <- current_replicate_df$bigwig_file_paths[replicate_idx]
       current_track_name <- current_replicate_df$track_name[replicate_idx]
       replicate_track_name <- paste0(current_track_name, " ", replicate_idx)
+      replicate_container_length <- length(replicate_data_tracks)
       bigwig_data <- rtracklayer::import(
         current_bigwig_file_path,
         format = "BigWig",
         which = current_genome_range_to_load
       )
       replicate_color <- CATEGORY_COLORS[replicate_idx]
+
       debug_print(list(
         "title" = "Debug replicate processing",
         ".Current bigwig file path" = current_bigwig_file_path,
         ".Current track name" = replicate_track_name,
-        ".Current track color" = replicate_color
+        ".Current track color" = replicate_color,
+        ".Current replicate track length" = replicate_container_length
       ))
       replicate_track <- Gviz::DataTrack(
         range = bigwig_data,
@@ -584,14 +587,12 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         col = replicate_color,
         fill = NULL
         )
-    }
     # Store the track
-    replicate_data_tracks[[replicate_idx]] <- replicate_track
-  }
-  # Create overlay track combining all replicates
+    replicate_data_tracks[[length(replicate_data_tracks) + 1]] <- replicate_track
+    }
   overlay_track <- Gviz::OverlayTrack(
     trackList = replicate_data_tracks,
-    name = current_sample_track_name,
+    name = replicate_condition,
     # Styling for the overlay track
     showAxis = TRUE,
     showTitle = TRUE,
@@ -603,6 +604,8 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     fontface = 1,
     title.width = 1.0
   )
+  }
+  # Create overlay track combining all replicates
   # Add overlay track to container
   #track_container[[container_length + 1]] <- overlay_track
 }
