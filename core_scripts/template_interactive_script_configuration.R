@@ -39,6 +39,21 @@ GENOME_TRACK_Y_AXIS_SCALING <- c("individual")
 # TODO: Need to do global but not configured yet
 VALID_GENOME_TRACK_SCALING_MODES <- c("local", "individual")
 PADDING_FRACTION <- 0.1
+# TODO: Remove and rework these settings.
+target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+columns_to_exclude_from_replicate_determination <- c(
+  "sample_type", "sample_ids",
+  "bigwig_file_paths", "full_name",
+  "short_name", "experiment_id",
+  "repeats"
+)
+reproducible_subset_quote_list <- "~/lab_utils/core_scripts/metadata_subset.R"
+# TODO: Move to configuration. //
+FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
+FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
+FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
+FILE_FEATURE_PATTERN <- "eaton_peaks"
+row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
 #EXPERIMENT_DIR <-
 #LABEL_MAPPINGS <- list()
 #REQUIRED_DIRECTORIES <-

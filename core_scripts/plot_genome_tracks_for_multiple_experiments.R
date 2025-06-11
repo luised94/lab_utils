@@ -418,8 +418,12 @@ plot_name_comparison_column_section <- paste(
 metadata_columns_to_exclude <- c(
   "sample_type", "sample_ids",
   "bigwig_file_paths", "full_name",
+<<<<<<< Updated upstream
   "short_name", "experiment_id",
   "repeats", "replicate_group"
+=======
+  "short_name", "replicate_group"
+>>>>>>> Stashed changes
 )
 #columns_to_exclude_from_replicate_determination <- c(
 #  "sample_type", "sample_ids",
@@ -558,11 +562,15 @@ stop("confirm the metadata was loaded...")
 ####################
 
 for (condition_idx in seq_len(total_number_of_conditions)) {
+  # Iteration setup ----------
+  current_condition <- unique_experimental_conditions[condition_idx]
+  current_condition_base_title <- experimental_condition_titles[condition_idx]
+  is_condition_row <- metadata_df$experimental_condition_id == current_condition
+  current_condition_df <- metadata_df[is_condition_row, ]
+  current_number_of_samples <- nrow(current_condition_df)
+}
+for (condition_idx in seq_len(total_number_of_conditions)) {
   message("=== For loop for group ===")
-  message(sprintf(
-    fmt = "  Processing group: %s / %s ",
-    condition_idx, total_number_of_conditions
-  ))
   # Iteration setup ----------
   current_condition <- unique_experimental_conditions[condition_idx]
   current_condition_base_title <- experimental_condition_titles[condition_idx]
@@ -570,8 +578,13 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
   current_condition_df <- metadata_df[is_condition_row, ]
   current_number_of_samples <- nrow(current_condition_df)
   # Move to each or inside the most nested
+  #message(sprintf(
+  #  fmt = "  Processing group: %s / %s ",
+  #  condition_idx, total_number_of_conditions
+  #))
   debug_print(list(
     "title" = "Debug group plotting",
+    ".Processing group" = condition_idx,
     ".Number of rows" = current_number_of_samples,
     ".Number of original rows" = total_number_of_samples,
     ".Current condition" = current_condition,
@@ -660,6 +673,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       message("Mode set to individual...")
       y_limits <- NULL
     }
+    for ()
     for (sample_idx in seq_len(current_number_of_samples)) {
       # add for loop here I think were we go through the two replicates
       message("    --- For loop for sample ---")
