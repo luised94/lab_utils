@@ -418,12 +418,8 @@ plot_name_comparison_column_section <- paste(
 metadata_columns_to_exclude <- c(
   "sample_type", "sample_ids",
   "bigwig_file_paths", "full_name",
-<<<<<<< Updated upstream
   "short_name", "experiment_id",
   "repeats", "replicate_group"
-=======
-  "short_name", "replicate_group"
->>>>>>> Stashed changes
 )
 #columns_to_exclude_from_replicate_determination <- c(
 #  "sample_type", "sample_ids",
@@ -549,6 +545,29 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     ".Current condition" = current_condition,
     ".Current title" = gsub("\n", ".newline.", current_condition_base_title)
   ))
+  # TODO: (LOW) Convert to for loop for chromosomes.
+  current_chromosome <- CHROMOSOMES_IN_ROMAN[1]
+  chromosome_title_section <- paste0("Chromosome: ", current_chromosome)
+  current_genome_range_to_load <- GENOME_RANGE_TO_LOAD[1]
+  unique_replicate_conditions <- unique(current_condition_df$replicate_group)
+  for (replicate_condition in unique_replicate_conditions){
+    is_replicate_condition <- current_condition_df$replicate_group == replicate_condition
+    current_replicate_df <- current_condition_df[is_replicate_condition,]
+    current_number_of_replicates <- nrow(current_replicate_df)
+    debug_print(list(
+      "title" = "Debug replicate processing",
+      ".Number of rows" = nrow(current_replicate_df),
+      ".Current replicate" = replicate_condition
+    ))
+    for (replicate_idx in seq_len(current_number_of_replicates)){
+      current_bigwig_file_path <- current_replicate_df$bigwig_file_paths[replicate_idx]
+      bigwig_data <- rtracklayer::import(
+        current_bigwig_file_path,
+        format = "BigWig",
+        which = current_genome_range_to_load
+      )
+    }
+  }
 }
 
 # Breakpoint
@@ -673,7 +692,6 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       message("Mode set to individual...")
       y_limits <- NULL
     }
-    for ()
     for (sample_idx in seq_len(current_number_of_samples)) {
       # add for loop here I think were we go through the two replicates
       message("    --- For loop for sample ---")
