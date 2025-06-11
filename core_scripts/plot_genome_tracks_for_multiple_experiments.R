@@ -418,7 +418,8 @@ plot_name_comparison_column_section <- paste(
 metadata_columns_to_exclude <- c(
   "sample_type", "sample_ids",
   "bigwig_file_paths", "full_name",
-  "short_name"
+  "short_name", "experiment_id",
+  "repeats", "replicate_group"
 )
 #columns_to_exclude_from_replicate_determination <- c(
 #  "sample_type", "sample_ids",
@@ -529,6 +530,23 @@ names(CATEGORY_COLORS) <- CATEGORY_VALUES
 # TODO: Add the for loop inside the initial for loop to do this. //
 # then it should process the samples into overlap or by averaging. //
 # Will need to duplicate and rename the two scripts to differentiate. //
+for (condition_idx in seq_len(total_number_of_conditions)) {
+  # Iteration setup ----------
+  current_condition <- unique_experimental_conditions[condition_idx]
+  current_condition_base_title <- experimental_condition_titles[condition_idx]
+  is_condition_row <- metadata_df$experimental_condition_id == current_condition
+  current_condition_df <- metadata_df[is_condition_row, ]
+  current_number_of_samples <- nrow(current_condition_df)
+  # Move to each or inside the most nested
+  debug_print(list(
+    "title" = "Debug group plotting",
+    ".Number of rows" = current_number_of_samples,
+    ".Number of original rows" = total_number_of_samples,
+    ".Current condition" = current_condition,
+    ".Current title" = gsub("\n", ".newline.", current_condition_base_title)
+  ))
+}
+
 # Breakpoint
 stop("confirm the metadata was loaded...")
 
