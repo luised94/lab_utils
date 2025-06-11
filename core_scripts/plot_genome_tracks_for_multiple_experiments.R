@@ -550,24 +550,61 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
   chromosome_title_section <- paste0("Chromosome: ", current_chromosome)
   current_genome_range_to_load <- GENOME_RANGE_TO_LOAD[1]
   unique_replicate_conditions <- unique(current_condition_df$replicate_group)
+  track_container <- list()
   for (replicate_condition in unique_replicate_conditions){
     is_replicate_condition <- current_condition_df$replicate_group == replicate_condition
     current_replicate_df <- current_condition_df[is_replicate_condition,]
     current_number_of_replicates <- nrow(current_replicate_df)
+    replicate_data_tracks <- list()
     debug_print(list(
-      "title" = "Debug replicate processing",
+      "title" = "Debug replicate condition processing",
       ".Number of rows" = nrow(current_replicate_df),
       ".Current replicate" = replicate_condition
     ))
     for (replicate_idx in seq_len(current_number_of_replicates)){
       current_bigwig_file_path <- current_replicate_df$bigwig_file_paths[replicate_idx]
+      current_track_name <- current_replicate_df$track_name[replicate_idx]
+      replicate_track_name <- paste0(current_track_name, " ", replicate_idx)
       bigwig_data <- rtracklayer::import(
         current_bigwig_file_path,
         format = "BigWig",
         which = current_genome_range_to_load
       )
+      replicate_color <- CATEGORY_COLORS[replicate_idx]
+      debug_print(list(
+        "title" = "Debug replicate processing",
+        ".Current bigwig file path" = current_bigwig_file_path,
+        ".Current track name" = replicate_track_name,
+        ".Current track color" = replicate_color
+      ))
+      replicate_track <- Gviz::DataTrack(
+        range = bigwig_data,
+        name = replicate_track_name,
+        type = "h",
+        col = replicate_color,
+        fill = NULL
+        )
     }
+    # Store the track
+    replicate_data_tracks[[replicate_idx]] <- replicate_track
   }
+  # Create overlay track combining all replicates
+  overlay_track <- Gviz::OverlayTrack(
+    trackList = replicate_data_tracks,
+    name = current_sample_track_name,
+    # Styling for the overlay track
+    showAxis = TRUE,
+    showTitle = TRUE,
+    size = 1.2,
+    background.title = "white",
+    fontcolor.title = "black",
+    col.border.title = "#e0e0e0",
+    cex.title = 0.7,
+    fontface = 1,
+    title.width = 1.0
+  )
+  # Add overlay track to container
+  #track_container[[container_length + 1]] <- overlay_track
 }
 
 # Breakpoint
