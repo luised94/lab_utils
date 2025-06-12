@@ -141,16 +141,16 @@ message("Genome reference and feature set...")
 number_of_experiments <- length(EXPERIMENT_DIR)
 config_paths <- vector("character", length = number_of_experiments)
 metadata_paths <- vector("character", length = number_of_experiments)
-for (experiment_idx in seq_len(number_of_experiments)) {
-  current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
-  current_experiment_id <- EXPERIMENT_IDS[experiment_idx]
+for (experiment_index in seq_len(number_of_experiments)) {
+  current_experiment_path <- EXPERIMENT_DIR[experiment_index]
+  current_experiment_id <- EXPERIMENT_IDS[experiment_index]
 
-  config_paths[experiment_idx] <- file.path(
+  config_paths[experiment_index] <- file.path(
     current_experiment_path, "documentation",
     paste0(current_experiment_id, "_bmc_config.R")
   )
 
-  metadata_paths[experiment_idx] <- file.path(
+  metadata_paths[experiment_index] <- file.path(
     current_experiment_path, "documentation",
     paste0(current_experiment_id, "_sample_grid.csv")
   )
@@ -187,11 +187,11 @@ metadata_categories_list <- vector("list", length = number_of_experiments)
 # Loop through number of experiments, find the fastq files and bigwig files.//
 # Get sample ids from fastq, add bigwig files to loaded metadata, add dataframe //
 # to list for further processing and binding //
-for (experiment_idx in seq_len(number_of_experiments)) {
+for (experiment_index in seq_len(number_of_experiments)) {
   message("--- Start experiment idx ---")
-  current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
-  current_config_path <- config_paths[experiment_idx]
-  current_metadata_path <- metadata_paths[experiment_idx]
+  current_experiment_path <- EXPERIMENT_DIR[experiment_index]
+  current_config_path <- config_paths[experiment_index]
+  current_metadata_path <- metadata_paths[experiment_index]
   # Build all required directory paths for this experiment
   required_data_paths <- file.path(current_experiment_path, REQUIRED_DIRECTORIES)
   names(required_data_paths) <- REQUIRED_DIRECTORIES
@@ -249,7 +249,7 @@ for (experiment_idx in seq_len(number_of_experiments)) {
   )
 
   expected_number_of_samples <- expected_number_of_samples + EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
-  metadata_categories_list[[experiment_idx]] <- EXPERIMENT_CONFIG$CATEGORIES
+  metadata_categories_list[[experiment_index]] <- EXPERIMENT_CONFIG$CATEGORIES
   current_metadata_df$bigwig_file_paths <- bigwig_files
   current_metadata_df$sample_ids <- sample_ids
 
@@ -262,7 +262,7 @@ for (experiment_idx in seq_len(number_of_experiments)) {
   ))
 
   # Add determination of sample ids and addition to metadata frame
-  metadata_list[[experiment_idx]] <- current_metadata_df
+  metadata_list[[experiment_index]] <- current_metadata_df
   message("--- End iteration ---")
   message("\n")
 } # end For loop to load metadata
@@ -530,14 +530,14 @@ names(CATEGORY_COLORS) <- CATEGORY_VALUES
 # TODO: Add the for loop inside the initial for loop to do this. //
 # then it should process the samples into overlap or by averaging. //
 # Will need to duplicate and rename the two scripts to differentiate. //
-for (condition_idx in seq_len(total_number_of_conditions)) {
+for (condition_index in seq_len(total_number_of_conditions)) {
   # Iteration setup ----------
-  current_condition <- unique_experimental_conditions[condition_idx]
-  current_condition_base_title <- experimental_condition_titles[condition_idx]
+  current_condition <- unique_experimental_conditions[condition_index]
+  current_condition_base_title <- experimental_condition_titles[condition_index]
   is_condition_row <- metadata_df$experimental_condition_id == current_condition
   current_condition_df <- metadata_df[is_condition_row, ]
   current_number_of_samples <- nrow(current_condition_df)
-  # Move to each or inside the most nested
+
   debug_print(list(
     "title" = "Debug group plotting",
     ".Number of rows" = current_number_of_samples,
@@ -545,33 +545,38 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     ".Current condition" = current_condition,
     ".Current title" = gsub("\n", ".newline.", current_condition_base_title)
   ))
+
   # TODO: (LOW) Convert to for loop for chromosomes.
   current_chromosome <- CHROMOSOMES_IN_ROMAN[1]
   chromosome_title_section <- paste0("Chromosome: ", current_chromosome)
   current_genome_range_to_load <- GENOME_RANGE_TO_LOAD[1]
   unique_replicate_conditions <- unique(current_condition_df$replicate_group)
   track_container <- list()
-  for (replicate_condition in unique_replicate_conditions){
+  for (replicate_condition in unique_replicate_conditions) {
+
     is_replicate_condition <- current_condition_df$replicate_group == replicate_condition
     current_replicate_df <- current_condition_df[is_replicate_condition,]
     current_number_of_replicates <- nrow(current_replicate_df)
     replicate_data_tracks <- list()
+
     debug_print(list(
       "title" = "Debug replicate condition processing",
       ".Number of rows" = nrow(current_replicate_df),
       ".Current replicate" = replicate_condition
     ))
-    for (replicate_idx in seq_len(current_number_of_replicates)){
-      current_bigwig_file_path <- current_replicate_df$bigwig_file_paths[replicate_idx]
-      current_track_name <- current_replicate_df$track_name[replicate_idx]
-      replicate_track_name <- paste0(current_track_name, " ", replicate_idx)
+
+    for (replicate_index in seq_len(current_number_of_replicates)){
+      current_bigwig_file_path <- current_replicate_df$bigwig_file_paths[replicate_index]
+      current_track_name <- current_replicate_df$track_name[replicate_index]
+      replicate_track_name <- paste0(current_track_name, " ", replicate_index)
       replicate_container_length <- length(replicate_data_tracks)
+      replicate_color <- CATEGORY_COLORS[replicate_index]
+
       bigwig_data <- rtracklayer::import(
         current_bigwig_file_path,
         format = "BigWig",
         which = current_genome_range_to_load
       )
-      replicate_color <- CATEGORY_COLORS[replicate_idx]
 
       debug_print(list(
         "title" = "Debug replicate processing",
@@ -580,6 +585,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         ".Current track color" = replicate_color,
         ".Current replicate track length" = replicate_container_length
       ))
+
       replicate_track <- Gviz::DataTrack(
         range = bigwig_data,
         name = replicate_track_name,
@@ -587,9 +593,10 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         col = replicate_color,
         fill = NULL
         )
-    # Store the track
-    replicate_data_tracks[[length(replicate_data_tracks) + 1]] <- replicate_track
-    }
+      # Store the track
+      replicate_data_tracks[[length(replicate_data_tracks) + 1]] <- replicate_track
+    } # end replicate sample for loop
+
   overlay_track <- Gviz::OverlayTrack(
     trackList = replicate_data_tracks,
     name = replicate_condition,
@@ -604,10 +611,68 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     fontface = 1,
     title.width = 1.0
   )
-  }
   # Create overlay track combining all replicates
   # Add overlay track to container
-  #track_container[[container_length + 1]] <- overlay_track
+  track_container[[length(track_container) + 1]] <- overlay_track
+  } # end replicate condition for loop
+
+  #if (exists("GENOME_FEATURES")) {
+  #  current_genome_feature <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, current_chromosome, pruning.mode = "coarse")
+  #  track_container[[length(track_container) + 1]] <- Gviz::AnnotationTrack(
+  #  current_genome_feature,
+  #    name = "Features",
+  #    size = 0.5,
+  #    background.title = "lightgray",
+  #    fontcolor.title = "black",
+  #    showAxis = FALSE,
+  #    background.panel = "#f5f5f5",
+  #    cex.title = 0.6,
+  #    fill = "#8b4513",
+  #    col = "#8b4513"
+  #  )
+  #}
+
+  #debug_print(list(
+  #  "title" = "Debug chromosome",
+  #  ".Current chromosome" = current_chromosome,
+  #  ".Plot output file path" = plot_output_file_path,
+  #  ". Current track length" = length(track_container),
+  #  ". Track limits" = paste(y_limits, collapse = ",")
+  #))
+
+  #do.call(
+  #  what = switch(OUTPUT_FORMAT,
+  #    pdf = pdf,
+  #    svg = svglite::svglite,
+  #    png = png
+  #    ),
+  #  args = switch(OUTPUT_FORMAT,
+  #    pdf = list(file = plot_output_file_path, width = 10, height = 8,
+  #               bg = "white", compress = TRUE, colormodel = "srgb", useDingbats = FALSE),
+  #    svg = list(filename = plot_output_file_path, width = 10, height = 8,
+  #               bg = "white"),
+  #    png = list(filename = plot_output_file_path, width = 10, height = 8,
+  #               units = "in", res = 600, bg = "white")
+  #    )
+  #)
+  #Gviz::plotTracks(
+  #    trackList = track_container,
+  #    chromosome = current_chromosome,
+  #    from = current_genome_range_to_load@ranges@start,
+  #    to = current_genome_range_to_load@ranges@width,
+  #    ylim = y_limits,
+  #    margin = 15,
+  #    innerMargin = 5,
+  #    spacing = 10,
+  #    main = current_condition_title,
+  #    col.axis = "black",
+  #    cex.axis = 0.8,
+  #    cex.main = 0.7,
+  #    fontface.main = 1,
+  #    background.panel = "transparent"
+  #)
+  #dev.off()
+
 }
 
 # Breakpoint
@@ -620,30 +685,30 @@ stop("confirm the metadata was loaded...")
 #    plot the tracks for multiple chromosomes
 ####################
 
-for (condition_idx in seq_len(total_number_of_conditions)) {
+for (condition_index in seq_len(total_number_of_conditions)) {
   # Iteration setup ----------
-  current_condition <- unique_experimental_conditions[condition_idx]
-  current_condition_base_title <- experimental_condition_titles[condition_idx]
+  current_condition <- unique_experimental_conditions[condition_index]
+  current_condition_base_title <- experimental_condition_titles[condition_index]
   is_condition_row <- metadata_df$experimental_condition_id == current_condition
   current_condition_df <- metadata_df[is_condition_row, ]
   current_number_of_samples <- nrow(current_condition_df)
 }
-for (condition_idx in seq_len(total_number_of_conditions)) {
+for (condition_index in seq_len(total_number_of_conditions)) {
   message("=== For loop for group ===")
   # Iteration setup ----------
-  current_condition <- unique_experimental_conditions[condition_idx]
-  current_condition_base_title <- experimental_condition_titles[condition_idx]
+  current_condition <- unique_experimental_conditions[condition_index]
+  current_condition_base_title <- experimental_condition_titles[condition_index]
   is_condition_row <- metadata_df$experimental_condition_id == current_condition
   current_condition_df <- metadata_df[is_condition_row, ]
   current_number_of_samples <- nrow(current_condition_df)
   # Move to each or inside the most nested
   #message(sprintf(
   #  fmt = "  Processing group: %s / %s ",
-  #  condition_idx, total_number_of_conditions
+  #  condition_index, total_number_of_conditions
   #))
   debug_print(list(
     "title" = "Debug group plotting",
-    ".Processing group" = condition_idx,
+    ".Processing group" = condition_index,
     ".Number of rows" = current_number_of_samples,
     ".Number of original rows" = total_number_of_samples,
     ".Current condition" = current_condition,
@@ -658,16 +723,16 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     next
   }
 
-  for (chromosome_idx in seq_len(total_number_of_chromosomes)) {
+  for (chromosome_index in seq_len(total_number_of_chromosomes)) {
     message("  --- For loop for chromosome ---")
     message(sprintf(
       fmt = "    Processing chromosome: %s / %s ",
-      chromosome_idx, total_number_of_chromosomes
+      chromosome_index, total_number_of_chromosomes
     ))
     # Iteration setup -----------
-    current_chromosome <- CHROMOSOMES_IN_ROMAN[chromosome_idx]
+    current_chromosome <- CHROMOSOMES_IN_ROMAN[chromosome_index]
     chromosome_title_section <- paste0("Chromosome: ", current_chromosome)
-    current_genome_range_to_load <- GENOME_RANGE_TO_LOAD[chromosome_idx]
+    current_genome_range_to_load <- GENOME_RANGE_TO_LOAD[chromosome_index]
     current_condition_title <- paste(
       current_condition_base_title,
       chromosome_title_section,
@@ -707,9 +772,9 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       # COMMENT: Ah dang. The local individual plotting mode is too much. //
       # Maybe remove that option and go with individual for now.
       # Calculate track limits for all of the tracks in the plot
-      for (sample_idx in seq_len(current_number_of_samples)) {
+      for (sample_index in seq_len(current_number_of_samples)) {
         message("   Measuring track limits")
-        current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
+        current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_index]
         bigwig_data <- rtracklayer::import(
           current_bigwig_file_path,
           format = "BigWig",
@@ -732,18 +797,18 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       message("Mode set to individual...")
       y_limits <- NULL
     }
-    for (sample_idx in seq_len(current_number_of_samples)) {
+    for (sample_index in seq_len(current_number_of_samples)) {
       # add for loop here I think were we go through the two replicates
       message("    --- For loop for sample ---")
       message(sprintf(
         fmt = "      Processing row: %s / %s ",
-        sample_idx, current_number_of_samples
+        sample_index, current_number_of_samples
       ))
       # Iteration setup -----------
-      current_sample_track_name <- current_condition_df$track_name[sample_idx]
-      current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
+      current_sample_track_name <- current_condition_df$track_name[sample_index]
+      current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_index]
       # Could be extracted out by determining if CATEGORY_TO_COLOR_BY is in target_comparison_columns
-      #current_color_key <- current_condition_df[sample_idx, CATEGORY_TO_COLOR_BY]
+      #current_color_key <- current_condition_df[sample_index, CATEGORY_TO_COLOR_BY]
       #track_color <- CATEGORY_COLORS[[current_color_key]]
       container_length <- length(track_container)
       debug_print(list(
@@ -801,6 +866,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         col = "#8b4513"
       )
     }
+
     debug_print(list(
       "title" = "Debug chromosome",
       ".Current chromosome" = current_chromosome,
@@ -848,7 +914,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
   message("  --- end chromosome iteration ---")
 
 } # end chromosome for loop
-  message("  Ended condition iteration ", condition_idx)
+  message("  Ended condition iteration ", condition_index)
   message("=== end condition iteration ===")
   message("\n")
 } # end condition for loop
