@@ -526,6 +526,14 @@ if (NUMBER_OF_COLORS <= 8) {
   CATEGORY_COLORS <- rainbow(NUMBER_OF_COLORS)
 }
 names(CATEGORY_COLORS) <- CATEGORY_VALUES
+# TODO: Send to configuration //
+# Example: Setting transparency at 50%
+desired_alpha <- 0.5
+
+transparent_colors <- grDevices::adjustcolor(
+  col = CATEGORY_COLORS,
+  alpha.f = desired_alpha
+)
 
 # TODO: Add the for loop inside the initial for loop to do this. //
 # then it should process the samples into overlap or by averaging. //
