@@ -202,7 +202,15 @@ library(gtools)
 #DEPENDENT_COLUMN <- EXPERIMENT_CONFIG$FACET_FACTOR
 
 # Set in the configuration with CONTROL_COLUMNS variable!
-CONTROL_COLUMNS <- EXPERIMENT_CONFIG$CONTROL_COLUMNS
+if (!is.null(EXPERIMENT_CONFIG$CONTROL_COLUMNS)) {
+  CONTROL_COLUMNS <- EXPERIMENT_CONFIG$CONTROL_COLUMNS
+} else {
+  CONTROL_COLUMNS <- setdiff(
+    names(EXPERIMENT_CONFIG$CATEGORIES),
+    "timepoints"
+    #EXPERIMENT_CONFIG$FACET_FACTOR
+  )
+}
 
 CHANNELS_TO_PLOT <- c("FL1-A", "FSC-A", "SSC-A")
 
@@ -610,7 +618,7 @@ for (current_plot_name in plot_object_names) {
   message(sprintf("  Plotting: %s", current_plot_name))
   current_plot_object <- get(current_plot_name, envir = .GlobalEnv)
   if (!inherits(current_plot_object, "ggplot")) {
-    warning("Skipping ", current_plot_name, " - not a ggplot object")
+    message("Skipping ", current_plot_name, " - not a ggplot object")
     next
   }
   plot_output_path <- file.path(
@@ -619,7 +627,7 @@ for (current_plot_name in plot_object_names) {
   )
   message("  Saving to: ", plot_output_path)
   if (file.exists(plot_output_path)) {
-    warning("File already exists. Skipping")
+    message("File already exists. Skipping")
     next
   }
   # Save the plot using ggsave. No worries about devices

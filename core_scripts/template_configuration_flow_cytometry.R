@@ -36,6 +36,7 @@ EXPERIMENT_CONFIG <- list(
 
 )
 
+
 #########
 # Troubleshooting flags: Control what is displayed during setup_flow_cytometry_experiment.R
 # Distinct from debug configuration. 
@@ -90,7 +91,8 @@ experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
 expected_format_for_experiment_id <- "Exp_\\d{8}_\\d{1,6}"
 stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),
-    "Invalid experiment ID format. Expected: Exp_YYYMMDD_[0-9]{6}" = grepl(expected_format_for_experiment_id, experiment_id)
+    "Invalid experiment ID format. Expected: Exp_YYYMMDD_[0-9]{6}" =
+      grepl(expected_format_for_experiment_id, experiment_id)
 )
 source("~/lab_utils/core_scripts/functions_for_bmc_config_validation.R")
 
@@ -100,8 +102,10 @@ validation_verbose <- FALSE
 # Validate configuration structure
 if (validation_verbose) cat("\nValidating EXPERIMENT_CONFIG structure...\n")
 
-required_sections <- c("METADATA", "CATEGORIES", "INVALID_COMBINATIONS",
-                       "COLUMN_ORDER")
+required_sections <- c(
+  "METADATA", "CATEGORIES", "INVALID_COMBINATIONS",
+  "COLUMN_ORDER", "FACET_FACTOR", "CONTROL_COLUMNS"
+)
 
 missing_sections <- setdiff(required_sections, names(EXPERIMENT_CONFIG))
 if (length(missing_sections) > 0) {
