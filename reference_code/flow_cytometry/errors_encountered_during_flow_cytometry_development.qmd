@@ -1,3 +1,9 @@
+## Dimension error while creating group variable
+Error in apply(pData(filtered_flow_set)[, CONTROL_COLUMNS], 1, paste,  
+    dim(X) must have a positive length
+
+Just forgot to update the configuration file for the experiment after updating the control columns.
+
 ## PDF corrupted when running script
 When I sourced the script from the R repl, the pdf would be corrupted but no error was there.
 First, I am unsure if using tryCatch around the code would have been enough. The script did not show any errors but there were was no message for device closure in the console either.
