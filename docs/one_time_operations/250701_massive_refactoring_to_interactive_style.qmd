@@ -1,0 +1,12 @@
+---
+title: Refactoring scripts to interactive form
+date: 2025-07-01
+author: Luis E. Martinez Rodriguez
+---
+
+# Overview
+
+I initially designed my R scripts to be usable from the cli. It works ok but having to run the commands each time and remembering the exact flags, while not catastrophic, was getting very annoying, especially while getting them up and running.
+Furthermore, I am also trying to use nvim and other standard tools to see if I can refactor this repository effectively.
+
+## Goals
