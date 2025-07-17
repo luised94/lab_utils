@@ -44,7 +44,7 @@ is_template <- args$is_template
 file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
 file_identifier <- if (is_template) "template" else args$experiment_id
 
-config_path <- file.path(file_directory, paste0(file_identifier, "_bmc_config.R"))
+config_path <- file.path(file_directory, paste0(file_identifier, "_configuration_bmc.R"))
 metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
 message("Arguments parsed...")
 

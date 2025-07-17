@@ -105,10 +105,42 @@ Finished editing the headers and updated wsl to version 2.
 
 #### Session 2
 Update to wsl version 2 went ok.
+Move the deprecated generate*genome* files.
 
+Now I wanted to rename all instances of bmc_config.R to configuration_bmc.R. Use quickfixlist and cdo.
+```vim
+" commands
+vimgrep /bmc_config/j core_scripts/**/*.R
+cdo %s//configuration_bmc/gc "With confirmation
+" normal mode
+wa " To save
+```
+I know that my old configurations are not correct. So I need to fix that now. I am pretty sure I need to use find, mv and sed. I need to run on the cluster as well.
+```bash
+mapfile -t files_to_rename < <(find "$HOME/data/" -type f -name "*bmc_config*")
+for file in ${files_to_rename[@]}; do
+  echo "Processing $file"
+  sed -i 's/bmc_config/configuration_bmc/g' "$file"
+  # Rename file
+  new_file="${file//bmc_config/configuration_bmc}"
+    mv "$file" "$new_file"
+  echo "Renamed to: $new_file"
+done
+```
+Another approach
+```bash
+find "$HOME/data/" -type f -name "*bmc_config*" -exec sed -i 's/bmc_config/configuration_bmc/g' {} \;
+# This may not work with bash 4.2, not super sure.
+find "$HOME/data/" -type f -name "*bmc_config*" -exec bash -c 'mv "$0" "${0/bmc_config/configuration_bmc}"' {} \;
+```
+I think that is basically it for this portion. Now I have to replace the sections of the cli blocks with the interactive blocks, consolidate and adjust some of the parameter names.
 
 ## References
 - Trying vimgrep to see all of the variables
   > https://www.kimi.com/chat/d1s4enumu6s6tajifb6g
   > https://claude.ai/chat/09ea1d44-e2f4-4c44-931a-2c7713210475
   > https://www.perplexity.ai/search/i-want-to-use-vimgrep-to-find-W6kfEaFkTX2gzFVrCbm1gA
+- Fixing the headers, renaming some files
+  > https://www.perplexity.ai/search/i-have-this-header-in-my-r-scr-EKhWFp.4Q9qLZmDJBYmpYg
+  > https://claude.ai/chat/9ddfa8fc-473d-45a4-a909-231a24c4c2c5
+  > https://www.kimi.com/chat/d1s762cn907771oagnr0

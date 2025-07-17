@@ -30,7 +30,7 @@ for (function_filename in function_filenames) {
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 check_required_packages(required_packages, verbose = TRUE, skip_validation = FALSE)
 
-config_path <- "~/lab_utils/core_scripts/template_bmc_config.R"
+config_path <- "~/lab_utils/core_scripts/template_configuration_bmc.R"
 
 ################################################################################
 # Load and Validate Experiment Configuration and Dependencies

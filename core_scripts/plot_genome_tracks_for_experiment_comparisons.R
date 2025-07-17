@@ -3,7 +3,7 @@
 # Plot bigwig files based EXPERIMENT_COMPARISONS configuration parameter
 # Author: Luis | Date: 2025-05-02 | Version: 2.0.0
 ################################################################################
-# PURPOSE: Plot specific comparisons based on quote expressions based on bmc_config.R of the experiment.
+# PURPOSE: Plot specific comparisons based on quote expressions based on configuration_bmc.R of the experiment.
 #
 # USAGE:
 #   ./core_scripts/plot_genome_tracks_for_experiment_comparisons.R --experiment-id=<experiment-id>
@@ -42,7 +42,7 @@ is_template <- args$is_template
 file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
 file_identifier <- if (is_template) "template" else args$experiment_id
 
-config_path <- file.path(file_directory, paste0(file_identifier, "_bmc_config.R"))
+config_path <- file.path(file_directory, paste0(file_identifier, "_configuration_bmc.R"))
 metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
 
 args_info <- list(
@@ -468,7 +468,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
 # Determine which comparisons to process
 comparisons_to_process <- if (RUNTIME_CONFIG$process_single_comparison) {
     if (!RUNTIME_CONFIG$process_comparison %in% names(EXPERIMENT_CONFIG$COMPARISONS)) {
-        cat(sprintf("Verify process_comparison in RUNTIME_CONFIG of bmc_config.R file for %s or verify override_configuration.R", experiment_id))
+        cat(sprintf("Verify process_comparison in RUNTIME_CONFIG of configuration_bmc.R file for %s or verify override_configuration.R", experiment_id))
         stop("Debug comparison not found in EXPERIMENT_CONFIG$COMPARISONS")
     }
     RUNTIME_CONFIG$process_comparison

@@ -94,7 +94,7 @@ stopifnot(
     "Invalid experiment ID format. Expected: Exp_YYYMMDD_[0-9]{6}" =
       grepl(expected_format_for_experiment_id, experiment_id)
 )
-source("~/lab_utils/core_scripts/functions_for_bmc_config_validation.R")
+source("~/lab_utils/core_scripts/functions_for_configuration_bmc_validation.R")
 
 # !! Update if you want thourough messages during validation.
 validation_verbose <- FALSE

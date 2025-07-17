@@ -7,10 +7,10 @@
 #   Creates standardized directory structure and metadata files for BMC ChIP-seq experiments
 #
 # USAGE:
-#   Update bmc_config.R file.
+#   Update configuration_bmc.R file.
 #   $./setup_bmc_experiment.R --experiment-id=<experiment-id> --accept-configuration
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: ~/lab_utils/core_scripts/configuration_bmc.R
 #
 # OUTPUTS:
 # - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
@@ -54,8 +54,8 @@ stopifnot(
 # Load and Validate Experiment Configuration
 ################################################################################
 # !! Update the path and the file accordingly.
-# bmc_config.R is ignored in the git repository as this file is changed to add new experiments.
-config_path <- "~/lab_utils/core_scripts/bmc_config.R"
+# configuration_bmc.R is ignored in the git repository as this file is changed to add new experiments.
+config_path <- "~/lab_utils/core_scripts/configuration_bmc.R"
 # Define required dependencies
 required_modules <- list(
     list(
@@ -65,7 +65,7 @@ required_modules <- list(
     )
 )
 
-bmc_configuration_definition_path <- required_modules[[
+bmc_configuration_data_path <- required_modules[[
     which(sapply(required_modules, function(x)
         x$description == "BMC Configuration"
     ))
@@ -229,7 +229,7 @@ if (n_samples != expected) {
     print(summary(metadata))         # Show all category distributions
     cat("\n")
 
-    # Control this in the bmc_config.R file.
+    # Control this in the configuration_bmc.R file.
     # Helps display metadata values to help narrow down where you need to add combinations to filter.
     if (show_all_metadata) {
         print(metadata)
@@ -367,7 +367,7 @@ bmc_metadata <- data.frame(
 ################################################################################
 # File Output Generation
 ################################################################################
-filenames <- c("sample_grid.csv", "bmc_table.tsv", "bmc_config.R")
+filenames <- c("sample_grid.csv", "bmc_table.tsv", "configuration_bmc.R")
 # Loop through each filename to handle path assignment and file writing
 for (filename in filenames) {
     # Construct the output file path
@@ -404,7 +404,7 @@ for (filename in filenames) {
             )
         } else if (endsWith(filename, ".R")) {
             safe_write_file(
-                data = bmc_configuration_definition_path,
+                data = bmc_configuration_data_path,
                 path = output_file_path,
                 write_fn = file.copy,
                 verbose = RUNTIME_CONFIG$debug_verbose,

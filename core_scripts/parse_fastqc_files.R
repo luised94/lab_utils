@@ -18,7 +18,7 @@ source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for
 args <- parse_args(commandArgs(trailingOnly = TRUE))
 experiment_id <- args[["experiment-id"]]
 source(file.path("~/data", experiment_id, "documentation", 
-                paste0(experiment_id, "_bmc_config.R")))
+                paste0(experiment_id, "_configuration_bmc.R")))
 validate_configs(c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG"))
 # Load and Validate Experiment Configuration
 ################################################################################

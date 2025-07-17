@@ -147,7 +147,7 @@ for (experiment_index in seq_len(number_of_experiments)) {
 
   config_paths[experiment_index] <- file.path(
     current_experiment_path, "documentation",
-    paste0(current_experiment_id, "_bmc_config.R")
+    paste0(current_experiment_id, "_configuration_bmc.R")
   )
 
   metadata_paths[experiment_index] <- file.path(
