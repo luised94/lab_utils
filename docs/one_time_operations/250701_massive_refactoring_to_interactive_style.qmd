@@ -4,9 +4,28 @@ date: 2025-07-01
 author: Luis E. Martinez Rodriguez
 ---
 
-# Overview
+## Overview
+This is not meant to be a formal essay. Just quick notes.
 
 I initially designed my R scripts to be usable from the cli. It works ok but having to run the commands each time and remembering the exact flags, while not catastrophic, was getting very annoying, especially while getting them up and running.
-Furthermore, I am also trying to use nvim and other standard tools to see if I can refactor this repository effectively.
+Furthermore, I am also trying to use nvim and other standard tools to see if I can refactor this repository effectively. I think my first attempt will be to use vim as much as possible. If I need some additional tools, my second toolset will be cli commands (awk, sed, grep, etcetera) and my third will be base R.
+My other tools are: nvim (based on kickstart) and tmux.
 
 ## Goals
+1. Convert all scripts into an interactive setup.
+2. Archive all code with the cli snippets.
+
+## Exploration Notes
+### 2025-07-16
+#### Session 1
+To start, I think I want to get all of the names of the variables that are defined in the R files. I also want to see the general features of the code blocks that I want to replace and their substitutions (i. e. the argument parsing blocks to the interactive blocks).
+
+The very first thing is to use vimgrep or to use the vim grep output to a file that is open, sort and see what is up.
+Tried a few regex by opening a file and seeing if what I wanted was getting highlighted. (I guess I could have created a testing file with a few examples).
+Ended up with the following:
+1. \w*\w*\s*<-
+2. ^\s*\w*\w*\s*<-
+3. ^\s*\w*\s*<-
+In natural language, it should be: optional spaces at the beginning, zero or more word characters, followed by zero or more word character, followed by optional spaces and the R assignment operator.
+Chaging the * to + does not work. Ended up with three which is simpler.
+Use bufdo vimgrepadd and % to add the matches to quickfixlist.
