@@ -1,32 +1,20 @@
+#!/usr/bin/env Rscript
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Plot bigwig files from same bam but normalized differently
+# Author: Luis | Date: 2025-05-09 | Version: 2.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE: Plot bigwig files to see if blacklist filtering helps
 #
 # USAGE:
-# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+#   ./core_scripts/plot_genome_tracks_of_different_processed_bam_files.R --experiment-id=<experiment-id>
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: 
+#   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
 #
 # OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
-#
-################################################################################
-#!/usr/bin/env Rscript
-###############################################################################
-# Plot bigwig files generated from bam from same sample but differentially processed
-################################################################################
-# PURPOSE: Plot bigwig files to see if blacklist filtering helps samples with many reads
-#          at the ends or in blacklisted regions
-# USAGE: ./plot_genome_tracks_of_different_processed_bam_files.R --experiment-id=<experiment-id> <options>
-# DEPENDENCIES: GenomicRanges, rtracklayer
-# OUTPUT: svg plots with comparisons for blacklist and non-blacklisted files.
-# AUTHOR: LEMR
-# DATE: 2025-05-09
+# - Svg or pdf files with genome tracks comparison for non-filtered and blacklist filtered files
 ################################################################################
 current_timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 # Bootstrap phase

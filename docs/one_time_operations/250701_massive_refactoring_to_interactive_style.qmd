@@ -87,7 +87,21 @@ q
 ```
 Save commit.
 
+### 2025-07-17
+#### Session 1
+Updating the headers after pasting the template version. It was better to do it by type of script. Fill out one of the headers and then paste that instead of the general one.
 
+Trying regex for getting banners:
+1. ^#\+\n#\+\w*.*\n^#\+
+2. ^#\+\n^#.*\n^#\+\n
+
+Needed to exclude : from the regex.
+1. ^#\+\n^# [^:]*\n^#\+\n
+
+For using parenthesis and brackets, have to escape them. !\{2} to find my marker although I will probably remove and maybe use to set marks.
+
+!! Had to deal with a weird problem in WSL. Everything got stuck, could not kill the processes. Had to use hard restart via powershell. Claude "suspects" that it was because of Windows Fast Startup (also called Hybrid Shutdown).
+Finished editing the headers and updated wsl to version 2.
 
 ## References
 - Trying vimgrep to see all of the variables

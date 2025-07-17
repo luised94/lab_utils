@@ -1,27 +1,21 @@
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Ineractive script configuration for BMC experiments
+# Author: Luis | Date: 2025-05 | Version: 2.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE:
+#   Contains configuration and parameters required for interactive scripts to analyze bmc experiments
 #
 # USAGE:
 # 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+# 2. Update other key parameters.
+# 3. Source script.
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: 
+#   ~/lab_utils/core_scripts/override_configuration.R
 #
 # OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
-#
+#   Depends on the script.
 ################################################################################
-# Configuration file for running scripts via source instead of command line
-# Substitute arguments provided through cli essentially
-# Does not provided arguments supplied by the specific experiments configuration file.
-# Scripts that use this file:
-#   ./plot_genome_tracks_for_multiple_chromosomes_experiments_and_categories.R
-# USAGE: Reference file by using the source function.
 message("Sourcing script configuration file...")
 ######################
 # CORE_RESOURCES
@@ -36,6 +30,7 @@ EXPECTED_FORMAT_EXPERIMENT_ID <- "^\\d{6}Bel$"
 ######################
 # CONFIGURATION_PARAMETERS
 ######################
+# TODO: I should separate into essential and optional then alphabetical. Move any computations down.
 # Write single experiment id or single character that is comma-separated
 EXPERIMENT_IDS <- "250324Bel"
 CHROMOSOMES_TO_PLOT <- c(7, 10, 14)
@@ -66,7 +61,6 @@ columns_to_exclude_from_replicate_determination <- c(
   "repeats"
 )
 reproducible_subset_quote_list <- "~/lab_utils/core_scripts/metadata_subset.R"
-# TODO: Move to configuration. //
 FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
 FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
 FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")

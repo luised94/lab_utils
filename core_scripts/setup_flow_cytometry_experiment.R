@@ -1,49 +1,19 @@
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Flow cytometry Experiment Setup
+# Author: Luis | Date: 2025-03-11 | Version: 1.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE:
+#   Creates standardized directory structure and metadata files for flow cytometry experiments
 #
 # USAGE:
 # 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+# 2. Run from cli.
 #
 # DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
 #
 # OUTPUTS:
 # - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
-#
-################################################################################
-#!/usr/bin/env Rscript
-################################################################################
-# Flow cytometry Experiment Setup Script
-################################################################################
-# PURPOSE:
-#     Determine if experiment metadata and categories are correct and output the 
-#     configuration file to use in analysis scripts.
-# USAGE:
-#     Run from command line as script. Update template configuration by setting 
-#     categories, expected samples and experiment id.
-# INPUTS:
-#   - cli arguments --directory-path and --experiment-id
-#   - bmc_config.R: External configuration defining experimental design
-# OUTPUTS: flow_cytometry_configuration file in proper directory
-# CONTROLS:
-#   RUNTIME_CONFIG$output_dry_run
-#   RUNTIME_CONFIG$debug_verbose
-#   RUNTIME_CONFIG$debug_interactive
-# DEPENDENCIES:
-#   - R base packages only
-#   - ~/lab_utils/core_scripts/bmc_config.R
-# COMMON ISSUES:
-#   1. Wrong experiment ID format -> Check YYMMDD pattern
-#   2. Unexpected sample count -> Review antibody distribution
-#   3. File access denied -> Check ~/data permissions
-# AUTHOR: Luis
-# DATE: 2025-03-11
-# VERSION: 1.0.0
+# - Sample metadata files (configuration_flow_cytometry.csv)
 ################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")

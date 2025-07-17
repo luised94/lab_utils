@@ -1,73 +1,24 @@
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# BMC ChIP-seq Configuration Setup
+# Author: Luis | Date: 2024-11-27 | Version: 2.1.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE: 
+#   Write down the categories and quote expressions to obtain metadata for an experiment
+#   Assign experiment id according to BMC, set comparisons, and desired order.
 #
 # USAGE:
 # 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+# 2. Run setup_bmc_experiment.R with the experiment-id as the parameter.
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: NONE
 #
 # OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
-#
-################################################################################
-################################################################################
-# BMC Experiment Configuration
-################################################################################
-# PURPOSE:
-#   Defines and validates experimental design for BMC ChIP-seq experiments,
-#   including sample categories, valid combinations, and comparison groups.
-# USAGE:
-#   1. Use '/!!' in vim/neovim to jump to required updates
-#   2. Modify METADATA section with experiment details
-#   3. Update CATEGORIES if experimental design changes
-#   4. Review INVALID_COMBINATIONS and EXPERIMENTAL_CONDITIONS
-# STRUCTURE:
-#   EXPERIMENT_CONFIG/
-#   +-- METADATA/
-#   |   +-- EXPERIMENT_ID    # Format: YYMMDD'Bel'
-#   |   +-- EXPECTED_SAMPLES # Total valid combinations
-#   |   +-- VERSION         # Configuration version
-#   +-- CATEGORIES/         # Valid values for each factor
-#   +-- INVALID_COMBINATIONS/# Excluded experimental combinations
-#   +-- EXPERIMENTAL_CONDITIONS/# Valid sample definitions
-#   +-- COMPARISONS/        # Analysis groupings
-#   +-- CONTROL_FACTORS/    # Control sample definitions
-#   +-- COLUMN_ORDER/       # Standard column arrangement
-# Comparison Naming Convention:
-# comp_[Antibody]_[Variables]_vs_[Baseline]_[Context]_[Modifier]
-# - [Antibody]: Official antibody code (e.g., HM1108, V5, ALFA)
-# - [Variables]: Main experimental factors being compared
-# - [vs_Baseline]: Reference state for comparison (if applicable)
-# - [Context]: Additional conditions (e.g., AuxinTreated, TimeCourse)
-# - [Modifier]: Special analysis flags or time points (e.g., 2h)
-# Examples:
-# comp_HM1108_NoRescue_vs_WT
-# comp_V5_Auxin_2h
-# comp_ALFA_AllAlleles_Auxin_2h
-# Note: Terms like "None", "For", "With", and "And" are avoided for clarity.
-# Time is abbreviated as "0h", "2h", etc. "NoRescue" is used instead of "None".
-#
-# VALIDATION:
-#   1. Category Values: Must be character vectors, unique
-#   2. Column References: All referenced columns must exist
-#   3. Column Order: Must include all category columns
-#   4. Sample Count: Must match EXPECTED_SAMPLES
-# DEPENDENCIES: R base packages only, functions_for_bmc_config_validation.R for validation functions
-# COMMON ISSUES:
-#   1. Mismatched EXPERIMENT_ID -> Check format YYMMDD'Bel'
-#   2. Wrong sample count -> Review INVALID_COMBINATIONS
-#   3. Missing categories -> Check CATEGORIES vs COLUMN_ORDER
-# AUTHOR: Luis
-# DATE: 2024-11-27
-# VERSION: 2.1.0
+#   No outputs produced by script. Use via setup_bmc_experiment.R
 ################################################################################
 # !! Update EXPERIMENT_CONFIG if starting a new experiment.
+# Set the categories of the experiment. This will produce all of the combinations.
+# Use quote expressions and logical conditions to write what should not be in the metadata out of all the combinations.
+# Update column order to sort the metadata after filtering.
 EXPERIMENT_CONFIG <- list(
     METADATA = list(
         EXPERIMENT_ID = "100303Bel",

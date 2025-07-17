@@ -1,35 +1,23 @@
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Create subsampled FASTQ files for testing pipelines
+# Author: Luis | Date: 2024-12-03 | Version: 2.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE: 
+# Create subsampled FASTQ files for testing pipelines
 #
 # USAGE:
-# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+#   Source script. Values are hardcoded.
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: Fastq data.
 #
 # OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
+# - Subsampled fastq files from experiment of choice.
 #
 ################################################################################
-################################################################################
-# SCRIPT: genomic_subsampling.R
-# PURPOSE: Create subsampled FASTQ files for testing pipelines
-# USAGE: Run in R/RStudio with renv. Processes first FASTQ and BAM found.
-# VALIDATION: Tested with 191209Bel fastq file.
-# UPDATES: 
-#   2024-12-03: Initial version
-#   2024-12-03: Modified for renv, explicit package calls
-#   2024-12-03: Changed to process only first found files
-################################################################################
-
-#===============================================================================
+#-------------------------------------------------------------------------------
 # DEBUG CONFIGURATION
-#===============================================================================
+#-------------------------------------------------------------------------------
+# ==== Subsection ====
 DEBUG <- TRUE                    # Enable/disable debug messages
 VERBOSE <- TRUE                  # Enable/disable verbose output
 DRY_RUN <- FALSE                # If TRUE, shows actions without execution

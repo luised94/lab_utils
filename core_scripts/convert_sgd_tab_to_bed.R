@@ -3,11 +3,11 @@
 # Author: Luis | Date: 2025-04-07 | Version: 2.0.0
 ################################################################################
 # PURPOSE: Convert SGD dataset (downloaded from Ross2021) to bed files and split into subset bed file based on feature type
-
+#
 # USAGE: source("reference_code/pipeline_completion/plot_bigwig_files.R")
-
+#
 # DEPENDENCIES: dplyr, SGD file from Rossi2021
-
+#
 # OUTPUTS:
 # - Bed files for different features and entire sgd set.
 # CONCLUSION: Works well, had to update to output with proper header.

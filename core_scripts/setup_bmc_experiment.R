@@ -1,76 +1,20 @@
+#!/usr/bin/env Rscript
 ################################################################################
 # BMC ChIP-seq Experiment Setup
 # Author: Luis | Date: 2024-11-27 | Version: 2.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE:
+#   Creates standardized directory structure and metadata files for BMC ChIP-seq experiments
 #
 # USAGE:
-# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+#   Update bmc_config.R file.
+#   $./setup_bmc_experiment.R --experiment-id=<experiment-id> --accept-configuration
 #
 # DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
 #
 # OUTPUTS:
 # - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
 # - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
-#
-################################################################################
-#!/usr/bin/env Rscript
-################################################################################
-# BMC Experiment Setup Script
-################################################################################
-#
-# PURPOSE:
-#   Creates standardized directory structure and metadata files for BMC ChIP-seq
-#   experiments, including sample tracking and submission documents.
-#
-# USAGE:
-#   1. Use '/!!' in vim/neovim to jump to required updates
-#   2. Update experiment_id (format: YYMMDD'Bel', e.g., "241122Bel")
-#   3. Set RUNTIME_CONFIG options as needed
-#   4. Source or run script
-#
-# !! ----> REQUIRED UPDATES:
-# !! experiment_id <- "241122Bel"
-# INPUTS:
-#   - experiment_id: 9-character experiment identifier
-#   - bmc_config.R: External configuration defining experimental design
-#
-# OUTPUTS:
-#   1. Directory Structure:
-#      ~/data/[experiment_id]/
-#      +-- peak/
-#      +-- fastq/
-#      |   +-- raw/
-#      |   +-- processed/
-#      +-- alignment/
-#      +-- bigwig/
-#      +-- plots/
-#      +-- documentation/
-#
-#   2. Files:
-#      - [experiment_id]_sample_grid.csv: Complete experimental design
-#      - [experiment_id]_bmc_table.tsv: BMC submission metadata
-#      - [experiment_id]_bmc_config.R: Configuration snapshot
-#
-# CONTROLS:
-#   RUNTIME_CONFIG$output_dry_run    = TRUE   # Preview without creating files
-#   RUNTIME_CONFIG$debug_verbose    = TRUE   # Show detailed progress
-#   RUNTIME_CONFIG$debug_interactive = TRUE  # Confirm before proceeding
-# DEPENDENCIES:
-#   - R base packages only
-#   - ~/lab_utils/core_scripts/bmc_config.R
-#
-# COMMON ISSUES:
-#   1. Wrong experiment ID format -> Check YYMMDD pattern
-#   2. Unexpected sample count -> Review antibody distribution
-#   3. File access denied -> Check ~/data permissions
-#
-# AUTHOR: Luis
-# DATE: 2024-11-27
-# VERSION: 2.0.0
-#
 ################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")

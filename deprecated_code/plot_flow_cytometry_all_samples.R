@@ -1,46 +1,19 @@
 #!/usr/bin/env Rscript
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Plot all flow cytometry samples
+# Author: Luis | Date: 2025-03-11 | Version: 1.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE: Plot fluorescence vs count data for flow cytometry experiment via cli
 #
 # USAGE:
-# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+#   $ ./core_scripts/plot_flow_cytometry_all_samples.R --directory-id=<dir_id> --experiment-id=<experiment_id> --accept_configuration
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: 
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   flow cytometry data, required_packages
 #
 # OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
-#
-################################################################################
-################################################################################
-# Flow cytometry Plot all samples
-################################################################################
-# PURPOSE:
-#     Determine if experiment metadata and categories are correct and output the 
-#     configuration file to use in analysis scripts.
-# USAGE:
-#     Run from command line as script. Update template configuration by setting 
-#     categories, expected samples and experiment id.
-# INPUTS:
-#   - cli arguments --directory-path and --experiment-id
-#   - Output from the setup_flow_cytometry_experiment.R and the data
-#   - Once confirmed, add --accept-configuration
-# OUTPUTS: PDF with plot file, log file with reference to repository state, processed data
-# CONTROLS:
-#   RUNTIME_CONFIG$output_dry_run
-#   RUNTIME_CONFIG$debug_verbose
-#   RUNTIME_CONFIG$debug_interactive
-# DEPENDENCIES:
-#   - R base packages only
-#   - ~/lab_utils/core_scripts/bmc_config.R
-# AUTHOR: Luis
-# DATE: 2025-03-11
-# VERSION: 1.0.0
+#   fl1a_plot, fsca_vs_ssca_plot
 ################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")

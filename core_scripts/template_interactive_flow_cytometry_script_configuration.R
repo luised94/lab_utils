@@ -1,27 +1,19 @@
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Interactive configuration template for flow cytometry experiments
+# Author: Luis | Date: Sometime 2025 | Version: 1.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE:
+#   Control settings for flow cytometry analysis scripts.
 #
 # USAGE:
 # 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+# 2. Source analysis scripts which will reference interactive_flow-cytometry_script_configuration.R
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: NONE
 #
 # OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
-#
+# - Output depends on script
 ################################################################################
-# Configuration file for running scripts via source instead of command line
-# Substitute arguments provided through cli essentially
-# Does not provided arguments supplied by the specific experiments configuration file.
-# Scripts that use this file:
-#   ./plot_genome_tracks_for_multiple_chromosomes_experiments_and_categories.R
-# USAGE: Reference file by using the source function.
 message("Sourcing script configuration file...")
 ######################
 # CORE_RESOURCES

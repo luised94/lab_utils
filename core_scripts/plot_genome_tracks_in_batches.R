@@ -1,31 +1,20 @@
+#!/usr/bin/env Rscript
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Plot bigwig files batched in order
+# Author: Luis | Date: 2025-02-25 | Version: 2.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE: Plot all of the samples in order to see all of them if desired
 #
 # USAGE:
-# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+#   ./plot_genome_tracks_in_batches.R --experiment-id=<experiment-id> <options>
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: 
+#   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
 #
 # OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
-#
-################################################################################
-#!/usr/bin/env Rscript
-###############################################################################
-# Plot bigwig files sequentially and in order
-################################################################################
-# PURPOSE: See all of the files in order
-# USAGE: ./plot_genome_tracks_in_batches.R --experiment-id=<experiment-id> <options>
-# DEPENDENCIES: GenomicRanges, rtracklayer
-# OUTPUT: svg plots with comparisons for cpm/rpkm/raw and for shifted/raw/deduped for cpm counts
-# AUTHOR: LEMR
-# DATE: 2025-02-25
+# - Svg or pdf files with genome tracks based on batch number and order
 ################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")

@@ -1,32 +1,22 @@
+#!/usr/bin/env Rscript
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Plot bigwig files from multiple experiment-id
+# Author: Luis | Date: 2025-05-02 | Version: 2.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE: Plot replicates from multiple experiment-ids
 #
 # USAGE:
-# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+#   ./core_scripts/plot_genome_tracks_from_replicates.R --experiment-id=<experiment-id>
+#   experiment-ids should be provided as csv
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES:
+#   bmc_config.R
+#   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
 #
 # OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
-#
-################################################################################
-#!/usr/bin/env Rscript
-###############################################################################
-# Plot bigwig files from multiple experiment-id
-################################################################################
-# PURPOSE: Plot replicates from multiple distinct experiment-id directories.
-# USAGE: ./plot_genome_tracks_from_replicates.R --experiment-id=<experiment-id> <options>
-# DEPENDENCIES: GenomicRanges, rtracklayer
-# OUTPUT: svg plots with same samples from different experiment-ids 
-# AUTHOR: LEMR
-# DATE: 2025-02-25
-# NOTE: Metadata has to be the same. Should add that assertion
+# - Svg or pdf files with genome tracks based on replicate information in the bmc_config.R and experiment-ids user provides.
 ################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")

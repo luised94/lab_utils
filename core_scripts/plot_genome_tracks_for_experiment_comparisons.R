@@ -1,35 +1,22 @@
+#!/usr/bin/env Rscript
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Plot bigwig files based EXPERIMENT_COMPARISONS configuration parameter
+# Author: Luis | Date: 2025-05-02 | Version: 2.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE: Plot specific comparisons based on quote expressions based on bmc_config.R of the experiment.
 #
 # USAGE:
-# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+#   ./core_scripts/plot_genome_tracks_for_experiment_comparisons.R --experiment-id=<experiment-id>
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: 
+#   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
 #
 # OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
+# - Svg or pdf files with genome tracks based on experiment comparisons written by the user
 #
 ################################################################################
-#!/usr/bin/env Rscript
-###############################################################################
-# Plot bigwig files based on EXPERIMENT_COMPARISONS list.
-################################################################################
-# PURPOSE: Plot specific comparions for an experiment-id specified in the bmc_config.
-# USAGE: ./plot_genome_tracks_for_experiment_comparisons.R --experiment-id=<experiment-id> <options>
-# DEPENDENCIES: GenomicRanges, rtracklayer
-# OUTPUT: svg plots with comparisons defined in the bmc_config EXPERIMENT_COMPARISONS list.
-# AUTHOR: LEMR
-# DATE: 2025-02-25
-# DATE_V1_COMPLETE: 2025-04-08
-# DATE_V2_COMPLETE: 2025-05-02
-################################################################################
-# replace all metadata
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
