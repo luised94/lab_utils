@@ -103,6 +103,10 @@ For using parenthesis and brackets, have to escape them. !\{2} to find my marker
 !! Had to deal with a weird problem in WSL. Everything got stuck, could not kill the processes. Had to use hard restart via powershell. Claude "suspects" that it was because of Windows Fast Startup (also called Hybrid Shutdown).
 Finished editing the headers and updated wsl to version 2.
 
+#### Session 2
+Update to wsl version 2 went ok.
+
+
 ## References
 - Trying vimgrep to see all of the variables
   > https://www.kimi.com/chat/d1s4enumu6s6tajifb6g
