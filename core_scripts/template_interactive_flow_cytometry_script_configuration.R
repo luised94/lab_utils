@@ -1,3 +1,21 @@
+################################################################################
+# BMC ChIP-seq Experiment Setup
+# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+################################################################################
+#
+# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+#
+# USAGE:
+# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
+# 2. Source script to generate ~/data/[experiment_id]/ structure
+#
+# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+#
+# OUTPUTS:
+# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
+# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
+#
+################################################################################
 # Configuration file for running scripts via source instead of command line
 # Substitute arguments provided through cli essentially
 # Does not provided arguments supplied by the specific experiments configuration file.
