@@ -29,3 +29,40 @@ Ended up with the following:
 In natural language, it should be: optional spaces at the beginning, zero or more word characters, followed by zero or more word character, followed by optional spaces and the R assignment operator.
 Chaging the * to + does not work. Ended up with three which is simpler.
 Use bufdo vimgrepadd and % to add the matches to quickfixlist.
+
+#### Session 2
+Used vimgrep with another regex and then used a recursive macro.
+```vim
+vimgrep /^\s*\zs\w*\w*\ze\s*<-/j ##
+qq
+Ctrl+Q " Visual block mode
+f|;
+f<space> " Type the space
+x
+<CR>
+@q
+```
+Now while this is very cool and I am glad I remembered it from a previous reading, it is extremely slow.
+I let Claude "know" and it suggested disabling the clipboard and the using visual block mode to apply the macro right up to but not including the carriage return to run on all of the lines. Second, I also learned that cleaning up recursive macros is probably a good idea. The recursive macro was recorded and I activated it recursively again and I dont even know what was happening but I had to close the window via tmux a few times.
+```vim
+" Ensure macro is clean
+let @q = ''
+" Disabling clipboard
+set clipboard=
+
+" Record macro again and run.
+" OR
+" record macro till the x and then
+Ctrl+Q " Visual Block mode
+G
+<,>norm @q
+```
+While disabling the clipboard does make it faster, the second one is basically instantaneous. Furthermore, you would need to reset the clipboard again if you disable it. Alas, a nice adventure.
+I then removed everything after the first space, inclusive using similar strategy.
+Finally, I sorted with duplicate removal.
+```vim
+%sort u
+```
+At this stage, you can scroll through to see if there is anything weird. You can also yank everything to see the amount of variables (assuming the regex has zero false positive and zero false negatives, which is not proven). There were roughly 1600. Some weird variable names I didnt expect but could be from the files that have to be revised.
+Next up, I will look at the sections that should be substituted and potentially a macro and bufdo to do it using registers.
+
