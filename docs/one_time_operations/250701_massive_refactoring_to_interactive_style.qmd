@@ -6,6 +6,7 @@ author: Luis E. Martinez Rodriguez
 
 ## Overview
 This is not meant to be a formal essay. Just quick notes.
+I use large language models for questions and approaches. See references.
 
 I initially designed my R scripts to be usable from the cli. It works ok but having to run the commands each time and remembering the exact flags, while not catastrophic, was getting very annoying, especially while getting them up and running.
 Furthermore, I am also trying to use nvim and other standard tools to see if I can refactor this repository effectively. I think my first attempt will be to use vim as much as possible. If I need some additional tools, my second toolset will be cli commands (awk, sed, grep, etcetera) and my third will be base R.
@@ -66,3 +67,8 @@ Finally, I sorted with duplicate removal.
 At this stage, you can scroll through to see if there is anything weird. You can also yank everything to see the amount of variables (assuming the regex has zero false positive and zero false negatives, which is not proven). There were roughly 1600. Some weird variable names I didnt expect but could be from the files that have to be revised.
 Next up, I will look at the sections that should be substituted and potentially a macro and bufdo to do it using registers.
 
+## References
+- Trying vimgrep to see all of the variables
+  > https://www.kimi.com/chat/d1s4enumu6s6tajifb6g
+  > https://claude.ai/chat/09ea1d44-e2f4-4c44-931a-2c7713210475
+  > https://www.perplexity.ai/search/i-want-to-use-vimgrep-to-find-W6kfEaFkTX2gzFVrCbm1gA
