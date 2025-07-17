@@ -1,37 +1,16 @@
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Convert and split SGD tab dataset to bed files
+# Author: Luis | Date: 2025-04-07 | Version: 2.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
-#
-# USAGE:
-# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
-#
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
-#
-# OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
-#
-################################################################################
-###############################################################################
-# Decompose sdg tab dataset to bed files 
-################################################################################
-# PURPOSE: Output bed files for features found in the sgd tab files
-# Conclusion:
-#   = Works but wasnt sure if the bed files should include the header or not.
-#   = Went with header but this will require
+# PURPOSE: Convert SGD dataset (downloaded from Ross2021) to bed files and split into subset bed file based on feature type
+
 # USAGE: source("reference_code/pipeline_completion/plot_bigwig_files.R")
-# DEPENDENCIES:
-# packages = dplyr
-# data = Sgd file is either from Rossi 2021 or from sgd website.
-# OUTPUT:
-# = Bed files for different gene feature sets and the sgd file per se. 
-# = Bed files are not valid because they have a header...
-# AUTHOR: LEMR
-# DATE: 2025-04-07
+
+# DEPENDENCIES: dplyr, SGD file from Rossi2021
+
+# OUTPUTS:
+# - Bed files for different features and entire sgd set.
+# CONCLUSION: Works well, had to update to output with proper header.
 ################################################################################
 # [1] Debugging Utilities ------------------------------------------------------
 # Summarize categorical data.

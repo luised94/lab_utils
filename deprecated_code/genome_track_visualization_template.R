@@ -1,30 +1,19 @@
 #!/usr/bin/env Rscript
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Genome Track Visualization Template
+# Author: Luis | Date:  | Version: 1.0.0
 ################################################################################
+# PURPOSE: Generae genome tracks from BigWig files with feature annotations
 #
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# USAGE: Serves as a template. 
 #
-# USAGE:
-# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
-#
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: required_packages
 #
 # OUTPUTS:
 # - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
 # - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
 #
 ################################################################################
-
-# Script: genome_track_visualization.R
-# Purpose: Generate genome browser tracks from BigWig files with feature annotations
-# Usage: Rscript genome_track_visualization.R
-# Dependencies: rtracklayer, GenomicRanges, Gviz
-# Author: [AUTHOR]
-# Date: [DATE]
-
 # Required Packages
 #-----------------------------------------------------------------------------
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz", "Biostrings")

@@ -1,37 +1,20 @@
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Plot genomic tracks for control data from Eaton 2010
+# Author: Luis | Date: [UNSURE] | Version: 1.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE: See HM1108 (ORC) data to double check processing pipeline. 
+# CONCLUSION: Correct file index is 4. Looks okay.
 #
 # USAGE:
 # 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
 # 2. Source script to generate ~/data/[experiment_id]/ structure
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: normR, GenomicRanges, rtracklayer, data from Eaton, functions_for_script_control
 #
 # OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
+# - Bed files with called peaks
 # - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
 #
-################################################################################
-################################################################################
-# Plot eaton genomic tracks
-################################################################################
-# PURPOSE: View control data using same few to see noise.
-# Conclusion: See HM1108 of Eaton 2010 paper to see noise and alignment to reference bed file. Files are misordered. Correct file index is 4.
-# Doesnt look particularly different but less noise definitely although mine seem to have more signal.
-# USAGE: 
-# !! ----> REQUIRED UPDATES: experiment_id, input files paths
-# STRUCTURE: Configuration -> Validation -> Processing -> Output
-# VALIDATION: Input file existence, format compatibility, memory requirements
-# DEPENDENCIES: normR, GenomicRanges, rtracklayer
-# COMMON ISSUES: Memory limitations for large BAM files, sparse control samples
-# OUTPUT: BED files with called peaks, quality metrics
-# AUTHOR: [Your Name]
-# DATE: [Current Date]
-# VERSION: 1.0.0
 ################################################################################
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
 

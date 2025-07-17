@@ -1,82 +1,16 @@
 ################################################################################
-# BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+# Parse FastQC files for ChIP-seq quality control
+# Author: Luis | Date: 2024-12-02 | Version: 1.0.0
 ################################################################################
-#
-# PURPOSE: Creates directory structure and metadata files for BMC ChIP-seq experiments
+# PURPOSE: Generate tab-delimited summaries for ChIP-seq experiments by converting fastqc output.
 #
 # USAGE:
-# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
-# 2. Source script to generate ~/data/[experiment_id]/ structure
+# 2. Run from cli with experiment-id args.
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/bmc_config.R
+# DEPENDENCIES: FastQC, submit_fastqc.sh
 #
 # OUTPUTS:
-# - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
-# - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
-#
-################################################################################
-################################################################################
-# Parse FastQC files for ChIP-seq quality control
-################################################################################
-# PURPOSE:
-#   Process FastQC output files and generate parsed tab-delimited summaries for
-#   ChIP-seq quality control analysis. Extracts module-specific data and creates
-#   standardized output files with sample identifiers.
-#
-# USAGE:
-#   1. Update experiment_id to point to correct data directory
-#   2. Adjust RUNTIME_CONFIG as needed:
-#      - single_file_mode: TRUE for testing single files
-#      - verbose: TRUE for detailed processing information
-#      - dry_run: TRUE to check without writing files
-#   3. Run script
-#
-# !! ----> REQUIRED UPDATES:
-#   - Set experiment_id for data directory
-#   - Review debug configuration for testing needs
-#   - Verify FastQC version requirements
-#
-# STRUCTURE:
-#   1. Configuration and debug settings
-#   2. Directory and version validation
-#   3. File discovery and sample ID extraction
-#   4. Module parsing and data extraction:
-#      - Basic Statistics
-#      - Per base sequence quality
-#      - Per sequence quality scores
-#      - Other FastQC modules
-#   5. Data validation and output
-#
-# VALIDATION:
-#   - Directory structure and permissions
-#   - FastQC file presence and version
-#   - Sample ID format and uniqueness
-#   - Module structure and content
-#   - Data parsing integrity
-#
-# DEPENDENCIES:
-#   - Base R (>= 4.2.0)
-#   - FastQC (version 0.11.5)
-#   - submit_fastqc.sh
-#   - run_fastqc_array.sh
-#
-# COMMON ISSUES:
-#   - Missing or incorrect quality control directory
-#   - Malformed FastQC files or unexpected versions
-#   - Write permission errors in output directory
-#   - Inconsistent sample ID formats
-#   - Memory limitations with large datasets
-#
-# OUTPUT:
 #   - Module-specific tab-delimited files
-#   - Summary statistics for each sample
-#   - Processing logs (when verbose)
-#   - Module Name File for future reference and mappings.
-# AUTHOR: Luis
-# DATE: 2024-12-02
-# VERSION: 1.0.0
-################################################################################
 ################################################################################
 source(file.path(Sys.getenv("HOME"), "lab_utils", "core_scripts", "functions_for_script_control.R"))
 
