@@ -10,13 +10,13 @@
 #   experiment-ids should be provided as csv
 #
 # DEPENDENCIES:
-#   configuration_bmc.R
+#   configuration_experiment_bmc
 #   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
 #   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
 #   required_packages
 #
 # OUTPUTS:
-# - Svg or pdf files with genome tracks based on replicate information in the configuration_bmc.R and experiment-ids user provides.
+# - Svg or pdf files with genome tracks based on replicate information in the configuration_experiment_bmc and experiment-ids user provides.
 ################################################################################
 # Bootstrap phase
 function_filenames <- c("logging", "script_control", "file_operations")
@@ -48,7 +48,7 @@ is_template <- args$is_template
 file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
 file_identifier <- if (is_template) "template" else args$experiment_id
 
-config_path <- file.path(file_directory, paste0(file_identifier, "_configuration_bmc.R"))
+config_path <- file.path(file_directory, paste0(file_identifier, "_configuration_experiment_bmc"))
 metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
 
 args_info <- list(

@@ -9,7 +9,7 @@
 # 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
 # 2. Run from cli.
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/configuration_bmc.R
+# DEPENDENCIES: ~/lab_utils/core_scripts/configuration_experiment_bmc
 #
 # OUTPUTS:
 # - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)

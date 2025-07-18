@@ -120,7 +120,7 @@ I know that my old configurations are not correct. So I need to fix that now. I 
 mapfile -t files_to_rename < <(find "$HOME/data/" -type f -name "*bmc_config*")
 for file in ${files_to_rename[@]}; do
   echo "Processing $file"
-  sed -i 's/bmc_config/configuration_bmc/g' "$file"
+  #sed -i 's/bmc_config/configuration_bmc/g' "$file"
   # Rename file
   new_file="${file//bmc_config/configuration_bmc}"
     mv "$file" "$new_file"
@@ -134,6 +134,25 @@ find "$HOME/data/" -type f -name "*bmc_config*" -exec sed -i 's/bmc_config/confi
 find "$HOME/data/" -type f -name "*bmc_config*" -exec bash -c 'mv "$0" "${0/bmc_config/configuration_bmc}"' {} \;
 ```
 I think that is basically it for this portion. Now I have to replace the sections of the cli blocks with the interactive blocks, consolidate and adjust some of the parameter names.
+
+#### Session 3
+Realized I should rename the configuration files as well.
+Reuse the code above but make some modifications. Also create parameters.
+```bash
+OLD_PATTERN="configuration_bmc"
+NEW_PATTERN="configuration_experiment_bmc"
+SEARCH_DIR="$HOME/data/"
+mapfile -t files_to_rename < <(find "$SEARCH_DIR" -type f -name "*${OLD_PATTERN}*")
+for file in ${files_to_rename[@]}; do
+  echo "Processing $file"
+sed -i 's/${OLD_PATTERN}/${NEW_PATTERN}/g' "$file"
+  # Rename file
+  new_file="${file//${OLD_PATTERN}/${NEW_PATTERN}}"
+mv "$file" "$new_file"
+  echo "Renamed to: $new_file"
+done
+```
+Renamed the other configuration files using standard move command.
 
 ## References
 - Trying vimgrep to see all of the variables

@@ -37,10 +37,10 @@ experiment_id <- args$experiment_id
 accept_configuration <- args$accept_configuration
 experiment_dir <- args$experiment_dir
 if (args$is_template) {
-    config_path <- file.path(args$experiment_dir, "template_configuration_bmc.R")
+    config_path <- file.path(args$experiment_dir, "template_configuration_experiment_bmc")
     metadata_path <- file.path(args$experiment_dir, "template_sample_grid.csv")
 } else {
-    config_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_configuration_bmc.R"))
+    config_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_configuration_experiment_bmc"))
     metadata_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_sample_grid.csv"))
 }
 

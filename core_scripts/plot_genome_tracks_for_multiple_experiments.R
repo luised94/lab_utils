@@ -13,7 +13,7 @@ for (function_filename in FUNCTION_FILENAMES) {
 message("Bootstrap phase completed...")
 if(interactive()) {
   message("Interactive job... sourcing configuration file.")
-  script_configuration_path <- "~/lab_utils/core_scripts/interactive_script_configuration.R"
+  script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_bmc.R"
   stopifnot(
     "Script configuration file does not exist. Please copy the template." =
     file.exists(script_configuration_path)
@@ -25,7 +25,7 @@ if(interactive()) {
 # Ensure the variables expected in the script were //
 # defined in the configuration file. //
 # See template_interactive_script_configuration.R or //
-# interactive_script_configuration.R //
+# configuration_script_bmc.R //
 required_configuration_variables <- c(
   "EXPERIMENT_IDS", "EXPERIMENT_DIR",
   "CHROMOSOMES_TO_PLOT", "OUTPUT_FORMAT",
@@ -147,7 +147,7 @@ for (experiment_index in seq_len(number_of_experiments)) {
 
   config_paths[experiment_index] <- file.path(
     current_experiment_path, "documentation",
-    paste0(current_experiment_id, "_configuration_bmc.R")
+    paste0(current_experiment_id, "_configuration_experiment_bmc")
   )
 
   metadata_paths[experiment_index] <- file.path(
@@ -171,7 +171,7 @@ dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 #------------------------------
 # Three pattern variables must be defined in configuration file.
-# Config: interactive_script_configuration.R
+# Config: configuration_script_bmc.R
 # They are validated at init
 #  BIGWIG_PATTERN: (for genome track files)
 #  FASTQ_PATTERN: (for sequence files)

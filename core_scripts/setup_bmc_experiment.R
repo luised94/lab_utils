@@ -7,10 +7,10 @@
 #   Creates standardized directory structure and metadata files for BMC ChIP-seq experiments
 #
 # USAGE:
-#   Update configuration_bmc.R file.
+#   Update configuration_experiment_bmc file.
 #   $./setup_bmc_experiment.R --experiment-id=<experiment-id> --accept-configuration
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/configuration_bmc.R
+# DEPENDENCIES: ~/lab_utils/core_scripts/configuration_experiment_bmc
 #
 # OUTPUTS:
 # - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
@@ -54,8 +54,8 @@ stopifnot(
 # Load and Validate Experiment Configuration
 ################################################################################
 # !! Update the path and the file accordingly.
-# configuration_bmc.R is ignored in the git repository as this file is changed to add new experiments.
-config_path <- "~/lab_utils/core_scripts/configuration_bmc.R"
+# configuration_experiment_bmc is ignored in the git repository as this file is changed to add new experiments.
+config_path <- "~/lab_utils/core_scripts/configuration_experiment_bmc"
 # Define required dependencies
 required_modules <- list(
     list(
@@ -229,7 +229,7 @@ if (n_samples != expected) {
     print(summary(metadata))         # Show all category distributions
     cat("\n")
 
-    # Control this in the configuration_bmc.R file.
+    # Control this in the configuration_experiment_bmc file.
     # Helps display metadata values to help narrow down where you need to add combinations to filter.
     if (show_all_metadata) {
         print(metadata)
@@ -367,7 +367,7 @@ bmc_metadata <- data.frame(
 ################################################################################
 # File Output Generation
 ################################################################################
-filenames <- c("sample_grid.csv", "bmc_table.tsv", "configuration_bmc.R")
+filenames <- c("sample_grid.csv", "bmc_table.tsv", "configuration_experiment_bmc")
 # Loop through each filename to handle path assignment and file writing
 for (filename in filenames) {
     # Construct the output file path

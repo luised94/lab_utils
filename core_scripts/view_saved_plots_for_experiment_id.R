@@ -80,7 +80,7 @@ message(sprintf("  Samples per batch: %d", samples_per_batch))
 #args <- parse_args(commandArgs(trailingOnly = TRUE))
 #experiment_id <- args[["experiment-id"]]
 #source(file.path("~/data", experiment_id, "documentation", 
-#                paste0(experiment_id, "_configuration_bmc.R")))
+#                paste0(experiment_id, "_configuration_experiment_bmc")))
 #validate_configs(c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG"))
 #-----------------------------------------------------------------------------
 required_packages <- c("rsvg", "magick")
