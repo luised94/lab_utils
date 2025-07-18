@@ -62,18 +62,18 @@ EXPERIMENT_CONFIG <- list(
 # Distinct from debug configuration. 
 # This is relevant when setting up the experiment only.
 #########
-show_all_metadata <- TRUE
-show_particular_metadata <- TRUE
-category_to_show <- "auxin_treatment"
-value_to_show <- "NO"
-values_in_category <- unlist(EXPERIMENT_CONFIG$CATEGORIES[category_to_show])
-
-stopifnot(
-    "show_all_metadata has to be logical" = is.logical(show_all_metadata),
-    "flag must be logical type" = is.logical(show_particular_metadata),
-    "category to show must be in grid" = category_to_show %in% names(EXPERIMENT_CONFIG$CATEGORIES),
-    "Value must be in category" = value_to_show %in% values_in_category
-)
+#show_all_metadata <- TRUE
+#show_particular_metadata <- TRUE
+#category_to_show <- "auxin_treatment"
+#value_to_show <- "NO"
+#values_in_category <- unlist(EXPERIMENT_CONFIG$CATEGORIES[category_to_show])
+#
+#stopifnot(
+#    "show_all_metadata has to be logical" = is.logical(show_all_metadata),
+#    "flag must be logical type" = is.logical(show_particular_metadata),
+#    "category to show must be in grid" = category_to_show %in% names(EXPERIMENT_CONFIG$CATEGORIES),
+#    "Value must be in category" = value_to_show %in% values_in_category
+#)
 
 #-------------------------------------------------------------------------------
 # Time Configurations

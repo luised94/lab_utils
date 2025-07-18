@@ -19,6 +19,7 @@
 # OUTPUTS:
 #   fl1a plot in svg or pdf format
 ################################################################################
+
 #---------------------------------------
 # Source configuration for interactive session
 #---------------------------------------
@@ -34,9 +35,7 @@ if(interactive()) {
 } else {
   stop("Run the script from the R repl in an interactive session.")
 }
-
-# Ensure the variables expected in the script were //
-# defined in the configuration file. //
+# Ensure the variables expected in the script were defined in the configuration file.
 # See template_script_configuration.R or script_configuration.R
 required_configuration_variables <- c(
   "EXPERIMENT_ID",
@@ -58,7 +57,7 @@ message("All variables defined in the configuration file...")
 #---------------------------------------
 # Confirm packages
 #---------------------------------------
-# Check for required packages -------------
+# Check for required packages
 REQUIRED_PACKAGES <- list(
   "dplyr" = "1.1.4",
   "flowCore" = "2.17.1",
@@ -117,17 +116,17 @@ message("User functions loaded...")
 # Setup directories
 #-------------------------------------------------------------------------------
 XIT_FILEPATH <- list.files(
-    path = SERIES_DIRECTORY,
-    pattern = paste0(EXPERIMENT_ID, "\\.xit$"),
-    recursive = FALSE,
-    include.dirs = FALSE
+  path = SERIES_DIRECTORY,
+  pattern = paste0(EXPERIMENT_ID, "\\.xit$"),
+  recursive = FALSE,
+  include.dirs = FALSE
 )
 
 PATHS_IN_SERIES_DIRECTORY <- dir(
-    path = SERIES_DIRECTORY,
-    pattern = EXPERIMENT_ID,
-    full.names = TRUE,
-    recursive = FALSE
+  path = SERIES_DIRECTORY,
+  pattern = EXPERIMENT_ID,
+  full.names = TRUE,
+  recursive = FALSE
 )
 
 # WARNING: I think I need to subset this if I have more than //

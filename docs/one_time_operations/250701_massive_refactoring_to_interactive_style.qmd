@@ -191,6 +191,7 @@ qqyiw<Ctrl+W>hpo<Esc><Ctrl+W>lnq
 
 Got distracted trying to figure out how to how to execute the replacements. I was trying to figure out how to replace content in different ways.
 ```vim
+" Edit | 2025-07-18: This did not work the second time I tried it. See session 3 for this date.
 " All variations yank something into a reusable register
 norm "ayy
 " All require Visual Block mode
@@ -220,6 +221,21 @@ q
 @q " However many times you need or based on the length of the quickfixlist.
 ```
 
+#### Session 3
+Will replace the argument handling with the interactive block. There is only one flow cytometry script. To ensure that I paste the compatible code, I handled this one by itself.
+The replacement was causing the pasting to mess up the structure of the pasted code. Some of the lines would get joined together. Furthermore, the replacement would also join the lines instead of replacing. Just pasted and then deleted. Not sure what the issue was.
+
+Now I had to make sure the variables were corrected. One issue was that when I made the setup script I had not decided on capital letters for presumably constant variables.
+```vim
+* " While on top of the variable to adjust
+norm %s//\U&/g
+```
+Also wanted to see if I could adjust my indentation from 4 to 2 per level.
+```vim
+norm %s/\s\{4}/  /g
+" or on a selection
+'<,'>s/\s\{4}/  /g
+```
 
 ## References
 - Trying vimgrep to see all of the variables

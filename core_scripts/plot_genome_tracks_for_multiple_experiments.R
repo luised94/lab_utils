@@ -18,6 +18,7 @@
 # OUTPUTS:
 # - Svg or pdf files with genome tracks from multiple experiment ids.
 ################################################################################
+
 #---------------------------------------
 # Source configuration for interactive session
 #---------------------------------------
@@ -33,7 +34,6 @@ if(interactive()) {
 } else {
   stop("Run the script from the R repl in an interactive session.")
 }
-
 # Ensure the variables expected in the script were //
 # defined in the configuration file. //
 # See template_interactive_script_configuration.R or //
