@@ -15,7 +15,11 @@
 # OUTPUTS:
 # - Svg plots with comparisons of different normalizations and preprocessing
 ################################################################################
-# Bootstrap phase
+
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
     function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)

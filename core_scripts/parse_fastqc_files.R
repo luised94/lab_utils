@@ -22,7 +22,11 @@ source(file.path("~/data", experiment_id, "documentation",
 validate_configs(c("RUNTIME_CONFIG", "EXPERIMENT_CONFIG"))
 # Load and Validate Experiment Configuration
 ################################################################################
-# Bootstrap phase
+
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
 bootstrap_path <- normalizePath("~/lab_utils/core_scripts/functions_for_file_operations.R", 
                               mustWork = FALSE)
 if (!file.exists(bootstrap_path)) {

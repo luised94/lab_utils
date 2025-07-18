@@ -16,7 +16,10 @@
 # OUTPUTS:
 # - Svg or pdf files with genome tracks based on batch number and order
 ################################################################################
-# Bootstrap phase
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
     function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
@@ -43,7 +46,6 @@ if (args$is_template) {
     config_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_configuration_experiment_bmc"))
     metadata_path <- file.path(args$experiment_dir, "documentation", paste0(args$experiment_id, "_sample_grid.csv"))
 }
-
 args_info <- list(
     title = "Script Configuration",
     "script.name" = get_script_name(),

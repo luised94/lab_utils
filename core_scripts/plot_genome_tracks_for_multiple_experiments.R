@@ -18,18 +18,9 @@
 # OUTPUTS:
 # - Svg or pdf files with genome tracks from multiple experiment ids.
 ################################################################################
-# Bootstrap phase
-# Also loads OVERRIDE_PRESETS
-FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
-for (function_filename in FUNCTION_FILENAMES) {
-    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
-    normalized_path <- normalizePath(function_filepath)
-    if (!file.exists(normalized_path)) {
-        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
-    }
-    source(normalized_path)
-}
-message("Bootstrap phase completed...")
+#---------------------------------------
+# Source configuration for interactive session
+#---------------------------------------
 if(interactive()) {
   message("Interactive job... sourcing configuration file.")
   script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_bmc.R"
@@ -39,6 +30,8 @@ if(interactive()) {
   )
   source(script_configuration_path)
   message("Configuration file sourced...")
+} else {
+  stop("Run the script from the R repl in an interactive session.")
 }
 
 # Ensure the variables expected in the script were //
@@ -59,9 +52,6 @@ if (length(missing_variables) > 0 ) {
 }
 message("All variables defined in the configuration file...")
 
-#} else {
-# add the args code?
-#}
 #-------------------------------------------------------------------------------
 # Verify Required Libraries
 #-------------------------------------------------------------------------------
@@ -72,17 +62,35 @@ if (!is.character(required_packages) || length(required_packages) == 0) {
 }
 
 if (!SKIP_PACKAGE_CHECKS) {
-  missing_packages <- required_packages[!sapply(
-    X = required_packages, FUN = requireNamespace, quietly = TRUE
-  )]
+  is_missing_package <- !sapply(
+    X = required_packages,
+    FUN = requireNamespace,
+    quietly = TRUE
+  )
+  missing_packages <- required_packages[is_missing_package]
   if (length(missing_packages) > 0 ) {
     stop("Missing packages. Please install using renv:\n",
          paste(missing_packages, collapse = ", "))
   }
   SKIP_PACKAGE_CHECKS <- TRUE
 }
-
 message("All required packages available...")
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
+# Also loads OVERRIDE_PRESETS
+FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
+for (function_filename in FUNCTION_FILENAMES) {
+    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
+    normalized_path <- normalizePath(function_filepath)
+    if (!file.exists(normalized_path)) {
+        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
+    }
+    source(normalized_path)
+}
+message("User functions loaded...")
+
 #-------------------------------------------------------------------------------
 # Setup genome and feature files
 #-------------------------------------------------------------------------------

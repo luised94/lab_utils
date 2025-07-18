@@ -19,18 +19,9 @@
 # OUTPUTS:
 #   fl1a plot in svg or pdf format
 ################################################################################
-# Bootstrap phase
-# Also loads OVERRIDE_PRESETS
-FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
-for (function_filename in FUNCTION_FILENAMES) {
-    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
-    normalized_path <- normalizePath(function_filepath)
-    if (!file.exists(normalized_path)) {
-        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
-    }
-    source(normalized_path)
-}
-message("Bootstrap phase completed...")
+#---------------------------------------
+# Source configuration for interactive session
+#---------------------------------------
 if(interactive()) {
   message("Interactive job... sourcing configuration file.")
   script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_flow_cytometry.R"
@@ -40,6 +31,8 @@ if(interactive()) {
   )
   source(script_configuration_path)
   message("Configuration file sourced...")
+} else {
+  stop("Run the script from the R repl in an interactive session.")
 }
 
 # Ensure the variables expected in the script were //
@@ -54,7 +47,8 @@ required_configuration_variables <- c(
   "ACCEPT_CONFIGURATION",
   "SKIP_PACKAGE_CHECKS"
 )
-missing_variables <- required_configuration_variables[!sapply(required_configuration_variables, exists)]
+is_missing_variable <- !sapply(required_configuration_variables, exists)
+missing_variables <- required_configuration_variables[is_missing_variable]
 if (length(missing_variables) > 0 ) {
   stop("Missing variable. Please define in 'script_configuration.R' file.",
        paste(missing_variables, collapse = ", "))
@@ -103,6 +97,22 @@ lapply(names(REQUIRED_PACKAGES),
 
 # If the loop completes without stopping, all packages are available and meet minimum version requirements.
 message("All required packages available...")
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
+# Also loads OVERRIDE_PRESETS
+FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
+for (function_filename in FUNCTION_FILENAMES) {
+    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
+    normalized_path <- normalizePath(function_filepath)
+    if (!file.exists(normalized_path)) {
+        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
+    }
+    source(normalized_path)
+}
+message("User functions loaded...")
+
 #-------------------------------------------------------------------------------
 # Setup directories
 #-------------------------------------------------------------------------------

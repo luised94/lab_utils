@@ -18,7 +18,10 @@
 # OUTPUTS:
 # - Svg or pdf files with genome tracks based on replicate information in the configuration_experiment_bmc and experiment-ids user provides.
 ################################################################################
-# Bootstrap phase
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
     function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
@@ -29,28 +32,24 @@ for (function_filename in function_filenames) {
     source(normalized_path)
 }
 
+# Proceed if packages are installed. Can be disable.
+required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
+check_required_packages(required_packages, verbose = TRUE, skip_validation = args$skip_validation)
+
 #-------------------------------------------------------------------------------
 # Handle script arguments
 #-------------------------------------------------------------------------------
 # Parse arguments and validate configurations
 description <- "Plot tracks from different experiments in same plot."
 args <- parse_common_arguments(description = description)
-
-# Proceed if packages are installed. Can be disable.
-required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
-check_required_packages(required_packages, verbose = TRUE, skip_validation = args$skip_validation)
-
 experiment_id <- args$experiment_id
 accept_configuration <- args$accept_configuration
 experiment_dir <- args$experiment_dir
 is_template <- args$is_template
-
 file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
 file_identifier <- if (is_template) "template" else args$experiment_id
-
 config_path <- file.path(file_directory, paste0(file_identifier, "_configuration_experiment_bmc"))
 metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
-
 args_info <- list(
     title = "Script Configuration",
     "script.name" = get_script_name(),
@@ -62,7 +61,6 @@ print_debug_info(modifyList(args_info, args))
 # Load and Validate Experiment Configuration and Dependencies
 #-------------------------------------------------------------------------------
 sapply(config_path[1], safe_source)
-
 # Define required dependencies
 required_modules <- list(
     list(
@@ -76,14 +74,12 @@ required_modules <- list(
         required = TRUE
     )
 )
-
 # Validate module structure
 stopifnot(
     "modules must have required fields" = all(sapply(required_modules, function(m) {
         all(c("path", "description", "required") %in% names(m))
     }))
 )
-
 # Load dependencies with status tracking
 # Process module loading
 load_status <- lapply(required_modules, function(module) {
@@ -102,14 +98,12 @@ load_status <- lapply(required_modules, function(module) {
         required = module$required
     )
 })
-
 # Create debug info structure
 module_info <- list(
     title = "Module Loading Status",
     "total_modules" = length(required_modules),
     "required_modules" = sum(sapply(required_modules, `[[`, "required"))
 )
-
 # Add status for each module
 # Add status for each module
 for (status in load_status) {
@@ -123,7 +117,6 @@ for (status in load_status) {
         if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
     )
 }
-
 # Display using print_debug_info
 print_debug_info(module_info)
 

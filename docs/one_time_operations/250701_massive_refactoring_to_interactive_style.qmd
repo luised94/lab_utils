@@ -176,6 +176,51 @@ q
 ```
 The reason why I didnt use cdo or recursive macro is that for some reason, one of the matches did not go to the first hash line but to the middle. Has to be an error in the regex but did not try to figure out and went with the just get it done now approach.
 
+#### Session 2
+Added some missing headers.
+Ready to work on the replacement of the arguments with the interactive code blocks. I am trying to be "smart" and efficient about the method.
+My first attempt:
+```vim
+" Find the assignment expressions.
+/\w\+\s<-
+" Grab the variable word and place into a new file using macro
+vnew variables.txt
+qqyiw<Ctrl+W>hpo<Esc><Ctrl+W>lnq
+@q " However many times you want.
+```
+
+Got distracted trying to figure out how to how to execute the replacements. I was trying to figure out how to replace content in different ways.
+```vim
+" All variations yank something into a reusable register
+norm "ayy
+" All require Visual Block mode
+<Ctrl+Q> " or V.
+" Select lines and go till the end.
+" Replace each selected lines with content of register a
+'<,'> norm "ap
+'<,'> norm dd"aP
+" Replaces but has space in between because of default put
+'<,'>s/.*/\=@a/
+" Replace all of the lines with the content of register a.
+norm "ap
+```
+I can use this for replacing the contents now.
+First, clean up the sections to replace of lines that are only newlines.
+```vim
+vimgrep /Handle script arguments/j core_scripts/**/*.R
+cn
+qq
+/Handle script arguments
+norm n
+<Ctrl+Q>
+norm /print_debug_info
+'<,'>s/^\n//
+cn
+q
+@q " However many times you need or based on the length of the quickfixlist.
+```
+
+
 ## References
 - Trying vimgrep to see all of the variables
   > https://www.kimi.com/chat/d1s4enumu6s6tajifb6g

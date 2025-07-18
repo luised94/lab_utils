@@ -17,7 +17,10 @@
 # - Svg or pdf files with genome tracks comparison for non-filtered and blacklist filtered files
 ################################################################################
 current_timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-# Bootstrap phase
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
 # Also loads OVERRIDE_PRESETS
 FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
 for (function_filename in FUNCTION_FILENAMES) {
@@ -40,14 +43,11 @@ experiment_id <- args$experiment_id
 accept_configuration <- args$accept_configuration
 experiment_dir <- args$experiment_dir
 is_template <- args$is_template
-
 file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
 file_identifier <- if (is_template) "template" else args$experiment_id
-
 config_path <- file.path(file_directory, paste0(file_identifier, "_configuration_experiment_bmc"))
 metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
 message("Arguments parsed...")
-
 args_info <- list(
     title = "Script Configuration",
     "script.name" = get_script_name(),

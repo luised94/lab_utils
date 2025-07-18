@@ -1,5 +1,8 @@
 #!/usr/bin/env Rscript
-# Bootstrap phase
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
 # Also loads OVERRIDE_PRESETS
 FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
 for (function_filename in FUNCTION_FILENAMES) {

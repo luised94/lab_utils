@@ -15,7 +15,10 @@
 # - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
 # - Sample metadata files (configuration_flow_cytometry.csv)
 ################################################################################
-# Bootstrap phase
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
     function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
@@ -39,7 +42,6 @@ args_info <- list(
     "script.name" = get_script_name(),
     "script.description" = description
 )
-
 print_debug_info(modifyList(args_info, args))
 directory_path <- args$directory_path
 experiment_id <- args$experiment_id

@@ -16,7 +16,10 @@
 # - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
 # - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
 ################################################################################
-# Bootstrap phase
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
     function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
@@ -36,7 +39,6 @@ args <- parse_common_arguments(description = description)
 experiment_id <- args$experiment_id
 accept_configuration <- args$accept_configuration
 experiment_dir <- args$experiment_dir
-
 args_info <- list(
     title = "Script Configuration",
     "script.name" = get_script_name(),
