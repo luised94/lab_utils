@@ -1,13 +1,33 @@
+################################################################################
+# Flow Cytometry Configuration Setup
+# Author: Luis | Date: 2024-11-27 | Version: 2.1.0
+################################################################################
+# PURPOSE: 
+#   Write down the categories and quote expressions to obtain metadata for a flow cytometry experiment
+#   Assign experiment id and directory dir, set comparisons, and desired order.
+#
+# USAGE:
+# 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel").
+# 2. Run setup_bmc_experiment.R with the experiment-id as the parameter.
+#
+# Comparison Naming Convention:
+# comp_[Antibody]_[Variables]_vs_[Baseline]_[Context]_[Modifier]
+#
+# DEPENDENCIES: NONE
+#
+# OUTPUTS:
+#   No outputs produced by script. Use via setup_bmc_experiment.R
+################################################################################
 # TODO: Denest the logic of the functions. Easier to add, modify, verify the values of the EXPERIMENT_CONFIG for two different experiment types.
 EXPERIMENT_CONFIG <- list(
     METADATA = list(
-    # Expected format for experiment id is the default format by the machine //
-    # Exp_<date_YYYYMMDD>_<num> "Exp_\\d{8}_\\d{1,6}" //
-
-        EXPERIMENT_ID = "Exp_20250310_1",
-        EXPECTED_SAMPLES = 42,
-        VERSION = "1.2.0",
-        PROJECT_ID = "project_001"
+      # Expected format for experiment id is the default format by the machine //
+      # Exp_<date_YYYYMMDD>_<num> "Exp_\\d{8}_\\d{1,6}" //
+      EXPERIMENT_ID = "Exp_20250310_1",
+      DIRECTORY_DIR = "",
+      EXPECTED_SAMPLES = 42,
+      VERSION = "1.2.0",
+      PROJECT_ID = "project_001"
     ),
 
     CATEGORIES = list(
