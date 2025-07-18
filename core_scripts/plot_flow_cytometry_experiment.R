@@ -1,4 +1,24 @@
 #!/usr/bin/env Rscript
+################################################################################
+# Plot Flow Cytometry data for an experiment based on script configuration
+# Author: Luis | Date: 2024-11-27 | Version: 2.1.0
+################################################################################
+# PURPOSE: 
+#   Create a fl1a (FITC) count plot for flow cytometry experiment in a directory
+#
+# USAGE:
+# 1. Update experiment_id and directory dir in the configuration_script_flow_cytometry.R file
+# 2. Source this script.
+#
+# DEPENDENCIES:
+#   configuration_script_flow_cytometry
+#   ~/lab_utils/core_scripts/setup_flow_cytometry_experiment.R outputs
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
+#
+# OUTPUTS:
+#   fl1a plot in svg or pdf format
+################################################################################
 # Bootstrap phase
 # Also loads OVERRIDE_PRESETS
 FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
