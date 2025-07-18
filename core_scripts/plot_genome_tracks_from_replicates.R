@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 ################################################################################
-# Plot bigwig files from multiple experiment-id
+# Plot bigwig files that are replicates
 # Author: Luis | Date: 2025-05-02 | Version: 2.0.0
 ################################################################################
 # PURPOSE: Plot replicates from multiple experiment-ids

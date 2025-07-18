@@ -154,6 +154,13 @@ done
 ```
 Renamed the other configuration files using standard move command.
 
+#### Session 4
+There are probably some unintended effects of the modifications. I think the only way to figure out at this point is to run the scripts. I can just switch to the other branch if the errors are too complex.
+Now I need to replace the code blocks.
+```vim
+vimgrep /^#\+\n# [^:]*\n^#\{2,}/j core_scripts/**/*.R 
+```
+
 ## References
 - Trying vimgrep to see all of the variables
   > https://www.kimi.com/chat/d1s4enumu6s6tajifb6g

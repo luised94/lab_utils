@@ -10,6 +10,9 @@
 # 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel")
 # 2. Run setup_bmc_experiment.R with the experiment-id as the parameter.
 #
+# Comparison Naming Convention:
+# comp_[Antibody]_[Variables]_vs_[Baseline]_[Context]_[Modifier]
+#
 # DEPENDENCIES: NONE
 #
 # OUTPUTS:

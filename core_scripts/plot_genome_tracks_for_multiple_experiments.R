@@ -1,4 +1,23 @@
 #!/usr/bin/env Rscript
+################################################################################
+# Plot bigwig files from multiple experiment-ids
+# Author: Luis | Date: 2025-05-02 | Version: 2.0.0
+################################################################################
+# PURPOSE: Plot replicates from multiple experiment-ids
+#
+# USAGE:
+#   ./core_scripts/plot_genome_tracks_from_replicates.R --experiment-id=<experiment-id>
+#   experiment-ids should be provided as csv
+#
+# DEPENDENCIES:
+#   configuration_experiment_bmc
+#   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
+#
+# OUTPUTS:
+# - Svg or pdf files with genome tracks from multiple experiment ids.
+################################################################################
 # Bootstrap phase
 # Also loads OVERRIDE_PRESETS
 FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
