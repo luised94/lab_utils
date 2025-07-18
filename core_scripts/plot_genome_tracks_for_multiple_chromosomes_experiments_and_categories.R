@@ -43,9 +43,9 @@ message("All variables defined in the configuration file...")
 #} else {
 # add the args code?
 #}
-################################################################################
+#-------------------------------------------------------------------------------
 # Verify Required Libraries
-################################################################################
+#-------------------------------------------------------------------------------
 # Add the packages that are used in the script.
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 if (!is.character(required_packages) || length(required_packages) == 0) {
@@ -64,9 +64,9 @@ if (!SKIP_PACKAGE_CHECKS) {
 }
 
 message("All required packages available...")
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup experiment-specific configuration path
-################################################################################
+#-------------------------------------------------------------------------------
 number_of_experiments <- length(EXPERIMENT_DIR)
 config_paths <- vector("character", length = number_of_experiments)
 metadata_paths <- vector("character", length = number_of_experiments)
@@ -92,9 +92,9 @@ if ( length(missing_configuration_paths) > 0 ) {
        paste(missing_configuration_paths, collapse = ", "))
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup directories, genome file and file metadata
-################################################################################
+#-------------------------------------------------------------------------------
 # Three pattern variables must be defined in configuration
 # Config: interactive_script_configuration.R
 # They are validated at init
@@ -228,9 +228,9 @@ for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
 message("Finished metadata processing...")
 #metadata_df <- metadata_df[do.call(order, metadata_df[intersect(EXPERIMENT_CONFIG$COLUMN_ORDER, colnames(metadata_df))]), ]
 # Oh. Can this be removed to the configuration file as well?
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 # Ensure supplementary files for plotting genome tracks are present
 # TODO: Move to configuration. //
 FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")

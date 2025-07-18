@@ -27,9 +27,10 @@ for (function_filename in function_filenames) {
 }
 
 message("All function files loaded...")
-################################################################################
+
+#-------------------------------------------------------------------------------
 # Handle script arguments
-################################################################################
+#-------------------------------------------------------------------------------
 # Parse arguments and validate configurations
 description <- "Setup flow cytometry experiments"
 args <- parse_flow_cytometry_arguments(description = description)
@@ -51,9 +52,9 @@ stopifnot(
 )
 
 message("Arguments parsed...")
-################################################################################
+#-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration
-################################################################################
+#-------------------------------------------------------------------------------
 # flow_cytometry_config.R is ignored in the git repository as this file is changed to add new experiments.
 config_path <- "~/lab_utils/core_scripts/configuration_flow_cytometry.R"
 # Define required dependencies
@@ -136,9 +137,9 @@ stopifnot(
 )
 
 message("Modules loaded...")
-################################################################################
+#-------------------------------------------------------------------------------
 # Directory Setup and User Confirmation
-################################################################################
+#-------------------------------------------------------------------------------
 # Handle configuration override (independent)
 if (!is.null(args$override)) {
     structured_log_info("Starting override")
@@ -167,9 +168,9 @@ handle_configuration_checkpoint(
 )
 
 message("Configuration accepted...")
-################################################################################
+#-------------------------------------------------------------------------------
 # Sample Metadata Generation and Validation
-################################################################################
+#-------------------------------------------------------------------------------
 # Generate experimental combinations
 metadata <- do.call(expand.grid, EXPERIMENT_CONFIG$CATEGORIES)
 
@@ -189,9 +190,9 @@ if (length(EXPERIMENT_CONFIG$INVALID_COMBINATIONS) > 0) {
 #    lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = metadata)
 #)
 #metadata <- subset(metadata, valid_idx)
-################################################################################
+#-------------------------------------------------------------------------------
 # Metadata Formatting and Organization
-################################################################################
+#-------------------------------------------------------------------------------
 # Enforce factor levels from config
 for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
     if (col_name %in% colnames(metadata)) {
@@ -252,9 +253,9 @@ metadata$full_name <- apply(metadata, 1, paste, collapse = "_")
 metadata$short_name <- apply(metadata[, EXPERIMENT_CONFIG$COLUMN_ORDER], 1,
     function(x) paste0(substr(x, 1, 1), collapse = ""))
 
-################################################################################
+#-------------------------------------------------------------------------------
 # File Output Generation
-################################################################################
+#-------------------------------------------------------------------------------
 filenames <- c("flow_cytometry_config.R", "sample_grid.csv")
 for (filename in filenames) {
     output_file_path <- file.path(directory_path, paste0(experiment_id, "_", filename))

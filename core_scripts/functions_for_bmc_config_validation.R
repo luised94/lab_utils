@@ -1,6 +1,6 @@
-################################################################################
+#-------------------------------------------------------------------------------
 # Experiment Configuration Validation Functions
-################################################################################
+#-------------------------------------------------------------------------------
 #' @title Validate Category Values in Experiment Configuration
 #' @description Ensures all category values are character vectors and unique
 #' @param categories list Category name to character vector mapping

@@ -29,9 +29,9 @@ for (function_filename in function_filenames) {
     source(normalized_path)
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Handle script arguments
-################################################################################
+#-------------------------------------------------------------------------------
 # Parse arguments and validate configurations
 description <- "Plot tracks from different experiments in same plot."
 args <- parse_common_arguments(description = description)
@@ -58,9 +58,9 @@ args_info <- list(
 )
 print_debug_info(modifyList(args_info, args))
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration and Dependencies
-################################################################################
+#-------------------------------------------------------------------------------
 sapply(config_path[1], safe_source)
 
 # Define required dependencies
@@ -164,9 +164,9 @@ handle_configuration_checkpoint(
 #    flog.threshold(INFO)
 #}
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 stopifnot(
     "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
     "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)
@@ -272,9 +272,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
     print_debug_info(debug_info)
 }
 
-#####################
+#--------------------
 # Load the metadata dataframe with all experiments.
-#####################
+#--------------------
 project_id <- c()
 project_bigwig_files <- c()
 project_metadata <- data.frame()

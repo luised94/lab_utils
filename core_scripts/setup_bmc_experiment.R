@@ -27,9 +27,9 @@ for (function_filename in function_filenames) {
     source(normalized_path)
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Handle script arguments
-################################################################################
+#-------------------------------------------------------------------------------
 # Parse arguments and validate configurations
 description <- "Setup experiment directory."
 args <- parse_common_arguments(description = description)
@@ -43,16 +43,16 @@ args_info <- list(
     "script.description" = description
 )
 print_debug_info(modifyList(args_info, args))
-################################################################################
+#-------------------------------------------------------------------------------
 # Experiment ID Validation
-################################################################################
+#-------------------------------------------------------------------------------
 stopifnot(
     "Only one experiment id required for this script" = length(experiment_id) == 1
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration
-################################################################################
+#-------------------------------------------------------------------------------
 # !! Update the path and the file accordingly.
 # configuration_experiment_bmc is ignored in the git repository as this file is changed to add new experiments.
 config_path <- "~/lab_utils/core_scripts/configuration_experiment_bmc"
@@ -123,9 +123,9 @@ invisible(lapply(required_configs, function(config) {
 }))
 stopifnot("Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = experiment_id == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID)
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Directory Setup and User Confirmation
-################################################################################
+#-------------------------------------------------------------------------------
 # Handle configuration override (independent)
 if (!is.null(args$override)) {
     structured_log_info("Starting override")
@@ -150,9 +150,9 @@ handle_configuration_checkpoint(
     experiment_id = experiment_id
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Directory Structure Definition and Creation
-################################################################################
+#-------------------------------------------------------------------------------
 # Define directory structure
 data_directories <- c(
     "peak",
@@ -190,9 +190,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
 
 cat("Directories created successfully!\n")
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Sample Metadata Generation and Validation
-################################################################################
+#-------------------------------------------------------------------------------
 # Generate experimental combinations
 metadata <- do.call(expand.grid, EXPERIMENT_CONFIG$CATEGORIES)
 
@@ -240,9 +240,9 @@ if (n_samples != expected) {
     stop(sprintf("Expected %d samples, got %d", expected, n_samples))
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Sample Classification
-################################################################################
+#-------------------------------------------------------------------------------
 sample_classifications <- EXPERIMENT_CONFIG$SAMPLE_CLASSIFICATIONS
 
 # First, create a matrix/data frame to store all classification results
@@ -317,9 +317,9 @@ cat(sprintf("- Total samples: %d\n", nrow(metadata)))
 cat(sprintf("- Classified samples: %d\n", sum(table(metadata$sample_type))))
 cat(sprintf("- Unclassified samples: %d\n", sum(is.na(metadata$sample_type))))
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Metadata Formatting and Organization
-################################################################################
+#-------------------------------------------------------------------------------
 # Enforce factor levels from config
 for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
     if (col_name %in% colnames(metadata)) {
@@ -342,9 +342,9 @@ metadata$full_name <- apply(metadata, 1, paste, collapse = "_")
 metadata$short_name <- apply(metadata[, EXPERIMENT_CONFIG$COLUMN_ORDER], 1,
     function(x) paste0(substr(x, 1, 1), collapse = ""))
 
-################################################################################
+#-------------------------------------------------------------------------------
 # BMC Metadata Generation
-################################################################################
+#-------------------------------------------------------------------------------
 bmc_metadata <- data.frame(
     SampleName = metadata$full_name,
     Vol_uL = 10,
@@ -364,9 +364,9 @@ bmc_metadata <- data.frame(
     stringsAsFactors = FALSE
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # File Output Generation
-################################################################################
+#-------------------------------------------------------------------------------
 filenames <- c("sample_grid.csv", "bmc_table.tsv", "configuration_experiment_bmc")
 # Loop through each filename to handle path assignment and file writing
 for (filename in filenames) {

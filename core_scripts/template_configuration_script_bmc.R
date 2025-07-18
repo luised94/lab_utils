@@ -17,19 +17,19 @@
 #   Depends on the script.
 ################################################################################
 message("Sourcing script configuration file...")
-######################
+#---------------------
 # CORE_RESOURCES
-######################
+#---------------------
 OVERRIDE_CONFIGURATION_PATH <- "~/lab_utils/core_scripts/override_configuration.R"
 
-######################
+#---------------------
 # CORE_PARAMETERS
-######################
+#---------------------
 EXPECTED_FORMAT_EXPERIMENT_ID <- "^\\d{6}Bel$"
 
-######################
+#---------------------
 # CONFIGURATION_PARAMETERS
-######################
+#---------------------
 # TODO: I should separate into essential and optional then alphabetical. Move any computations down.
 # Write single experiment id or single character that is comma-separated
 EXPERIMENT_IDS <- "250324Bel"
@@ -73,9 +73,9 @@ row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele ==
 #OUTPUT_DIR <-
 #OVERRIDE <- NULL
 #SCRIPT_TO_RUN <- ""
-######################
+#---------------------
 # Validation layer
-######################
+#---------------------
 stopifnot(
   "EXPERIMENT_IDS is required" =
     !is.null(EXPERIMENT_IDS),
@@ -85,9 +85,9 @@ stopifnot(
     OUTPUT_FORMAT %in% VALID_OUTPUT_FORMATS
 )
 
-######################
+#---------------------
 # EXPERIMENT CONFIGURATION SETUP
-######################
+#---------------------
 IS_COMMA_SEPARATED <- grepl(",", EXPERIMENT_IDS)
 # Setup experiment directories ----------------
 if (!IS_COMMA_SEPARATED){
@@ -141,9 +141,9 @@ if ( length(missing_dirs) > 0 ) {
 
 message("All experiment directories exist...")
 # end experiment directory setup -------------------
-######################
+#---------------------
 # Clean up
-######################
+#---------------------
 rm(list = VARIABLES_TO_REMOVE)
 message("Additional variables removed...")
 # end clean up section -------------------

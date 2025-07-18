@@ -62,9 +62,9 @@ message("All variables defined in the configuration file...")
 #} else {
 # add the args code?
 #}
-################################################################################
+#-------------------------------------------------------------------------------
 # Verify Required Libraries
-################################################################################
+#-------------------------------------------------------------------------------
 # Add the packages that are used in the script.
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 if (!is.character(required_packages) || length(required_packages) == 0) {
@@ -83,9 +83,9 @@ if (!SKIP_PACKAGE_CHECKS) {
 }
 
 message("All required packages available...")
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 # Ensure supplementary files for plotting genome tracks are present
 # TODO: Move to configuration. //
 FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
@@ -154,9 +154,9 @@ if (!is.null(FEATURE_FILE)) {
 }
 message("Genome reference and feature set...")
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup experiment-specific configuration path, directories and file metadata
-################################################################################
+#-------------------------------------------------------------------------------
 number_of_experiments <- length(EXPERIMENT_DIR)
 config_paths <- vector("character", length = number_of_experiments)
 metadata_paths <- vector("character", length = number_of_experiments)

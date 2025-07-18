@@ -41,9 +41,9 @@ if (length(missing_variables) > 0 ) {
 }
 message("All variables defined in the configuration file...")
 
-########################################
+#---------------------------------------
 # Confirm packages
-########################################
+#---------------------------------------
 # Check for required packages -------------
 REQUIRED_PACKAGES <- list(
   "dplyr" = "1.1.4",
@@ -83,9 +83,9 @@ lapply(names(REQUIRED_PACKAGES),
 
 # If the loop completes without stopping, all packages are available and meet minimum version requirements.
 message("All required packages available...")
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup directories
-################################################################################
+#-------------------------------------------------------------------------------
 XIT_FILEPATH <- list.files(
     path = SERIES_DIRECTORY,
     pattern = paste0(EXPERIMENT_ID, "\\.xit$"),
@@ -169,9 +169,9 @@ OUTPUT_DIRS <- sapply(SUBDIRS, function(SUBDIR) {
 PLOT_OUTPUT_DIR <- OUTPUT_DIRS[["plots"]]
 
 message("Variables and directories initialized...")
-################################################################################
+#-------------------------------------------------------------------------------
 # Load sample metadata_df
-################################################################################
+#-------------------------------------------------------------------------------
 metadata_df <- read.csv(METADATA_FILE_PATH, stringsAsFactors = FALSE)
 #metadata_categories <- EXPERIMENT_CONFIG$CATEGORIES
 #metadata_df$experiment_id <- EXPERIMENT_CONFIG$METADATA_df$EXPERIMENT_ID
@@ -191,9 +191,9 @@ stopifnot(
 )
 
 message("Finished metadata_df processing...")
-########################################
+#---------------------------------------
 # MAIN
-########################################
+#---------------------------------------
 library(dplyr)
 library(flowCore)
 library(ggcyto)

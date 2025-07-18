@@ -30,9 +30,9 @@ for (function_filename in FUNCTION_FILENAMES) {
 }
 message("Bootstrap phase completed...")
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Handle script arguments
-################################################################################
+#-------------------------------------------------------------------------------
 # Parse arguments and validate configurations
 description <- "Plot genome tracks in batches"
 args <- parse_common_arguments(description = description)
@@ -55,9 +55,9 @@ args_info <- list(
 )
 print_debug_info(modifyList(args_info, args))
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Load Required Libraries
-################################################################################
+#-------------------------------------------------------------------------------
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 check_required_packages(
   packages = required_packages, verbose = TRUE,
@@ -65,9 +65,9 @@ check_required_packages(
 )
 
 message("Packages confirmed...")
-################################################################################
+#-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration and Dependencies
-################################################################################
+#-------------------------------------------------------------------------------
 # TODO: Consolidate this into the previous for loop? Or use second for loop with safe_source //
 # Would need to remove the print_debug_info call. I probably need to adjust that function anyways. //
 # Define required dependencies
@@ -173,9 +173,9 @@ handle_configuration_checkpoint(
   experiment_id = experiment_id
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup directories, variables and metadata
-################################################################################
+#-------------------------------------------------------------------------------
 # !! Add directories here.
 required_directories <- c("fastq", "documentation", "coverage")
 # Creates directories and stores them in dirs variable.
@@ -354,9 +354,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
   }))
   message("\n=== Initialization Complete ===")
 }
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 stopifnot(
   "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
   "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)
@@ -452,9 +452,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
 }
 
 
-################################################################################
+#-------------------------------------------------------------------------------
 # MAIN
-################################################################################
+#-------------------------------------------------------------------------------
 # Filter all of the bigwig files to CPM only.
 is_CPM_bw_file <- grepl("CPM\\.bw$", bigwig_files)
 bigwig_files_subset <- bigwig_files[is_CPM_bw_file]

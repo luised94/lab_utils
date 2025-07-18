@@ -112,9 +112,9 @@ stopifnot(
 )
 
 #todo: need to add guard statement around this section to prevent double loading of config objects when I run multi-experiment scripts. Also use default config with all values. Would need to adjust the parse arguments script as well. Pretty complex refactor. Could just to override_configuration.
-################################################################################
+#-------------------------------------------------------------------------------
 # Time Configurations
-################################################################################
+#-------------------------------------------------------------------------------
 TIME_CONFIG <- list(
     # Format specifications
     timestamp_format = "%Y%m%d_%H%M%S",    # YYYYMMDD_HHMMSS
@@ -125,9 +125,9 @@ TIME_CONFIG <- list(
     current_date = format(Sys.Date(), "%Y%m%d")
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # DEBUG CONFIGURATIONS
-################################################################################
+#-------------------------------------------------------------------------------
 RUNTIME_CONFIG <- list(
     # Execution Mode
     #show_debug_output = TRUE,      # (formerly debug_verbose)
@@ -164,9 +164,9 @@ RUNTIME_CONFIG <- list(
     output_display_time = 2
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Quality control configuration
-################################################################################
+#-------------------------------------------------------------------------------
 FASTQC_CONFIG <- list(
     # Version control
     version_required = "0.11.5",
@@ -193,9 +193,9 @@ FASTQC_CONFIG <- list(
     module_list = character(0)
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # VISUALIZATION AND DISPLAY CONFIGURATIONS
-################################################################################
+#-------------------------------------------------------------------------------
 VIEWER_CONFIG <- list(
     # Paths
     path_base = file.path(Sys.getenv("HOME"), "data"),
@@ -358,9 +358,9 @@ GENOME_TRACK_CONFIG <- list(
     )
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Configuration Validation
-################################################################################
+#-------------------------------------------------------------------------------
 experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
 stopifnot(
     "Experiment ID must be a character string" = is.character(experiment_id),

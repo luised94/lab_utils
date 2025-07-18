@@ -27,9 +27,9 @@ for (function_filename in function_filenames) {
     source(normalized_path)
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Handle script arguments
-################################################################################
+#-------------------------------------------------------------------------------
 # Parse arguments and validate configurations
 description <- "Plot genome tracks in batches"
 args <- parse_common_arguments(description = description)
@@ -51,9 +51,9 @@ args_info <- list(
 )
 print_debug_info(modifyList(args_info, args))
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Load Required Libraries
-################################################################################
+#-------------------------------------------------------------------------------
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 check_required_packages(
     packages = required_packages,
@@ -61,9 +61,9 @@ check_required_packages(
     skip_validation = args$skip_validation
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration and Dependencies
-################################################################################
+#-------------------------------------------------------------------------------
 # Define required dependencies
 required_modules <- list(
     list(
@@ -167,9 +167,9 @@ handle_configuration_checkpoint(
 #    flog.appender(appender.file(log_file))
 #    flog.threshold(INFO)
 #}
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup directories, variables and metadata
-################################################################################
+#-------------------------------------------------------------------------------
 # !! Add directories here.
 required_directories <- c("fastq", "documentation", "coverage")
 dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
@@ -335,9 +335,9 @@ groups_to_process <- if (RUNTIME_CONFIG$process_single_file) {
     seq_along(sample_groups)
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 stopifnot(
     "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
     "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)

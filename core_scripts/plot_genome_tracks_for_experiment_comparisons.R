@@ -28,9 +28,9 @@ for (function_filename in function_filenames) {
     source(normalized_path)
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Handle script arguments
-################################################################################
+#-------------------------------------------------------------------------------
 # Parse arguments and validate configurations
 description <- "Plot genome tracks in batches"
 args <- parse_common_arguments(description = description)
@@ -52,9 +52,9 @@ args_info <- list(
 )
 print_debug_info(modifyList(args_info, args))
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Load Required Libraries
-################################################################################
+#-------------------------------------------------------------------------------
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 check_required_packages(
     packages = required_packages,
@@ -62,9 +62,9 @@ check_required_packages(
     skip_validation = args$skip_validation
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration and Dependencies
-################################################################################
+#-------------------------------------------------------------------------------
 # TODO: Consolidate this into the previous for loop? Or use second for loop with safe_source //
 # Would need to remove the print_debug_info call. I probably need to adjust that function anyways. //
 # Define required dependencies
@@ -164,9 +164,9 @@ if (!is.null(args$override)) {
  ))
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Required configuration settings validation
-################################################################################
+#-------------------------------------------------------------------------------
 # Ensure that the variables from the _CONFIG variables are set.
 # TODO: Add simple for loop or lapply that validates the required variables from the _CONFIG variable used in the script.
 #required_configuration_settings <- c()
@@ -178,9 +178,9 @@ handle_configuration_checkpoint(
     experiment_id = experiment_id
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup directories, variables and metadata
-################################################################################
+#-------------------------------------------------------------------------------
 # !! Add directories here.
 required_directories <- c("fastq", "documentation", "coverage")
 # Creates directories and stores them in dirs variable.
@@ -368,9 +368,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
     message("\n=== Initialization Complete ===")
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 stopifnot(
     "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
     "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)
@@ -482,9 +482,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
     message("- Comparisons: ", paste(comparisons_to_process, collapse = ", "))
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Main script logic for plotting experiment comparisons of genomic tracks
-################################################################################
+#-------------------------------------------------------------------------------
 scaling_modes <- c("local", "individual")
 #scaling_modes <- "local"
 for (comparison_name in comparisons_to_process) {

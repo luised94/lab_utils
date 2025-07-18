@@ -13,9 +13,9 @@ source(configuration_options)
 # Control output formats for plotting scripts.
 OUTPUT_FORMATS <- c("svg", "png", "pdf")
 
-#########################################
+#----------------------------------------
 # Function Definitions
-#########################################
+#----------------------------------------
 
 # validate_configs ----------------------------------------------------
 #' Ensure configurations required for a script are present and follow the patterns

@@ -15,19 +15,19 @@
 # - Output depends on script
 ################################################################################
 message("Sourcing script configuration file...")
-######################
+#---------------------
 # CORE_RESOURCES
-######################
+#---------------------
 OVERRIDE_CONFIGURATION_PATH <- "~/lab_utils/core_scripts/override_configuration.R"
 
-######################
+#---------------------
 # CORE_PARAMETERS
-######################
+#---------------------
 EXPECTED_FORMAT_EXPERIMENT_ID <- "Exp_\\d{8}_\\d{1,6}"
 
-######################
+#---------------------
 # CONFIGURATION_PARAMETERS
-######################
+#---------------------
 # Write single experiment id or single character that is comma-separated
 EXPERIMENT_ID <- "Exp_20250515_1"
 DIRECTORY_ID <- "250515_G1_arrest_release_arrest"
@@ -47,9 +47,9 @@ OVERRIDE_THE_CONFIG <- NULL
 ##LOG_TO_FILE <- 
 #OUTPUT_DIR <- 
 #SCRIPT_TO_RUN <- ""
-######################
+#---------------------
 # Validation layer
-######################
+#---------------------
 stopifnot(
   "EXPERIMENT_ID is required" =
     !is.null(EXPERIMENT_ID),
@@ -66,9 +66,9 @@ if(DROPBOX_PATH == "") {
     stop("!!!! DROPBOX_PATH required for proper directory setting.")
 }
 
-######################
+#---------------------
 # EXPERIMENT CONFIGURATION SETUP
-######################
+#---------------------
 IS_COMMA_SEPARATED <- grepl(",", EXPERIMENT_ID)
 # Setup experiment directories ----------------
 if (!IS_COMMA_SEPARATED){
@@ -139,9 +139,9 @@ stopifnot(
 
 message("All experiment directories exist...")
 # end experiment directory setup -------------------
-######################
+#---------------------
 # Clean up
-######################
+#---------------------
 rm(list = VARIABLES_TO_REMOVE)
 message("Additional variables removed...")
 # end clean up section -------------------

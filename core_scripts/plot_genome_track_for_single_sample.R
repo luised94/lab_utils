@@ -32,9 +32,9 @@ check_required_packages(required_packages, verbose = TRUE, skip_validation = FAL
 
 config_path <- "~/lab_utils/core_scripts/template_configuration_experiment_bmc"
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration and Dependencies
-################################################################################
+#-------------------------------------------------------------------------------
 # Define required dependencies
 required_modules <- list(
     list(
@@ -126,9 +126,9 @@ print_debug_info(modifyList(
     RUNTIME_CONFIG
 ))
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 stopifnot(
     "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
     "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)

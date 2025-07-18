@@ -1,7 +1,7 @@
 # @USAGE source("core_scripts/generate_blacklist_file_from_sgd_files.R")
-######################################################################
+#---------------------------------------------------------------------
 # CONFIGURATION AND CONSTANTS
-######################################################################
+#---------------------------------------------------------------------
 # Current date for output filename
 current_date <- format(Sys.time(), "%Y%m%d")
 
@@ -46,9 +46,9 @@ blacklist_patterns <- c(
   "centromere_dna_element_iii"
 )
 
-######################################################################
+#---------------------------------------------------------------------
 # PREPROCESSING AND SETUP
-######################################################################
+#---------------------------------------------------------------------
 
 # Get all .bed files in the directory
 all_files <- list.files(path = file_directory, pattern = "\\.bed$", full.names = FALSE)
@@ -120,9 +120,9 @@ files_processed <- 0
 
 cat("Starting to process", length(blacklist_files), "blacklist files\n")
 
-######################################################################
+#---------------------------------------------------------------------
 # MAIN PROCESSING LOGIC
-######################################################################
+#---------------------------------------------------------------------
 
 # Read and combine each blacklist file
 for (bed_file_index in 1:length(blacklist_files)) {
@@ -205,9 +205,9 @@ for (bed_file_index in 1:length(blacklist_files)) {
   })
 }
 
-######################################################################
+#---------------------------------------------------------------------
 # DATA VALIDATION AND ASSERTIONS
-######################################################################
+#---------------------------------------------------------------------
 # Verify we processed some files
 if (files_processed == 0) {
   stop("No files were successfully processed. Check file paths and formats.")
@@ -230,9 +230,9 @@ if (length(invalid_ranges) > 0) {
   }
 }
 
-######################################################################
+#---------------------------------------------------------------------
 # SORT BED FILE
-######################################################################
+#---------------------------------------------------------------------
 # Sort BED entries by chromosome and start position
 # First convert chromosome names to factors to ensure proper sorting
 # when chromosomes are named like "chr1", "chr2", etc.
@@ -243,9 +243,9 @@ combined_bed_data <- combined_bed_data[order(combined_bed_data$sortkey, combined
 combined_bed_data$sortkey <- NULL  # Remove the temporary sort key
 #combined_bed_data <- combined_bed_data[!is.na(combined_bed_data$start) & !is.na(combined_bed_data$end), ]
 
-######################################################################
+#---------------------------------------------------------------------
 # REMOVE REDUNDANT SECTIONS
-######################################################################
+#---------------------------------------------------------------------
 library(GenomicRanges)
 library(rtracklayer)
 
@@ -310,9 +310,9 @@ GenomicRanges::mcols(non_redundant_gr) <- new_mcols
 # Remove the revmap column which we no longer need
 non_redundant_gr$revmap <- NULL
 
-######################################################################
+#---------------------------------------------------------------------
 # WRITE OUTPUT FILES
-######################################################################
+#---------------------------------------------------------------------
 # When exporting to BED, ensure the column order matches your expectations
 # Export the non-redundant regions as BED file
 cat("Exporting blacklist BED file...\n")

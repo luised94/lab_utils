@@ -153,13 +153,28 @@ mv "$file" "$new_file"
 done
 ```
 Renamed the other configuration files using standard move command.
-
-#### Session 4
 There are probably some unintended effects of the modifications. I think the only way to figure out at this point is to run the scripts. I can just switch to the other branch if the errors are too complex.
-Now I need to replace the code blocks.
+
+### 2025-07-18
+#### Session 1
+I am going to perform the replacement of the banner styles.
 ```vim
-vimgrep /^#\+\n# [^:]*\n^#\{2,}/j core_scripts/**/*.R 
+"vimgrep /^#\+\n# [^:]*\n^#\{2,}/j core_scripts/**/*.R 
+" Find the banners and populate the quickfixlist.
+vimgrep /^#\+\n^# [^:]*\n^#\+\n/j core_scripts/**/*.R 
+cn " Verify the matches
+cp " Go back to the first.
+" Use a macro
+qq
+Ctrl+Q " Visual block mode
+3j
+" s/^#\zs#\+/\=repeat('-', len(submatch(0)))/ should also work.
+'<,'>s/^\(#\+$\)/\='#' . repeat('-', len(submatch(1)) - 1)/
+cn
+q
+@q " Just do one at a time. Maybe using % with gc would have made it more efficient and interactive
 ```
+The reason why I didnt use cdo or recursive macro is that for some reason, one of the matches did not go to the first hash line but to the middle. Has to be an error in the regex but did not try to figure out and went with the just get it done now approach.
 
 ## References
 - Trying vimgrep to see all of the variables
