@@ -29,22 +29,38 @@ for (function_filename in function_filenames) {
     }
     source(normalized_path)
 }
-
-#-------------------------------------------------------------------------------
-# Handle script arguments
-#-------------------------------------------------------------------------------
-# Parse arguments and validate configurations
-description <- "Setup experiment directory."
-args <- parse_common_arguments(description = description)
-experiment_id <- args$experiment_id
-accept_configuration <- args$accept_configuration
-experiment_dir <- args$experiment_dir
-args_info <- list(
-    title = "Script Configuration",
-    "script.name" = get_script_name(),
-    "script.description" = description
+#---------------------------------------
+# Source configuration for interactive session
+#---------------------------------------
+if(interactive()) {
+  message("Interactive job... sourcing configuration file.")
+  script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_bmc.R"
+  stopifnot(
+    "Script configuration file does not exist. Please copy the template." =
+    file.exists(script_configuration_path)
+  )
+  source(script_configuration_path)
+  message("Configuration file sourced...")
+} else {
+  stop("Run the script from the R repl in an interactive session.")
+}
+# Ensure the variables expected in the script were //
+# defined in the configuration file. //
+# See template_interactive_script_configuration.R or //
+# configuration_script_bmc.R //
+required_configuration_variables <- c(
+  "EXPERIMENT_IDS", "EXPERIMENT_DIR",
+  "CHROMOSOMES_TO_PLOT", "OUTPUT_FORMAT",
+  "OUTPUT_EXTENSION", "BIGWIG_PATTERN",
+  "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
+  "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
-print_debug_info(modifyList(args_info, args))
+missing_variables <- required_configuration_variables[!sapply(required_configuration_variables, exists)]
+if (length(missing_variables) > 0 ) {
+  stop("Missing variable. Please define in 'script_configuration.R' file.",
+       paste(missing_variables, collapse = ", "))
+}
+message("All variables defined in the configuration file...")
 
 #-------------------------------------------------------------------------------
 # Experiment ID Validation
@@ -58,7 +74,7 @@ stopifnot(
 #-------------------------------------------------------------------------------
 # !! Update the path and the file accordingly.
 # configuration_experiment_bmc is ignored in the git repository as this file is changed to add new experiments.
-config_path <- "~/lab_utils/core_scripts/configuration_experiment_bmc"
+config_path <- "~/lab_utils/core_scripts/configuration_experiment_bmc.R"
 # Define required dependencies
 required_modules <- list(
     list(

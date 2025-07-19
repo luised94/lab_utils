@@ -237,6 +237,24 @@ norm %s/\s\{4}/  /g
 '<,'>s/\s\{4}/  /g
 ```
 
+### 2025-07-19
+#### Session 1
+Tried to replace the handle script argument sessions in the other one. Messed up the macro by not pasting the register. Furthermore, still had the issue were the contents were pasting in place.
+
+```vim
+norm '<,'>"ay
+norm qq/Handle script arguments<CR>2-:pu<CR>n-<C-Q>}$"_d<C-Q>}{:d<CR>:cn<CR>q
+" Pattern for deleting empty lines
+<Ctrl+Q>}{d
+```
+
+Random thought: Macro for modifying variables (untested)
+```vim
+norm /^\w\+\s<-
+qq*%s//<insert_mod_here>/gnq
+```
+
+
 ## References
 - Trying vimgrep to see all of the variables
   > https://www.kimi.com/chat/d1s4enumu6s6tajifb6g

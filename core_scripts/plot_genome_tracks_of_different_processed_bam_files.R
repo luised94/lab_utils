@@ -33,27 +33,38 @@ for (function_filename in FUNCTION_FILENAMES) {
 }
 message("Bootstrap phase completed...")
 
-#-------------------------------------------------------------------------------
-# Handle script arguments
-#-------------------------------------------------------------------------------
-# Parse arguments and validate configurations
-description <- "Plot genome tracks in batches"
-args <- parse_common_arguments(description = description)
-experiment_id <- args$experiment_id
-accept_configuration <- args$accept_configuration
-experiment_dir <- args$experiment_dir
-is_template <- args$is_template
-file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
-file_identifier <- if (is_template) "template" else args$experiment_id
-config_path <- file.path(file_directory, paste0(file_identifier, "_configuration_experiment_bmc"))
-metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
-message("Arguments parsed...")
-args_info <- list(
-    title = "Script Configuration",
-    "script.name" = get_script_name(),
-    "script.description" = description
+#---------------------------------------
+# Source configuration for interactive session
+#---------------------------------------
+if(interactive()) {
+  message("Interactive job... sourcing configuration file.")
+  script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_bmc.R"
+  stopifnot(
+    "Script configuration file does not exist. Please copy the template." =
+    file.exists(script_configuration_path)
+  )
+  source(script_configuration_path)
+  message("Configuration file sourced...")
+} else {
+  stop("Run the script from the R repl in an interactive session.")
+}
+# Ensure the variables expected in the script were //
+# defined in the configuration file. //
+# See template_interactive_script_configuration.R or //
+# configuration_script_bmc.R //
+required_configuration_variables <- c(
+  "EXPERIMENT_IDS", "EXPERIMENT_DIR",
+  "CHROMOSOMES_TO_PLOT", "OUTPUT_FORMAT",
+  "OUTPUT_EXTENSION", "BIGWIG_PATTERN",
+  "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
+  "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
-print_debug_info(modifyList(args_info, args))
+missing_variables <- required_configuration_variables[!sapply(required_configuration_variables, exists)]
+if (length(missing_variables) > 0 ) {
+  stop("Missing variable. Please define in 'script_configuration.R' file.",
+       paste(missing_variables, collapse = ", "))
+}
+message("All variables defined in the configuration file...")
 
 #-------------------------------------------------------------------------------
 # Load Required Libraries
