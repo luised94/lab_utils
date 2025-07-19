@@ -254,6 +254,21 @@ norm /^\w\+\s<-
 qq*%s//<insert_mod_here>/gnq
 ```
 
+#### Session 2
+Useful command to reopen modified files in commit relative to head. Replace one with whatever index you want.
+```bash
+nvim $(git diff --name-only HEAD~1)
+```
+
+You can use the * trick for reusing variables in expression to find an entire expression to refactor. Couple with vimgrep and macro.
+```vim
+" Highlight the expression by visually selecting the entire line.
+<Ctrl+Q>$*
+" Record macro
+norm qq<expression_to_refactor_here>cnq
+" End with @q for recursive macro. run let @q = '' to ensure it is empty.
+wa
+```
 
 ## References
 - Trying vimgrep to see all of the variables

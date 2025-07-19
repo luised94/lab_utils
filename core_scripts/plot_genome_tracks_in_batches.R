@@ -50,13 +50,14 @@ if(interactive()) {
 # See template_interactive_script_configuration.R or //
 # configuration_script_bmc.R //
 required_configuration_variables <- c(
-  "EXPERIMENT_IDS", "EXPERIMENT_DIR",
-  "CHROMOSOMES_TO_PLOT", "OUTPUT_FORMAT",
+  "EXPERIMENT_ID", "EXPERIMENT_DIR",
+  "CHROMOSOME_TO_PLOT", "OUTPUT_FORMAT",
   "OUTPUT_EXTENSION", "BIGWIG_PATTERN",
   "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
   "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
-missing_variables <- required_configuration_variables[!sapply(required_configuration_variables, exists)]
+is_missing_variable <- !sapply(required_configuration_variables, exists)
+missing_variables <- required_configuration_variables[is_missing_variable]
 if (length(missing_variables) > 0 ) {
   stop("Missing variable. Please define in 'script_configuration.R' file.",
        paste(missing_variables, collapse = ", "))
@@ -169,8 +170,8 @@ if (!is.null(args$override)) {
 }
 
 handle_configuration_checkpoint(
-    accept_configuration = accept_configuration,
-    experiment_id = experiment_id
+    ACCEPT_CONFIGURATION = ACCEPT_CONFIGURATION,
+    EXPERIMENT_ID = EXPERIMENT_ID
 )
 
 # Setup logging if requested (independent)
@@ -184,7 +185,7 @@ handle_configuration_checkpoint(
 #-------------------------------------------------------------------------------
 # !! Add directories here.
 required_directories <- c("fastq", "documentation", "coverage")
-dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
+dirs <- setup_experiment_dirs(EXPERIMENT_DIR = EXPERIMENT_DIR,
     output_dir_name = "plots",
     required_input_dirs = required_directories
 )
@@ -199,10 +200,9 @@ fastq_files <- list.files(
 )
 
 # Find bigwig files
-bigwig_pattern <- sprintf("processed_.*_sequence_to_S288C_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
 bigwig_files <- list.files(
     dirs$coverage,
-    pattern = bigwig_pattern,
+    pattern = BIGWIG_PATTERN,
     full.names = TRUE
 )
 
@@ -238,7 +238,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
 
     message("\n  Pattern Matching:")
     message(sprintf("    FASTQ pattern: %s", GENOME_TRACK_CONFIG$file_pattern))
-    message(sprintf("    Bigwig pattern: %s", bigwig_pattern))
+    message(sprintf("    Bigwig pattern: %s", BIGWIG_PATTERN))
 
     message("\n  File Discovery:")
     message(sprintf("    FASTQ files found: %d", length(fastq_files)))
@@ -374,9 +374,8 @@ if (!file.exists(ref_genome_file)) {
 genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
 
 # Create chromosome range
-chromosome_to_plot <- RUNTIME_CONFIG$process_chromosome
-chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
-chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
+chromosome_width <- genome_data[CHROMOSOME_TO_PLOT]@ranges@width
+chromosome_roman <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
 
 genome_range <- GenomicRanges::GRanges(
     seqnames = chromosome_roman,
@@ -469,7 +468,7 @@ for (group_idx in groups_to_process) {
     # Initialize tracks list with chromosome axis
     tracks <- list(
         Gviz::GenomeAxisTrack(
-            name = sprintf(GENOME_TRACK_CONFIG$format_genome_axis_track_name, chromosome_to_plot)
+            name = sprintf(GENOME_TRACK_CONFIG$format_genome_axis_track_name, CHROMOSOME_TO_PLOT)
         )
     )
 
@@ -590,9 +589,9 @@ for (group_idx in groups_to_process) {
 
     plot_title <- sprintf(
         GENOME_TRACK_CONFIG$title_group_template,
-        experiment_id,
+        EXPERIMENT_ID,
         group_idx,
-        chromosome_to_plot,
+        CHROMOSOME_TO_PLOT,
         nrow(row_samples_to_visualize),
         TIME_CONFIG$current_timestamp,
         normalization_method
@@ -612,9 +611,9 @@ for (group_idx in groups_to_process) {
         plot_filename <- sprintf(
             GENOME_TRACK_CONFIG$filename_format_group_template,
             TIME_CONFIG$current_timestamp,
-            experiment_id,
+            EXPERIMENT_ID,
             group_idx,
-            chromosome_to_plot,
+            CHROMOSOME_TO_PLOT,
             mode
          )
 
@@ -628,8 +627,8 @@ for (group_idx in groups_to_process) {
             message(sprintf("\nScaling mode: %s", mode))
             message("\nPlot Generation Details:")
             message(sprintf("  Title Components:"))
-            message(sprintf("    Experiment: %s", experiment_id))
-            message(sprintf("    Chromosome: %s", chromosome_to_plot))
+            message(sprintf("    Experiment: %s", EXPERIMENT_ID))
+            message(sprintf("    Chromosome: %s", CHROMOSOME_TO_PLOT))
             message(sprintf("    Sample Count: %d", nrow(row_samples_to_visualize)))
             message(sprintf("    Timestamp: %s", TIME_CONFIG$current_timestamp))
             message(sprintf("    Normalization: %s", normalization_method))

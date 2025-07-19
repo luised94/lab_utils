@@ -53,13 +53,14 @@ if(interactive()) {
 # See template_interactive_script_configuration.R or //
 # configuration_script_bmc.R //
 required_configuration_variables <- c(
-  "EXPERIMENT_IDS", "EXPERIMENT_DIR",
-  "CHROMOSOMES_TO_PLOT", "OUTPUT_FORMAT",
+  "EXPERIMENT_ID", "EXPERIMENT_DIR",
+  "CHROMOSOME_TO_PLOT", "OUTPUT_FORMAT",
   "OUTPUT_EXTENSION", "BIGWIG_PATTERN",
   "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
   "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
-missing_variables <- required_configuration_variables[!sapply(required_configuration_variables, exists)]
+is_missing_variable <- !sapply(required_configuration_variables, exists)
+missing_variables <- required_configuration_variables[is_missing_variable]
 if (length(missing_variables) > 0 ) {
   stop("Missing variable. Please define in 'script_configuration.R' file.",
        paste(missing_variables, collapse = ", "))
@@ -155,33 +156,33 @@ invisible(lapply(required_configs, function(config) {
     print_config_settings(get(config), title = config)
 }))
 
-if(!is.null(args$output_format)) {
-    RUNTIME_CONFIG$output_format <- args$output_format
-    message(sprintf("Setting output format: %s", RUNTIME_CONFIG$output_format))
-}
+#if(!is.null(args$output_format)) {
+#    RUNTIME_CONFIG$output_format <- args$output_format
+#    message(sprintf("Setting output format: %s", RUNTIME_CONFIG$output_format))
+#}
 
 # Handle configuration override (independent)
-if (!is.null(args$override)) {
-    override_result <- apply_runtime_override(
-        config = RUNTIME_CONFIG,
-        preset_name = args$override,
-        preset_list = OVERRIDE_PRESETS
-    )
-    RUNTIME_CONFIG <- override_result$modified
- print_debug_info(modifyList(
-     list(
-         title = "Final Configuration",
-         "override.mode" = override_result$mode
-     ),
-     RUNTIME_CONFIG  # Flat list of current settings
- ))
-}
+#if (!is.null(args$override)) {
+#    override_result <- apply_runtime_override(
+#        config = RUNTIME_CONFIG,
+#        preset_name = args$override,
+#        preset_list = OVERRIDE_PRESETS
+#    )
+#    RUNTIME_CONFIG <- override_result$modified
+# print_debug_info(modifyList(
+#     list(
+#         title = "Final Configuration",
+#         "override.mode" = override_result$mode
+#     ),
+#     RUNTIME_CONFIG  # Flat list of current settings
+# ))
+#}
 
 # Checkpoint handler ---------------------------
 # See the settings before running. Override with --accept-configuration option.
 handle_configuration_checkpoint(
-  accept_configuration = accept_configuration,
-  experiment_id = experiment_id
+  ACCEPT_CONFIGURATION = ACCEPT_CONFIGURATION,
+  EXPERIMENT_ID = EXPERIMENT_ID
 )
 
 #-------------------------------------------------------------------------------
@@ -191,7 +192,7 @@ handle_configuration_checkpoint(
 required_directories <- c("fastq", "documentation", "coverage")
 # Creates directories and stores them in dirs variable.
 dirs <- setup_experiment_dirs(
-  experiment_dir = experiment_dir,
+  EXPERIMENT_DIR = EXPERIMENT_DIR,
   output_dir_name = "plots",
   required_input_dirs = required_directories
 )
@@ -208,15 +209,14 @@ fastq_files <- list.files(
 )
 
 # Find bigwig files
-bigwig_pattern <- GENOME_TRACK_CONFIG$file_sample_id_from_bigwig
-#bigwig_pattern <- sprintf(
+#BIGWIG_PATTERN <- sprintf(
 #    "processed_.*_sequence_to_S288C_%s\\.bw$",
 #    EXPERIMENT_CONFIG$NORMALIZATION$active
 #)
 
 bigwig_files <- list.files(
     dirs$coverage,
-    pattern = bigwig_pattern,
+    pattern = BIGWIG_PATTERN,
     full.names = TRUE
 )
 
@@ -277,7 +277,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
   message(sprintf("    Coverage: %s", dirs$coverage))
   message("\n  Pattern Matching:")
   message(sprintf("    FASTQ pattern: %s", GENOME_TRACK_CONFIG$file_pattern))
-  message(sprintf("    Bigwig pattern: %s", bigwig_pattern))
+  message(sprintf("    Bigwig pattern: %s", BIGWIG_PATTERN))
   message("\n  File Discovery:")
   message(sprintf("    FASTQ files found: %d", length(fastq_files)))
   if (length(fastq_files) > 0) {
@@ -395,7 +395,6 @@ if (!file.exists(ref_genome_file)) {
 genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
 
 # Create chromosome range
-CHROMOSOME_TO_PLOT <- RUNTIME_CONFIG$process_chromosome
 CHROMOSOME_WIDTH <- genome_data[CHROMOSOME_TO_PLOT]@ranges@width
 CHROMOSOME_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
 

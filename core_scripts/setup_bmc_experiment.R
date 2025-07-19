@@ -49,13 +49,11 @@ if(interactive()) {
 # See template_interactive_script_configuration.R or //
 # configuration_script_bmc.R //
 required_configuration_variables <- c(
-  "EXPERIMENT_IDS", "EXPERIMENT_DIR",
-  "CHROMOSOMES_TO_PLOT", "OUTPUT_FORMAT",
-  "OUTPUT_EXTENSION", "BIGWIG_PATTERN",
-  "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
-  "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
+  "EXPERIMENT_ID", "EXPERIMENT_DIR",
+  "ACCEPT_CONFIGURATION"
 )
-missing_variables <- required_configuration_variables[!sapply(required_configuration_variables, exists)]
+is_missing_variable <- !sapply(required_configuration_variables, exists)
+missing_variables <- required_configuration_variables[is_missing_variable]
 if (length(missing_variables) > 0 ) {
   stop("Missing variable. Please define in 'script_configuration.R' file.",
        paste(missing_variables, collapse = ", "))
@@ -66,7 +64,7 @@ message("All variables defined in the configuration file...")
 # Experiment ID Validation
 #-------------------------------------------------------------------------------
 stopifnot(
-    "Only one experiment id required for this script" = length(experiment_id) == 1
+    "Only one experiment id required for this script" = length(EXPERIMENT_ID) == 1
 )
 
 #-------------------------------------------------------------------------------
@@ -140,7 +138,7 @@ validate_configs(required_configs)
 invisible(lapply(required_configs, function(config) {
     print_config_settings(get(config), title = config)
 }))
-stopifnot("Script experiment_id is not the same as CONFIG EXPERIMENT_ID" = experiment_id == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID)
+stopifnot("Script EXPERIMENT_ID is not the same as CONFIG EXPERIMENT_ID" = EXPERIMENT_ID == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID)
 
 #-------------------------------------------------------------------------------
 # Directory Setup and User Confirmation
@@ -165,8 +163,8 @@ if (!is.null(args$override)) {
 }
 
 handle_configuration_checkpoint(
-    accept_configuration = accept_configuration,
-    experiment_id = experiment_id
+    ACCEPT_CONFIGURATION = ACCEPT_CONFIGURATION,
+    EXPERIMENT_ID = EXPERIMENT_ID
 )
 
 #-------------------------------------------------------------------------------
@@ -187,7 +185,7 @@ data_directories <- c(
 )
 
 # Create directory structure
-full_paths <- file.path(experiment_dir, data_directories)
+full_paths <- file.path(EXPERIMENT_DIR, data_directories)
 invisible(lapply(full_paths, function(path) {
     if (RUNTIME_CONFIG$output_dry_run) {
         cat(sprintf("[DRY RUN] Would create directory: %s\n", path))
@@ -203,8 +201,8 @@ invisible(lapply(full_paths, function(path) {
 # Report directory creation status
 if (RUNTIME_CONFIG$debug_verbose) {
     mode <- if (RUNTIME_CONFIG$output_dry_run) "DRY RUN" else "LIVE RUN"
-    cat(sprintf("\n[%s] Directory structure for experiment: %s\n", mode, experiment_id))
-    cat(sprintf("[%s] Base directory: %s\n", mode, experiment_dir))
+    cat(sprintf("\n[%s] Directory structure for experiment: %s\n", mode, EXPERIMENT_ID))
+    cat(sprintf("[%s] Base directory: %s\n", mode, EXPERIMENT_DIR))
 }
 
 cat("Directories created successfully!\n")
@@ -390,7 +388,7 @@ filenames <- c("sample_grid.csv", "bmc_table.tsv", "configuration_experiment_bmc
 # Loop through each filename to handle path assignment and file writing
 for (filename in filenames) {
     # Construct the output file path
-    output_file_path <- file.path(experiment_dir, "documentation", paste0(experiment_id, "_", filename))
+    output_file_path <- file.path(EXPERIMENT_DIR, "documentation", paste0(EXPERIMENT_ID, "_", filename))
     # Handle file writing with dry run checks
     if (RUNTIME_CONFIG$output_dry_run) {
         # Dry-run message

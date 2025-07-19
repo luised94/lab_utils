@@ -56,13 +56,14 @@ if(interactive()) {
 # See template_interactive_script_configuration.R or //
 # configuration_script_bmc.R //
 required_configuration_variables <- c(
-  "EXPERIMENT_IDS", "EXPERIMENT_DIR",
-  "CHROMOSOMES_TO_PLOT", "OUTPUT_FORMAT",
+  "EXPERIMENT_ID", "EXPERIMENT_DIR",
+  "CHROMOSOME_TO_PLOT", "OUTPUT_FORMAT",
   "OUTPUT_EXTENSION", "BIGWIG_PATTERN",
   "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
   "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
-missing_variables <- required_configuration_variables[!sapply(required_configuration_variables, exists)]
+is_missing_variable <- !sapply(required_configuration_variables, exists)
+missing_variables <- required_configuration_variables[is_missing_variable]
 if (length(missing_variables) > 0 ) {
   stop("Missing variable. Please define in 'script_configuration.R' file.",
        paste(missing_variables, collapse = ", "))
@@ -159,8 +160,8 @@ if (!is.null(args$override)) {
 }
 
 handle_configuration_checkpoint(
-    accept_configuration = accept_configuration,
-    experiment_id = experiment_id
+    ACCEPT_CONFIGURATION = ACCEPT_CONFIGURATION,
+    EXPERIMENT_ID = EXPERIMENT_ID
 )
 # Setup logging if requested (independent)
 #if (args$log_to_file) {
@@ -196,9 +197,8 @@ if (!file.exists(ref_genome_file)) {
 genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
 
 # Create chromosome range
-chromosome_to_plot <- RUNTIME_CONFIG$process_chromosome
-chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
-chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
+chromosome_width <- genome_data[CHROMOSOME_TO_PLOT]@ranges@width
+chromosome_roman <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
 
 genome_range <- GenomicRanges::GRanges(
     seqnames = chromosome_roman,
@@ -257,7 +257,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
         ".File Accessible" = if(length(ref_genome_file) > 0) file.exists(ref_genome_file) else FALSE,
 
         "Chromosome Details" = NULL,
-        ".Target" = chromosome_to_plot,
+        ".Target" = CHROMOSOME_TO_PLOT,
         ".Roman Notation" = chromosome_roman,
         ".Width" = chromosome_width,
 
@@ -286,14 +286,14 @@ project_metadata <- data.frame()
 total_expected_rows <- 0
 for (path in config_path) {
     safe_source(path, verbose = FALSE)
-    experiment_dir <- dirname(dirname(path))
+    EXPERIMENT_DIR <- dirname(dirname(path))
     metadata_path <- file.path(
-        experiment_dir,
+        EXPERIMENT_DIR,
         "documentation",
         paste0(EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID, "_sample_grid.csv")
     )
     required_directories <- c("fastq", "documentation", "coverage")
-    dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
+    dirs <- setup_experiment_dirs(EXPERIMENT_DIR = EXPERIMENT_DIR,
         output_dir_name = "plots",
         required_input_dirs = required_directories
     )
@@ -310,10 +310,9 @@ for (path in config_path) {
     )
 
     # Find bigwig files
-    bigwig_pattern <- sprintf("processed_.*_sequence_to_S288C_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
     bigwig_files <- list.files(
         dirs$coverage,
-        pattern = bigwig_pattern,
+        pattern = BIGWIG_PATTERN,
         full.names = TRUE
     )
 
@@ -348,7 +347,7 @@ for (path in config_path) {
             ".Coverage" = dirs$coverage,
             "Pattern Matching" = NULL,
             ".FASTQ Pattern" = GENOME_TRACK_CONFIG$file_pattern,
-            ".Bigwig Pattern" = bigwig_pattern,
+            ".Bigwig Pattern" = BIGWIG_PATTERN,
             "File Discovery" = NULL,
             ".FASTQ Files" = sprintf("Found: %d", length(fastq_files))
         )
@@ -391,7 +390,7 @@ for (path in config_path) {
     )
 
     total_expected_rows <- total_expected_rows + nrow(metadata)
-    metadata$experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+    metadata$EXPERIMENT_ID <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
     project_metadata <- rbind(project_metadata, metadata)
     project_bigwig_files <- c(project_bigwig_files, bigwig_files)
 
@@ -415,7 +414,7 @@ if (nrow(project_metadata) != total_expected_rows) {
     ))
 }
 
-if (length(unique(project_metadata$experiment_id)) != length(config_path)) {
+if (length(unique(project_metadata$EXPERIMENT_ID)) != length(config_path)) {
     warning("Number of unique experiment IDs doesn't match number of config files processed")
 }
 
@@ -425,7 +424,7 @@ if(RUNTIME_CONFIG$debug_verbose) {
 
         "Dataset Metrics" = NULL,
         ".Samples" = sprintf("%d samples, %d columns", nrow(project_metadata), ncol(project_metadata)),
-        ".Experiment" = unique(project_metadata$experiment_id),
+        ".Experiment" = unique(project_metadata$EXPERIMENT_ID),
 
         "Sample Categories" = NULL,
         ".Types" = paste(
@@ -540,7 +539,7 @@ for (short_name_idx in short_name_to_process) {
 
     # Use exact matching with the short name
     row_samples_to_visualize <- project_metadata[project_metadata$short_name == current_short_name, ]
-    row_samples_to_visualize <- row_samples_to_visualize[order(row_samples_to_visualize$experiment_id), ]
+    row_samples_to_visualize <- row_samples_to_visualize[order(row_samples_to_visualize$EXPERIMENT_ID), ]
 
     if (nrow(row_samples_to_visualize) == 0) {
         warning(sprintf("No samples found for short name: %s", current_short_name))
@@ -588,7 +587,7 @@ for (short_name_idx in short_name_to_process) {
     # Initialize tracks list with chromosome axis
     tracks <- list(
         Gviz::GenomeAxisTrack(
-            name = sprintf(GENOME_TRACK_CONFIG$format_genome_axis_track_name, chromosome_to_plot)
+            name = sprintf(GENOME_TRACK_CONFIG$format_genome_axis_track_name, CHROMOSOME_TO_PLOT)
         )
     )
 
@@ -760,7 +759,7 @@ for (short_name_idx in short_name_to_process) {
         title_replicate_template,
         unique(project_id),
         current_short_name,
-        chromosome_to_plot,
+        CHROMOSOME_TO_PLOT,
         TIME_CONFIG$current_timestamp,
         normalization_method
     )
@@ -782,7 +781,7 @@ for (short_name_idx in short_name_to_process) {
             TIME_CONFIG$current_timestamp,
             gsub("_", "", unique(project_id)),
             short_name_idx,
-            chromosome_to_plot,
+            CHROMOSOME_TO_PLOT,
             mode
          )
 
@@ -796,8 +795,8 @@ for (short_name_idx in short_name_to_process) {
             message(sprintf("\nScaling mode: %s", mode))
             message("\nPlot Generation Details:")
             message(sprintf("  Title Components:"))
-            message(sprintf("    Experiment: %s", experiment_id))
-            message(sprintf("    Chromosome: %s", chromosome_to_plot))
+            message(sprintf("    Experiment: %s", EXPERIMENT_ID))
+            message(sprintf("    Chromosome: %s", CHROMOSOME_TO_PLOT))
             message(sprintf("    Sample Count: %d", nrow(row_samples_to_visualize)))
             message(sprintf("    Timestamp: %s", TIME_CONFIG$current_timestamp))
             message(sprintf("    Normalization: %s", normalization_method))
