@@ -182,8 +182,8 @@ source(config_path)
 #}
 
 handle_configuration_checkpoint(
-  ACCEPT_CONFIGURATION = ACCEPT_CONFIGURATION,
-  EXPERIMENT_ID = EXPERIMENT_ID
+  accept_configuration = ACCEPT_CONFIGURATION,
+  experiment_id = EXPERIMENT_ID
 )
 message("Configuration accepted...")
 
@@ -254,7 +254,7 @@ if (n_samples != expected) {
   print(metadata)
   #} else if (show_particular_metadata) {
     #print(metadata[metadata[, category_to_show] == values_to_show, ])
-  }
+  #}
   cat("----------------------\n")
   stop(sprintf("Expected %d samples, got %d", expected, n_samples))
 }

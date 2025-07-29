@@ -187,8 +187,8 @@ invisible(lapply(required_configs, function(config) {
 # Checkpoint handler ---------------------------
 # See the settings before running.
 handle_configuration_checkpoint(
-    accept_configuration = accept_configuration,
-    EXPERIMENT_ID = EXPERIMENT_ID
+    accept_configuration = ACCEPT_CONFIGURATION,
+    experiment_id = EXPERIMENT_ID
 )
 
 #-------------------------------------------------------------------------------

@@ -270,6 +270,14 @@ norm qq<expression_to_refactor_here>cnq
 wa
 ```
 
+### 2025-07-28
+#### Session 1
+Forgot I had to adjust the configuration for the experiments. Still considering if I should consolidate entirely or just denest experiment configuration specific and consolidate the sample things.
+Started running the new scripts and encountering errors. First, I accidentally altered the arguments passed to handle_configuration_checkpoint function by making upper case when the arguments are case sensitive.
+```nvim
+vimgrep /handle_configuration_checkpoint(\n/ core_scripts/**/*.R
+norm qq<CR>guiw<CR>guiw:cnq
+```
 ## References
 - Trying vimgrep to see all of the variables
   > https://www.kimi.com/chat/d1s4enumu6s6tajifb6g

@@ -160,8 +160,8 @@ if (!is.null(args$override)) {
 }
 
 handle_configuration_checkpoint(
-    ACCEPT_CONFIGURATION = ACCEPT_CONFIGURATION,
-    EXPERIMENT_ID = EXPERIMENT_ID
+    accept_configuration = ACCEPT_CONFIGURATION,
+    experiment_id = EXPERIMENT_ID
 )
 # Setup logging if requested (independent)
 #if (args$log_to_file) {

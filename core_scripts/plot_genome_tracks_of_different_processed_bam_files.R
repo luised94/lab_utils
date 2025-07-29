@@ -181,8 +181,8 @@ invisible(lapply(required_configs, function(config) {
 # Checkpoint handler ---------------------------
 # See the settings before running. Override with --accept-configuration option.
 handle_configuration_checkpoint(
-  ACCEPT_CONFIGURATION = ACCEPT_CONFIGURATION,
-  EXPERIMENT_ID = EXPERIMENT_ID
+  accept_configuration = ACCEPT_CONFIGURATION,
+  experiment_id = EXPERIMENT_ID
 )
 
 #-------------------------------------------------------------------------------
