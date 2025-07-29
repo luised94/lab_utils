@@ -8,10 +8,7 @@
 #
 # USAGE:
 # 1. Update experiment_id (format: YYMMDDBel, e.g., "241122Bel").
-# 2. Run setup_bmc_experiment.R with the experiment-id as the parameter.
-#
-# Comparison Naming Convention:
-# comp_[Antibody]_[Variables]_vs_[Baseline]_[Context]_[Modifier]
+# 2. Run setup_flow_cytometry_experiment.R with the respective EXPERIMENT_ID set in configuration_script_flow_cytometry.R.
 #
 # DEPENDENCIES: NONE
 #
@@ -20,39 +17,39 @@
 ################################################################################
 # TODO: Denest the logic of the functions. Easier to add, modify, verify the values of the EXPERIMENT_CONFIG for two different experiment types.
 EXPERIMENT_CONFIG <- list(
-    METADATA = list(
-      # Expected format for experiment id is the default format by the machine //
-      # Exp_<date_YYYYMMDD>_<num> "Exp_\\d{8}_\\d{1,6}" //
-      EXPERIMENT_ID = "Exp_20250310_1",
-      DIRECTORY_DIR = "",
-      EXPECTED_SAMPLES = 42,
-      VERSION = "1.2.0",
-      PROJECT_ID = "project_001"
-    ),
+  METADATA = list(
+    # Expected format for experiment id is the default format by the machine //
+    # Exp_<date_YYYYMMDD>_<num> "Exp_\\d{8}_\\d{1,6}" //
+    EXPERIMENT_ID = "Exp_20250310_1",
+    DIRECTORY_DIR = "",
+    EXPECTED_SAMPLES = 42,
+    VERSION = "1.2.0",
+    PROJECT_ID = "project_001"
+  ),
 
-    CATEGORIES = list(
-        rescue_allele = c("NONE", "WT", "4R"),
-        suppressor_allele = c("NONE", "4PS"),
-        auxin_treatment = c("NO", "YES"),
-        timepoints = c("0", "20", "40", "60", "80", "100", "120")
-    ),
+  CATEGORIES = list(
+      rescue_allele = c("NONE", "WT", "4R"),
+      suppressor_allele = c("NONE", "4PS"),
+      auxin_treatment = c("NO", "YES"),
+      timepoints = c("0", "20", "40", "60", "80", "100", "120")
+  ),
 
-    INVALID_COMBINATIONS = list(
-        auxin_treatment = quote(
-            auxin_treatment == "NO" &
-            (suppressor_allele == "4PS" | rescue_allele == "4R")
-        )
-    ),
+  INVALID_COMBINATIONS = list(
+      auxin_treatment = quote(
+          auxin_treatment == "NO" &
+          (suppressor_allele == "4PS" | rescue_allele == "4R")
+      )
+  ),
 
-    COLUMN_ORDER = c(
-        "rescue_allele", "suppressor_allele", "auxin_treatment", "timepoints"
-    ),
-    FACET_FACTOR = c(
-        "timepoints"
-    ),
-    CONTROL_COLUMNS = c(
-        "rescue_allele", "suppressor_allele", "auxin_treatment"
-    )
+  COLUMN_ORDER = c(
+      "rescue_allele", "suppressor_allele", "auxin_treatment", "timepoints"
+  ),
+  FACET_FACTOR = c(
+      "timepoints"
+  ),
+  CONTROL_COLUMNS = c(
+      "rescue_allele", "suppressor_allele", "auxin_treatment"
+  )
 
 )
 
@@ -79,29 +76,29 @@ EXPERIMENT_CONFIG <- list(
 # Time Configurations
 #-------------------------------------------------------------------------------
 TIME_CONFIG <- list(
-    # Format specifications
-    timestamp_format = "%Y%m%d_%H%M%S",    # YYYYMMDD_HHMMSS
-    date_format = "%Y%m%d",                # YYYYMMDD
+  # Format specifications
+  timestamp_format = "%Y%m%d_%H%M%S",    # YYYYMMDD_HHMMSS
+  date_format = "%Y%m%d",                # YYYYMMDD
 
-    # Current values
-    current_timestamp = format(Sys.time(), "%Y%m%d_%H%M%S"),
-    current_date = format(Sys.Date(), "%Y%m%d")
+  # Current values
+  current_timestamp = format(Sys.time(), "%Y%m%d_%H%M%S"),
+  current_date = format(Sys.Date(), "%Y%m%d")
 )
 
 #-------------------------------------------------------------------------------
 # DEBUG CONFIGURATIONS
 #-------------------------------------------------------------------------------
 RUNTIME_CONFIG <- list(
-    # Core control flags
-    debug_interactive = FALSE,
-    debug_verbose = TRUE,
-    debug_validate = TRUE,
-    # Processing control
-    process_single_file = FALSE,
-    process_file_index = 1,
-    # Output control
-    output_save_plots = FALSE,
-    output_dry_run = TRUE
+  # Core control flags
+  debug_interactive = FALSE,
+  debug_verbose = TRUE,
+  debug_validate = TRUE,
+  # Processing control
+  process_single_file = FALSE,
+  process_file_index = 1,
+  # Output control
+  output_save_plots = FALSE,
+  output_dry_run = TRUE
 )
 
 #-------------------------------------------------------------------------------
@@ -110,9 +107,9 @@ RUNTIME_CONFIG <- list(
 experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
 expected_format_for_experiment_id <- "Exp_\\d{8}_\\d{1,6}"
 stopifnot(
-    "Experiment ID must be a character string" = is.character(experiment_id),
-    "Invalid experiment ID format. Expected: Exp_YYYMMDD_[0-9]{6}" =
-      grepl(expected_format_for_experiment_id, experiment_id)
+  "Experiment ID must be a character string" = is.character(experiment_id),
+  "Invalid experiment ID format. Expected: Exp_YYYMMDD_[0-9]{6}" =
+    grepl(expected_format_for_experiment_id, experiment_id)
 )
 source("~/lab_utils/core_scripts/functions_for_configuration_bmc_validation.R")
 
@@ -129,30 +126,30 @@ required_sections <- c(
 
 missing_sections <- setdiff(required_sections, names(EXPERIMENT_CONFIG))
 if (length(missing_sections) > 0) {
-    stop(sprintf("Missing required config sections: %s",
-                paste(missing_sections, collapse = ", ")))
+  stop(sprintf("Missing required config sections: %s",
+              paste(missing_sections, collapse = ", ")))
 }
 
 if (validation_verbose) cat("[PASS] All required sections present\n\n")
 
 # Validate each section
 validate_category_values(
-    EXPERIMENT_CONFIG$CATEGORIES,
-    verbose = validation_verbose
+  EXPERIMENT_CONFIG$CATEGORIES,
+  verbose = validation_verbose
 )
 
 validate_column_references(
-    categories = EXPERIMENT_CONFIG$CATEGORIES,
-    comparisons = EXPERIMENT_CONFIG$COMPARISONS,
-    control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS,
-    #conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS,
-    verbose = validation_verbose
+  categories = EXPERIMENT_CONFIG$CATEGORIES,
+  comparisons = EXPERIMENT_CONFIG$COMPARISONS,
+  control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS,
+  #conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS,
+  verbose = validation_verbose
 )
 
 validate_column_order(
-    categories = EXPERIMENT_CONFIG$CATEGORIES,
-    column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
-    verbose = validation_verbose
+  categories = EXPERIMENT_CONFIG$CATEGORIES,
+  column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
+  verbose = validation_verbose
 )
 
 cat("\n[VALIDATED] Experiment configuration loaded successfully\n")
