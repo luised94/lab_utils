@@ -24,7 +24,7 @@ options(pager = file.path(Sys.getenv("HOME"), "lab_utils/bash/helper/nvim_R_page
 rm(list = ls())
 
 if(interactive()){
-  vim <- function(path){
+  edit_vim <- function(path){
     stopifnot(
       "File path does not exist." = file.exists(path)
     )

@@ -21,12 +21,37 @@
 #---------------------------------------
 if(interactive()) {
   message("Interactive job... sourcing configuration file.")
-  script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_flow_cytometry.R"
-  stopifnot(
-  "Script configuration file does not exist. Please copy the template." =
-  file.exists(script_configuration_path)
+  #script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_flow_cytometry.R"
+  git_parent_dir <- system("git rev-parse --show-toplevel", intern = TRUE)
+  script_configuration_filename <- "configuration_script_flow_cytometry.R"
+  experiment_configuration_filename <- "configuration_experiment_flow_cytometry.R"
+
+  script_configuration_filepath <- file.path(
+    git_parent_dir,
+    "core_scripts",
+    script_configuration_filename
   )
-  source(script_configuration_path)
+  experiment_configuration_filepath <- file.path(
+    git_parent_dir,
+    "core_scripts",
+    experiment_configuration_filename
+  )
+
+  message(sprintf("Git directory: %s", git_parent_dir))
+  message(sprintf("Script configuration path: %s", script_configuration_filepath))
+  message(sprintf("Experiment configuration path: %s", experiment_configuration_filepath))
+
+  stopifnot(
+    "Script configuration file does not exist. Please copy the template." =
+      file.exists(script_configuration_filepath),
+    "Experiment configuration file does not exist. Please copy the template." =
+      file.exists(experiment_configuration_filepath)
+  )
+
+  source(script_configuration_filepath)
+  source(experiment_configuration_filepath)
+
+  stop("Breakpoint...")
   message("Configuration file sourced...")
 } else {
   stop("Run the script from the R repl in an interactive session.")
@@ -82,16 +107,11 @@ message("All function files loaded...")
 ## Load and Validate Experiment Configuration
 ##-------------------------------------------------------------------------------
 ## flow_cytometry_config.R is ignored in the git repository as this file is changed to add new experiments.
-config_path <- "~/lab_utils/core_scripts/configuration_experiment_flow_cytometry.R"
-if (!file.exists(config_path)) {
-  stop("Experiment configuration path does not exist. Copy configuration_experiment_flow_cytometry.R")
-}
-source(config_path)
-#if (!file.exists(config_path))
+#if (!file.exists(experiment_configuration_filepath))
 ## Define required dependencies
 #required_modules <- list(
 #  list(
-#    path = config_path,
+#    path = experiment_configuration_filepath,
 #    description = "Flow Cytometry Configuration",
 #    required = TRUE
 #  )
