@@ -8,11 +8,11 @@ template_sample_grid.csv
 treestructure*.txt
 **/bmc_config.R
 bmc_config.R
-<<<<<<< HEAD
-=======
 interactive_script_configuration.R
->>>>>>> pipeline_completion
 configuration_flow_cytometry.R
+configuration_experiment_bmc.R
+configuration_experiment_flow_cytometry.R
+configuration_script_flow_cytometry.R
 override_configuration.R
 slurm-*.out
 test.log
