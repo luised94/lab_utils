@@ -35,6 +35,7 @@ if [[ -z "${SLURM_JOB_ID}" ]]; then
 fi
 
 # Reusable component end
+echo "Starting script for copying bam and fastq files for pipeline testing"
 declare -A SAMPLES=(
   # WT_NONE_NOCO_HM1108_2_positive
   ['test_001']="$HOME/data/250207Bel/alignment/processed_126050_sequence_to_S288C_sorted.bam"
