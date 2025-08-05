@@ -9,7 +9,9 @@ treestructure*.txt
 **/bmc_config.R
 bmc_config.R
 interactive_script_configuration.R
-configuration_flow_cytometry.R
+configuration_experiment_bmc.R
+configuration_script_flow_cytometry.R
+configuration_experiment_flow_cytometry.R
 override_configuration.R
 slurm-*.out
 test.log
