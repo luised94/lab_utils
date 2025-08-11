@@ -1,4 +1,9 @@
 message("Sourcing .Rprofile...")
+#system("git rev-parse --show-toplevel", intern = TRUE)
+#if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null; then
+#  git rev-parse --show-toplevel
+#  return 0
+#fi
 if (!file.exists("~/.inputrc")){
   message("To set vi mode for the repl: ")
   message("Add set editing-mode vi to ~/.inputrc")

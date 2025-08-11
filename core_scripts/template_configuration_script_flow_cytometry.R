@@ -15,6 +15,11 @@
 # - Output depends on script
 ################################################################################
 message("Sourcing script configuration file...")
+#system("git rev-parse --show-toplevel", intern = TRUE)
+#if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null; then
+#  git rev-parse --show-toplevel
+#  return 0
+#fi
 #---------------------
 # CONFIGURATION_PARAMETERS
 #---------------------

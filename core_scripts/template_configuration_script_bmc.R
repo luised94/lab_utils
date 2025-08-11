@@ -18,41 +18,14 @@
 ################################################################################
 message("Sourcing script configuration file...")
 #---------------------
-# CORE_RESOURCES
-#---------------------
-OVERRIDE_CONFIGURATION_PATH <- "~/lab_utils/core_scripts/override_configuration.R"
-
-#---------------------
-# CORE_PARAMETERS
-#---------------------
-EXPECTED_FORMAT_EXPERIMENT_ID <- "^\\d{6}Bel$"
-
-#---------------------
 # CONFIGURATION_PARAMETERS
 #---------------------
-# TODO: I should separate into essential and optional then alphabetical. Move any computations down.
+# --- Variable ---
+# Likely updated every time a new experiment is created.
 # Write single experiment id or single character that is comma-separated
 EXPERIMENT_IDS <- "250324Bel"
-CHROMOSOMES_TO_PLOT <- c(7, 10, 14)
-VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
-ACCEPT_CONFIGURATION <- TRUE
-SKIP_PACKAGE_CHECKS <- TRUE
-OUTPUT_FORMAT <- "svg"
-OUTPUT_EXTENSION <- paste0(".", OUTPUT_FORMAT)
-VALID_OUTPUT_FORMATS <- c("svg", "pdf", "png")
-BAM_PROCESSING <- "blFiltered"
-BIGWIG_NORM_METHOD <- "RAW"
-BIGWIG_PATTERN <- sprintf(
-  fmt = "processed_.*_sequence_to_S288C_%s_%s\\.bw$",
-  BAM_PROCESSING, BIGWIG_NORM_METHOD
-)
-FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
-SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
-GENOME_TRACK_Y_AXIS_SCALING <- c("individual")
-# TODO: Need to do global but not configured yet
-VALID_GENOME_TRACK_SCALING_MODES <- c("local", "individual")
-PADDING_FRACTION <- 0.1
-# TODO: Remove and rework these settings.
+EXPERIMENT_ID <- "Exp_20250515_1"
+
 target_comparison_columns <- c("rescue_allele", "suppressor_allele")
 columns_to_exclude_from_replicate_determination <- c(
   "sample_type", "sample_ids",
@@ -60,12 +33,31 @@ columns_to_exclude_from_replicate_determination <- c(
   "short_name", "experiment_id",
   "repeats"
 )
-reproducible_subset_quote_list <- "~/lab_utils/core_scripts/metadata_subset.R"
-FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
-FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
-FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
-FILE_FEATURE_PATTERN <- "eaton_peaks"
-row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
+
+ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
+#if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null; then
+# --- Constant ---
+#  git rev-parse --show-toplevel
+#  return 0
+#fi
+# TODO: Need to do global but not configured yet
+# TODO: Remove and rework these settings.
+ACCEPT_CONFIGURATION <- TRUE
+BAM_PROCESSING <- "blFiltered"
+BIGWIG_NORM_METHOD <- "RAW"
+CHROMOSOMES_TO_PLOT <- c(7, 10, 14)
+EXPECTED_FORMAT_EXPERIMENT_ID <- "^\\d{6}Bel$"
+FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
+GENOME_TRACK_Y_AXIS_SCALING <- c("individual")
+OUTPUT_FORMAT <- "svg"
+OVERRIDE_CONFIGURATION_PATH <- "~/lab_utils/core_scripts/override_configuration.R"
+PADDING_FRACTION <- 0.1
+SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
+SKIP_PACKAGE_CHECKS <- TRUE
+VALID_GENOME_TRACK_SCALING_MODES <- c("local", "individual")
+VALID_OUTPUT_FORMATS <- c("svg", "pdf", "png")
+VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
+
 #EXPERIMENT_DIR <-
 #LABEL_MAPPINGS <- list()
 #REQUIRED_DIRECTORIES <-
@@ -88,6 +80,18 @@ stopifnot(
 #---------------------
 # EXPERIMENT CONFIGURATION SETUP
 #---------------------
+OUTPUT_EXTENSION <- paste0(".", OUTPUT_FORMAT)
+BIGWIG_PATTERN <- sprintf(
+  fmt = "processed_.*_sequence_to_S288C_%s_%s\\.bw$",
+  BAM_PROCESSING, BIGWIG_NORM_METHOD
+)
+reproducible_subset_quote_list <- "~/lab_utils/core_scripts/metadata_subset.R"
+FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
+FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
+FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
+FILE_FEATURE_PATTERN <- "eaton_peaks"
+row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
+
 IS_COMMA_SEPARATED <- grepl(",", EXPERIMENT_IDS)
 # Setup experiment directories ----------------
 if (!IS_COMMA_SEPARATED){
