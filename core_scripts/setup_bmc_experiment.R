@@ -16,34 +16,39 @@
 # - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
 # - Sample metadata files (_sample_grid.csv, _bmc_table.tsv)
 ################################################################################
+if(interactive()) {
+  message("Running from repl... Loading functions.")
+} else {
+  stop("Run the script from the R repl in an interactive session.")
+}
 
+ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
 #---------------------------------------
 # Load user functions
 #---------------------------------------
+core_scripts_path <- file.path(ROOT_DIRECTORY, "core_scripts")
+function_filename_template <- file.path(core_scripts_path, "functions_for_%s.R")
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
-    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
+    function_filepath <- sprintf(function_filename_template, function_filename)
     normalized_path <- normalizePath(function_filepath)
     if (!file.exists(normalized_path)) {
         stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
     }
     source(normalized_path)
 }
+
+message("Loaded functions... Sourcing configuration.")
 #---------------------------------------
 # Source configuration for interactive session
 #---------------------------------------
-if(interactive()) {
-  message("Interactive job... sourcing configuration file.")
-  script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_bmc.R"
-  stopifnot(
-    "Script configuration file does not exist. Please copy the template." =
+script_configuration_path <- file.path(core_scripts_path, "configuration_script_bmc.R")
+stopifnot(
+  "Script configuration file does not exist. Please copy the template." =
     file.exists(script_configuration_path)
-  )
-  source(script_configuration_path)
-  message("Configuration file sourced...")
-} else {
-  stop("Run the script from the R repl in an interactive session.")
-}
+)
+source(script_configuration_path)
+message("Configuration file sourced... Checking configuration variables.")
 # Ensure the variables expected in the script were //
 # defined in the configuration file. //
 # See template_interactive_script_configuration.R or //
@@ -72,11 +77,12 @@ stopifnot(
 #-------------------------------------------------------------------------------
 # !! Update the path and the file accordingly.
 # configuration_experiment_bmc is ignored in the git repository as this file is changed to add new experiments.
-config_path <- "~/lab_utils/core_scripts/configuration_experiment_bmc.R"
+# @TODO Replace all instances of "~/lab_utils/core_scripts/" with core_scripts_path
+experiment_configuration_path <- file.path(core_scripts_path, "configuration_experiment_bmc.R")
 # Define required dependencies
 required_modules <- list(
     list(
-        path = config_path,
+        path = experiment_configuration_path,
         description = "BMC Configuration",
         required = TRUE
     )
@@ -140,27 +146,28 @@ invisible(lapply(required_configs, function(config) {
 }))
 stopifnot("Script EXPERIMENT_ID is not the same as CONFIG EXPERIMENT_ID" = EXPERIMENT_ID == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID)
 
+stop("Breakpoint...")
 #-------------------------------------------------------------------------------
 # Directory Setup and User Confirmation
 #-------------------------------------------------------------------------------
 # Handle configuration override (independent)
-if (!is.null(args$override)) {
-    structured_log_info("Starting override")
-    override_result <- apply_runtime_override(
-        config = RUNTIME_CONFIG,
-        preset_name = args$override,
-        preset_list = OVERRIDE_PRESETS
-    )
-    RUNTIME_CONFIG <- override_result$modified
-
- print_debug_info(modifyList(
-     list(
-         title = "Final Configuration",
-         "override.mode" = override_result$mode
-     ),
-     RUNTIME_CONFIG  # Flat list of current settings
- ))
-}
+#if (!is.null(args$override)) {
+#    structured_log_info("Starting override")
+#    override_result <- apply_runtime_override(
+#        config = RUNTIME_CONFIG,
+#        preset_name = args$override,
+#        preset_list = OVERRIDE_PRESETS
+#    )
+#    RUNTIME_CONFIG <- override_result$modified
+#
+# print_debug_info(modifyList(
+#     list(
+#         title = "Final Configuration",
+#         "override.mode" = override_result$mode
+#     ),
+#     RUNTIME_CONFIG  # Flat list of current settings
+# ))
+#}
 
 handle_configuration_checkpoint(
     accept_configuration = ACCEPT_CONFIGURATION,

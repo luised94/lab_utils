@@ -1,17 +1,17 @@
 library(optparse)
 
 # Load configuration options for --override option.
-configuration_options <- "~/lab_utils/core_scripts/override_configuration.R"
-stopifnot(
-    "Configuration for overrides does not exist. Copy template to override_configuration.R" =
-    file.exists(configuration_options),
-    "File with logging functions does not exist." =
-    file.exists("~/lab_utils/core_scripts/functions_for_logging.R")
-)
-source(configuration_options)
+#configuration_options <- "~/lab_utils/core_scripts/override_configuration.R"
+#stopifnot(
+#    "Configuration for overrides does not exist. Copy template to override_configuration.R" =
+#    file.exists(configuration_options),
+#    "File with logging functions does not exist." =
+#    file.exists("~/lab_utils/core_scripts/functions_for_logging.R")
+#)
+#source(configuration_options)
 
 # Control output formats for plotting scripts.
-OUTPUT_FORMATS <- c("svg", "png", "pdf")
+#OUTPUT_FORMATS <- c("svg", "png", "pdf")
 
 #----------------------------------------
 # Function Definitions
