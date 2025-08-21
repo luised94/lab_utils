@@ -171,6 +171,7 @@ handle_configuration_checkpoint(
 # Directory Structure Definition and Creation
 #-------------------------------------------------------------------------------
 # Define directory structure
+# @TODO Should go to configuration.
 data_directories <- c(
     "peak",
     "fastq/raw",
@@ -260,79 +261,79 @@ if (n_samples != expected) {
 #-------------------------------------------------------------------------------
 # Sample Classification
 #-------------------------------------------------------------------------------
-sample_classifications <- EXPERIMENT_CONFIG$SAMPLE_CLASSIFICATIONS
-
-# First, create a matrix/data frame to store all classification results
-classification_results <- matrix(FALSE,
-                               nrow = nrow(metadata),
-                               ncol = length(sample_classifications),
-                               dimnames = list(NULL, names(sample_classifications)))
-
-# Evaluate each classification condition
-for (type in names(sample_classifications)) {
-    classification_results[, type] <- eval(sample_classifications[[type]],
-                                         envir = metadata)
-}
-
-# Create the final classification vector
-# Default classification
-metadata$sample_type <- "treatment"
-for (type in names(sample_classifications)) {
-    # Find rows where this classification is TRUE
-    matching_rows <- classification_results[, type]
-    # Assign the type name (removing 'is_' prefix)
-    metadata$sample_type[matching_rows] <- sub("^is_", "", type)
-}
-
-# Validation check
-multiple_classifications <- rowSums(classification_results) > 1
-if (any(multiple_classifications)) {
-    cat("\nERROR: Multiple Classification Detected!\n")
-    cat("----------------------------------------\n")
-
-    # Show problematic samples with their classifications
-    problem_samples <- metadata[multiple_classifications, ]
-    cat("Samples with multiple classifications:\n\n")
-
-    # Show which classifications were TRUE for each problematic sample
-    for (i in which(multiple_classifications)) {
-        cat(sprintf("\nSample %d:\n", i))
-        cat("Sample details:\n")
-        print(metadata[i, ])
-        cat("\nMatching classifications:\n")
-        matching_types <- names(classification_results[i,])[classification_results[i,]]
-        print(matching_types)
-        cat("----------------------------------------\n")
-    }
-
-    stop("Please fix multiple classifications in experiment configuration")
-}
-
-# Success diagnostic display
-cat("\nSample Classification Summary:\n")
-cat("============================\n")
-
-# Overall counts
-cat("\n1. Distribution of sample types:\n")
-print(table(metadata$sample_type))
-
-# Detailed breakdown by relevant factors
-cat("\n2. Sample types by antibody:\n")
-print(table(metadata$sample_type, metadata$antibody))
-
-# Show a few samples from each classification
-cat("\n3. Example samples from each classification:\n")
-for (type in unique(metadata$sample_type)) {
-    cat(sprintf("\n%s samples:\n", toupper(type)))
-    print(metadata[metadata$sample_type == type, ][1:min(3, sum(metadata$sample_type == type)), ])
-    cat("----------------------------------------\n")
-}
-
-# Verification message
-cat("\nClassification Verification:\n")
-cat(sprintf("- Total samples: %d\n", nrow(metadata)))
-cat(sprintf("- Classified samples: %d\n", sum(table(metadata$sample_type))))
-cat(sprintf("- Unclassified samples: %d\n", sum(is.na(metadata$sample_type))))
+#sample_classifications <- EXPERIMENT_CONFIG$SAMPLE_CLASSIFICATIONS
+#
+## First, create a matrix/data frame to store all classification results
+#classification_results <- matrix(FALSE,
+#                               nrow = nrow(metadata),
+#                               ncol = length(sample_classifications),
+#                               dimnames = list(NULL, names(sample_classifications)))
+#
+## Evaluate each classification condition
+#for (type in names(sample_classifications)) {
+#    classification_results[, type] <- eval(sample_classifications[[type]],
+#                                         envir = metadata)
+#}
+#
+## Create the final classification vector
+## Default classification
+#metadata$sample_type <- "treatment"
+#for (type in names(sample_classifications)) {
+#    # Find rows where this classification is TRUE
+#    matching_rows <- classification_results[, type]
+#    # Assign the type name (removing 'is_' prefix)
+#    metadata$sample_type[matching_rows] <- sub("^is_", "", type)
+#}
+#
+## Validation check
+#multiple_classifications <- rowSums(classification_results) > 1
+#if (any(multiple_classifications)) {
+#    cat("\nERROR: Multiple Classification Detected!\n")
+#    cat("----------------------------------------\n")
+#
+#    # Show problematic samples with their classifications
+#    problem_samples <- metadata[multiple_classifications, ]
+#    cat("Samples with multiple classifications:\n\n")
+#
+#    # Show which classifications were TRUE for each problematic sample
+#    for (i in which(multiple_classifications)) {
+#        cat(sprintf("\nSample %d:\n", i))
+#        cat("Sample details:\n")
+#        print(metadata[i, ])
+#        cat("\nMatching classifications:\n")
+#        matching_types <- names(classification_results[i,])[classification_results[i,]]
+#        print(matching_types)
+#        cat("----------------------------------------\n")
+#    }
+#
+#    stop("Please fix multiple classifications in experiment configuration")
+#}
+#
+## Success diagnostic display
+#cat("\nSample Classification Summary:\n")
+#cat("============================\n")
+#
+## Overall counts
+#cat("\n1. Distribution of sample types:\n")
+#print(table(metadata$sample_type))
+#
+## Detailed breakdown by relevant factors
+#cat("\n2. Sample types by antibody:\n")
+#print(table(metadata$sample_type, metadata$antibody))
+#
+## Show a few samples from each classification
+#cat("\n3. Example samples from each classification:\n")
+#for (type in unique(metadata$sample_type)) {
+#    cat(sprintf("\n%s samples:\n", toupper(type)))
+#    print(metadata[metadata$sample_type == type, ][1:min(3, sum(metadata$sample_type == type)), ])
+#    cat("----------------------------------------\n")
+#}
+#
+## Verification message
+#cat("\nClassification Verification:\n")
+#cat(sprintf("- Total samples: %d\n", nrow(metadata)))
+#cat(sprintf("- Classified samples: %d\n", sum(table(metadata$sample_type))))
+#cat(sprintf("- Unclassified samples: %d\n", sum(is.na(metadata$sample_type))))
 
 #-------------------------------------------------------------------------------
 # Metadata Formatting and Organization

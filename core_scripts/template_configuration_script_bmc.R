@@ -35,6 +35,7 @@ columns_to_exclude_from_replicate_determination <- c(
 )
 
 ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
+#system("git rev-parse --is-inside-work-tree", intern = TRUE)
 #if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null; then
 # --- Constant ---
 #  git rev-parse --show-toplevel
