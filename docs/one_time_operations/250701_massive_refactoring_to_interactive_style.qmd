@@ -278,6 +278,12 @@ Started running the new scripts and encountering errors. First, I accidentally a
 vimgrep /handle_configuration_checkpoint(\n/ core_scripts/**/*.R
 norm qq<CR>guiw<CR>guiw:cnq
 ```
+
+### 2025-08-21
+#### Session 1
+Trying to create the info to submit new form and dealing with expected bugs.
+Need to simplify a lot and refactor the configuration files as well.
+
 ## References
 - Trying vimgrep to see all of the variables
   > https://www.kimi.com/chat/d1s4enumu6s6tajifb6g

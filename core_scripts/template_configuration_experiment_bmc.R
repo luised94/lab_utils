@@ -106,18 +106,18 @@ EXPERIMENT_CONFIG <- list(
 # setup_bmc_experiment_flags: Control what is displayed during setup_bmc_experiment.R
 # Distinct from debug configuration, this is relevant when setting up the experiment only.
 #########
-show_all_metadata <- TRUE
-show_particular_metadata <- TRUE
-category_to_show <- "antibody"
-value_to_show <- "HM1108"
-values_in_category <- unlist(EXPERIMENT_CONFIG$CATEGORIES[category_to_show])
-
-stopifnot(
-  "show_all_metadata has to be logical" = is.logical(show_all_metadata),
-  "flag must be logical type" = is.logical(show_particular_metadata),
-  "category must be in grid" = category_to_show %in% names(EXPERIMENT_CONFIG$CATEGORIES),
-  "Value must be in category" = value_to_show %in% values_in_category
-)
+#show_all_metadata <- TRUE
+#show_particular_metadata <- TRUE
+#category_to_show <- "antibody"
+#value_to_show <- "HM1108"
+#values_in_category <- unlist(EXPERIMENT_CONFIG$CATEGORIES[category_to_show])
+#
+#stopifnot(
+#  "show_all_metadata has to be logical" = is.logical(show_all_metadata),
+#  "flag must be logical type" = is.logical(show_particular_metadata),
+#  "category must be in grid" = category_to_show %in% names(EXPERIMENT_CONFIG$CATEGORIES),
+#  "Value must be in category" = value_to_show %in% values_in_category
+#)
 
 #todo: need to add guard statement around this section to prevent double loading of config objects when I run multi-experiment scripts. Also use default config with all values. Would need to adjust the parse arguments script as well. Pretty complex refactor. Could just to override_configuration.
 #-------------------------------------------------------------------------------
