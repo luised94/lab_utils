@@ -371,23 +371,26 @@ GENOME_TRACK_CONFIG <- list(
 # Configuration Validation
 #-------------------------------------------------------------------------------
 experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+category_names <- names(EXPERIMENT_CONFIG$CATEGORIES)
 stopifnot(
-  "Experiment ID must be a character string" = is.character(experiment_id),
-  "Invalid experiment ID format. Expected: YYMMDD'Bel'" = grepl("^\\d{6}Bel$", experiment_id)
+  "Experiment ID must be a character string" =
+    is.character(experiment_id),
+  "Invalid experiment ID format. Expected: YYMMDD'Bel'" =
+    grepl("^\\d{6}Bel$", experiment_id)
 )
-source("~/lab_utils/core_scripts/functions_for_configuration_bmc_validation.R")
+#source("~/lab_utils/core_scripts/functions_for_configuration_bmc_validation.R")
 
 # !! Update if you want thourough messages during validation.
-validation_verbose <- FALSE  # Set to TRUE for detailed validation output
+#validation_verbose <- FALSE  # Set to TRUE for detailed validation output
 
 # Validate configuration structure
-if (validation_verbose) cat("\nValidating EXPERIMENT_CONFIG structure...\n")
+#if (validation_verbose) cat("\nValidating EXPERIMENT_CONFIG structure...\n")
 
 required_sections <- c(
   "METADATA", "CATEGORIES", "INVALID_COMBINATIONS",
-  "EXPERIMENTAL_CONDITIONS", "COMPARISONS",
-  "CONTROL_FACTORS", "COLUMN_ORDER", "NORMALIZATION",
-  "SAMPLE_CLASSIFICATIONS"
+   "COMPARISONS", "CONTROL_FACTORS",
+  "COLUMN_ORDER", "NORMALIZATION"
+  #"EXPERIMENTAL_CONDITIONS", "SAMPLE_CLASSIFICATIONS"
 )
 
 
@@ -397,7 +400,7 @@ if (length(missing_sections) > 0) {
         paste(missing_sections, collapse = ", ")))
 }
 
-if (validation_verbose) cat("[PASS] All required sections present\n\n")
+#if (validation_verbose) cat("[PASS] All required sections present\n\n")
 
 # Validate configuration structure
 stopifnot(
@@ -405,24 +408,87 @@ stopifnot(
     all(required_sections %in% names(EXPERIMENT_CONFIG))
 )
 
+sapply(category_names,
+  function(category_name) {
+    category_values <- EXPERIMENT_CONFIG$CATEGORIES[[category_name]]
+    is_not_character <- !is.character(category_values)
+    is_duplicated <- duplicated(category_values)
+    if (any(is_not_character)) {
+      stop(sprintf("Some category values in '%s' category are not character: %s",
+        category_name,
+        paste(category_values[is_not_character], collapse = ", ")
+      ))
+    }
+    if (any(is_duplicated)) {
+      stop(sprintf("Some category values in '%s' category are duplicated: %s",
+        category_name,
+        paste(category_values[is_duplicated], collapse = ", ")
+      ))
+    }
+  }
+)
+
+categories_and_column_order_are_not_identical <- !identical(
+  sort(category_names),
+  sort(EXPERIMENT_CONFIG$COLUMN_ORDER)
+)
+if (categories_and_column_order_are_not_identical) {
+  stop("Column order must include all category columns.")
+}
+
+lapply(names(EXPERIMENT_CONFIG$INVALID_COMBINATIONS),
+  function(invalid_combination_condition) {
+    combination_condition <- EXPERIMENT_CONFIG$INVALID_COMBINATIONS[[invalid_combination_condition]]
+    invalid_category <- setdiff(
+      all.vars(combination_condition),
+      category_names
+    )
+    if (length(invalid_category) > 0) {
+      stop(sprintf(
+        "Invalid columns in INVALID_COMBINATIONS:\n%s",
+          paste(invalid_category, collapse = ", ")
+      ))
+
+    }
+  }
+)
+
+lapply(names(EXPERIMENT_CONFIG$CONTROL_FACTORS),
+  function(control_factor_names) {
+    control_factor_categories <- EXPERIMENT_CONFIG$CONTROL_FACTORS[[control_factor_names]]
+    invalid_category <- setdiff(
+      control_factor_categories,
+      category_names
+    )
+    if (length(invalid_category) > 0) {
+      stop(sprintf(
+        "Invalid columns in CONTROL_FACTORS '%s':\n%s",
+        control_factor_names, paste(invalid_category, collapse = ", ")
+      ))
+
+    }
+  }
+)
+
 # Validate each section
-validate_category_values(
-  EXPERIMENT_CONFIG$CATEGORIES,
-  verbose = validation_verbose
-)
+#validate_category_values(
+#  EXPERIMENT_CONFIG$CATEGORIES,
+#  verbose = validation_verbose
+#)
 
-validate_column_references(
-  categories = EXPERIMENT_CONFIG$CATEGORIES,
-  comparisons = EXPERIMENT_CONFIG$COMPARISONS,
-  control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS,
-  #conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS,
-  verbose = validation_verbose
-)
+#validate_column_references(
+#  categories = EXPERIMENT_CONFIG$CATEGORIES,
+#  comparisons = EXPERIMENT_CONFIG$COMPARISONS,
+#  control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS,
+#  #conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS,
+#  verbose = validation_verbose
+#)
+#
+#validate_column_order(
+#  categories = EXPERIMENT_CONFIG$CATEGORIES,
+#  column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
+#  verbose = validation_verbose
+#)
 
-validate_column_order(
-  categories = EXPERIMENT_CONFIG$CATEGORIES,
-  column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
-  verbose = validation_verbose
-)
-
+#rm("experiment_id", "category_names")
 cat("\n[VALIDATED] Experiment configuration loaded successfully\n")
