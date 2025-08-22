@@ -106,7 +106,10 @@ row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele ==
 IS_COMMA_SEPARATED <- grepl(",", EXPERIMENT_IDS)
 # Setup experiment directories ----------------
 if (!IS_COMMA_SEPARATED){
-  EXPERIMENT_DIR <- normalizePath(file.path(Sys.getenv("HOME"), "data", EXPERIMENT_IDS))
+  EXPERIMENT_DIR <- normalizePath(
+    file.path(Sys.getenv("HOME"), "data", EXPERIMENT_IDS),
+    mustWork = FALSE
+  )
 }
 
 if (IS_COMMA_SEPARATED) {
@@ -132,7 +135,10 @@ if (IS_COMMA_SEPARATED) {
   }
   EXPERIMENT_IDS <- EXPERIMENT_IDS
   EXPERIMENT_DIR <- sapply(EXPERIMENT_IDS, function(experiment_id) {
-    normalizePath(file.path(Sys.getenv("HOME"), "data", experiment_id))
+    normalizePath(
+      file.path(Sys.getenv("HOME"), "data", experiment_id),
+      mustWork = FALSE
+    )
   })
   VARIABLES_TO_REMOVE <- c(VARIABLES_TO_REMOVE,
     "split_experiment_ids", "clean_experiment_ids",
@@ -149,7 +155,7 @@ if (!all(grepl(EXPECTED_FORMAT_EXPERIMENT_ID, EXPERIMENT_IDS, perl = TRUE))){
 # Identify missing experiment directories
 missing_dirs <- EXPERIMENT_DIR[!dir.exists(EXPERIMENT_DIR)]
 if ( length(missing_dirs) > 0 ) {
-  stop("The following directories are missing:\n",
+  warning("The following directories are missing:\n",
         paste(missing_dirs, collapse = "\n")
   )
 }

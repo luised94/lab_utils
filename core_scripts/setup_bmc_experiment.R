@@ -91,7 +91,7 @@ source(experiment_configuration_path)
 #  )
 #)
 #
-#bmc_configuration_data_path <- required_modules[[
+#experiment_configuration_path <- required_modules[[
 #  which(sapply(required_modules, function(x)
 #    x$description == "BMC Configuration"
 #  ))
@@ -389,13 +389,13 @@ bmc_metadata <- data.frame(
   Vol_uL = 10,
   Conc = 0,
   Type = ifelse(
-    metadata$antibody == "Input",
+    tolower(metadata$antibody) == "input",
     "Input",
     "ChIP"
   ),
   Genome = "Saccharomyces cerevisiae",
   Notes = ifelse(
-    metadata$antibody == "Input",
+    tolower(metadata$antibody) == "input",
     "Run on fragment analyzer.",
     "Run on femto pulse."
   ),
@@ -447,7 +447,7 @@ for (filename in filenames) {
       )
     } else if (endsWith(filename, ".R")) {
       safe_write_file(
-        data = bmc_configuration_data_path,
+        data = experiment_configuration_path,
         path = output_file_path,
         write_fn = file.copy,
         verbose = RUNTIME_CONFIG$debug_verbose,
