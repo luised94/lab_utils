@@ -23,12 +23,20 @@ if(interactive()) {
 }
 
 ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
+core_scripts_path <- file.path(ROOT_DIRECTORY, "core_scripts")
+script_configuration_path <- file.path(core_scripts_path, "configuration_script_bmc.R")
+experiment_configuration_path <- file.path(
+  core_scripts_path,
+  "configuration_experiment_bmc.R"
+)
+function_filename_template <- file.path(core_scripts_path, "functions_for_%s.R")
 #---------------------------------------
 # Load user functions
 #---------------------------------------
-core_scripts_path <- file.path(ROOT_DIRECTORY, "core_scripts")
-function_filename_template <- file.path(core_scripts_path, "functions_for_%s.R")
-function_filenames <- c("logging", "script_control", "file_operations")
+function_filenames <- c(
+  "logging", "script_control",
+  "file_operations", "bmc_config_validation"
+)
 for (function_filename in function_filenames) {
   function_filepath <- sprintf(function_filename_template, function_filename)
   normalized_path <- normalizePath(function_filepath)
@@ -42,16 +50,15 @@ message("Loaded functions... Sourcing configuration.")
 #---------------------------------------
 # Source configuration for interactive session
 #---------------------------------------
-script_configuration_path <- file.path(core_scripts_path, "configuration_script_bmc.R")
 stopifnot(
   "Script configuration file does not exist. Please copy the template." =
-  file.exists(script_configuration_path)
+    file.exists(script_configuration_path)
 )
 source(script_configuration_path)
 message("Configuration file sourced... Checking configuration variables.")
+
 # Ensure the variables expected in the script were //
 # defined in the configuration file. //
-# See template_interactive_script_configuration.R or //
 # configuration_script_bmc.R //
 required_configuration_variables <- c(
   "EXPERIMENT_ID", "EXPERIMENT_DIR",
@@ -59,92 +66,93 @@ required_configuration_variables <- c(
 )
 is_missing_variable <- !sapply(required_configuration_variables, exists)
 missing_variables <- required_configuration_variables[is_missing_variable]
+
 if (length(missing_variables) > 0 ) {
-  stop("Missing variable. Please define in 'script_configuration.R' file.",
+  stop("Missing variable. Please define in 'configuration_script_bmc.R' file.",
      paste(missing_variables, collapse = ", "))
 }
-message("All variables defined in the configuration file...")
-
-#-------------------------------------------------------------------------------
-# Experiment ID Validation
-#-------------------------------------------------------------------------------
 stopifnot(
   "Only one experiment id required for this script" = length(EXPERIMENT_ID) == 1
 )
 
+message("All variables defined in the configuration file...")
+
 #-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration
 #-------------------------------------------------------------------------------
-# !! Update the path and the file accordingly.
-# configuration_experiment_bmc is ignored in the git repository as this file is changed to add new experiments.
 # @TODO Replace all instances of "~/lab_utils/core_scripts/" with core_scripts_path
-experiment_configuration_path <- file.path(core_scripts_path, "configuration_experiment_bmc.R")
+source(experiment_configuration_path)
 # Define required dependencies
-required_modules <- list(
-  list(
-    path = experiment_configuration_path,
-    description = "BMC Configuration",
-    required = TRUE
-  )
-)
-
-bmc_configuration_data_path <- required_modules[[
-  which(sapply(required_modules, function(x)
-    x$description == "BMC Configuration"
-  ))
-]]$path
-
-# Validate module structure
-stopifnot(
-  "modules must have required fields" = all(sapply(required_modules, function(m) {
-    all(c("path", "description", "required") %in% names(m))
-  }))
-)
-
-load_status <- lapply(required_modules, function(module) {
-  success <- safe_source(module$path, verbose = TRUE)
-  if (!success && module$required) {
-    stop(sprintf("Failed to load required module: %s\n  Path: %s",
-      module$description, module$path))
-  } else if (!success) {
-    warning(sprintf("Optional module not loaded: %s\n  Path: %s",
-      module$description, module$path))
-  }
-  list(
-    module = module$description,
-    path = module$path,
-    loaded = success,
-    required = module$required
-  )
-})
-
-# Create debug info structure
-module_info <- list(
-  title = "Module Loading Status",
-  "total_modules" = length(required_modules),
-  "required_modules" = sum(sapply(required_modules, `[[`, "required"))
-)
-
-for (status in load_status) {
-  module_key <- paste0(
-    if(status$required) "required." else "optional.",
-    gsub(" ", "_", tolower(status$module))
-  )
-  module_info[[module_key]] <- sprintf(
-    "%s (%s)",
-    status$module,  # Now showing description
-    if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
-  )
-}
-# Display using print_debug_info
-print_debug_info(module_info)
+#required_modules <- list(
+#  list(
+#    path = experiment_configuration_path,
+#    description = "BMC Configuration",
+#    required = TRUE
+#  )
+#)
+#
+#bmc_configuration_data_path <- required_modules[[
+#  which(sapply(required_modules, function(x)
+#    x$description == "BMC Configuration"
+#  ))
+#]]$path
+#
+## Validate module structure
+#stopifnot(
+#  "modules must have required fields" = all(sapply(required_modules, function(m) {
+#    all(c("path", "description", "required") %in% names(m))
+#  }))
+#)
+#
+#load_status <- lapply(required_modules, function(module) {
+#  success <- safe_source(module$path, verbose = TRUE)
+#  if (!success && module$required) {
+#    stop(sprintf("Failed to load required module: %s\n  Path: %s",
+#      module$description, module$path))
+#  } else if (!success) {
+#    warning(sprintf("Optional module not loaded: %s\n  Path: %s",
+#      module$description, module$path))
+#  }
+#  list(
+#    module = module$description,
+#    path = module$path,
+#    loaded = success,
+#    required = module$required
+#  )
+#})
+#
+## Create debug info structure
+#module_info <- list(
+#  title = "Module Loading Status",
+#  "total_modules" = length(required_modules),
+#  "required_modules" = sum(sapply(required_modules, `[[`, "required"))
+#)
+#
+#for (status in load_status) {
+#  module_key <- paste0(
+#    if(status$required) "required." else "optional.",
+#    gsub(" ", "_", tolower(status$module))
+#  )
+#  module_info[[module_key]] <- sprintf(
+#    "%s (%s)",
+#    status$module,  # Now showing description
+#    if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
+#  )
+#}
+## Display using print_debug_info
+#print_debug_info(module_info)
 
 required_configs <- c("EXPERIMENT_CONFIG", "RUNTIME_CONFIG")
 validate_configs(required_configs)
 invisible(lapply(required_configs, function(config) {
   print_config_settings(get(config), title = config)
 }))
-stopifnot("Script EXPERIMENT_ID is not the same as CONFIG EXPERIMENT_ID" = EXPERIMENT_ID == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID)
+
+stopifnot(
+  "Script EXPERIMENT_ID is not the same as CONFIG EXPERIMENT_ID" =
+    EXPERIMENT_ID == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+)
+message("Experiment configuration...")
 
 #-------------------------------------------------------------------------------
 # Directory Setup and User Confirmation
@@ -167,11 +175,15 @@ stopifnot("Script EXPERIMENT_ID is not the same as CONFIG EXPERIMENT_ID" = EXPER
 #   RUNTIME_CONFIG  # Flat list of current settings
 # ))
 #}
-
-handle_configuration_checkpoint(
-  accept_configuration = ACCEPT_CONFIGURATION,
-  experiment_id = EXPERIMENT_ID
-)
+if (ACCEPT_CONFIGURATION) {
+  "Accept configuration enabled... Continuing"
+} else {
+  stop("Configuration not accepted... Update ACCEPT_CONFIGURATION when ready to continue")
+}
+#handle_configuration_checkpoint(
+#  accept_configuration = ACCEPT_CONFIGURATION,
+#  experiment_id = EXPERIMENT_ID
+#)
 
 #-------------------------------------------------------------------------------
 # Directory Structure Definition and Creation
@@ -244,25 +256,23 @@ if (n_samples != expected) {
   terminal_width <- get_width()
   # Set width to 200
   options(width = terminal_width)
-
   # Print diagnostic information
   cat("\nDiagnostic Information:\n")
   cat("----------------------\n")
-  print(table(metadata$antibody))  # Show antibody distribution
-  cat("\nFull sample breakdown:\n")
-  print(summary(metadata))     # Show all category distributions
-  cat("\n")
-
-  # Control this in the configuration_experiment_bmc file.
-  # Helps display metadata values to help narrow down where you need to add combinations to filter.
-  if (show_all_metadata) {
-    print(metadata)
-  } else if (show_particular_metadata) {
-    print(metadata[metadata[, category_to_show] == values_to_show, ])
-  }
-
+  print(metadata)
   stop(sprintf("Expected %d samples, got %d", expected, n_samples))
 }
+  #print(table(metadata$antibody))  # Show antibody distribution
+  #cat("\nFull sample breakdown:\n")
+  #print(summary(metadata))     # Show all category distributions
+  #cat("\n")
+  ## Control this in the configuration_experiment_bmc file.
+  ## Helps display metadata values to help narrow down where you need to add combinations to filter.
+  #if (show_all_metadata) {
+  #  print(metadata)
+  #} else if (show_particular_metadata) {
+  #  print(metadata[metadata[, category_to_show] == values_to_show, ])
+  #}
 
 #-------------------------------------------------------------------------------
 # Sample Classification
@@ -356,15 +366,20 @@ for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
 }
 
 # Sort metadata according to column order
-metadata <- metadata[do.call(
-  order,
-  metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
-), ]
+metadata <- metadata[
+  do.call(
+    order,
+    metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
+  ),
+]
 
 # Generate sample names
 metadata$full_name <- apply(metadata, 1, paste, collapse = "_")
-metadata$short_name <- apply(metadata[, EXPERIMENT_CONFIG$COLUMN_ORDER], 1,
-  function(x) paste0(substr(x, 1, 1), collapse = ""))
+metadata$short_name <- apply(
+  metadata[, EXPERIMENT_CONFIG$COLUMN_ORDER],
+  1,
+  function(x) paste0(substr(x, 1, 1), collapse = "")
+)
 
 #-------------------------------------------------------------------------------
 # BMC Metadata Generation
@@ -395,7 +410,11 @@ filenames <- c("sample_grid.csv", "bmc_table.tsv", "configuration_experiment_bmc
 # Loop through each filename to handle path assignment and file writing
 for (filename in filenames) {
   # Construct the output file path
-  output_file_path <- file.path(EXPERIMENT_DIR, "documentation", paste0(EXPERIMENT_ID, "_", filename))
+  output_file_path <- file.path(
+    EXPERIMENT_DIR,
+    "documentation",
+    paste0(EXPERIMENT_ID, "_", filename)
+  )
   # Handle file writing with dry run checks
   if (RUNTIME_CONFIG$output_dry_run) {
     # Dry-run message
@@ -440,4 +459,7 @@ for (filename in filenames) {
     }
   }
 }
+cat("Final metadata organization\n")
+cat("----------------------\n")
 print(metadata)
+cat("----------------------\n")

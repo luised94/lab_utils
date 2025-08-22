@@ -284,6 +284,15 @@ norm qq<CR>guiw<CR>guiw:cnq
 Trying to create the info to submit new form and dealing with expected bugs.
 Need to simplify a lot and refactor the configuration files as well.
 
+#### Session 2
+Denest some of the logic from functions and the configurations.
+
+List of variable mentions to fix:
+- RUNTIME_CONFIG$<value> with whatever is denested or just renamed
+- "~/lab_utils/core_scripts/" with core_scripts_path
+- TIME_CONFIG$<value>
+- GENOMIC_TRACK_CONFIG$<value>
+
 ## References
 - Trying vimgrep to see all of the variables
   > https://www.kimi.com/chat/d1s4enumu6s6tajifb6g

@@ -59,6 +59,16 @@ VALID_GENOME_TRACK_SCALING_MODES <- c("local", "individual")
 VALID_OUTPUT_FORMATS <- c("svg", "pdf", "png")
 VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
 
+#TIME_CONFIG <- list(
+#  # Format specifications
+#  timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
+#  date_format = "%Y%m%d",        # YYYYMMDD
+#
+#  # Current values
+#  current_timestamp = format(Sys.time(), "%Y%m%d_%H%M%S"),
+#  current_date = format(Sys.Date(), "%Y%m%d")
+#)
+
 #EXPERIMENT_DIR <-
 #LABEL_MAPPINGS <- list()
 #REQUIRED_DIRECTORIES <-

@@ -36,6 +36,7 @@ EXPERIMENT_CONFIG <- list(
   ),
 
   CATEGORIES = list(
+    category1 = c("Value1", "Value2"),
     orc_phenotype = c("WT", "orc1-161"),
     cell_cycle = c("alpha", "nocodazole", "async"),
     temperature = c("23", "37"),
