@@ -6,31 +6,12 @@
 # Strict error handling
 set -euo pipefail
 
-# ---- Configuration and Usage ----
-usage() {
+# ---- Argument Handling ----
+if [[ ! $# -eq 1 ]]; then
     echo "Usage: $0 [experiment_id]"
     echo "Consolidates FASTQ files into single per-sample files"
     echo "  - Without arguments: uses current directory (must be ~/data/######Bel/fastq)"
     echo "  - With experiment_id: uses ~/data/<experiment_id>/fastq"
-    exit 1
-}
-
-# Function to validate FASTQ files
-validate_fastq() {
-    local file="$1"
-    if ! [ -f "$file" ]; then
-        echo "Error: $file not found"
-        exit 1
-    fi
-    if ! [[ "$file" =~ \.fastq$ ]]; then
-        echo "Error: $file is not a FASTQ file"
-        exit 1
-    fi
-}
-
-# ---- Argument Handling ----
-if [[ $# -gt 1 ]]; then
-    usage
     exit 1
 fi
 
@@ -131,8 +112,15 @@ for id in "${unique_ids[@]}"; do
 
     # Validate all files before processing
     for file in "${files[@]}"; do
-        validate_fastq "$file"
-        echo "Validated: $file"
+      if ! [ -f "$file" ]; then
+          echo "Error: $file not found"
+          exit 1
+      fi
+      if ! [[ "$file" =~ \.fastq$ ]]; then
+          echo "Error: $file is not a FASTQ file"
+          exit 1
+      fi
+      echo "Validated: $file"
     done
 
     output_file="consolidated_${id}_sequence.fastq"
