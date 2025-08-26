@@ -45,6 +45,7 @@ fi
 # ---- Main Execution ----
 echo "Using FASTQ directory: ${target_dir}"
 cd "$target_dir" || { echo "ERROR: Failed to enter directory"; exit 1; }
+echo "Current working directory: $( pwd )"
 
 # Validate cleanup state with single consolidated check
 if [ "$(find . -mindepth 1 -type d | wc -l)" -gt 0 ] || \
@@ -105,7 +106,7 @@ for id in "${unique_ids[@]}"; do
         continue
     fi
 
-    if [ ${#files[@]} -eq 2 ]; then
+    if [ ! ${#files[@]} -eq 2 ]; then
         echo -e "[ERROR]: Found ${#files[@]} for $id\nExpected 2"
         continue
     fi
