@@ -22,9 +22,25 @@ SUFFIX="-1_NA_sequence.fastq"
 START_NUM=219001
 END_NUM=219037
 
-# Create target directory if it doesn't exist
-# Think leave commented since I want the script to tell me if it doesnt exist just in case I forgot to sync or made a mistake.
-#mkdir -p "$TARGET_DIR"
+# Expand and display directory paths
+SOURCE_DIR=$(realpath "$SOURCE_DIR")
+TARGET_DIR=$(realpath "$TARGET_DIR")
+echo "Source directory: $SOURCE_DIR"
+echo "Target directory: $TARGET_DIR"
+echo "File pattern: ${PREFIX}*${SUFFIX}"
+echo "Number range: $START_NUM to $END_NUM"
+echo
+
+# Check if source directory exists and is readable
+if [ ! -d "$SOURCE_DIR" ]; then
+    echo "Error: Source directory '$SOURCE_DIR' does not exist"
+    exit 1
+fi
+
+if [ ! -r "$SOURCE_DIR" ]; then
+    echo "Error: Source directory '$SOURCE_DIR' is not readable"
+    exit 1
+fi
 
 # Check if target directory exists and is writable
 if [ ! -d "$TARGET_DIR" ]; then
@@ -37,15 +53,37 @@ if [ ! -w "$TARGET_DIR" ]; then
     exit 1
 fi
 
-# Move files in the specified range
+# First pass: Check that all files exist
+echo "Checking file availability..."
+missing_files=()
 for i in $(seq $START_NUM $END_NUM); do
     filename="${PREFIX}${i}${SUFFIX}"
-    if [ -f "$SOURCE_DIR/$filename" ]; then
-        #mv "$SOURCE_DIR/$filename" "$TARGET_DIR/"
-        echo "Moved: $filename"
+    if [ ! -f "$SOURCE_DIR/$filename" ]; then
+        missing_files+=("$filename")
+        echo "Missing: $filename"
     else
-        echo "File not found: $filename"
+        echo "Found: $filename"
     fi
 done
 
-echo "File move operation completed"
+# Exit if any files are missing
+if [ ${#missing_files[@]} -gt 0 ]; then
+    echo
+    echo "Error: ${#missing_files[@]} files are missing. Aborting operation."
+    echo "Verify START_NUM, END_NUM, SOURCE_DIR, PREFIX, SUFFIX."
+    exit 1
+fi
+
+echo
+echo "All files found. Proceeding with move operation..."
+echo
+
+# Second pass: Move all files
+#for i in $(seq $START_NUM $END_NUM); do
+#    filename="${PREFIX}${i}${SUFFIX}"
+#    mv "$SOURCE_DIR/$filename" "$TARGET_DIR/"
+#    echo "Moved: $filename"
+#done
+
+echo
+echo "File move operation completed successfully"
