@@ -28,7 +28,7 @@ fi
 
 BAM_DIRECTORY="${EXPERIMENT_DIR}/alignment"
 DOCUMENTATION_DIR="${EXPERIMENT_DIR}/documentation"
-JOB_LOG="${DOCUMENTATION_DIR}/slurm_job_info.md"
+JOB_LOG="${DOCUMENTATION_DIR}/experiment_job_info.md"
 mkdir -p "$DOCUMENTATION_DIR" "$BAM_DIRECTORY"
 
 # Count bam files

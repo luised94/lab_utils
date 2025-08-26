@@ -25,7 +25,7 @@ fi
 
 FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
 DOCUMENTATION_DIR="${EXPERIMENT_DIR}/documentation"
-JOB_LOG="${DOCUMENTATION_DIR}/slurm_job_info.md"
+JOB_LOG="${DOCUMENTATION_DIR}/experiment_job_info.md"
 mkdir -p "$DOCUMENTATION_DIR" "$FASTQ_DIR"
 
 # Count fastq files
