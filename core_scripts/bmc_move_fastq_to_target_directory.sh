@@ -14,7 +14,7 @@
 ################################################################################
 
 # Configuration variables
-SOURCE_DIR="."
+SOURCE_DIR="${1-.}"
 # Adjust all of these as necessary
 TARGET_DIR="/path/to/target/directory"
 PREFIX="250715Bel_D25-"
@@ -23,7 +23,19 @@ START_NUM=219001
 END_NUM=219037
 
 # Create target directory if it doesn't exist
-mkdir -p "$TARGET_DIR"
+# Think leave commented since I want the script to tell me if it doesnt exist just in case I forgot to sync or made a mistake.
+#mkdir -p "$TARGET_DIR"
+
+# Check if target directory exists and is writable
+if [ ! -d "$TARGET_DIR" ]; then
+    echo "Error: Target directory '$TARGET_DIR' does not exist"
+    exit 1
+fi
+
+if [ ! -w "$TARGET_DIR" ]; then
+    echo "Error: Target directory '$TARGET_DIR' is not writable"
+    exit 1
+fi
 
 # Move files in the specified range
 for i in $(seq $START_NUM $END_NUM); do
