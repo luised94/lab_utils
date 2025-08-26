@@ -13,18 +13,18 @@
 #   Moves fastq files that follow prefix-num-suffix pattern to target directory
 ################################################################################
 
-# Configuration variables
-SOURCE_DIR="${1-.}"
-# Adjust all of these as necessary
-TARGET_DIR="/path/to/target/directory"
+# Configuration variables: Adjust all of these as necessary
+#SOURCE_DIR="${1-.}"
+SOURCE_DIR="$HOME/data/250715Bel/"
+TARGET_DIR="$HOME/data/250714Bel/"
 PREFIX="250715Bel_D25-"
 SUFFIX="-1_NA_sequence.fastq"
 START_NUM=219001
 END_NUM=219037
 
 # Expand and display directory paths
-SOURCE_DIR=$(realpath "$SOURCE_DIR")
-TARGET_DIR=$(realpath "$TARGET_DIR")
+SOURCE_DIR=$(readlink -f "$SOURCE_DIR")
+TARGET_DIR=$(readlink -f "$TARGET_DIR")
 echo "Source directory: $SOURCE_DIR"
 echo "Target directory: $TARGET_DIR"
 echo "File pattern: ${PREFIX}*${SUFFIX}"
@@ -58,7 +58,7 @@ echo "Checking file availability..."
 missing_files=()
 for i in $(seq $START_NUM $END_NUM); do
     filename="${PREFIX}${i}${SUFFIX}"
-    if [ ! -f "$SOURCE_DIR/$filename" ]; then
+    if ! find "$SOURCE_DIR" -name "$filename" -type f | grep -q .; then
         missing_files+=("$filename")
         echo "Missing: $filename"
     else
@@ -79,11 +79,11 @@ echo "All files found. Proceeding with move operation..."
 echo
 
 # Second pass: Move all files
-#for i in $(seq $START_NUM $END_NUM); do
-#    filename="${PREFIX}${i}${SUFFIX}"
-#    mv "$SOURCE_DIR/$filename" "$TARGET_DIR/"
-#    echo "Moved: $filename"
-#done
+for i in $(seq $START_NUM $END_NUM); do
+    filename="${PREFIX}${i}${SUFFIX}"
+    #find "$SOURCE_DIR" -name "$filename" -type f -exec mv {} "$TARGET_DIR/" \;
+    echo "Moved: $filename"
+done
 
 echo
 echo "File move operation completed successfully"
