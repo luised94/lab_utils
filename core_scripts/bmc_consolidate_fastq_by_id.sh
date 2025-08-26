@@ -134,6 +134,11 @@ for id in "${unique_ids[@]}"; do
   output_file="consolidated_${id}_sequence.fastq"
   tmp_file="${output_file}.tmp"
 
+  if [ -f "$output_file" ]; then
+    echo "$output_file already exists. Skipping..."
+    continue
+  fi
+
   # Consolidate files with atomic write
   if cat -- "${files[@]}" > "$tmp_file"; then
     mv "$tmp_file" "$output_file"
