@@ -16,18 +16,15 @@
 # Configuration variables: Adjust all of these as necessary
 #SOURCE_DIR="${1-.}"
 SOURCE_DIR="$HOME/data/250715Bel/"
-TARGET_DIR="$HOME/data/250714Bel/"
-PREFIX="250715Bel_D25-"
-SUFFIX="-1_NA_sequence.fastq"
+TARGET_DIR="$HOME/data/250714Bel/fastq"
 START_NUM=219001
-END_NUM=219037
+END_NUM=219030
 
 # Expand and display directory paths
 SOURCE_DIR=$(readlink -f "$SOURCE_DIR")
 TARGET_DIR=$(readlink -f "$TARGET_DIR")
 echo "Source directory: $SOURCE_DIR"
 echo "Target directory: $TARGET_DIR"
-echo "File pattern: ${PREFIX}*${SUFFIX}"
 echo "Number range: $START_NUM to $END_NUM"
 echo
 
@@ -55,35 +52,36 @@ fi
 
 # First pass: Check that all files exist
 echo "Checking file availability..."
-missing_files=()
-for i in $(seq $START_NUM $END_NUM); do
-    filename="${PREFIX}${i}${SUFFIX}"
-    if ! find "$SOURCE_DIR" -name "$filename" -type f | grep -q .; then
-        missing_files+=("$filename")
-        echo "Missing: $filename"
-    else
-        echo "Found: $filename"
-    fi
+missing_id=()
+all_files=()
+
+for id in $(seq "$START_NUM" "$END_NUM"); do
+  files_for_id=()
+  # Null-delimited from find, handles spaces/newlines
+  while IFS= read -r -d $'\0' f; do
+    files_for_id+=("$f")
+  done < <(find "$SOURCE_DIR" -type f -name "*${id}*.fastq" -print0)
+
+  if (( ${#files_for_id[@]} == 0 )); then
+    missing_id+=("$id")
+  else
+    printf 'Found: %s (%d files)\n' "$id" "${#files_for_id[@]}"
+    all_files+=("${files_for_id[@]}")
+  fi
 done
 
-# Exit if any files are missing
-if [ ${#missing_files[@]} -gt 0 ]; then
-    echo
-    echo "Error: ${#missing_files[@]} files are missing. Aborting operation."
-    echo "Verify START_NUM, END_NUM, SOURCE_DIR, PREFIX, SUFFIX."
-    exit 1
+if (( ${#missing_id[@]} > 0 )); then
+  printf 'Missing IDs (%d): %s\n' "${#missing_id[@]}" "${missing_id[*]}"
+  exit 1
 fi
 
-echo
-echo "All files found. Proceeding with move operation..."
-echo
-
-# Second pass: Move all files
-for i in $(seq $START_NUM $END_NUM); do
-    filename="${PREFIX}${i}${SUFFIX}"
-    #find "$SOURCE_DIR" -name "$filename" -type f -exec mv {} "$TARGET_DIR/" \;
-    echo "Moved: $filename"
-done
-
-echo
-echo "File move operation completed successfully"
+# Move only if none missing
+if (( ${#all_files[@]} )); then
+  # dry run:
+  printf 'Would move: %s\n' "${all_files[@]}"
+  #echo "mv -t "$TARGET_DIR" -- "${all_files[@]}""
+  #mv -t "$TARGET_DIR" -- "${all_files[@]}"
+  printf 'Moved total: %d files\n' "${#all_files[@]}"
+else
+  echo 'Nothing to move.'
+fi
