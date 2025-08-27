@@ -12,6 +12,12 @@ setup_logging() {
     local job_id="${3:-${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-na}}}"
     local task_id="${4:-${SLURM_ARRAY_TASK_ID:-na}}"
 
+    # Add validation for experiment_id
+    if [[ -z "$experiment_id" ]]; then
+        echo "Error: Experiment ID cannot be empty" >&2
+        return 1
+    fi
+
     local log_root="$HOME/logs"
     local timestamp; timestamp=$(date +%Y%m%d_%H%M%S)
     local base_name="${experiment_id}_${timestamp}_${tool_name}_job-${job_id}_task-${task_id}"
