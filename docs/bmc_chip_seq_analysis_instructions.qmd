@@ -34,16 +34,24 @@ The next set of scripts run an sbatch file that contains the information for slu
 6. Align the fastq files (submit_bowtie2_alignment.sh) to the reference genome specified in script, and sorts the bam file before outputting.
   > Creates: 'processed*_to_S288C_sorted.bam'
 
-7. Generate the coverage files (submit_bamcoverage_normalizations.sh).
+7. Filter the bam file with the blacklist filtering script.
+  > Requires: "$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
+  > Creates: 'processed*_to_S288C_blFiltered.bam'
+
+8. Generate the coverage files (submit_bamcoverage_normalizations.sh).
   > Run the submit bash script first to generate the bigwig files.
+  > Creates: *.bigwig
+
+9. Create plots from the bigwig files.
   > Use the plot_*.R scripts to create the plots of the bigwig files as genomic tracks.
+
   > Scripts use 'configuration_experiment_bmc.R' and 'configuration_script_bmc.R'
   > Scripts use interactive repl. Source during R session. source('script.R')
   > View generated html, pdf or svg files (recommend pdf).
   > Creates: *.svg, *.html or *.pdf of plots generated via Gviz package.
 
-8. Call peaks (submit_macs2_peak_calling.sh).
+10. Call peaks (submit_macs2_peak_calling.sh).
 
-9. TODO: Determine motifs.
+11. TODO: Determine motifs.
 
-10. TODO: Perform factor analysis.
+12. TODO: Perform factor analysis.
