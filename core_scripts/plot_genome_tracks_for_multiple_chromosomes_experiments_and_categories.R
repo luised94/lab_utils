@@ -67,8 +67,6 @@ message("Loaded functions... Sourcing configuration.")
 stopifnot(
   "Script configuration file does not exist. Please copy the template." =
     file.exists(SCRIPT_CONFIGURATION_PATH)
-  #"Experiment configuration file does not exist. Please copy the template." =
-    #file.exists(EXPERIMENT_CONFIGURATION_PATH)
 )
 source(SCRIPT_CONFIGURATION_PATH)
 message("Configuration file sourced... Checking configuration variables.")
@@ -93,7 +91,6 @@ if (length(missing_variables) > 0 ) {
 }
 message("All variables defined in the configuration file...")
 
-stop("Breakpoint. Testing initiation...")
 #-------------------------------------------------------------------------------
 # Verify Required Libraries
 #-------------------------------------------------------------------------------
@@ -104,9 +101,12 @@ if (!is.character(required_packages) || length(required_packages) == 0) {
 }
 
 if (!SKIP_PACKAGE_CHECKS) {
-  missing_packages <- required_packages[!sapply(
-    X = required_packages, FUN = requireNamespace, quietly = TRUE
-  )]
+  is_missing_package <- !sapply(
+    X = required_packages,
+    FUN = requireNamespace,
+    quietly = TRUE
+  )
+  missing_packages <- required_packages[is_missing_package]
   if (length(missing_packages) > 0 ) {
     stop("Missing packages. Please install using renv:\n",
          paste(missing_packages, collapse = ", "))
@@ -118,30 +118,43 @@ message("All required packages available...")
 #-------------------------------------------------------------------------------
 # Setup experiment-specific configuration path
 #-------------------------------------------------------------------------------
-number_of_experiments <- length(EXPERIMENT_DIR)
-config_paths <- vector("character", length = number_of_experiments)
-metadata_paths <- vector("character", length = number_of_experiments)
-for (experiment_idx in seq_len(number_of_experiments)) {
+NUMBER_OF_EXPERIMENTS <- length(EXPERIMENT_DIR)
+config_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
+metadata_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
+for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
   current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
   current_experiment_id <- EXPERIMENT_IDS[experiment_idx]
 
   config_paths[experiment_idx] <- file.path(
     current_experiment_path, "documentation",
-    paste0(current_experiment_id, "_configuration_experiment_bmc")
+    paste0(current_experiment_id, "_configuration_experiment_bmc.R")
   )
   metadata_paths[experiment_idx] <- file.path(
     current_experiment_path, "documentation",
     paste0(current_experiment_id, "_sample_grid.csv")
   )
 }
+
+names(config_paths) <- EXPERIMENT_IDS
+names(metadata_paths) <- EXPERIMENT_IDS
 required_configuration_paths <- c(config_paths, metadata_paths)
-missing_configuration_paths <- required_configuration_paths[!sapply(
-  X = required_configuration_paths, FUN = file.exists
-)]
+is_missing_configuration_path <- !sapply(
+  X = required_configuration_paths,
+  FUN = file.exists
+)
+missing_configuration_paths <- required_configuration_paths[is_missing_configuration_path]
+
 if ( length(missing_configuration_paths) > 0 ) {
-  stop("Missing configuration paths. Please setup.\n",
-       paste(missing_configuration_paths, collapse = ", "))
+  stop(
+    "Missing configuration paths. Please setup.\n",
+    paste(missing_configuration_paths, collapse = ", ")
+  )
 }
+
+OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
+dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+
+stop("Breakpoint. Testing configuration loading...")
 
 #-------------------------------------------------------------------------------
 # Setup directories, genome file and file metadata
@@ -152,19 +165,16 @@ if ( length(missing_configuration_paths) > 0 ) {
 #  BIGWIG_PATTERN: (for genome track files)
 #  FASTQ_PATTERN: (for sequence files)
 #  SAMPLE_ID_CAPTURE_PATTERN: (for sample ID extraction)
-
-OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
-dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
-
 expected_number_of_samples <- 0
 REQUIRED_DIRECTORIES <- c("fastq", "coverage")
+
 # For loop to load metadata
 # Loop through number of experiments, find the fastq files and bigwig files.//
 # Get sample ids from fastq, add bigwig files to loaded metadata, add dataframe //
 # to list for further processing and binding //
-metadata_list <- vector("list", length = number_of_experiments)
-metadata_categories_list <- vector("list", length = number_of_experiments)
-for (experiment_idx in seq_len(number_of_experiments)) {
+metadata_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
+metadata_categories_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
+for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
   message("--- Start experiment idx ---")
   current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
   current_config_path <- config_paths[experiment_idx]

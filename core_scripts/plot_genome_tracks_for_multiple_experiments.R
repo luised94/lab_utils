@@ -67,8 +67,6 @@ message("Loaded functions... Sourcing configuration.")
 stopifnot(
   "Script configuration file does not exist. Please copy the template." =
     file.exists(SCRIPT_CONFIGURATION_PATH),
-  #"Experiment configuration file does not exist. Please copy the template." =
-    #file.exists(EXPERIMENT_CONFIGURATION_PATH)
 )
 source(SCRIPT_CONFIGURATION_PATH)
 message("Configuration file sourced... Checking configuration variables.")
@@ -92,8 +90,6 @@ if (length(missing_variables) > 0 ) {
        paste(missing_variables, collapse = ", "))
 }
 message("All variables defined in the configuration file...")
-
-stop("Breakpoint. Testing initiation...")
 
 #-------------------------------------------------------------------------------
 # Verify Required Libraries
@@ -119,91 +115,19 @@ if (!SKIP_PACKAGE_CHECKS) {
 }
 message("All required packages available...")
 
-
-#-------------------------------------------------------------------------------
-# Setup genome and feature files
-#-------------------------------------------------------------------------------
-# Ensure supplementary files for plotting genome tracks are present
-# TODO: Move to configuration. //
-FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
-FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
-FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
-FILE_FEATURE_PATTERN <- "eaton_peaks"
-stopifnot(
-  "Genome directory not found" = dir.exists(FILE_GENOME_DIRECTORY),
-  "Feature directory not found" = dir.exists(FILE_FEATURE_DIRECTORY)
-)
-
-# Load reference genome
-REF_GENOME_FILE <- list.files(
-    path = FILE_GENOME_DIRECTORY,
-    pattern = FILE_GENOME_PATTERN,
-    full.names = TRUE,
-    recursive = TRUE
-)[1]
-
-# Load feature file (annotation)
-FEATURE_FILE <- list.files(
-    path = FILE_FEATURE_DIRECTORY,
-    pattern = FILE_FEATURE_PATTERN,
-    full.names = TRUE
-)[1]
-
-if (length(REF_GENOME_FILE) == 0) {
-  stop(sprintf(
-    fmt = "No reference genome files found matching pattern '%s' in: %s",
-    FILE_GENOME_DIRECTORY,
-    FILE_FEATURE_DIRECTORY
-  ))
-}
-
-if (!file.exists(REF_GENOME_FILE)) {
-  stop(sprintf("Reference genome file not accessible: %s", REF_GENOME_FILE[1]))
-}
-if (length(FEATURE_FILE) == 0) {
-  warning(sprintf(
-    fmt = "No feature files found matching pattern '%s' in: %s",
-    FILE_FEATURE_PATTERN,
-    FILE_FEATURE_DIRECTORY
-  ))
-}
-
-REFERENCE_GENOME_DSS <- Biostrings::readDNAStringSet(REF_GENOME_FILE)
-CHROMOSOME_WIDTHS <- REFERENCE_GENOME_DSS[CHROMOSOMES_TO_PLOT]@ranges@width
-CHROMOSOMES_IN_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOMES_TO_PLOT))
-
-GENOME_RANGE_TO_LOAD <- GenomicRanges::GRanges(
-    seqnames = CHROMOSOMES_IN_ROMAN,
-    ranges = IRanges::IRanges(start = 1, end = CHROMOSOME_WIDTHS),
-    strand = "*"
-)
-
-if (!is.null(FEATURE_FILE)) {
-  GENOME_FEATURES <- rtracklayer::import(FEATURE_FILE)
-  # Convert to chrRoman format
-  GenomeInfoDb::seqlevels(GENOME_FEATURES) <- paste0(
-    "chr",
-    utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(GENOME_FEATURES)))
-  )
-  # Fitler out the rest of the chromosomes
-  # GENOME_FEATURES <- GENOME_FEATURES[seqnames(GENOME_FEATURES) == CHROMOSOMES_IN_ROMAN]
-  GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOMES_IN_ROMAN, pruning.mode = "coarse")
-}
-message("Genome reference and feature set...")
-
 #-------------------------------------------------------------------------------
 # Setup experiment-specific configuration path, directories and file metadata
 #-------------------------------------------------------------------------------
-number_of_experiments <- length(EXPERIMENT_DIR)
-config_paths <- vector("character", length = number_of_experiments)
-metadata_paths <- vector("character", length = number_of_experiments)
-for (experiment_index in seq_len(number_of_experiments)) {
+NUMBER_OF_EXPERIMENTS <- length(EXPERIMENT_DIR)
+config_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
+metadata_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
+for (experiment_index in seq_len(NUMBER_OF_EXPERIMENTS)) {
   current_experiment_path <- EXPERIMENT_DIR[experiment_index]
   current_experiment_id <- EXPERIMENT_IDS[experiment_index]
 
   config_paths[experiment_index] <- file.path(
     current_experiment_path, "documentation",
-    paste0(current_experiment_id, "_configuration_experiment_bmc")
+    paste0(current_experiment_id, "_configuration_experiment_bmc.R")
   )
 
   metadata_paths[experiment_index] <- file.path(
@@ -211,12 +135,16 @@ for (experiment_index in seq_len(number_of_experiments)) {
     paste0(current_experiment_id, "_sample_grid.csv")
   )
 }
+
 names(config_paths) <- EXPERIMENT_IDS
 names(metadata_paths) <- EXPERIMENT_IDS
 required_configuration_paths <- c(config_paths, metadata_paths)
-missing_configuration_paths <- required_configuration_paths[!sapply(
-  X = required_configuration_paths, FUN = file.exists
-)]
+is_missing_configuration_path <- !sapply(
+  X = required_configuration_paths,
+  FUN = file.exists
+)
+missing_configuration_paths <- required_configuration_paths[is_missing_configuration_path]
+
 if ( length(missing_configuration_paths) > 0 ) {
   stop("Missing configuration paths. Please setup.\n",
        paste(missing_configuration_paths, collapse = ", "))
@@ -224,6 +152,8 @@ if ( length(missing_configuration_paths) > 0 ) {
 
 OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+
+stop("Breakpoint. Testing configuration loading....")
 
 #------------------------------
 # Three pattern variables must be defined in configuration file.
@@ -236,14 +166,14 @@ dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 expected_number_of_samples <- 0 # define accumulator
 REQUIRED_DIRECTORIES <- c("fastq", "coverage")
-metadata_list <- vector("list", length = number_of_experiments)
-metadata_categories_list <- vector("list", length = number_of_experiments)
+metadata_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
+metadata_categories_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
 
 # For loop to load metadata
 # Loop through number of experiments, find the fastq files and bigwig files.//
 # Get sample ids from fastq, add bigwig files to loaded metadata, add dataframe //
 # to list for further processing and binding //
-for (experiment_index in seq_len(number_of_experiments)) {
+for (experiment_index in seq_len(NUMBER_OF_EXPERIMENTS)) {
   message("--- Start experiment idx ---")
   current_experiment_path <- EXPERIMENT_DIR[experiment_index]
   current_config_path <- config_paths[experiment_index]
@@ -360,6 +290,78 @@ for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
 }
 number_rows_before_subset <- nrow(metadata_df)
 message("Converted columns to factors...")
+
+#-------------------------------------------------------------------------------
+# Setup genome and feature files
+#-------------------------------------------------------------------------------
+# Ensure supplementary files for plotting genome tracks are present
+# TODO: Move to configuration. //
+FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
+FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
+FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
+FILE_FEATURE_PATTERN <- "eaton_peaks"
+stopifnot(
+  "Genome directory not found" = dir.exists(FILE_GENOME_DIRECTORY),
+  "Feature directory not found" = dir.exists(FILE_FEATURE_DIRECTORY)
+)
+
+# Load reference genome
+REF_GENOME_FILE <- list.files(
+    path = FILE_GENOME_DIRECTORY,
+    pattern = FILE_GENOME_PATTERN,
+    full.names = TRUE,
+    recursive = TRUE
+)[1]
+
+# Load feature file (annotation)
+FEATURE_FILE <- list.files(
+    path = FILE_FEATURE_DIRECTORY,
+    pattern = FILE_FEATURE_PATTERN,
+    full.names = TRUE
+)[1]
+
+if (length(REF_GENOME_FILE) == 0) {
+  stop(sprintf(
+    fmt = "No reference genome files found matching pattern '%s' in: %s",
+    FILE_GENOME_DIRECTORY,
+    FILE_FEATURE_DIRECTORY
+  ))
+}
+
+if (!file.exists(REF_GENOME_FILE)) {
+  stop(sprintf("Reference genome file not accessible: %s", REF_GENOME_FILE[1]))
+}
+if (length(FEATURE_FILE) == 0) {
+  warning(sprintf(
+    fmt = "No feature files found matching pattern '%s' in: %s",
+    FILE_FEATURE_PATTERN,
+    FILE_FEATURE_DIRECTORY
+  ))
+}
+
+REFERENCE_GENOME_DSS <- Biostrings::readDNAStringSet(REF_GENOME_FILE)
+CHROMOSOME_WIDTHS <- REFERENCE_GENOME_DSS[CHROMOSOMES_TO_PLOT]@ranges@width
+CHROMOSOMES_IN_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOMES_TO_PLOT))
+
+GENOME_RANGE_TO_LOAD <- GenomicRanges::GRanges(
+    seqnames = CHROMOSOMES_IN_ROMAN,
+    ranges = IRanges::IRanges(start = 1, end = CHROMOSOME_WIDTHS),
+    strand = "*"
+)
+
+if (!is.null(FEATURE_FILE)) {
+  GENOME_FEATURES <- rtracklayer::import(FEATURE_FILE)
+  # Convert to chrRoman format
+  GenomeInfoDb::seqlevels(GENOME_FEATURES) <- paste0(
+    "chr",
+    utils::as.roman(gsub("chr", "", GenomeInfoDb::seqlevels(GENOME_FEATURES)))
+  )
+  # Fitler out the rest of the chromosomes
+  # GENOME_FEATURES <- GENOME_FEATURES[seqnames(GENOME_FEATURES) == CHROMOSOMES_IN_ROMAN]
+  GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOMES_IN_ROMAN, pruning.mode = "coarse")
+}
+message("Genome reference and feature set...")
+
 # TODO: Move this to configuration. //
 reproducible_subset_quote_list <- "~/lab_utils/core_scripts/metadata_subset.R"
 if (!file.exists(reproducible_subset_quote_list)) {
