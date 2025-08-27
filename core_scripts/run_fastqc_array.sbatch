@@ -23,6 +23,7 @@ fi
 
 # Parse arguments
 readonly EXPERIMENT_DIR="$1"
+EXPERIMENT_ID=$( basename "$EXPERIMENT_DIR" )
 readonly FASTQ_SUBDIR="$2"
 
 # Validate SLURM array job context
@@ -34,7 +35,7 @@ fi
 # Logging functions
 source $HOME/lab_utils/core_scripts/functions_for_logging.sh
 readonly TOOL_NAME="fastqc"
-eval "$(setup_logging ${TOOL_NAME})"
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME})"
 
 readonly QUALITY_CONTROL_DIR="${EXPERIMENT_DIR}/quality_control"
 mkdir -p "${QUALITY_CONTROL_DIR}"

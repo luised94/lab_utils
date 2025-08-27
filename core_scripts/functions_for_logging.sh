@@ -7,7 +7,8 @@
 # FIX: No error handling for any of the functions...
 # setup_logging has to be used before the others are called.
 setup_logging() {
-    local tool_name="$1"
+    local experiment_id="$1"
+    local tool_name="$2"
 
     if [[ -z "$tool_name" || ! "$tool_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
         if [[ -z "$tool_name" ]]; then

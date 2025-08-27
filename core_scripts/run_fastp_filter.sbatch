@@ -27,13 +27,15 @@ if [ "$#" -ne 1 ]; then
     display_usage
 fi
 
+# Parse arguments
+EXPERIMENT_DIR="$1"
+EXPERIMENT_ID=$( basename "$EXPERIMENT_DIR" )
+
 # Function to log messages
 source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 readonly TOOL_NAME="fastp"
-eval "$(setup_logging ${TOOL_NAME})"
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME})"
 
-# Parse arguments
-EXPERIMENT_DIR="$1"
 
 # Validate SLURM_ARRAY_TASK_ID
 if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
@@ -103,8 +105,6 @@ log_message "INFO" "Output: ${OUTPUT_FASTQ}"
 
 
 log_message "INFO" "Setting the fastp parameters."
-# Extract experiment ID from directory path
-EXPERIMENT_ID=$(basename "$EXPERIMENT_DIR")
 
 # Set quality parameters based on experiment ID
 if [[ "$EXPERIMENT_ID" == "100303Bel" ]]; then

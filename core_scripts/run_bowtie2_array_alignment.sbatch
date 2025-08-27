@@ -28,6 +28,7 @@ fi
 
 # Parse arguments
 EXPERIMENT_DIR=$(realpath "$1")
+EXPERIMENT_ID=$( basename "$EXPERIMENT_DIR" )
 
 # Validate SLURM_ARRAY_TASK_ID
 if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
@@ -39,7 +40,7 @@ fi
 # Function to log messages
 source $HOME/lab_utils/core_scripts/functions_for_logging.sh
 readonly TOOL_NAME="bowtie2"
-eval "$(setup_logging ${TOOL_NAME})"
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME})"
 
 # Constants
 GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"

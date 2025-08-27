@@ -25,6 +25,7 @@ fi
 
 # Parse arguments
 EXPERIMENT_DIR="$1"
+EXPERIMENT_ID=$( basename "$EXPERIMENT_DIR" )
 
 # Validate SLURM_ARRAY_TASK_ID
 if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
@@ -36,7 +37,7 @@ fi
 # Logging functions
 source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 readonly TOOL_NAME="blacklist_filtering"
-eval "$(setup_logging ${TOOL_NAME})"
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME})"
 
 # Create log directories
 mkdir -p "${EXPERIMENT_DIR}/alignment"

@@ -450,6 +450,7 @@ get_script_name <- function() {
         }
     }, error = function(e) "unknown_script")
 }
+
 setup_logging <- function(
     tool_name, 
     job_id = NULL, 
