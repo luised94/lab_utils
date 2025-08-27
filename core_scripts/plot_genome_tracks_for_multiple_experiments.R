@@ -21,22 +21,58 @@
 # OUTPUTS:
 # - Svg or pdf files with genome tracks from multiple experiment ids.
 ################################################################################
-
-#---------------------------------------
-# Source configuration for interactive session
-#---------------------------------------
 if(interactive()) {
-  message("Interactive job... sourcing configuration file.")
-  script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_bmc.R"
-  stopifnot(
-    "Script configuration file does not exist. Please copy the template." =
-    file.exists(script_configuration_path)
-  )
-  source(script_configuration_path)
-  message("Configuration file sourced...")
+  message("Running from repl... Loading functions.")
 } else {
   stop("Run the script from the R repl in an interactive session.")
 }
+
+# Setup paths to configuration and root directory.
+# Accounts for my reorganization of the repos.
+ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
+CORE_SCRIPTS_PATH <- file.path(ROOT_DIRECTORY, "core_scripts")
+SCRIPT_CONFIGURATION_PATH <- file.path(
+  CORE_SCRIPTS_PATH,
+  "configuration_script_bmc.R"
+)
+EXPERIMENT_CONFIGURATION_PATH <- file.path(
+  CORE_SCRIPTS_PATH,
+  "configuration_experiment_bmc.R"
+)
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
+FUNCTION_FILENAME_TEMPLATE <- file.path(CORE_SCRIPTS_PATH, "functions_for_%s.R")
+FUNCTION_FILENAMES <- c(
+  "logging", "script_control",
+  "file_operations", "bmc_config_validation"
+)
+for (function_filename in FUNCTION_FILENAMES) {
+  function_filepath <- sprintf(
+    FUNCTION_FILENAME_TEMPLATE,
+    function_filename
+  )
+  normalized_path <- normalizePath(function_filepath)
+  if (!file.exists(normalized_path)) {
+    stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
+  }
+  source(normalized_path)
+}
+
+message("Loaded functions... Sourcing configuration.")
+#---------------------------------------
+# Source configuration for interactive session
+#---------------------------------------
+stopifnot(
+  "Script configuration file does not exist. Please copy the template." =
+    file.exists(SCRIPT_CONFIGURATION_PATH),
+  "Experiment configuration file does not exist. Please copy the template." =
+    file.exists(EXPERIMENT_CONFIGURATION_PATH)
+)
+source(SCRIPT_CONFIGURATION_PATH)
+message("Configuration file sourced... Checking configuration variables.")
+
 # Ensure the variables expected in the script were //
 # defined in the configuration file. //
 # See template_interactive_script_configuration.R or //
@@ -48,12 +84,16 @@ required_configuration_variables <- c(
   "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
   "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
-missing_variables <- required_configuration_variables[!sapply(required_configuration_variables, exists)]
+
+is_missing_variable <- !sapply(required_configuration_variables, exists)
+missing_variables <- required_configuration_variables[is_missing_variable]
 if (length(missing_variables) > 0 ) {
   stop("Missing variable. Please define in 'script_configuration.R' file.",
        paste(missing_variables, collapse = ", "))
 }
 message("All variables defined in the configuration file...")
+
+stop("Breakpoint. Testing initiation...")
 
 #-------------------------------------------------------------------------------
 # Verify Required Libraries
@@ -79,20 +119,6 @@ if (!SKIP_PACKAGE_CHECKS) {
 }
 message("All required packages available...")
 
-#---------------------------------------
-# Load user functions
-#---------------------------------------
-# Also loads OVERRIDE_PRESETS
-FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
-for (function_filename in FUNCTION_FILENAMES) {
-    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
-    normalized_path <- normalizePath(function_filepath)
-    if (!file.exists(normalized_path)) {
-        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
-    }
-    source(normalized_path)
-}
-message("User functions loaded...")
 
 #-------------------------------------------------------------------------------
 # Setup genome and feature files

@@ -23,13 +23,13 @@ if(interactive()) {
 }
 
 ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
-core_scripts_path <- file.path(ROOT_DIRECTORY, "core_scripts")
-script_configuration_path <- file.path(core_scripts_path, "configuration_script_bmc.R")
-experiment_configuration_path <- file.path(
-  core_scripts_path,
+CORE_SCRIPTS_PATH <- file.path(ROOT_DIRECTORY, "core_scripts")
+SCRIPT_CONFIGURATION_PATH <- file.path(CORE_SCRIPTS_PATH, "configuration_script_bmc.R")
+EXPERIMENT_CONFIGURATION_PATH <- file.path(
+  CORE_SCRIPTS_PATH,
   "configuration_experiment_bmc.R"
 )
-function_filename_template <- file.path(core_scripts_path, "functions_for_%s.R")
+FUNCTION_FILENAME_TEMPLATE <- file.path(CORE_SCRIPTS_PATH, "functions_for_%s.R")
 #---------------------------------------
 # Load user functions
 #---------------------------------------
@@ -38,7 +38,10 @@ function_filenames <- c(
   "file_operations", "bmc_config_validation"
 )
 for (function_filename in function_filenames) {
-  function_filepath <- sprintf(function_filename_template, function_filename)
+  function_filepath <- sprintf(
+    FUNCTION_FILENAME_TEMPLATE, 
+    function_filename
+  )
   normalized_path <- normalizePath(function_filepath)
   if (!file.exists(normalized_path)) {
     stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
@@ -52,9 +55,11 @@ message("Loaded functions... Sourcing configuration.")
 #---------------------------------------
 stopifnot(
   "Script configuration file does not exist. Please copy the template." =
-    file.exists(script_configuration_path)
+    file.exists(SCRIPT_CONFIGURATION_PATH),
+  "Script configuration file does not exist. Please copy the template." =
+    file.exists(EXPERIMENT_CONFIGURATION_PATH)
 )
-source(script_configuration_path)
+source(SCRIPT_CONFIGURATION_PATH)
 message("Configuration file sourced... Checking configuration variables.")
 
 # Ensure the variables expected in the script were //
@@ -64,6 +69,7 @@ required_configuration_variables <- c(
   "EXPERIMENT_ID", "EXPERIMENT_DIR",
   "ACCEPT_CONFIGURATION"
 )
+
 is_missing_variable <- !sapply(required_configuration_variables, exists)
 missing_variables <- required_configuration_variables[is_missing_variable]
 
@@ -80,18 +86,18 @@ message("All variables defined in the configuration file...")
 #-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration
 #-------------------------------------------------------------------------------
-# @TODO Replace all instances of "~/lab_utils/core_scripts/" with core_scripts_path
-source(experiment_configuration_path)
+# @TODO Replace all instances of "~/lab_utils/core_scripts/" with CORE_SCRIPTS_PATH
+source(EXPERIMENT_CONFIGURATION_PATH)
 # Define required dependencies
 #required_modules <- list(
 #  list(
-#    path = experiment_configuration_path,
+#    path = EXPERIMENT_CONFIGURATION_PATH,
 #    description = "BMC Configuration",
 #    required = TRUE
 #  )
 #)
 #
-#experiment_configuration_path <- required_modules[[
+#EXPERIMENT_CONFIGURATION_PATH <- required_modules[[
 #  which(sapply(required_modules, function(x)
 #    x$description == "BMC Configuration"
 #  ))
@@ -447,7 +453,7 @@ for (filename in filenames) {
       )
     } else if (endsWith(filename, ".R")) {
       safe_write_file(
-        data = experiment_configuration_path,
+        data = EXPERIMENT_CONFIGURATION_PATH,
         path = output_file_path,
         write_fn = file.copy,
         verbose = RUNTIME_CONFIG$debug_verbose,
