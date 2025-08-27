@@ -35,10 +35,10 @@ SCRIPT_CONFIGURATION_PATH <- file.path(
   CORE_SCRIPTS_PATH,
   "configuration_script_bmc.R"
 )
-EXPERIMENT_CONFIGURATION_PATH <- file.path(
-  CORE_SCRIPTS_PATH,
-  "configuration_experiment_bmc.R"
-)
+#EXPERIMENT_CONFIGURATION_PATH <- file.path(
+#  CORE_SCRIPTS_PATH,
+#  "configuration_experiment_bmc.R"
+#)
 
 #---------------------------------------
 # Load user functions
@@ -66,9 +66,9 @@ message("Loaded functions... Sourcing configuration.")
 #---------------------------------------
 stopifnot(
   "Script configuration file does not exist. Please copy the template." =
-    file.exists(SCRIPT_CONFIGURATION_PATH),
-  "Script configuration file does not exist. Please copy the template." =
-    file.exists(EXPERIMENT_CONFIGURATION_PATH)
+    file.exists(SCRIPT_CONFIGURATION_PATH)
+  #"Experiment configuration file does not exist. Please copy the template." =
+    #file.exists(EXPERIMENT_CONFIGURATION_PATH)
 )
 source(SCRIPT_CONFIGURATION_PATH)
 message("Configuration file sourced... Checking configuration variables.")

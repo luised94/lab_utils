@@ -23,8 +23,8 @@ message("Sourcing script configuration file...")
 # --- Variable ---
 # Likely updated every time a new experiment is created.
 # Write single experiment id or single character that is comma-separated
-EXPERIMENT_IDS <- "250324Bel"
-EXPERIMENT_ID <- "Exp_20250515_1"
+EXPERIMENT_IDS <- "250714Bel"
+EXPERIMENT_ID <- "250714Bel"
 
 target_comparison_columns <- c("rescue_allele", "suppressor_allele")
 columns_to_exclude_from_replicate_determination <- c(
@@ -34,7 +34,19 @@ columns_to_exclude_from_replicate_determination <- c(
   "repeats"
 )
 
-ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
+if (
+  !exists("ROOT_DIRECTORY") ||
+  is.null(ROOT_DIRECTORY) ||
+  ROOT_DIRECTORY == ""
+  ) {
+
+  ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
+    # Check if the command failed (returns error status or empty result)
+    if (length(ROOT_DIRECTORY) == 0 || ROOT_DIRECTORY == "") {
+      stop("Could not determine git root directory. Not in a git repository? Current working directory: ", getwd())
+    }
+}
+
 #system("git rev-parse --is-inside-work-tree", intern = TRUE)
 #if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null; then
 # --- Constant ---
@@ -45,7 +57,7 @@ ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
 # TODO: Remove and rework these settings.
 ACCEPT_CONFIGURATION <- TRUE
 BAM_PROCESSING <- "blFiltered"
-BIGWIG_NORM_METHOD <- "RAW"
+BIGWIG_NORM_METHOD <- "CPM"
 CHROMOSOMES_TO_PLOT <- c(7, 10, 14)
 EXPECTED_FORMAT_EXPERIMENT_ID <- "^\\d{6}Bel$"
 FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
