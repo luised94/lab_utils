@@ -6,11 +6,14 @@
 # PURPOSE: Plot replicates from multiple experiment-ids
 #
 # USAGE:
+#   1) Update configuration_experiment_bmc.R file.
+#     experiment-ids should be provided as csv
+#   2) From R REPL: source("core_scripts/plot_genome_tracks_for_multiple_chromosomes_experiments_an.R")
 #   ./core_scripts/plot_genome_tracks_from_replicates.R --experiment-id=<experiment-id>
-#   experiment-ids should be provided as csv
 #
 # DEPENDENCIES:
-#   configuration_experiment_bmc
+#   configuration_experiment_bmc.R
+#   configuration_script_bmc.R
 #   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
 #   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
 #   required_packages

@@ -1,4 +1,26 @@
 #!/usr/bin/env Rscript
+################################################################################
+# Plot bigwig files for multiple experiments, categories and chromosomes
+# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+################################################################################
+# PURPOSE:
+#   Creates standardized directory structure and metadata files for BMC ChIP-seq experiments
+#
+# USAGE:
+#   1) Update configuration_experiment_bmc.R file.
+#   2) From R REPL: source("core_scripts/plot_genome_tracks_for_multiple_chromosomes_experiments_an.R")
+
+#
+# DEPENDENCIES:
+#   configuration_experiment_bmc.R
+#   configuration_script_bmc.R
+#   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
+#
+# OUTPUTS:
+# - Svg or pdf files with genome tracks from multiple experiment ids for chromosomes and categories.
+################################################################################
 
 #---------------------------------------
 # Load user functions

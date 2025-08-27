@@ -7,10 +7,10 @@
 #   Creates standardized directory structure and metadata files for BMC ChIP-seq experiments
 #
 # USAGE:
-#   Update configuration_experiment_bmc file.
-#   $./setup_bmc_experiment.R --experiment-id=<experiment-id> --accept-configuration
+#   1) Update configuration_experiment_bmc.R file.
+#   2) From R REPL: source("core_scripts/setup_bmc_experiment.R")
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/configuration_experiment_bmc
+# DEPENDENCIES: ~/lab_utils/core_scripts/configuration_experiment_bmc.R
 #
 # OUTPUTS:
 # - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
@@ -266,7 +266,7 @@ if (n_samples != expected) {
   #cat("\nFull sample breakdown:\n")
   #print(summary(metadata))     # Show all category distributions
   #cat("\n")
-  ## Control this in the configuration_experiment_bmc file.
+  ## Control this in the configuration_experiment_bmc.R file.
   ## Helps display metadata values to help narrow down where you need to add combinations to filter.
   #if (show_all_metadata) {
   #  print(metadata)
