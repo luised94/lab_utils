@@ -9,30 +9,38 @@ Each script carries out a particular operation along a chip-seq pipeline and req
 # Protocol
 1. Use setup scripts to create the metadata and documentation for the experiment. Synced the directory to the cluster.
     > 'setup_bmc_experiment.R', 'template_configuration_experiment_bmc.R', 'template_configuration_script_bmc.R'
+    > Creates: '*_sample_grid.csv','*_bmc_table.tsv','*_configuration_experiment_bmc.R',
 
 2. Download the data to the local directory according to the BMC's email instructions.
  ```{bash}
  srun rsync -av /path/in/BMC/email ~/data/<experiment-id>
  ```
-- Usually this would be all you need to do but if you submit two different orders and they get sequenced together, they will be delivered together. Use 'bmc_move_fastq_to_target_directory.sh' by modifying the variables and running as script.
+  - Usually this would be all you need to do but if you submit two different orders and they get sequenced together, they will be delivered together. Use 'bmc_move_fastq_to_target_directory.sh' by modifying the variables and running as script.
+  > Moves fastq files to target directory.
 
 3. Clean up the fastq directory (cleanup_bmc_directory.sh).
- > Run the commands instead of as a script. Files can also be moved and inspected preliminarily. I remove them since I prefer to use my own scripts.
+  > Run the commands instead of as a script. Files can also be moved and inspected preliminarily. I remove them since I prefer to use my own scripts.
+  > Leaves only fastq files in the fastq subdirectory.
 
 4. Consolidate the fastq files from both lanes (consolidate_fastq.sh). There could be differences between the lanes. However, if one lane has enough reads of good-enough quality, then you do not need to worry.
+  > Creates: 'consolidated*.fastq'
   > Fastp will filter out the reads either way. 
 
 The next set of scripts run an sbatch file that contains the information for slurm program to administrate the script and resources.
 
 5. Filter the fastq files (submit_fastp_filter.sh).
+  > Creates: 'processed*.fastq'
 
-6. Align the fastq files (submit_bowtie2_alignment.sh).
+6. Align the fastq files (submit_bowtie2_alignment.sh) to the reference genome specified in script, and sorts the bam file before outputting.
+  > Creates: 'processed*_to_S288C_sorted.bam'
 
 7. Generate the coverage files (submit_bamcoverage_normalizations.sh).
-  > Use the plot_*.R scripts to create the coverage files as genomic tracks.
+  > Run the submit bash script first to generate the bigwig files.
+  > Use the plot_*.R scripts to create the plots of the bigwig files as genomic tracks.
   > Scripts use 'configuration_experiment_bmc.R' and 'configuration_script_bmc.R'
   > Scripts use interactive repl. Source during R session. source('script.R')
   > View generated html, pdf or svg files (recommend pdf).
+  > Creates: *.svg, *.html or *.pdf of plots generated via Gviz package.
 
 8. Call peaks (submit_macs2_peak_calling.sh).
 

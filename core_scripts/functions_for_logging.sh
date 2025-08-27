@@ -6,6 +6,7 @@
 
 # FIX: No error handling for any of the functions...
 # setup_logging has to be used before the others are called.
+# Usage: eval $(setup_logging $1 $2 $3 $4)
 setup_logging() {
     local experiment_id="$1"
     local tool_name="$2"
