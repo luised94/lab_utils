@@ -35,10 +35,6 @@ SCRIPT_CONFIGURATION_PATH <- file.path(
   CORE_SCRIPTS_PATH,
   "configuration_script_bmc.R"
 )
-#EXPERIMENT_CONFIGURATION_PATH <- file.path(
-#  CORE_SCRIPTS_PATH,
-#  "configuration_experiment_bmc.R"
-#)
 
 #---------------------------------------
 # Load user functions
@@ -154,8 +150,6 @@ if ( length(missing_configuration_paths) > 0 ) {
 OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
-stop("Breakpoint. Testing configuration loading...")
-
 #-------------------------------------------------------------------------------
 # Setup directories, genome file and file metadata
 #-------------------------------------------------------------------------------
@@ -167,13 +161,13 @@ stop("Breakpoint. Testing configuration loading...")
 #  SAMPLE_ID_CAPTURE_PATTERN: (for sample ID extraction)
 expected_number_of_samples <- 0
 REQUIRED_DIRECTORIES <- c("fastq", "coverage")
+metadata_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
+metadata_categories_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
 
 # For loop to load metadata
 # Loop through number of experiments, find the fastq files and bigwig files.//
 # Get sample ids from fastq, add bigwig files to loaded metadata, add dataframe //
 # to list for further processing and binding //
-metadata_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
-metadata_categories_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
 for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
   message("--- Start experiment idx ---")
   current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
