@@ -13,17 +13,12 @@
 # Author: [Your Name]
 # Date: 2024-11-03
 
-# Function to display usage
-display_usage() {
+# Validate input arguments
+if [ "$#" -ne 1 ]; then
     echo "Usage: sbatch --array=1-N%16 $0 <experiment_directory>"
     echo "Example: sbatch --array=1-10%16 $0 /home/user/data/240304Bel"
     echo "Note: Array range should not exceed the number of fastq files"
     exit 1
-}
-
-# Validate input arguments
-if [ "$#" -ne 1 ]; then
-    display_usage
 fi
 
 # Parse arguments
@@ -40,7 +35,7 @@ fi
 # Function to log messages
 source $HOME/lab_utils/core_scripts/functions_for_logging.sh
 readonly TOOL_NAME="bowtie2"
-eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME})"
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
 
 # Constants
 GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"

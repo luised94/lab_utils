@@ -13,15 +13,12 @@
 # Date: 2024-11-03
 
 # Function to display usage
-display_usage() {
-    echo "Usage: sbatch --array=1-N%16 $0 <experiment_directory>"
-    echo "Example: sbatch --array=1-10%16 $0 /home/user/data/240304Bel"
-    exit 1
-}
 
 # Validate input arguments
 if [ "$#" -ne 1 ]; then
-    display_usage
+    echo "Usage: sbatch --array=1-N%16 $0 <experiment_directory>"
+    echo "Example: sbatch --array=1-10%16 $0 /home/user/data/240304Bel"
+    exit 1
 fi
 
 # Parse arguments
@@ -38,7 +35,7 @@ fi
 # Logging functions
 source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 readonly TOOL_NAME="coverage"
-eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME})"
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
 
 # coverage parameters - hardcoded values
 BIN_SIZE=10

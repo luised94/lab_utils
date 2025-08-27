@@ -29,7 +29,8 @@ EXPERIMENT_ID=$( basename "$EXPERIMENT_DIR" )
 # Function to log messages
 source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 readonly TOOL_NAME="fastp"
-eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME})"
+# Sets log file in the logs directory. Outputs LOG_DIR.
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
 
 
 # Validate SLURM_ARRAY_TASK_ID
@@ -157,7 +158,7 @@ if measure_performance "fastp_filtering" \
         --overrepresentation_sampling "$OVERREPRESENTATION_SAMPLING" \
         --json "$OUTPUT_QC/${SAMPLE_ID}_fastp.json" \
         --html "$OUTPUT_QC/${SAMPLE_ID}_fastp.html"; then
-    
+
     log_message "INFO" "Performed fastp filtering."
 else
     log_message "ERROR" "Fastp filtering failed for ${SAMPLE_ID}"

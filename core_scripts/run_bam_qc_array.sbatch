@@ -27,7 +27,7 @@ fi
 # Logging functions
 source $HOME/lab_utils/core_scripts/functions_for_logging.sh
 readonly TOOL_NAME="bamqc"
-eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME})"
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
 
 # Quality Control Configuration
 readonly MIN_MAPPING_QUALITY=20

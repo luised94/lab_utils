@@ -2,7 +2,6 @@
 # submit_fastp_filter.sh
 # Dependencies: Cleaned up and consolidated fastq files.
 # Usage: $./submit_fastp_filter.sh $HOME/data/<experiment_directory>
-#
 # Immediately exit if not on luria.
 if [[ "$(hostname)" != "luria" ]]; then
     echo "Error: This script must be run on luria cluster"

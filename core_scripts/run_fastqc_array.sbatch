@@ -35,7 +35,7 @@ fi
 # Logging functions
 source $HOME/lab_utils/core_scripts/functions_for_logging.sh
 readonly TOOL_NAME="fastqc"
-eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME})"
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
 
 readonly QUALITY_CONTROL_DIR="${EXPERIMENT_DIR}/quality_control"
 mkdir -p "${QUALITY_CONTROL_DIR}"
