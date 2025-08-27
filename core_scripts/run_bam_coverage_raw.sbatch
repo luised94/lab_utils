@@ -50,7 +50,7 @@ mkdir -p "${EXPERIMENT_DIR}/coverage"
 # Log script start
 log_message "INFO" "Starting bamCoverage process for experiment: ${EXPERIMENT_DIR}"
 log_message "INFO" "Job ID: ${SLURM_ARRAY_JOB_ID}, Task ID: ${SLURM_ARRAY_TASK_ID}"
-log_message "INFO" "Log directory: ${TASK_LOG_DIR}"
+log_message "INFO" "Log directory: ${LOG_DIR}"
 
 # Load required modules
 module purge

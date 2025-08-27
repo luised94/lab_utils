@@ -9,6 +9,12 @@
 setup_logging() {
     local experiment_id="$1"
     local tool_name="$2"
+    local job_id="${3:-${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-na}}}"
+    local task_id="${4:-${SLURM_ARRAY_TASK_ID:-na}}"
+
+    local log_root="$HOME/logs"
+    local timestamp; timestamp=$(date +%Y%m%d_%H%M%S)
+    local base_name="${experiment_id}_${timestamp}_${tool_name}_job-${job_id}_task-${task_id}"
 
     if [[ -z "$tool_name" || ! "$tool_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
         if [[ -z "$tool_name" ]]; then
@@ -24,22 +30,18 @@ setup_logging() {
         return 1
     fi
 
-    local log_root="$HOME/logs" # Or get from config/env var
-    local current_month; current_month=$(date +%Y-%m)
-    local month_dir="${log_root}/${current_month}"
-    local tool_dir="${month_dir}/${tool_name}"
-    local job_log_dir="${tool_dir}/job_${SLURM_ARRAY_JOB_ID}"
-    local task_log_dir="${job_log_dir}/task_${SLURM_ARRAY_TASK_ID}"
-    local timestamp; timestamp=$(date +%Y%m%d_%H%M%S)
 
-    if ! mkdir -p "$task_log_dir"; then
-        echo "Error: Failed to create log directory: $task_log_dir" >&2
+    if ! mkdir -p "$log_root"; then
+        echo "Error: Failed to create log directory: $log_root" >&2
         return 1
     fi
 
-    printf "MAIN_LOG='%s'\nERROR_LOG='%s'\nPERFORMANCE_LOG='%s'\nTASK_LOG_DIR='%s'\nJOB_LOG_DIR='%s'\nTOOL_DIR='%s'\n" \
-           "${task_log_dir}/main_${timestamp}.log" "${task_log_dir}/error_${timestamp}.log" "${task_log_dir}/performance_${timestamp}.log" \
-           "${task_log_dir}" "${job_log_dir}" "${tool_dir}"
+    printf "MAIN_LOG='%s'\nERROR_LOG='%s'\nPERFORMANCE_LOG='%s'\nLOG_DIR='%s'\n" \
+           "${log_root}/${base_name}_main.log" \
+           "${log_root}/${base_name}_error.log" \
+           "${log_root}/${base_name}_performance.log" \
+           "${log_root}"
+
 }
 
 # Function to log messages
