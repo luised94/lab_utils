@@ -33,7 +33,7 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
 fi
 
 # Function to log messages
-source $HOME/lab_utils/core_scripts/functions_for_logging.sh
+source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 readonly TOOL_NAME="bowtie2"
 eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
 

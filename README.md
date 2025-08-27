@@ -1,4 +1,7 @@
 # lab_utils
+## Quick Start
+See docs/bmc_chip_seq_analysis_instructions.qmd for sequencing analysis.
+
 ## TODO
 Cross-correlation Analysis: Using phantompeakqualtools for strand cross-correlation (NSC/RSC metrics)
 Peak Statistics: Using bedtools to analyze peak width distributions, distances between peaks, and genomic feature overlaps
@@ -6,6 +9,9 @@ Coverage Comparisons: Using deepTools multiBigwigSummary and plotCorrelation to 
 Enrichment Analysis: Using GREAT or similar tools for genomic region enrichment
 Motif Analysis: Using MEME-ChIP or HOMER for motif discovery in peaks
 Peak Conservation: Analyzing conservation scores within peaks using phyloP/phastCons
+
+### 2025-08-27
+README and documentation needs updating. Quick start is the easiest way to start for now.
 
 ## Overview
 Code used for laboratory analysis

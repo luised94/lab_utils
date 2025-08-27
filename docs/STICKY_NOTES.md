@@ -271,3 +271,6 @@ Can use illustrator to turn the plots into two columns or see if combination of 
 Complete the peak calling scripts
 Determine the reproducible samples.
 OBS: bamCoverage gives warning if smoothLength is smaller than bin size.
+
+## 2025-08-27
+Really need to turn the vimgrep into workflow. Substituting something, find references across file, update accordingly.
