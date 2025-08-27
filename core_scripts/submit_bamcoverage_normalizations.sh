@@ -12,7 +12,7 @@ EXPERIMENT_DIR="$1"
 if [ -z "$EXPERIMENT_DIR" ]; then
     echo "Error: Experiment directory not provided"
     echo "Usage: $0 <experiment_directory>"
-    echo "Ensure experiment directory is full path: $HOME/data/<experiment_directory"
+    echo "Ensure experiment directory is full path: $HOME/data/<experiment_directory>"
     exit 1
 fi
 
@@ -28,7 +28,7 @@ JOB_LOG="${DOCUMENTATION_DIR}/experiment_job_info.md"
 mkdir -p "$DOCUMENTATION_DIR" "$BAM_DIRECTORY"
 
 # Initialize BAM files
-mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*.bam" -exec basename {} \;)
+mapfile -t unique_files < <(find "${BAM_DIRECTORY}" -maxdepth 1 -type f -name "*blFiltered.bam" -exec basename {} \;)
 BAM_COUNT=${#unique_files[@]}
 #declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
 declare -a NORM_METHODS=("CPM")

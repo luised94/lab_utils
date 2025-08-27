@@ -11,9 +11,6 @@
 # Purpose: Executes deepTools bamCoverage as SLURM array job for multiple BAM files
 # Usage: sbatch --array=1-N%16 run_bamcoverage_array.sbatch <experiment_directory>
 # Date: 2024-11-03
-
-# Function to display usage
-
 # Validate input arguments
 if [ "$#" -ne 1 ]; then
     echo "Usage: sbatch --array=1-N%16 $0 <experiment_directory>"
@@ -61,7 +58,7 @@ module load deeptools/3.0.1
 
 # Find BAM files
 BAM_DIR="${EXPERIMENT_DIR}/alignment"
-mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*.bam" | sort)
+mapfile -t BAM_FILES < <(find "$BAM_DIR" -maxdepth 1 -type f -name "*blFiltered.bam" | sort)
 TOTAL_FILES=${#BAM_FILES[@]}
 TOTAL_JOBS=$((TOTAL_FILES * ${#NORM_METHODS[@]}))
 if [ "$TOTAL_FILES" -eq 0 ]; then
