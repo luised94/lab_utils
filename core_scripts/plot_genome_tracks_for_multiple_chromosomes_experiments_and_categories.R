@@ -383,26 +383,26 @@ names(category_colors) <- category_values
 # Define any rows to exclude
 # For example, remove rows that you dont want to be included in the plots
 # Prefilter the metadata_df
-# TODO: Move to configuration. //
-row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
-if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
-  expr_vars <- all.vars(row_filtering_expression)
-  missing_expr_vars <- setdiff(expr_vars, colnames(metadata_df))
-  if (length(missing_expr_vars) > 0) {
-    stop("Expression refers to columns that don't exist in metadata_df: ",
-         paste(missing_expr_vars, collapse = ", "))
-  }
-  tryCatch({
-    # would need to add more conditionals if I assign to a new variable //
-    metadata_df <- metadata_df[eval(row_filtering_expression, envir = metadata_df), ]
-  }, error = function(e) {
-    stop("Error evaluating row_filtering_expression: ", e$message)
-  })
-} # end if error handling for expression
+# @TODO: Move to configuration.
+#row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
+#if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
+#  expr_vars <- all.vars(row_filtering_expression)
+#  missing_expr_vars <- setdiff(expr_vars, colnames(metadata_df))
+#  if (length(missing_expr_vars) > 0) {
+#    stop("Expression refers to columns that don't exist in metadata_df: ",
+#         paste(missing_expr_vars, collapse = ", "))
+#  }
+#  tryCatch({
+#    # would need to add more conditionals if I assign to a new variable //
+#    metadata_df <- metadata_df[eval(row_filtering_expression, envir = metadata_df), ]
+#  }, error = function(e) {
+#    stop("Error evaluating row_filtering_expression: ", e$message)
+#  })
+#} # end if error handling for expression
 
 # Define columns to compare by and exclude columns for grouping
 # TODO: Move to configuration. //
-target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+target_comparison_columns <- c("rescue_allele", "timepoints")
 plot_name_comparison_column_section <- paste(
   gsub("_", "", target_comparison_columns),
   collapse = "."
@@ -421,6 +421,7 @@ if (length(missing_comparison_columns) > 0) {
   stop("Missing required comparison columns in metadata_df: ",
        paste(missing_comparison_columns, collapse = ", "))
 }
+
 # Validate excluded columns (warning only, not critical)
 if (length(missing_excluded_columns) > 0) {
   warning("Some excluded columns don't exist in metadata_df: ",

@@ -461,17 +461,22 @@ if(!(all(have_at_least_two_replicates))) {
 # Define columns to compare by and exclude columns for grouping
 #--------
 # TODO: Move to configuration. //
-#target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+#target_comparison_columns <- c("rescue_allele", "timepoints")
 target_comparison_columns <- c("rescue_allele", "suppressor_allele")
 plot_name_comparison_column_section <- paste(
   gsub("_", "", target_comparison_columns),
   collapse = "."
 )
+#metadata_columns_to_exclude <- c(
+#  "sample_type", "sample_ids",
+#  "bigwig_file_paths", "full_name",
+#  "short_name", "experiment_id",
+#  "repeats", "replicate_group"
+#)
 metadata_columns_to_exclude <- c(
-  "sample_type", "sample_ids",
-  "bigwig_file_paths", "full_name",
-  "short_name", "experiment_id",
-  "repeats", "replicate_group"
+    "sample_type", "sample_ids",
+    "bigwig_file_paths", "full_name",
+    "short_name"
 )
 #columns_to_exclude_from_replicate_determination <- c(
 #  "sample_type", "sample_ids",

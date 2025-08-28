@@ -22,11 +22,19 @@ message("Sourcing script configuration file...")
 #---------------------
 # --- Variable ---
 # Likely updated every time a new experiment is created.
+
 # Write single experiment id or single character that is comma-separated
 EXPERIMENT_IDS <- "250714Bel"
 EXPERIMENT_ID <- "250714Bel"
 
-target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+# These columns will be the difference in the plot.
+# @TODO This should be experiment specific. Add to EXPERIMENT_CONFIG and iterate over.
+target_comparison_columns <- c("rescue_allele", "timepoints")
+#target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+
+# These columns will be excluded from replicate determination.
+# They are metadata columns and created by the setup scripts.
+# @TODO Is this implied somewhere else?
 columns_to_exclude_from_replicate_determination <- c(
   "sample_type", "sample_ids",
   "bigwig_file_paths", "full_name",
@@ -38,7 +46,7 @@ if (
   !exists("ROOT_DIRECTORY") ||
   is.null(ROOT_DIRECTORY) ||
   ROOT_DIRECTORY == ""
-  ) {
+) {
 
   ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
     # Check if the command failed (returns error status or empty result)
