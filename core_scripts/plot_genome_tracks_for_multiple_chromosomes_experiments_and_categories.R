@@ -162,7 +162,7 @@ message("Configuration and metadata paths created. Loading metadata...")
 #  FASTQ_PATTERN: (for sequence files)
 #  SAMPLE_ID_CAPTURE_PATTERN: (for sample ID extraction)
 expected_number_of_samples <- 0
-#REQUIRED_DIRECTORIES <- c("fastq", "coverage")
+REQUIRED_DIRECTORIES <- c("fastq", "coverage")
 metadata_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
 metadata_categories_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
 
