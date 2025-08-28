@@ -361,7 +361,6 @@ if (!is.null(FEATURE_FILE)) {
   GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOMES_IN_ROMAN, pruning.mode = "coarse")
 }
 
-stop("Breakpoint. Check metadata...")
 ####################
 # Plot bigwig files
 # For each repeat,
@@ -483,18 +482,21 @@ stopifnot(
     length(experimental_condition_titles) == total_number_of_conditions
 )
 
+stop("Breakpoint. Check metadata then run big for loop...")
 for (condition_idx in seq_len(total_number_of_conditions)) {
   message("=== For loop for group ===")
   message(sprintf(
     fmt = "  Processing group: %s / %s ",
     condition_idx, total_number_of_conditions)
   )
+
   # Iteration setup ----------
   current_condition <- unique_experimental_conditions[condition_idx]
   current_condition_base_title <- experimental_condition_titles[condition_idx]
   is_condition_row <- metadata_df$experimental_condition_id == current_condition
   current_condition_df <- metadata_df[is_condition_row, ]
   current_number_of_samples <- nrow(current_condition_df)
+
   # Move to each or inside the most nested
   debug_print(list(
     "title" = "Debug group plotting",
@@ -535,168 +537,186 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         background.title = "white"
       )
     )
-  for (mode in GENOME_TRACK_Y_AXIS_SCALING) {
-    plot_file_name <- paste(
-      "condition_plots", "_",
-      current_chromosome, "_",
-      gsub("\\|", ".", current_condition), "_",
-      plot_name_comparison_column_section, "_",
-      BAM_PROCESSING, "_", BIGWIG_NORM_METHOD, "_",
-      mode,
-      OUTPUT_EXTENSION,
-      sep = ""
-    )
-    plot_output_file_path <- file.path(OUTPUT_DIR, plot_file_name)
-    debug_print(list(
-      "title" = "Debug chromosome",
-      ".Current chromosome" = current_chromosome
-    ))
-    all_track_values <- c()
-    if (mode == "local") {
-      message("Mode set to local...")
-      # Calculate track limits for all of the tracks in the plot
+    for (mode in GENOME_TRACK_Y_AXIS_SCALING) {
+      plot_file_name <- paste(
+        "condition_plots", "_",
+        current_chromosome, "_",
+        gsub("\\|", ".", current_condition), "_",
+        plot_name_comparison_column_section, "_",
+        BAM_PROCESSING, "_", BIGWIG_NORM_METHOD, "_",
+        mode,
+        OUTPUT_EXTENSION,
+        sep = ""
+      )
+      plot_output_file_path <- file.path(OUTPUT_DIR, plot_file_name)
+
+      debug_print(list(
+        "title" = "Debug chromosome",
+        ".Current chromosome" = current_chromosome
+      ))
+
+      all_track_values <- c()
+      if (mode == "local") {
+        message("Mode set to local...")
+
+        # Calculate track limits for all of the tracks in the plot
+        for (sample_idx in seq_len(current_number_of_samples)) {
+          message("   Measuring track limits")
+          current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
+          bigwig_data <- rtracklayer::import(
+            current_bigwig_file_path,
+            format = "BigWig",
+            which = current_genome_range_to_load
+          )
+          values <- GenomicRanges::values(bigwig_data)$score
+          all_track_values <- c(all_track_values, values)
+        }
+
+        # Calculate limits
+        if (length(all_track_values) > 0) {
+          y_min <- min(all_track_values, na.rm = TRUE)
+          y_max <- max(all_track_values, na.rm = TRUE)
+          y_range <- y_max - y_min
+          y_limits <- c(
+            max(0, y_min - (y_range * PADDING_FRACTION)),
+                y_max + (y_range * PADDING_FRACTION)
+            )
+        }
+
+      } else {
+
+        message("Mode set to individual...")
+        y_limits <- NULL
+
+      }
+
       for (sample_idx in seq_len(current_number_of_samples)) {
-        message("   Measuring track limits")
+        message("    --- For loop for sample ---")
+        message(sprintf(
+          fmt = "      Processing row: %s / %s ",
+          sample_idx, current_number_of_samples
+        ))
+        # Iteration setup -----------
+        current_sample_track_name <- current_condition_df$track_name[sample_idx]
         current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
+        # Could be extracted out by determining if category_to_color_by is in target_comparison_columns
+        current_color_key <- current_condition_df[sample_idx, category_to_color_by]
+        track_color <- category_colors[[current_color_key]]
+        container_length <- length(track_container)
+        debug_print(list(
+          "title" = "Sample iteration",
+          ".Track name" = current_sample_track_name,
+          ".Bigwig file path" = current_bigwig_file_path,
+          ".Container Length" = container_length,
+          ".Track color" = track_color
+        ))
+        if (!file.exists(current_bigwig_file_path)) {
+          # INQ: Could probably just pass the strings instead of two function calls.
+          warning(sprintf(
+            fmt = "Bigwig file '%s' does not exist. Skipping",
+            current_bigwig_file_path
+          ))
+          next
+        }
         bigwig_data <- rtracklayer::import(
           current_bigwig_file_path,
           format = "BigWig",
           which = current_genome_range_to_load
         )
-        values <- GenomicRanges::values(bigwig_data)$score
-        all_track_values <- c(all_track_values, values)
-      }
-      # Calculate limits
-      if (length(all_track_values) > 0) {
-        y_min <- min(all_track_values, na.rm = TRUE)
-        y_max <- max(all_track_values, na.rm = TRUE)
-        y_range <- y_max - y_min
-        y_limits <- c(
-          max(0, y_min - (y_range * PADDING_FRACTION)),
-              y_max + (y_range * PADDING_FRACTION)
-          )
-      }
-    } else {
-      message("Mode set to individual...")
-      y_limits <- NULL
-    }
-    for (sample_idx in seq_len(current_number_of_samples)) {
-      message("    --- For loop for sample ---")
-      message(sprintf(
-        fmt = "      Processing row: %s / %s ",
-        sample_idx, current_number_of_samples
-      ))
-      # Iteration setup -----------
-      current_sample_track_name <- current_condition_df$track_name[sample_idx]
-      current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
-      # Could be extracted out by determining if category_to_color_by is in target_comparison_columns
-      current_color_key <- current_condition_df[sample_idx, category_to_color_by]
-      track_color <- category_colors[[current_color_key]]
-      container_length <- length(track_container)
-      debug_print(list(
-        "title" = "Sample iteration",
-        ".Track name" = current_sample_track_name,
-        ".Bigwig file path" = current_bigwig_file_path,
-        ".Container Length" = container_length,
-        ".Track color" = track_color
-      ))
-      if (!file.exists(current_bigwig_file_path)) {
-        # INQ: Could probably just pass the strings instead of two function calls.
-        warning(sprintf(
-          fmt = "Bigwig file '%s' does not exist. Skipping",
-          current_bigwig_file_path
-        ))
-        next
-      }
-      bigwig_data <- rtracklayer::import(
-        current_bigwig_file_path,
-        format = "BigWig",
-        which = current_genome_range_to_load
-      )
-      track_container[[container_length + 1]] <- Gviz::DataTrack(
-          range = bigwig_data,
-          name = current_sample_track_name,
-          # Apply styling
-          showAxis = TRUE,
-          showTitle = TRUE,
-          type = "h",
-          size = 1.2,
-          background.title = "white",
-          fontcolor.title = "black",
-          col.border.title = "#e0e0e0",
-          cex.title = 0.7,
-          fontface = 1,
-          title.width = 1.0,
-          col = track_color,
-          fill = track_color
-      )
-      message("    --- end row iteration ---")
-    } # end sample row for loop
-    # Add Annotation Track (Conditional)
-    if (exists("GENOME_FEATURES")) {
-      current_genome_feature <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, current_chromosome, pruning.mode = "coarse")
-      track_container[[length(track_container) + 1]] <- Gviz::AnnotationTrack(
-        current_genome_feature,
-        name = "Features",
-        size = 0.5,
-        background.title = "lightgray",
-        fontcolor.title = "black",
-        showAxis = FALSE,
-        background.panel = "#f5f5f5",
-        cex.title = 0.6,
-        fill = "#8b4513",
-        col = "#8b4513"
-      )
-    }
-    debug_print(list(
-      "title" = "Debug chromosome",
-      ".Current chromosome" = current_chromosome,
-      ".Plot output file path" = plot_output_file_path,
-      ". Current track length" = length(track_container),
-      ". Track limits" = paste(y_limits, collapse = ",")
-    ))
-
-    do.call(
-      what = switch(OUTPUT_FORMAT,
-        pdf = pdf,
-        svg = svglite::svglite,
-        png = png
-        ),
-      args = switch(OUTPUT_FORMAT,
-        pdf = list(file = plot_output_file_path, width = 10, height = 8,
-                   bg = "white", compress = TRUE, colormodel = "srgb", useDingbats = FALSE),
-        svg = list(filename = plot_output_file_path, width = 10, height = 8,
-                   bg = "white"),
-        png = list(filename = plot_output_file_path, width = 10, height = 8,
-                   units = "in", res = 600, bg = "white")
+        track_container[[container_length + 1]] <- Gviz::DataTrack(
+            range = bigwig_data,
+            name = current_sample_track_name,
+            # Apply styling
+            showAxis = TRUE,
+            showTitle = TRUE,
+            type = "h",
+            size = 1.2,
+            background.title = "white",
+            fontcolor.title = "black",
+            col.border.title = "#e0e0e0",
+            cex.title = 0.7,
+            fontface = 1,
+            title.width = 1.0,
+            col = track_color,
+            fill = track_color
         )
-    )
-    Gviz::plotTracks(
-        trackList = track_container,
-        chromosome = current_chromosome,
-        from = current_genome_range_to_load@ranges@start,
-        to = current_genome_range_to_load@ranges@width,
-        ylim = y_limits,
-        margin = 15,
-        innerMargin = 5,
-        spacing = 10,
-        main = current_condition_title,
-        col.axis = "black",
-        cex.axis = 0.8,
-        cex.main = 0.7,
-        fontface.main = 1,
-        background.panel = "transparent"
-    )
-    dev.off()
-    message("  Saved plot...")
-    message("  --- end scaling  iteration ---")
+        message("    --- end row iteration ---")
+      } # end sample row for loop
+      # Add Annotation Track (Conditional)
+      if (exists("GENOME_FEATURES")) {
+        current_genome_feature <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, current_chromosome, pruning.mode = "coarse")
+        track_container[[length(track_container) + 1]] <- Gviz::AnnotationTrack(
+          current_genome_feature,
+          name = "Features",
+          size = 0.5,
+          background.title = "lightgray",
+          fontcolor.title = "black",
+          showAxis = FALSE,
+          background.panel = "#f5f5f5",
+          cex.title = 0.6,
+          fill = "#8b4513",
+          col = "#8b4513"
+        )
+      }
 
-  } # end scaling mode for loop
+      debug_print(list(
+        "title" = "Debug chromosome",
+        ".Current chromosome" = current_chromosome,
+        ".Plot output file path" = plot_output_file_path,
+        ". Current track length" = length(track_container),
+        ". Track limits" = paste(y_limits, collapse = ",")
+      ))
+
+      ## Choose plotting device.
+      #do.call(
+      #  # Device to call.
+      #  what = switch(OUTPUT_FORMAT,
+      #                pdf = pdf,
+      #                svg = svglite::svglite,
+      #                png = png),
+      #  # Arguments for the called device function.
+      #  args = switch(OUTPUT_FORMAT,
+      #                pdf = list(file = plot_output_file_path, 
+      #                           width = 10, height = 8,
+      #                           bg = "white", 
+      #                           compress = TRUE, 
+      #                           colormodel = "srgb", useDingbats = FALSE),
+      #                svg = list(filename = plot_output_file_path, 
+      #                           width = 10, height = 8,
+      #                           bg = "white"),
+      #                png = list(filename = plot_output_file_path,
+      #                           width = 10, height = 8,
+      #                           units = "in", res = 600, bg = "white"))
+      #  )
+
+      #Gviz::plotTracks(
+      #    trackList = track_container,
+      #    chromosome = current_chromosome,
+      #    from = current_genome_range_to_load@ranges@start,
+      #    to = current_genome_range_to_load@ranges@width,
+      #    ylim = y_limits,
+      #    margin = 15,
+      #    innerMargin = 5,
+      #    spacing = 10,
+      #    main = current_condition_title,
+      #    col.axis = "black",
+      #    cex.axis = 0.8,
+      #    cex.main = 0.7,
+      #    fontface.main = 1,
+      #    background.panel = "transparent"
+      #)
+      #dev.off()
+      message("  Saved plot...")
+      message("  --- end scaling  iteration ---")
+
+    } # end scaling mode for loop
   message("  --- end chromosome iteration ---")
 
-} # end chromosome for loop
-  message("  Ended condition iteration ", condition_idx)
+  } # end chromosome for loop
+
+  message("  Ended condition iteration -", condition_idx, "-")
   message("=== end condition iteration ===")
   message("\n")
+
 } # end condition for loop
 message("All done...")
