@@ -151,7 +151,6 @@ if ( length(missing_configuration_paths) > 0 ) {
 OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 message("Configuration and metadata paths created. Loading metadata...")
-stop("Breakpoint. Check metadata...")
 
 #-------------------------------------------------------------------------------
 # Setup directories, genome file and file metadata
@@ -163,7 +162,7 @@ stop("Breakpoint. Check metadata...")
 #  FASTQ_PATTERN: (for sequence files)
 #  SAMPLE_ID_CAPTURE_PATTERN: (for sample ID extraction)
 expected_number_of_samples <- 0
-REQUIRED_DIRECTORIES <- c("fastq", "coverage")
+#REQUIRED_DIRECTORIES <- c("fastq", "coverage")
 metadata_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
 metadata_categories_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
 
@@ -179,11 +178,13 @@ for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
   # Build all required directory paths for this experiment
   required_data_paths <- file.path(current_experiment_path, REQUIRED_DIRECTORIES)
   names(required_data_paths) <- REQUIRED_DIRECTORIES
+
   missing_dirs <- required_data_paths[!dir.exists(required_data_paths)]
   if (length(missing_dirs) > 0) {
     stop("Missing required experiment subdirectories: ",
          paste(missing_dirs, collapse = ", "))
   }
+
   debug_print(list(
     "title" = "Debug Path information",
     ".Current Experiment path" = current_experiment_path,
@@ -210,6 +211,7 @@ for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
     pattern = BIGWIG_PATTERN,
     full.names = TRUE
   )
+
   stopifnot(
     "No fastq files found." = length(fastq_files) > 0,
     "No bigwig files found." = length(bigwig_files) > 0
@@ -235,6 +237,7 @@ for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
   metadata_categories_list[[experiment_idx]] <- EXPERIMENT_CONFIG$CATEGORIES
   current_metadata_df$bigwig_file_paths <- bigwig_files
   current_metadata_df$sample_ids <- sample_ids
+
   debug_print(list(
     "title" = "Debug metadata loading",
     ".Number of rows" = nrow(current_metadata_df),
@@ -242,6 +245,7 @@ for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
     ".Number of bigwig files" = length(bigwig_files),
     ".Number of expected samples" = EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
   ))
+
   # Add determination of sample ids and addition to metadata frame
   metadata_list[[experiment_idx]] <- current_metadata_df
   message("--- End iteration ---")
@@ -276,6 +280,7 @@ metadata_df <- do.call(rbind, metadata_aligned)
 stopifnot("Metadata does not have expected number of rows." = nrow(metadata_df) == expected_number_of_samples)
 
 # Convert the columns of the metadata_df to factors.
+# Should not need to order since the loaded metadata is already ordered.
 for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
   metadata_df[[col_name]] <- factor(
     metadata_df[[col_name]],
@@ -356,6 +361,7 @@ if (!is.null(FEATURE_FILE)) {
   GENOME_FEATURES <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, CHROMOSOMES_IN_ROMAN, pruning.mode = "coarse")
 }
 
+stop("Breakpoint. Check metadata...")
 ####################
 # Plot bigwig files
 # For each repeat,
