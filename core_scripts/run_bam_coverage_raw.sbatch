@@ -8,7 +8,9 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=luised94@mit.edu
 # Script: run_bamcoverage_array.sbatch
-# Purpose: Executes deepTools bamCoverage as SLURM array job for multiple BAM files
+# Purpose: 
+#   Executes deepTools bamCoverage as SLURM array job for multiple BAM files
+#   Uses raw coverage to see the effects on genome track plot
 # Usage: sbatch --array=1-N%16 run_bam_coverage_raw.sbatch <experiment_directory>
 # Date: 2024-11-03
 

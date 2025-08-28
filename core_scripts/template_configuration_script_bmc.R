@@ -36,11 +36,19 @@ target_comparison_columns <- c("rescue_allele", "timepoints")
 # They are metadata columns and created by the setup scripts.
 # @TODO Is this implied somewhere else?
 columns_to_exclude_from_replicate_determination <- c(
-  "sample_type", "sample_ids",
-  "bigwig_file_paths", "full_name",
-  "short_name", "experiment_id",
+  "bigwig_file_paths",
+  "experiment_id",
+  "full_name",
   "repeats"
+  "sample_ids",
+  "sample_type",
+  "short_name",
 )
+#metadata_columns_to_exclude <- c(
+#  "sample_type", "sample_ids",
+#  "bigwig_file_paths", "full_name",
+#  "short_name"
+#)
 
 if (
   !exists("ROOT_DIRECTORY") ||

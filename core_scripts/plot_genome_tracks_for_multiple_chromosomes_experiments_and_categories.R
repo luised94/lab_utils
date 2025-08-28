@@ -402,15 +402,20 @@ names(category_colors) <- category_values
 
 # Define columns to compare by and exclude columns for grouping
 # TODO: Move to configuration. //
-target_comparison_columns <- c("rescue_allele", "timepoints")
+target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+#target_comparison_columns <- c("rescue_allele", "timepoints")
 plot_name_comparison_column_section <- paste(
   gsub("_", "", target_comparison_columns),
   collapse = "."
 )
 metadata_columns_to_exclude <- c(
-    "sample_type", "sample_ids",
-    "bigwig_file_paths", "full_name",
-    "short_name"
+  "bigwig_file_paths",
+  "full_name",
+  "sample_ids",
+  "sample_type",
+  "short_name"
+  #experiment_id,
+  #repeats,
 )
 
 missing_excluded_columns <- setdiff(metadata_columns_to_exclude, colnames(metadata_df))
@@ -687,12 +692,12 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
                       png = png),
         # Arguments for the called device function.
         args = switch(OUTPUT_FORMAT,
-                      pdf = list(file = plot_output_file_path, 
+                      pdf = list(file = plot_output_file_path,
                                  width = 10, height = 8,
-                                 bg = "white", 
-                                 compress = TRUE, 
+                                 bg = "white",
+                                 compress = TRUE,
                                  colormodel = "srgb", useDingbats = FALSE),
-                      svg = list(filename = plot_output_file_path, 
+                      svg = list(filename = plot_output_file_path,
                                  width = 10, height = 8,
                                  bg = "white"),
                       png = list(filename = plot_output_file_path,
