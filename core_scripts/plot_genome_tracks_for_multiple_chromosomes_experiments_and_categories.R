@@ -114,6 +114,7 @@ message("All required packages available...")
 #-------------------------------------------------------------------------------
 # Setup experiment-specific configuration path
 #-------------------------------------------------------------------------------
+# @Question: Something is off. Feel like it can be simplified.
 NUMBER_OF_EXPERIMENTS <- length(EXPERIMENT_DIR)
 config_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
 metadata_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
@@ -149,6 +150,7 @@ if ( length(missing_configuration_paths) > 0 ) {
 
 OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+message("Configuration and metadata paths created. Loading metadata...")
 stop("Breakpoint. Check metadata...")
 
 #-------------------------------------------------------------------------------

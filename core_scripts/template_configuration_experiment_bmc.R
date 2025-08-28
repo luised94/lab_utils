@@ -1,6 +1,6 @@
 ################################################################################
 # BMC ChIP-seq Configuration Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.1.0
+# Author: Luis | Date: 2024-11-27 | Version: 2.1.0 Experiment: 250715Bel
 ################################################################################
 # PURPOSE: 
 #   Write down the categories and quote expressions to obtain metadata for an experiment
@@ -408,6 +408,7 @@ stopifnot(
     all(required_sections %in% names(EXPERIMENT_CONFIG))
 )
 
+# @TODO Gotta figure out where to move this. Should it just be in the setup script?
 sapply(category_names,
   function(category_name) {
     category_values <- EXPERIMENT_CONFIG$CATEGORIES[[category_name]]
