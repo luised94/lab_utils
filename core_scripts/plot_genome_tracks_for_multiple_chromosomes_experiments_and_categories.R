@@ -149,6 +149,7 @@ if ( length(missing_configuration_paths) > 0 ) {
 
 OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+stop("Breakpoint. Check metadata...")
 
 #-------------------------------------------------------------------------------
 # Setup directories, genome file and file metadata
