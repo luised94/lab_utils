@@ -135,7 +135,7 @@ IS_COMMA_SEPARATED <- grepl(",", EXPERIMENT_IDS)
 # Setup experiment directories ----------------
 if (!IS_COMMA_SEPARATED){
   EXPERIMENT_DIR <- normalizePath(
-    file.path(Sys.getenv("HOME"), "data", EXPERIMENT_IDS),
+    file.path(Sys.getenv("HOME"), "data", EXPERIMENT_ID),
     mustWork = FALSE
   )
 }

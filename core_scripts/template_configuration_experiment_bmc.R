@@ -43,6 +43,15 @@ EXPERIMENT_CONFIG <- list(
     antibody = c("ORC", "Nucleosomes")
   ),
 
+  CONTROL_FACTORS = list(
+    genotype = c("orc_phenotype")
+  ),
+
+  COLUMN_ORDER = c(
+    "antibody", "orc_phenotype",
+    "cell_cycle", "temperature"
+  ),
+
   INVALID_COMBINATIONS = list(
     # Group 1: orc1-161 restrictions
     orc1_161_restrictions = quote(
@@ -70,6 +79,14 @@ EXPERIMENT_CONFIG <- list(
     )
   ),
 
+  # Set the options for which bigwig file is used to create genome track plots.
+  # They look mostly the same.
+  # @TODO Remove this section of code?
+  NORMALIZATION = list(
+    methods = c("CPM", "BPM", "RPGC", "RPKM"),
+    active = "CPM"
+  )
+
   #EXPERIMENTAL_CONDITIONS = list(
   #  is_orc = quote(orc_phenotype == "WT" & cell_cycle == "nocodazole" & antibody == "ORC"),
   #  is_nucleosomes = quote(antibody == "Nucleosomes"),
@@ -88,19 +105,6 @@ EXPERIMENT_CONFIG <- list(
   #  cell_cycle_effect = quote(cell_cycle %in% c("alpha", "nocodazole", "async"))
   #),
 
-  CONTROL_FACTORS = list(
-    genotype = c("orc_phenotype")
-  ),
-
-  COLUMN_ORDER = c("antibody", "orc_phenotype", "cell_cycle", "temperature"),
-
-  # Set the options for which bigwig file is used to create genome track plots.
-  # They look mostly the same.
-  # @TODO Remove this section of code?
-  NORMALIZATION = list(
-    methods = c("CPM", "BPM", "RPGC", "RPKM"),
-    active = "CPM"
-  )
 )
 
 #########

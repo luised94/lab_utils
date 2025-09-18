@@ -231,9 +231,8 @@ if (RUNTIME_CONFIG$debug_verbose) {
 }
 
 cat("Directories created successfully!\n")
-
 #-------------------------------------------------------------------------------
-# Sample Metadata Generation and Validation
+# Metadata Generation, Organization and Validation
 #-------------------------------------------------------------------------------
 # Generate experimental combinations
 metadata <- do.call(expand.grid, EXPERIMENT_CONFIG$CATEGORIES)
@@ -254,6 +253,25 @@ if (length(EXPERIMENT_CONFIG$INVALID_COMBINATIONS) > 0) {
 #  lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = metadata)
 #)
 #metadata <- subset(metadata, valid_idx)
+
+# Enforce factor levels from config
+for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
+  if (col_name %in% colnames(metadata)) {
+    metadata[[col_name]] <- factor(
+      metadata[[col_name]],
+      levels = EXPERIMENT_CONFIG$CATEGORIES[[col_name]],
+      ordered = TRUE
+    )
+  }
+}
+
+# Sort metadata according to column order
+metadata <- metadata[
+  do.call(
+    order,
+    metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
+  ),
+]
 
 # Verify sample count
 n_samples <- nrow(metadata)
@@ -357,27 +375,6 @@ if (n_samples != expected) {
 #cat(sprintf("- Classified samples: %d\n", sum(table(metadata$sample_type))))
 #cat(sprintf("- Unclassified samples: %d\n", sum(is.na(metadata$sample_type))))
 
-#-------------------------------------------------------------------------------
-# Metadata Formatting and Organization
-#-------------------------------------------------------------------------------
-# Enforce factor levels from config
-for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
-  if (col_name %in% colnames(metadata)) {
-    metadata[[col_name]] <- factor(
-      metadata[[col_name]],
-      levels = EXPERIMENT_CONFIG$CATEGORIES[[col_name]],
-      ordered = TRUE
-    )
-  }
-}
-
-# Sort metadata according to column order
-metadata <- metadata[
-  do.call(
-    order,
-    metadata[EXPERIMENT_CONFIG$COLUMN_ORDER]
-  ),
-]
 
 # Generate sample names
 metadata$full_name <- apply(metadata, 1, paste, collapse = "_")
@@ -402,8 +399,8 @@ bmc_metadata <- data.frame(
   Genome = "Saccharomyces cerevisiae",
   Notes = ifelse(
     tolower(metadata$antibody) == "input",
-    "Run on fragment analyzer.",
-    "Run on femto pulse."
+    "Run on fragment analyzer. Usually diluted 2 fold.",
+    "Run on femto pulse. Samples usually run without dilution."
   ),
   Pool = "A",
   stringsAsFactors = FALSE
