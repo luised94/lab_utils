@@ -660,7 +660,11 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       } # end sample row for loop
       # Add Annotation Track (Conditional)
       if (exists("GENOME_FEATURES")) {
-        current_genome_feature <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, current_chromosome, pruning.mode = "coarse")
+        current_genome_feature <- GenomeInfoDb::keepSeqlevels(
+          GENOME_FEATURES,
+          current_chromosome,
+          pruning.mode = "coarse"
+        )
         track_container[[length(track_container) + 1]] <- Gviz::AnnotationTrack(
           current_genome_feature,
           name = "Features",

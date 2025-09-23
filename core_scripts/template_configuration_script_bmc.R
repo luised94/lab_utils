@@ -77,14 +77,14 @@ BIGWIG_NORM_METHOD <- "CPM"
 CHROMOSOMES_TO_PLOT <- c(7, 10, 14)
 EXPECTED_FORMAT_EXPERIMENT_ID <- "^\\d{6}Bel$"
 FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
+#GENOME_TRACK_SCALING_MODES_VALID <- c("local", "individual")
 GENOME_TRACK_Y_AXIS_SCALING <- c("individual")
 OUTPUT_FORMAT <- "svg"
+OUTPUT_FORMATS_VALID <- c("svg", "pdf", "png")
 OVERRIDE_CONFIGURATION_PATH <- "~/lab_utils/core_scripts/override_configuration.R"
 PADDING_FRACTION <- 0.1
 SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
 SKIP_PACKAGE_CHECKS <- TRUE
-VALID_GENOME_TRACK_SCALING_MODES <- c("local", "individual")
-VALID_OUTPUT_FORMATS <- c("svg", "pdf", "png")
 VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
 
 #TIME_CONFIG <- list(
@@ -113,7 +113,9 @@ stopifnot(
   "EXPERIMENT_IDS should be character vector of length 1." =
     length(EXPERIMENT_IDS) == 1,
   "OUTPUT_FORMAT must be svg, pdf or png." =
-    OUTPUT_FORMAT %in% VALID_OUTPUT_FORMATS
+    OUTPUT_FORMAT %in% OUTPUT_FORMATS_VALID,
+  "EXPERIMENT_ID must be in EXPERIMENT_IDS." =
+    EXPERIMENT_ID %in% EXPERIMENT_IDS
 )
 
 #---------------------
