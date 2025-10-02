@@ -8,7 +8,7 @@ if [[ -z "${DROPBOX_PATH}" ]]; then
 fi
 
 FROM_DIR="$HOME/data/"
-TO_DIR="${DROPBOX_PATH}/Lab/Experiments/ngs/"
+TO_DIR="${DROPBOX_PATH}/Lab/Experiments/ngs"
 
 if [[ ! -d "${FROM_DIR}" ]]; then
     echo "Error: Experiment directory does not exist: ${EXPERIMENT_DIR}"
@@ -28,6 +28,15 @@ for directories in "${ALL_DIRECTORIES[@]}"; do
   base_directory_name=$(basename "${directories}" )
   echo "Current directory|| ${directories} ||"
   echo "Basename|| ${base_directory_name} ||"
+
+  if [[ ! "$base_directory_name" =~ ^[0-9]{6}Bel$ ]]; then
+    echo "Directory basename not bmc project. Skipping..."
+    continue
+  fi
+
+  echo "Syncing directory..."
+  echo "rsync -nav ${directories}/ ${TO_DIR}/${base_directory_name}/"
+  rsync -nav "${directories}/" --exclude=fastq --exclude=quality_control --exclude=coverage "${TO_DIR}/${base_directory_name}/"
 
   echo "----------------------------------------"
 done
