@@ -21,12 +21,20 @@ if [[ ! -d "${TO_DIR}" ]]; then
 fi
 
 mapfile -t ALL_DIRECTORIES < <(find "${FROM_DIR}" -mindepth 1 -maxdepth 1 -type d)
+declare -a targets
 
-for directories in "${ALL_DIRECTORIES[@]}"; do
+for directory in "${ALL_DIRECTORIES[@]}"; do
   echo "----------------------------------------"
 
-  echo "Current directory || ${directories} ||"
-  base_directory_name=$(basename "${directories}" )
+  echo "Current directory || ${directory} ||"
+
+  if [[ ! -d ${directory} ]]; then
+    echo "Not a directory. Skipping..."
+    echo "----------------------------------------"
+    continue
+  fi
+
+  base_directory_name=$(basename "${directory}" )
 
   if [[ ! "$base_directory_name" =~ ^[0-9]{6}Bel$ ]]; then
     echo "Directory basename not bmc project. Skipping..."
@@ -40,13 +48,46 @@ for directories in "${ALL_DIRECTORIES[@]}"; do
 
 
   echo "Syncing directory..."
-  echo "rsync -nav ${directories}/ $destination_dir"
+  echo "rsync -nav ${directory}/ $destination_dir"
   rsync -nav \
         --exclude=fastq/ \
         --exclude=quality_control/ \
         --exclude=coverage/ \
         --itemize-changes \
-        "${directories}/" "$destination_dir"
+        "${directory}/" "$destination_dir"
 
+  targets+=("$directory")
   echo "----------------------------------------"
 done
+#for directory in "${ALL_DIRECTORIES[@]}"; do
+
+# If no targets, exit cleanly
+if [[ ${#targets[@]} -eq 0 ]]; then
+  echo "No valid directories found to process."
+  exit 0
+fi
+
+#echo "Rsync dry-run complete..."
+#
+#
+#echo
+#echo "Execute the rsync command for all of the directory...?"
+#read -r -p "Execute all of the above syncs? (y/n): " confirm
+#echo "Confirm value || $confirm || "
+#case "$confirm" in
+#  y|Y)
+#    echo "Executing all syncs..."
+#    for directory in "${ALL_DIRECTORIES[@]}"; do
+#      basename="$(basename "$src")"
+#      dest="$destination_base/$basename"
+#      echo "Syncing: $basename"
+#      rsync -av "${exclude_args[@]}" "$src/" "$dest/"
+#    done
+#    echo "All syncs completed."
+#    ;;
+#  *)
+#    echo "Aborted. No changes made."
+#  ;;
+#esac
+#echo "Potato"
+
