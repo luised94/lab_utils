@@ -25,18 +25,28 @@ mapfile -t ALL_DIRECTORIES < <(find "${FROM_DIR}" -mindepth 1 -maxdepth 1 -type 
 for directories in "${ALL_DIRECTORIES[@]}"; do
   echo "----------------------------------------"
 
+  echo "Current directory || ${directories} ||"
   base_directory_name=$(basename "${directories}" )
-  echo "Current directory|| ${directories} ||"
-  echo "Basename|| ${base_directory_name} ||"
 
   if [[ ! "$base_directory_name" =~ ^[0-9]{6}Bel$ ]]; then
     echo "Directory basename not bmc project. Skipping..."
+    echo "----------------------------------------"
     continue
   fi
 
+  destination_dir="${TO_DIR}/${base_directory_name}/"
+  echo "Basename || ${base_directory_name} ||"
+  echo "Destination dir || ${destination_dir} ||"
+
+
   echo "Syncing directory..."
-  echo "rsync -nav ${directories}/ ${TO_DIR}/${base_directory_name}/"
-  rsync -nav "${directories}/" --exclude=fastq --exclude=quality_control --exclude=coverage "${TO_DIR}/${base_directory_name}/"
+  echo "rsync -nav ${directories}/ $destination_dir"
+  rsync -nav \
+        --exclude=fastq/ \
+        --exclude=quality_control/ \
+        --exclude=coverage/ \
+        --itemize-changes \
+        "${directories}/" "$destination_dir"
 
   echo "----------------------------------------"
 done
