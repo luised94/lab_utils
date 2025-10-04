@@ -38,6 +38,7 @@ fi
 
 mapfile -t ALL_DIRECTORIES < <(find "${FROM_DIR}" -mindepth 1 -maxdepth 1 -type d)
 declare -a targets
+at_least_one_directory=0
 
 echo "------- Checking directories -----------"
 echo "----------------------------------------"
@@ -83,18 +84,33 @@ for directory in "${targets[@]}"; do
 
   echo "Rsync dry run..."
   echo "rsync -nav ${directory}/ $destination_dir"
-  rsync -nav \
+  sync_count=$(rsync -nav \
         --no-perms \
         --size-only \
         --exclude=fastq/ \
         --exclude=quality_control/ \
         --exclude=coverage/ \
         --itemize-changes \
-        "${directory}/" "$destination_dir"
-  #rsync -avn "${exclude_args[@]}" "$src/" "$dest/"
+        "${directory}/" "$destination_dir" | \
+        tee /dev/stderr | \
+        grep -E '^[^.][^ ]' | \
+        wc -l)
+
+  # Should I add condition to only run if the value is zero?
+  # Leave since it has no side effects at this stage.
+  if [[ $sync_count -ge 1 ]]; then
+    at_least_one_directory=1
+  fi
 
 done
 echo "Rsync dry-run complete..."
+echo "Directories to sync || $at_least_one_directory ||"
+
+if [[ $at_least_one_directory -eq 0 ]]; then
+  echo "Directories do not require syncing. Exiting..."
+  exit 0
+
+fi
 
 echo "Execute the rsync command for all of the directory...?"
 echo "WARNING: FILES IN THE DROPBOX LOCATION GET OVERWRITTEN!"
