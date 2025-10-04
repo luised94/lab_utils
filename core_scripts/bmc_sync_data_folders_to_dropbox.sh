@@ -84,6 +84,8 @@ for directory in "${targets[@]}"; do
   echo "Rsync dry run..."
   echo "rsync -nav ${directory}/ $destination_dir"
   rsync -nav \
+        --no-perms \
+        --size-only \
         --exclude=fastq/ \
         --exclude=quality_control/ \
         --exclude=coverage/ \
@@ -105,6 +107,8 @@ case "$confirm" in
       base_directory_name=$( basename "${directory}" )
       destination_dir="${TO_DIR}/${base_directory_name}/"
       rsync -av \
+            --no-perms \
+            --size-only \
             --exclude=fastq/ \
             --exclude=quality_control/ \
             --exclude=coverage/ \
