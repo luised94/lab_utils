@@ -26,7 +26,7 @@ fi
 EXPERIMENT_DIR="$1"
 EXPERIMENT_ID=$( basename "$EXPERIMENT_DIR" )
 
-# Function to log messages
+# Read in setup_logging function
 source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 readonly TOOL_NAME="fastp"
 # Sets log file in the logs directory. Outputs LOG_DIR.
@@ -63,7 +63,7 @@ fi
 FASTQ_INDEX=$((SLURM_ARRAY_TASK_ID - 1))
 FASTQ_PATH="${FASTQ_FILES[$FASTQ_INDEX]}"
 
-if [ -z "$FASTQ_PATH" ]; then
+if [ ! -f "$FASTQ_PATH" ]; then
     log_message "Error: No fastq file found for index $FASTQ_INDEX"
     exit 1
 fi
@@ -78,8 +78,8 @@ fi
 
 # Extract ID using sed with validation
 SAMPLE_ID=$(echo "$FASTQ_BASENAME" | sed -n 's/consolidated_\(.*\)_sequence\.fastq/\1/p')
-if [ -z "$SAMPLE_ID" ]; then
-    log_message "ERROR" "Failed to extract sample ID from filename: ${FASTQ_BASENAME}"
+if [[ ! "$SAMPLE_ID" =~ ^[0-9]{1,6}$ ]]; then
+    log_message "ERROR" "Invalid or missing sample ID from filename: ${FASTQ_BASENAME}"
     exit 1
 fi
 
