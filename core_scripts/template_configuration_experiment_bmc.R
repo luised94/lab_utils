@@ -1,6 +1,6 @@
 ################################################################################
 # BMC ChIP-seq Configuration Setup
-# Author: Luis | Date: 2024-11-27 | Version: 2.1.0 Experiment: 250715Bel
+# Author: Luis | Date: 2024-11-27 | Version: 2.1.0 | Experiment: 250715Bel
 ################################################################################
 # PURPOSE: 
 #   Write down the categories and quote expressions to obtain metadata for an experiment
@@ -16,9 +16,11 @@
 # DEPENDENCIES: NONE
 #
 # OUTPUTS:
-#   No outputs produced by script. Use via setup_bmc_experiment.R
+#   No outputs produced by file or script.
+#   Scripts (such as setup_bmc_experiment.R) source this script.
+#
 # DESCRIPTION:
-#   Describe the experiment.
+#   Describe the experiment:
 #   - 
 ################################################################################
 # !! Update EXPERIMENT_CONFIG if starting a new experiment.

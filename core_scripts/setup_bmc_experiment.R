@@ -56,7 +56,7 @@ message("Loaded functions... Sourcing configuration.")
 stopifnot(
   "Script configuration file does not exist. Please copy the template." =
     file.exists(SCRIPT_CONFIGURATION_PATH),
-  "Script configuration file does not exist. Please copy the template." =
+  "Experiment configuration file does not exist. Please copy the template." =
     file.exists(EXPERIMENT_CONFIGURATION_PATH)
 )
 source(SCRIPT_CONFIGURATION_PATH)
@@ -86,8 +86,14 @@ message("All variables defined in the configuration file...")
 #-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration
 #-------------------------------------------------------------------------------
-# @TODO Replace all instances of "~/lab_utils/core_scripts/" with CORE_SCRIPTS_PATH
+# @TODO Replace all instances of "~/lab_utils/core_scripts/" with CORE_SCRIPTS_PATHset
 source(EXPERIMENT_CONFIGURATION_PATH)
+stopifnot(
+  "EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID does not match configuration EXPERIMENT_ID" =
+    identical(EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID, EXPERIMENT_ID),
+  "Experiment configuration file does not exist. Please copy the template." =
+    file.exists(EXPERIMENT_CONFIGURATION_PATH)
+)
 # Define required dependencies
 #required_modules <- list(
 #  list(
