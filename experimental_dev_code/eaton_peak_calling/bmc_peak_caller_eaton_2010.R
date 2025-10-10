@@ -233,7 +233,20 @@ cat("Number of out-of-bounds minus-strand fragments:", out_of_bounds_minus, "\n"
 fragment_centers <- c(trimmed_plus, trimmed_minus)
 strand(fragment_centers) <- "*"
 
-
 # Import the BED file into a GRanges object
+# Score column has CDS. Need to fix during the import
 #orf_bed_file_path <- "~/data/feature_files/20250423_orf_sgd.bed"
 #orf_annotations <- import(orf_bed_file_path)
+gff_file_path <- "~/data/feature_files/240830_saccharomyces_cerevisiae.gff"
+
+# Import the GFF file. rtracklayer will parse all the rich metadata.
+gff_annotations <- import(gff_file_path)
+
+# --- Inspection ---
+print("Summary of the imported GFF annotations:")
+print(gff_annotations)
+
+# Inspect the feature types available in the file
+print("Available feature types in the GFF file:")
+print(table(mcols(gff_annotations)$type))
+
