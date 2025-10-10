@@ -1,4 +1,5 @@
-
+library(GenomicAlignments)
+library(Rsamtools)
 CHROMOSOME_TO_PLOT <- 10
 FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
 FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
@@ -7,6 +8,8 @@ FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
 FILE_FEATURE_PATTERN <- "eaton_peaks"
 # @ques: maybe I should download this file locally.
 REFERENCE_BAM <- "/home/luised94/data/100303Bel/alignment/consolidated_034475_sequence_to_S288C_sorted.bam"
+reference_bam_header <- Rsamtools::scanBamHeader(REFERENCE_BAM)
+print(reference_bam_header[[REFERENCE_BAM]]$targets)
 
 stopifnot(
   #"REFERENCE_BAM does not exist." =
@@ -86,3 +89,115 @@ ALL_CHROMOSOMES <- REFERENCE_GENOME_DSS@ranges@NAMES
 for (chromosome in ALL_CHROMOSOMES) {
   message("Current chromosome: ", chromosome)
 }
+for (chromosome in ) {
+  message("Current chromosome: ", chromosome)
+
+}
+message("REFERENCE chromosome is same as sample chromosomes: ", as.character(identical(ALL_CHROMOSOMES, names(reference_bam_header[[REFERENCE_BAM]]$targets))))
+REFERENCE_BAM <- "/home/luised94/data/100303Bel/alignment/consolidated_034475_sequence_to_S288C_sorted.bam"
+reference_bam_header <- Rsamtools::scanBamHeader(REFERENCE_BAM)
+sample_chromosomes <- names(reference_bam_header[[REFERENCE_BAM]]$targets)
+chromosome_lengths <- reference_bam_header[[REFERENCE_BAM]]$targets
+
+chromosome_name <- sample_chromosomes[1]
+chromosome_length <- chromosome_lengths[1]
+which_chr <- GRanges(
+  chromosome, 
+  IRanges(1, reference_bam_header[[REFERENCE_BAM]]$targets[[chromosome]])
+)
+
+reads_chrI <- readGAlignments(
+    REFERENCE_BAM, 
+    param = ScanBamParam(which = which_chr)
+  )
+reads_by_strand <- split(reads_chrI, strand(reads_chrI))
+#reads_plus <- reads_chrI[strand(reads_chrI) == "+"]
+#coverage_plus <- coverage(reads_plus, width = unname(chromosome_length))
+coverage_plus <- coverage(reads_by_strand$`+`, width = unname(chromosome_length))
+coverage_minus <- coverage(reads_by_strand$`-`, width = unname(chromosome_length))
+
+windows_300bp <- tileGenome(
+  chromosome_length, 
+  tilewidth = 300,
+  cut.last.tile.in.chrom = TRUE
+)
+#summarizeOverlaps(features = windows_300bp, reads = REFERENCE_BAM, ignore.strand = TRUE)
+se <- summarizeOverlaps(
+  features = windows_300bp, 
+  reads = reads_chrI,
+  ignore.strand = TRUE
+)
+
+mean_score <- mean(assay(se)[,1])
+threshold_fold <- 3
+threshold_score <- mean_score * threshold_fold
+is_candidate_window <- assay(se)[,1] >= threshold_score
+scores_above_threshold <- assay(se)[,1][is_candidate_window]
+candidate_windows <- windows_300bp[is_candidate_window]
+candidate_regions <- reduce(candidate_windows, ignore.strand = TRUE)
+
+overlaps <- findOverlaps(candidate_regions, candidate_windows)
+num_windows <- countQueryHits(overlaps)
+mcols(candidate_regions)$num_merged_windows <- num_windows
+
+large_candidate_regions <- candidate_regions[width(candidate_regions) >= 500]
+
+# Define offsets in base pairs
+offsets <- seq(100, 300, by = 10)
+
+# Create a list to store the results
+cross_corr_results <- lapply(seq_along(large_candidate_regions), function(i) {
+    region <- large_candidate_regions[i]
+    chrom <- as.character(seqnames(region))
+
+    # --- Bin coverage into 20bp bins ---
+    bins <- unlist(tile(region, width = 20))
+    ir_bins <- ranges(bins)
+    
+    # Get the coverage views for the bins on the appropriate chromosome
+    plus_views <- Views(coverage_plus[[chrom]], as(bins, "IRanges"))
+    minus_views <- Views(coverage_minus[[chrom]], as(bins, "IRanges"))
+    
+    # Calculate mean coverage in each bin
+    plus_binned_cov <- viewMeans(plus_views)
+    minus_binned_cov <- viewMeans(minus_views)
+
+    # --- Shifting and Correlation ---
+    correlations <- sapply(offsets, function(offset) {
+        # Convert bp offset to bin offset. Use floor to ensure integer.
+        bin_offset <- floor(offset / 20)
+        
+        # Shift the minus strand coverage vector upstream (left shift)
+        # We need to pad the end with NAs and remove elements from the start
+        n_bins <- length(minus_binned_cov)
+        if (bin_offset >= n_bins) return(NA) # Offset is larger than the vector
+        
+        shifted_minus <- c(minus_binned_cov[(bin_offset + 1):n_bins], rep(NA, bin_offset))
+        
+        # Calculate Pearson correlation, removing NAs
+        cor_test <- cor.test(plus_binned_cov, shifted_minus, method = "pearson")
+        return(cor_test$estimate)
+    })
+
+    # Find the offset with the maximum correlation
+    if (all(is.na(correlations))) {
+        max_corr <- NA
+        best_offset <- NA
+    } else {
+        max_idx <- which.max(correlations)
+        max_corr <- correlations[max_idx]
+        best_offset <- offsets[max_idx]
+    }
+    
+    return(data.frame(
+        region_id = i, 
+        max_correlation = max_corr, 
+        best_offset = best_offset
+    ))
+})
+
+# Combine results into a single data frame
+final_results <- do.call(rbind, cross_corr_results)
+
+# You can add these results back to your GRanges object
+mcols(large_candidate_regions) <- cbind(mcols(large_candidate_regions), final_results)
