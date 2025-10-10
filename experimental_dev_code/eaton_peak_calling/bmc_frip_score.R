@@ -155,8 +155,8 @@ cross_corr_results <- lapply(seq_along(large_candidate_regions), function(i) {
     ir_bins <- ranges(bins)
     
     # Get the coverage views for the bins on the appropriate chromosome
-    plus_views <- Views(coverage_plus[[chrom]], as(bins, "IRanges"))
-    minus_views <- Views(coverage_minus[[chrom]], as(bins, "IRanges"))
+    plus_views <- Views(coverage_plus[[chrom]], ir_bins)
+    minus_views <- Views(coverage_minus[[chrom]], ir_bins)
     
     # Calculate mean coverage in each bin
     plus_binned_cov <- viewMeans(plus_views)
@@ -201,3 +201,8 @@ final_results <- do.call(rbind, cross_corr_results)
 
 # You can add these results back to your GRanges object
 mcols(large_candidate_regions) <- cbind(mcols(large_candidate_regions), final_results)
+
+median_offset <- median(final_results$best_offset)
+fragment_size <- median_offset
+window_size <- fragment_size * 2
+
