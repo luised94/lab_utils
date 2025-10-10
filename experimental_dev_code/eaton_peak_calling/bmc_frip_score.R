@@ -206,3 +206,29 @@ median_offset <- median(final_results$best_offset)
 fragment_size <- median_offset
 window_size <- fragment_size * 2
 
+# 1. Calculate the shift amount
+shift_amount <- floor(fragment_size / 2)
+
+# 2. Split reads by strand
+reads_by_strand <- split(reads_chrI, strand(reads_chrI))
+plus_strand_reads <- reads_by_strand$`+`
+minus_strand_reads <- reads_by_strand$`-`
+plus_gr <- granges(plus_strand_reads)
+minus_gr <- granges(minus_strand_reads)
+
+# 4. Resize and shift, creating potentially out-of-bounds ranges
+shifted_plus_raw <- shift(resize(plus_gr, width = 1, fix = "start"), shift = shift_amount)
+shifted_minus_raw <- shift(resize(minus_gr, width = 1, fix = "end"), shift = -shift_amount)
+
+
+trimmed_plus <- trim(shifted_plus_raw)
+trimmed_minus <- trim(shifted_minus_raw)
+
+out_of_bounds_plus <- length(shifted_plus_raw) - length(trimmed_plus)
+out_of_bounds_minus <- length(shifted_minus_raw) - length(trimmed_minus)
+
+cat("Number of out-of-bounds plus-strand fragments:", out_of_bounds_plus, "\n")
+cat("Number of out-of-bounds minus-strand fragments:", out_of_bounds_minus, "\n")
+fragment_centers <- c(trimmed_plus, trimmed_minus)
+strand(fragment_centers) <- "*"
+
