@@ -1,5 +1,5 @@
-
 library(GenomicAlignments)
+library(rtracklayer)
 library(Rsamtools)
 CHROMOSOME_TO_PLOT <- 10
 FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
@@ -103,14 +103,14 @@ chromosome_lengths <- reference_bam_header[[REFERENCE_BAM]]$targets
 chromosome_name <- sample_chromosomes[1]
 chromosome_length <- chromosome_lengths[1]
 which_chr <- GRanges(
-  chromosome, 
-  IRanges(1, reference_bam_header[[REFERENCE_BAM]]$targets[[chromosome]])
+  chromosome_name, 
+  IRanges(1, reference_bam_header[[REFERENCE_BAM]]$targets[[chromosome_name]])
 )
 
 reads_chrI <- readGAlignments(
     REFERENCE_BAM, 
     param = ScanBamParam(which = which_chr)
-  )
+)
 reads_by_strand <- split(reads_chrI, strand(reads_chrI))
 #reads_plus <- reads_chrI[strand(reads_chrI) == "+"]
 #coverage_plus <- coverage(reads_plus, width = unname(chromosome_length))
@@ -233,3 +233,7 @@ cat("Number of out-of-bounds minus-strand fragments:", out_of_bounds_minus, "\n"
 fragment_centers <- c(trimmed_plus, trimmed_minus)
 strand(fragment_centers) <- "*"
 
+
+# Import the BED file into a GRanges object
+#orf_bed_file_path <- "~/data/feature_files/20250423_orf_sgd.bed"
+#orf_annotations <- import(orf_bed_file_path)
