@@ -225,7 +225,10 @@ sliding_windows <- GRanges(
 SLIDING_WINDOW_COUNTS_se <- GenomicAlignments::summarizeOverlaps(
   features = sliding_windows,
   reads = fragment_centers,
-  ignore.strand = TRUE
+  mode = "Union",
+  inter.feature = FALSE,
+  ignore.strand = TRUE,
+  singleEnd = TRUE  # CRITICAL: treat fragment centers as single-end
 )
 
 # Extract counts as a simple vector
