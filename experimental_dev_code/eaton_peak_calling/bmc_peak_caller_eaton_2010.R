@@ -1,5 +1,6 @@
 # Attempt to replicate eaton peak calling protocol found in supplementary.
 # Eaton et al 2010. CitationKey: Eaton2010conserved
+library(MASS)
 library(GenomicAlignments)
 library(rtracklayer)
 library(Rsamtools)
@@ -281,3 +282,33 @@ overlap_percentage_vct <- total_overlap_width_vct / window_size
 is_background_window <- overlap_percentage_vct >= 0.5
 BACKGROUND_WINDOWS_gr <- sliding_windows[is_background_window]
 BACKGROUND_WINDOW_COUNTS_vct <- SLIDING_WINDOW_COUNTS_vct[is_background_window]
+
+valid_counts <- BACKGROUND_WINDOW_COUNTS_vct[!is.na(BACKGROUND_WINDOW_COUNTS_vct)]
+
+nb_fit <- MASS::fitdistr(
+  x = valid_counts,
+  densfun = "negative binomial"
+)
+
+# Extract parameters
+NB_MU <- nb_fit$estimate["mu"]
+NB_THETA <- nb_fit$estimate["size"] 
+
+mom_mu <- mean(valid_counts)
+mom_var <- var(valid_counts)
+
+# For negative binomial: var = æ + æý/?
+# Solving for ?: ? = æý / (var - æ)
+mom_theta <- mom_mu^2 / (mom_var - mom_mu)
+
+
+# Load the published peaks (adjust path as needed)
+#PAPER_PEAKS_PATH <- "~/data/feature_files/240830_eaton_peaks.bed"
+#paper_peaks <- rtracklayer::import(PAPER_PEAKS_PATH, format = "bed")
+#
+#cat("Our peaks:", length(MERGED_PEAKS_gr), "\n")
+#cat("Paper peaks:", length(paper_peaks), "\n")
+#
+#overlaps <- findOverlaps(MERGED_PEAKS_gr, paper_peaks)
+#cat("Our peaks overlapping paper:", length(unique(queryHits(overlaps))), "\n")
+#cat("Paper peaks overlapping ours:", length(unique(subjectHits(overlaps))), "\n")
