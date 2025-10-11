@@ -1,4 +1,17 @@
+CHROMOSOME_NAME_chr <- CHROMOSOME_NAMES_chr[1]
+chromosome_length <- CHROMOSOME_LENGTHS_nls[1]
+WHICH_CHR_gr <- GenomicRanges::GRanges(
+  CHROMOSOME_NAME_chr,
+  IRanges(
+    1,
+    CHROMOSOME_LENGTHS_nls[[CHROMOSOME_NAME_chr]]
+  )
+)
 
+READS_CHRI_galn <- GenomicAlignments::readGAlignments(
+  REFERENCE_BAM_PATH,
+  param = ScanBamParam(which = WHICH_CHR_gr)
+)
 
 ######### JUNK ###########
 #CHROMOSOME_TO_PLOT <- 10

@@ -44,19 +44,14 @@ orf_annotations <- gff_annotations[mcols(gff_annotations)$type == "CDS"]
 REFERENCE_BAM_HEADER <- Rsamtools::scanBamHeader(REFERENCE_BAM_PATH)
 CHROMOSOME_LENGTHS_nls <- REFERENCE_BAM_HEADER[[REFERENCE_BAM_PATH]]$targets
 CHROMOSOME_NAMES_chr <- names(CHROMOSOME_LENGTHS_nls)
-CHROMOSOME_NAME_chr <- CHROMOSOME_NAMES_chr[1]
-chromosome_length <- CHROMOSOME_LENGTHS_nls[1]
-WHICH_CHR_gr <- GenomicRanges::GRanges(
-  CHROMOSOME_NAME_chr,
-  IRanges(
-    1,
-    CHROMOSOME_LENGTHS_nls[[CHROMOSOME_NAME_chr]]
-  )
-)
-
-READS_CHRI_galn <- GenomicAlignments::readGAlignments(
+ALL_READS_galn <- GenomicAlignments::readGAlignments(
   REFERENCE_BAM_PATH,
-  param = ScanBamParam(which = WHICH_CHR_gr)
+  param = ScanBamParam(
+    which = GRanges(
+      seqnames = CHROMOSOME_NAMES_chr,
+      ranges = IRanges(1, CHROMOSOME_LENGTHS_nls)
+    )
+  )
 )
 
 WINDOW_TILES_vct <- GenomicRanges::tileGenome(
@@ -66,8 +61,8 @@ WINDOW_TILES_vct <- GenomicRanges::tileGenome(
 )
 
 reads_by_strand <- split(
-  READS_CHRI_galn,
-  strand(READS_CHRI_galn)
+  ALL_READS_galn,
+  strand(ALL_READS_galn)
 )
 plus_strand_reads <- reads_by_strand$`+`
 minus_strand_reads <- reads_by_strand$`-`
@@ -78,7 +73,7 @@ coverage_minus <- coverage(minus_strand_reads, width = unname(chromosome_length)
 
 se <- GenomicAlignments::summarizeOverlaps(
   features = WINDOW_TILES_vct,
-  reads = READS_CHRI_galn,
+  reads = ALL_READS_galn,
   ignore.strand = TRUE
 )
 score_by_window <- assay(se)[,1]
@@ -219,3 +214,63 @@ sliding_windows <- GRanges(
     gff_annotations
   )
 )
+
+# Count centered reads in each sliding window
+# fragment_centers are the strand-agnostic shifted read positions
+# sliding_windows are genome-wide windows of width w, step 25bp
+SLIDING_WINDOW_COUNTS_se <- GenomicAlignments::summarizeOverlaps(
+  features = sliding_windows,
+  reads = fragment_centers,
+  ignore.strand = TRUE
+)
+
+# Extract counts as a simple vector
+SLIDING_WINDOW_COUNTS_vct <- assay(SLIDING_WINDOW_COUNTS_se)[, 1]
+
+
+# Find all overlaps between sliding windows and ORF annotations (CDS)
+# This returns a Hits object mapping query (windows) to subject (ORFs)
+WINDOW_ORF_OVERLAPS <- GenomicRanges::findOverlaps(
+  query = sliding_windows,
+  subject = orf_annotations,
+  ignore.strand = TRUE
+)
+
+# Calculate the actual intersection ranges to measure overlap width
+# pintersect gives us the overlapping portions
+OVERLAP_RANGES_gr <- GenomicRanges::pintersect(
+  sliding_windows[queryHits(WINDOW_ORF_OVERLAPS)],
+  orf_annotations[subjectHits(WINDOW_ORF_OVERLAPS)]
+)
+
+# Calculate overlap width for each hit
+overlap_widths_vct <- width(OVERLAP_RANGES_gr)
+
+# Aggregate total overlap width per window
+# Using tapply to sum overlap widths grouped by window index
+overlap_sums_by_window <- tapply(
+  overlap_widths_vct,
+  queryHits(WINDOW_ORF_OVERLAPS),
+  sum
+)
+
+# Note: tapply returns a named vector with window indices as names
+# We need to expand this to all windows (most have 0 overlap)
+
+# Create a vector for all windows, initialize with 0
+total_overlap_width_vct <- rep(0, length(sliding_windows))
+
+# Fill in the overlaps we found
+window_indices_with_overlap <- as.integer(names(overlap_sums_by_window))
+total_overlap_width_vct[window_indices_with_overlap] <- overlap_sums_by_window
+
+# Cap at window_size to handle any potential double-counting
+total_overlap_width_vct <- pmin(total_overlap_width_vct, window_size)
+
+# Calculate overlap percentage
+overlap_percentage_vct <- total_overlap_width_vct / window_size
+# Filter windows: retain only those with ò50% ORF overlap
+
+is_background_window <- overlap_percentage_vct >= 0.5
+BACKGROUND_WINDOWS_gr <- sliding_windows[is_background_window]
+BACKGROUND_WINDOW_COUNTS_vct <- SLIDING_WINDOW_COUNTS_vct[is_background_window]
