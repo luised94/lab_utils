@@ -198,7 +198,7 @@ window_starts <- lapply(
     seq(
       from = 1,
       to = CHROMOSOME_LENGTHS_nls[chrom] - window_size + 1,
-      by = step_size
+      by = SLIDING_WINDOWS_STEP_SIZE_bp
     )
   }
 )
