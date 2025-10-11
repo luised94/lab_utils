@@ -55,7 +55,7 @@ ALL_READS_galn <- GenomicAlignments::readGAlignments(
 )
 
 WINDOW_TILES_vct <- GenomicRanges::tileGenome(
-  seqlengths = chromosome_length,
+  seqlengths = CHROMOSOME_LENGTHS_nls,
   tilewidth = CANDIDATE_WINDOW_SIZE_bp,
   cut.last.tile.in.chrom = TRUE
 )
@@ -68,8 +68,8 @@ plus_strand_reads <- reads_by_strand$`+`
 minus_strand_reads <- reads_by_strand$`-`
 plus_gr <- granges(plus_strand_reads)
 minus_gr <- granges(minus_strand_reads)
-coverage_plus <- coverage(plus_strand_reads, width = unname(chromosome_length))
-coverage_minus <- coverage(minus_strand_reads, width = unname(chromosome_length))
+coverage_plus <- coverage(plus_strand_reads, width = unname(CHROMOSOME_LENGTHS_nls))
+coverage_minus <- coverage(minus_strand_reads, width = unname(CHROMOSOME_LENGTHS_nls))
 
 se <- GenomicAlignments::summarizeOverlaps(
   features = WINDOW_TILES_vct,
