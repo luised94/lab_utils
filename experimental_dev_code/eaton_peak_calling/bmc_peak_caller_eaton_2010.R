@@ -200,6 +200,12 @@ window_starts <- lapply(
   }
 )
 
+# Create proper Seqinfo object with lengths
+seqinfo_with_lengths <- Seqinfo(
+  seqnames = names(CHROMOSOME_LENGTHS_nls),
+  seqlengths = CHROMOSOME_LENGTHS_nls
+)
+
 sliding_windows <- GRanges(
   seqnames = rep(
     names(CHROMOSOME_LENGTHS_nls),
@@ -210,9 +216,7 @@ sliding_windows <- GRanges(
     width = window_size
   ),
   # Use seqinfo from annotations for consistency
-  seqinfo = seqinfo(
-    gff_annotations
-  )
+  seqinfo = seqinfo_with_lengths
 )
 
 # Count centered reads in each sliding window
