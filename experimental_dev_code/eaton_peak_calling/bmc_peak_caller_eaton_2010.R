@@ -90,10 +90,10 @@ ALL_CHROMOSOMES <- REFERENCE_GENOME_DSS@ranges@NAMES
 for (chromosome in ALL_CHROMOSOMES) {
   message("Current chromosome: ", chromosome)
 }
-for (chromosome in ) {
-  message("Current chromosome: ", chromosome)
-
-}
+#for (chromosome in ) {
+#  message("Current chromosome: ", chromosome)
+#
+#}
 message("REFERENCE chromosome is same as sample chromosomes: ", as.character(identical(ALL_CHROMOSOMES, names(reference_bam_header[[REFERENCE_BAM]]$targets))))
 REFERENCE_BAM <- "/home/luised94/data/100303Bel/alignment/consolidated_034475_sequence_to_S288C_sorted.bam"
 reference_bam_header <- Rsamtools::scanBamHeader(REFERENCE_BAM)
@@ -250,3 +250,26 @@ print(gff_annotations)
 print("Available feature types in the GFF file:")
 print(table(mcols(gff_annotations)$type))
 
+# --- 1. Generate Sliding Windows ---
+# Define the step size for the sliding windows
+step_size <- 25
+
+# Create a GRanges object representing all sliding windows across the genome
+# This works by creating all start sites and then defining ranges of 'window_size'
+window_starts <- lapply(
+  names(chromosome_lengths), function(chrom) {
+  seq(
+    from = 1,
+    to = chromosome_lengths[chrom] - window_size + 1,
+    by = step_size
+  )
+})
+
+sliding_windows <- GRanges(
+  seqnames = rep(
+        names(chromosome_lengths),
+        lengths(window_starts)
+  ),
+  ranges = IRanges(start = unlist(window_starts), width = window_size),
+  seqinfo = seqinfo(orf_annotations) # Use seqinfo from annotations for consistency
+)
