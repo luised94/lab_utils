@@ -1,105 +1,10 @@
 library(GenomicAlignments)
 library(rtracklayer)
 library(Rsamtools)
-CHROMOSOME_TO_PLOT <- 10
-FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
-FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
 
-FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
-FILE_FEATURE_PATTERN <- "eaton_peaks"
-# @ques: maybe I should download this file locally.
-REFERENCE_BAM <- "/home/luised94/data/100303Bel/alignment/consolidated_034475_sequence_to_S288C_sorted.bam"
-reference_bam_header <- Rsamtools::scanBamHeader(REFERENCE_BAM)
-print(reference_bam_header[[REFERENCE_BAM]]$targets)
-
-stopifnot(
-  #"REFERENCE_BAM does not exist." =
-  #file.exists(REFERENCE_BAM),
-  "Genome directory not found" =
-  dir.exists(FILE_GENOME_DIRECTORY),
-  "Feature directory not found" =
-  dir.exists(FILE_FEATURE_DIRECTORY),
-  "CHROMOSOME_TO_PLOT must be numeric." =
-  is.numeric(CHROMOSOME_TO_PLOT)
-)
-
-required_packages <- c(
-  "rtracklayer",
-  "GenomicRanges",
-  "Gviz"
-)
-
-is_missing_package <- !sapply(
-  X = required_packages,
-  FUN = requireNamespace,
-  quietly = TRUE
-)
-
-if (
-  !is.character(required_packages) ||
-  length(required_packages) == 0
-) {
-  stop("required_packages must be a non-empty character vector")
-}
-
-missing_packages <- required_packages[is_missing_package]
-if (length(missing_packages) > 0 ) {
-  stop(
-    "Missing packages. Please install using renv:\n",
-    paste(missing_packages, collapse = ", ")
-  )
-}
-
-message("All required packages available...")
-
-REF_GENOME_FILE <- list.files(
-  path = FILE_GENOME_DIRECTORY,
-  pattern = FILE_GENOME_PATTERN,
-  full.names = TRUE,
-  recursive = TRUE
-)[1]
-
-# @QUES: Need to rename this?
-FEATURE_FILE <- list.files(
-  path = FILE_FEATURE_DIRECTORY,
-  pattern = FILE_FEATURE_PATTERN,
-  full.names = TRUE
-)[1]
-
-if (length(FEATURE_FILE) == 0) {
-  warning(sprintf("No feature files found matching pattern '%s' in: %s",
-    FILE_FEATURE_PATTERN,
-    FILE_FEATURE_DIRECTORY
-  ))
-}
-
-if (length(REF_GENOME_FILE) == 0) {
-  stop(sprintf("No reference genome files found matching pattern '%s' in: %s",
-    FILE_GENOME_DIRECTORY,
-    FILE_FEATURE_DIRECTORY
-  ))
-}
-
-REFERENCE_GENOME_DSS <- Biostrings::readDNAStringSet(REF_GENOME_FILE)
-CHROMOSOME_WIDTHS <- REFERENCE_GENOME_DSS[CHROMOSOME_TO_PLOT]@ranges@width
-CHROMOSOMES_IN_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
-
-# @FIX: Better name.
-ALL_CHROMOSOMES <- REFERENCE_GENOME_DSS@ranges@NAMES
-
-for (chromosome in ALL_CHROMOSOMES) {
-  message("Current chromosome: ", chromosome)
-}
-#for (chromosome in ) {
-#  message("Current chromosome: ", chromosome)
-#
-#}
-message("REFERENCE chromosome is same as sample chromosomes: ", as.character(identical(ALL_CHROMOSOMES, names(reference_bam_header[[REFERENCE_BAM]]$targets))))
 REFERENCE_BAM <- "/home/luised94/data/100303Bel/alignment/consolidated_034475_sequence_to_S288C_sorted.bam"
 reference_bam_header <- Rsamtools::scanBamHeader(REFERENCE_BAM)
 sample_chromosomes <- names(reference_bam_header[[REFERENCE_BAM]]$targets)
-chromosome_lengths <- reference_bam_header[[REFERENCE_BAM]]$targets
-
 chromosome_name <- sample_chromosomes[1]
 chromosome_length <- chromosome_lengths[1]
 which_chr <- GRanges(
@@ -112,23 +17,18 @@ reads_chrI <- readGAlignments(
     param = ScanBamParam(which = which_chr)
 )
 reads_by_strand <- split(reads_chrI, strand(reads_chrI))
-#reads_plus <- reads_chrI[strand(reads_chrI) == "+"]
-#coverage_plus <- coverage(reads_plus, width = unname(chromosome_length))
 coverage_plus <- coverage(reads_by_strand$`+`, width = unname(chromosome_length))
 coverage_minus <- coverage(reads_by_strand$`-`, width = unname(chromosome_length))
-
 windows_300bp <- tileGenome(
   chromosome_length, 
   tilewidth = 300,
   cut.last.tile.in.chrom = TRUE
 )
-#summarizeOverlaps(features = windows_300bp, reads = REFERENCE_BAM, ignore.strand = TRUE)
 se <- summarizeOverlaps(
   features = windows_300bp, 
   reads = reads_chrI,
   ignore.strand = TRUE
 )
-
 mean_score <- mean(assay(se)[,1])
 threshold_fold <- 3
 threshold_score <- mean_score * threshold_fold
@@ -140,7 +40,6 @@ candidate_regions <- reduce(candidate_windows, ignore.strand = TRUE)
 overlaps <- findOverlaps(candidate_regions, candidate_windows)
 num_windows <- countQueryHits(overlaps)
 mcols(candidate_regions)$num_merged_windows <- num_windows
-
 large_candidate_regions <- candidate_regions[width(candidate_regions) >= 500]
 
 # Define offsets in base pairs
@@ -221,18 +120,14 @@ minus_gr <- granges(minus_strand_reads)
 shifted_plus_raw <- shift(resize(plus_gr, width = 1, fix = "start"), shift = shift_amount)
 shifted_minus_raw <- shift(resize(minus_gr, width = 1, fix = "end"), shift = -shift_amount)
 
-
 trimmed_plus <- trim(shifted_plus_raw)
 trimmed_minus <- trim(shifted_minus_raw)
-
 out_of_bounds_plus <- length(shifted_plus_raw) - length(trimmed_plus)
 out_of_bounds_minus <- length(shifted_minus_raw) - length(trimmed_minus)
-
 cat("Number of out-of-bounds plus-strand fragments:", out_of_bounds_plus, "\n")
 cat("Number of out-of-bounds minus-strand fragments:", out_of_bounds_minus, "\n")
 fragment_centers <- c(trimmed_plus, trimmed_minus)
 strand(fragment_centers) <- "*"
-
 # Import the BED file into a GRanges object
 # Score column has CDS. Need to fix during the import
 #orf_bed_file_path <- "~/data/feature_files/20250423_orf_sgd.bed"
@@ -273,3 +168,104 @@ sliding_windows <- GRanges(
   ranges = IRanges(start = unlist(window_starts), width = window_size),
   seqinfo = seqinfo(orf_annotations) # Use seqinfo from annotations for consistency
 )
+
+######### JUNK ###########
+#CHROMOSOME_TO_PLOT <- 10
+#FILE_FEATURE_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "feature_files")
+#FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
+#
+#FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
+#FILE_FEATURE_PATTERN <- "eaton_peaks"
+## @ques: maybe I should download this file locally.
+#REFERENCE_BAM <- "/home/luised94/data/100303Bel/alignment/consolidated_034475_sequence_to_S288C_sorted.bam"
+#reference_bam_header <- Rsamtools::scanBamHeader(REFERENCE_BAM)
+#print(reference_bam_header[[REFERENCE_BAM]]$targets)
+#
+#stopifnot(
+#  #"REFERENCE_BAM does not exist." =
+#  #file.exists(REFERENCE_BAM),
+#  "Genome directory not found" =
+#  dir.exists(FILE_GENOME_DIRECTORY),
+#  "Feature directory not found" =
+#  dir.exists(FILE_FEATURE_DIRECTORY),
+#  "CHROMOSOME_TO_PLOT must be numeric." =
+#  is.numeric(CHROMOSOME_TO_PLOT)
+#)
+#
+#required_packages <- c(
+#  "rtracklayer",
+#  "GenomicRanges",
+#  "Gviz"
+#)
+#
+#is_missing_package <- !sapply(
+#  X = required_packages,
+#  FUN = requireNamespace,
+#  quietly = TRUE
+#)
+#
+#if (
+#  !is.character(required_packages) ||
+#  length(required_packages) == 0
+#) {
+#  stop("required_packages must be a non-empty character vector")
+#}
+#
+#missing_packages <- required_packages[is_missing_package]
+#if (length(missing_packages) > 0 ) {
+#  stop(
+#    "Missing packages. Please install using renv:\n",
+#    paste(missing_packages, collapse = ", ")
+#  )
+#}
+#
+#message("All required packages available...")
+#
+#REF_GENOME_FILE <- list.files(
+#  path = FILE_GENOME_DIRECTORY,
+#  pattern = FILE_GENOME_PATTERN,
+#  full.names = TRUE,
+#  recursive = TRUE
+#)[1]
+#
+## @QUES: Need to rename this?
+#FEATURE_FILE <- list.files(
+#  path = FILE_FEATURE_DIRECTORY,
+#  pattern = FILE_FEATURE_PATTERN,
+#  full.names = TRUE
+#)[1]
+#
+#if (length(FEATURE_FILE) == 0) {
+#  warning(sprintf("No feature files found matching pattern '%s' in: %s",
+#    FILE_FEATURE_PATTERN,
+#    FILE_FEATURE_DIRECTORY
+#  ))
+#}
+#
+#if (length(REF_GENOME_FILE) == 0) {
+#  stop(sprintf("No reference genome files found matching pattern '%s' in: %s",
+#    FILE_GENOME_DIRECTORY,
+#    FILE_FEATURE_DIRECTORY
+#  ))
+#}
+#
+#REFERENCE_GENOME_DSS <- Biostrings::readDNAStringSet(REF_GENOME_FILE)
+#CHROMOSOME_WIDTHS <- REFERENCE_GENOME_DSS[CHROMOSOME_TO_PLOT]@ranges@width
+#CHROMOSOMES_IN_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
+#
+## @FIX: Better name.
+#ALL_CHROMOSOMES <- REFERENCE_GENOME_DSS@ranges@NAMES
+#
+#for (chromosome in ALL_CHROMOSOMES) {
+#  message("Current chromosome: ", chromosome)
+#}
+##for (chromosome in ) {
+##  message("Current chromosome: ", chromosome)
+##
+##}
+#message("REFERENCE chromosome is same as sample chromosomes: ", as.character(identical(ALL_CHROMOSOMES, names(reference_bam_header[[REFERENCE_BAM]]$targets))))
+#chromosome_lengths <- reference_bam_header[[REFERENCE_BAM]]$targets
+#
+##reads_plus <- reads_chrI[strand(reads_chrI) == "+"]
+##coverage_plus <- coverage(reads_plus, width = unname(chromosome_length))
+##summarizeOverlaps(features = windows_300bp, reads = REFERENCE_BAM, ignore.strand = TRUE)
