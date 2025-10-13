@@ -301,6 +301,41 @@ mom_var <- var(valid_counts)
 # Solving for ?: ? = æý / (var - æ)
 mom_theta <- mom_mu^2 / (mom_var - mom_mu)
 
+# Goodness-of-fit diagnostics
+theoretical_mean <- NB_MU
+theoretical_var <- NB_MU + (NB_MU^2 / NB_THETA)
+# 2. Overdispersion parameter (variance-to-mean ratio)
+cat("Overdispersion (var/mean):\n")
+cat("  Observed:", var(valid_counts) / mean(valid_counts), "\n")
+cat("  Theoretical:", theoretical_var / theoretical_mean, "\n\n")
+
+et.seed(42)
+simulated_counts <- rnbinom(
+  n = length(valid_counts),
+  mu = NB_MU,
+  size = NB_THETA
+)
+
+cat("Quantile comparison (observed vs theoretical):\n")
+quantiles <- c(0.25, 0.50, 0.75, 0.90, 0.95, 0.99)
+obs_quantiles <- quantile(valid_counts, probs = quantiles)
+theo_quantiles <- quantile(simulated_counts, probs = quantiles)
+
+comparison_df <- data.frame(
+  Quantile = quantiles,
+  Observed = obs_quantiles,
+  Theoretical = theo_quantiles,
+  Difference = obs_quantiles - theo_quantiles
+)
+print(comparison_df)
+
+# STEPS 11-12: GENOME-WIDE SCANNING AND STATISTICAL TESTING
+WINDOW_PVALUES_vct <- pnbinom(
+  q = SLIDING_WINDOW_COUNTS_vct - 1,  # q is the quantile
+  mu = NB_MU,                          # mean from fitted model
+  size = NB_THETA,                     # dispersion from fitted model
+  lower.tail = FALSE                   # upper tail: P(X > q)
+)
 
 # Load the published peaks (adjust path as needed)
 #PAPER_PEAKS_PATH <- "~/data/feature_files/240830_eaton_peaks.bed"
