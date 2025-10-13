@@ -330,6 +330,8 @@ comparison_df <- data.frame(
 print(comparison_df)
 
 # STEPS 11-12: GENOME-WIDE SCANNING AND STATISTICAL TESTING
+# For each window count k, calculate P(X ò k) where X ~ NegBinom(æ, ?)
+# pnbinom with lower.tail=FALSE gives P(X > k), so we use P(X > k-1) = P(X ò k)
 WINDOW_PVALUES_vct <- pnbinom(
   q = SLIDING_WINDOW_COUNTS_vct - 1,  # q is the quantile
   mu = NB_MU,                          # mean from fitted model
@@ -337,13 +339,138 @@ WINDOW_PVALUES_vct <- pnbinom(
   lower.tail = FALSE                   # upper tail: P(X > q)
 )
 
+cat("Summary of p-values:\n")
+print(summary(WINDOW_PVALUES_vct))
+
+# Apply significance threshold from configuration
+IS_SIGNIFICANT_WINDOW <- WINDOW_PVALUES_vct <= PVALUE_THRESHOLD
+
+# Extract significant windows and their statistics
+SIGNIFICANT_WINDOWS_gr <- sliding_windows[IS_SIGNIFICANT_WINDOW]
+SIGNIFICANT_WINDOW_COUNTS_vct <- SLIDING_WINDOW_COUNTS_vct[IS_SIGNIFICANT_WINDOW]
+SIGNIFICANT_WINDOW_PVALUES_vct <- WINDOW_PVALUES_vct[IS_SIGNIFICANT_WINDOW]
+
+# Add counts and p-values as metadata
+mcols(SIGNIFICANT_WINDOWS_gr)$count <- SIGNIFICANT_WINDOW_COUNTS_vct
+mcols(SIGNIFICANT_WINDOWS_gr)$pvalue <- SIGNIFICANT_WINDOW_PVALUES_vct
+mcols(SIGNIFICANT_WINDOWS_gr)$neg_log10_pvalue <- -log10(SIGNIFICANT_WINDOW_PVALUES_vct)
+
+# Summary statistics
+cat("\n=== Significant Window Summary ===\n")
+cat("Total windows tested:", length(sliding_windows), "\n")
+cat("Significant windows (p ó", PVALUE_THRESHOLD, "):", length(SIGNIFICANT_WINDOWS_gr), "\n")
+cat("Percentage significant:", 
+    round(100 * length(SIGNIFICANT_WINDOWS_gr) / length(sliding_windows), 2), "%\n")
+
+cat("\nSignificant window counts:\n")
+print(summary(SIGNIFICANT_WINDOW_COUNTS_vct))
+
+cat("\nDistribution across chromosomes:\n")
+print(table(seqnames(SIGNIFICANT_WINDOWS_gr)))
+
+cat("\nSteps 11-12 complete!\n")
+
+# STEP 13: MERGE SIGNIFICANT WINDOWS INTO PEAKS
+# Reduce merges overlapping/nearby ranges
+# min.gapwidth controls maximum gap: gaps < min.gapwidth are merged
+# Setting min.gapwidth = WINDOW_MAX_MERGE_GAP_bp + 1 means:
+# "merge windows if gap between them is ó WINDOW_MAX_MERGE_GAP_bp"
+MERGED_PEAKS_gr <- GenomicRanges::reduce(
+  SIGNIFICANT_WINDOWS_gr,
+  min.gapwidth = WINDOW_MAX_MERGE_GAP_bp + 1,
+  ignore.strand = TRUE
+)
+
+# For each merged peak, calculate summary statistics
+# We need to find which original windows contributed to each peak
+peak_overlaps <- GenomicRanges::findOverlaps(
+  query = MERGED_PEAKS_gr,
+  subject = SIGNIFICANT_WINDOWS_gr
+)
+# For each peak, aggregate statistics from contributing windows
+peak_stats <- lapply(seq_along(MERGED_PEAKS_gr), function(i) {
+  # Get indices of windows that overlap this peak
+  window_indices <- subjectHits(peak_overlaps)[queryHits(peak_overlaps) == i]
+  
+  # Get the corresponding counts and p-values
+  counts <- SIGNIFICANT_WINDOW_COUNTS_vct[window_indices]
+  pvalues <- SIGNIFICANT_WINDOW_PVALUES_vct[window_indices]
+  neg_log10_pvals <- -log10(pvalues)
+  
+  # Return summary statistics
+  data.frame(
+    max_count = max(counts),
+    mean_count = mean(counts),
+    max_neg_log10_pvalue = max(neg_log10_pvals),
+    num_windows = length(window_indices)
+  )
+})
+
+# Convert to DataFrame and add as metadata
+peak_stats_df <- do.call(rbind, peak_stats)
+mcols(MERGED_PEAKS_gr) <- DataFrame(peak_stats_df)
+
+# Add score column (peak score = maximum -log10 p-value)
+mcols(MERGED_PEAKS_gr)$score <- mcols(MERGED_PEAKS_gr)$max_neg_log10_pvalue
+
+cat("=== Peak Summary Statistics ===\n")
+cat("Peak width distribution:\n")
+print(summary(width(MERGED_PEAKS_gr)))
+
+cat("\nPeak score distribution (max -log10 p-value):\n")
+print(summary(mcols(MERGED_PEAKS_gr)$score))
+
+cat("\nWindows per peak:\n")
+print(summary(mcols(MERGED_PEAKS_gr)$num_windows))
+
+cat("\nPeaks per chromosome:\n")
+print(table(seqnames(MERGED_PEAKS_gr)))
+
+cat("\nStep 13 complete!\n")
+
 # Load the published peaks (adjust path as needed)
-#PAPER_PEAKS_PATH <- "~/data/feature_files/240830_eaton_peaks.bed"
-#paper_peaks <- rtracklayer::import(PAPER_PEAKS_PATH, format = "bed")
-#
-#cat("Our peaks:", length(MERGED_PEAKS_gr), "\n")
-#cat("Paper peaks:", length(paper_peaks), "\n")
-#
-#overlaps <- findOverlaps(MERGED_PEAKS_gr, paper_peaks)
-#cat("Our peaks overlapping paper:", length(unique(queryHits(overlaps))), "\n")
-#cat("Paper peaks overlapping ours:", length(unique(subjectHits(overlaps))), "\n")
+# Convert paper peak seqnames to match ours (Roman numerals with "chr" prefix)
+# Mapping: 1chrI, 2chrII, etc.
+roman_numerals <- c("I", "II", "III", "IV", "V", "VI", "VII", "VIII", 
+                    "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI")
+# Create mapping from numbers to chrRoman
+seqname_map <- setNames(
+  paste0("chr", roman_numerals),
+  as.character(1:16)
+)
+PAPER_PEAKS_PATH <- "~/data/feature_files/240830_eaton_peaks.bed"
+paper_peaks <- rtracklayer::import(PAPER_PEAKS_PATH, format = "bed")
+
+cat("Our peaks:", length(MERGED_PEAKS_gr), "\n")
+cat("Paper peaks:", length(paper_peaks), "\n")
+cat("Our peaks overlapping paper:", length(unique(queryHits(overlaps))), "\n")
+cat("Paper peaks overlapping ours:", length(unique(subjectHits(overlaps))), "\n")
+
+# Apply mapping to paper peaks
+paper_peaks_renamed <- paper_peaks
+seqlevels(paper_peaks_renamed) <- seqname_map[seqlevels(paper_peaks_renamed)]
+
+# Now compare
+overlaps <- findOverlaps(MERGED_PEAKS_gr, paper_peaks_renamed)
+
+cat("=== Peak Comparison: Our Implementation vs Paper ===\n")
+cat("Our peaks:", length(MERGED_PEAKS_gr), "\n")
+cat("Paper peaks:", length(paper_peaks_renamed), "\n")
+cat("Our peaks overlapping paper:", length(unique(queryHits(overlaps))), "\n")
+cat("Paper peaks overlapping ours:", length(unique(subjectHits(overlaps))), "\n")
+
+# Calculate overlap percentages
+our_overlap_pct <- 100 * length(unique(queryHits(overlaps))) / length(MERGED_PEAKS_gr)
+paper_overlap_pct <- 100 * length(unique(subjectHits(overlaps))) / length(paper_peaks_renamed)
+
+cat("\nOverlap rate:\n")
+cat("  ", round(our_overlap_pct, 1), "% of our peaks overlap paper\n")
+cat("  ", round(paper_overlap_pct, 1), "% of paper peaks overlap ours\n")
+
+# Peaks unique to each set
+our_unique <- length(MERGED_PEAKS_gr) - length(unique(queryHits(overlaps)))
+paper_unique <- length(paper_peaks_renamed) - length(unique(subjectHits(overlaps)))
+
+cat("\nUnique peaks:\n")
+cat("  Our unique peaks:", our_unique, "\n")
+cat("  Paper unique peaks:", paper_unique, "\n")
