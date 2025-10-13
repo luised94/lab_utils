@@ -474,3 +474,145 @@ paper_unique <- length(paper_peaks_renamed) - length(unique(subjectHits(overlaps
 cat("\nUnique peaks:\n")
 cat("  Our unique peaks:", our_unique, "\n")
 cat("  Paper unique peaks:", paper_unique, "\n")
+# THIS SECTION IS UNTESTED. USE FOR REFERENCE.
+# ============================================================================
+# STEPS 14-15: REPLICATE CONSENSUS (for separate replicates)
+# ============================================================================
+
+# Assume you've run the pipeline on 3 separate replicates and have:
+# replicate1_peaks_gr, replicate2_peaks_gr, replicate3_peaks_gr
+
+# Put all replicate peak sets in a list
+replicate_peaks_list <- list(
+  rep1 = replicate1_peaks_gr,
+  rep2 = replicate2_peaks_gr,
+  rep3 = replicate3_peaks_gr
+)
+
+# --- STEP 14: Find Overlapping Peaks Between Replicates ---
+
+# Function to calculate reciprocal overlap between two peak sets
+calculate_reciprocal_overlap <- function(peaks_query, peaks_subject) {
+  overlaps <- findOverlaps(peaks_query, peaks_subject)
+  
+  # For each overlap, calculate reciprocal overlap percentage
+  reciprocal_overlaps <- sapply(seq_along(overlaps), function(i) {
+    query_idx <- queryHits(overlaps)[i]
+    subject_idx <- subjectHits(overlaps)[i]
+    
+    # Get the two peaks
+    query_peak <- peaks_query[query_idx]
+    subject_peak <- peaks_subject[subject_idx]
+    
+    # Calculate intersection
+    intersection <- intersect(query_peak, subject_peak)
+    overlap_width <- sum(width(intersection))
+    
+    # Reciprocal overlap = overlap / min(length1, length2)
+    min_width <- min(width(query_peak), width(subject_peak))
+    reciprocal_overlap <- overlap_width / min_width
+    
+    return(reciprocal_overlap)
+  })
+  
+  # Keep only overlaps meeting threshold
+  passing_overlaps <- overlaps[reciprocal_overlaps >= MIN_REPLICATE_OVERLAP_pct]
+  
+  return(passing_overlaps)
+}
+# --- STEP 15: Build Consensus Peak Set ---
+
+# Strategy depends on number of replicates:
+n_replicates <- length(replicate_peaks_list)
+
+if (n_replicates == 2) {
+  # With 2 replicates: require both
+  cat("Finding consensus peaks between 2 replicates...\n")
+  
+  overlaps_1_2 <- calculate_reciprocal_overlap(
+    replicate_peaks_list[[1]], 
+    replicate_peaks_list[[2]]
+  )
+  
+  # Peaks from rep1 that overlap rep2
+  consensus_indices_rep1 <- unique(queryHits(overlaps_1_2))
+  consensus_peaks_rep1 <- replicate_peaks_list[[1]][consensus_indices_rep1]
+  
+  # For each consensus peak, take the union of coordinates from both replicates
+  consensus_peaks_list <- lapply(consensus_indices_rep1, function(idx) {
+    # Find all rep2 peaks that overlap this rep1 peak
+    overlapping_rep2_indices <- subjectHits(overlaps_1_2)[queryHits(overlaps_1_2) == idx]
+    
+    # Union of coordinates
+    all_peaks <- c(
+      replicate_peaks_list[[1]][idx],
+      replicate_peaks_list[[2]][overlapping_rep2_indices]
+    )
+    reduced_peak <- reduce(all_peaks)
+    
+    # Average the scores
+    avg_score <- mean(c(
+      mcols(replicate_peaks_list[[1]][idx])$score,
+      mcols(replicate_peaks_list[[2]][overlapping_rep2_indices])$score
+    ))
+    
+    mcols(reduced_peak)$score <- avg_score
+    mcols(reduced_peak)$num_replicates <- 2
+    
+    return(reduced_peak)
+  })
+  
+  CONSENSUS_PEAKS_gr <- do.call(c, consensus_peaks_list)
+  
+} else if (n_replicates >= 3) {
+  # With 3+ replicates: require presence in at least 2 (majority)
+  cat("Finding consensus peaks across", n_replicates, "replicates...\n")
+  cat("Requiring presence in >= 2 replicates\n")
+  
+  # Create all pairwise comparisons
+  # For each peak in each replicate, count how many other replicates it overlaps
+  
+  # Flatten all peaks with replicate ID
+  all_peaks_with_id <- lapply(seq_along(replicate_peaks_list), function(i) {
+    peaks <- replicate_peaks_list[[i]]
+    mcols(peaks)$replicate_id <- i
+    mcols(peaks)$original_index <- seq_along(peaks)
+    return(peaks)
+  })
+  all_peaks_combined <- do.call(c, all_peaks_with_id)
+  
+  # Find all reciprocal overlaps
+  self_overlaps <- findOverlaps(all_peaks_combined, all_peaks_combined)
+  
+  # Remove self-hits and filter by reciprocal overlap threshold
+  # (implementation details for reciprocal overlap calculation...)
+  # This is complex - simplified version below
+  
+  # Simple approach: use reduce to merge all peaks, then count support
+  all_peaks_merged <- reduce(all_peaks_combined)
+  
+  # For each merged peak, count how many replicates contributed
+  peak_support <- sapply(seq_along(all_peaks_merged), function(i) {
+    merged_peak <- all_peaks_merged[i]
+    
+    # Count unique replicates overlapping this region
+    replicates_overlapping <- sapply(replicate_peaks_list, function(rep_peaks) {
+      any(overlapsAny(merged_peak, rep_peaks, minoverlap = 
+        as.integer(MIN_REPLICATE_OVERLAP_pct * width(merged_peak))))
+    })
+    
+    sum(replicates_overlapping)
+  })
+  
+  # Keep peaks with support from >= 2 replicates
+  CONSENSUS_PEAKS_gr <- all_peaks_merged[peak_support >= 2]
+  mcols(CONSENSUS_PEAKS_gr)$num_replicates <- peak_support[peak_support >= 2]
+}
+
+cat("\n=== Consensus Peak Summary ===\n")
+cat("Total consensus peaks:", length(CONSENSUS_PEAKS_gr), "\n")
+cat("Original peaks per replicate:\n")
+for (i in seq_along(replicate_peaks_list)) {
+  cat("  Replicate", i, ":", length(replicate_peaks_list[[i]]), "peaks\n")
+}
+
