@@ -426,6 +426,13 @@ print(summary(mcols(MERGED_PEAKS_gr)$num_windows))
 cat("\nPeaks per chromosome:\n")
 print(table(seqnames(MERGED_PEAKS_gr)))
 
+# Export current peaks as BED file
+rtracklayer::export(
+  MERGED_PEAKS_gr,
+  "orc_peaks_consolidated_replicates.bed",
+  format = "bed"
+)
+
 cat("\nStep 13 complete!\n")
 
 # Load the published peaks (adjust path as needed)
@@ -697,3 +704,65 @@ cat("Mean adjusted count:", mean(ADJUSTED_COUNTS_vct), "\n")
 # - Background window filtering (Step 8)
 # - Background model fitting (Step 9)
 # - Statistical testing (Steps 11-12)
+# ============================================================================
+# STEP 17: QUALITY CONTROL METRICS - FRiP Score
+# ============================================================================
+
+cat("=== Calculating FRiP Score ===\n")
+
+# FRiP = Fraction of Reads in Peaks
+# How many fragment centers fall within called peaks?
+
+reads_in_peaks <- countOverlaps(fragment_centers, MERGED_PEAKS_gr) > 0
+frip_score <- sum(reads_in_peaks) / length(fragment_centers)
+
+cat("Total reads (fragment centers):", length(fragment_centers), "\n")
+cat("Reads in peaks:", sum(reads_in_peaks), "\n")
+cat("FRiP score:", round(frip_score, 4), "\n")
+cat("FRiP percentage:", round(frip_score * 100, 2), "%\n")
+
+# Interpretation:
+# - FRiP > 5%: good enrichment
+# - FRiP > 10%: excellent enrichment
+# - FRiP < 1%: poor enrichment, experiment may have failed
+# ============================================================================
+# STEP 17: QUALITY CONTROL METRICS - Peak Statistics
+# ============================================================================
+
+cat("\n=== Peak Width Distribution ===\n")
+peak_widths <- width(MERGED_PEAKS_gr)
+
+cat("Summary statistics:\n")
+print(summary(peak_widths))
+
+cat("\nWidth quantiles:\n")
+print(quantile(peak_widths, probs = c(0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99)))
+
+# Simple histogram (text-based)
+hist(peak_widths, breaks = 20, main = "Peak Width Distribution", 
+     xlab = "Width (bp)", col = "lightblue")
+
+cat("\n=== Peak Distribution Across Genome ===\n")
+
+# Peaks per chromosome
+peaks_per_chr <- table(seqnames(MERGED_PEAKS_gr))
+print(peaks_per_chr)
+
+# Normalize by chromosome length
+chr_lengths <- CHROMOSOME_LENGTHS_nls[names(peaks_per_chr)]
+peaks_per_mb <- (as.numeric(peaks_per_chr) / chr_lengths) * 1e6
+
+peak_density_df <- data.frame(
+  chromosome = names(peaks_per_chr),
+  num_peaks = as.numeric(peaks_per_chr),
+  chr_length_mb = chr_lengths / 1e6,
+  peaks_per_mb = peaks_per_mb
+)
+
+cat("\nPeak density (peaks per Mb):\n")
+print(peak_density_df)
+
+# Simple barplot
+barplot(peaks_per_chr, las = 2, main = "Peaks per Chromosome",
+        ylab = "Number of Peaks", col = "steelblue")
+
