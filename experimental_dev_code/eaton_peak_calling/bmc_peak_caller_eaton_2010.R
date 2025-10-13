@@ -616,3 +616,84 @@ for (i in seq_along(replicate_peaks_list)) {
   cat("  Replicate", i, ":", length(replicate_peaks_list[[i]]), "peaks\n")
 }
 
+# ============================================================================
+# WORKFLOW WITH INPUT NORMALIZATION
+# ============================================================================
+
+# PHASE 1: ChIP Fragment Size Estimation (Steps 1-6)
+# ------------------------------------------------------
+cat("=== Processing ChIP for fragment size ===\n")
+
+# Steps 1-5: Read ChIP, create coverage, find candidates, cross-correlation
+# (Your existing code through fragment size estimation)
+
+cat("Estimated fragment size:", fragment_size, "bp\n")
+window_size <- 2 * fragment_size
+
+# PHASE 2: Process Input Using ChIP Fragment Size (Step 10a)
+# ------------------------------------------------------
+cat("\n=== Processing Input Control ===\n")
+
+INPUT_BAM_PATH <- "path/to/input.bam"
+
+# Read input reads (same as ChIP Steps 1-2)
+input_reads_galn <- GenomicAlignments::readGAlignments(
+  INPUT_BAM_PATH,
+  param = ScanBamParam(
+    which = GRanges(
+      seqnames = CHROMOSOME_NAMES_chr,
+      ranges = IRanges(1, CHROMOSOME_LENGTHS_nls)
+    )
+  )
+)
+
+# Split by strand
+input_by_strand <- split(input_reads_galn, strand(input_reads_galn))
+input_plus_gr <- granges(input_by_strand$`+`)
+input_minus_gr <- granges(input_by_strand$`-`)
+
+# Center using ChIP's fragment size (NOT re-estimating!)
+shift_amount <- floor(fragment_size / 2)
+input_shifted_plus <- shift(resize(input_plus_gr, width = 1, fix = "start"), shift_amount)
+input_shifted_minus <- shift(resize(input_minus_gr, width = 1, fix = "end"), -shift_amount)
+
+input_trimmed_plus <- trim(input_shifted_plus)
+input_trimmed_minus <- trim(input_shifted_minus)
+
+input_fragment_centers <- c(input_trimmed_plus, input_trimmed_minus)
+strand(input_fragment_centers) <- "*"
+
+# Count input in same windows as ChIP
+input_counts_se <- GenomicAlignments::summarizeOverlaps(
+  features = sliding_windows,
+  reads = input_fragment_centers,
+  mode = "Union",
+  inter.feature = FALSE,
+  ignore.strand = TRUE,
+  singleEnd = TRUE
+)
+
+input_counts_vct <- assay(input_counts_se)[, 1]
+
+# Calculate scaling factor (Step 10b)
+chip_library_size <- length(fragment_centers)
+input_library_size <- length(input_fragment_centers)
+scaling_factor <- chip_library_size / input_library_size
+
+cat("ChIP library size:", chip_library_size, "\n")
+cat("Input library size:", input_library_size, "\n")
+cat("Scaling factor:", scaling_factor, "\n")
+
+# Adjust ChIP counts (Step 10c)
+expected_input <- input_counts_vct * scaling_factor
+ADJUSTED_COUNTS_vct <- pmax(0, SLIDING_WINDOW_COUNTS_vct - expected_input)
+
+cat("Mean ChIP count:", mean(SLIDING_WINDOW_COUNTS_vct), "\n")
+cat("Mean adjusted count:", mean(ADJUSTED_COUNTS_vct), "\n")
+
+# PHASE 3: Continue ChIP Pipeline with Adjusted Counts
+# ------------------------------------------------------
+# Use ADJUSTED_COUNTS_vct instead of SLIDING_WINDOW_COUNTS_vct for:
+# - Background window filtering (Step 8)
+# - Background model fitting (Step 9)
+# - Statistical testing (Steps 11-12)
