@@ -43,6 +43,7 @@ setup_logging() {
         return 1
     fi
 
+    # Pass to output to eval to evaluate. Could capture and eval inside?
     printf "MAIN_LOG='%s'\nERROR_LOG='%s'\nPERFORMANCE_LOG='%s'\nLOG_DIR='%s'\n" \
            "${log_root}/${base_name}_main.log" \
            "${log_root}/${base_name}_error.log" \
@@ -52,7 +53,14 @@ setup_logging() {
 }
 
 # Function to log messages
+# tee creates the file if it does not exist.
 log_message() {
+  # Now you can check the variable
+  #if [ -z "$MAIN_LOG" ]; then
+  #  echo "Error: Log file path is not set." >&2
+  #  exit 1
+
+  #fi
     local level=$1
     local message=$2
     local timestamp; timestamp=$(date +%Y%m%d_%H%M%S)
@@ -61,6 +69,12 @@ log_message() {
 
 # Function to log performance metrics
 log_performance() {
+  # Now you can check the variable
+  #if [ -z "$PERFORMANCE_LOG" ]; then
+  #  echo "Error: Log file path is not set." >&2
+  #  exit 1
+
+  #fi
     local stage=$1
     local duration=$2
     local timestamp; timestamp=$(date +%Y%m%d_%H%M%S)
@@ -69,6 +83,12 @@ log_performance() {
 
 # Function to measure command execution time
 measure_performance() {
+  # Now you can check the variable
+  #if [ -z "$ERROR_LOG" ]; then
+  #  echo "Error: Log file path is not set." >&2
+  #  exit 1
+
+  #fi
     local stage=$1
     shift
     local start_time; start_time=$(date +%s)
@@ -81,18 +101,18 @@ measure_performance() {
 }
 
 # Function to validate array range
-validate_array_range() {
-    local total_files=$1
-    local array_start="$SLURM_ARRAY_TASK_MIN"
-    local array_end="$SLURM_ARRAY_TASK_MAX"
-    log_message "Validating array range..."
-    log_message "Total fastq files: $total_files"
-    log_message "Array range: $array_start-$array_end"
-    if [ "$array_end" -gt "$total_files" ]; then
-        log_message "WARNING: Array range ($array_end) exceeds number of fastq files ($total_files)"
-        log_message "Suggestion: Use --array=1-${total_files}%16"
-    fi
-}
+#validate_array_range() {
+#    local total_files=$1
+#    local array_start="$SLURM_ARRAY_TASK_MIN"
+#    local array_end="$SLURM_ARRAY_TASK_MAX"
+#    log_message "Validating array range..."
+#    log_message "Total fastq files: $total_files"
+#    log_message "Array range: $array_start-$array_end"
+#    if [ "$array_end" -gt "$total_files" ]; then
+#        log_message "WARNING: Array range ($array_end) exceeds number of fastq files ($total_files)"
+#        log_message "Suggestion: Use --array=1-${total_files}%16"
+#    fi
+#}
 
 #print_args_with_separators() {
 #  local args=("${@}")
