@@ -9,6 +9,7 @@
 #SBATCH --mail-user=luised94@mit.edu
 # Script: bmc_run_chip_processing.sbatch
 # Purpose: Executes processing of fastq files. fastp, bowtie2, bam coverage
+# From single fastq to bigwig files
 # Usage: sbatch --array=1-N%16 $HOME/lab_utils/core_scripts/bmc_run_chip_processing.sbatch <experiment_directory>
 # OR RUN via bmc_submit_chip_processing.sh
 # Author: Luis
@@ -29,148 +30,38 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     exit 1
 fi
 
-# Constants
-GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
-GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
-# coverage parameters - hardcoded values
-BIN_SIZE=10
-EFFECTIVE_GENOME_SIZE=12157105
-MIN_MAPPING_QUALITY=20
-# Normalization methods array
-#declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
-declare -a NORM_METHODS=("CPM")
-
-BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
-
-# Build bamCoverage command with specific parameters for each method
-COMMON_PARAMS="--bam ${BAM_PATH} \
-    --outFileName ${OUTPUT_BIGWIG} \
-    --binSize ${BIN_SIZE} \
-    --minMappingQuality ${MIN_MAPPING_QUALITY} \
-    --ignoreDuplicates \
-    --normalizeUsing ${NORM_METHOD} \
-    --numberOfProcessors ${SLURM_CPUS_PER_TASK}"
-
-# Ensure genome index exists.
-if [ ! -f "${GENOME_INDEX}.1.bt2" ]; then
-    log_message "Error: Genome index not found: $GENOME_INDEX"
-    exit 1
-fi
-
-# Check if blacklist file exists
-if [[ ! -f "$BLACKLIST_BED_FILE" ]];
-then
-    echo "Blacklist file not found: $BLACKLIST_BED_FILE. Blacklist runs will be skipped."
-    exit 1
-fi
+# Read in setup_logging function
+source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
+TOOL_NAME="chip_processing"
+# Sets log file in the logs directory. Outputs LOG_DIR.
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
 
 # Parse arguments
+# EXPERIMENT_DIR is verified during slurm submission. No error handling required.
 EXPERIMENT_DIR="$1"
 EXPERIMENT_ID=$( basename "$EXPERIMENT_DIR" )
 FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
 BAM_DIR="${EXPERIMENT_DIR}/alignment"
+COVERAGE_DIR="${EXPERIMENT_DIR}/coverage"
+QC_DIR="${EXPERIMENT_DIR}/quality_control"
 THREADS=$( nproc )
 
-# Get current fastq file
-FASTQ_INDEX=$((SLURM_ARRAY_TASK_ID - 1))
-FASTQ_PATH="${FASTQ_FILES[$FASTQ_INDEX]}"
+# Configurations
+FASTQ_FILEPATH_PATTERN="consolidated*.fastq"
+GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
+GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
+BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
 
-# Get current BAM file
-# Calculate array indices
-BAM_INDEX=$((SLURM_ARRAY_TASK_ID - 1))
+SAMPLE_ID_BASH_REGEX='^consolidated_(.*)_sequence\.fastq$'
+#SAMPLE_ID_SED_REGEX= "consolidated_\(.*\)_sequence\.fastq"
 
-# Get current BAM file
-# Calculate array indices
-BAM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) / ${#NORM_METHODS[@]} ))
-NORM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) % ${#NORM_METHODS[@]} ))
+BIN_SIZE=10
+EFFECTIVE_GENOME_SIZE=12157105
+MIN_MAPPING_QUALITY=20
+NORM_METHODS="CPM"
 
-# Get current BAM file and normalization method
-BAM_PATH="${BAM_FILES[$BAM_INDEX]}"
-# Get current BAM file and normalization method
-BAM_PATH="${BAM_FILES[$BAM_INDEX]}"
-NORM_METHOD="${NORM_METHODS[$NORM_INDEX]}"
-
-FASTQ_BASENAME=$(basename "$FASTQ_PATH")
-SAMPLE_ID=$(echo "$FASTQ_BASENAME" | sed -n 's/consolidated_\(.*\)_sequence\.fastq/\1/p')
-# Generate output name
-SAMPLE_NAME=$(basename --suffix=.fastq "$FASTQ_PATH" )
-OUTPUT_BAM="${EXPERIMENT_DIR}/alignment/${SAMPLE_NAME}_to_S288C_sorted.bam"
-# Set output name
-SAMPLE_NAME=$(basename --suffix=_sorted.bam "$BAM_PATH" )
-OUTPUT_BAM="${EXPERIMENT_DIR}/alignment/${SAMPLE_NAME}_blFiltered.bam"
-
-# Construct output path
-OUTPUT_FASTQ="${EXPERIMENT_DIR}/fastq/processed_${SAMPLE_ID}_sequence.fastq"
-OUTPUT_QC="${EXPERIMENT_DIR}/quality_control"
-# Set output name
-SAMPLE_NAME=$(basename --suffix=.bam "$BAM_PATH" )
-OUTPUT_BIGWIG="${EXPERIMENT_DIR}/coverage/${SAMPLE_NAME}_${NORM_METHOD}.bw"
-
-mapfile -t FASTQ_FILES < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "consolidated*.fastq" | sort)
-TOTAL_FILES=${#FASTQ_FILES[@]}
-
-## Validate array range
-#if [ "$SLURM_ARRAY_TASK_ID" -gt "$TOTAL_FILES" ]; then
-#    log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} exceeds number of jobs ${TOTAL_FILES}"
-#    exit 1
-#fi
-
-if [ ! -f "$FASTQ_PATH" ]; then
-    log_message "Error: No fastq file found for index $FASTQ_INDEX"
-    log_message "ERROR" "---------------------"
-    exit 1
-fi
-
-if [[ ! "$FASTQ_BASENAME" =~ ^consolidated_.*_sequence\.fastq$ ]]; then
-    log_message "ERROR" "Invalid input filename format: ${FASTQ_BASENAME}"
-    log_message "ERROR" "Expected format: consolidate_<ID>_sequence.fastq"
-    exit 1
-fi
-
-if [ ! -f "$BAM_PATH" ]; then
-    log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} bam path does not exist."
-    log_message "WARNING" "Input: ${BAM_PATH}"
-    exit 1
-fi
-
-if [[ ! "$SAMPLE_ID" =~ ^[0-9]{1,6}$ ]]; then
-    log_message "ERROR" "Invalid or missing sample ID from filename: ${FASTQ_BASENAME}"
-    exit 1
-fi
-
-if [ "$TOTAL_FILES" -eq 0 ]; then
-    log_message "ERROR" "No fastq files found in ${FASTQ_DIR}"
-    log_message "ERROR" "Check the following:"
-    log_message "ERROR" " - Files were consolidated using script 'bmc_consolidate_fastq_by_id.sh'"
-    log_message "ERROR" "---------------------"
-    exit 1
-fi
-
-if [ ! -f "$BAM_PATH" ]; then
-    log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} bam path does not exist."
-    log_message "WARNING" "Input: ${BAM_PATH}"
-    exit 1
-fi
-# Read in setup_logging function
-source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
-readonly TOOL_NAME="chip_processing"
-# Sets log file in the logs directory. Outputs LOG_DIR.
-eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
-
-# Validate output path doesn't already exist (optional)
-if [ -f "$OUTPUT_FASTQ" ]; then
-    log_message "WARNING" "Output file already exists: ${OUTPUT_FASTQ}"
-    log_message "INFO" "Task completed successfully"
-    exit 0
-fi
-
-mkdir -p "${EXPERIMENT_DIR}/alignment"
-mkdir -p "$OUTPUT_QC"
-mkdir -p "${EXPERIMENT_DIR}/coverage"
-
-# Load required modules
-module purge
-module load fastp/0.20.0
+# Normalization methods array
+#declare -a NORM_METHODS=("RPKM" "CPM" "BPM" "RPGC")
 
 # Set quality parameters based on experiment ID
 if [[ "$EXPERIMENT_ID" == "100303Bel" ]]; then
@@ -186,21 +77,144 @@ else
 fi
 
 # Quality Filtering Parameters
-readonly MAXIMUM_UNQUALIFIED_BASE_PERCENT=50
-readonly MAXIMUM_N_BASE_COUNT=5
-
+MAXIMUM_UNQUALIFIED_BASE_PERCENT=50
+MAXIMUM_N_BASE_COUNT=5
 # Read Length Parameters
-readonly MAXIMUM_READ_LENGTH=150
+MAXIMUM_READ_LENGTH=150
 
 # Complexity Filtering
-readonly COMPLEXITY_WINDOW_SIZE=4
-#readonly COMPLEXITY_THRESHOLD=30
-readonly OVERREPRESENTATION_SAMPLING=50
-readonly DUPLICATION_CALC_ACCURACY=3
+COMPLEXITY_WINDOW_SIZE=4
+#COMPLEXITY_THRESHOLD=30
+OVERREPRESENTATION_SAMPLING=50
+#DUPLICATION_CALC_ACCURACY=3
 
 # Performance Parameters
-#readonly COMPRESSION_LEVEL=0
-readonly CPU_THREADS="$SLURM_CPUS_PER_TASK"
+#COMPRESSION_LEVEL=0
+CPU_THREADS="$SLURM_CPUS_PER_TASK"
+
+# Build bamCoverage command with specific parameters for each method
+COMMON_PARAMS="--bam ${BAM_PATH} \
+    --outFileName ${BAMCOVERAGE_PATH} \
+    --binSize ${BIN_SIZE} \
+    --minMappingQuality ${MIN_MAPPING_QUALITY} \
+    --ignoreDuplicates \
+    --normalizeUsing ${NORM_METHOD} \
+    --numberOfProcessors ${SLURM_CPUS_PER_TASK}"
+
+# Ensure directories exist
+mkdir -p "$FASTQ_DIR"
+mkdir -p "$BAM_DIR"
+mkdir -p "$QC_DIR"
+mkdir -p "$COVERAGE_DIR"
+
+# Get current fastq file
+FASTQ_INDEX=$((SLURM_ARRAY_TASK_ID - 1))
+FASTQ_PATH="${PREFILTERED_FASTQ_FILEPATHS[$FASTQ_INDEX]}"
+# Get current BAM file and normalization method
+FASTQ_BASENAME=$(basename "$FASTQ_PATH")
+
+# Calculate array indices
+#BAM_INDEX=$((SLURM_ARRAY_TASK_ID - 1))
+#BAM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) / ${#NORM_METHODS[@]} ))
+#NORM_INDEX=$(( (SLURM_ARRAY_TASK_ID - 1) % ${#NORM_METHODS[@]} ))
+#BAM_PATH="${BAM_FILES[$BAM_INDEX]}"
+#NORM_METHOD="${NORM_METHODS[$NORM_INDEX]}"
+
+# Grab sample id from fastq filepath
+if [[ "$FASTQ_BASENAME" =~ $SAMPLE_ID_BASH_REGEX ]]; then
+  SAMPLE_ID="${BASH_REMATCH[1]}"
+else 
+
+  log_error "ERROR" "SAMPLE ID not extracted. Check fastq basename or SAMPLE_ID_BASH_REGEX"
+  exit 1
+
+fi
+#SAMPLE_ID=$(echo "$FASTQ_BASENAME" | sed -n "s/$SAMPLE_ID_SED_REGEX/\\1/p")
+
+mapfile -t PREFILTERED_FASTQ_FILEPATHS < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "$FASTQ_FILEPATH_PATTERN" | sort)
+TOTAL_FILES=${#PREFILTERED_FASTQ_FILEPATHS[@]}
+
+# Generate output name
+FASTP_FILTERED_FASTQ_PATH="${EXPERIMENT_DIR}/fastq/fastpfiltered_${SAMPLE_ID}_sequence.fastq"
+
+FASTP_FILTERED_FASTQ_FILENAME=$(basename --suffix=.fastq "$FASTP_FILTERED_FASTQ_PATH" )
+PREBLACKLIST_FILTERED_BAM_PATH="${EXPERIMENT_DIR}/alignment/${FASTP_FILTERED_FASTQ_FILENAME}_to_S288C_sorted.bam"
+
+PREBLFILT_BAM_FILENAME=$(basename --suffix=_sorted.bam "$PREBLACKLIST_FILTERED_BAM_PATH" )
+BLFILTERED_BAM_PATH="${EXPERIMENT_DIR}/alignment/${PREBLFILT_BAM_FILENAME}_blFiltered.bam"
+
+BLFILTERED_BAM_NAME=$(basename --suffix=.bam "$BLFILTERED_BAM_PATH" )
+BAMCOVERAGE_PATH="${EXPERIMENT_DIR}/coverage/${BLFILTERED_BAM_NAME}_${NORM_METHOD}.bw"
+
+if [ "$TOTAL_FILES" -eq 0 ]; then
+    log_message "ERROR" "No fastq files found in ${FASTQ_DIR}"
+    log_message "ERROR" "Check the following:"
+    log_message "ERROR" " - Files were consolidated using script 'bmc_consolidate_fastq_by_id.sh'"
+    log_message "ERROR" "---------------------"
+    exit 1
+fi
+
+# Ensure genome index exists.
+if [ ! -f "${GENOME_INDEX}.1.bt2" ]; then
+    log_message "Error: Genome index not found: $GENOME_INDEX"
+    exit 1
+
+fi
+
+# Check if blacklist file exists
+if [[ ! -f "$BLACKLIST_BED_FILE" ]]; then
+    echo "Blacklist file not found: $BLACKLIST_BED_FILE. Blacklist runs will be skipped."
+    exit 1
+
+fi
+
+if [ ! -f "$FASTQ_PATH" ]; then
+    log_message "Error: No fastq file found for index $FASTQ_INDEX"
+    log_message "ERROR" "---------------------"
+    exit 1
+
+fi
+
+if [[ ! "$FASTQ_BASENAME" =~ ^consolidated_.*_sequence\.fastq$ ]]; then
+    log_message "ERROR" "Invalid input filename format: ${FASTQ_BASENAME}"
+    log_message "ERROR" "Expected format: consolidate_<ID>_sequence.fastq"
+    exit 1
+
+fi
+
+if [ ! -f "$BAM_PATH" ]; then
+    log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} bam path does not exist."
+    log_message "WARNING" "Input: ${BAM_PATH}"
+    exit 1
+
+fi
+
+if [[ ! "$SAMPLE_ID" =~ ^[0-9]{1,6}$ ]]; then
+    log_message "ERROR" "Invalid or missing sample ID from filename: ${FASTQ_BASENAME}"
+    exit 1
+
+fi
+
+
+if [ ! -f "$BAM_PATH" ]; then
+    log_message "WARNING" "Task ID ${SLURM_ARRAY_TASK_ID} bam path does not exist."
+    log_message "WARNING" "Input: ${BAM_PATH}"
+    exit 1
+
+fi
+
+
+# Validate output path doesn't already exist (optional)
+if [ -f "$OUTPUT_FASTQ" ]; then
+    log_message "WARNING" "Output file already exists: ${OUTPUT_FASTQ}"
+    log_message "INFO" "Task completed successfully"
+    exit 0
+
+fi
+
+# Load required modules
+module purge
+module load fastp/0.20.0
 
 # Fastp filtering
 log_message "INFO" "Starting fastp filtering"
@@ -226,8 +240,8 @@ if measure_performance "fastp_filtering" \
         --thread "$CPU_THREADS" \
         --overrepresentation_analysis \
         --overrepresentation_sampling "$OVERREPRESENTATION_SAMPLING" \
-        --json "$OUTPUT_QC/${SAMPLE_ID}_fastp.json" \
-        --html "$OUTPUT_QC/${SAMPLE_ID}_fastp.html"; then
+        --json "$QC_DIR/${SAMPLE_ID}_fastp.json" \
+        --html "$QC_DIR/${SAMPLE_ID}_fastp.html"; then
 
     log_message "INFO" "Performed fastp filtering."
 else
@@ -261,6 +275,12 @@ fi
 #--rfg 5,1 \
 #--score-min L,0,-0.3 \
 #--ma 2 \
+# -k <int>           report up to <int> alns per read; MAPQ not meaningful
+# -D <int>           give up extending after <int> failed extends in a row (15)
+# -R <int>           for reads w/ repetitive seeds, try <int> sets of seeds (2)
+# --ma <int>         match bonus (0 for --end-to-end, 2 for --local) 
+# --mp <int>         max penalty for mismatch; lower qual = lower penalty (6)
+# --np <int>         penalty for non-A/C/G/Ts in read/ref (1)
 log_message "INFO" "Starting alignment and sorting"
 if measure_performance "alignment_and_sorting" \
     bowtie2 -x "$GENOME_INDEX" \
