@@ -32,11 +32,9 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     exit 1
 fi
 
-# Read in setup_logging function
-source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
-TOOL_NAME="chip_processing"
-# Sets log file in the logs directory. Outputs LOG_DIR.
-eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
+
+# Capture variables in environment to filter afterwards
+mapfile -t initial_vars_declarations < <(compgen -A variable | sort)
 
 # Parse arguments
 # EXPERIMENT_DIR is verified during slurm submission. No error handling required.
@@ -47,6 +45,12 @@ BAM_DIR="${EXPERIMENT_DIR}/alignment"
 COVERAGE_DIR="${EXPERIMENT_DIR}/coverage"
 QC_DIR="${EXPERIMENT_DIR}/quality_control"
 THREADS=$( nproc )
+
+# Read in logging functions and then setup
+source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
+TOOL_NAME="chip_processing"
+# Sets log file in the logs directory. Outputs LOG_DIR.
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
 
 # Configurations
 FASTQ_FILEPATH_PATTERN="consolidated*.fastq"
@@ -136,6 +140,42 @@ BLFILTERED_BAM_PATH="${BAM_DIR}/${PREBLFILT_BAM_FILENAME}_blFiltered.bam"
 
 BLFILTERED_BAM_NAME=$(basename --suffix=.bam "$BLFILTERED_BAM_PATH" )
 BAMCOVERAGE_PATH="${EXPERIMENT_DIR}/coverage/${BLFILTERED_BAM_NAME}_${NORM_METHOD}.bw"
+
+log_message "CONFIG" "=== Script Configuration ==="
+mapfile -t variables_after_config < <(compgen -A variable | sort)
+
+# We pipe this into a while loop to process each new variable
+while IFS= read -r variable_name; do
+  # Skip empty lines
+  [[ -z "$variable_name" ]] && continue
+  # We don't want to log these as they're not part of your pipeline config
+  case "$variable_name" in
+    initial_vars_declarations|variables_after_config|variable_name|variable_value|formatted_log_line)
+      continue
+      ;;
+  esac
+
+  # If we set a prefix requirement, check if this variable matches
+  # If VAR_PREFIX is "PIPELINE_", this only logs variables starting with PIPELINE_
+  #if [[ -n "$VAR_PREFIX" ]]; then
+  #  [[ "$variable_name" =~ ^${VAR_PREFIX} ]] || continue
+  #fi
+
+  # Get the actual value of this variable using indirect expansion
+  variable_value="${!variable_name}"
+
+  # Format the variable for logging: use %q to safely quote
+  printf -v formatted_log_line "%s=%q" "$variable_name" "$variable_value"
+
+  # Write to both console and log file
+  log_message "CONFIG" "$formatted_log_line"
+
+  # The comm command compares two sorted files line by line
+  # -1 suppresses lines unique to first file (initial_vars_declarations)
+  # -3 suppresses lines common to both files
+done < <(comm -13 <(printf "%s\n" "${initial_vars_declarations[@]}") \
+                   <(printf "%s\n" "${variables_after_config[@]}"))
+log_message "CONFIG" "=== End Configuration ==="
 
 # Setup additional parameters based on samples
 # Error handling
