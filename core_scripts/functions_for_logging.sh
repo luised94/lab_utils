@@ -99,6 +99,18 @@ measure_performance() {
     log_performance "${stage}" "${duration}"
     return $status
 }
+# Function to log variables with specified prefixes
+#log_variables_by_prefix() {
+#  log_message "--- Logging Specified Variables ---"
+#  # Loop through each prefix passed as an argument to this function
+#  for prefix in "$@"; do
+#    # Find and log all variables matching the current prefix
+#    for var in "${!prefix@}"; do
+#      printf -v formatted_line "%s=%q" "$var" "${!var}"
+#      log_message "$formatted_line"
+#    done
+#  done
+#}
 
 # Function to validate array range
 #validate_array_range() {
