@@ -47,23 +47,24 @@ QC_DIR="${EXPERIMENT_DIR}/quality_control"
 THREADS=$( nproc )
 
 # Read in logging functions and then setup
-source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 TOOL_NAME="chip_processing"
+source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 # Sets log file in the logs directory. Outputs LOG_DIR.
 eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
 
-# Configurations
-FASTQ_FILEPATH_PATTERN="consolidated*.fastq"
-SAMPLE_ID_BASH_REGEX='^consolidated_(.*)_sequence\.fastq$'
-
 # Additional required files
+# Genome for bowtie2 command, blacklist for alignmentSieve
 GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
 GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
 BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
 
+# Configurations
+FASTQ_FILEPATH_PATTERN="consolidated*.fastq"
+SAMPLE_ID_BASH_REGEX='^consolidated_(.*)_sequence\.fastq$'
 #SAMPLE_ID_SED_REGEX= "consolidated_\(.*\)_sequence\.fastq"
 
 # Fastp configuration variables
+# Filter reads
 MAXIMUM_UNQUALIFIED_BASE_PERCENT=50
 MAXIMUM_N_BASE_COUNT=5
 COMPLEXITY_WINDOW_SIZE=4
@@ -184,6 +185,7 @@ if [ "$TOTAL_FILES" -eq 0 ]; then
     log_message "ERROR" "No fastq files found in ${FASTQ_DIR}"
     log_message "ERROR" "Check the following:"
     log_message "ERROR" " - Files were consolidated using script 'bmc_consolidate_fastq_by_id.sh'"
+    log_message "ERROR" " - FInd name expression: $FASTQ_FILEPATH_PATTERN"
     log_message "ERROR" "---------------------"
     exit 1
 
@@ -217,9 +219,8 @@ if [[ ! "$SAMPLE_ID" =~ ^[0-9]{1,6}$ ]]; then
 
 fi
 
-# Output configuration and variables set
-log_message "INFO" "Parameters used:\n"
-log_message "INFO" "$BAMCOVERAGE_COMMON_PARAMS"
+log_message "INFO" "If reached this step, verify the configuration variables before continuing..."
+exit 0
 
 # Load required modules
 module purge
