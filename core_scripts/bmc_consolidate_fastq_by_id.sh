@@ -71,9 +71,9 @@ echo "Confirmed directory has been cleaned from other bmc files."
 # Extract unique IDs using delimiter-based approach
 # This specifically extracts the ID between the first and second dash after 'D24'
 readarray -t unique_ids < <(
-  for f in *_sequence.fastq; do
+  for fastq_file in *_sequence.fastq; do
     # Split filename components
-    IFS='_-' read -ra parts <<< "${f##*/}"
+    IFS='_-' read -ra parts <<< "${fastq_file##*/}"
     # Extract ID from standardized position (3rd component)
     printf "%s\n" "${parts[2]}"
   done | sort -u
