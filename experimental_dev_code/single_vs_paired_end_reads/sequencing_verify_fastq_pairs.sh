@@ -3,6 +3,7 @@
 # ============================================
 # Configuration
 # ============================================
+echo "-------Start $0-------"
 FASTQ_DIRECTORY="$HOME/data/250930Bel/fastq"
 EXPECTED_LANES_PER_SAMPLE=3
 EXPECTED_READ_PAIRS_PER_LANE=2  # R1 and R2
@@ -18,4 +19,6 @@ READ_PAIR_IDX=4         # "1" or "2"
 
 echo "Looking for fastq files in: $FASTQ_DIRECTORY"
 echo "Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
+echo "Number of files found: "
 find "$FASTQ_DIRECTORY" -type f -name "*.fastq" | wc -l
+echo "--------------"
