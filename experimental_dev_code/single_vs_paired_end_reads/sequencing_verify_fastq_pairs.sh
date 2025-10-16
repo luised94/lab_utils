@@ -11,12 +11,6 @@ FASTQ_DIRECTORY="$HOME/data/250930Bel/fastq"
 documentation_dir="$(dirname "$FASTQ_DIRECTORY")/documentation"
 manifest_file="$documentation_dir/paired_reads_manifest.tsv"
 
-EXPECTED_LANES_PER_SAMPLE=3
-
-# Lanes in sequencer.
-MIN_LANE_NUMBER=1
-MAX_LANE_NUMBER=4
-
 # Filename parsing indices (split on _ and -)
 # Example: 250930Bel_D25-12496-2_1_sequence.fastq
 # Parts: [250930Bel, D25, 12496, 2, 1, sequence.fastq]
@@ -62,6 +56,28 @@ mapfile -t unique_sample_ids < <(printf '%s\n' "${!sample_id_map[@]}" | sort)
 echo "Unique samples found: ${#unique_sample_ids[@]}"
 echo "Sample IDs:"
 printf '  %s\n' "${unique_sample_ids[@]}"
+
+# ============================================
+# Detect number of lanes
+# ============================================
+echo "Detecting lane numbers..."
+
+declare -A lane_map
+
+for file in "${all_fastq_files[@]}"; do
+  filename=$(basename "$file")
+  [[ "$filename" =~ unmapped ]] && continue
+  
+  IFS='_-' read -ra parts <<< "$filename"
+  lane_number="${parts[$LANE_IDX]}"
+  lane_map["$lane_number"]=1
+done
+
+mapfile -t detected_lanes < <(printf '%s\n' "${!lane_map[@]}" | sort -n)
+
+echo "  Lanes found: ${detected_lanes[*]}"
+EXPECTED_LANES_PER_SAMPLE=${#detected_lanes[@]}
+echo "  Expected lanes per sample: $EXPECTED_LANES_PER_SAMPLE"
 
 # ============================================
 # Detect sequencing read type
@@ -128,14 +144,13 @@ else
   exit 1
 fi
 
-EXPECTED_FILES_PER_SAMPLE=$((EXPECTED_LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
-echo "  Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
-
 # ============================================
 # Verify how many files there are per sample
 # ============================================
 echo ""
 echo "Verifying file counts per sample..."
+EXPECTED_FILES_PER_SAMPLE=$((EXPECTED_LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
+echo "  Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
 
 declare -A sample_file_lists  # Will store space-separated file lists
 
@@ -172,7 +187,7 @@ if [[ "$IS_PAIRED_END" == true ]]; then
     IFS=' ' read -ra sample_files <<< "${sample_file_lists[$sample_id]}"
     pairs_for_sample=""
 
-    for lane_num in {1..4}; do
+    for lane_num in "${detected_lanes[@]}"; do
       echo "  Processing lane $lane_num"
       r1="" r2=""
       for file in "${sample_files[@]}"; do
@@ -251,4 +266,5 @@ else
   echo ""
   echo "Single-end mode - skipping pairing and read count verification"
   echo "Note: Single-end processing not yet implemented"
+
 fi
