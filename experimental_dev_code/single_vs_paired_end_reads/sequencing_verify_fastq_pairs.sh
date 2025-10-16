@@ -52,3 +52,29 @@ mapfile -t unique_sample_ids < <(printf '%s\n' "${!sample_id_map[@]}" | sort)
 echo "Unique samples found: ${#unique_sample_ids[@]}"
 echo "Sample IDs:"
 printf '  %s\n' "${unique_sample_ids[@]}"
+
+# ============================================
+# Verify file counts per sample
+# ============================================
+echo ""
+echo "Verifying file counts per sample..."
+
+declare -A sample_file_lists  # Will store space-separated file lists
+
+for sample_id in "${unique_sample_ids[@]}"; do
+  # Find all files for this sample
+  mapfile -t files_for_sample < <(
+    printf '%s\n' "${all_fastq_files[@]}" | grep "$sample_id" | grep -v "unmapped"
+  )
+
+  file_count=${#files_for_sample[@]}
+
+  if [[ $file_count -ne $EXPECTED_FILES_PER_SAMPLE ]]; then
+    echo "  [WARNING] $sample_id: found $file_count files, expected $EXPECTED_FILES_PER_SAMPLE"
+  else
+    echo "  [OK] $sample_id: $file_count files"
+  fi
+
+  # Store for later use (joining array into string)
+  sample_file_lists["$sample_id"]="${files_for_sample[*]}"
+done
