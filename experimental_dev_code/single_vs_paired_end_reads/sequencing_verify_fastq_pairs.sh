@@ -88,8 +88,8 @@ for sample_id in "${unique_sample_ids[@]}"; do
   IFS=' ' read -ra sample_files <<< "${sample_file_lists[$sample_id]}"
   pairs_for_sample=""
 
-  for lane_num in {1..3}; do
-    echo "  Lane $lane_num:"
+  for lane_num in {1..4}; do
+    echo "  Processing lane $lane_num"
     r1="" r2=""
     for file in "${sample_files[@]}"; do
       IFS='_-' read -ra parts <<< "$(basename "$file")"
@@ -98,7 +98,8 @@ for sample_id in "${unique_sample_ids[@]}"; do
     done
     pairs_for_sample="$pairs_for_sample$r1 $r2 "
   done
-  
+
   sample_pairs["$sample_id"]="$pairs_for_sample"
-  echo "    Pairs for sample: $(printf "%s\n" $pairs_for_sample) "
+  echo "    Pairs for sample: "
+  printf "    %s\n" $pairs_for_sample
 done
