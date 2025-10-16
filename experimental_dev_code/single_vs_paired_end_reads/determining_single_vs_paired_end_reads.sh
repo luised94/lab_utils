@@ -75,7 +75,7 @@ for id in "${unique_ids[@]}"; do
   echo "Processing ID: $id"
   # Find files using array and glob pattern
   #files=( *"${id}"*_sequence.fastq )
-  mapfile -t files < <( find "$DIRECTORY" -type f -name "*${id}*" )
+  mapfile -t files_with_id < <( find "$DIRECTORY" -type f -name "*${id}*" )
 
   if [[ ${#files_with_id[@]} -eq 0 ]]; then
     echo "ERROR: No files found for ID: $id"
@@ -90,6 +90,7 @@ for id in "${unique_ids[@]}"; do
 
   for lane in "${unique_lanes[@]}"; do
     mapfile -t files_in_lane < <( find "$DIRECTORY" -type f -name "*${id}-${unique_lanes}*" )
+    printf "%s : %s \n" $(cat $fi)
   done
 
 
