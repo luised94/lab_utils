@@ -12,8 +12,7 @@ documentation_dir="$(dirname "$FASTQ_DIRECTORY")/documentation"
 manifest_file="$documentation_dir/paired_reads_manifest.tsv"
 
 EXPECTED_LANES_PER_SAMPLE=3
-EXPECTED_READ_PAIRS_PER_LANE=2  # R1 and R2
-EXPECTED_FILES_PER_SAMPLE=$((EXPECTED_LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
+
 # Lanes in sequencer.
 MIN_LANE_NUMBER=1
 MAX_LANE_NUMBER=4
@@ -65,7 +64,61 @@ echo "Sample IDs:"
 printf '  %s\n' "${unique_sample_ids[@]}"
 
 # ============================================
-# Verify file counts per sample
+# Detect sequencing read type
+# ============================================
+echo "Detecting read type (single-end vs paired-end)..."
+
+# Check read pair indicator position
+# Paired: 250930Bel_D25-12519-4_1_sequence.fastq (parts[4] = "1" or "2")
+# Single: 250324Bel_D25-155090-2_NA_sequence.fastq (parts[4] = "NA")
+
+detected_indicators=""
+is_paired_end=""
+
+for file in "${all_fastq_files[@]}"; do
+  filename=$(basename "$file")
+  [[ "$filename" =~ unmapped ]] && continue
+  
+  IFS='_-' read -ra parts <<< "$filename"
+  read_indicator="${parts[$READ_PAIR_IDX]}"
+  
+  # Check for expected values
+  if [[ "$read_indicator" == "1" || "$read_indicator" == "2" ]]; then
+    is_paired_end=true
+    detected_indicators="$detected_indicators $read_indicator"
+    break
+  elif [[ "$read_indicator" == "NA" ]]; then
+    is_paired_end=false
+    detected_indicators="NA"
+    break
+  else
+    echo "  ERROR: Unexpected read indicator at position $READ_PAIR_IDX: '$read_indicator'"
+    echo "  Filename: $filename"
+    echo "  Expected: '1', '2' (paired-end) or 'NA' (single-end)"
+    exit 1
+  fi
+done
+
+# Set configuration based on detection
+if [[ "$is_paired_end" == true ]]; then
+  IS_PAIRED_END=true
+  EXPECTED_READ_PAIRS_PER_LANE=2
+  echo "  Detected: PAIRED-END (indicators:$detected_indicators)"
+elif [[ "$is_paired_end" == false ]]; then
+  IS_PAIRED_END=false
+  EXPECTED_READ_PAIRS_PER_LANE=1
+  echo "  Detected: SINGLE-END (indicator: $detected_indicators)"
+else
+  echo "  ERROR: Could not determine read type from files"
+  exit 1
+fi
+
+# Update expected file count based on detection
+EXPECTED_FILES_PER_SAMPLE=$((EXPECTED_LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
+echo "  Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
+
+# ============================================
+# Verify how many files there are per sample
 # ============================================
 echo ""
 echo "Verifying file counts per sample..."
