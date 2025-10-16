@@ -32,10 +32,17 @@ declare -A sample_id_map  # Use associative array for uniqueness
 
 for fastq_file in "${all_fastq_files[@]}"; do
   filename=$(basename "$fastq_file")
+  echo "Filename: $filename"
+  if [[ "$filename" =~ unmapped ]]; then
+    echo "Skipping unmapped fastq file"
+    continue
+  fi
+
   # Split on _ and - to get components
   IFS='_-' read -ra parts <<< "$filename"
   # Build sample ID from components (D25-12496)
-  sample_id="${parts[$IDX_SAMPLE_ID_START]}-${parts[$IDX_SAMPLE_ID_END]}"
+  sample_id="${parts[$SAMPLE_ID_START_IDX]}-${parts[$SAMPLE_ID_END_IDX]}"
+  echo "Sample id: $sample_id"
   sample_id_map["$sample_id"]=1
 
 done
