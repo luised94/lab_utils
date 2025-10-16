@@ -78,3 +78,27 @@ for sample_id in "${unique_sample_ids[@]}"; do
   # Store for later use (joining array into string)
   sample_file_lists["$sample_id"]="${files_for_sample[*]}"
 done
+
+# Build pair lists for all samples
+declare -A sample_pairs  # Format: "sample_id" -> "R1_path R2_path R1_path R2_path..."
+
+echo "Building pair lists for all samples..."
+for sample_id in "${unique_sample_ids[@]}"; do
+  echo "Sample: $sample_id"
+  IFS=' ' read -ra sample_files <<< "${sample_file_lists[$sample_id]}"
+  pairs_for_sample=""
+
+  for lane_num in {1..3}; do
+    echo "  Lane $lane_num:"
+    r1="" r2=""
+    for file in "${sample_files[@]}"; do
+      IFS='_-' read -ra parts <<< "$(basename "$file")"
+      [[ "${parts[$LANE_IDX]}" == "$lane_num" && "${parts[$READ_PAIR_IDX]}" == "1" ]] && r1="$file"
+      [[ "${parts[$LANE_IDX]}" == "$lane_num" && "${parts[$READ_PAIR_IDX]}" == "2" ]] && r2="$file"
+    done
+    pairs_for_sample="$pairs_for_sample$r1 $r2 "
+  done
+  
+  sample_pairs["$sample_id"]="$pairs_for_sample"
+  echo "    Pairs for sample: $(printf "%s\n" $pairs_for_sample) "
+done
