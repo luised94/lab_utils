@@ -17,8 +17,31 @@ SAMPLE_ID_END_IDX=2     # "12496"
 LANE_IDX=3              # "2"
 READ_PAIR_IDX=4         # "1" or "2"
 
+# ============================================
+# Discover all fastq files
+# ============================================
 echo "Looking for fastq files in: $FASTQ_DIRECTORY"
 echo "Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
-echo "Number of files found: "
-find "$FASTQ_DIRECTORY" -type f -name "*.fastq" | wc -l
-echo "--------------"
+mapfile -t all_fastq_files < <(find "$FASTQ_DIRECTORY" -type f -name "*.fastq")
+echo "Total fastq files found: ${#all_fastq_files[@]}"
+
+# ============================================
+# Extract unique sample IDs
+# ============================================
+declare -A sample_id_map  # Use associative array for uniqueness
+
+for fastq_file in "${all_fastq_files[@]}"; do
+  filename=$(basename "$fastq_file")
+  # Split on _ and - to get components
+  IFS='_-' read -ra parts <<< "$filename"
+  # Build sample ID from components (D25-12496)
+  sample_id="${parts[$IDX_SAMPLE_ID_START]}-${parts[$IDX_SAMPLE_ID_END]}"
+  sample_id_map["$sample_id"]=1
+
+done
+
+# Get sorted list of unique sample IDs
+mapfile -t unique_sample_ids < <(printf '%s\n' "${!sample_id_map[@]}" | sort)
+echo "Unique samples found: ${#unique_sample_ids[@]}"
+echo "Sample IDs:"
+printf '  %s\n' "${unique_sample_ids[@]}"
