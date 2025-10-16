@@ -1,12 +1,48 @@
 #!/bin/bash
 
 # ============================================
+# Usage and Help
+# ============================================
+show_usage() {
+  cat << EOF
+Usage: $(basename "$0") <fastq_directory>
+
+Description:
+  Verifies FASTQ file structure, detects single/paired-end reads,
+  validates read counts, and generates manifest for downstream processing.
+
+Arguments:
+  fastq_directory    Path to directory containing FASTQ files
+                     (e.g., ~/data/250930Bel/fastq)
+
+Options:
+  -h, --help        Show this help message
+
+Output:
+  Creates paired_reads_manifest.tsv in <experiment>/documentation/
+  Skips generation if manifest already exists (delete to regenerate)
+  
+Example:
+  $(basename "$0") ~/data/250930Bel/fastq
+
+EOF
+  exit 0
+}
+
+# Check for help flag or no arguments
+if [[ $# -eq 0 ]] || [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+  show_usage
+fi
+
+# Get directory from first argument
+FASTQ_DIRECTORY="$1"
+
+# ============================================
 # Configuration
 # ============================================
 echo "-------Start $0-------"
 echo "Setting up configuration..."
 FASTQ_LINES_PER_READ=4
-FASTQ_DIRECTORY="$HOME/data/250930Bel/fastq"
 # Output to documentation directory (parent of fastq folder)
 documentation_dir="$(dirname "$FASTQ_DIRECTORY")/documentation"
 manifest_file="$documentation_dir/paired_reads_manifest.tsv"
@@ -21,13 +57,51 @@ READ_PAIR_IDX=4         # "1" or "2"
 
 # Ensure documentation_dir exists
 mkdir -p "$documentation_dir"
+# Check directory creation succeeded
+if [[ ! -d "$documentation_dir" ]]; then
+  echo "ERROR: Failed to create documentation directory: $documentation_dir"
+  exit 1
+fi
+
+# ============================================
+# Validation and Error Checking
+# ============================================
+echo "-------Start $(basename "$0")-------"
+echo "Validating inputs..."
+
+# Check directory exists
+if [[ ! -e "$FASTQ_DIRECTORY" ]]; then
+  echo "ERROR: Path does not exist: $FASTQ_DIRECTORY"
+  exit 1
+fi
+
+# Check it's actually a directory
+if [[ ! -d "$FASTQ_DIRECTORY" ]]; then
+  echo "ERROR: Path is not a directory: $FASTQ_DIRECTORY"
+  exit 1
+fi
+
+# Check directory is readable
+if [[ ! -r "$FASTQ_DIRECTORY" ]]; then
+  echo "ERROR: Directory is not readable: $FASTQ_DIRECTORY"
+  exit 1
+fi
+
 # ============================================
 # Discover all fastq files
 # ============================================
 echo "Looking for fastq files in: $FASTQ_DIRECTORY"
-echo "Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
+
 mapfile -t all_fastq_files < <(find "$FASTQ_DIRECTORY" -type f -name "*.fastq")
 echo "Total fastq files found: ${#all_fastq_files[@]}"
+
+# Check if any files found
+if [[ ${#all_fastq_files[@]} -eq 0 ]]; then
+  echo "ERROR: No .fastq files found in directory"
+  exit 1
+fi
+
+echo "--------------"
 
 # ============================================
 # Extract unique sample IDs
@@ -54,6 +128,12 @@ done
 # Get sorted list of unique sample IDs
 mapfile -t unique_sample_ids < <(printf '%s\n' "${!sample_id_map[@]}" | sort)
 echo "Unique samples found: ${#unique_sample_ids[@]}"
+
+if [[ ${#unique_sample_ids[@]} -eq 0 ]]; then
+  echo "ERROR: No valid sample IDs extracted from filenames"
+  exit 1
+fi
+
 echo "Sample IDs:"
 printf '  %s\n' "${unique_sample_ids[@]}"
 
@@ -75,9 +155,27 @@ done
 
 mapfile -t detected_lanes < <(printf '%s\n' "${!lane_map[@]}" | sort -n)
 
+if [[ ${#detected_lanes[@]} -eq 0 ]]; then
+  echo "ERROR: No lanes detected after extraction."
+  exit 1
+fi
+
 echo "  Lanes found: ${detected_lanes[*]}"
 EXPECTED_LANES_PER_SAMPLE=${#detected_lanes[@]}
 echo "  Expected lanes per sample: $EXPECTED_LANES_PER_SAMPLE"
+
+# Check lane detection succeeded
+if [[ ${#detected_lanes[@]} -eq 0 ]]; then
+  echo "ERROR: No valid lane numbers detected"
+  exit 1
+fi
+
+# Validate lane numbers are reasonable (1-4 typical)
+for lane in "${detected_lanes[@]}"; do
+  if [[ ! "$lane" =~ ^[1-4]$ ]]; then
+    echo "WARNING: Unusual lane number detected: $lane"
+  fi
+done
 
 # ============================================
 # Detect sequencing read type
@@ -141,6 +239,12 @@ elif [[ "$has_single_indicator" == true ]]; then
   echo "  Detected: SINGLE-END"
 else
   echo "  ERROR: No valid read indicators found"
+  exit 1
+fi
+
+# Check read type detection succeeded
+if [[ -z "$IS_PAIRED_END" ]]; then
+  echo "ERROR: Failed to detect read type"
   exit 1
 fi
 
@@ -218,8 +322,8 @@ if [[ "$IS_PAIRED_END" == true ]]; then
 
       r1_lines=$(wc -l < "$r1_file")
       r2_lines=$(wc -l < "$r2_file")
-      r1_reads=$((r1_lines / 4))
-      r2_reads=$((r2_lines / 4))
+      r1_reads=$((r1_lines / FASTQ_LINES_PER_READ))
+      r2_reads=$((r2_lines / FASTQ_LINES_PER_READ))
 
       if [[ $r1_reads -eq $r2_reads ]]; then
         echo "  [OK] $(basename "$r1_file") <-> $(basename "$r2_file"): $r1_reads reads"
@@ -236,8 +340,9 @@ if [[ "$IS_PAIRED_END" == true ]]; then
 
   if [[ -f "$manifest_file" ]]; then
     echo "Manifest already exists: $manifest_file"
-    echo "  Skipping generation (delete file to regenerate)"
-    echo "Other scripts can detect paired-end mode by checking file existence"
+    echo "Manifest already exists: $manifest_file"
+    echo "  To regenerate, delete the file and rerun this script"
+    echo "  rm \"$manifest_file\""
   else
     echo "Writing paired reads manifest to: $manifest_file"
 
