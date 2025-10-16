@@ -74,7 +74,7 @@ declare -A indicator_map
 for file in "${all_fastq_files[@]}"; do
   filename=$(basename "$file")
   [[ "$filename" =~ unmapped ]] && continue
-  
+
   IFS='_-' read -ra parts <<< "$filename"
   read_indicator="${parts[$READ_PAIR_IDX]}"
   indicator_map["$read_indicator"]=1
@@ -158,95 +158,97 @@ for sample_id in "${unique_sample_ids[@]}"; do
 done
 
 # ============================================
-# Determine the read pairs for all files
+# Process based on read type
 # ============================================
-# Build pair lists for all samples
-declare -A sample_pairs  # Format: "sample_id" -> "R1_path R2_path R1_path R2_path..."
+if [[ "$IS_PAIRED_END" == true ]]; then
+  echo ""
+  echo "Processing paired-end reads..."
 
-echo "Building pair lists for all samples..."
-for sample_id in "${unique_sample_ids[@]}"; do
-  echo "Sample: $sample_id"
-  IFS=' ' read -ra sample_files <<< "${sample_file_lists[$sample_id]}"
-  pairs_for_sample=""
-
-  for lane_num in $(seq $MIN_LANE_NUMBER $MAX_LANE_NUMBER); do
-    echo "  Processing lane $lane_num"
-    r1="" r2=""
-    for file in "${sample_files[@]}"; do
-      IFS='_-' read -ra parts <<< "$(basename "$file")"
-      [[ "${parts[$LANE_IDX]}" == "$lane_num" && "${parts[$READ_PAIR_IDX]}" == "1" ]] && r1="$file"
-      [[ "${parts[$LANE_IDX]}" == "$lane_num" && "${parts[$READ_PAIR_IDX]}" == "2" ]] && r2="$file"
-    done
-    pairs_for_sample="$pairs_for_sample$r1 $r2 "
-  done
-
-  sample_pairs["$sample_id"]="$pairs_for_sample"
-  echo "    Pairs for sample: "
-  printf "    %s\n" $pairs_for_sample
-done
-
-
-# ============================================
-# Verify read pairs have same number of reads
-# ============================================
-echo ""
-#echo "Verifying read counts in pairs..."
-#
-#for sample_id in "${unique_sample_ids[@]}"; do
-#  echo "Sample: $sample_id"
-#  IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
-#  
-#  # Process pairs (every 2 files = one pair)
-#  for ((i=0; i<${#pair_files[@]}; i+=2)); do
-#    r1_file="${pair_files[$i]}"
-#    r2_file="${pair_files[$((i+1))]}"
-#
-#    # Skip if files are empty strings
-#    [[ -z "$r1_file" || -z "$r2_file" ]] && continue
-#
-#    r1_lines=$(wc -l < "$r1_file")
-#    r2_lines=$(wc -l < "$r2_file")
-#    r1_reads=$((r1_lines / FASTQ_LINES_PER_READ))
-#    r2_reads=$((r2_lines / FASTQ_LINES_PER_READ))
-#
-#    if [[ $r1_reads -eq $r2_reads ]]; then
-#      echo "  [OK] $(basename "$r1_file") <-> $(basename "$r2_file"): $r1_reads reads"
-#    else
-#      echo "  [ERROR] Read count mismatch: R1=$r1_reads, R2=$r2_reads"
-#    fi
-#  done
-#done
-
-# ============================================
-# Generate paired reads manifest
-# ============================================
-echo "Writing paired reads manifest to: $manifest_file"
-
-if [[ -f "$manifest_file" ]]; then
-  echo "Manifest already exists: $manifest_file"
-  echo "  Skipping generation (delete file to regenerate)"
-  echo "Other scripts can detect paired-end mode by checking file existence"
-else
-  echo "Writing paired reads manifest to: $manifest_file"
-
-  # Write header and data rows (sample_id, lane, R1_path, R2_path)
-  echo -e "sample_id\tlane\tread1_path\tread2_path" > "$manifest_file"
+  # Build paired file structure
+  declare -A sample_pairs
 
   for sample_id in "${unique_sample_ids[@]}"; do
+    echo "Pairing files for sample: $sample_id"
+    IFS=' ' read -ra sample_files <<< "${sample_file_lists[$sample_id]}"
+    pairs_for_sample=""
+
+    for lane_num in {1..4}; do
+      echo "  Processing lane $lane_num"
+      r1="" r2=""
+      for file in "${sample_files[@]}"; do
+        IFS='_-' read -ra parts <<< "$(basename "$file")"
+        [[ "${parts[$LANE_IDX]}" == "$lane_num" && "${parts[$READ_PAIR_IDX]}" == "1" ]] && r1="$file"
+        [[ "${parts[$LANE_IDX]}" == "$lane_num" && "${parts[$READ_PAIR_IDX]}" == "2" ]] && r2="$file"
+      done
+      pairs_for_sample="$pairs_for_sample$r1 $r2 "
+    done
+
+    sample_pairs["$sample_id"]="$pairs_for_sample"
+    echo "    Pairs for sample: "
+    printf "    %s\n" $pairs_for_sample
+  done
+
+  # Verify read counts match
+  echo ""
+  echo "Verifying read counts in pairs..."
+
+  for sample_id in "${unique_sample_ids[@]}"; do
+    echo "Sample: $sample_id"
     IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
 
-    lane_num=1
     for ((i=0; i<${#pair_files[@]}; i+=2)); do
-      r1="${pair_files[$i]}"
-      r2="${pair_files[$((i+1))]}"
-      [[ -z "$r1" || -z "$r2" ]] && continue  # Skip empty pairs
+      r1_file="${pair_files[$i]}"
+      r2_file="${pair_files[$((i+1))]}"
+      [[ -z "$r1_file" || -z "$r2_file" ]] && continue
 
-      echo -e "$sample_id\t$lane_num\t$r1\t$r2" >> "$manifest_file"
-      ((lane_num++))
+      r1_lines=$(wc -l < "$r1_file")
+      r2_lines=$(wc -l < "$r2_file")
+      r1_reads=$((r1_lines / 4))
+      r2_reads=$((r2_lines / 4))
+
+      if [[ $r1_reads -eq $r2_reads ]]; then
+        echo "  [OK] $(basename "$r1_file") <-> $(basename "$r2_file"): $r1_reads reads"
+      else
+        echo "  [ERROR] Read count mismatch: R1=$r1_reads, R2=$r2_reads"
+      fi
     done
   done
 
-  echo "Manifest complete: $(wc -l < "$manifest_file") pairs written"
+  # ============================================
+  # Generate paired reads manifest
+  # ============================================
+  echo "Writing paired reads manifest to: $manifest_file"
 
+  if [[ -f "$manifest_file" ]]; then
+    echo "Manifest already exists: $manifest_file"
+    echo "  Skipping generation (delete file to regenerate)"
+    echo "Other scripts can detect paired-end mode by checking file existence"
+  else
+    echo "Writing paired reads manifest to: $manifest_file"
+
+    # Write header and data rows (sample_id, lane, R1_path, R2_path)
+    echo -e "sample_id\tlane\tread1_path\tread2_path" > "$manifest_file"
+
+    for sample_id in "${unique_sample_ids[@]}"; do
+      IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
+
+      lane_num=1
+      for ((i=0; i<${#pair_files[@]}; i+=2)); do
+        r1="${pair_files[$i]}"
+        r2="${pair_files[$((i+1))]}"
+        [[ -z "$r1" || -z "$r2" ]] && continue  # Skip empty pairs
+
+        echo -e "$sample_id\t$lane_num\t$r1\t$r2" >> "$manifest_file"
+        ((lane_num++))
+      done
+    done
+
+    echo "Manifest complete: $(wc -l < "$manifest_file") pairs written"
+
+  fi
+
+else
+  echo ""
+  echo "Single-end mode - skipping pairing and read count verification"
+  echo "Note: Single-end processing not yet implemented"
 fi
-
