@@ -64,6 +64,74 @@ echo "Sample IDs:"
 printf '  %s\n' "${unique_sample_ids[@]}"
 
 # ============================================
+# Detect sequencing read type
+# ============================================
+echo "Detecting read type (single-end vs paired-end)..."
+
+# Collect all unique read indicators to detect mixed/invalid data
+declare -A indicator_map
+
+for file in "${all_fastq_files[@]}"; do
+  filename=$(basename "$file")
+  [[ "$filename" =~ unmapped ]] && continue
+  
+  IFS='_-' read -ra parts <<< "$filename"
+  read_indicator="${parts[$READ_PAIR_IDX]}"
+  indicator_map["$read_indicator"]=1
+done
+
+# Extract unique indicators
+mapfile -t unique_indicators < <(printf '%s\n' "${!indicator_map[@]}" | sort)
+
+echo "  Found read indicators: ${unique_indicators[*]}"
+
+# Determine read type and validate
+has_paired_indicators=false
+has_single_indicator=false
+has_invalid=false
+
+for indicator in "${unique_indicators[@]}"; do
+  if [[ "$indicator" == "1" || "$indicator" == "2" ]]; then
+    has_paired_indicators=true
+  elif [[ "$indicator" == "NA" ]]; then
+    has_single_indicator=true
+  else
+    has_invalid=true
+    echo "  ERROR: Invalid read indicator found: '$indicator'"
+  fi
+done
+
+# Check for errors
+if [[ "$has_invalid" == true ]]; then
+  echo "  ERROR: Unexpected read indicators found"
+  echo "  Expected: '1', '2' (paired-end) or 'NA' (single-end)"
+  exit 1
+fi
+
+if [[ "$has_paired_indicators" == true && "$has_single_indicator" == true ]]; then
+  echo "  ERROR: Mixed read types detected (both paired and single-end)"
+  echo "  Found indicators: ${unique_indicators[*]}"
+  exit 1
+fi
+
+# Set configuration
+if [[ "$has_paired_indicators" == true ]]; then
+  IS_PAIRED_END=true
+  EXPECTED_READ_PAIRS_PER_LANE=2
+  echo "  Detected: PAIRED-END"
+elif [[ "$has_single_indicator" == true ]]; then
+  IS_PAIRED_END=false
+  EXPECTED_READ_PAIRS_PER_LANE=1
+  echo "  Detected: SINGLE-END"
+else
+  echo "  ERROR: No valid read indicators found"
+  exit 1
+fi
+
+EXPECTED_FILES_PER_SAMPLE=$((EXPECTED_LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
+echo "  Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
+
+# ============================================
 # Verify how many files there are per sample
 # ============================================
 echo ""
@@ -89,6 +157,9 @@ for sample_id in "${unique_sample_ids[@]}"; do
   sample_file_lists["$sample_id"]="${files_for_sample[*]}"
 done
 
+# ============================================
+# Determine the read pairs for all files
+# ============================================
 # Build pair lists for all samples
 declare -A sample_pairs  # Format: "sample_id" -> "R1_path R2_path R1_path R2_path..."
 
@@ -115,6 +186,9 @@ for sample_id in "${unique_sample_ids[@]}"; do
 done
 
 
+# ============================================
+# Verify read pairs have same number of reads
+# ============================================
 echo ""
 #echo "Verifying read counts in pairs..."
 #
