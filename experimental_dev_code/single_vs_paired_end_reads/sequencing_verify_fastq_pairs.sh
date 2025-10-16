@@ -7,6 +7,10 @@ echo "-------Start $0-------"
 echo "Setting up configuration..."
 FASTQ_LINES_PER_READ=4
 FASTQ_DIRECTORY="$HOME/data/250930Bel/fastq"
+# Output to documentation directory (parent of fastq folder)
+documentation_dir="$(dirname "$FASTQ_DIRECTORY")/documentation"
+manifest_file="$documentation_dir/paired_reads_manifest.tsv"
+
 EXPECTED_LANES_PER_SAMPLE=3
 EXPECTED_READ_PAIRS_PER_LANE=2  # R1 and R2
 EXPECTED_FILES_PER_SAMPLE=$((EXPECTED_LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
@@ -22,6 +26,8 @@ SAMPLE_ID_END_IDX=2     # "12496"
 LANE_IDX=3              # "2"
 READ_PAIR_IDX=4         # "1" or "2"
 
+# Ensure documentation_dir exists
+mkdir -p "$documentation_dir"
 # ============================================
 # Discover all fastq files
 # ============================================
@@ -111,29 +117,52 @@ done
 
 
 echo ""
-echo "Verifying read counts in pairs..."
+#echo "Verifying read counts in pairs..."
+#
+#for sample_id in "${unique_sample_ids[@]}"; do
+#  echo "Sample: $sample_id"
+#  IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
+#  
+#  # Process pairs (every 2 files = one pair)
+#  for ((i=0; i<${#pair_files[@]}; i+=2)); do
+#    r1_file="${pair_files[$i]}"
+#    r2_file="${pair_files[$((i+1))]}"
+#
+#    # Skip if files are empty strings
+#    [[ -z "$r1_file" || -z "$r2_file" ]] && continue
+#
+#    r1_lines=$(wc -l < "$r1_file")
+#    r2_lines=$(wc -l < "$r2_file")
+#    r1_reads=$((r1_lines / FASTQ_LINES_PER_READ))
+#    r2_reads=$((r2_lines / FASTQ_LINES_PER_READ))
+#
+#    if [[ $r1_reads -eq $r2_reads ]]; then
+#      echo "  [OK] $(basename "$r1_file") <-> $(basename "$r2_file"): $r1_reads reads"
+#    else
+#      echo "  [ERROR] Read count mismatch: R1=$r1_reads, R2=$r2_reads"
+#    fi
+#  done
+#done
+
+
+echo "Writing paired reads manifest to: $manifest_file"
+
+# Write header and data rows (sample_id, lane, R1_path, R2_path)
+echo -e "sample_id\tlane\tread1_path\tread2_path" > "$manifest_file"
 
 for sample_id in "${unique_sample_ids[@]}"; do
-  echo "Sample: $sample_id"
   IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
   
-  # Process pairs (every 2 files = one pair)
+  lane_num=1
   for ((i=0; i<${#pair_files[@]}; i+=2)); do
-    r1_file="${pair_files[$i]}"
-    r2_file="${pair_files[$((i+1))]}"
-
-    # Skip if files are empty strings
-    [[ -z "$r1_file" || -z "$r2_file" ]] && continue
-
-    r1_lines=$(wc -l < "$r1_file")
-    r2_lines=$(wc -l < "$r2_file")
-    r1_reads=$((r1_lines / FASTQ_LINES_PER_READ))
-    r2_reads=$((r2_lines / FASTQ_LINES_PER_READ))
-
-    if [[ $r1_reads -eq $r2_reads ]]; then
-      echo "  [OK] $(basename "$r1_file") <-> $(basename "$r2_file"): $r1_reads reads"
-    else
-      echo "  [ERROR] Read count mismatch: R1=$r1_reads, R2=$r2_reads"
-    fi
+    r1="${pair_files[$i]}"
+    r2="${pair_files[$((i+1))]}"
+    [[ -z "$r1" || -z "$r2" ]] && continue  # Skip empty pairs
+    
+    echo -e "$sample_id\t$lane_num\t$r1\t$r2" >> "$manifest_file"
+    ((lane_num++))
   done
 done
+
+echo "Manifest complete: $(wc -l < "$manifest_file") pairs written"
+echo "Other scripts can detect paired-end mode by checking file existence"
