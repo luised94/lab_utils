@@ -64,60 +64,6 @@ echo "Sample IDs:"
 printf '  %s\n' "${unique_sample_ids[@]}"
 
 # ============================================
-# Detect sequencing read type
-# ============================================
-echo "Detecting read type (single-end vs paired-end)..."
-
-# Check read pair indicator position
-# Paired: 250930Bel_D25-12519-4_1_sequence.fastq (parts[4] = "1" or "2")
-# Single: 250324Bel_D25-155090-2_NA_sequence.fastq (parts[4] = "NA")
-
-detected_indicators=""
-is_paired_end=""
-
-for file in "${all_fastq_files[@]}"; do
-  filename=$(basename "$file")
-  [[ "$filename" =~ unmapped ]] && continue
-  
-  IFS='_-' read -ra parts <<< "$filename"
-  read_indicator="${parts[$READ_PAIR_IDX]}"
-  
-  # Check for expected values
-  if [[ "$read_indicator" == "1" || "$read_indicator" == "2" ]]; then
-    is_paired_end=true
-    detected_indicators="$detected_indicators $read_indicator"
-    break
-  elif [[ "$read_indicator" == "NA" ]]; then
-    is_paired_end=false
-    detected_indicators="NA"
-    break
-  else
-    echo "  ERROR: Unexpected read indicator at position $READ_PAIR_IDX: '$read_indicator'"
-    echo "  Filename: $filename"
-    echo "  Expected: '1', '2' (paired-end) or 'NA' (single-end)"
-    exit 1
-  fi
-done
-
-# Set configuration based on detection
-if [[ "$is_paired_end" == true ]]; then
-  IS_PAIRED_END=true
-  EXPECTED_READ_PAIRS_PER_LANE=2
-  echo "  Detected: PAIRED-END (indicators:$detected_indicators)"
-elif [[ "$is_paired_end" == false ]]; then
-  IS_PAIRED_END=false
-  EXPECTED_READ_PAIRS_PER_LANE=1
-  echo "  Detected: SINGLE-END (indicator: $detected_indicators)"
-else
-  echo "  ERROR: Could not determine read type from files"
-  exit 1
-fi
-
-# Update expected file count based on detection
-EXPECTED_FILES_PER_SAMPLE=$((EXPECTED_LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
-echo "  Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
-
-# ============================================
 # Verify how many files there are per sample
 # ============================================
 echo ""
@@ -197,25 +143,36 @@ echo ""
 #  done
 #done
 
-
+# ============================================
+# Generate paired reads manifest
+# ============================================
 echo "Writing paired reads manifest to: $manifest_file"
 
-# Write header and data rows (sample_id, lane, R1_path, R2_path)
-echo -e "sample_id\tlane\tread1_path\tread2_path" > "$manifest_file"
+if [[ -f "$manifest_file" ]]; then
+  echo "Manifest already exists: $manifest_file"
+  echo "  Skipping generation (delete file to regenerate)"
+  echo "Other scripts can detect paired-end mode by checking file existence"
+else
+  echo "Writing paired reads manifest to: $manifest_file"
 
-for sample_id in "${unique_sample_ids[@]}"; do
-  IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
-  
-  lane_num=1
-  for ((i=0; i<${#pair_files[@]}; i+=2)); do
-    r1="${pair_files[$i]}"
-    r2="${pair_files[$((i+1))]}"
-    [[ -z "$r1" || -z "$r2" ]] && continue  # Skip empty pairs
-    
-    echo -e "$sample_id\t$lane_num\t$r1\t$r2" >> "$manifest_file"
-    ((lane_num++))
+  # Write header and data rows (sample_id, lane, R1_path, R2_path)
+  echo -e "sample_id\tlane\tread1_path\tread2_path" > "$manifest_file"
+
+  for sample_id in "${unique_sample_ids[@]}"; do
+    IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
+
+    lane_num=1
+    for ((i=0; i<${#pair_files[@]}; i+=2)); do
+      r1="${pair_files[$i]}"
+      r2="${pair_files[$((i+1))]}"
+      [[ -z "$r1" || -z "$r2" ]] && continue  # Skip empty pairs
+
+      echo -e "$sample_id\t$lane_num\t$r1\t$r2" >> "$manifest_file"
+      ((lane_num++))
+    done
   done
-done
 
-echo "Manifest complete: $(wc -l < "$manifest_file") pairs written"
-echo "Other scripts can detect paired-end mode by checking file existence"
+  echo "Manifest complete: $(wc -l < "$manifest_file") pairs written"
+
+fi
+
