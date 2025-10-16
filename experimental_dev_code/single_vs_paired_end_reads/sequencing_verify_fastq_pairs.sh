@@ -4,10 +4,15 @@
 # Configuration
 # ============================================
 echo "-------Start $0-------"
+echo "Setting up configuration..."
+FASTQ_LINES_PER_READ=4
 FASTQ_DIRECTORY="$HOME/data/250930Bel/fastq"
 EXPECTED_LANES_PER_SAMPLE=3
 EXPECTED_READ_PAIRS_PER_LANE=2  # R1 and R2
 EXPECTED_FILES_PER_SAMPLE=$((EXPECTED_LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
+# Lanes in sequencer.
+MIN_LANE_NUMBER=1
+MAX_LANE_NUMBER=4
 
 # Filename parsing indices (split on _ and -)
 # Example: 250930Bel_D25-12496-2_1_sequence.fastq
@@ -88,7 +93,7 @@ for sample_id in "${unique_sample_ids[@]}"; do
   IFS=' ' read -ra sample_files <<< "${sample_file_lists[$sample_id]}"
   pairs_for_sample=""
 
-  for lane_num in {1..4}; do
+  for lane_num in $(seq $MIN_LANE_NUMBER $MAX_LANE_NUMBER); do
     echo "  Processing lane $lane_num"
     r1="" r2=""
     for file in "${sample_files[@]}"; do
@@ -102,4 +107,33 @@ for sample_id in "${unique_sample_ids[@]}"; do
   sample_pairs["$sample_id"]="$pairs_for_sample"
   echo "    Pairs for sample: "
   printf "    %s\n" $pairs_for_sample
+done
+
+
+echo ""
+echo "Verifying read counts in pairs..."
+
+for sample_id in "${unique_sample_ids[@]}"; do
+  echo "Sample: $sample_id"
+  IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
+  
+  # Process pairs (every 2 files = one pair)
+  for ((i=0; i<${#pair_files[@]}; i+=2)); do
+    r1_file="${pair_files[$i]}"
+    r2_file="${pair_files[$((i+1))]}"
+
+    # Skip if files are empty strings
+    [[ -z "$r1_file" || -z "$r2_file" ]] && continue
+
+    r1_lines=$(wc -l < "$r1_file")
+    r2_lines=$(wc -l < "$r2_file")
+    r1_reads=$((r1_lines / FASTQ_LINES_PER_READ))
+    r2_reads=$((r2_lines / FASTQ_LINES_PER_READ))
+
+    if [[ $r1_reads -eq $r2_reads ]]; then
+      echo "  [OK] $(basename "$r1_file") <-> $(basename "$r2_file"): $r1_reads reads"
+    else
+      echo "  [ERROR] Read count mismatch: R1=$r1_reads, R2=$r2_reads"
+    fi
+  done
 done
