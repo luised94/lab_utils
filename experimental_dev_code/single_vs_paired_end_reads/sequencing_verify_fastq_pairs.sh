@@ -5,7 +5,7 @@
 # ============================================
 show_usage() {
   cat << EOF
-Usage: $(basename "$0") <fastq_directory>
+Usage: $(basename "$0") <fastq_directory> [-v]
 
 Description:
   Verifies FASTQ file structure, detects single/paired-end reads,
@@ -17,6 +17,7 @@ Arguments:
 
 Options:
   -h, --help        Show this help message
+  -v                Verbose output (show detailed processing steps)
 
 Output:
   Creates paired_reads_manifest.tsv in <experiment>/documentation/
@@ -24,6 +25,7 @@ Output:
   
 Example:
   $(basename "$0") ~/data/250930Bel/fastq
+  $(basename "$0") ~/data/250930Bel/fastq -v
 
 EOF
   exit 0
@@ -35,7 +37,10 @@ if [[ $# -eq 0 ]] || [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
 fi
 
 # Get directory from first argument
+# Get arguments
 FASTQ_DIRECTORY="$1"
+VERBOSE=false
+[[ "$2" == "-v" ]] && VERBOSE=true
 
 # ============================================
 # Configuration
@@ -101,19 +106,25 @@ if [[ ${#all_fastq_files[@]} -eq 0 ]]; then
   exit 1
 fi
 
-echo "--------------"
-
 # ============================================
 # Extract unique sample IDs
 # ============================================
+echo "Extracting unique sample ids..."
 declare -A sample_id_map  # Use associative array for uniqueness
 
 for fastq_file in "${all_fastq_files[@]}"; do
   filename=$(basename "$fastq_file")
-  echo "Filename: $filename"
+  if [[ "$VERBOSE" == true ]]; then
+    echo "Filename: $filename"
+
+  fi
+
   if [[ "$filename" =~ unmapped ]]; then
-    echo "Skipping unmapped fastq file"
+    if [[ "$VERBOSE" == true ]]; then
+      echo "Skipping unmapped fastq file"
+    fi
     continue
+
   fi
 
   # Split on _ and - to get components
@@ -292,7 +303,10 @@ if [[ "$IS_PAIRED_END" == true ]]; then
     pairs_for_sample=""
 
     for lane_num in "${detected_lanes[@]}"; do
-      echo "  Processing lane $lane_num"
+      if [[ "$VERBOSE" == true ]]; then
+        echo "  Processing lane $lane_num"
+      fi
+
       r1="" r2=""
       for file in "${sample_files[@]}"; do
         IFS='_-' read -ra parts <<< "$(basename "$file")"
@@ -303,8 +317,10 @@ if [[ "$IS_PAIRED_END" == true ]]; then
     done
 
     sample_pairs["$sample_id"]="$pairs_for_sample"
-    echo "    Pairs for sample: "
-    printf "    %s\n" $pairs_for_sample
+    if [[ $VERBOSE == true ]]; then
+      echo "    Pairs for sample: "
+      printf "    %s\n" $pairs_for_sample
+    fi
   done
 
   # Verify read counts match
@@ -326,7 +342,9 @@ if [[ "$IS_PAIRED_END" == true ]]; then
       r2_reads=$((r2_lines / FASTQ_LINES_PER_READ))
 
       if [[ $r1_reads -eq $r2_reads ]]; then
-        echo "  [OK] $(basename "$r1_file") <-> $(basename "$r2_file"): $r1_reads reads"
+        if [[ $VERBOSE == true ]]; then
+          echo "  [OK] $(basename "$r1_file") <-> $(basename "$r2_file"): $r1_reads reads"
+        fi
       else
         echo "  [ERROR] Read count mismatch: R1=$r1_reads, R2=$r2_reads"
       fi
@@ -373,3 +391,16 @@ else
   echo "Note: Single-end processing not yet implemented"
 
 fi
+
+
+# At the very end, add final summary:
+echo ""
+echo "============================================"
+echo "Summary"
+echo "============================================"
+echo "  Samples processed: ${#unique_sample_ids[@]}"
+echo "  Read type: $([ "$IS_PAIRED_END" == true ] && echo "PAIRED-END" || echo "SINGLE-END")"
+echo "  Lanes per sample: ${#detected_lanes[@]}"
+echo "  Manifest: $manifest_file"
+echo "For complete output, pass -v option as second argument position."
+echo "-------End $(basename "$0")-------"
