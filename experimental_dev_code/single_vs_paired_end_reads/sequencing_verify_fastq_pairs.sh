@@ -22,7 +22,7 @@ Options:
 Output:
   Creates paired_reads_manifest.tsv in <experiment>/documentation/
   Skips generation if manifest already exists (delete to regenerate)
-  
+
 Example:
   $(basename "$0") ~/data/250930Bel/fastq
   $(basename "$0") ~/data/250930Bel/fastq -v
@@ -47,8 +47,9 @@ VERBOSE=false
 # ============================================
 echo "-------Start $0-------"
 echo "Setting up configuration..."
-FASTQ_LINES_PER_READ=4
+#FASTQ_LINES_PER_READ=4
 # Output to documentation directory (parent of fastq folder)
+NCORES=$(nproc)
 documentation_dir="$(dirname "$FASTQ_DIRECTORY")/documentation"
 manifest_file="$documentation_dir/paired_reads_manifest.tsv"
 
@@ -158,7 +159,7 @@ declare -A lane_map
 for file in "${all_fastq_files[@]}"; do
   filename=$(basename "$file")
   [[ "$filename" =~ unmapped ]] && continue
-  
+
   IFS='_-' read -ra parts <<< "$filename"
   lane_number="${parts[$LANE_IDX]}"
   lane_map["$lane_number"]=1
@@ -327,29 +328,38 @@ if [[ "$IS_PAIRED_END" == true ]]; then
   echo ""
   echo "Verifying read counts in pairs..."
 
+  temp_pairs_file=$(mktemp)
   for sample_id in "${unique_sample_ids[@]}"; do
-    echo "Sample: $sample_id"
+    #echo "Sample: $sample_id"
     IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
-
     for ((i=0; i<${#pair_files[@]}; i+=2)); do
       r1_file="${pair_files[$i]}"
       r2_file="${pair_files[$((i+1))]}"
       [[ -z "$r1_file" || -z "$r2_file" ]] && continue
+      echo "$sample_id|$r1_file|$r2_file" >> "$temp_pairs_file"
 
-      r1_lines=$(wc -l < "$r1_file")
-      r2_lines=$(wc -l < "$r2_file")
-      r1_reads=$((r1_lines / FASTQ_LINES_PER_READ))
-      r2_reads=$((r2_lines / FASTQ_LINES_PER_READ))
-
-      if [[ $r1_reads -eq $r2_reads ]]; then
-        if [[ $VERBOSE == true ]]; then
-          echo "  [OK] $(basename "$r1_file") <-> $(basename "$r2_file"): $r1_reads reads"
-        fi
-      else
-        echo "  [ERROR] Read count mismatch: R1=$r1_reads, R2=$r2_reads"
-      fi
     done
   done
+  cat "$temp_pairs_file" | xargs -P "$NCORES" -I {} bash -c '
+    IFS="|" read -r sample r1 r2 <<< "{}"
+    r1_lines=$(wc -l < "$r1")
+    r2_lines=$(wc -l < "$r2")
+    r1_reads=$((r1_lines / 4))
+    r2_reads=$((r2_lines / 4))
+    if [[ $r1_reads -eq $r2_reads ]]; then
+      echo "OK|$sample|$(basename "$r1")|$(basename "$r2")|$r1_reads"
+    else
+      echo "ERROR|$sample|$r1_reads|$r2_reads"
+    fi
+  ' | while IFS="|" read -r status sample_or_r1 file1_or_r2 file2_or_count rest; do
+      if [[ "$status" == "OK" ]]; then
+        [[ "$VERBOSE" == true ]] && echo "  [OK] $file1_or_r2 <-> $file2_or_count: $rest reads"
+      else
+        echo "  [ERROR] Read count mismatch for $sample_or_r1: R1=$file1_or_r2, R2=$file2_or_count"
+      fi
+    done
+
+  rm "$temp_pairs_file"
 
   # ============================================
   # Generate paired reads manifest
@@ -357,7 +367,6 @@ if [[ "$IS_PAIRED_END" == true ]]; then
   echo "Writing paired reads manifest to: $manifest_file"
 
   if [[ -f "$manifest_file" ]]; then
-    echo "Manifest already exists: $manifest_file"
     echo "Manifest already exists: $manifest_file"
     echo "  To regenerate, delete the file and rerun this script"
     echo "  rm \"$manifest_file\""
@@ -402,5 +411,6 @@ echo "  Samples processed: ${#unique_sample_ids[@]}"
 echo "  Read type: $([ "$IS_PAIRED_END" == true ] && echo "PAIRED-END" || echo "SINGLE-END")"
 echo "  Lanes per sample: ${#detected_lanes[@]}"
 echo "  Manifest: $manifest_file"
+echo "  Ncores: $NCORES"
 echo "For complete output, pass -v option as second argument position."
 echo "-------End $(basename "$0")-------"
