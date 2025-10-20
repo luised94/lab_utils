@@ -1,5 +1,20 @@
 #!/bin/bash
-
+################################################################################
+# Experimental: Verify paired end fastq files and output manifest
+# Author: Luis | Date: 2025-10-20 | Version: 1.0.0
+################################################################################
+# PURPOSE: 
+#   For a fastq directory, find paired end files according to BMC naming convention and verify that paired end files have same number of reads (simplest check)
+#   Output manifest of paired files for subsequent scripts.
+# USAGE:
+#   From the command line
+#   $ ./sequencing_verify_fastq_pairs.sh /path/to/fastq/directory
+# DEPENDENCIES:
+#   bash 4.2
+# OUTPUTS:
+#   No outputs produced by file or script.
+#   Scripts (such as setup_bmc_experiment.R) source this script.
+################################################################################
 # ============================================
 # Usage and Help
 # ============================================
@@ -31,8 +46,14 @@ EOF
   exit 0
 }
 
-# Check for help flag or no arguments
-if [[ $# -eq 0 ]] || [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+# Check for arguments
+if [[ $# -eq 0 ]]; then
+  echo "Error: No argument provided." >&2
+  show_usage
+fi
+
+# Check for help flag
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   show_usage
 fi
 
@@ -52,6 +73,7 @@ echo "Setting up configuration..."
 NCORES=$(nproc)
 documentation_dir="$(dirname "$FASTQ_DIRECTORY")/documentation"
 manifest_file="$documentation_dir/paired_reads_manifest.tsv"
+#EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
 
 # Filename parsing indices (split on _ and -)
 # Example: 250930Bel_D25-12496-2_1_sequence.fastq
@@ -67,6 +89,7 @@ mkdir -p "$documentation_dir"
 if [[ ! -d "$documentation_dir" ]]; then
   echo "ERROR: Failed to create documentation directory: $documentation_dir"
   exit 1
+
 fi
 
 # ============================================
@@ -313,15 +336,20 @@ if [[ "$IS_PAIRED_END" == true ]]; then
         IFS='_-' read -ra parts <<< "$(basename "$file")"
         [[ "${parts[$LANE_IDX]}" == "$lane_num" && "${parts[$READ_PAIR_IDX]}" == "1" ]] && r1="$file"
         [[ "${parts[$LANE_IDX]}" == "$lane_num" && "${parts[$READ_PAIR_IDX]}" == "2" ]] && r2="$file"
+
       done
+
       pairs_for_sample="$pairs_for_sample$r1 $r2 "
+
     done
 
     sample_pairs["$sample_id"]="$pairs_for_sample"
     if [[ $VERBOSE == true ]]; then
       echo "    Pairs for sample: "
       printf "    %s\n" $pairs_for_sample
+
     fi
+
   done
 
   # Verify read counts match
@@ -340,6 +368,8 @@ if [[ "$IS_PAIRED_END" == true ]]; then
 
     done
   done
+  #
+  # Use xargs to run in parallel, messages are not sorted.
   cat "$temp_pairs_file" | xargs -P "$NCORES" -I {} bash -c '
     IFS="|" read -r sample r1 r2 <<< "{}"
     r1_lines=$(wc -l < "$r1")
@@ -354,8 +384,10 @@ if [[ "$IS_PAIRED_END" == true ]]; then
   ' | while IFS="|" read -r status sample_or_r1 file1_or_r2 file2_or_count rest; do
       if [[ "$status" == "OK" ]]; then
         [[ "$VERBOSE" == true ]] && echo "  [OK] $file1_or_r2 <-> $file2_or_count: $rest reads"
+
       else
         echo "  [ERROR] Read count mismatch for $sample_or_r1: R1=$file1_or_r2, R2=$file2_or_count"
+
       fi
     done
 
