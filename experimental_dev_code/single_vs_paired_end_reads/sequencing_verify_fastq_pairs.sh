@@ -46,8 +46,14 @@ EOF
   exit 0
 }
 
-# Check for help flag or no arguments
-if [[ $# -eq 0 ]] || [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+# Check for arguments
+if [[ $# -eq 0 ]]; then
+  echo "Error: No argument provided." >&2
+  show_usage
+fi
+
+# Check for help flag
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   show_usage
 fi
 
@@ -67,6 +73,7 @@ echo "Setting up configuration..."
 NCORES=$(nproc)
 documentation_dir="$(dirname "$FASTQ_DIRECTORY")/documentation"
 manifest_file="$documentation_dir/paired_reads_manifest.tsv"
+#EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
 
 # Filename parsing indices (split on _ and -)
 # Example: 250930Bel_D25-12496-2_1_sequence.fastq
