@@ -54,6 +54,7 @@ DRY_RUN=true
 CLUSTER_NAME="luria"
 FILETYPE_TO_SYNC="*.fastq"
 EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+RSYNC_OPTS=(-av --include='*/' --include="$FILETYPE_TO_SYNC" --exclude='*')
 
 #============================== 
 # Handle arguments
@@ -137,10 +138,10 @@ mkdir -p "$DESTINATION_DIR"
 #============================== 
 # Main logic
 #============================== 
-echo "Running rsync..."
-srun rsync -nav \
-           --include=*/ \
-           --include="$FILETYPE_TO_SYNC" \
-           --exclude="*" \
-           "$SOURCE_DIR" \
-           "$DESTINATION_DIR"
+echo "Executing rsync command..."
+if [[ "$DRY_RUN" == true ]]; then
+    RSYNC_OPTS=(-n "${RSYNC_OPTS[@]}")  # add dry-run flag
+    echo ">>> DRY RUN MODE (no files will be copied)" >&2
+fi
+
+srun rsync "${RSYNC_OPTS[@]}" "$SOURCE_DIR" "$DESTINATION_DIR"
