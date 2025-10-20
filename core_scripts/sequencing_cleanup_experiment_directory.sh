@@ -1,4 +1,19 @@
 #!/bin/bash
+################################################################################
+# Verify paired end fastq files and output manifest
+# Author: Luis | Date: 2025-10-20 | Version: 1.0.0
+################################################################################
+# PURPOSE:
+#   Remove unused files from rsync download and moves all fastq files out of subdirectories.
+# USAGE:
+#   From the command line
+#   $ srun ./sequencing_verify_fastq_pairs.sh /path/to/fastq/directory
+# DEPENDENCIES:
+#   bash 4.2
+# OUTPUTS:
+#   No outputs produced by file or script.
+#   Scripts (such as setup_bmc_experiment.R) source this script.
+################################################################################
 # Dependencies: Requires fastq files downloaded to the appropriate experiment fastq directory. Follow instructions in email with subject * Data Ready from the BMC personnel.
 # srun rsync -av /net/bmc-pub17/data/bmc/public/Bell/${PROJECT_ID}/ ~/data/${PROJECT_ID}/fastq/
 # Usage: Run relevant code lines manually. Not worth it to automate currently.
