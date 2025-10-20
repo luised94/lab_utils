@@ -35,8 +35,7 @@ Options:
   --active-run      Execute rsync command
 
 Output:
-  Creates paired_reads_manifest.tsv in <experiment>/documentation/
-  Skips generation if manifest already exists (delete to regenerate)
+  Directory with fastq files downloaded to the local directly in initial directory structure.
 
 Example:
   $(basename "$0") 250930Bel
@@ -47,7 +46,20 @@ EOF
   exit 0
 }
 
+#============================== 
+# Configuration
+#============================== 
+echo "Setting configuration..."
+DRY_RUN=true
+CLUSTER_NAME="luria"
+FILETYPE_TO_SYNC="*.fastq"
+EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+
+#============================== 
+# Handle arguments
+#============================== 
 # Check for arguments
+echo "Handling arguments..."
 if [[ $# -eq 0 ]]; then
   echo "Error: No argument provided." >&2
   show_usage
@@ -58,20 +70,20 @@ if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   show_usage
 fi
 
-#============================== 
-# Handle arguments
-#============================== 
-echo "Handling arguments..."
-EXPERIMENT_ID=${1%/}
-DRY_RUN=true
-[[ "$2" == "--active-run" ]] && DRY_RUN=false
+if [[ $# -gt 2 ]]; then
+    echo "Error: Too many arguments provided." >&2
+    echo "Run '$0 -h' for usage." >&2
+    exit 1
+fi
 
-#============================== 
-# Configuration
-#============================== 
-CLUSTER_NAME="luria"
-FILETYPE_TO_SYNC="*.fastq"
-EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+if [[ "$2" != "--active-run" ]]; then
+  echo "Error: Invalid second argument: '$2'" >&2
+  echo "Expected: --active-run (or omit for dry-run)" >&2
+  echo "Run '$0 -h' for usage." >&2
+  exit 1
+else
+  DRY_RUN=false
+fi
 
 if [[ ! "$(hostname)" == "$CLUSTER_NAME" ]]; then
     echo "Error: This script should be run on the cluster." >&2
@@ -85,6 +97,7 @@ fi
 # Setup and preprocessing
 #============================== 
 # Ensure argument does not have trailing slashes.
+EXPERIMENT_ID=${1%/}
 EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
 DESTINATION_DIR="$EXPERIMENT_DIR/fastq/"
 SOURCE_DIR="/net/bmc-pub17/data/bmc/public/Bell/${EXPERIMENT_ID}/"
@@ -120,7 +133,6 @@ if [[ ${#files_to_sync[@]} -eq 0 ]]; then
 fi
 
 mkdir -p "$DESTINATION_DIR"
-
 
 #============================== 
 # Main logic
