@@ -1,9 +1,9 @@
 #!/bin/bash
 ################################################################################
-# Experimental: Verify paired end fastq files and output manifest
+# Verify paired end fastq files and output manifest
 # Author: Luis | Date: 2025-10-20 | Version: 1.0.0
 ################################################################################
-# PURPOSE: 
+# PURPOSE:
 #   For a fastq directory, find paired end files according to BMC naming convention and verify that paired end files have same number of reads (simplest check)
 #   Output manifest of paired files for subsequent scripts.
 # USAGE:
@@ -20,15 +20,15 @@
 # ============================================
 show_usage() {
   cat << EOF
-Usage: $(basename "$0") <fastq_directory> [-v]
+Usage: srun $(basename "$0") <fastq_directory> [-v]
 
 Description:
   Verifies FASTQ file structure, detects single/paired-end reads,
   validates read counts, and generates manifest for downstream processing.
 
 Arguments:
-  fastq_directory    Path to directory containing FASTQ files
-                     (e.g., ~/data/250930Bel/fastq)
+  EXPERIMENT_ID    Experiment ID for BMC sequencing project
+                     (e.g., 250930Bel)
 
 Options:
   -h, --help        Show this help message
@@ -46,6 +46,9 @@ EOF
   exit 0
 }
 
+#============================== 
+# Argument error handling
+#============================== 
 # Check for arguments
 if [[ $# -eq 0 ]]; then
   echo "Error: No argument provided." >&2
@@ -57,24 +60,41 @@ if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   show_usage
 fi
 
-# Get directory from first argument
-# Get arguments
-FASTQ_DIRECTORY="$1"
-VERBOSE=false
-[[ "$2" == "-v" ]] && VERBOSE=true
+if [[ $# -gt 2 ]]; then
+    echo "Error: Too many arguments provided." >&2
+    echo "Run '$0 -h' for usage." >&2
+    exit 1
+fi
 
-# ============================================
+if [[ "$2" != "-v" ]]; then
+  echo "Error: Invalid second argument: '$2'" >&2
+  echo "Expected: -v (or omit for less verbose output)" >&2
+  echo "Run '$0 -h' for usage." >&2
+  exit 1
+else
+  VERBOSE=false
+fi
+
+# Ensure script is run inside a Slurm allocation
+if [[ -z "${SLURM_JOB_ID:-}" ]]; then
+    cat >&2 <<EOF
+Error: This script must be run within a Slurm job.
+
+To run interactively:
+    srun $0 <EXPERIMENT_ID> [-v]
+
+To submit as a batch job:
+    echo "$0 <EXPERIMENT_ID>" [-v] | sbatch
+
+EOF
+    exit 1
+fi
+
+#============================== 
 # Configuration
-# ============================================
+#============================== 
 echo "-------Start $0-------"
 echo "Setting up configuration..."
-#FASTQ_LINES_PER_READ=4
-# Output to documentation directory (parent of fastq folder)
-NCORES=$(nproc)
-documentation_dir="$(dirname "$FASTQ_DIRECTORY")/documentation"
-manifest_file="$documentation_dir/paired_reads_manifest.tsv"
-#EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
-
 # Filename parsing indices (split on _ and -)
 # Example: 250930Bel_D25-12496-2_1_sequence.fastq
 # Parts: [250930Bel, D25, 12496, 2, 1, sequence.fastq]
@@ -82,21 +102,48 @@ SAMPLE_ID_START_IDX=1   # "D25"
 SAMPLE_ID_END_IDX=2     # "12496"
 LANE_IDX=3              # "2"
 READ_PAIR_IDX=4         # "1" or "2"
+EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+NCORES=$(nproc)
+#FASTQ_LINES_PER_READ=4
 
-# Ensure documentation_dir exists
-mkdir -p "$documentation_dir"
-# Check directory creation succeeded
-if [[ ! -d "$documentation_dir" ]]; then
-  echo "ERROR: Failed to create documentation directory: $documentation_dir"
+#============================== 
+# Setup and preprocessing
+#============================== 
+# Get directory from first argument
+EXPERIMENT_ID=${1%/}
+EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
+FASTQ_DIRECTORY="$EXPERIMENT_DIR/fastq/"
+DOCUMENTATION_DIR="$(dirname "$FASTQ_DIRECTORY")/documentation"
+MANIFEST_FILE="$DOCUMENTATION_DIR/paired_reads_manifest.tsv"
+[[ "$2" == "-v" ]] && VERBOSE=true
+
+#==============================
+# Error handling
+#==============================
+if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
+  echo "Error: EXPERIMENT_ID does not match expected pattern." >&2
+  echo "Please adjust EXPERIMENT_ID accordingly." >&2
+  echo "EXPERIMENT ID PATTERN: $EXPECTED_EXPERIMENT_ID_PATTERN" >&2
+  echo "EXPERIMENT_ID: $EXPERIMENT_ID" >&2
   exit 1
 
 fi
+
+# Ensure DOCUMENTATION_DIR exists
+mkdir -p "$DOCUMENTATION_DIR"
 
 # ============================================
 # Validation and Error Checking
 # ============================================
 echo "-------Start $(basename "$0")-------"
 echo "Validating inputs..."
+
+# Check directory creation succeeded
+if [[ ! -d "$DOCUMENTATION_DIR" ]]; then
+  echo "ERROR: Failed to create documentation directory: $DOCUMENTATION_DIR"
+  exit 1
+
+fi
 
 # Check directory exists
 if [[ ! -e "$FASTQ_DIRECTORY" ]]; then
@@ -116,6 +163,10 @@ if [[ ! -r "$FASTQ_DIRECTORY" ]]; then
   exit 1
 fi
 
+# ############################################
+# Main logic
+# ############################################
+# @QUES: Can probably consolidate all of the extraction logic into a single for loop.
 # ============================================
 # Discover all fastq files
 # ============================================
@@ -396,17 +447,17 @@ if [[ "$IS_PAIRED_END" == true ]]; then
   # ============================================
   # Generate paired reads manifest
   # ============================================
-  echo "Writing paired reads manifest to: $manifest_file"
+  echo "Writing paired reads manifest to: $MANIFEST_FILE"
 
-  if [[ -f "$manifest_file" ]]; then
-    echo "Manifest already exists: $manifest_file"
+  if [[ -f "$MANIFEST_FILE" ]]; then
+    echo "Manifest already exists: $MANIFEST_FILE"
     echo "  To regenerate, delete the file and rerun this script"
-    echo "  rm \"$manifest_file\""
+    echo "  rm \"$MANIFEST_FILE\""
   else
-    echo "Writing paired reads manifest to: $manifest_file"
+    echo "Writing paired reads manifest to: $MANIFEST_FILE"
 
     # Write header and data rows (sample_id, lane, R1_path, R2_path)
-    echo -e "sample_id\tlane\tread1_path\tread2_path" > "$manifest_file"
+    echo -e "sample_id\tlane\tread1_path\tread2_path" > "$MANIFEST_FILE"
 
     for sample_id in "${unique_sample_ids[@]}"; do
       IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
@@ -417,12 +468,12 @@ if [[ "$IS_PAIRED_END" == true ]]; then
         r2="${pair_files[$((i+1))]}"
         [[ -z "$r1" || -z "$r2" ]] && continue  # Skip empty pairs
 
-        echo -e "$sample_id\t$lane_num\t$r1\t$r2" >> "$manifest_file"
+        echo -e "$sample_id\t$lane_num\t$r1\t$r2" >> "$MANIFEST_FILE"
         ((lane_num++))
       done
     done
 
-    echo "Manifest complete: $(wc -l < "$manifest_file") pairs written"
+    echo "Manifest complete: $(wc -l < "$MANIFEST_FILE") pairs written"
 
   fi
 
@@ -442,7 +493,7 @@ echo "============================================"
 echo "  Samples processed: ${#unique_sample_ids[@]}"
 echo "  Read type: $([ "$IS_PAIRED_END" == true ] && echo "PAIRED-END" || echo "SINGLE-END")"
 echo "  Lanes per sample: ${#detected_lanes[@]}"
-echo "  Manifest: $manifest_file"
+echo "  Manifest: $MANIFEST_FILE"
 echo "  Ncores: $NCORES"
 echo "For complete output, pass -v option as second argument position."
 echo "-------End $(basename "$0")-------"

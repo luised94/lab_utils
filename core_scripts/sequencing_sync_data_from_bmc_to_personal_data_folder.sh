@@ -22,9 +22,8 @@ show_usage() {
 Usage: $(basename "$0") <fastq_directory> [-v]
 
 Description:
-  Rsync the data (not the directory)from the BMC long term storage to local data folder
-  for analysis. Script runs in dry-run by default. Provide --active-run option to 
-  execute.
+  Rsync the data (not the directory)from the BMC long term storage to local data folder for analysis.
+  Script runs in dry-run by default. Provide --active-run option to execute.
 
 Arguments:
   EXPERIMENT_ID    Experiment id of experiment (from BMC submission.)
@@ -47,17 +46,7 @@ EOF
 }
 
 #============================== 
-# Configuration
-#============================== 
-echo "Setting configuration..."
-DRY_RUN=true
-CLUSTER_NAME="luria"
-FILETYPE_TO_SYNC="*.fastq"
-EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
-RSYNC_OPTS=(-av --include='*/' --include="$FILETYPE_TO_SYNC" --exclude='*')
-
-#============================== 
-# Handle arguments
+# Argument error handling
 #============================== 
 # Check for arguments
 echo "Handling arguments..."
@@ -86,6 +75,7 @@ else
   DRY_RUN=false
 fi
 
+# Ensure script runs in slurm.
 if [[ ! "$(hostname)" == "$CLUSTER_NAME" ]]; then
     echo "Error: This script should be run on the cluster." >&2
     echo "Current cluster setting: $CLUSTER_NAME" >&2
@@ -93,6 +83,16 @@ if [[ ! "$(hostname)" == "$CLUSTER_NAME" ]]; then
     exit 1
 
 fi
+
+#============================== 
+# Configuration
+#============================== 
+echo "Setting configuration..."
+DRY_RUN=true
+CLUSTER_NAME="luria"
+FILETYPE_TO_SYNC="*.fastq"
+EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+RSYNC_OPTS=(-av --include='*/' --include="$FILETYPE_TO_SYNC" --exclude='*')
 
 #============================== 
 # Setup and preprocessing
