@@ -274,3 +274,8 @@ OBS: bamCoverage gives warning if smoothLength is smaller than bin size.
 
 ## 2025-08-27
 Really need to turn the vimgrep into workflow. Substituting something, find references across file, update accordingly.
+
+## 2025-10-20
+Add disclaimer about AI.
+Need to update the documentation.
+Got the data from G4 sequencer so still dealing with the paired end read setup as opposed to single end which was easier.
