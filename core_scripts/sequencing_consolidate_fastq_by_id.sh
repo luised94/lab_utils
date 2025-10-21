@@ -51,14 +51,31 @@ EOF
 echo "Handling arguments..."
 MIN_NUMBER_OF_ARGS=1
 MAX_NUMBER_OF_ARGS=2
-if [[ $# -lt $MIN_NUMBER_OF_ARGS ]] || [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
-  echo "Error: No argument provided." >&2
-  show_usage
+EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+if [[ $# -lt $MIN_NUMBER_OF_ARGS ]]; then
+    echo "Error: Missing required argument EXPERIMENT_ID." >&2
+    show_usage
+    exit 1
+elif [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
+    echo "Error: Too many arguments provided ($#)." >&2
+    show_usage
+    exit 1
 fi
 
 # Check for help flag
 if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   show_usage
+fi
+
+# Handle first argument: Remove trailing slash and validate pattern
+EXPERIMENT_ID=${1%/} # Ensure argument does not have trailing slashes.
+echo "Running error handling..."
+if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
+  echo "Error: EXPERIMENT_ID does not match expected pattern." >&2
+  echo "Please adjust EXPERIMENT_ID accordingly." >&2
+  echo "EXPERIMENT ID PATTERN: $EXPECTED_EXPERIMENT_ID_PATTERN" >&2
+  echo "EXPERIMENT_ID: $EXPERIMENT_ID" >&2
+  exit 1
 fi
 
 # Handle second argument: Set dry-run mode.
@@ -98,7 +115,6 @@ SAMPLE_ID_START_IDX=1   # "D25"
 SAMPLE_ID_END_IDX=2     # "12496"
 LANE_IDX=3              # "2"
 READ_PAIR_IDX=4         # "1" or "2"
-EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
 NCORES=$(nproc)
 #FILETYPE_TO_KEEP="*.fastq"
 #EXCLUDING_PATTERN="*unmapped*"
@@ -106,7 +122,6 @@ NCORES=$(nproc)
 #============================== 
 # Setup and preprocessing
 #============================== 
-EXPERIMENT_ID=${1%/} # Ensure argument does not have trailing slashes.
 EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
 FASTQ_DIRECTORY="$EXPERIMENT_DIR/fastq/"
 DOCUMENTATION_DIR="$(dirname "$FASTQ_DIRECTORY")/documentation"
@@ -115,14 +130,6 @@ MANIFEST_FILE="$DOCUMENTATION_DIR/paired_reads_manifest.tsv"
 #============================== 
 # Error handling
 #============================== 
-echo "Running error handling..."
-if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
-  echo "Error: EXPERIMENT_ID does not match expected pattern." >&2
-  echo "Please adjust EXPERIMENT_ID accordingly." >&2
-  echo "EXPERIMENT ID PATTERN: $EXPECTED_EXPERIMENT_ID_PATTERN" >&2
-  echo "EXPERIMENT_ID: $EXPERIMENT_ID" >&2
-  exit 1
-fi
 
 if [[ ! -d "$FASTQ_DIRECTORY" ]]; then
   echo "Error: FASTQ_DIRECTORY does not exist. Please verify experiment id." >&2

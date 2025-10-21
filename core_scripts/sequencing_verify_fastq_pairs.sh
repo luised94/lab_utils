@@ -53,14 +53,31 @@ EOF
 echo "Handling arguments..."
 MIN_NUMBER_OF_ARGS=1
 MAX_NUMBER_OF_ARGS=2
-if [[ $# -lt $MIN_NUMBER_OF_ARGS ]] || [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
-  echo "Error: No argument provided." >&2
-  show_usage
+EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+if [[ $# -lt $MIN_NUMBER_OF_ARGS ]]; then
+    echo "Error: Missing required argument EXPERIMENT_ID." >&2
+    show_usage
+    exit 1
+elif [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
+    echo "Error: Too many arguments provided ($#)." >&2
+    show_usage
+    exit 1
 fi
 
 # Check for help flag
 if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   show_usage
+fi
+
+# Handle first argument: Remove trailing slash and validate pattern
+EXPERIMENT_ID=${1%/}
+echo "Running error handling..."
+if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
+  echo "Error: EXPERIMENT_ID does not match expected pattern." >&2
+  echo "Please adjust EXPERIMENT_ID accordingly." >&2
+  echo "EXPERIMENT ID PATTERN: $EXPECTED_EXPERIMENT_ID_PATTERN" >&2
+  echo "EXPERIMENT_ID: $EXPERIMENT_ID" >&2
+  exit 1
 fi
 
 VERBOSE=false
@@ -101,7 +118,6 @@ SAMPLE_ID_START_IDX=1   # "D25"
 SAMPLE_ID_END_IDX=2     # "12496"
 LANE_IDX=3              # "2"
 READ_PAIR_IDX=4         # "1" or "2"
-EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
 NCORES=$(nproc)
 #FASTQ_LINES_PER_READ=4
 
@@ -114,19 +130,6 @@ EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
 FASTQ_DIRECTORY="$EXPERIMENT_DIR/fastq/"
 DOCUMENTATION_DIR="$(dirname "$FASTQ_DIRECTORY")/documentation"
 MANIFEST_FILE="$DOCUMENTATION_DIR/paired_reads_manifest.tsv"
-[[ "$2" == "-v" ]] && VERBOSE=true
-
-#==============================
-# Error handling
-#==============================
-if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
-  echo "Error: EXPERIMENT_ID does not match expected pattern." >&2
-  echo "Please adjust EXPERIMENT_ID accordingly." >&2
-  echo "EXPERIMENT ID PATTERN: $EXPECTED_EXPERIMENT_ID_PATTERN" >&2
-  echo "EXPERIMENT_ID: $EXPERIMENT_ID" >&2
-  exit 1
-
-fi
 
 # Ensure DOCUMENTATION_DIR exists
 mkdir -p "$DOCUMENTATION_DIR"
@@ -169,7 +172,6 @@ fi
 # Discover all fastq files
 # ============================================
 echo "Looking for fastq files in: $FASTQ_DIRECTORY"
-
 mapfile -t all_fastq_files < <(find "$FASTQ_DIRECTORY" -type f -name "*.fastq")
 echo "Total fastq files found: ${#all_fastq_files[@]}"
 

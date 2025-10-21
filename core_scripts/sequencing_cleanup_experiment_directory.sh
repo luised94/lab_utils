@@ -53,14 +53,31 @@ EOF
 echo "Handling arguments..."
 MIN_NUMBER_OF_ARGS=1
 MAX_NUMBER_OF_ARGS=2
-if [[ $# -lt $MIN_NUMBER_OF_ARGS ]] || [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
-  echo "Error: No argument provided." >&2
-  show_usage
+EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+if [[ $# -lt $MIN_NUMBER_OF_ARGS ]]; then
+    echo "Error: Missing required argument EXPERIMENT_ID." >&2
+    show_usage
+    exit 1
+elif [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
+    echo "Error: Too many arguments provided ($#)." >&2
+    show_usage
+    exit 1
 fi
 
 # Check for help flag
 if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   show_usage
+fi
+
+# Handle first argument: Remove trailing slash and validate pattern
+EXPERIMENT_ID=${1%/}
+echo "Running error handling..."
+if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
+  echo "Error: EXPERIMENT_ID does not match expected pattern." >&2
+  echo "Please adjust EXPERIMENT_ID accordingly." >&2
+  echo "EXPERIMENT ID PATTERN: $EXPECTED_EXPERIMENT_ID_PATTERN" >&2
+  echo "EXPERIMENT_ID: $EXPERIMENT_ID" >&2
+  exit 1
 fi
 
 # Handle second argument: Set dry-run mode.
@@ -95,31 +112,20 @@ fi
 echo "Setting configuration..."
 FILETYPE_TO_KEEP="*.fastq"
 EXCLUDING_PATTERN="*unmapped*"
-EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
 
 #============================== 
 # Setup and preprocessing
 #============================== 
-# Ensure argument does not have trailing slashes.
-EXPERIMENT_ID=${1%/}
 EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
-FASTQ_DIR="$EXPERIMENT_DIR/fastq/"
+FASTQ_DIRECTORY="$EXPERIMENT_DIR/fastq/"
+mkdir -p "$FASTQ_DIRECTORY"
 
 #============================== 
 # Error handling
 #============================== 
-echo "Running error handling..."
-if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
-  echo "Error: EXPERIMENT_ID does not match expected pattern." >&2
-  echo "Please adjust EXPERIMENT_ID accordingly." >&2
-  echo "EXPERIMENT ID PATTERN: $EXPECTED_EXPERIMENT_ID_PATTERN" >&2
-  echo "EXPERIMENT_ID: $EXPERIMENT_ID" >&2
-  exit 1
-fi
-
-if [[ ! -d "$FASTQ_DIR" ]]; then
-  echo "Error: FASTQ_DIR does not exist. Please verify experiment id." >&2
-  echo "FASTQ_DIR: $FASTQ_DIR" >&2
+if [[ ! -d "$FASTQ_DIRECTORY" ]]; then
+  echo "Error: FASTQ_DIRECTORY does not exist. Please verify experiment id." >&2
+  echo "FASTQ_DIRECTORY: $FASTQ_DIRECTORY" >&2
   echo "Run $0 -h for additional help." >&2
   exit 1
 
@@ -128,33 +134,34 @@ fi
 # ############################################
 # Main logic
 # ############################################
-FASTQ_FILES_COUNT=$(find "$FASTQ_DIR" -type f -name "$FILETYPE_TO_KEEP" ! -name "$EXCLUDING_PATTERN" 2>/dev/null | wc -l)
+FASTQ_FILES_COUNT=$(find "$FASTQ_DIRECTORY" -type f -name "$FILETYPE_TO_KEEP" ! -name "$EXCLUDING_PATTERN" 2>/dev/null | wc -l)
 if [[ $FASTQ_FILES_COUNT -eq 0 ]]; then
   echo "No fastq files found." >&2
-  echo "FASTQ_DIR: $FASTQ_DIR" >&2
+  echo "FASTQ_DIRECTORY: $FASTQ_DIRECTORY" >&2
   exit 1
 
 fi
 
 if [[ "$DRY_RUN" == true ]]; then
   echo ">>> DRY RUN MODE <<<"
-  echo "Files that would be MOVED to $FASTQ_DIR:"
+  echo "Files that would be MOVED to $FASTQ_DIRECTORY:"
   # Files to move: valid FASTQ files that are NOT in the top level
   mapfile -t to_move < <(
-      find "$FASTQ_DIR" -mindepth 2 -type f -name "$FILETYPE_TO_KEEP" ! -name "$EXCLUDING_PATTERN" 2>/dev/null
+      find "$FASTQ_DIRECTORY" -mindepth 2 -type f -name "$FILETYPE_TO_KEEP" ! -name "$EXCLUDING_PATTERN" 2>/dev/null
   )
+
   # Files to move (valid FASTQ)
   if [[ ${#to_move[@]} -eq 0 ]]; then
     echo "No FASTQ files to move (all already in top level or none found)."
 
   else
-    echo "Files that would be moved to: $FASTQ_DIR"
+    echo "Files that would be moved to: $FASTQ_DIRECTORY"
     printf "%s\n" "${to_move[@]}"
 
   fi
 
   # Files to delete (non-FASTQ OR unmapped FASTQ)
-  mapfile -t to_delete < <(find "$FASTQ_DIR" -type f \( ! -name "$FILETYPE_TO_KEEP" -o -name "$EXCLUDING_PATTERN" \) 2>/dev/null)
+  mapfile -t to_delete < <(find "$FASTQ_DIRECTORY" -type f \( ! -name "$FILETYPE_TO_KEEP" -o -name "$EXCLUDING_PATTERN" \) 2>/dev/null)
   if [[ ${#to_delete[@]} -eq 0 ]]; then
     echo "No unwanted files to delete."
 
@@ -165,7 +172,7 @@ if [[ "$DRY_RUN" == true ]]; then
   fi
 
   # Empty directories
-  mapfile -t empty_dirs < <(find "$FASTQ_DIR" -type d -empty 2>/dev/null)
+  mapfile -t empty_dirs < <(find "$FASTQ_DIRECTORY" -type d -empty 2>/dev/null)
   if [[ ${#empty_dirs[@]} -eq 0 ]]; then
     echo "No empty directories to remove."
 
@@ -178,16 +185,17 @@ if [[ "$DRY_RUN" == true ]]; then
 else
   echo "Cleaning up directory..."
   # 1. Move only files from subdirectories
-  find "$FASTQ_DIR" -mindepth 2 -type f -name "$FILETYPE_TO_KEEP" ! -name "$EXCLUDING_PATTERN" \
-     -exec mv {} "$FASTQ_DIR" \;
+  find "$FASTQ_DIRECTORY" -mindepth 2 -type f -name "$FILETYPE_TO_KEEP" ! -name "$EXCLUDING_PATTERN" \
+     -exec mv {} "$FASTQ_DIRECTORY" \;
 
   # 2. Delete everything else (non-fastq OR unmapped fastq)
-  find "$FASTQ_DIR" -type f \( ! -name "$FILETYPE_TO_KEEP" -o -name "$EXCLUDING_PATTERN" \) \
+  find "$FASTQ_DIRECTORY" -type f \( ! -name "$FILETYPE_TO_KEEP" -o -name "$EXCLUDING_PATTERN" \) \
        -delete
 
   # 3. Clean empty dirs
-  find "$FASTQ_DIR" -type d -empty -delete
+  find "$FASTQ_DIRECTORY" -type d -empty -delete
 
   echo "Cleanup complete."
+
 fi
 echo "Script done..."
