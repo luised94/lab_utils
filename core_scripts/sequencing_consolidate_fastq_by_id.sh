@@ -117,6 +117,8 @@ SAMPLE_ID_END_IDX=2     # "12496"
 LANE_IDX=3              # "2"
 READ_PAIR_IDX=4         # "1" or "2"
 NCORES=$(nproc)
+OUTPUT_PREFIX="consolidated"
+OUTPUT_SUFFIX=".fastq"
 #FILETYPE_TO_KEEP="*.fastq"
 #EXCLUDING_PATTERN="*unmapped*"
 
@@ -347,6 +349,81 @@ echo "Found read indicators: ${unique_pair_indicator[*]}"
 echo "IS_PAIRED_END: $IS_PAIRED_END"
 echo "Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
 echo "----------------"
+
+# ============================================
+# Consolidation planning and execution
+# ============================================
+echo ""
+echo "============================================"
+echo "Starting consolidation process..."
+echo "============================================"
+echo ""
+
+# Process each sample
+samples_processed=0
+samples_skipped=0
+
+for sample_id in "${unique_sample_ids[@]}"; do
+  echo "--------------------"
+  echo "Sample: $sample_id"
+  
+  if [[ "$IS_PAIRED_END" == true ]]; then
+    # Extract and sort R1 files
+    r1_files_list=$(printf "%s" "${sample_r1_files[$sample_id]}" | sort -t: -k1,1n | cut -d: -f2-)
+    # Extract and sort R2 files
+    r2_files_list=$(printf "%s" "${sample_r2_files[$sample_id]}" | sort -t: -k1,1n | cut -d: -f2-)
+    
+    # Convert to arrays for counting
+    mapfile -t r1_files_array <<< "$r1_files_list"
+    mapfile -t r2_files_array <<< "$r2_files_list"
+    
+    echo "  Read type: Paired-end"
+    echo "  R1 files found: ${#r1_files_array[@]}"
+    echo "  R2 files found: ${#r2_files_array[@]}"
+    
+    # Display files in lane order
+    echo "  R1 files (in lane order):"
+    printf '    %s\n' "${r1_files_array[@]}"
+    echo "  R2 files (in lane order):"
+    printf '    %s\n' "${r2_files_array[@]}"
+    
+    # Define output filenames
+    output_r1="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_R1${OUTPUT_SUFFIX}"
+    output_r2="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_R2${OUTPUT_SUFFIX}"
+    
+    echo "  Would create:"
+    echo "    $output_r1"
+    echo "    $output_r2"
+    
+  else
+    # Extract and sort single-end files
+    se_files_list=$(printf "%s" "${sample_se_files[$sample_id]}" | sort -t: -k1,1n | cut -d: -f2-)
+    
+    # Convert to array for counting
+    mapfile -t se_files_array <<< "$se_files_list"
+    
+    echo "  Read type: Single-end"
+    echo "  Files found: ${#se_files_array[@]}"
+    
+    # Display files in lane order
+    echo "  Files (in lane order):"
+    printf '    %s\n' "${se_files_array[@]}"
+    
+    # Define output filename
+    output_se="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_NA${OUTPUT_SUFFIX}"
+    
+    echo "  Would create:"
+    echo "    $output_se"
+  fi
+  
+  echo "--------------------"
+  echo ""
+done
+
+echo "============================================"
+echo "Consolidation planning complete"
+echo "Samples to process: ${#unique_sample_ids[@]}"
+echo "============================================"
 
 echo "Consolidation complete..."
 #read -rp "Proceed with job submission? (y/n): " confirm
