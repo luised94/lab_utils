@@ -145,7 +145,6 @@ fi
 
 if [[ "$DRY_RUN" == true ]]; then
   echo ">>> DRY RUN MODE <<<"
-  echo "Files that would be MOVED to $FASTQ_DIRECTORY:"
   # Files to move: valid FASTQ files that are NOT in the top level
   mapfile -t to_move < <(
       find "$FASTQ_DIRECTORY" -mindepth 2 -type f -name "$FILETYPE_TO_KEEP" ! -name "$EXCLUDING_PATTERN" 2>/dev/null
@@ -156,7 +155,7 @@ if [[ "$DRY_RUN" == true ]]; then
     echo "No FASTQ files to move (all already in top level or none found)."
 
   else
-    echo "Files that would be moved to: $FASTQ_DIRECTORY"
+    echo "Files that would be MOVED to: $FASTQ_DIRECTORY"
     printf "%s\n" "${to_move[@]}"
 
   fi
@@ -167,18 +166,18 @@ if [[ "$DRY_RUN" == true ]]; then
     echo "No unwanted files to delete."
 
   else
-    echo "Files that would be deleted:"
+    echo "Files that would be DELETED:"
     printf "%s\n" "${to_delete[@]}"
 
   fi
 
   # Empty directories
-  mapfile -t empty_dirs < <(find "$FASTQ_DIRECTORY" -type d -empty 2>/dev/null)
+  mapfile -t empty_dirs < <(find "$FASTQ_DIRECTORY" -mindepth 1 -type d 2>/dev/null)
   if [[ ${#empty_dirs[@]} -eq 0 ]]; then
     echo "No empty directories to remove."
 
   else
-    echo "Empty directories that would be removed:"
+    echo "Empty directories that would be REMOVED:"
     printf "%s\n" "${empty_dirs[@]}"
 
   fi
