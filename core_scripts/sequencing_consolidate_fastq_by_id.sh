@@ -198,9 +198,15 @@ fi
 # Extract sample IDs, lanes, and read types in one pass
 # ============================================
 echo "Analyzing FASTQ files..."
-declare -A sample_id_map  # Use associative array for uniqueness
+# For detection (uniqueness)
+declare -A sample_id_map
 declare -A lane_map
 declare -A pair_indicator_map
+
+# For consolidation (file grouping)
+declare -A sample_r1_files
+declare -A sample_r2_files
+declare -A sample_se_files
 
 # Loop overall files and extract based on indices.
 for fastq_file in "${all_fastq_files[@]}"; do
@@ -220,17 +226,30 @@ for fastq_file in "${all_fastq_files[@]}"; do
   # Split on _ and - to get components
   IFS='_-' read -ra parts <<< "$filename"
 
-  # --- Extract sample ID ---
+  # --- Extract the metadata ---
   sample_id="${parts[$SAMPLE_ID_START_IDX]}-${parts[$SAMPLE_ID_END_IDX]}"
-  sample_id_map["$sample_id"]=1
-
-  # --- Extract lane number ---
   lane_number="${parts[$LANE_IDX]}"
-  lane_map["$lane_number"]=1
-
-  # --- Extract read pair indicator ---
   read_indicator="${parts[$READ_PAIR_IDX]}"
+
+  # --- Add the values to the associative array ---
+  sample_id_map["$sample_id"]=1
+  lane_map["$lane_number"]=1
   pair_indicator_map["$read_indicator"]=1
+
+  # Store for consolidation (grouped by sample, with lane prefix for sorting)
+  if [[ "$read_indicator" == "1" ]]; then
+    sample_r1_files["$sample_id"]+="$lane_number:$fastq_file"$'\n'
+
+  elif [[ "$read_indicator" == "2" ]]; then
+    sample_r2_files["$sample_id"]+="$lane_number:$fastq_file"$'\n'
+
+  elif [[ "$read_indicator" == "NA" ]]; then
+    sample_se_files["$sample_id"]+="$lane_number:$fastq_file"$'\n'
+
+  else
+    echo "WARNING: Unknown read indicator '$read_indicator' in file: $filename"
+
+  fi
 
 done
 
@@ -238,7 +257,7 @@ echo "Extracting unique metadata values..."
 mapfile -t unique_sample_ids < <(printf '%s\n' "${!sample_id_map[@]}" | sort)
 mapfile -t detected_lanes < <(printf '%s\n' "${!lane_map[@]}" | sort -n)
 mapfile -t unique_pair_indicator < <(printf '%s\n' "${!pair_indicator_map[@]}" | sort)
-EXPECTED_LANES_PER_SAMPLE=${#detected_lanes[@]}
+LANES_PER_SAMPLE=${#detected_lanes[@]}
 
 # ============================================
 # Error handling for metadata extraction
@@ -302,11 +321,9 @@ fi
 if [[ "$has_paired_indicators" == true ]]; then
   IS_PAIRED_END=true
   EXPECTED_READ_PAIRS_PER_LANE=2
-  echo "  Detected: PAIRED-END"
 elif [[ "$has_single_indicator" == true ]]; then
   IS_PAIRED_END=false
   EXPECTED_READ_PAIRS_PER_LANE=1
-  echo "  Detected: SINGLE-END"
 else
   echo "  ERROR: No valid read indicators found"
   exit 1
@@ -319,7 +336,7 @@ if [[ -z "$IS_PAIRED_END" ]]; then
 fi
 
 # Expected number of samples per file.
-EXPECTED_FILES_PER_SAMPLE=$((EXPECTED_LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
+EXPECTED_FILES_PER_SAMPLE=$((LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
 
 echo "Processing ${#unique_sample_ids[@]} sample IDs"
 echo "----------------"
@@ -327,6 +344,7 @@ echo "Unique ids:"
 printf '%s\n' "${unique_sample_ids[@]}" | xargs -n6 | sed 's/^/  /' | column -t
 echo "Lanes found: ${detected_lanes[*]}"
 echo "Found read indicators: ${unique_pair_indicator[*]}"
+echo "IS_PAIRED_END: $IS_PAIRED_END"
 echo "Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
 echo "----------------"
 
