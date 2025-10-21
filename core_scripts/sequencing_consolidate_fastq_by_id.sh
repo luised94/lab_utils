@@ -1,63 +1,159 @@
 #!/bin/bash
-# Dependencies: Assumes fastq files where transfered to appropriate ~/data/<experiment_id> directory 
-# Requires bmc cleanup. Script will detect and exit if not.
-# Usage: srun ./consolidate_fastq.sh [experiment_id]
+################################################################################
+# Consolidate fastq files from different lanes.
+# Author: Luis | Date: 2025-10-20 | Version: 2.0.0
+################################################################################
+# PURPOSE:
+#   Consolidate fastq files from different lanes into a single large fastq file.
+# USAGE:
+#   From the command line
+#   $ srun sequencing_consolidate_fastq_by_id.sh <EXPERIMENT_ID> [--active-run]
+# DEPENDENCIES:
+#   bash 4.2
+#   Assumes fastq files are in the fastq directory and everything is removed. (cleanup script.)
+# OUTPUTS:
+#   Consolidated fastq files.
+################################################################################
+#============================== 
+# Usage and help
+#============================== 
+show_usage() {
+  cat << EOF
+Usage: srun $(basename "$0") <fastq_directory> [-v]
 
-# Strict error handling
-set -euo pipefail
-if [[ -z ${SLURM_JOB_ID-} ]]; then
-  echo "SLURM_JOB_ID is not set. Must run via srun"
-  echo "Example: srun '${BASH_SOURCE[0]}' <experiment_id>"
-  echo "Experiment id must be 'YYMMDDBel'"
+Description:
+  Consolidate fastq files from different lanes of the sequencer into a single file. Paired end files are consolidated in lane order.
+
+Arguments:
+  EXPERIMENT_ID    Experiment id of experiment (from BMC submission.)
+                   (e.g., 250930Bel)
+
+Options:
+  -h, --help        Show this help message
+  --active-run      Execute rsync command
+
+Output:
+  Directory with fastq files downloaded to the local directly in initial directory structure.
+
+Example:
+  $(basename "$0") 250930Bel
+  $(basename "$0") 250930Bel --active-run
+  $(basename "$0") -h
+
+EOF
+  exit 0
+}
+
+#============================== 
+# Argument error handling
+#============================== 
+# Check for arguments
+echo "Handling arguments..."
+if [[ $# -eq 0 ]]; then
+  echo "Error: No argument provided." >&2
+  show_usage
+fi
+
+# Check for help flag
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+  show_usage
+fi
+
+if [[ $# -gt 2 ]]; then
+    echo "Error: Too many arguments provided." >&2
+    echo "Run '$0 -h' for usage." >&2
+    exit 1
+fi
+
+DRY_RUN=true
+if [[ "$2" != "--active-run" ]]; then
+  echo "Error: Invalid second argument: '$2'" >&2
+  echo "Expected: --active-run (or omit for dry-run)" >&2
+  echo "Run '$0 -h' for usage." >&2
+  exit 1
+else
+  DRY_RUN=false
+fi
+
+# Ensure script is run inside a Slurm allocation
+if [[ -z "${SLURM_JOB_ID:-}" ]]; then
+    cat >&2 <<EOF
+Error: This script must be run within a Slurm job.
+
+To run interactively:
+    srun $0 <EXPERIMENT_ID> [--active-run]
+
+To submit as a batch job:
+    echo "$0 <EXPERIMENT_ID>" [--active-run] | sbatch
+
+EOF
+    exit 1
+fi
+
+#============================== 
+# Configuration
+#============================== 
+echo "Setting configuration..."
+# Filename parsing indices (split on _ and -)
+# Example: 250930Bel_D25-12496-2_1_sequence.fastq
+# Parts: [250930Bel, D25, 12496, 2, 1, sequence.fastq]
+SAMPLE_ID_START_IDX=1   # "D25"
+SAMPLE_ID_END_IDX=2     # "12496"
+LANE_IDX=3              # "2"
+READ_PAIR_IDX=4         # "1" or "2"
+EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+NCORES=$(nproc)
+#FILETYPE_TO_KEEP="*.fastq"
+#EXCLUDING_PATTERN="*unmapped*"
+EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+
+#============================== 
+# Setup and preprocessing
+#============================== 
+# Ensure argument does not have trailing slashes.
+EXPERIMENT_ID=${1%/}
+EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
+FASTQ_DIR="$EXPERIMENT_DIR/fastq/"
+DOCUMENTATION_DIR="$(dirname "$FASTQ_DIRECTORY")/documentation"
+MANIFEST_FILE="$DOCUMENTATION_DIR/paired_reads_manifest.tsv"
+
+#============================== 
+# Error handling
+#============================== 
+echo "Running error handling..."
+if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
+  echo "Error: EXPERIMENT_ID does not match expected pattern." >&2
+  echo "Please adjust EXPERIMENT_ID accordingly." >&2
+  echo "EXPERIMENT ID PATTERN: $EXPECTED_EXPERIMENT_ID_PATTERN" >&2
+  echo "EXPERIMENT_ID: $EXPERIMENT_ID" >&2
   exit 1
 fi
 
-# ---- Argument Handling ----
-if [[ ! $# -eq 1 ]]; then
-  echo "Usage: $0 [experiment_id]"
-  echo "Consolidates FASTQ files into single per-sample files"
-  echo "  - Without arguments: uses current directory (must be ~/data/YYMMDDBel/fastq)"
-  echo "  - With experiment_id: uses ~/data/<experiment_id>/fastq"
+if [[ ! -d "$FASTQ_DIR" ]]; then
+  echo "Error: FASTQ_DIR does not exist. Please verify experiment id." >&2
+  echo "FASTQ_DIR: $FASTQ_DIR" >&2
+  echo "Run $0 -h for additional help." >&2
   exit 1
+
 fi
 
-original_dir="$(pwd)"
-target_dir=""
+if [[ ! -d "$DOCUMENTATION_DIR" ]]; then
+  echo "Error: DOCUMENTATION_DIR does not exist. Please verify experiment id." >&2
+  echo "DOCUMENTATION_DIR: $DOCUMENTATION_DIR" >&2
+  echo "Run $0 -h for additional help." >&2
+  exit 1
 
-if [[ $# -eq 1 ]]; then
-  # Validate provided experiment_id format
-  if [[ ! "$1" =~ ^[0-9]{6}Bel$ ]]; then
-    echo "ERROR: Invalid experiment_id format - must be 6 digits followed by 'Bel'" >&2
-    echo "Example: 230504Bel" >&2
-    exit 2
-  fi
-
-  target_dir="${HOME}/data/$1/fastq"
-  if [[ ! -d "$target_dir" ]]; then
-    echo "ERROR: Directory not found: $target_dir" >&2
-    echo "Check experiment_id or directory structure" >&2
-    exit 2
-  fi
 fi
-#else
-#  # Validate current directory format
-#  target_dir="$(pwd)"
-#  if [[ ! "$target_dir" =~ ^${HOME}/data/[0-9]{6}Bel/fastq$ ]]; then
-#    echo "ERROR: Current directory must be ~/data/######Bel/fastq" >&2
-#    echo "Path detected: $target_dir" >&2
-#    exit 2
-#  fi
-#fi
 
-# ---- Main Execution ----
-echo "Using FASTQ directory: ${target_dir}"
-cd "$target_dir" || { echo "ERROR: Failed to enter directory"; exit 1; }
-echo "Current working directory: $( pwd )"
+# ############################################
+# Main logic
+# ############################################
+echo "Using FASTQ directory: ${FASTQ_DIR}"
 
 # Validate cleanup state with single consolidated check
-if [ "$(find . -mindepth 1 -type d | wc -l)" -gt 0 ] || \
-   [ "$(find . -type f ! -name "*.fastq" | wc -l)" -gt 0 ] || \
-   [ "$(find . -maxdepth 1 -type f -name "*.fastq" | wc -l)" -eq 0 ]; then
+if [ "$(find "$FASTQ_DIR" -mindepth 1 -type d | wc -l)" -gt 0 ] || \
+   [ "$(find "$FASTQ_DIR" -type f ! -name "*.fastq" | wc -l)" -gt 0 ] || \
+   [ "$(find "$FASTQ_DIR" -maxdepth 1 -type f -name "*.fastq" | wc -l)" -eq 0 ]; then
   echo "ERROR: Directory not properly cleaned up. Please ensure:
 - No subdirectories exist
 - Only FASTQ files remain
