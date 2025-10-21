@@ -66,6 +66,7 @@ if [[ $# -gt 2 ]]; then
     exit 1
 fi
 
+DRY_RUN=true
 if [[ "$2" != "--active-run" ]]; then
   echo "Error: Invalid second argument: '$2'" >&2
   echo "Expected: --active-run (or omit for dry-run)" >&2
@@ -76,6 +77,7 @@ else
 fi
 
 # Ensure script runs in slurm.
+CLUSTER_NAME="luria"
 if [[ ! "$(hostname)" == "$CLUSTER_NAME" ]]; then
     echo "Error: This script should be run on the cluster." >&2
     echo "Current cluster setting: $CLUSTER_NAME" >&2
@@ -88,8 +90,6 @@ fi
 # Configuration
 #============================== 
 echo "Setting configuration..."
-DRY_RUN=true
-CLUSTER_NAME="luria"
 FILETYPE_TO_SYNC="*.fastq"
 EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
 RSYNC_OPTS=(-av --include='*/' --include="$FILETYPE_TO_SYNC" --exclude='*')

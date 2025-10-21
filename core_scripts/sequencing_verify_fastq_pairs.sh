@@ -66,13 +66,14 @@ if [[ $# -gt 2 ]]; then
     exit 1
 fi
 
+VERBOSE=false
 if [[ "$2" != "-v" ]]; then
   echo "Error: Invalid second argument: '$2'" >&2
   echo "Expected: -v (or omit for less verbose output)" >&2
   echo "Run '$0 -h' for usage." >&2
   exit 1
 else
-  VERBOSE=false
+  VERBOSE=true
 fi
 
 # Ensure script is run inside a Slurm allocation
@@ -87,7 +88,7 @@ To submit as a batch job:
     echo "$0 <EXPERIMENT_ID>" [-v] | sbatch
 
 EOF
-    exit 1
+  exit 1
 fi
 
 #============================== 
