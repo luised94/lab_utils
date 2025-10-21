@@ -145,24 +145,36 @@ if [[ ! -d "$DOCUMENTATION_DIR" ]]; then
 
 fi
 
+# 1. Check for any subdirectory (mindepth 1)
+# Use quit when you need to know if there is just more thna zero.
+if [[ -n "$(find "$FASTQ_DIR" -mindepth 1 -type d -print -quit 2>/dev/null)" ]]; then
+    echo "ERROR: Subdirectories still exist in: $FASTQ_DIR" >&2
+    exit 1
+fi
+
+# 2. Check for non-FASTQ files in top level
+if [[ -n "$(find "$FASTQ_DIR" -maxdepth 1 -type f ! -name "*.fastq" -print -quit 2>/dev/null)" ]]; then
+    echo "ERROR: Non-FASTQ files found in: $FASTQ_DIR" >&2
+    exit 1
+fi
+
+# 3. Check that at least one FASTQ file exists in top level
+if [[ -z "$(find "$FASTQ_DIR" -maxdepth 1 -type f -name "*.fastq" -print -quit 2>/dev/null)" ]]; then
+    echo "ERROR: No FASTQ files found in: $FASTQ_DIR" >&2
+    exit 1
+fi
+
+echo "Confirmed directory has been cleaned from other bmc files."
 # ############################################
 # Main logic
 # ############################################
 echo "Using FASTQ directory: ${FASTQ_DIR}"
-
-# Validate cleanup state with single consolidated check
-if [ "$(find "$FASTQ_DIR" -mindepth 1 -type d | wc -l)" -gt 0 ] || \
-   [ "$(find "$FASTQ_DIR" -type f ! -name "*.fastq" | wc -l)" -gt 0 ] || \
-   [ "$(find "$FASTQ_DIR" -maxdepth 1 -type f -name "*.fastq" | wc -l)" -eq 0 ]; then
-  echo "ERROR: Directory not properly cleaned up. Please ensure:
-- No subdirectories exist
-- Only FASTQ files remain
-- FASTQ files are in current directory" >&2
-  echo "Run ~/lab_utils/core_scripts/cleanup_bmc_directory.sh."
-  exit 1
+echo "Manifest file: $MANIFEST_FILE"
+# Validate manifest exists
+if [[ ! -f "$MANIFEST_FILE" ]]; then
+    echo "ERROR: Manifest file not found: $MANIFEST_FILE"
+    exit 1
 fi
-
-echo "Confirmed directory has been cleaned from other bmc files."
 
 # Extract unique IDs using delimiter-based approach
 # This specifically extracts the ID between the first and second dash after 'D24'
