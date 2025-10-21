@@ -366,66 +366,111 @@ samples_skipped=0
 for sample_id in "${unique_sample_ids[@]}"; do
   echo "--------------------"
   echo "Sample: $sample_id"
-  
+
   if [[ "$IS_PAIRED_END" == true ]]; then
     # Extract and sort R1 files
     r1_files_list=$(printf "%s" "${sample_r1_files[$sample_id]}" | sort -t: -k1,1n | cut -d: -f2-)
     # Extract and sort R2 files
     r2_files_list=$(printf "%s" "${sample_r2_files[$sample_id]}" | sort -t: -k1,1n | cut -d: -f2-)
-    
+
     # Convert to arrays for counting
     mapfile -t r1_files_array <<< "$r1_files_list"
     mapfile -t r2_files_array <<< "$r2_files_list"
-    
+
     echo "  Read type: Paired-end"
     echo "  R1 files found: ${#r1_files_array[@]}"
     echo "  R2 files found: ${#r2_files_array[@]}"
-    
+
+    # Validate file counts match expected lanes
+    if [[ ${#r1_files_array[@]} -ne $LANES_PER_SAMPLE ]]; then
+      echo "  ERROR: R1 file count (${#r1_files_array[@]}) does not match expected lanes ($LANES_PER_SAMPLE)"
+      ((samples_skipped++))
+      continue
+    fi
+
+    if [[ ${#r2_files_array[@]} -ne $LANES_PER_SAMPLE ]]; then
+      echo "  ERROR: R2 file count (${#r2_files_array[@]}) does not match expected lanes ($LANES_PER_SAMPLE)"
+      ((samples_skipped++))
+      continue
+    fi
+
+    # Validate R1 and R2 counts match
+    if [[ ${#r1_files_array[@]} -ne ${#r2_files_array[@]} ]]; then
+      echo "  ERROR: R1 count (${#r1_files_array[@]}) does not match R2 count (${#r2_files_array[@]})"
+      ((samples_skipped++))
+      continue
+    fi
+
+    # Define output filenames
+    output_r1="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_R1${OUTPUT_SUFFIX}"
+    output_r2="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_R2${OUTPUT_SUFFIX}"
+
+    # Check if output already exists
+    if [[ -f "$output_r1" && -f "$output_r2" ]]; then
+      echo "  Output files already exist - skipping"
+      echo "    $output_r1"
+      echo "    $output_r2"
+      ((samples_skipped++))
+      continue
+    fi
+
     # Display files in lane order
     echo "  R1 files (in lane order):"
     printf '    %s\n' "${r1_files_array[@]}"
     echo "  R2 files (in lane order):"
     printf '    %s\n' "${r2_files_array[@]}"
-    
-    # Define output filenames
-    output_r1="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_R1${OUTPUT_SUFFIX}"
-    output_r2="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_R2${OUTPUT_SUFFIX}"
-    
-    echo "  Would create:"
+
+    echo "  Will create:"
     echo "    $output_r1"
     echo "    $output_r2"
-    
+
   else
     # Extract and sort single-end files
     se_files_list=$(printf "%s" "${sample_se_files[$sample_id]}" | sort -t: -k1,1n | cut -d: -f2-)
-    
+
     # Convert to array for counting
     mapfile -t se_files_array <<< "$se_files_list"
-    
+
     echo "  Read type: Single-end"
     echo "  Files found: ${#se_files_array[@]}"
-    
+
+    # Validate file count matches expected lanes
+    if [[ ${#se_files_array[@]} -ne $LANES_PER_SAMPLE ]]; then
+      echo "  ERROR: File count (${#se_files_array[@]}) does not match expected lanes ($LANES_PER_SAMPLE)"
+      ((samples_skipped++))
+      continue
+    fi
+
+    # Define output filename
+    output_se="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_NA${OUTPUT_SUFFIX}"
+
+    # Check if output already exists
+    if [[ -f "$output_se" ]]; then
+      echo "  Output file already exists - skipping"
+      echo "    $output_se"
+      ((samples_skipped++))
+      continue
+    fi
+
     # Display files in lane order
     echo "  Files (in lane order):"
     printf '    %s\n' "${se_files_array[@]}"
-    
-    # Define output filename
-    output_se="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_NA${OUTPUT_SUFFIX}"
-    
-    echo "  Would create:"
+
+    echo "  Will create:"
     echo "    $output_se"
+
   fi
-  
+
   echo "--------------------"
   echo ""
 done
 
 echo "============================================"
 echo "Consolidation planning complete"
-echo "Samples to process: ${#unique_sample_ids[@]}"
+echo "Total samples: ${#unique_sample_ids[@]}"
+echo "Samples to process: $((${#unique_sample_ids[@]} - samples_skipped))"
+echo "Samples skipped: $samples_skipped"
 echo "============================================"
-
-echo "Consolidation complete..."
 #read -rp "Proceed with job submission? (y/n): " confirm
 #confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
 #
