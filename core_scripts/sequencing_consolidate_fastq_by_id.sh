@@ -262,14 +262,75 @@ if [[ ${#unique_pair_indicator[@]} -eq 0 ]]; then
 
 fi
 
+# Validate lane numbers are reasonable (1-4 typical)
+for lane in "${detected_lanes[@]}"; do
+  if [[ ! "$lane" =~ ^[1-4]$ ]]; then
+    echo "WARNING: Unusual lane number detected: $lane"
+  fi
+done
+
+# Determine read type and validate
+has_paired_indicators=false
+has_single_indicator=false
+has_invalid=false
+
+for indicator in "${unique_pair_indicator[@]}"; do
+  if [[ "$indicator" == "1" || "$indicator" == "2" ]]; then
+    has_paired_indicators=true
+  elif [[ "$indicator" == "NA" ]]; then
+    has_single_indicator=true
+  else
+    has_invalid=true
+    echo "  ERROR: Invalid read indicator found: '$indicator'"
+  fi
+done
+
+# Check for errors
+if [[ "$has_invalid" == true ]]; then
+  echo "  ERROR: Unexpected read indicators found"
+  echo "  Expected: '1', '2' (paired-end) or 'NA' (single-end)"
+  exit 1
+fi
+
+if [[ "$has_paired_indicators" == true && "$has_single_indicator" == true ]]; then
+  echo "  ERROR: Mixed read types detected (both paired and single-end)"
+  echo "  Found indicators: ${unique_pair_indicator[*]}"
+  exit 1
+fi
+
+# Set configuration
+if [[ "$has_paired_indicators" == true ]]; then
+  IS_PAIRED_END=true
+  EXPECTED_READ_PAIRS_PER_LANE=2
+  echo "  Detected: PAIRED-END"
+elif [[ "$has_single_indicator" == true ]]; then
+  IS_PAIRED_END=false
+  EXPECTED_READ_PAIRS_PER_LANE=1
+  echo "  Detected: SINGLE-END"
+else
+  echo "  ERROR: No valid read indicators found"
+  exit 1
+fi
+
+# Check read type detection succeeded
+if [[ -z "$IS_PAIRED_END" ]]; then
+  echo "ERROR: Failed to detect read type"
+  exit 1
+fi
+
+# Expected number of samples per file.
+EXPECTED_FILES_PER_SAMPLE=$((EXPECTED_LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
+
 echo "Processing ${#unique_sample_ids[@]} sample IDs"
 echo "----------------"
 echo "Unique ids:"
 printf '%s\n' "${unique_sample_ids[@]}" | xargs -n6 | sed 's/^/  /' | column -t
-echo "  Lanes found: ${detected_lanes[*]}"
-echo "  Found read indicators: ${unique_pair_indicator[*]}"
+echo "Lanes found: ${detected_lanes[*]}"
+echo "Found read indicators: ${unique_pair_indicator[*]}"
+echo "Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
 echo "----------------"
 
+echo "Consolidation complete..."
 #read -rp "Proceed with job submission? (y/n): " confirm
 #confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
 #
@@ -277,8 +338,6 @@ echo "----------------"
 #  echo "Job submission cancelled"
 #  exit 4
 #fi
-
-echo "Job confirmed. Proceed with consolidation..."
 
 # Process each unique ID
 #for id in "${unique_sample_ids[@]}"; do
