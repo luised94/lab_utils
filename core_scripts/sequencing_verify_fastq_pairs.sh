@@ -167,7 +167,6 @@ fi
 # ############################################
 # Main logic
 # ############################################
-# @QUES: Can probably consolidate all of the extraction logic into a single for loop.
 # ============================================
 # Discover all fastq files
 # ============================================
@@ -249,7 +248,6 @@ if [[ ${#unique_pair_indicator[@]} -eq 0 ]]; then
 fi
 
 if [[ "$VERBOSE" == true ]]; then
-  echo "Filename: $filename"
   echo "Unique samples found: ${#unique_sample_ids[@]}"
   echo "Sample IDs:"
   printf '  %s\n' "${unique_sample_ids[@]}"

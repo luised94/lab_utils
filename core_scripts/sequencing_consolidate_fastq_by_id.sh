@@ -168,35 +168,103 @@ echo "Confirmed directory has been cleaned from other bmc files."
 # ############################################
 echo "Using FASTQ directory: ${FASTQ_DIRECTORY}"
 echo "Manifest file: $MANIFEST_FILE"
+
 # Validate manifest exists
 if [[ -f "$MANIFEST_FILE" ]]; then
     echo "Warning: Manifest file already exists."
 
 fi
 
-# Extract unique IDs using delimiter-based approach
-# This specifically extracts the ID between the first and second dash after 'D24'
-readarray -t unique_ids < <(
-  for fastq_file in *_sequence.fastq; do
-    # Split filename components
-    IFS='_-' read -ra parts <<< "${fastq_file##*/}"
-    # Extract ID from standardized position (3rd component)
-    printf "%s\n" "${parts[2]}"
-  done | sort -u
-)
+# ============================================
+# Discover all fastq files
+# ============================================
+echo "Looking for fastq files in: $FASTQ_DIRECTORY"
 
-# Verify we found some IDs
-if [ ${#unique_ids[@]} -eq 0 ]; then
-  echo "ERROR: No valid IDs found in fastq files" >&2
-  echo "Ensure the unique ids logic is correct and no updates have occured to names." >&2
-  exit 3
+mapfile -t all_fastq_files < <(find "$FASTQ_DIRECTORY" -type f -name "*.fastq")
+echo "Total fastq files found: ${#all_fastq_files[@]}"
+
+# Check if any files found
+if [[ ${#all_fastq_files[@]} -eq 0 ]]; then
+  echo "ERROR: No .fastq files found in directory"
+  exit 1
 fi
 
-echo "Processing ${#unique_ids[@]} sample IDs"
-echo "Found the following unique IDs:"
+# ============================================
+# Extract sample IDs, lanes, and read types in one pass
+# ============================================
+echo "Analyzing FASTQ files..."
+declare -A sample_id_map  # Use associative array for uniqueness
+declare -A lane_map
+declare -A pair_indicator_map
+
+# Loop overall files and extract based on indices.
+for fastq_file in "${all_fastq_files[@]}"; do
+  filename=$(basename "$fastq_file")
+
+  if [[ "$VERBOSE" == true ]]; then
+    echo "Filename: $filename"
+  fi
+
+  if [[ "$filename" =~ unmapped ]]; then
+    if [[ "$VERBOSE" == true ]]; then
+      echo "Skipping unmapped fastq file"
+    fi
+    continue
+  fi
+
+  # Split on _ and - to get components
+  IFS='_-' read -ra parts <<< "$filename"
+
+  # --- Extract sample ID ---
+  sample_id="${parts[$SAMPLE_ID_START_IDX]}-${parts[$SAMPLE_ID_END_IDX]}"
+  sample_id_map["$sample_id"]=1
+
+  # --- Extract lane number ---
+  lane_number="${parts[$LANE_IDX]}"
+  lane_map["$lane_number"]=1
+
+  # --- Extract read pair indicator ---
+  read_indicator="${parts[$READ_PAIR_IDX]}"
+  pair_indicator_map["$read_indicator"]=1
+
+done
+
+echo "Extracting unique metadata values..."
+mapfile -t unique_sample_ids < <(printf '%s\n' "${!sample_id_map[@]}" | sort)
+mapfile -t detected_lanes < <(printf '%s\n' "${!lane_map[@]}" | sort -n)
+mapfile -t unique_pair_indicator < <(printf '%s\n' "${!pair_indicator_map[@]}" | sort)
+EXPECTED_LANES_PER_SAMPLE=${#detected_lanes[@]}
+
+# ============================================
+# Error handling for metadata extraction
+# ============================================
+if [[ ${#unique_sample_ids[@]} -eq 0 ]]; then
+  echo "ERROR: No valid sample IDs extracted from filenames" >&2
+  echo "Ensure the unique ids logic is correct and no updates have occured to names." >&2
+  exit 1
+
+fi
+
+if [[ ${#detected_lanes[@]} -eq 0 ]]; then
+  echo "ERROR: No lanes detected after extraction."
+  exit 1
+
+fi
+
+if [[ ${#unique_pair_indicator[@]} -eq 0 ]]; then
+  echo "ERROR: No lanes detected after extraction."
+  exit 1
+
+fi
+
+echo "Processing ${#unique_sample_ids[@]} sample IDs"
 echo "----------------"
-printf '%s\n' "${unique_ids[@]}" | xargs -n6 | sed 's/^/  /' | column -t
+echo "Unique ids:"
+printf '%s\n' "${unique_sample_ids[@]}" | xargs -n6 | sed 's/^/  /' | column -t
+echo "  Lanes found: ${detected_lanes[*]}"
+echo "  Found read indicators: ${unique_pair_indicator[*]}"
 echo "----------------"
+
 read -rp "Proceed with job submission? (y/n): " confirm
 confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
 
@@ -205,88 +273,88 @@ if [[ "$confirm" != "y" ]]; then
   exit 4
 fi
 
-echo "Job confirmed. Proceed with consolidation."
+echo "Job confirmed. Proceed with consolidation..."
 
 # Process each unique ID
-for id in "${unique_ids[@]}"; do
-  echo "--------------------"
-  echo "Processing ID: $id"
-  # Find files using array and glob pattern
-  files=( *"${id}"*_sequence.fastq )
-
-  if [ ${#files[@]} -eq 0 ]; then
-    echo "ERROR: No files found for ID: $id"
-    continue
-  fi
-
-  if [ ! ${#files[@]} -eq 2 ]; then
-    echo -e "[ERROR]: Found ${#files[@]} for $id\nExpected 2"
-    continue
-  fi
-
-  # Validate all files before processing
-  for file in "${files[@]}"; do
-    if ! [ -f "$file" ]; then
-      echo "Error: $file not found"
-      exit 1
-    fi
-    if ! [[ "$file" =~ \.fastq$ ]]; then
-      echo "Error: $file is not a FASTQ file"
-      exit 1
-    fi
-    echo "Validated: $file"
-  done
-
-  output_file="consolidated_${id}_sequence.fastq"
-  tmp_file="${output_file}.tmp"
-
-  if [ -f "$output_file" ]; then
-    echo "$output_file already exists. Skipping..."
-    continue
-  fi
-
-  # Consolidate files with atomic write
-  if cat -- "${files[@]}" > "$tmp_file"; then
-    mv "$tmp_file" "$output_file"
-    echo "Successfully created $output_file"
-
-    # Verify file content
-    if [ -s "$output_file" ]; then
-      # Accurate size calculation
-      original_size=$(wc -c "${files[@]}" | awk '/total/ {print $1}')
-      new_size=$(wc -c < "$output_file")
-
-      echo "Original files total size: $original_size bytes"
-      echo "New file size: $new_size bytes"
-
-      # Calculate original data checksum
-      orig_checksum=$(cat "${files[@]}" | md5sum | cut -d' ' -f1)
-      new_checksum=$(md5sum "$output_file" | cut -d' ' -f1)
-
-      if [[ "$orig_checksum" != "$new_checksum" ]]; then
-        echo "Error: Consolidated file checksum mismatch!" >&2
-        echo "Expected: $orig_checksum" >&2
-        echo "Actual:   $new_checksum" >&2
-        exit 5
-      fi
-
-      # Only remove if verification passed
-      echo "Removing original files..."
-      rm -f -- "${files[@]}"
-      echo "Original files removed"
-    else
-      echo "Error: Consolidated file is empty"
-      rm -f "$output_file"
-      exit 5
-    fi
-  else
-    echo "Error during consolidation"
-    rm -f "$tmp_file" "$output_file"
-    exit 5
-  fi
-  echo "--------------------"
-done
-
-echo "Consolidation completed successfully in ${target_dir}"
-# Return to original directory
-cd "$original_dir"
+#for id in "${unique_sample_ids[@]}"; do
+#  echo "--------------------"
+#  echo "Processing ID: $id"
+#  # Find files using array and glob pattern
+#  files=( *"${id}"*_sequence.fastq )
+#
+#  if [ ${#files[@]} -eq 0 ]; then
+#    echo "ERROR: No files found for ID: $id"
+#    continue
+#  fi
+#
+#  if [ ! ${#files[@]} -eq 2 ]; then
+#    echo -e "[ERROR]: Found ${#files[@]} for $id\nExpected 2"
+#    continue
+#  fi
+#
+#  # Validate all files before processing
+#  for file in "${files[@]}"; do
+#    if ! [ -f "$file" ]; then
+#      echo "Error: $file not found"
+#      exit 1
+#    fi
+#    if ! [[ "$file" =~ \.fastq$ ]]; then
+#      echo "Error: $file is not a FASTQ file"
+#      exit 1
+#    fi
+#    echo "Validated: $file"
+#  done
+#
+#  output_file="consolidated_${id}_sequence.fastq"
+#  tmp_file="${output_file}.tmp"
+#
+#  if [ -f "$output_file" ]; then
+#    echo "$output_file already exists. Skipping..."
+#    continue
+#  fi
+#
+#  # Consolidate files with atomic write
+#  if cat -- "${files[@]}" > "$tmp_file"; then
+#    mv "$tmp_file" "$output_file"
+#    echo "Successfully created $output_file"
+#
+#    # Verify file content
+#    if [ -s "$output_file" ]; then
+#      # Accurate size calculation
+#      original_size=$(wc -c "${files[@]}" | awk '/total/ {print $1}')
+#      new_size=$(wc -c < "$output_file")
+#
+#      echo "Original files total size: $original_size bytes"
+#      echo "New file size: $new_size bytes"
+#
+#      # Calculate original data checksum
+#      orig_checksum=$(cat "${files[@]}" | md5sum | cut -d' ' -f1)
+#      new_checksum=$(md5sum "$output_file" | cut -d' ' -f1)
+#
+#      if [[ "$orig_checksum" != "$new_checksum" ]]; then
+#        echo "Error: Consolidated file checksum mismatch!" >&2
+#        echo "Expected: $orig_checksum" >&2
+#        echo "Actual:   $new_checksum" >&2
+#        exit 5
+#      fi
+#
+#      # Only remove if verification passed
+#      echo "Removing original files..."
+#      rm -f -- "${files[@]}"
+#      echo "Original files removed"
+#    else
+#      echo "Error: Consolidated file is empty"
+#      rm -f "$output_file"
+#      exit 5
+#    fi
+#  else
+#    echo "Error during consolidation"
+#    rm -f "$tmp_file" "$output_file"
+#    exit 5
+#  fi
+#  echo "--------------------"
+#done
+#
+#echo "Consolidation completed successfully in ${target_dir}"
+## Return to original directory
+#cd "$original_dir"
