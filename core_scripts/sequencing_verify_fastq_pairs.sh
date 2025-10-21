@@ -50,7 +50,10 @@ EOF
 # Argument error handling
 #============================== 
 # Check for arguments
-if [[ $# -eq 0 ]]; then
+echo "Handling arguments..."
+MIN_NUMBER_OF_ARGS=1
+MAX_NUMBER_OF_ARGS=2
+if [[ $# -lt $MIN_NUMBER_OF_ARGS ]] || [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
   echo "Error: No argument provided." >&2
   show_usage
 fi
@@ -60,19 +63,14 @@ if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   show_usage
 fi
 
-if [[ $# -gt 2 ]]; then
-    echo "Error: Too many arguments provided." >&2
+VERBOSE=false
+if [[ $# -eq $MAX_NUMBER_OF_ARGS ]]; then
+  if [[ "$2" != "-v" ]]; then
+    echo "Error: Invalid second argument: '$2'" >&2
+    echo "Use -v to perform output verbose output." >&2
     echo "Run '$0 -h' for usage." >&2
     exit 1
-fi
-
-VERBOSE=false
-if [[ "$2" != "-v" ]]; then
-  echo "Error: Invalid second argument: '$2'" >&2
-  echo "Expected: -v (or omit for less verbose output)" >&2
-  echo "Run '$0 -h' for usage." >&2
-  exit 1
-else
+  fi
   VERBOSE=true
 fi
 

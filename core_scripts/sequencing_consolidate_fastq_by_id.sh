@@ -49,7 +49,9 @@ EOF
 #============================== 
 # Check for arguments
 echo "Handling arguments..."
-if [[ $# -eq 0 ]]; then
+MIN_NUMBER_OF_ARGS=1
+MAX_NUMBER_OF_ARGS=2
+if [[ $# -lt $MIN_NUMBER_OF_ARGS ]] || [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
   echo "Error: No argument provided." >&2
   show_usage
 fi
@@ -59,20 +61,15 @@ if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   show_usage
 fi
 
-if [[ $# -gt 2 ]]; then
-    echo "Error: Too many arguments provided." >&2
-    echo "Run '$0 -h' for usage." >&2
-    exit 1
-fi
-
+# Handle second argument: Set dry-run mode.
 DRY_RUN=true
-if [[ "$2" != "--active-run" ]]; then
-  echo "Error: Invalid second argument: '$2'" >&2
-  echo "Expected: --active-run (or omit for dry-run)" >&2
-  echo "Run '$0 -h' for usage." >&2
-  exit 1
-else
-  DRY_RUN=false
+if [[ $# -eq $MAX_NUMBER_OF_ARGS ]]; then
+    if [[ "$2" != "--active-run" ]]; then
+        echo "Error: Unknown option '$2'" >&2
+        echo "Use --active-run to perform actual sync." >&2
+        exit 1
+    fi
+    DRY_RUN=false
 fi
 
 # Ensure script is run inside a Slurm allocation
@@ -265,13 +262,13 @@ echo "  Lanes found: ${detected_lanes[*]}"
 echo "  Found read indicators: ${unique_pair_indicator[*]}"
 echo "----------------"
 
-read -rp "Proceed with job submission? (y/n): " confirm
-confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
-
-if [[ "$confirm" != "y" ]]; then
-  echo "Job submission cancelled"
-  exit 4
-fi
+#read -rp "Proceed with job submission? (y/n): " confirm
+#confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
+#
+#if [[ "$confirm" != "y" ]]; then
+#  echo "Job submission cancelled"
+#  exit 4
+#fi
 
 echo "Job confirmed. Proceed with consolidation..."
 
