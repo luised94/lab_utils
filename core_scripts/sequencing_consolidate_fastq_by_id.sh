@@ -105,15 +105,13 @@ EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
 NCORES=$(nproc)
 #FILETYPE_TO_KEEP="*.fastq"
 #EXCLUDING_PATTERN="*unmapped*"
-EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
 
 #============================== 
 # Setup and preprocessing
 #============================== 
-# Ensure argument does not have trailing slashes.
-EXPERIMENT_ID=${1%/}
+EXPERIMENT_ID=${1%/} # Ensure argument does not have trailing slashes.
 EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
-FASTQ_DIR="$EXPERIMENT_DIR/fastq/"
+FASTQ_DIRECTORY="$EXPERIMENT_DIR/fastq/"
 DOCUMENTATION_DIR="$(dirname "$FASTQ_DIRECTORY")/documentation"
 MANIFEST_FILE="$DOCUMENTATION_DIR/paired_reads_manifest.tsv"
 
@@ -129,9 +127,9 @@ if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
   exit 1
 fi
 
-if [[ ! -d "$FASTQ_DIR" ]]; then
-  echo "Error: FASTQ_DIR does not exist. Please verify experiment id." >&2
-  echo "FASTQ_DIR: $FASTQ_DIR" >&2
+if [[ ! -d "$FASTQ_DIRECTORY" ]]; then
+  echo "Error: FASTQ_DIRECTORY does not exist. Please verify experiment id." >&2
+  echo "FASTQ_DIRECTORY: $FASTQ_DIRECTORY" >&2
   echo "Run $0 -h for additional help." >&2
   exit 1
 
@@ -147,20 +145,20 @@ fi
 
 # 1. Check for any subdirectory (mindepth 1)
 # Use quit when you need to know if there is just more thna zero.
-if [[ -n "$(find "$FASTQ_DIR" -mindepth 1 -type d -print -quit 2>/dev/null)" ]]; then
-    echo "ERROR: Subdirectories still exist in: $FASTQ_DIR" >&2
+if [[ -n "$(find "$FASTQ_DIRECTORY" -mindepth 1 -type d -print -quit 2>/dev/null)" ]]; then
+    echo "ERROR: Subdirectories still exist in: $FASTQ_DIRECTORY" >&2
     exit 1
 fi
 
 # 2. Check for non-FASTQ files in top level
-if [[ -n "$(find "$FASTQ_DIR" -maxdepth 1 -type f ! -name "*.fastq" -print -quit 2>/dev/null)" ]]; then
-    echo "ERROR: Non-FASTQ files found in: $FASTQ_DIR" >&2
+if [[ -n "$(find "$FASTQ_DIRECTORY" -maxdepth 1 -type f ! -name "*.fastq" -print -quit 2>/dev/null)" ]]; then
+    echo "ERROR: Non-FASTQ files found in: $FASTQ_DIRECTORY" >&2
     exit 1
 fi
 
 # 3. Check that at least one FASTQ file exists in top level
-if [[ -z "$(find "$FASTQ_DIR" -maxdepth 1 -type f -name "*.fastq" -print -quit 2>/dev/null)" ]]; then
-    echo "ERROR: No FASTQ files found in: $FASTQ_DIR" >&2
+if [[ -z "$(find "$FASTQ_DIRECTORY" -maxdepth 1 -type f -name "*.fastq" -print -quit 2>/dev/null)" ]]; then
+    echo "ERROR: No FASTQ files found in: $FASTQ_DIRECTORY" >&2
     exit 1
 fi
 
@@ -168,12 +166,12 @@ echo "Confirmed directory has been cleaned from other bmc files."
 # ############################################
 # Main logic
 # ############################################
-echo "Using FASTQ directory: ${FASTQ_DIR}"
+echo "Using FASTQ directory: ${FASTQ_DIRECTORY}"
 echo "Manifest file: $MANIFEST_FILE"
 # Validate manifest exists
-if [[ ! -f "$MANIFEST_FILE" ]]; then
-    echo "ERROR: Manifest file not found: $MANIFEST_FILE"
-    exit 1
+if [[ -f "$MANIFEST_FILE" ]]; then
+    echo "Warning: Manifest file already exists."
+
 fi
 
 # Extract unique IDs using delimiter-based approach
