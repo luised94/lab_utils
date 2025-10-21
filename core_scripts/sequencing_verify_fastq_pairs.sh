@@ -183,16 +183,19 @@ if [[ ${#all_fastq_files[@]} -eq 0 ]]; then
 fi
 
 # ============================================
-# Extract unique sample IDs
+# Extract sample IDs, lanes, and read types in one pass
 # ============================================
-echo "Extracting unique sample ids..."
+echo "Analyzing FASTQ files..."
 declare -A sample_id_map  # Use associative array for uniqueness
+declare -A lane_map
+declare -A pair_indicator_map
 
+# Loop overall files and extract based on indices.
 for fastq_file in "${all_fastq_files[@]}"; do
   filename=$(basename "$fastq_file")
+
   if [[ "$VERBOSE" == true ]]; then
     echo "Filename: $filename"
-
   fi
 
   if [[ "$filename" =~ unmapped ]]; then
@@ -200,61 +203,60 @@ for fastq_file in "${all_fastq_files[@]}"; do
       echo "Skipping unmapped fastq file"
     fi
     continue
-
   fi
 
   # Split on _ and - to get components
   IFS='_-' read -ra parts <<< "$filename"
-  # Build sample ID from components (D25-12496)
+
+  # --- Extract sample ID ---
   sample_id="${parts[$SAMPLE_ID_START_IDX]}-${parts[$SAMPLE_ID_END_IDX]}"
-  echo "Sample id: $sample_id"
   sample_id_map["$sample_id"]=1
 
+  # --- Extract lane number ---
+  lane_number="${parts[$LANE_IDX]}"
+  lane_map["$lane_number"]=1
+
+  # --- Extract read pair indicator ---
+  read_indicator="${parts[$READ_PAIR_IDX]}"
+  pair_indicator_map["$read_indicator"]=1
 done
 
-# Get sorted list of unique sample IDs
+echo "Extracting unique metadata values..."
 mapfile -t unique_sample_ids < <(printf '%s\n' "${!sample_id_map[@]}" | sort)
-echo "Unique samples found: ${#unique_sample_ids[@]}"
+mapfile -t detected_lanes < <(printf '%s\n' "${!lane_map[@]}" | sort -n)
+mapfile -t unique_pair_indicator < <(printf '%s\n' "${!pair_indicator_map[@]}" | sort)
+EXPECTED_LANES_PER_SAMPLE=${#detected_lanes[@]}
 
+# ============================================
+# Error handling for metadata extraction
+# ============================================
 if [[ ${#unique_sample_ids[@]} -eq 0 ]]; then
   echo "ERROR: No valid sample IDs extracted from filenames"
   exit 1
+
 fi
-
-echo "Sample IDs:"
-printf '  %s\n' "${unique_sample_ids[@]}"
-
-# ============================================
-# Detect number of lanes
-# ============================================
-echo "Detecting lane numbers..."
-
-declare -A lane_map
-
-for file in "${all_fastq_files[@]}"; do
-  filename=$(basename "$file")
-  [[ "$filename" =~ unmapped ]] && continue
-
-  IFS='_-' read -ra parts <<< "$filename"
-  lane_number="${parts[$LANE_IDX]}"
-  lane_map["$lane_number"]=1
-done
-
-mapfile -t detected_lanes < <(printf '%s\n' "${!lane_map[@]}" | sort -n)
 
 if [[ ${#detected_lanes[@]} -eq 0 ]]; then
   echo "ERROR: No lanes detected after extraction."
   exit 1
+
 fi
 
-echo "  Lanes found: ${detected_lanes[*]}"
-EXPECTED_LANES_PER_SAMPLE=${#detected_lanes[@]}
-echo "  Expected lanes per sample: $EXPECTED_LANES_PER_SAMPLE"
-
-# Check lane detection succeeded
-if [[ ${#detected_lanes[@]} -eq 0 ]]; then
-  echo "ERROR: No valid lane numbers detected"
+if [[ ${#unique_pair_indicator[@]} -eq 0 ]]; then
+  echo "ERROR: No lanes detected after extraction."
   exit 1
+
+fi
+
+if [[ "$VERBOSE" == true ]]; then
+  echo "Filename: $filename"
+  echo "Unique samples found: ${#unique_sample_ids[@]}"
+  echo "Sample IDs:"
+  printf '  %s\n' "${unique_sample_ids[@]}"
+  echo "  Lanes found: ${detected_lanes[*]}"
+  echo "  Found read indicators: ${unique_pair_indicator[*]}"
+  echo "  Expected lanes per sample: $EXPECTED_LANES_PER_SAMPLE"
+
 fi
 
 # Validate lane numbers are reasonable (1-4 typical)
@@ -264,34 +266,13 @@ for lane in "${detected_lanes[@]}"; do
   fi
 done
 
-# ============================================
-# Detect sequencing read type
-# ============================================
-echo "Detecting read type (single-end vs paired-end)..."
-
-# Collect all unique read indicators to detect mixed/invalid data
-declare -A indicator_map
-
-for file in "${all_fastq_files[@]}"; do
-  filename=$(basename "$file")
-  [[ "$filename" =~ unmapped ]] && continue
-
-  IFS='_-' read -ra parts <<< "$filename"
-  read_indicator="${parts[$READ_PAIR_IDX]}"
-  indicator_map["$read_indicator"]=1
-done
-
-# Extract unique indicators
-mapfile -t unique_indicators < <(printf '%s\n' "${!indicator_map[@]}" | sort)
-
-echo "  Found read indicators: ${unique_indicators[*]}"
 
 # Determine read type and validate
 has_paired_indicators=false
 has_single_indicator=false
 has_invalid=false
 
-for indicator in "${unique_indicators[@]}"; do
+for indicator in "${unique_pair_indicator[@]}"; do
   if [[ "$indicator" == "1" || "$indicator" == "2" ]]; then
     has_paired_indicators=true
   elif [[ "$indicator" == "NA" ]]; then
@@ -311,7 +292,7 @@ fi
 
 if [[ "$has_paired_indicators" == true && "$has_single_indicator" == true ]]; then
   echo "  ERROR: Mixed read types detected (both paired and single-end)"
-  echo "  Found indicators: ${unique_indicators[*]}"
+  echo "  Found indicators: ${unique_pair_indicator[*]}"
   exit 1
 fi
 
@@ -335,14 +316,13 @@ if [[ -z "$IS_PAIRED_END" ]]; then
   exit 1
 fi
 
-# ============================================
-# Verify how many files there are per sample
-# ============================================
-echo ""
 echo "Verifying file counts per sample..."
 EXPECTED_FILES_PER_SAMPLE=$((EXPECTED_LANES_PER_SAMPLE * EXPECTED_READ_PAIRS_PER_LANE))
 echo "  Expected files per sample: $EXPECTED_FILES_PER_SAMPLE"
 
+# ============================================
+# Verify how many files there are per sample
+# ============================================
 declare -A sample_file_lists  # Will store space-separated file lists
 
 for sample_id in "${unique_sample_ids[@]}"; do
@@ -355,8 +335,14 @@ for sample_id in "${unique_sample_ids[@]}"; do
 
   if [[ $file_count -ne $EXPECTED_FILES_PER_SAMPLE ]]; then
     echo "  [WARNING] $sample_id: found $file_count files, expected $EXPECTED_FILES_PER_SAMPLE"
+
   else
-    echo "  [OK] $sample_id: $file_count files"
+
+    if [[ "$VERBOSE" == true ]]; then
+      echo "  [OK] $sample_id: $file_count files"
+
+    fi
+
   fi
 
   # Store for later use (joining array into string)
@@ -485,8 +471,7 @@ else
 
 fi
 
-
-# At the very end, add final summary:
+# --- Final summary ---
 echo ""
 echo "============================================"
 echo "Summary"
