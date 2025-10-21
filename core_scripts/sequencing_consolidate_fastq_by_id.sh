@@ -52,19 +52,20 @@ echo "Handling arguments..."
 MIN_NUMBER_OF_ARGS=1
 MAX_NUMBER_OF_ARGS=2
 EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+# Check for help flag
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+  show_usage
+fi
+
+# Verify number of arguments
 if [[ $# -lt $MIN_NUMBER_OF_ARGS ]]; then
     echo "Error: Missing required argument EXPERIMENT_ID." >&2
     show_usage
     exit 1
-elif [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
+:w
     echo "Error: Too many arguments provided ($#)." >&2
     show_usage
     exit 1
-fi
-
-# Check for help flag
-if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
-  show_usage
 fi
 
 # Handle first argument: Remove trailing slash and validate pattern
