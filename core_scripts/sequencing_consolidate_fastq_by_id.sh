@@ -51,7 +51,7 @@ EOF
 echo "Handling arguments..."
 MIN_NUMBER_OF_ARGS=1
 MAX_NUMBER_OF_ARGS=2
-EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{6}Bel$ # Do not quote regular expression.
 # Check for help flag
 if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   show_usage
