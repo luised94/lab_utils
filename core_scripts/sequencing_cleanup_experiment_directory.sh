@@ -132,22 +132,7 @@ fi
 # Main logic
 # ############################################
 
-mapfile -t files_to_move < <(
-  find "$FASTQ_DIR" \
-       -type f \
-       -name "$FILETYPE_TO_KEEP" \
-       -not -name "$EXCLUDING_PATTERN"
-  )
-
-mapfile -t files_to_remove < <(
-  find "$FASTQ_DIR" \
-       ! -type f \
-       -name "$FILETYPE_TO_KEEP" \
-       -not -name "$EXCLUDING_PATTERN"
-
-  )
-
-FASTQ_FILES_COUNT=${#files_to_move[@]}
+FASTQ_FILES_COUNT=$(find "$FASTQ_DIR" -type f -name "$FILETYPE_TO_KEEP" ! -name "$EXCLUDING_PATTERN" 2>/dev/null | wc -l)
 if [[ $FASTQ_FILES_COUNT -eq 0 ]]; then
   echo "No fastq files found." >&2
   echo "FASTQ_DIR: $FASTQ_DIR" >&2
@@ -155,30 +140,28 @@ if [[ $FASTQ_FILES_COUNT -eq 0 ]]; then
 
 fi
 
-#if [[ ${#files_to_remove[@]} -eq 0 ]]; then
-#  echo "No files to remove found." >&2
-#  echo "EXCLUDING_PATTERN: $EXCLUDING_PATTERN" >&2
-#  exit 1
-#
-#fi
+if [[ "$DRY_RUN" == true ]]; then
+  echo ">>> DRY RUN MODE <<<"
+  echo "Files that would be MOVED to $FASTQ_DIR:"
+  find "$FASTQ_DIR" -type f -name "$FILETYPE_TO_KEEP" ! -name "$EXCLUDING_PATTERN" 2>/dev/null
 
-if [[ $DRY_RUN==true ]]; then
-  echo "Executing dry-run..."
+  echo -e "\nFiles that would be DELETED:"
+  find "$FASTQ_DIR" -type f \( ! -name "$FILETYPE_TO_KEEP" -o -name "$EXCLUDING_PATTERN" \) 2>/dev/null
+
+  echo -e "\nEmpty directories that would be REMOVED:"
+  find "$FASTQ_DIR" -type d -empty 2>/dev/null
+
+else
+  # 1. Move valid FASTQ files to top level
+  find "$FASTQ_DIR" -type f -name "$FILETYPE_TO_KEEP" ! -name "$EXCLUDING_PATTERN" \
+       -exec mv {} "$FASTQ_DIR" \;
+
+  # 2. Delete everything else (non-fastq OR unmapped fastq)
+  find "$FASTQ_DIR" -type f \( ! -name "$FILETYPE_TO_KEEP" -o -name "$EXCLUDING_PATTERN" \) \
+       -delete
+
+  # 3. Clean empty dirs
+  find "$FASTQ_DIR" -type d -empty -delete
+
+  echo "Cleanup complete."
 fi
-# You can perform a dry-run first by removing the -delete option from the command.
-# Use | wc -l to count the files as well.
-# Remove unmapped files first
-#echo "Removing unmapped files..."
-#find . -type f -name "*unmapped*" -delete
-#
-## Remove all non-fastq files
-#echo "Removing non-FASTQ files..."
-#find . -type f ! -name "*.fastq" -delete
-#
-## Move all fastq files to current directory
-#echo "Moving FASTQ files to current directory..."
-#find . -type f -name "*.fastq" -exec mv {} . \;
-#
-## Remove empty directories
-#echo "Removing empty directories..."
-#find . -type d -empty -delete
