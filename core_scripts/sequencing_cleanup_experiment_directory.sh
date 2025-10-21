@@ -7,66 +7,178 @@
 #   Remove unused files from rsync download and moves all fastq files out of subdirectories.
 # USAGE:
 #   From the command line
-#   $ srun ./sequencing_verify_fastq_pairs.sh /path/to/fastq/directory
+#   $ srun sequencing_cleanup_experiment_directory.sh <EXPERIMENT_ID>
 # DEPENDENCIES:
 #   bash 4.2
+#   Assumes fastqs were downloaded using rsync.
 # OUTPUTS:
-#   No outputs produced by file or script.
-#   Scripts (such as setup_bmc_experiment.R) source this script.
+#   Fastq files in the ~/data/<EXPERIMENT_ID>/fastq
+#   Removes other file types and unmapped files.
 ################################################################################
-# Dependencies: Requires fastq files downloaded to the appropriate experiment fastq directory. Follow instructions in email with subject * Data Ready from the BMC personnel.
-# srun rsync -av /net/bmc-pub17/data/bmc/public/Bell/${PROJECT_ID}/ ~/data/${PROJECT_ID}/fastq/
-# Usage: Run relevant code lines manually. Not worth it to automate currently.
+#============================== 
+# Usage and help
+#============================== 
+show_usage() {
+  cat << EOF
+Usage: srun $(basename "$0") <fastq_directory> [-v]
 
-# Strict error handling
-set -euo pipefail
-trap 'echo "Error on line $LINENO"' ERR
+Description:
+  Remove unused non-fastq files from fastq directory
+  Script runs in dry-run by default. Provide --active-run option to execute, after reviewing output messages.
 
-# Log file in /tmp for operations tracking
-log_file="/tmp/cleanup_$(date +%Y%m%d_%H%M%S).log"
-exec 1> >(tee -a "$log_file")
-exec 2>&1
+Arguments:
+  EXPERIMENT_ID    Experiment id of experiment (from BMC submission.)
+                   (e.g., 250930Bel)
 
-echo "Starting cleanup operation at $(date)"
+Options:
+  -h, --help        Show this help message
+  --active-run      Execute rsync command
 
-# Store current directory
-current_dir=$(pwd)
-echo "Working directory: $current_dir"
+Output:
+  Directory with fastq files downloaded to the local directly in initial directory structure.
 
-# First count existing fastq files for verification
-initial_fastq_count=$(find . -type f -name "*.fastq" | wc -l)
-echo "Found $initial_fastq_count FASTQ files initially"
-#[[  $initial_fastq_count -eq 0 ]] && { echo "No fastq files in directory."; return; }
-[[  $initial_fastq_count -eq 0 ]] && { echo "No fastq files in directory."; }
+Example:
+  $(basename "$0") 250930Bel
+  $(basename "$0") 250930Bel --active-run
+  $(basename "$0") -h
 
+EOF
+  exit 0
+}
+
+#============================== 
+# Argument error handling
+#============================== 
+# Check for arguments
+echo "Handling arguments..."
+if [[ $# -eq 0 ]]; then
+  echo "Error: No argument provided." >&2
+  show_usage
+fi
+
+# Check for help flag
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+  show_usage
+fi
+
+if [[ $# -gt 2 ]]; then
+    echo "Error: Too many arguments provided." >&2
+    echo "Run '$0 -h' for usage." >&2
+    exit 1
+fi
+
+DRY_RUN=true
+if [[ "$2" != "--active-run" ]]; then
+  echo "Error: Invalid second argument: '$2'" >&2
+  echo "Expected: --active-run (or omit for dry-run)" >&2
+  echo "Run '$0 -h' for usage." >&2
+  exit 1
+else
+  DRY_RUN=false
+fi
+
+# Ensure script is run inside a Slurm allocation
+if [[ -z "${SLURM_JOB_ID:-}" ]]; then
+    cat >&2 <<EOF
+Error: This script must be run within a Slurm job.
+
+To run interactively:
+    srun $0 <EXPERIMENT_ID> [--active-run]
+
+To submit as a batch job:
+    echo "$0 <EXPERIMENT_ID>" [--active-run] | sbatch
+
+EOF
+    exit 1
+fi
+
+#============================== 
+# Configuration
+#============================== 
+echo "Setting configuration..."
+FILETYPE_TO_KEEP="*.fastq"
+EXCLUDING_PATTERN="*unmapped*"
+EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{8}Bel$ # Do not quote regular expression.
+
+#============================== 
+# Setup and preprocessing
+#============================== 
+# Ensure argument does not have trailing slashes.
+EXPERIMENT_ID=${1%/}
+EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
+FASTQ_DIR="$EXPERIMENT_DIR/fastq/"
+
+#============================== 
+# Error handling
+#============================== 
+echo "Running error handling..."
+if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
+  echo "Error: EXPERIMENT_ID does not match expected pattern." >&2
+  echo "Please adjust EXPERIMENT_ID accordingly." >&2
+  echo "EXPERIMENT ID PATTERN: $EXPECTED_EXPERIMENT_ID_PATTERN" >&2
+  echo "EXPERIMENT_ID: $EXPERIMENT_ID" >&2
+  exit 1
+fi
+
+if [[ ! -d "$FASTQ_DIR" ]]; then
+  echo "Error: FASTQ_DIR does not exist. Please verify experiment id." >&2
+  echo "FASTQ_DIR: $FASTQ_DIR" >&2
+  echo "Run $0 -h for additional help." >&2
+  exit 1
+
+fi
+
+# ############################################
+# Main logic
+# ############################################
+
+mapfile -t files_to_move < <(
+  find "$FASTQ_DIR" \
+       -type f \
+       -name "$FILETYPE_TO_KEEP" \
+       -not -name "$EXCLUDING_PATTERN"
+  )
+
+mapfile -t files_to_remove < <(
+  find "$FASTQ_DIR" \
+       ! -type f \
+       -name "$FILETYPE_TO_KEEP" \
+       -not -name "$EXCLUDING_PATTERN"
+
+  )
+
+FASTQ_FILES_COUNT=${#files_to_move[@]}
+if [[ $FASTQ_FILES_COUNT -eq 0 ]]; then
+  echo "No fastq files found." >&2
+  echo "FASTQ_DIR: $FASTQ_DIR" >&2
+  exit 1
+
+fi
+
+#if [[ ${#files_to_remove[@]} -eq 0 ]]; then
+#  echo "No files to remove found." >&2
+#  echo "EXCLUDING_PATTERN: $EXCLUDING_PATTERN" >&2
+#  exit 1
+#
+#fi
+
+if [[ $DRY_RUN==true ]]; then
+  echo "Executing dry-run..."
+fi
 # You can perform a dry-run first by removing the -delete option from the command.
 # Use | wc -l to count the files as well.
 # Remove unmapped files first
-echo "Removing unmapped files..."
-find . -type f -name "*unmapped*" -delete
-
-# Remove all non-fastq files
-echo "Removing non-FASTQ files..."
-find . -type f ! -name "*.fastq" -delete
-
-# Move all fastq files to current directory
-echo "Moving FASTQ files to current directory..."
-find . -type f -name "*.fastq" -exec mv {} . \;
-
-# Remove empty directories
-echo "Removing empty directories..."
-find . -type d -empty -delete
-
-# Verify final state
-# Should be double if you used Aviti. Two for each lane.
-final_fastq_count=$(find . -maxdepth 1 -type f -name "*.fastq" | wc -l)
-echo "Final FASTQ count in current directory: $final_fastq_count"
-
-# This comparison does not work. Initially there are two files per sample and the additional fastq for each lane.
-#if [ "$initial_fastq_count" -ne "$final_fastq_count" ]; then
-#    echo "ERROR: FASTQ file count mismatch! Initial: $initial_fastq_count, Final: $final_fastq_count"
-#    exit 1
-#fi
-
-echo "Operation completed successfully at $(date)"
-echo "Log file: $log_file"
+#echo "Removing unmapped files..."
+#find . -type f -name "*unmapped*" -delete
+#
+## Remove all non-fastq files
+#echo "Removing non-FASTQ files..."
+#find . -type f ! -name "*.fastq" -delete
+#
+## Move all fastq files to current directory
+#echo "Moving FASTQ files to current directory..."
+#find . -type f -name "*.fastq" -exec mv {} . \;
+#
+## Remove empty directories
+#echo "Removing empty directories..."
+#find . -type d -empty -delete
