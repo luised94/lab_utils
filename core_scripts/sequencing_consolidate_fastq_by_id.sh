@@ -253,7 +253,7 @@ if [[ $consolidated_count -gt 0 ]]; then
     fi
 
     manifest_entries=$(tail -n +2 "$MANIFEST_FILEPATH" | wc -l)
-    echo "û Manifest regenerated: $MANIFEST_FILEPATH"
+    echo "[OK] Manifest regenerated: $MANIFEST_FILEPATH"
     echo "  Entries: $manifest_entries"
     exit 0
 
@@ -538,7 +538,7 @@ for sample_id in "${unique_sample_ids[@]}"; do
 
       if cat "${r1_files_array[@]}" > "$tmp_r1"; then
         mv "$tmp_r1" "$output_r1"
-        echo "  û Created $output_r1"
+        echo "  [OK] Created $output_r1"
 
       else
         echo "  ERROR: Failed to consolidate R1 files"
@@ -553,7 +553,7 @@ for sample_id in "${unique_sample_ids[@]}"; do
       tmp_r2="${output_r2}.tmp"
       if cat "${r2_files_array[@]}" > "$tmp_r2"; then
         mv "$tmp_r2" "$output_r2"
-        echo "  û Created $output_r2"
+        echo "  [OK] Created $output_r2"
 
       else
         echo "  ERROR: Failed to consolidate R2 files"
@@ -587,7 +587,7 @@ for sample_id in "${unique_sample_ids[@]}"; do
 
       fi
 
-      echo "  û R1 verification passed"
+      echo "  [OK] R1 verification passed"
 
       # Verify R2 consolidation
       echo "  Verifying R2 consolidation..."
@@ -612,14 +612,14 @@ for sample_id in "${unique_sample_ids[@]}"; do
         continue
 
       fi
-      echo "  û R2 verification passed"
+      echo "  [OK] R2 verification passed"
 
       # Only remove originals after both verifications pass
       echo "  Removing original files..."
       rm -f "${r1_files_array[@]}" "${r2_files_array[@]}"
-      echo "  û Original files removed"
+      echo "  [OK] Original files removed"
 
-      echo "  û Sample consolidated successfully"
+      echo "  [OK] Sample consolidated successfully"
       ((samples_processed++))
 
     else
@@ -674,7 +674,7 @@ for sample_id in "${unique_sample_ids[@]}"; do
       tmp_se="${output_se}.tmp"
       if cat "${se_files_array[@]}" > "$tmp_se"; then
         mv "$tmp_se" "$output_se"
-        echo "  û Created $output_se"
+        echo "  [OK] Created $output_se"
       else
         echo "  ERROR: Failed to consolidate files"
         rm -f "$tmp_se"
@@ -706,13 +706,13 @@ for sample_id in "${unique_sample_ids[@]}"; do
         continue
 
       fi
-      echo "  û Verification passed"
+      echo "  [OK] Verification passed"
 
       # Only remove originals after verification passes
       echo "  Removing original files..."
       rm -f "${se_files_array[@]}"
-      echo "  û Original files removed"
-      echo "  û Sample consolidated successfully"
+      echo "  [OK] Original files removed"
+      echo "  [OK] Sample consolidated successfully"
       ((samples_processed++))
 
     else
@@ -776,7 +776,7 @@ if [[ "$DRY_RUN" == false && $samples_processed -gt 0 ]]; then
     fi
   done
 
-  echo "û Manifest created: $MANIFEST_PATH"
+  echo "[OK] Manifest created: $MANIFEST_PATH"
   echo "  Entries in manifest: $manifest_entries"
 
   # Verify manifest entry count matches processed samples
