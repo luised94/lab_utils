@@ -174,14 +174,90 @@ fi
 
 echo "Confirmed directory has been cleaned from other bmc files."
 
-# 4. Check if consolidation has already occured.
+# ============================================
+# Check if consolidation has already occurred
+# ============================================
 consolidated_count=$(find "$FASTQ_DIRECTORY" -maxdepth 1 -name "${OUTPUT_PREFIX}_*${OUTPUT_SUFFIX}" 2>/dev/null | wc -l)
 
 if [[ $consolidated_count -gt 0 ]]; then
   echo "INFO: Found $consolidated_count consolidated files"
   echo "INFO: Consolidation appears complete"
-  echo "INFO: To regenerate manifest, delete consolidated files first"
-  exit 0
+
+  # Check if manifest exists
+  MANIFEST_FILEPATH="$DOCUMENTATION_DIR/$MANIFEST_FILENAME"
+
+  if [[ -f "$MANIFEST_FILEPATH" ]]; then
+    echo "INFO: Manifest file already exists: $MANIFEST_FILEPATH"
+    echo "INFO: Nothing to do - exiting"
+    exit 0
+
+  else
+    echo "WARNING: Manifest file not found: $MANIFEST_FILEPATH"
+
+    if [[ "$DRY_RUN" == true ]]; then
+      echo "INFO: Would regenerate manifest (use --active-run to create it)"
+      exit 0
+
+    fi
+
+    echo "INFO: Regenerating manifest from consolidated files..."
+
+    # Detect read type from consolidated filenames
+    r1_count=$(find "$FASTQ_DIRECTORY" -maxdepth 1 -name "${OUTPUT_PREFIX}_*_R1${OUTPUT_SUFFIX}" 2>/dev/null | wc -l)
+    r2_count=$(find "$FASTQ_DIRECTORY" -maxdepth 1 -name "${OUTPUT_PREFIX}_*_R2${OUTPUT_SUFFIX}" 2>/dev/null | wc -l)
+    na_count=$(find "$FASTQ_DIRECTORY" -maxdepth 1 -name "${OUTPUT_PREFIX}_*_NA${OUTPUT_SUFFIX}" 2>/dev/null | wc -l)
+
+    if [[ $r1_count -gt 0 && $r2_count -gt 0 ]]; then
+      echo "Detected paired-end data (R1: $r1_count, R2: $r2_count)"
+
+      # Create paired-end manifest
+      echo -e "sample_id\tread1_path\tread2_path" > "$MANIFEST_FILEPATH"
+
+      # Find all R1 files and extract sample IDs
+      for r1_file in "$FASTQ_DIRECTORY"/${OUTPUT_PREFIX}_*_R1${OUTPUT_SUFFIX}; do
+        # Extract sample_id from filename: consolidated_SAMPLEID_R1.fastq
+        filename=$(basename "$r1_file")
+        sample_id=$(echo "$filename" | sed "s/^${OUTPUT_PREFIX}_\(.*\)_R1${OUTPUT_SUFFIX}$/\1/")
+
+        r2_file="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_R2${OUTPUT_SUFFIX}"
+
+        if [[ -f "$r2_file" ]]; then
+          echo -e "${sample_id}\t${r1_file}\t${r2_file}" >> "$MANIFEST_FILEPATH"
+
+        else
+          echo "WARNING: Missing R2 file for sample: $sample_id"
+
+        fi
+
+      done
+
+    elif [[ $na_count -gt 0 ]]; then
+      echo "Detected single-end data (files: $na_count)"
+
+      # Create single-end manifest
+      echo -e "sample_id\tread_path" > "$MANIFEST_FILEPATH"
+
+      # Find all NA files and extract sample IDs
+      for na_file in "$FASTQ_DIRECTORY"/${OUTPUT_PREFIX}_*_NA${OUTPUT_SUFFIX}; do
+        # Extract sample_id from filename: consolidated_SAMPLEID_NA.fastq
+        filename=$(basename "$na_file")
+        sample_id=$(echo "$filename" | sed "s/^${OUTPUT_PREFIX}_\(.*\)_NA${OUTPUT_SUFFIX}$/\1/")
+
+        echo -e "${sample_id}\t${na_file}" >> "$MANIFEST_FILEPATH"
+      done
+
+    else
+      echo "ERROR: Could not determine read type from consolidated files"
+      exit 1
+
+    fi
+
+    manifest_entries=$(tail -n +2 "$MANIFEST_FILEPATH" | wc -l)
+    echo "û Manifest regenerated: $MANIFEST_FILEPATH"
+    echo "  Entries: $manifest_entries"
+    exit 0
+
+  fi
 
 fi
 
@@ -190,12 +266,6 @@ fi
 # ############################################
 echo "Using FASTQ directory: ${FASTQ_DIRECTORY}"
 echo "Manifest file: $MANIFEST_FILEPATH"
-
-# Validate manifest exists
-if [[ -f "$MANIFEST_FILEPATH" ]]; then
-    echo "Warning: Manifest file already exists."
-
-fi
 
 # ============================================
 # Discover all fastq files
@@ -234,6 +304,7 @@ for fastq_file in "${all_fastq_files[@]}"; do
     echo "Filename: $filename"
   fi
 
+  # --- Skip unmapped and consolidated files if present ---
   if [[ "$filename" =~ unmapped ]]; then
     if [[ "$VERBOSE" == true ]]; then
       echo "Skipping unmapped fastq file"
@@ -311,6 +382,7 @@ for lane in "${detected_lanes[@]}"; do
   if [[ ! "$lane" =~ ^[1-4]$ ]]; then
     echo "WARNING: Unusual lane number detected: $lane"
   fi
+
 done
 
 # Determine read type and validate
@@ -348,12 +420,15 @@ fi
 if [[ "$has_paired_indicators" == true ]]; then
   IS_PAIRED_END=true
   EXPECTED_READ_PAIRS_PER_LANE=2
+
 elif [[ "$has_single_indicator" == true ]]; then
   IS_PAIRED_END=false
   EXPECTED_READ_PAIRS_PER_LANE=1
+
 else
   echo "  ERROR: No valid read indicators found"
   exit 1
+
 fi
 
 # Check read type detection succeeded
@@ -661,4 +736,62 @@ fi
 echo "Total samples: ${#unique_sample_ids[@]}"
 echo "Samples processed: $samples_processed"
 echo "Samples skipped: $samples_skipped"
+echo "============================================"
+
+# ============================================
+# Generate manifest file for successfully processed samples
+# ============================================
+if [[ "$DRY_RUN" == false && $samples_processed -gt 0 ]]; then
+  echo "Generating manifest file..."
+
+  MANIFEST_PATH="$DOCUMENTATION_DIR/$MANIFEST_FILENAME"
+
+  # Create manifest with header
+  if [[ "$IS_PAIRED_END" == true ]]; then
+    echo -e "sample_id\tread1_path\tread2_path" > "$MANIFEST_PATH"
+  else
+    echo -e "sample_id\tread_path" > "$MANIFEST_PATH"
+  fi
+
+  # Add entries for each successfully consolidated sample
+  manifest_entries=0
+  for sample_id in "${unique_sample_ids[@]}"; do
+    if [[ "$IS_PAIRED_END" == true ]]; then
+      output_r1="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_R1${OUTPUT_SUFFIX}"
+      output_r2="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_R2${OUTPUT_SUFFIX}"
+
+      # Only add to manifest if both files exist
+      if [[ -f "$output_r1" && -f "$output_r2" ]]; then
+        echo -e "${sample_id}\t${output_r1}\t${output_r2}" >> "$MANIFEST_PATH"
+        ((manifest_entries++))
+      fi
+    else
+      output_se="${FASTQ_DIRECTORY}${OUTPUT_PREFIX}_${sample_id}_NA${OUTPUT_SUFFIX}"
+
+      # Only add to manifest if file exists
+      if [[ -f "$output_se" ]]; then
+        echo -e "${sample_id}\t${output_se}" >> "$MANIFEST_PATH"
+        ((manifest_entries++))
+      fi
+    fi
+  done
+
+  echo "û Manifest created: $MANIFEST_PATH"
+  echo "  Entries in manifest: $manifest_entries"
+
+  # Verify manifest entry count matches processed samples
+  if [[ $manifest_entries -ne $samples_processed ]]; then
+    echo "  WARNING: Manifest entries ($manifest_entries) does not match samples processed ($samples_processed)"
+  fi
+
+elif [[ "$DRY_RUN" == true ]]; then
+  echo "Manifest generation skipped (dry-run mode)"
+  echo "Would create: $DOCUMENTATION_DIR/$MANIFEST_FILENAME"
+else
+  echo "No samples processed - manifest not created"
+fi
+
+echo ""
+echo "============================================"
+echo "Script complete"
 echo "============================================"
