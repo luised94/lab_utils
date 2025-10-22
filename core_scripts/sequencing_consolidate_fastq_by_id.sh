@@ -173,14 +173,26 @@ if [[ -z "$(find "$FASTQ_DIRECTORY" -maxdepth 1 -type f -name "*.fastq" -print -
 fi
 
 echo "Confirmed directory has been cleaned from other bmc files."
+
+# 4. Check if consolidation has already occured.
+consolidated_count=$(find "$FASTQ_DIRECTORY" -maxdepth 1 -name "${OUTPUT_PREFIX}_*${OUTPUT_SUFFIX}" 2>/dev/null | wc -l)
+
+if [[ $consolidated_count -gt 0 ]]; then
+  echo "INFO: Found $consolidated_count consolidated files"
+  echo "INFO: Consolidation appears complete"
+  echo "INFO: To regenerate manifest, delete consolidated files first"
+  exit 0
+
+fi
+
 # ############################################
 # Main logic
 # ############################################
 echo "Using FASTQ directory: ${FASTQ_DIRECTORY}"
-echo "Manifest file: $MANIFEST_FILE"
+echo "Manifest file: $MANIFEST_FILEPATH"
 
 # Validate manifest exists
-if [[ -f "$MANIFEST_FILE" ]]; then
+if [[ -f "$MANIFEST_FILEPATH" ]]; then
     echo "Warning: Manifest file already exists."
 
 fi
@@ -225,8 +237,15 @@ for fastq_file in "${all_fastq_files[@]}"; do
   if [[ "$filename" =~ unmapped ]]; then
     if [[ "$VERBOSE" == true ]]; then
       echo "Skipping unmapped fastq file"
+
     fi
     continue
+
+  fi
+
+  if [[ "$filename" =~ ^${OUTPUT_PREFIX}_ ]]; then
+    continue
+
   fi
 
   # Split on _ and - to get components
