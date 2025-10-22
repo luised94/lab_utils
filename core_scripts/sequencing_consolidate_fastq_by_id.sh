@@ -62,8 +62,10 @@ if [[ $# -lt $MIN_NUMBER_OF_ARGS ]]; then
     echo "Error: Missing required argument EXPERIMENT_ID." >&2
     show_usage
     exit 1
-:w
-    echo "Error: Too many arguments provided ($#)." >&2
+fi
+
+if [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
+    echo "Error: Too many arguments provided." >&2
     show_usage
     exit 1
 fi
