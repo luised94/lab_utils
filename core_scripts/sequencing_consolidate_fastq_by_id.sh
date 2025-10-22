@@ -109,6 +109,9 @@ fi
 # Configuration
 #============================== 
 echo "Setting configuration..."
+
+# Filename parsing configuration
+FILENAME_DELIMITERS='_-'  # Delimiters used to split filename components
 # Filename parsing indices (split on _ and -)
 # Example: 250930Bel_D25-12496-2_1_sequence.fastq
 # Parts: [250930Bel, D25, 12496, 2, 1, sequence.fastq]
@@ -116,11 +119,12 @@ SAMPLE_ID_START_IDX=1   # "D25"
 SAMPLE_ID_END_IDX=2     # "12496"
 LANE_IDX=3              # "2"
 READ_PAIR_IDX=4         # "1" or "2"
-NCORES=$(nproc)
 OUTPUT_PREFIX="consolidated"
 OUTPUT_SUFFIX=".fastq"
-#FILETYPE_TO_KEEP="*.fastq"
-#EXCLUDING_PATTERN="*unmapped*"
+#NCORES=$(nproc)
+
+# Manifest output configuration
+MANIFEST_FILENAME="consolidated_reads_manifest.tsv"
 
 #============================== 
 # Setup and preprocessing
@@ -128,12 +132,11 @@ OUTPUT_SUFFIX=".fastq"
 EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
 FASTQ_DIRECTORY="$EXPERIMENT_DIR/fastq/"
 DOCUMENTATION_DIR="$(dirname "$FASTQ_DIRECTORY")/documentation"
-MANIFEST_FILE="$DOCUMENTATION_DIR/paired_reads_manifest.tsv"
+MANIFEST_FILEPATH="$DOCUMENTATION_DIR/$MANIFEST_FILENAME"
 
 #============================== 
 # Error handling
 #============================== 
-
 if [[ ! -d "$FASTQ_DIRECTORY" ]]; then
   echo "Error: FASTQ_DIRECTORY does not exist. Please verify experiment id." >&2
   echo "FASTQ_DIRECTORY: $FASTQ_DIRECTORY" >&2
@@ -194,6 +197,7 @@ echo "Total fastq files found: ${#all_fastq_files[@]}"
 if [[ ${#all_fastq_files[@]} -eq 0 ]]; then
   echo "ERROR: No .fastq files found in directory"
   exit 1
+
 fi
 
 # ============================================
@@ -226,7 +230,7 @@ for fastq_file in "${all_fastq_files[@]}"; do
   fi
 
   # Split on _ and - to get components
-  IFS='_-' read -ra parts <<< "$filename"
+  IFS="$FILENAME_DELIMITERS" read -ra parts <<< "$filename"
 
   # --- Extract the metadata ---
   sample_id="${parts[$SAMPLE_ID_START_IDX]}-${parts[$SAMPLE_ID_END_IDX]}"
@@ -639,94 +643,3 @@ echo "Total samples: ${#unique_sample_ids[@]}"
 echo "Samples processed: $samples_processed"
 echo "Samples skipped: $samples_skipped"
 echo "============================================"
-#read -rp "Proceed with job submission? (y/n): " confirm
-#confirm=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
-#
-#if [[ "$confirm" != "y" ]]; then
-#  echo "Job submission cancelled"
-#  exit 4
-#fi
-
-# Process each unique ID
-#for id in "${unique_sample_ids[@]}"; do
-#  echo "--------------------"
-#  echo "Processing ID: $id"
-#  # Find files using array and glob pattern
-#  files=( *"${id}"*_sequence.fastq )
-#
-#  if [ ${#files[@]} -eq 0 ]; then
-#    echo "ERROR: No files found for ID: $id"
-#    continue
-#  fi
-#
-#  if [ ! ${#files[@]} -eq 2 ]; then
-#    echo -e "[ERROR]: Found ${#files[@]} for $id\nExpected 2"
-#    continue
-#  fi
-#
-#  # Validate all files before processing
-#  for file in "${files[@]}"; do
-#    if ! [ -f "$file" ]; then
-#      echo "Error: $file not found"
-#      exit 1
-#    fi
-#    if ! [[ "$file" =~ \.fastq$ ]]; then
-#      echo "Error: $file is not a FASTQ file"
-#      exit 1
-#    fi
-#    echo "Validated: $file"
-#  done
-#
-#  output_file="consolidated_${id}_sequence.fastq"
-#  tmp_file="${output_file}.tmp"
-#
-#  if [ -f "$output_file" ]; then
-#    echo "$output_file already exists. Skipping..."
-#    continue
-#  fi
-#
-#  # Consolidate files with atomic write
-#  if cat -- "${files[@]}" > "$tmp_file"; then
-#    mv "$tmp_file" "$output_file"
-#    echo "Successfully created $output_file"
-#
-#    # Verify file content
-#    if [ -s "$output_file" ]; then
-#      # Accurate size calculation
-#      original_size=$(wc -c "${files[@]}" | awk '/total/ {print $1}')
-#      new_size=$(wc -c < "$output_file")
-#
-#      echo "Original files total size: $original_size bytes"
-#      echo "New file size: $new_size bytes"
-#
-#      # Calculate original data checksum
-#      orig_checksum=$(cat "${files[@]}" | md5sum | cut -d' ' -f1)
-#      new_checksum=$(md5sum "$output_file" | cut -d' ' -f1)
-#
-#      if [[ "$orig_checksum" != "$new_checksum" ]]; then
-#        echo "Error: Consolidated file checksum mismatch!" >&2
-#        echo "Expected: $orig_checksum" >&2
-#        echo "Actual:   $new_checksum" >&2
-#        exit 5
-#      fi
-#
-#      # Only remove if verification passed
-#      echo "Removing original files..."
-#      rm -f -- "${files[@]}"
-#      echo "Original files removed"
-#    else
-#      echo "Error: Consolidated file is empty"
-#      rm -f "$output_file"
-#      exit 5
-#    fi
-#  else
-#    echo "Error during consolidation"
-#    rm -f "$tmp_file" "$output_file"
-#    exit 5
-#  fi
-#  echo "--------------------"
-#done
-#
-#echo "Consolidation completed successfully in ${target_dir}"
-## Return to original directory
-#cd "$original_dir"
