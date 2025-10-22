@@ -311,12 +311,14 @@ if [[ "$has_invalid" == true ]]; then
   echo "  ERROR: Unexpected read indicators found"
   echo "  Expected: '1', '2' (paired-end) or 'NA' (single-end)"
   exit 1
+
 fi
 
 if [[ "$has_paired_indicators" == true && "$has_single_indicator" == true ]]; then
   echo "  ERROR: Mixed read types detected (both paired and single-end)"
   echo "  Found indicators: ${unique_pair_indicator[*]}"
   exit 1
+
 fi
 
 # Set configuration
@@ -335,6 +337,7 @@ fi
 if [[ -z "$IS_PAIRED_END" ]]; then
   echo "ERROR: Failed to detect read type"
   exit 1
+
 fi
 
 # Expected number of samples per file.
@@ -367,6 +370,7 @@ for sample_id in "${unique_sample_ids[@]}"; do
   echo "--------------------"
   echo "Sample: $sample_id"
 
+  # --- Process a paired end read files ---
   if [[ "$IS_PAIRED_END" == true ]]; then
     # Extract and sort R1 files
     r1_files_list=$(printf "%s" "${sample_r1_files[$sample_id]}" | sort -t: -k1,1n | cut -d: -f2-)
@@ -386,12 +390,14 @@ for sample_id in "${unique_sample_ids[@]}"; do
       echo "  ERROR: R1 file count (${#r1_files_array[@]}) does not match expected lanes ($LANES_PER_SAMPLE)"
       ((samples_skipped++))
       continue
+
     fi
 
     if [[ ${#r2_files_array[@]} -ne $LANES_PER_SAMPLE ]]; then
       echo "  ERROR: R2 file count (${#r2_files_array[@]}) does not match expected lanes ($LANES_PER_SAMPLE)"
       ((samples_skipped++))
       continue
+
     fi
 
     # Validate R1 and R2 counts match
@@ -399,6 +405,7 @@ for sample_id in "${unique_sample_ids[@]}"; do
       echo "  ERROR: R1 count (${#r1_files_array[@]}) does not match R2 count (${#r2_files_array[@]})"
       ((samples_skipped++))
       continue
+
     fi
 
     # Define output filenames
@@ -412,6 +419,7 @@ for sample_id in "${unique_sample_ids[@]}"; do
       echo "    $output_r2"
       ((samples_skipped++))
       continue
+
     fi
 
     # Display files in lane order
@@ -424,8 +432,108 @@ for sample_id in "${unique_sample_ids[@]}"; do
     echo "    $output_r1"
     echo "    $output_r2"
 
+    # Only consolidate if not in dry-run mode
+    if [[ "$DRY_RUN" == false ]]; then
+      # Consolidate R1 files with atomic write
+      echo "  Consolidating R1 files..."
+      tmp_r1="${output_r1}.tmp"
+
+      if cat "${r1_files_array[@]}" > "$tmp_r1"; then
+        mv "$tmp_r1" "$output_r1"
+        echo "  û Created $output_r1"
+
+      else
+        echo "  ERROR: Failed to consolidate R1 files"
+        rm -f "$tmp_r1"
+        ((samples_skipped++))
+        continue
+
+      fi
+
+      # Consolidate R2 files with atomic write
+      echo "  Consolidating R2 files..."
+      tmp_r2="${output_r2}.tmp"
+      if cat "${r2_files_array[@]}" > "$tmp_r2"; then
+        mv "$tmp_r2" "$output_r2"
+        echo "  û Created $output_r2"
+
+      else
+        echo "  ERROR: Failed to consolidate R2 files"
+        rm -f "$tmp_r2" "$output_r1"  # Clean up R1 too if R2 fails
+        ((samples_skipped++))
+        continue
+
+      fi
+
+      # Verify R1 consolidation
+      echo "  Verifying R1 consolidation..."
+      if [[ ! -s "$output_r1" ]]; then
+        echo "  ERROR: R1 output file is empty"
+        rm -f "$output_r1" "$output_r2"
+        ((samples_skipped++))
+        continue
+
+      fi
+
+      # Calculate and compare R1 checksums
+      original_r1_checksum=$(cat "${r1_files_array[@]}" | md5sum | cut -d' ' -f1)
+      consolidated_r1_checksum=$(md5sum "$output_r1" | cut -d' ' -f1)
+
+      if [[ "$original_r1_checksum" != "$consolidated_r1_checksum" ]]; then
+        echo "  ERROR: R1 checksum mismatch" >&2
+        echo "    Expected: $original_r1_checksum" >&2
+        echo "    Got:      $consolidated_r1_checksum" >&2
+        rm -f "$output_r1" "$output_r2"
+        ((samples_skipped++))
+        continue
+
+      fi
+
+      echo "  û R1 verification passed"
+
+      # Verify R2 consolidation
+      echo "  Verifying R2 consolidation..."
+      if [[ ! -s "$output_r2" ]]; then
+        echo "  ERROR: R2 output file is empty"
+        rm -f "$output_r1" "$output_r2"
+        ((samples_skipped++))
+        continue
+
+      fi
+
+      # Calculate and compare R2 checksums
+      original_r2_checksum=$(cat "${r2_files_array[@]}" | md5sum | cut -d' ' -f1)
+      consolidated_r2_checksum=$(md5sum "$output_r2" | cut -d' ' -f1)
+
+      if [[ "$original_r2_checksum" != "$consolidated_r2_checksum" ]]; then
+        echo "  ERROR: R2 checksum mismatch" >&2
+        echo "    Expected: $original_r2_checksum" >&2
+        echo "    Got:      $consolidated_r2_checksum" >&2
+        rm -f "$output_r1" "$output_r2"
+        ((samples_skipped++))
+        continue
+
+      fi
+      echo "  û R2 verification passed"
+
+      # Only remove originals after both verifications pass
+      echo "  Removing original files..."
+      rm -f "${r1_files_array[@]}" "${r2_files_array[@]}"
+      echo "  û Original files removed"
+
+      echo "  û Sample consolidated successfully"
+      ((samples_processed++))
+
+    else
+      echo "  [DRY-RUN] Would consolidate ${#r1_files_array[@]} R1 files and ${#r2_files_array[@]} R2 files"
+      ((samples_processed++))
+
+    fi
+
+  # --- Process a single end read file ---
   else
     # Extract and sort single-end files
+
     se_files_list=$(printf "%s" "${sample_se_files[$sample_id]}" | sort -t: -k1,1n | cut -d: -f2-)
 
     # Convert to array for counting
@@ -439,6 +547,7 @@ for sample_id in "${unique_sample_ids[@]}"; do
       echo "  ERROR: File count (${#se_files_array[@]}) does not match expected lanes ($LANES_PER_SAMPLE)"
       ((samples_skipped++))
       continue
+
     fi
 
     # Define output filename
@@ -450,6 +559,7 @@ for sample_id in "${unique_sample_ids[@]}"; do
       echo "    $output_se"
       ((samples_skipped++))
       continue
+
     fi
 
     # Display files in lane order
@@ -459,6 +569,60 @@ for sample_id in "${unique_sample_ids[@]}"; do
     echo "  Will create:"
     echo "    $output_se"
 
+    # Only consolidate if not in dry-run mode
+    if [[ "$DRY_RUN" == false ]]; then
+      # Consolidate single-end files with atomic write
+      echo "  Consolidating files..."
+      tmp_se="${output_se}.tmp"
+      if cat "${se_files_array[@]}" > "$tmp_se"; then
+        mv "$tmp_se" "$output_se"
+        echo "  û Created $output_se"
+      else
+        echo "  ERROR: Failed to consolidate files"
+        rm -f "$tmp_se"
+        ((samples_skipped++))
+        continue
+
+      fi
+
+      # Verify consolidation
+      echo "  Verifying consolidation..."
+      if [[ ! -s "$output_se" ]]; then
+        echo "  ERROR: Output file is empty"
+        rm -f "$output_se"
+        ((samples_skipped++))
+        continue
+
+      fi
+
+      # Calculate and compare checksums
+      original_checksum=$(cat "${se_files_array[@]}" | md5sum | cut -d' ' -f1)
+      consolidated_checksum=$(md5sum "$output_se" | cut -d' ' -f1)
+
+      if [[ "$original_checksum" != "$consolidated_checksum" ]]; then
+        echo "  ERROR: Checksum mismatch" >&2
+        echo "    Expected: $original_checksum" >&2
+        echo "    Got:      $consolidated_checksum" >&2
+        rm -f "$output_se"
+        ((samples_skipped++))
+        continue
+
+      fi
+      echo "  û Verification passed"
+
+      # Only remove originals after verification passes
+      echo "  Removing original files..."
+      rm -f "${se_files_array[@]}"
+      echo "  û Original files removed"
+      echo "  û Sample consolidated successfully"
+      ((samples_processed++))
+
+    else
+      echo "  [DRY-RUN] Would consolidate ${#se_files_array[@]} files"
+      ((samples_processed++))
+
+    fi
+
   fi
 
   echo "--------------------"
@@ -466,9 +630,13 @@ for sample_id in "${unique_sample_ids[@]}"; do
 done
 
 echo "============================================"
-echo "Consolidation planning complete"
+if [[ "$DRY_RUN" == true ]]; then
+  echo "Consolidation dry-run complete (no files created)"
+else
+  echo "Consolidation complete"
+fi
 echo "Total samples: ${#unique_sample_ids[@]}"
-echo "Samples to process: $((${#unique_sample_ids[@]} - samples_skipped))"
+echo "Samples processed: $samples_processed"
 echo "Samples skipped: $samples_skipped"
 echo "============================================"
 #read -rp "Proceed with job submission? (y/n): " confirm
