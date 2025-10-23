@@ -12,8 +12,9 @@
 #   bash 4.2, bowtie2, fastp, bedtools, samtools
 #   Assumes fastq files are in the fastq directory and everything is removed. (cleanup script.)
 #   Assumes manifest file has been generated.
+#   Processing script: ngs_run_chip_processing.sh
 # OUTPUTS:
-#   Sorted and indexed bam files, bigwig fiels for visualization.
+#   Sorted and indexed bam files, bigwig files for visualization.
 ################################################################################
 # ============================================================================
 # USAGE AND REQUIREMENTS
@@ -61,9 +62,9 @@ if ! git rev-parse --git-dir > /dev/null 2>&1; then
 
 fi
 
-#============================== 
+#==============================
 # Argument error handling
-#============================== 
+#==============================
 # Check for arguments
 echo "Handling arguments..."
 MIN_NUMBER_OF_ARGS=1
@@ -109,34 +110,34 @@ fi
 #    DRY_RUN=false
 #fi
 
-#============================== 
+#==============================
 # Configuration
-#============================== 
+#==============================
 echo "Setting configuration..."
-
 # Manifest output configuration
 MANIFEST_FILENAME="consolidated_reads_manifest.tsv"
 # SLURM job configuration
 MAX_SIMULTANEOUS_JOBS=16
+REPO_DIRECTORY_PATH=$(git rev-parse --show-toplevel)
+PROCESSING_SCRIPT_TO_SUBMIT="${REPO_DIRECTORY_PATH}/core_scripts/ngs_run_chip_processing.sbatch"
+NGS_FILE_PATTERNS=("consolidated*.fastq" "*.bam" "*.bw")
 
-#============================== 
+#==============================
 # Setup and preprocessing
-#============================== 
+#==============================
 EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
 FASTQ_DIRECTORY="$EXPERIMENT_DIR/fastq/"
 DOCUMENTATION_DIR="$(dirname "$FASTQ_DIRECTORY")/documentation"
-MANIFEST_FILEPATH="$DOCUMENTATION_DIR/$MANIFEST_FILENAME"
-FASTQ_FILE_PATTERN="consolidated*.fastq"
 JOB_LOG="${DOCUMENTATION_DIR}/experiment_job_info.md"
-REPO_DIRECTORY_PATH=$(git rev-parse --show-toplevel)
-SCRIPT_TO_SUBMIT="${REPO_DIRECTORY_PATH}/lab_utils/core_scripts/bmc_run_chip_processing.sbatch"
+MANIFEST_FILEPATH="$DOCUMENTATION_DIR/$MANIFEST_FILENAME"
+#FASTQ_FILE_PATTERN="consolidated*.fastq"
 
 mkdir -p "$DOCUMENTATION_DIR" "$FASTQ_DIR"
 touch "$JOB_LOG"
 
-#============================== 
+#==============================
 # Error handling
-#============================== 
+#==============================
 if [[ ! -d "$FASTQ_DIRECTORY" ]]; then
   echo "Error: FASTQ_DIRECTORY does not exist. Please verify experiment id." >&2
   echo "FASTQ_DIRECTORY: $FASTQ_DIRECTORY" >&2
@@ -153,34 +154,53 @@ if [[ ! -d "$DOCUMENTATION_DIR" ]]; then
 
 fi
 
+if [[ ! -f "$PROCESSING_SCRIPT_TO_SUBMIT" ]]; then
+    echo "Error: PROCESSING_SCRIPT_TO_SUBMIT does not exist."
+    echo "Value: $PROCESSING_SCRIPT_TO_SUBMIT"
+    exit 1
 
-# Count fastq files
-mapfile -t PREFILTERED_FASTQ_FILENAMES < <(find "${FASTQ_DIR}" -maxdepth 1 -type f -name "$FASTQ_FILE_PATTERN" -exec basename {} \;)
-FASTQ_COUNT=${#PREFILTERED_FASTQ_FILENAMES[@]}
-echo "Found ${FASTQ_COUNT} fastq files"
+fi
 
+if [[ ! -f "$MANIFEST_FILEPATH" ]]; then
+    echo "Error: Manifest file not found: $MANIFEST_FILEPATH"
+    echo "The manifest should be created by the consolidation script."
+    echo "Run consolidation first: consolidate_fastq_by_id.sh"
+    exit 1
+fi
+# ============================================================================
+# READ AND VALIDATE MANIFEST
+# ============================================================================
+
+#==============================
+# Output experiment information for user confirmation
+#==============================
+# Count different file patterns.
+FASTQ_COUNT=0
+
+for pattern in "${NGS_FILE_PATTERNS[@]}"; do
+    count=$(find "$EXPERIMENT_DIR" -maxdepth 1 -type f -name "$pattern" 2>/dev/null | wc -l)
+
+    if [[ "$pattern" == *"fastq"* ]]; then
+        FASTQ_COUNT=$count
+        echo "Found $count FASTQ files matching pattern: $pattern"
+    else
+        # Derive type from extension for message
+        ext="${pattern#*.}"
+        echo "Found $count $ext files matching pattern: $pattern"
+    fi
+done
+
+# Script processes starting from fastq files.
 if [[ "$FASTQ_COUNT" -eq 0 ]]; then
     echo "Error: No fastq files found in ${FASTQ_DIR}"
     exit 1
 
 fi
 
-if [[ ! -f "$SCRIPT_TO_SUBMIT" ]]; then
-    echo "Error: SCRIPT_TO_SUBMIT does not exist."
-    echo "Value: $SCRIPT_TO_SUBMIT"
-    exit 1
-
-fi
-
-# Format file listing with columns and headers
-echo -e "\nFASTQ files found:"
-printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
-printf '%s\n' "${PREFILTERED_FASTQ_FILENAMES[@]}" | column -c "${COLUMNS:-$(tput cols)}"
-printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
-echo -e "\nWill submit array job with following parameters:"
+echo -e "\n=== CHIP Processing Submission Parameters ==="
 echo "Array size: 1-${FASTQ_COUNT}"
 echo "Max simultaneous jobs: $MAX_SIMULTANEOUS_JOBS"
-echo "Script: $SCRIPT_TO_SUBMIT"
+echo "Script: $PROCESSING_SCRIPT_TO_SUBMIT"
 echo "Working directory: ${EXPERIMENT_DIR}"
 
 read -rp "Proceed with job submission? (y/n): " confirm
@@ -202,7 +222,7 @@ done
 
 # --- Submit job and capture output ---
 job_submit_output=$(sbatch --array=1-"${FASTQ_COUNT}%$MAX_SIMULTANEOUS_JOBS" \
-    "$SCRIPT_TO_SUBMIT" \
+    "$PROCESSING_SCRIPT_TO_SUBMIT" \
     "$EXPERIMENT_DIR")
 
 # Extract job ID (works with both "Submitted batch job 12345" and "12345")
@@ -223,7 +243,7 @@ job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
     )
     echo "- Experiment dir: $EXPERIMENT_DIR"
     echo "- Command ran: $0"
-    echo "- sbatch command: sbatch --array=1-${FASTQ_COUNT}%$MAX_SIMULTANEOUS_JOBS $SCRIPT_TO_SUBMIT $EXPERIMENT_DIR"
+    echo "- sbatch command: sbatch --array=1-${FASTQ_COUNT}%$MAX_SIMULTANEOUS_JOBS $PROCESSING_SCRIPT_TO_SUBMIT $EXPERIMENT_DIR"
     echo "- FASTQ files processed: $FASTQ_COUNT"
     echo "- Description: $description"
     echo "- Logs: {{fill out comments}}"
@@ -231,3 +251,12 @@ job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
 } >> "$JOB_LOG"
 
 echo "Job $job_id submitted successfully. Details logged to $JOB_LOG"
+# Count fastq files
+#mapfile -t PREFILTERED_FASTQ_FILENAMES < <(find "${FASTQ_DIR}" -maxdepth 1 -type f -name "$FASTQ_FILE_PATTERN" -exec basename {} \;)
+#FASTQ_COUNT=${#PREFILTERED_FASTQ_FILENAMES[@]}
+#echo "Found ${FASTQ_COUNT} fastq files"
+# Format file listing with columns and headers
+#echo -e "\nFASTQ files found:"
+#printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
+#printf '%s\n' "${PREFILTERED_FASTQ_FILENAMES[@]}" | column -c "${COLUMNS:-$(tput cols)}"
+#printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -

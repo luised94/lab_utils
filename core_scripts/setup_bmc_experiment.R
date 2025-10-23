@@ -395,7 +395,7 @@ metadata$short_name <- apply(
 #-------------------------------------------------------------------------------
 bmc_metadata <- data.frame(
   SampleName = metadata$full_name,
-  Vol_uL = 10,
+  Vol_uL = 15,
   Conc = 0,
   Type = ifelse(
     tolower(metadata$antibody) == "input",

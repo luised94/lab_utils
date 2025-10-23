@@ -37,6 +37,7 @@ EXPERIMENT_CONFIG <- list(
     PROJECT_ID = "project_002"
   ),
 
+  # Always include antibody category for chip experiments.
   CATEGORIES = list(
     category1 = c("Value1", "Value2"),
     orc_phenotype = c("WT", "orc1-161"),
