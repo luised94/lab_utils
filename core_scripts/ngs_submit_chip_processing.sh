@@ -211,6 +211,7 @@ while IFS=$'\t' read -r sample_id read1_path read2_path; do
         echo "  Missing: $read1_path"
         missing_files=$((missing_files + 1))
         missing_file_list+=("$read1_path")
+
     fi
 
     # Check read2 if paired-end
@@ -218,7 +219,9 @@ while IFS=$'\t' read -r sample_id read1_path read2_path; do
         echo "  Missing: $read2_path"
         missing_files=$((missing_files + 1))
         missing_file_list+=("$read2_path")
+
     fi
+
 done < "$MANIFEST_FILEPATH"
 
 if [[ "$missing_files" -gt 0 ]]; then
@@ -226,6 +229,7 @@ if [[ "$missing_files" -gt 0 ]]; then
     echo "Error: $missing_files FASTQ file(s) missing from manifest"
     echo "Cannot proceed with submission"
     exit 1
+
 fi
 
 echo "Validation: [OK] - All FASTQ files exist"
@@ -271,15 +275,6 @@ tail -n +2 "$MANIFEST_FILEPATH" | cut -f1 | nl -w3 -s'. '
 echo "----------------------------------------"
 echo ""
 
-# Show expected outputs
-echo "Pipeline steps:"
-echo "  1. fastp          -> quality_control/*.{json,html}"
-echo "  2. bowtie2        -> alignment/*_sorted.bam"
-echo "  3. alignmentSieve -> alignment/*_blFiltered.bam"
-echo "  4. bamCoverage    -> coverage/*_CPM.bw"
-echo ""
-
-
 # ============================================================================
 # SUBMISSION CONFIRMATION AND EXECUTION
 # ============================================================================
@@ -288,6 +283,14 @@ echo "SLURM job configuration:"
 echo "Max simultaneous jobs: $MAX_SIMULTANEOUS_JOBS"
 echo "Script: $PROCESSING_SCRIPT_TO_SUBMIT"
 echo "Array size: 1-${TOTAL_SAMPLES}"
+echo ""
+
+# Show expected outputs
+echo "Pipeline steps:"
+echo "  1. fastp          -> quality_control/*.{json,html}"
+echo "  2. bowtie2        -> alignment/*_sorted.bam"
+echo "  3. alignmentSieve -> alignment/*_blFiltered.bam"
+echo "  4. bamCoverage    -> coverage/*_CPM.bw"
 echo ""
 
 read -rp "Proceed with job submission? (y/n): " confirm
@@ -325,6 +328,9 @@ fi
 #    echo "# $job_id"
 #    echo "- Submission time: $(date --iso-8601=seconds)"
 #    echo "- Cluster: $(hostname)"
+#    echo "- Experiment: $EXPERIMENT_ID"
+#    echo "- Read type: $READ_TYPE"
+#    echo "- Samples: $TOTAL_SAMPLES"
 #    # Git metadata
 #    (
 #        # Ensure the git commands are executed inside the repository.
@@ -334,12 +340,15 @@ fi
 #        echo "- Git status: $(git status --porcelain 2>/dev/null | wc -l) uncommitted changes"
 #    )
 #    echo "- Experiment dir: $EXPERIMENT_DIR"
+#    echo "- Manifest: $MANIFEST_FILEPATH"
 #    echo "- Command ran: $0"
-#    echo "- sbatch command: sbatch --array=1-${FASTQ_COUNT}%$MAX_SIMULTANEOUS_JOBS $PROCESSING_SCRIPT_TO_SUBMIT $EXPERIMENT_DIR"
-#    echo "- FASTQ files processed: $FASTQ_COUNT"
+#    echo "- sbatch command: sbatch --array=1-${TOTAL_SAMPLES}%$MAX_SIMULTANEOUS_JOBS $PROCESSING_SCRIPT_TO_SUBMIT $EXPERIMENT_DIR"
+#    echo "- FASTQ files processed: $TOTAL_SAMPLES"
 #    echo "- Description: $description"
 #    echo "- Logs: {{fill out comments}}"
 #    echo ""
 #} >> "$JOB_LOG"
 #
 #echo "Job $job_id submitted successfully. Details logged to $JOB_LOG"
+#echo "Monitor job status: squeue -u $USER"
+echo "Script complete."
