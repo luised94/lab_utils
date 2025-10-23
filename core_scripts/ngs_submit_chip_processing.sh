@@ -170,6 +170,29 @@ fi
 # ============================================================================
 # READ AND VALIDATE MANIFEST
 # ============================================================================
+# Count samples (skip header row)
+TOTAL_SAMPLES=$(tail -n +2 "$MANIFEST_FILEPATH" | wc -l)
+
+if [[ "$TOTAL_SAMPLES" -eq 0 ]]; then
+    echo "Error: No samples found in manifest"
+    echo "Manifest file: $MANIFEST_FILEPATH"
+    exit 1
+fi
+
+# Detect read type from manifest structure
+# Read first data row to check if read2_path column exists and has value
+first_data_row=$(sed -n '2p' "$MANIFEST_FILEPATH")
+IFS=$'\t' read -r sample_id read1_path read2_path <<< "$first_data_row"
+
+if [[ -z "$read2_path" ]]; then
+    read_type="single-end"
+    echo "Detected read type: single-end"
+
+else
+    read_type="paired-end"
+    echo "Detected read type: paired-end"
+
+fi
 
 #==============================
 # Output experiment information for user confirmation
@@ -198,10 +221,10 @@ if [[ "$FASTQ_COUNT" -eq 0 ]]; then
 fi
 
 echo -e "\n=== CHIP Processing Submission Parameters ==="
+echo "Working directory: ${EXPERIMENT_DIR}"
 echo "Array size: 1-${FASTQ_COUNT}"
 echo "Max simultaneous jobs: $MAX_SIMULTANEOUS_JOBS"
 echo "Script: $PROCESSING_SCRIPT_TO_SUBMIT"
-echo "Working directory: ${EXPERIMENT_DIR}"
 
 read -rp "Proceed with job submission? (y/n): " confirm
 if [[ ! $confirm =~ ^[Yy]$ ]]; then
@@ -211,46 +234,47 @@ if [[ ! $confirm =~ ^[Yy]$ ]]; then
 fi
 
 # --- Capture job description ---
-description=""
-while [[ -z "$description" ]]; do
-    read -rp "Enter job purpose (e.g., 'Filter reads for sample X'): " description
-    if [[ -z "$description" ]]; then
-        echo "Error: Description cannot be empty" >&2
-    fi
+#description=""
+#while [[ -z "$description" ]]; do
+#    read -rp "Enter job purpose (e.g., 'Filter reads for sample X'): " description
+#    if [[ -z "$description" ]]; then
+#        echo "Error: Description cannot be empty" >&2
+#    fi
+#
+#done
+#
+## --- Submit job and capture output ---
+#job_submit_output=$(sbatch --array=1-"${FASTQ_COUNT}%$MAX_SIMULTANEOUS_JOBS" \
+#    "$PROCESSING_SCRIPT_TO_SUBMIT" \
+#    "$EXPERIMENT_DIR")
+#
+## Extract job ID (works with both "Submitted batch job 12345" and "12345")
+#job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
+#
+## --- Log job details ---
+#{
+#    echo "# $job_id"
+#    echo "- Submission time: $(date --iso-8601=seconds)"
+#    echo "- Cluster: $(hostname)"
+#    # Git metadata
+#    (
+#        # Ensure the git commands are executed inside the repository.
+#        cd "$HOME/lab_utils" || exit
+#        echo "- Git commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
+#        echo "- Git branch: $(git symbolic-ref --short HEAD 2>/dev/null || echo 'detached')"
+#        echo "- Git status: $(git status --porcelain 2>/dev/null | wc -l) uncommitted changes"
+#    )
+#    echo "- Experiment dir: $EXPERIMENT_DIR"
+#    echo "- Command ran: $0"
+#    echo "- sbatch command: sbatch --array=1-${FASTQ_COUNT}%$MAX_SIMULTANEOUS_JOBS $PROCESSING_SCRIPT_TO_SUBMIT $EXPERIMENT_DIR"
+#    echo "- FASTQ files processed: $FASTQ_COUNT"
+#    echo "- Description: $description"
+#    echo "- Logs: {{fill out comments}}"
+#    echo ""
+#} >> "$JOB_LOG"
+#
+#echo "Job $job_id submitted successfully. Details logged to $JOB_LOG"
 
-done
-
-# --- Submit job and capture output ---
-job_submit_output=$(sbatch --array=1-"${FASTQ_COUNT}%$MAX_SIMULTANEOUS_JOBS" \
-    "$PROCESSING_SCRIPT_TO_SUBMIT" \
-    "$EXPERIMENT_DIR")
-
-# Extract job ID (works with both "Submitted batch job 12345" and "12345")
-job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
-
-# --- Log job details ---
-{
-    echo "# $job_id"
-    echo "- Submission time: $(date --iso-8601=seconds)"
-    echo "- Cluster: $(hostname)"
-    # Git metadata
-    (
-        # Ensure the git commands are executed inside the repository.
-        cd "$HOME/lab_utils" || exit
-        echo "- Git commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
-        echo "- Git branch: $(git symbolic-ref --short HEAD 2>/dev/null || echo 'detached')"
-        echo "- Git status: $(git status --porcelain 2>/dev/null | wc -l) uncommitted changes"
-    )
-    echo "- Experiment dir: $EXPERIMENT_DIR"
-    echo "- Command ran: $0"
-    echo "- sbatch command: sbatch --array=1-${FASTQ_COUNT}%$MAX_SIMULTANEOUS_JOBS $PROCESSING_SCRIPT_TO_SUBMIT $EXPERIMENT_DIR"
-    echo "- FASTQ files processed: $FASTQ_COUNT"
-    echo "- Description: $description"
-    echo "- Logs: {{fill out comments}}"
-    echo ""
-} >> "$JOB_LOG"
-
-echo "Job $job_id submitted successfully. Details logged to $JOB_LOG"
 # Count fastq files
 #mapfile -t PREFILTERED_FASTQ_FILENAMES < <(find "${FASTQ_DIR}" -maxdepth 1 -type f -name "$FASTQ_FILE_PATTERN" -exec basename {} \;)
 #FASTQ_COUNT=${#PREFILTERED_FASTQ_FILENAMES[@]}
