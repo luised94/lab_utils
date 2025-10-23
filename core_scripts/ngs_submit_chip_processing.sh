@@ -132,12 +132,17 @@ JOB_LOG="${DOCUMENTATION_DIR}/experiment_job_info.md"
 MANIFEST_FILEPATH="$DOCUMENTATION_DIR/$MANIFEST_FILENAME"
 #FASTQ_FILE_PATTERN="consolidated*.fastq"
 
-mkdir -p "$DOCUMENTATION_DIR" "$FASTQ_DIR"
+mkdir -p "$DOCUMENTATION_DIR" "$FASTQ_DIRECTORY"
 touch "$JOB_LOG"
 
 #==============================
 # Error handling
 #==============================
+echo -e "\n=== CHIP Processing Submission Parameters ==="
+echo "Working directory: ${EXPERIMENT_DIR}"
+echo "Max simultaneous jobs: $MAX_SIMULTANEOUS_JOBS"
+echo "Script: $PROCESSING_SCRIPT_TO_SUBMIT"
+
 if [[ ! -d "$FASTQ_DIRECTORY" ]]; then
   echo "Error: FASTQ_DIRECTORY does not exist. Please verify experiment id." >&2
   echo "FASTQ_DIRECTORY: $FASTQ_DIRECTORY" >&2
@@ -201,7 +206,7 @@ fi
 FASTQ_COUNT=0
 
 for pattern in "${NGS_FILE_PATTERNS[@]}"; do
-    count=$(find "$EXPERIMENT_DIR" -maxdepth 1 -type f -name "$pattern" 2>/dev/null | wc -l)
+    count=$(find "$EXPERIMENT_DIR" -type f -name "$pattern" 2>/dev/null | wc -l)
 
     if [[ "$pattern" == *"fastq"* ]]; then
         FASTQ_COUNT=$count
@@ -220,12 +225,8 @@ if [[ "$FASTQ_COUNT" -eq 0 ]]; then
 
 fi
 
-echo -e "\n=== CHIP Processing Submission Parameters ==="
-echo "Working directory: ${EXPERIMENT_DIR}"
-echo "Array size: 1-${FASTQ_COUNT}"
-echo "Max simultaneous jobs: $MAX_SIMULTANEOUS_JOBS"
-echo "Script: $PROCESSING_SCRIPT_TO_SUBMIT"
 
+echo "Array size: 1-${FASTQ_COUNT}"
 read -rp "Proceed with job submission? (y/n): " confirm
 if [[ ! $confirm =~ ^[Yy]$ ]]; then
     echo "Job submission cancelled"
