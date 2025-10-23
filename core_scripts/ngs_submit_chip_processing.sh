@@ -140,8 +140,6 @@ touch "$JOB_LOG"
 #==============================
 echo -e "\n=== CHIP Processing Submission Parameters ==="
 echo "Working directory: ${EXPERIMENT_DIR}"
-echo "Max simultaneous jobs: $MAX_SIMULTANEOUS_JOBS"
-echo "Script: $PROCESSING_SCRIPT_TO_SUBMIT"
 
 if [[ ! -d "$FASTQ_DIRECTORY" ]]; then
   echo "Error: FASTQ_DIRECTORY does not exist. Please verify experiment id." >&2
@@ -190,14 +188,47 @@ first_data_row=$(sed -n '2p' "$MANIFEST_FILEPATH")
 IFS=$'\t' read -r sample_id read1_path read2_path <<< "$first_data_row"
 
 if [[ -z "$read2_path" ]]; then
-    read_type="single-end"
+    READ_TYPE="single-end"
     echo "Detected read type: single-end"
 
 else
-    read_type="paired-end"
+    READ_TYPE="paired-end"
     echo "Detected read type: paired-end"
 
 fi
+
+# Validate all FASTQ files exist
+echo "Validating FASTQ file existence..."
+missing_files=0
+missing_file_list=()
+
+while IFS=$'\t' read -r sample_id read1_path read2_path; do
+    # Skip header
+    [[ "$sample_id" == "sample_id" ]] && continue
+
+    # Check read1
+    if [[ ! -f "$read1_path" ]]; then
+        echo "  Missing: $read1_path"
+        missing_files=$((missing_files + 1))
+        missing_file_list+=("$read1_path")
+    fi
+
+    # Check read2 if paired-end
+    if [[ -n "$read2_path" ]] && [[ ! -f "$read2_path" ]]; then
+        echo "  Missing: $read2_path"
+        missing_files=$((missing_files + 1))
+        missing_file_list+=("$read2_path")
+    fi
+done < "$MANIFEST_FILEPATH"
+
+if [[ "$missing_files" -gt 0 ]]; then
+    echo ""
+    echo "Error: $missing_files FASTQ file(s) missing from manifest"
+    echo "Cannot proceed with submission"
+    exit 1
+fi
+
+echo "Validation: [OK] - All FASTQ files exist"
 
 #==============================
 # Output experiment information for user confirmation
@@ -211,11 +242,14 @@ for pattern in "${NGS_FILE_PATTERNS[@]}"; do
     if [[ "$pattern" == *"fastq"* ]]; then
         FASTQ_COUNT=$count
         echo "Found $count FASTQ files matching pattern: $pattern"
+
     else
         # Derive type from extension for message
         ext="${pattern#*.}"
         echo "Found $count $ext files matching pattern: $pattern"
+
     fi
+
 done
 
 # Script processes starting from fastq files.
@@ -225,8 +259,37 @@ if [[ "$FASTQ_COUNT" -eq 0 ]]; then
 
 fi
 
+echo "=== Processing Summary ==="
+echo "Samples to process: $TOTAL_SAMPLES"
+echo "Read type: $READ_TYPE"
+echo ""
 
-echo "Array size: 1-${FASTQ_COUNT}"
+# Show sample list
+echo "Samples:"
+echo "----------------------------------------"
+tail -n +2 "$MANIFEST_FILEPATH" | cut -f1 | nl -w3 -s'. '
+echo "----------------------------------------"
+echo ""
+
+# Show expected outputs
+echo "Pipeline steps:"
+echo "  1. fastp          -> quality_control/*.{json,html}"
+echo "  2. bowtie2        -> alignment/*_sorted.bam"
+echo "  3. alignmentSieve -> alignment/*_blFiltered.bam"
+echo "  4. bamCoverage    -> coverage/*_CPM.bw"
+echo ""
+
+
+# ============================================================================
+# SUBMISSION CONFIRMATION AND EXECUTION
+# ============================================================================
+
+echo "SLURM job configuration:"
+echo "Max simultaneous jobs: $MAX_SIMULTANEOUS_JOBS"
+echo "Script: $PROCESSING_SCRIPT_TO_SUBMIT"
+echo "Array size: 1-${TOTAL_SAMPLES}"
+echo ""
+
 read -rp "Proceed with job submission? (y/n): " confirm
 if [[ ! $confirm =~ ^[Yy]$ ]]; then
     echo "Job submission cancelled"
@@ -251,6 +314,11 @@ fi
 #
 ## Extract job ID (works with both "Submitted batch job 12345" and "12345")
 #job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
+#if [[ -z "$job_id" ]]; then
+#    echo "Error: Failed to extract job ID from sbatch output"
+#    echo "Output was: $job_submit_output"
+#    exit 1
+#fi
 #
 ## --- Log job details ---
 #{
@@ -275,13 +343,3 @@ fi
 #} >> "$JOB_LOG"
 #
 #echo "Job $job_id submitted successfully. Details logged to $JOB_LOG"
-
-# Count fastq files
-#mapfile -t PREFILTERED_FASTQ_FILENAMES < <(find "${FASTQ_DIR}" -maxdepth 1 -type f -name "$FASTQ_FILE_PATTERN" -exec basename {} \;)
-#FASTQ_COUNT=${#PREFILTERED_FASTQ_FILENAMES[@]}
-#echo "Found ${FASTQ_COUNT} fastq files"
-# Format file listing with columns and headers
-#echo -e "\nFASTQ files found:"
-#printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
-#printf '%s\n' "${PREFILTERED_FASTQ_FILENAMES[@]}" | column -c "${COLUMNS:-$(tput cols)}"
-#printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
