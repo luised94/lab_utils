@@ -400,6 +400,7 @@ else
             --json "$FASTP_JSON" \
             --html "$FASTP_HTML"; then
         log_message "INFO" "fastp filtering complete"
+
     else
         log_message "ERROR" "fastp filtering failed for ${SAMPLE_ID}"
         exit 1
@@ -455,6 +456,55 @@ else
         fi
     else
         log_message "ERROR" "Alignment/sorting failed for ${SAMPLE_ID}"
+        exit 1
+
+    fi
+
+fi
+
+
+# ============================================================================
+# PIPELINE STEP 3: ALIGNMENTSIEVE BLACKLIST FILTERING
+# ============================================================================
+
+log_message "INFO" "=== Step 3: alignmentSieve blacklist filtering ==="
+
+# Check if output already exists
+if [[ -f "$BLACKLIST_FILTERED_OUT_FILE" ]] && [[ -f "${BLACKLIST_FILTERED_OUT_FILE}.bai" ]]; then
+    log_message "SKIP" "Blacklist-filtered BAM and index already exist - skipping"
+    log_message "INFO" "  Output: $BLACKLIST_FILTERED_OUT_FILE"
+
+else
+    # Load required modules
+    module purge
+    module load python/2.7.13
+    module load deeptools/3.0.1
+    module load samtools
+
+    log_message "INFO" "Starting blacklist filtering"
+
+    # Execute alignmentSieve
+    if measure_performance "blacklist_filtering" \
+        alignmentSieve \
+            --bam "$SORTED_BAM_OUT_FILE" \
+            --blackListFileName "$BLACKLIST_BED_FILE" \
+            --outFile "$BLACKLIST_FILTERED_OUT_FILE" \
+            --numberOfProcessors "$((CPU_THREADS / 2))"; then
+
+        log_message "INFO" "Blacklist filtering complete"
+        log_message "INFO" "Starting BAM indexing"
+
+        if measure_performance "index" samtools index "$BLACKLIST_FILTERED_OUT_FILE"; then
+            log_message "INFO" "Blacklist-filtered BAM indexing complete"
+
+        else
+            log_message "ERROR" "Blacklist-filtered BAM indexing failed for ${SAMPLE_ID}"
+            exit 1
+
+        fi
+
+    else
+        log_message "ERROR" "Blacklist filtering failed for ${SAMPLE_ID}"
         exit 1
 
     fi
