@@ -185,7 +185,19 @@ fi
 # Detect read type from manifest structure
 # Read first data row to check if read2_path column exists and has value
 first_data_row=$(sed -n '2p' "$MANIFEST_FILEPATH")
-IFS=$'\t' read -r sample_id read1_path read2_path <<< "$first_data_row"
+
+IFS=$'\t' read -r sample_id read1_path read2_path rest <<< "$first_data_row"
+
+# Validate minimum fields
+if [[ -z "$sample_id" ]] || [[ -z "$read1_path" ]]; then
+    echo "ERROR: Manifest row must have at least 2 fields: $MANIFEST_ROW"
+    exit 1
+fi
+
+# Check to see if manifest has more fields than expected
+if [[ -n "$rest" ]]; then
+    echo "Warning: Too many columns in manifest row" >&2
+fi
 
 if [[ -z "$read2_path" ]]; then
     READ_TYPE="single-end"
@@ -202,9 +214,20 @@ echo "Validating FASTQ file existence..."
 missing_files=0
 missing_file_list=()
 
-while IFS=$'\t' read -r sample_id read1_path read2_path; do
+while IFS=$'\t' read -r sample_id read1_path read2_path rest; do
     # Skip header
     [[ "$sample_id" == "sample_id" ]] && continue
+
+    # Validate required fields
+    if [[ -z "$sample_id" ]] || [[ -z "$read1_path" ]]; then
+        echo "ERROR: Invalid manifest row (missing sample_id or read1_path): $sample_id|$read1_path|$read2_path" >&2
+        exit 1
+    fi
+
+    # Check to see if manifest has more fields than expected
+    if [[ -n "$rest" ]]; then
+        echo "Warning: Too many columns in manifest row" >&2
+    fi
 
     # Check read1
     if [[ ! -f "$read1_path" ]]; then
