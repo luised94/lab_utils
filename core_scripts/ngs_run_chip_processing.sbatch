@@ -108,17 +108,6 @@ if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
 
 fi
 
-# Handle second argument: Set dry-run mode.
-#DRY_RUN=true
-#if [[ $# -eq $MAX_NUMBER_OF_ARGS ]]; then
-#    if [[ "$2" != "--active-run" ]]; then
-#        echo "Error: Unknown option '$2'" >&2
-#        echo "Use --active-run to perform actual sync." >&2
-#        exit 1
-#    fi
-#    DRY_RUN=false
-#fi
-
 # Capture initial environment variables for logging
 # Any variables at this time will not be logged.
 # Everything after this mapfile command will be!
@@ -129,11 +118,6 @@ mapfile -t initial_vars_declarations < <(compgen -A variable | sort)
 #==============================
 echo "Setting configuration..."
 CPU_THREADS="$SLURM_CPUS_PER_TASK"
-#THREADS=$(nproc)
-# SLURM job configuration
-#REPO_DIRECTORY_PATH=$(git rev-parse --show-toplevel)
-#PROCESSING_SCRIPT_TO_SUBMIT="${REPO_DIRECTORY_PATH}/core_scripts/ngs_run_chip_processing.sbatch"
-#NGS_FILE_PATTERNS=("consolidated*.fastq" "*.bam" "*.bw")
 
 # --- Command configuration ---
 # Any settings not explictly defined can be assumed to be default.
@@ -163,11 +147,6 @@ GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
 GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
 BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
 FASTQ_FILEPATH_PATTERN="consolidated*.fastq"
-#SAMPLE_ID_BASH_REGEX='^consolidated_(.*)_sequence\.fastq$'
-#SAMPLE_ID_SED_REGEX= "consolidated_\(.*\)_sequence\.fastq"
-
-# Manifest output configuration
-MANIFEST_FILENAME="consolidated_reads_manifest.tsv"
 
 # Directory structure
 EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
@@ -175,21 +154,23 @@ FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
 ALIGNMENT_DIR="${EXPERIMENT_DIR}/alignment"
 COVERAGE_DIR="${EXPERIMENT_DIR}/coverage"
 DOCUMENTATION_DIR="${EXPERIMENT_DIR}/documentation"
-MANIFEST_FILEPATH="${DOCUMENTATION_DIR}/$MANIFEST_FILENAME"
 QUALITY_CONTROL_DIR="${EXPERIMENT_DIR}/quality_control"
-THREADS=$( nproc )
+
+# Manifest output configuration
+MANIFEST_FILENAME="consolidated_reads_manifest.tsv"
+MANIFEST_FILEPATH="${DOCUMENTATION_DIR}/$MANIFEST_FILENAME"
 
 #=======================
 # Setup logging
 #=======================
 # Read in logging functions and then setup
+log_message "INFO" "=== Starting ChIP-seq processing pipeline ==="
 TOOL_NAME="chip_processing"
 source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 # Sets log file in the logs directory. Outputs LOG_DIR.
 eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
 
 # @QUES: I dont think this is necessary.
-#log_message "INFO" "=== Starting ChIP-seq processing pipeline ==="
 #log_message "INFO" "Experiment: $EXPERIMENT_ID"
 #log_message "INFO" "Array task ID: $SLURM_ARRAY_TASK_ID"
 
@@ -326,26 +307,29 @@ FASTP_HTML="${QUALITY_CONTROL_DIR}/${SAMPLE_ID}_fastp.html"
 log_message "CONFIG" "=== Script Configuration ==="
 mapfile -t variables_after_config < <(compgen -A variable | sort)
 
-while IFS= read -r variable_name; do
-  # Skip empty lines
-  [[ -z "$variable_name" ]] && continue
+mapfile -t new_variables < <(
+    comm -13 <(printf "%s\n" "${initial_vars_declarations[@]}" | sort) \
+             <(printf "%s\n" "${variables_after_config[@]}" | sort)
+)
 
-  # Skip internal loop variables and arrays
-  case "$variable_name" in
-      initial_vars_declarations|variables_after_config|variable_name|variable_value|formatted_log_line)
-          continue
-          ;;
-  esac
+# Log new user-defined variables
+for variable_name in "${new_variables[@]}"; do
+    [[ -z "$variable_name" ]] && continue
 
-  # Get variable value
-  variable_value="${!variable_name}"
+    # Skip internal/script variables
+    case "$variable_name" in
+        initial_vars_declarations|variables_after_config|variable_name|variable_value|formatted_log_line)
+        continue
+        ;;
+    esac
 
-  # Format and log
-  printf -v formatted_log_line "%s=%q" "$variable_name" "$variable_value"
-  log_message "CONFIG" "$formatted_log_line"
+     # Optional: only log ALL_CAPS config-style vars
+     if [[ "$variable_name" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
+        printf -v formatted_log_line "%s=%q" "$variable_name" "${!variable_name}"
+        log_message "CONFIG" "$formatted_log_line"
+     fi
 
-done < <(comm -13 <(printf "%s\n" "${initial_vars_declarations[@]}") \
-                 <(printf "%s\n" "${variables_after_config[@]}"))
+done
 
 log_message "CONFIG" "=== End Configuration ==="
 
