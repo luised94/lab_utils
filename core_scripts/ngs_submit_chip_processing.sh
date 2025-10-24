@@ -336,7 +336,7 @@ done
 # --- Submit job and capture output ---
 job_submit_output=$(sbatch --array=1-"${TOTAL_SAMPLES}%$MAX_SIMULTANEOUS_JOBS" \
     "$PROCESSING_SCRIPT_TO_SUBMIT" \
-    "$EXPERIMENT_DIR")
+    "$EXPERIMENT_ID")
 
 # Extract job ID (works with both "Submitted batch job 12345" and "12345")
 job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
@@ -366,7 +366,7 @@ fi
     echo "- Experiment dir: $EXPERIMENT_DIR"
     echo "- Manifest: $MANIFEST_FILEPATH"
     echo "- Command ran: $0"
-    echo "- sbatch command: sbatch --array=1-${TOTAL_SAMPLES}%$MAX_SIMULTANEOUS_JOBS $PROCESSING_SCRIPT_TO_SUBMIT $EXPERIMENT_DIR"
+    echo "- sbatch command: sbatch --array=1-${TOTAL_SAMPLES}%$MAX_SIMULTANEOUS_JOBS $PROCESSING_SCRIPT_TO_SUBMIT $EXPERIMENT_ID"
     echo "- FASTQ files processed: $TOTAL_SAMPLES"
     echo "- Description: $description"
     echo "- Logs: {{fill out comments}}"
