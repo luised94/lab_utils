@@ -226,7 +226,7 @@ while IFS=$'\t' read -r sample_id read1_path read2_path rest; do
 
     # Check to see if manifest has more fields than expected
     if [[ -n "$rest" ]]; then
-        echo "Warning: Too many columns in manifest row" >&2
+        echo "Warning: Too many columns in manifest row for ${sample_id}" >&2
     fi
 
     # Check read1
@@ -324,54 +324,56 @@ if [[ ! $confirm =~ ^[Yy]$ ]]; then
 fi
 
 # --- Capture job description ---
-#description=""
-#while [[ -z "$description" ]]; do
-#    read -rp "Enter job purpose (e.g., 'Filter reads for sample X'): " description
-#    if [[ -z "$description" ]]; then
-#        echo "Error: Description cannot be empty" >&2
-#    fi
-#
-#done
-#
-## --- Submit job and capture output ---
-#job_submit_output=$(sbatch --array=1-"${FASTQ_COUNT}%$MAX_SIMULTANEOUS_JOBS" \
-#    "$PROCESSING_SCRIPT_TO_SUBMIT" \
-#    "$EXPERIMENT_DIR")
-#
-## Extract job ID (works with both "Submitted batch job 12345" and "12345")
-#job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
-#if [[ -z "$job_id" ]]; then
-#    echo "Error: Failed to extract job ID from sbatch output"
-#    echo "Output was: $job_submit_output"
-#    exit 1
-#fi
-#
-## --- Log job details ---
-#{
-#    echo "# $job_id"
-#    echo "- Submission time: $(date --iso-8601=seconds)"
-#    echo "- Cluster: $(hostname)"
-#    echo "- Experiment: $EXPERIMENT_ID"
-#    echo "- Read type: $READ_TYPE"
-#    echo "- Samples: $TOTAL_SAMPLES"
-#    # Git metadata
-#    (
-#        # Ensure the git commands are executed inside the repository.
-#        cd "$HOME/lab_utils" || exit
-#        echo "- Git commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
-#        echo "- Git branch: $(git symbolic-ref --short HEAD 2>/dev/null || echo 'detached')"
-#        echo "- Git status: $(git status --porcelain 2>/dev/null | wc -l) uncommitted changes"
-#    )
-#    echo "- Experiment dir: $EXPERIMENT_DIR"
-#    echo "- Manifest: $MANIFEST_FILEPATH"
-#    echo "- Command ran: $0"
-#    echo "- sbatch command: sbatch --array=1-${TOTAL_SAMPLES}%$MAX_SIMULTANEOUS_JOBS $PROCESSING_SCRIPT_TO_SUBMIT $EXPERIMENT_DIR"
-#    echo "- FASTQ files processed: $TOTAL_SAMPLES"
-#    echo "- Description: $description"
-#    echo "- Logs: {{fill out comments}}"
-#    echo ""
-#} >> "$JOB_LOG"
-#
-#echo "Job $job_id submitted successfully. Details logged to $JOB_LOG"
-#echo "Monitor job status: squeue -u $USER"
+description=""
+while [[ -z "$description" ]]; do
+    read -rp "Enter job purpose (e.g., 'Filter reads for sample X'): " description
+    if [[ -z "$description" ]]; then
+        echo "Error: Description cannot be empty" >&2
+    fi
+
+done
+
+# --- Submit job and capture output ---
+job_submit_output=$(sbatch --array=1-"${TOTAL_SAMPLES}%$MAX_SIMULTANEOUS_JOBS" \
+    "$PROCESSING_SCRIPT_TO_SUBMIT" \
+    "$EXPERIMENT_DIR")
+
+# Extract job ID (works with both "Submitted batch job 12345" and "12345")
+job_id=$(echo "$job_submit_output" | grep -oE '[0-9]+$')
+if [[ -z "$job_id" ]]; then
+    echo "Error: Failed to extract job ID from sbatch output"
+    echo "Output was: $job_submit_output"
+
+
+fi
+
+# --- Log job details ---
+{
+    echo "# $job_id"
+    echo "- Submission time: $(date --iso-8601=seconds)"
+    echo "- Cluster: $(hostname)"
+    echo "- Experiment: $EXPERIMENT_ID"
+    echo "- Read type: $READ_TYPE"
+    echo "- Samples: $TOTAL_SAMPLES"
+    # Git metadata
+    (
+        # Ensure the git commands are executed inside the repository.
+        cd "$HOME/lab_utils" || exit
+        echo "- Git commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
+        echo "- Git branch: $(git symbolic-ref --short HEAD 2>/dev/null || echo 'detached')"
+        echo "- Git status: $(git status --porcelain 2>/dev/null | wc -l) uncommitted changes"
+    )
+    echo "- Experiment dir: $EXPERIMENT_DIR"
+    echo "- Manifest: $MANIFEST_FILEPATH"
+    echo "- Command ran: $0"
+    echo "- sbatch command: sbatch --array=1-${TOTAL_SAMPLES}%$MAX_SIMULTANEOUS_JOBS $PROCESSING_SCRIPT_TO_SUBMIT $EXPERIMENT_DIR"
+    echo "- FASTQ files processed: $TOTAL_SAMPLES"
+    echo "- Description: $description"
+    echo "- Logs: {{fill out comments}}"
+    echo ""
+} >> "$JOB_LOG"
+
+echo "Job $job_id submitted successfully. Details logged to $JOB_LOG"
+echo "See logs: vim \$\(ls -t ~/logs/250930Bel_*chip_processing*_main.log | head -1\)"
+echo "Monitor job status: squeue -u $USER"
 echo "Script complete."
