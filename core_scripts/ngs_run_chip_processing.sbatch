@@ -7,93 +7,294 @@
 #SBATCH --exclude=c[5-22]
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=luised94@mit.edu
-# Script: bmc_run_chip_processing.sbatch
-# Purpose: Executes processing of fastq files. fastp, bowtie2, bam coverage
-# From single fastq to bigwig files
-# Usage: sbatch --array=1-N%16 $HOME/lab_utils/core_scripts/bmc_run_chip_processing.sbatch <experiment_directory>
-# OR RUN via bmc_submit_chip_processing.sh
-# To sync html and json files locally, run 'rsync -nav username@luria.mit.edu:~/logs/* ~/logs/'.
-# Author: Luis
-# Date: 2025-10-09
+################################################################################
+# ngs_run_chip_processing.sbatch
+# Run CHIP fastq processing pipeline
+# Author: Luis | Date: 2025-10-23 | Version: 2.0.0
+################################################################################
+# PURPOSE:
+#   Filter, align and calculate bigwig coverage for fastq files from a given experiment id.
+# USAGE:
+#   From the command line, run via the slurm submission script. Although can submit a particular slurm task directly
+#   $ ngs_submit_chip_processing.sh <EXPERIMENT_ID>
+#   $ srun ngs_run_chip_processing.sh <EXPERIMENT_ID>
+#   $ sbatch --array=1-N%16 ngs_run_chip_processing.sh <EXPERIMENT_ID>
+# DEPENDENCIES:
+#   bash 4.2, bowtie2, fastp, bedtools, samtools
+#   Assumes fastq files are in the fastq directory and everything is removed. (cleanup script.)
+#   Assumes manifest file has been generated.
+# OUTPUTS:
+#   Sorted and indexed bam files, bigwig files for visualization.
+#   fastp files generates quality control files for filtering process. To sync html and json files locally, run 'rsync -nav username@luria.mit.edu:~/logs/* ~/logs/'.
+################################################################################
+show_usage() {
+    cat << EOF
+Usage: 
+2) ngs_submit_chip_processing.sh <EXPERIMENT_ID>
+1) srun $0 <EXPERIMENT_ID>
+2) sbatch $0 <EXPERIMENT_ID>
 
-# Validate input arguments
-# Script that submits this script via srun checks that the directory exists.
-if [ "$#" -ne 1 ]; then
-    echo "Usage: sbatch --array=1-N%16 $0 <experiment_directory>"
-    echo "Example: sbatch --array=1-10%16 $0 /home/user/data/240304Bel"
-    echo "Note: Array range should not exceed the number of fastq files"
-    exit 1
-fi
+Process consolidated FASTQ files via the CHIP processing pipeline.
+
+Arguments:
+    EXPERIMENT_ID    Full path to experiment directory
+                           Example: \$HOME/data/250930Bel
+Options:
+  -h, --help        Show this help message
+
+Requirements:
+    - Must run on luria cluster as sbatch job
+    - Must be in git repository (lab_utils)
+    - Consolidated FASTQ files must exist
+    - Manifest file must exist: documentation/consolidated_reads_manifest.tsv
+
+The script will:
+  1. Read manifest to determine samples and read type
+  2. Ensure file specified by slurm task id exists.
+  3. Determines command options.
+  4. Process fastq files with fastp, bowtie2, bamcoverage and bedtools
+EOF
+  exit 0
+
+}
 
 # Validate SLURM_ARRAY_TASK_ID
 if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
     echo "Error: This script must be run as a SLURM array job"
     echo "Use: sbatch --array=1-N%16 $0 <experiment_directory>"
     exit 1
+
 fi
 
 
-# Capture variables in environment to filter afterwards
+#==============================
+# Argument error handling
+#==============================
+# Check for arguments
+echo "Handling arguments..."
+MIN_NUMBER_OF_ARGS=1
+MAX_NUMBER_OF_ARGS=1
+EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{6}Bel$ # Do not quote regular expression.
+# Check for help flag
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+  show_usage
+fi
+
+# Verify number of arguments
+if [[ $# -lt $MIN_NUMBER_OF_ARGS ]]; then
+    echo "Error: Missing required argument EXPERIMENT_ID." >&2
+    show_usage
+    exit 1
+fi
+
+if [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
+    echo "Error: Too many arguments provided." >&2
+    show_usage
+    exit 1
+fi
+
+# Handle first argument: Remove trailing slash and validate pattern
+EXPERIMENT_ID=${1%/} # Ensure argument does not have trailing slashes.
+echo "Running error handling..."
+if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
+  echo "Error: EXPERIMENT_ID does not match expected pattern." >&2
+  echo "Please adjust EXPERIMENT_ID accordingly." >&2
+  echo "EXPERIMENT ID PATTERN: $EXPECTED_EXPERIMENT_ID_PATTERN" >&2
+  echo "EXPERIMENT_ID: $EXPERIMENT_ID" >&2
+  exit 1
+fi
+
+# Handle second argument: Set dry-run mode.
+#DRY_RUN=true
+#if [[ $# -eq $MAX_NUMBER_OF_ARGS ]]; then
+#    if [[ "$2" != "--active-run" ]]; then
+#        echo "Error: Unknown option '$2'" >&2
+#        echo "Use --active-run to perform actual sync." >&2
+#        exit 1
+#    fi
+#    DRY_RUN=false
+#fi
+
+# Capture initial environment variables for logging
+# Any variables at this time will not be logged.
+# Everything after this mapfile command will be!
 mapfile -t initial_vars_declarations < <(compgen -A variable | sort)
 
-# Parse arguments
-# EXPERIMENT_DIR is verified during slurm submission. No error handling required.
-EXPERIMENT_DIR="$1"
-EXPERIMENT_ID=$( basename "$EXPERIMENT_DIR" )
-FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
-BAM_DIR="${EXPERIMENT_DIR}/alignment"
-COVERAGE_DIR="${EXPERIMENT_DIR}/coverage"
-QC_DIR="${EXPERIMENT_DIR}/quality_control"
-THREADS=$( nproc )
+#==============================
+# Configuration
+#==============================
+echo "Setting configuration..."
+CPU_THREADS="$SLURM_CPUS_PER_TASK"
+THREADS=$(nproc)
 
-# Read in logging functions and then setup
-TOOL_NAME="chip_processing"
-source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
-# Sets log file in the logs directory. Outputs LOG_DIR.
-eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
-
-# Additional required files
-# Genome for bowtie2 command, blacklist for alignmentSieve
-GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
-GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
-BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
-
-# Configurations
-FASTQ_FILEPATH_PATTERN="consolidated*.fastq"
-SAMPLE_ID_BASH_REGEX='^consolidated_(.*)_sequence\.fastq$'
-#SAMPLE_ID_SED_REGEX= "consolidated_\(.*\)_sequence\.fastq"
-
-# Fastp configuration variables
-# Filter reads
-MAXIMUM_UNQUALIFIED_BASE_PERCENT=50
+# --- Command configuration ---
+# Any settings not explictly defined can be assumed to be default.
+# fastp parameters
 MAXIMUM_N_BASE_COUNT=5
+MAXIMUM_UNQUALIFIED_BASE_PERCENT=50
 COMPLEXITY_WINDOW_SIZE=4
 OVERREPRESENTATION_SAMPLING=50
-CPU_THREADS="$SLURM_CPUS_PER_TASK"
 MINIMUM_BASE_QUALITY=20
 MINIMUM_READ_LENGTH=25
 
-# bowtie2 configuration parameters
-# All other settings are default.
-# Add <m1>, <m2> and --align-paired-reads
+# bowtie2 parameters
 ALIGNMENTS_TO_REPORT=1
 EXTENSIONS_TO_TRY=15
 SETS_OF_SEEDS=2
 MAX_PENALTY_MISMATCH=4
 NON_NUCLEOTIDE_PENALTY=1
 
-# bamCoverage configuration properites
-# All other settings are default.
+# bamCoverage parameters
 BIN_SIZE=10
 EFFECTIVE_GENOME_SIZE=12157105
-MIN_MAPPING_QUALITY=20
+MINIMUM_MAPPING_QUALITY=20
 NORM_METHOD="CPM"
+
+# Genome reference files (Saccharomyces cerevisiae S288C)
+GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
+GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
+BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
+FASTQ_FILEPATH_PATTERN="consolidated*.fastq"
+SAMPLE_ID_BASH_REGEX='^consolidated_(.*)_sequence\.fastq$'
+#SAMPLE_ID_SED_REGEX= "consolidated_\(.*\)_sequence\.fastq"
+
+# Manifest output configuration
+MANIFEST_FILENAME="consolidated_reads_manifest.tsv"
+# SLURM job configuration
+REPO_DIRECTORY_PATH=$(git rev-parse --show-toplevel)
+PROCESSING_SCRIPT_TO_SUBMIT="${REPO_DIRECTORY_PATH}/core_scripts/ngs_run_chip_processing.sbatch"
+NGS_FILE_PATTERNS=("consolidated*.fastq" "*.bam" "*.bw")
+
+# Directory structure
+EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
+FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
+ALIGNMENT_DIR="${EXPERIMENT_DIR}/alignment"
+COVERAGE_DIR="${EXPERIMENT_DIR}/coverage"
+DOCUMENTATION_DIR="${EXPERIMENT_DIR}/documentation"
+MANIFEST_FILE="${DOCUMENTATION_DIR}/$MANIFEST_FILENAME"
+QUALITY_CONTROL_DIR="${EXPERIMENT_DIR}/quality_control"
+THREADS=$( nproc )
+
+
+#=======================
+# Setup logging
+#=======================
+# Read in logging functions and then setup
+TOOL_NAME="chip_processing"
+source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
+# Sets log file in the logs directory. Outputs LOG_DIR.
+eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
+
+log_message "INFO" "=== Starting ChIP-seq processing pipeline ==="
+log_message "INFO" "Experiment: $experiment_id"
+log_message "INFO" "Array task ID: $SLURM_ARRAY_TASK_ID"
+
+# --- Check REQUIRED FILES ---
+# Ensure genome index exists.
+if [[ ! -f "${GENOME_INDEX}.1.bt2" ]]; then
+    log_message "ERROR" "Genome index not found: $GENOME_INDEX"
+    exit 1
+
+fi
+
+# Check if blacklist file exists
+if [[ ! -f "$BLACKLIST_BED_FILE" ]]; then
+    log_message "ERROR" "Blacklist file not found: $BLACKLIST_BED_FILE. Blacklist runs will be skipped."
+    exit 1
+
+fi
+
+log_message "INFO" "Validation complete - all required files present"
+
+# --- Ensure directories exist ---
+mkdir -p "$FASTQ_DIR"
+mkdir -p "$ALIGNMENT_DIR"
+mkdir -p "$QUALITY_CONTROL_DIR"
+mkdir -p "$COVERAGE_DIR"
+# ============================================================================
+# READ MANIFEST AND EXTRACT SAMPLE INFORMATION
+# ============================================================================
+# Validate manifest exists
+if [[ ! -f "$MANIFEST_FILE" ]]; then
+    log_message "ERROR" "Manifest file not found: $MANIFEST_FILE"
+    exit 1
+
+fi
+
+# Get manifest row for this array task (add 1 to skip header)
+ROW_NUMBER=$((SLURM_ARRAY_TASK_ID + 1))
+MANIFEST_ROW=$(sed -n "${ROW_NUMBER}p" "$MANIFEST_FILE")
+if [[ -z "$MANIFEST_ROW" ]]; then
+    log_message "ERROR" "No data found for task ID ${SLURM_ARRAY_TASK_ID} in manifest"
+    log_message "ERROR" "Manifest file: $MANIFEST_FILE"
+    exit 1
+fi
+
+# Parse manifest columns
+IFS=$'\t' read -r sample_id read1_path read2_path <<< "$MANIFEST_ROW"
+
+# Validate minimum fields
+if [[ -z "$sample_id" ]] || [[ -z "$read1_path" ]]; then
+    log_message "ERROR" "Manifest row must have at least 2 fields: $MANIFEST_ROW"
+    exit 1
+fi
+
+log_message "INFO" "Sample ID: $sample_id"
+log_message "INFO" "Read 1: $read1_path"
+if [[ -n "$read2_path" ]]; then
+    log_message "INFO" "Read 2: $read2_path"
+fi
+
+if [[ -z "$read2_path" ]]; then
+    # Single-end configuration
+    read_type="single-end"
+    log_message "INFO" "Processing as single-end reads"
+
+    # Validate input exists
+    if [[ ! -f "$read1_path" ]]; then
+        log_message "ERROR" "Read1 file not found: $read1_path"
+        exit 1
+    fi
+
+    # Define output paths
+    fastp_out1="${fastq_dir}/fastpfiltered_${sample_id}_R1.fastq"
+
+    # Build tool parameters
+    fastp_input_params="--in1 ${read1_path}"
+    fastp_output_params="--out1 ${fastp_out1}"
+    bowtie2_input_params="-U ${fastp_out1}"
+
+else
+    # Paired-end configuration
+    read_type="paired-end"
+    log_message "INFO" "Processing as paired-end reads"
+
+    # Validate inputs exist
+    if [[ ! -f "$read1_path" ]]; then
+        log_message "ERROR" "Read1 file not found: $read1_path"
+        exit 1
+    fi
+
+    if [[ ! -f "$read2_path" ]]; then
+        log_message "ERROR" "Read2 file not found: $read2_path"
+        exit 1
+    fi
+
+    # Define output paths
+    fastp_out1="${fastq_dir}/fastpfiltered_${sample_id}_R1.fastq"
+    fastp_out2="${fastq_dir}/fastpfiltered_${sample_id}_R2.fastq"
+
+    # Build tool parameters
+    fastp_input_params="--in1 ${read1_path} --in2 ${read2_path}"
+    fastp_output_params="--out1 ${fastp_out1} --out2 ${fastp_out2}"
+    bowtie2_input_params="-1 ${fastp_out1} -2 ${fastp_out2}"
+fi
 
 BAMCOVERAGE_COMMON_PARAMS="--bam ${BLFILTERED_BAM_PATH} \
     --outFileName ${BAMCOVERAGE_PATH} \
     --binSize ${BIN_SIZE} \
     --ignoreDuplicates \
-    --minMappingQuality ${MIN_MAPPING_QUALITY} \
+    --minMappingQuality ${MINIMUM_MAPPING_QUALITY} \
     --normalizeUsing ${NORM_METHOD} \
     --numberOfProcessors ${SLURM_CPUS_PER_TASK}"
 
@@ -103,11 +304,6 @@ if [ "${NORM_METHOD}" == "RPGC" ]; then
     log_message "INFO" "Added effectiveGenomeSize parameter for RPGC normalization"
 fi
 
-# Ensure directories exist
-mkdir -p "$FASTQ_DIR"
-mkdir -p "$BAM_DIR"
-mkdir -p "$QC_DIR"
-mkdir -p "$COVERAGE_DIR"
 
 # Get current fastq file
 mapfile -t PREFILTERED_FASTQ_FILEPATHS < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "$FASTQ_FILEPATH_PATTERN" | sort)
@@ -134,10 +330,10 @@ fi
 FASTP_FILTERED_FASTQ_PATH="${FASTQ_DIR}/fastpfiltered_${SAMPLE_ID}_sequence.fastq"
 
 FASTP_FILTERED_FASTQ_FILENAME=$(basename --suffix=.fastq "$FASTP_FILTERED_FASTQ_PATH" )
-PREBLACKLIST_FILTERED_BAM_PATH="${BAM_DIR}/${FASTP_FILTERED_FASTQ_FILENAME}_to_S288C_sorted.bam"
+PREBLACKLIST_FILTERED_BAM_PATH="${ALIGNMENT_DIR}/${FASTP_FILTERED_FASTQ_FILENAME}_to_S288C_sorted.bam"
 
 PREBLFILT_BAM_FILENAME=$(basename --suffix=_sorted.bam "$PREBLACKLIST_FILTERED_BAM_PATH" )
-BLFILTERED_BAM_PATH="${BAM_DIR}/${PREBLFILT_BAM_FILENAME}_blFiltered.bam"
+BLFILTERED_BAM_PATH="${ALIGNMENT_DIR}/${PREBLFILT_BAM_FILENAME}_blFiltered.bam"
 
 BLFILTERED_BAM_NAME=$(basename --suffix=.bam "$BLFILTERED_BAM_PATH" )
 BAMCOVERAGE_PATH="${EXPERIMENT_DIR}/coverage/${BLFILTERED_BAM_NAME}_${NORM_METHOD}.bw"
@@ -191,20 +387,6 @@ if [ "$TOTAL_FILES" -eq 0 ]; then
 
 fi
 
-# REQUIRED FILES
-# Ensure genome index exists.
-if [[ ! -f "${GENOME_INDEX}.1.bt2" ]]; then
-    log_message "ERROR" "Genome index not found: $GENOME_INDEX"
-    exit 1
-
-fi
-
-# Check if blacklist file exists
-if [[ ! -f "$BLACKLIST_BED_FILE" ]]; then
-    log_message "ERROR" "Blacklist file not found: $BLACKLIST_BED_FILE. Blacklist runs will be skipped."
-    exit 1
-
-fi
 
 if [[ ! -f "$FASTQ_PATH" ]]; then
     log_message "ERROR" "No fastq file found for index $FASTQ_INDEX"
@@ -251,8 +433,8 @@ if measure_performance "fastp_filtering" \
         --thread "$CPU_THREADS" \
         --overrepresentation_analysis \
         --overrepresentation_sampling "$OVERREPRESENTATION_SAMPLING" \
-        --json "$QC_DIR/${SAMPLE_ID}_fastp.json" \
-        --html "$QC_DIR/${SAMPLE_ID}_fastp.html"; then
+        --json "$QUALITY_CONTROL_DIR/${SAMPLE_ID}_fastp.json" \
+        --html "$QUALITY_CONTROL_DIR/${SAMPLE_ID}_fastp.html"; then
 
     log_message "INFO" "Performed fastp filtering."
 else
