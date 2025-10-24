@@ -279,3 +279,7 @@ Really need to turn the vimgrep into workflow. Substituting something, find refe
 Add disclaimer about AI.
 Need to update the documentation.
 Got the data from G4 sequencer so still dealing with the paired end read setup as opposed to single end which was easier.
+
+## 2025-10-24
+Finally consolidated the slurm scripts into one continuous script but still testing.
+Moved logs after fixing errors: mkdir -p ~/data/logs && mv ~/logs/* ~/data/logs/

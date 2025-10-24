@@ -19,10 +19,6 @@ setup_logging() {
         return 1
     fi
 
-    local log_root="$HOME/logs"
-    local timestamp; timestamp=$(date +%Y%m%d_%H%M%S)
-    local base_name="${experiment_id}_${timestamp}_${tool_name}_job-${job_id}_task-${task_id}"
-
     if [[ -z "$tool_name" || ! "$tool_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
         if [[ -z "$tool_name" ]]; then
             echo "Error: Tool name cannot be empty" >&2
@@ -36,6 +32,11 @@ setup_logging() {
         echo "Error: Tool name too long (max 50 characters)" >&2
         return 1
     fi
+
+    local log_root="$HOME/data/logs"
+    local timestamp; timestamp=$(date +%Y%m%d_%H%M%S)
+    local base_name="${experiment_id}_${timestamp}_${tool_name}_job-${job_id}_task-${task_id}"
+
 
 
     if ! mkdir -p "$log_root"; then
