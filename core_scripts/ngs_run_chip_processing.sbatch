@@ -128,6 +128,7 @@ COMPLEXITY_WINDOW_SIZE=4
 OVERREPRESENTATION_SAMPLING=50
 MINIMUM_BASE_QUALITY=20
 MINIMUM_READ_LENGTH=25
+FASTP_OUT_PREFIX="fastpfiltered"
 
 # bowtie2 parameters
 ALIGNMENTS_TO_REPORT=1
@@ -135,6 +136,8 @@ EXTENSIONS_TO_TRY=15
 SETS_OF_SEEDS=2
 MAX_PENALTY_MISMATCH=4
 NON_NUCLEOTIDE_PENALTY=1
+BAM_OUT_SUFFIX="S288C_sorted"
+BLFILTERED_OUT_SUFFIX="blFiltered"
 
 # bamCoverage parameters
 BIN_SIZE=10
@@ -164,11 +167,11 @@ MANIFEST_FILEPATH="${DOCUMENTATION_DIR}/$MANIFEST_FILENAME"
 # Setup logging
 #=======================
 # Read in logging functions and then setup
-log_message "INFO" "=== Starting ChIP-seq processing pipeline ==="
 TOOL_NAME="chip_processing"
 source "$HOME/lab_utils/core_scripts/functions_for_logging.sh"
 # Sets log file in the logs directory. Outputs LOG_DIR.
 eval "$(setup_logging "${EXPERIMENT_ID}" ${TOOL_NAME} ${SLURM_ARRAY_JOB_ID} ${SLURM_ARRAY_TASK_ID} )"
+log_message "INFO" "=== Starting ChIP-seq processing pipeline ==="
 
 # @QUES: I dont think this is necessary.
 #log_message "INFO" "Experiment: $EXPERIMENT_ID"
@@ -272,8 +275,8 @@ else
   fi
 
   # Define output paths
-  FASTP_OUT1="${FASTQ_DIR}/fastpfiltered_${SAMPLE_ID}_R1.fastq"
-  FASTP_OUT2="${FASTQ_DIR}/fastpfiltered_${SAMPLE_ID}_R2.fastq"
+  FASTP_OUT1="${FASTQ_DIR}/${FASTP_OUT_PREFIX}_${SAMPLE_ID}_R1.fastq"
+  FASTP_OUT2="${FASTQ_DIR}/${FASTP_OUT_PREFIX}_${SAMPLE_ID}_R2.fastq"
 
   # Build tool parameters
   FASTP_INPUT_PARAMS="--in1 ${READ1_PATH} --in2 ${READ2_PATH}"
@@ -286,8 +289,8 @@ fi
 # DEFINE OUTPUT FILE PATHS (COMMON FOR BOTH READ TYPES)
 #==========================================
 # Alignment outputs
-SORTED_BAM_OUT_FILE="${ALIGNMENT_DIR}/${SAMPLE_ID}_to_S288C_sorted.bam"
-BLACKLIST_FILTERED_OUT_FILE="${ALIGNMENT_DIR}/${SAMPLE_ID}_blFiltered.bam"
+SORTED_BAM_OUT_FILE="${ALIGNMENT_DIR}/${SAMPLE_ID}_${BAM_OUT_SUFFIX}.bam"
+BLACKLIST_FILTERED_OUT_FILE="${ALIGNMENT_DIR}/${SAMPLE_ID}_${BLFILTERED_OUT_SUFFIX}.bam"
 # Coverage output
 BIGWIG_OUT_PATH="${COVERAGE_DIR}/${SAMPLE_ID}_${NORM_METHOD}.bw"
 
@@ -380,7 +383,7 @@ else
             --length_required "$MINIMUM_READ_LENGTH" \
             --thread "$CPU_THREADS" \
             --overrepresentation_analysis \
-            --OVERREPRESENTATION_SAMPLING "$OVERREPRESENTATION_SAMPLING" \
+            --overrepresentation_sampling "$OVERREPRESENTATION_SAMPLING" \
             --json "$FASTP_JSON" \
             --html "$FASTP_HTML"; then
         log_message "INFO" "fastp filtering complete"
