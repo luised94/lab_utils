@@ -308,7 +308,7 @@ fi
 SORTED_BAM_OUT_FILE="${ALIGNMENT_DIR}/${SAMPLE_ID}_to_S288C_sorted.bam"
 BLACKLIST_FILTERED_OUT_FILE="${ALIGNMENT_DIR}/${SAMPLE_ID}_blFiltered.bam"
 # Coverage output
-BIGWIG_PATH="${COVERAGE_DIR}/${SAMPLE_ID}_${NORM_METHOD}.bw"
+BIGWIG_OUT_PATH="${COVERAGE_DIR}/${SAMPLE_ID}_${NORM_METHOD}.bw"
 
 # QC outputs
 FASTP_JSON="${QUALITY_CONTROL_DIR}/${SAMPLE_ID}_fastp.json"
@@ -318,7 +318,7 @@ FASTP_HTML="${QUALITY_CONTROL_DIR}/${SAMPLE_ID}_fastp.html"
 #log_message "INFO" "Output paths configured"
 #log_message "INFO" "  Sorted BAM: $(basename "$SORTED_BAM_OUT_FILE")"
 #log_message "INFO" "  Filtered BAM: $(basename "$BLACKLIST_FILTERED_OUT_FILE")"
-#log_message "INFO" "  BigWig: $(basename "$BIGWIG_PATH")"
+#log_message "INFO" "  BigWig: $(basename "$BIGWIG_OUT_PATH")"
 
 #===================================================
 # Log configuration variables
@@ -509,6 +509,53 @@ else
 
     fi
 
+fi
+
+# ============================================================================
+# PIPELINE STEP 4: BAMCOVERAGE VISUALIZATION
+# ============================================================================
+
+log_message "INFO" "=== Step 4: bamCoverage visualization ==="
+
+# Check if output already exists
+if [[ -f "$BIGWIG_OUT_PATH" ]]; then
+    log_message "SKIP" "BigWig file already exists - skipping"
+    log_message "INFO" "  Output: $BIGWIG_OUT_PATH"
+
+else
+    # Load required modules
+    module purge
+    module load python/2.7.13
+    module load deeptools/3.0.1
+
+    log_message "INFO" "Starting bamCoverage"
+
+    # Build bamCoverage parameters
+    bamcoverage_params="--bam ${BLACKLIST_FILTERED_BAM_PATH}"
+    bamcoverage_params+=" --outFileName ${BIGWIG_OUT_PATH}"
+    bamcoverage_params+=" --binSize ${BIN_SIZE}"
+    bamcoverage_params+=" --ignoreDuplicates"
+    bamcoverage_params+=" --minMappingQuality ${MINIMUM_MAPPING_QUALITY}"
+    bamcoverage_params+=" --normalizeUsing ${NORM_METHOD}"
+    bamcoverage_params+=" --numberOfProcessors ${CPU_THREADS}"
+
+    # Add RPGC-specific parameter if needed
+    if [[ "${NORM_METHOD}" == "RPGC" ]]; then
+        bamcoverage_params+=" --effectiveGenomeSize ${EFFECTIVE_GENOME_SIZE}"
+        log_message "INFO" "Using RPGC normalization with effective genome size: ${EFFECTIVE_GENOME_SIZE}"
+
+    fi
+
+    # Execute bamCoverage
+    # shellcheck disable=SC2086
+    if measure_performance "bamcoverage" bamCoverage $bamcoverage_params; then
+        log_message "INFO" "bamCoverage complete"
+
+    else
+        log_message "ERROR" "bamCoverage failed for ${SAMPLE_ID}"
+        exit 1
+
+    fi
 fi
 
 #BAMCOVERAGE_COMMON_PARAMS="--bam ${BLFILTERED_BAM_PATH} \
