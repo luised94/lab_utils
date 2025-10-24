@@ -558,6 +558,18 @@ else
     fi
 fi
 
+# ============================================================================
+# COMPLETION
+# ============================================================================
+
+log_message "INFO" "=== Pipeline complete for ${SAMPLE_ID} ==="
+log_message "INFO" "All steps finished successfully"
+log_message "INFO" "Final outputs:"
+log_message "INFO" "  - Trimmed FASTQ: ${FASTQ_DIR}/fastpfiltered_${SAMPLE_ID}_R*.fastq"
+log_message "INFO" "  - Sorted BAM: $SORTED_BAM_FILE"
+log_message "INFO" "  - Filtered BAM: $BLACKLIST_FILTERED_BAM_PATH"
+log_message "INFO" "  - BigWig: $BIGWIG_PATH"
+log_message "INFO" "  - QC reports: ${QUALITY_CONTROL_DIR}/${SAMPLE_ID}_fastp.{json,html}"
 #BAMCOVERAGE_COMMON_PARAMS="--bam ${BLFILTERED_BAM_PATH} \
 #  --outFileName ${BAMCOVERAGE_PATH} \
 #  --binSize ${BIN_SIZE} \
