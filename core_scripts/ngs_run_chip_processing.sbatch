@@ -78,6 +78,7 @@ EXPECTED_EXPERIMENT_ID_PATTERN=^[0-9]{6}Bel$ # Do not quote regular expression.
 # Check for help flag
 if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
   show_usage
+
 fi
 
 # Verify number of arguments
@@ -85,12 +86,14 @@ if [[ $# -lt $MIN_NUMBER_OF_ARGS ]]; then
   echo "Error: Missing required argument EXPERIMENT_ID." >&2
   show_usage
   exit 1
+
 fi
 
 if [[ $# -gt $MAX_NUMBER_OF_ARGS ]]; then
   echo "Error: Too many arguments provided." >&2
   show_usage
   exit 1
+
 fi
 
 # Handle first argument: Remove trailing slash and validate pattern
@@ -102,6 +105,7 @@ if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
   echo "EXPERIMENT ID PATTERN: $EXPECTED_EXPERIMENT_ID_PATTERN" >&2
   echo "EXPERIMENT_ID: $EXPERIMENT_ID" >&2
   exit 1
+
 fi
 
 # Handle second argument: Set dry-run mode.
@@ -228,6 +232,7 @@ if [[ -z "$MANIFEST_ROW" ]]; then
   log_message "ERROR" "No data found for task ID ${SLURM_ARRAY_TASK_ID} in manifest"
   log_message "ERROR" "Manifest file: $MANIFEST_FILEPATH"
   exit 1
+
 fi
 
 # Parse manifest columns
@@ -237,13 +242,14 @@ IFS=$'\t' read -r SAMPLE_ID READ1_PATH READ2_PATH <<< "$MANIFEST_ROW"
 if [[ -z "$SAMPLE_ID" ]] || [[ -z "$READ1_PATH" ]]; then
   log_message "ERROR" "Manifest row must have at least 2 fields: $MANIFEST_ROW"
   exit 1
+
 fi
 
-log_message "INFO" "Sample ID: $SAMPLE_ID"
-log_message "INFO" "Read 1: $READ1_PATH"
-if [[ -n "$READ2_PATH" ]]; then
-  log_message "INFO" "Read 2: $READ2_PATH"
-fi
+#log_message "INFO" "Sample ID: $SAMPLE_ID"
+#log_message "INFO" "Read 1: $READ1_PATH"
+#if [[ -n "$READ2_PATH" ]]; then
+  #log_message "INFO" "Read 2: $READ2_PATH"
+#fi
 
 #========================
 # Detect read type and build tool parameters
@@ -299,8 +305,8 @@ fi
 # DEFINE OUTPUT FILE PATHS (COMMON FOR BOTH READ TYPES)
 #==========================================
 # Alignment outputs
-SORTED_BAM_FILE="${ALIGNMENT_DIR}/${SAMPLE_ID}_to_S288C_sorted.bam"
-BLACKLIST_FILTERED_BAM_PATH="${ALIGNMENT_DIR}/${SAMPLE_ID}_blFiltered.bam"
+SORTED_BAM_OUT_FILE="${ALIGNMENT_DIR}/${SAMPLE_ID}_to_S288C_sorted.bam"
+BLACKLIST_FILTERED_OUT_FILE="${ALIGNMENT_DIR}/${SAMPLE_ID}_blFiltered.bam"
 # Coverage output
 BIGWIG_PATH="${COVERAGE_DIR}/${SAMPLE_ID}_${NORM_METHOD}.bw"
 
@@ -310,8 +316,8 @@ FASTP_HTML="${QUALITY_CONTROL_DIR}/${SAMPLE_ID}_fastp.html"
 
 # I dont think these are necessary
 #log_message "INFO" "Output paths configured"
-#log_message "INFO" "  Sorted BAM: $(basename "$SORTED_BAM_FILE")"
-#log_message "INFO" "  Filtered BAM: $(basename "$BLACKLIST_FILTERED_BAM_PATH")"
+#log_message "INFO" "  Sorted BAM: $(basename "$SORTED_BAM_OUT_FILE")"
+#log_message "INFO" "  Filtered BAM: $(basename "$BLACKLIST_FILTERED_OUT_FILE")"
 #log_message "INFO" "  BigWig: $(basename "$BIGWIG_PATH")"
 
 #===================================================
@@ -395,262 +401,317 @@ else
             --html "$FASTP_HTML"; then
         log_message "INFO" "fastp filtering complete"
     else
-        log_message "ERROR" "fastp filtering failed for ${sample_id}"
+        log_message "ERROR" "fastp filtering failed for ${SAMPLE_ID}"
         exit 1
     fi
 fi
 
-BAMCOVERAGE_COMMON_PARAMS="--bam ${BLFILTERED_BAM_PATH} \
-  --outFileName ${BAMCOVERAGE_PATH} \
-  --binSize ${BIN_SIZE} \
-  --ignoreDuplicates \
-  --minMappingQuality ${MINIMUM_MAPPING_QUALITY} \
-  --normalizeUsing ${NORM_METHOD} \
-  --numberOfProcessors ${SLURM_CPUS_PER_TASK}"
+# ============================================================================
+# PIPELINE STEP 2: BOWTIE2 ALIGNMENT AND SORTING
+# ============================================================================
 
-# Add RPGC-specific parameters
-if [ "${NORM_METHOD}" == "RPGC" ]; then
-  BAMCOVERAGE_COMMON_PARAMS+=" --effectiveGenomeSize ${EFFECTIVE_GENOME_SIZE}"
-  log_message "INFO" "Added effectiveGenomeSize parameter for RPGC normalization"
-fi
+log_message "INFO" "=== Step 2: bowtie2 alignment and sorting ==="
 
-
-# Get current fastq file
-mapfile -t PREFILTERED_FASTQ_FILEPATHS < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "$FASTQ_FILEPATH_PATTERN" | sort)
-# Get half of the number of files, then use that to get the rest
-FASTQ_INDEX=$((SLURM_ARRAY_TASK_ID - 1))
-PREFILTERED_FASTQ_PATH="${PREFILTERED_FASTQ_FILEPATHS[$FASTQ_INDEX]}"
-FASTQ_BASENAME=$(basename "$PREFILTERED_FASTQ_PATH")
-
-# Grab sample id from fastq filepath
-#SAMPLE_ID=$(echo "$FASTQ_BASENAME" | sed -n "s/$SAMPLE_ID_SED_REGEX/\\1/p")
-if [[ "$FASTQ_BASENAME" =~ $SAMPLE_ID_BASH_REGEX ]]; then
-  SAMPLE_ID="${BASH_REMATCH[1]}"
-else 
-  log_message "ERROR" "Invalid input filename format: ${FASTQ_BASENAME}"
-  log_message "ERROR" "Expected format: consolidate_<ID>_sequence.fastq"
-  log_message "ERROR" "SAMPLE ID not extracted. Check fastq basename or SAMPLE_ID_BASH_REGEX"
-  exit 1
-
-fi
-
-# Set the output path files
-# Generate output name
-
-log_message "CONFIG" "=== Script Configuration ==="
-mapfile -t variables_after_config < <(compgen -A variable | sort)
-
-# We pipe this into a while loop to process each new variable
-while IFS= read -r variable_name; do
-  # Skip empty lines
-  [[ -z "$variable_name" ]] && continue
-  # We don't want to log these as they're not part of your pipeline config
-  case "$variable_name" in
-  initial_vars_declarations|variables_after_config|variable_name|variable_value|formatted_log_line)
-    continue
-    ;;
-  esac
-
-  # If we set a prefix requirement, check if this variable matches
-  # If VAR_PREFIX is "PIPELINE_", this only logs variables starting with PIPELINE_
-  #if [[ -n "$VAR_PREFIX" ]]; then
-  #  [[ "$variable_name" =~ ^${VAR_PREFIX} ]] || continue
-  #fi
-
-  # Get the actual value of this variable using indirect expansion
-  variable_value="${!variable_name}"
-
-  # Format the variable for logging: use %q to safely quote
-  printf -v formatted_log_line "%s=%q" "$variable_name" "$variable_value"
-
-  # Write to both console and log file
-  log_message "CONFIG" "$formatted_log_line"
-
-  # The comm command compares two sorted files line by line
-  # -1 suppresses lines unique to first file (initial_vars_declarations)
-  # -3 suppresses lines common to both files
-done < <(comm -13 <(printf "%s\n" "${initial_vars_declarations[@]}") \
-                 <(printf "%s\n" "${variables_after_config[@]}"))
-log_message "CONFIG" "=== End Configuration ==="
-
-# Setup additional parameters based on samples
-# Error handling
-TOTAL_FILES=${#PREFILTERED_FASTQ_FILEPATHS[@]}
-if [ "$TOTAL_FILES" -eq 0 ]; then
-  log_message "ERROR" "No fastq files found in ${FASTQ_DIR}"
-  log_message "ERROR" "Check the following:"
-  log_message "ERROR" " - Files were consolidated using script 'bmc_consolidate_fastq_by_id.sh'"
-  log_message "ERROR" " - FInd name expression: $FASTQ_FILEPATH_PATTERN"
-  log_message "ERROR" "---------------------"
-  exit 1
-
-fi
-
-if [[ ! -f "$FASTQ_PATH" ]]; then
-  log_message "ERROR" "No fastq file found for index $FASTQ_INDEX"
-  exit 1
-
-fi
-
-if [[ ! "$SAMPLE_ID" =~ ^[0-9]{1,6}$ ]]; then
-  log_message "ERROR" "Invalid or missing sample ID from filename: ${FASTQ_BASENAME}"
-  log_message "ERROR" "SAMPLE_ID: ${SAMPLE_ID}"
-  exit 1
-
-fi
-
-log_message "INFO" "If reached this step, verify the configuration variables before continuing..."
-exit 0
-
-# Load required modules
-module purge
-module load fastp/0.20.0
-
-# Fastp filtering
-log_message "INFO" "Starting fastp filtering"
-# Options are not available in fastp 0.20.0 version available in the linux cluster.
-#--dedup \
-#--dup_calc_accuracy "$DUPLICATION_CALC_ACCURACY" \
-#--compression "$COMPRESSION_LEVEL" \
-# Add --in2 --out2 when I figure out how the paired end reads are delivered.
-if measure_performance "fastp_filtering" \
-  fastp \
-      --in1 "$FASTQ_PATH" \
-      --out1 "$FASTP_FILTERED_FASTQ_PATH" \
-      --adapter_sequence auto \
-      --cut_window_size "$COMPLEXITY_WINDOW_SIZE" \
-      --cut_mean_quality "$MINIMUM_BASE_QUALITY" \
-      --cut_front \
-      --cut_tail \
-      --cut_right \
-      --n_base_limit "$MAXIMUM_N_BASE_COUNT" \
-      --average_qual "$MINIMUM_BASE_QUALITY" \
-      --qualified_quality_phred "$MINIMUM_BASE_QUALITY" \
-      --unqualified_percent_limit "$MAXIMUM_UNQUALIFIED_BASE_PERCENT" \
-      --length_required "$MINIMUM_READ_LENGTH" \
-      --thread "$CPU_THREADS" \
-      --overrepresentation_analysis \
-      --OVERREPRESENTATION_SAMPLING "$OVERREPRESENTATION_SAMPLING" \
-      --json "$QUALITY_CONTROL_DIR/${SAMPLE_ID}_fastp.json" \
-      --html "$QUALITY_CONTROL_DIR/${SAMPLE_ID}_fastp.html"; then
-  log_message "INFO" "Performed fastp filtering."
+# Check if output already exists
+if [[ -f "$SORTED_BAM_OUT_FILE}.bai" ]]; then
+    log_message "SKIP" "Sorted BAM index already exist - skipping"
+    log_message "INFO" "  Output: $SORTED_BAM_OUT_FILE"
 
 else
-  log_message "ERROR" "Fastp filtering failed for ${SAMPLE_ID}"
-  exit 1
+    # Load required modules
+    module purge
+    module load bowtie2
+    module load samtools
+
+    log_message "INFO" "Starting alignment for ${READ_TYPE}"
+
+    # Execute bowtie2 alignment with piped sorting
+    # shellcheck disable=SC2086
+    if measure_performance "alignment_and_sorting" \
+        bowtie2 \
+            -x "$GENOME_INDEX" \
+            ${BOWTIE2_INPUT_PARAMS} \
+            --mp "$MAX_PENALTY_MISMATCH" \
+            --np "$NON_NUCLEOTIDE_PENALTY" \
+            --sensitive \
+            -D "$EXTENSIONS_TO_TRY" \
+            -R "$SETS_OF_SEEDS" \
+            -k "$ALIGNMENTS_TO_REPORT" \
+            -p "$CPU_THREADS" \
+            2>> "${ERROR_LOG}" | \
+        samtools view -@ "$CPU_THREADS" -bS - 2>> "${ERROR_LOG}" | \
+        samtools sort -@ "$CPU_THREADS" -o "$SORTED_BAM_OUT_FILE" - 2>> "${ERROR_LOG}"; then
+
+        log_message "INFO" "Alignment and sorting complete"
+        log_message "INFO" "Starting BAM indexing"
+
+        if measure_performance "indexing" samtools index "$SORTED_BAM_OUT_FILE"; then
+            log_message "INFO" "BAM indexing complete"
+
+        else
+            log_message "ERROR" "BAM indexing failed for ${SAMPLE_ID}"
+            exit 1
+
+        fi
+    else
+        log_message "ERROR" "Alignment/sorting failed for ${SAMPLE_ID}"
+        exit 1
+
+    fi
 
 fi
-log_message "INFO" "Fastp complete..."
 
-# Load required modules
-module purge
-module load bowtie2
-module load samtools
-
-#if [ -f "${OUTPUT_BAM}" ]; then
-#  log_message "SKIP" "File already exists: ${OUTPUT_BAM}"
-#  log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
-#  exit 0
-#fi
-
-# Alignment and sorting
-log_message "INFO" "Starting alignment and sorting"
-# Error handling
-if measure_performance "alignment_and_sorting" \
-  bowtie2 -x "$GENOME_INDEX" \
-          -U "$FASTP_FILTERED_FASTQ_PATH" \
-          --mp $MAX_PENALTY_MISMATCH \
-          --np $NON_NUCLEOTIDE_PENALTY \
-          --sensitive \
-          -D $EXTENSIONS_TO_TRY \
-          -R $SETS_OF_SEEDS \
-          -k $ALIGNMENTS_TO_REPORT \
-          -p "$CPU_THREADS" \
-          2>> "${ERROR_LOG}" | \
-  samtools view -@ "$SLURM_CPUS_PER_TASK" -bS - 2>> "${ERROR_LOG}" | \
-  samtools sort -@ "$SLURM_CPUS_PER_TASK" -o "$PREBLACKLIST_FILTERED_BAM_PATH" - 2>> "${ERROR_LOG}"; then
-  log_message "INFO" "Starting BAM indexing"
-  if measure_performance "indexing" samtools index "$PREBLACKLIST_FILTERED_BAM_PATH"; then
-      log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
-  else
-      log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
-      exit 1
-  fi
-else
-  log_message "ERROR" "Alignment/sorting failed for ${SAMPLE_NAME}"
-  exit 1
-fi
-
-log_message "INFO" "Bowtie2 complete..."
-
-# Start the
-# Load required modules
-module purge
-module load python/2.7.13
-module load deeptools/3.0.1
-module load samtools
-
-# Execute blacklist filtering ------
-# Check if BAM file already exists
-#if [ -f "$OUTPUT_BAM" ]; then
-#  log_message "SKIP" "File already exists: ${OUTPUT_BAM}"
+#BAMCOVERAGE_COMMON_PARAMS="--bam ${BLFILTERED_BAM_PATH} \
+#  --outFileName ${BAMCOVERAGE_PATH} \
+#  --binSize ${BIN_SIZE} \
+#  --ignoreDuplicates \
+#  --minMappingQuality ${MINIMUM_MAPPING_QUALITY} \
+#  --normalizeUsing ${NORM_METHOD} \
+#  --numberOfProcessors ${SLURM_CPUS_PER_TASK}"
 #
-#  if [ -f "${OUTPUT_BAM}.bai" ]; then
-#    log_message "SKIP" "File already exists: ${OUTPUT_BAM}.bai"
-#    exit 0
+## Add RPGC-specific parameters
+#if [ "${NORM_METHOD}" == "RPGC" ]; then
+#  BAMCOVERAGE_COMMON_PARAMS+=" --effectiveGenomeSize ${EFFECTIVE_GENOME_SIZE}"
+#  log_message "INFO" "Added effectiveGenomeSize parameter for RPGC normalization"
+#fi
+#
+#
+## Get current fastq file
+#mapfile -t PREFILTERED_FASTQ_FILEPATHS < <(find "$FASTQ_DIR" -maxdepth 1 -type f -name "$FASTQ_FILEPATH_PATTERN" | sort)
+## Get half of the number of files, then use that to get the rest
+#FASTQ_INDEX=$((SLURM_ARRAY_TASK_ID - 1))
+#PREFILTERED_FASTQ_PATH="${PREFILTERED_FASTQ_FILEPATHS[$FASTQ_INDEX]}"
+#FASTQ_BASENAME=$(basename "$PREFILTERED_FASTQ_PATH")
+#
+## Grab sample id from fastq filepath
+##SAMPLE_ID=$(echo "$FASTQ_BASENAME" | sed -n "s/$SAMPLE_ID_SED_REGEX/\\1/p")
+#if [[ "$FASTQ_BASENAME" =~ $SAMPLE_ID_BASH_REGEX ]]; then
+#  SAMPLE_ID="${BASH_REMATCH[1]}"
+#else 
+#  log_message "ERROR" "Invalid input filename format: ${FASTQ_BASENAME}"
+#  log_message "ERROR" "Expected format: consolidate_<ID>_sequence.fastq"
+#  log_message "ERROR" "SAMPLE ID not extracted. Check fastq basename or SAMPLE_ID_BASH_REGEX"
+#  exit 1
+#
+#fi
+#
+## Set the output path files
+## Generate output name
+#
+#log_message "CONFIG" "=== Script Configuration ==="
+#mapfile -t variables_after_config < <(compgen -A variable | sort)
+#
+## We pipe this into a while loop to process each new variable
+#while IFS= read -r variable_name; do
+#  # Skip empty lines
+#  [[ -z "$variable_name" ]] && continue
+#  # We don't want to log these as they're not part of your pipeline config
+#  case "$variable_name" in
+#  initial_vars_declarations|variables_after_config|variable_name|variable_value|formatted_log_line)
+#    continue
+#    ;;
+#  esac
+#
+#  # If we set a prefix requirement, check if this variable matches
+#  # If VAR_PREFIX is "PIPELINE_", this only logs variables starting with PIPELINE_
+#  #if [[ -n "$VAR_PREFIX" ]]; then
+#  #  [[ "$variable_name" =~ ^${VAR_PREFIX} ]] || continue
+#  #fi
+#
+#  # Get the actual value of this variable using indirect expansion
+#  variable_value="${!variable_name}"
+#
+#  # Format the variable for logging: use %q to safely quote
+#  printf -v formatted_log_line "%s=%q" "$variable_name" "$variable_value"
+#
+#  # Write to both console and log file
+#  log_message "CONFIG" "$formatted_log_line"
+#
+#  # The comm command compares two sorted files line by line
+#  # -1 suppresses lines unique to first file (initial_vars_declarations)
+#  # -3 suppresses lines common to both files
+#done < <(comm -13 <(printf "%s\n" "${initial_vars_declarations[@]}") \
+#                 <(printf "%s\n" "${variables_after_config[@]}"))
+#log_message "CONFIG" "=== End Configuration ==="
+#
+## Setup additional parameters based on samples
+## Error handling
+#TOTAL_FILES=${#PREFILTERED_FASTQ_FILEPATHS[@]}
+#if [ "$TOTAL_FILES" -eq 0 ]; then
+#  log_message "ERROR" "No fastq files found in ${FASTQ_DIR}"
+#  log_message "ERROR" "Check the following:"
+#  log_message "ERROR" " - Files were consolidated using script 'bmc_consolidate_fastq_by_id.sh'"
+#  log_message "ERROR" " - FInd name expression: $FASTQ_FILEPATH_PATTERN"
+#  log_message "ERROR" "---------------------"
+#  exit 1
+#
+#fi
+#
+#if [[ ! -f "$FASTQ_PATH" ]]; then
+#  log_message "ERROR" "No fastq file found for index $FASTQ_INDEX"
+#  exit 1
+#
+#fi
+#
+#if [[ ! "$SAMPLE_ID" =~ ^[0-9]{1,6}$ ]]; then
+#  log_message "ERROR" "Invalid or missing sample ID from filename: ${FASTQ_BASENAME}"
+#  log_message "ERROR" "SAMPLE_ID: ${SAMPLE_ID}"
+#  exit 1
+#
+#fi
+#
+#log_message "INFO" "If reached this step, verify the configuration variables before continuing..."
+#exit 0
+#
+## Load required modules
+#module purge
+#module load fastp/0.20.0
+#
+## Fastp filtering
+#log_message "INFO" "Starting fastp filtering"
+## Options are not available in fastp 0.20.0 version available in the linux cluster.
+##--dedup \
+##--dup_calc_accuracy "$DUPLICATION_CALC_ACCURACY" \
+##--compression "$COMPRESSION_LEVEL" \
+## Add --in2 --out2 when I figure out how the paired end reads are delivered.
+#if measure_performance "fastp_filtering" \
+#  fastp \
+#      --in1 "$FASTQ_PATH" \
+#      --out1 "$FASTP_FILTERED_FASTQ_PATH" \
+#      --adapter_sequence auto \
+#      --cut_window_size "$COMPLEXITY_WINDOW_SIZE" \
+#      --cut_mean_quality "$MINIMUM_BASE_QUALITY" \
+#      --cut_front \
+#      --cut_tail \
+#      --cut_right \
+#      --n_base_limit "$MAXIMUM_N_BASE_COUNT" \
+#      --average_qual "$MINIMUM_BASE_QUALITY" \
+#      --qualified_quality_phred "$MINIMUM_BASE_QUALITY" \
+#      --unqualified_percent_limit "$MAXIMUM_UNQUALIFIED_BASE_PERCENT" \
+#      --length_required "$MINIMUM_READ_LENGTH" \
+#      --thread "$CPU_THREADS" \
+#      --overrepresentation_analysis \
+#      --OVERREPRESENTATION_SAMPLING "$OVERREPRESENTATION_SAMPLING" \
+#      --json "$QUALITY_CONTROL_DIR/${SAMPLE_ID}_fastp.json" \
+#      --html "$QUALITY_CONTROL_DIR/${SAMPLE_ID}_fastp.html"; then
+#  log_message "INFO" "Performed fastp filtering."
+#
+#else
+#  log_message "ERROR" "Fastp filtering failed for ${SAMPLE_ID}"
+#  exit 1
+#
+#fi
+#log_message "INFO" "Fastp complete..."
+#
+## Load required modules
+#module purge
+#module load bowtie2
+#module load samtools
+#
+##if [ -f "${OUTPUT_BAM}" ]; then
+##  log_message "SKIP" "File already exists: ${OUTPUT_BAM}"
+##  log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+##  exit 0
+##fi
+#
+## Alignment and sorting
+#log_message "INFO" "Starting alignment and sorting"
+## Error handling
+#if measure_performance "alignment_and_sorting" \
+#  bowtie2 -x "$GENOME_INDEX" \
+#          -U "$FASTP_FILTERED_FASTQ_PATH" \
+#          --mp $MAX_PENALTY_MISMATCH \
+#          --np $NON_NUCLEOTIDE_PENALTY \
+#          --sensitive \
+#          -D $EXTENSIONS_TO_TRY \
+#          -R $SETS_OF_SEEDS \
+#          -k $ALIGNMENTS_TO_REPORT \
+#          -p "$CPU_THREADS" \
+#          2>> "${ERROR_LOG}" | \
+#  samtools view -@ "$SLURM_CPUS_PER_TASK" -bS - 2>> "${ERROR_LOG}" | \
+#  samtools sort -@ "$SLURM_CPUS_PER_TASK" -o "$PREBLACKLIST_FILTERED_OUT_FILE" - 2>> "${ERROR_LOG}"; then
+#  log_message "INFO" "Starting BAM indexing"
+#  if measure_performance "indexing" samtools index "$PREBLACKLIST_FILTERED_OUT_FILE"; then
+#      log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+#  else
+#      log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+#      exit 1
 #  fi
-#
-#  if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
-#    log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
-#    exit 1
-#  fi
-#
-#  log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
-#  exit 0
+#else
+#  log_message "ERROR" "Alignment/sorting failed for ${SAMPLE_NAME}"
+#  exit 1
 #fi
-
-# Perform blacklist filtering
-log_message "INFO" "Starting blacklist filtering processing"
-if ! measure_performance "blacklist_filtering" \
-  alignmentSieve --bam "${BAM_PATH}" \
-               --blackListFileName "$BLACKLIST_BED_FILE" \
-               --outFile "$OUTPUT_BAM" \
-               --numberOfProcessors $(( THREADS / 2 )); then
-  log_message "ERROR" "Blacklist processing failed for ${SAMPLE_NAME}"
-  exit 1
-fi
-log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
-
-# Index the resulting BAM file
-if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
-  log_message "ERROR" "Blacklist BAM indexing failed for ${SAMPLE_NAME}"
-  exit 1
-fi
-log_message "INFO" "Successfully indexed for ${SAMPLE_NAME}"
-
-# Log completion
-log_message "INFO" "Completed alignementSieve blacklist filtering..."
-
-# Load required modules
-module purge
-module load python/2.7.13
-module load deeptools/3.0.1
-
-#if [ -f "$OUTPUT_BIGWIG" ]; then
-#  log_message "SKIP" "File already exists: ${OUTPUT_BIGWIG}"
-#  log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
-#  exit 0
+#
+#log_message "INFO" "Bowtie2 complete..."
+#
+## Start the
+## Load required modules
+#module purge
+#module load python/2.7.13
+#module load deeptools/3.0.1
+#module load samtools
+#
+## Execute blacklist filtering ------
+## Check if BAM file already exists
+##if [ -f "$OUTPUT_BAM" ]; then
+##  log_message "SKIP" "File already exists: ${OUTPUT_BAM}"
+##
+##  if [ -f "${OUTPUT_BAM}.bai" ]; then
+##    log_message "SKIP" "File already exists: ${OUTPUT_BAM}.bai"
+##    exit 0
+##  fi
+##
+##  if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
+##    log_message "ERROR" "BAM indexing failed for ${SAMPLE_NAME}"
+##    exit 1
+##  fi
+##
+##  log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+##  exit 0
+##fi
+#
+## Perform blacklist filtering
+#log_message "INFO" "Starting blacklist filtering processing"
+#if ! measure_performance "blacklist_filtering" \
+#  alignmentSieve --bam "${BAM_PATH}" \
+#               --blackListFileName "$BLACKLIST_BED_FILE" \
+#               --outFile "$OUTPUT_BAM" \
+#               --numberOfProcessors $(( THREADS / 2 )); then
+#  log_message "ERROR" "Blacklist processing failed for ${SAMPLE_NAME}"
+#  exit 1
 #fi
-
-# Execute bamCoverage
-log_message "INFO" "Starting bamCoverage processing"
-# shellcheck disable=SC2086 # Intentional: $BAMCOVERAGE_COMMON_PARAMS should be word-split
-if ! measure_performance "bamcoverage" bamCoverage $BAMCOVERAGE_COMMON_PARAMS; then
-  log_message "bamCoverage processing failed for ${SAMPLE_NAME}"
-  exit 1
-
-fi
-
-# Log completion
-log_message "INFO" "bamCoverage command complete..."
-log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+#log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+#
+## Index the resulting BAM file
+#if ! measure_performance "index" samtools index "$OUTPUT_BAM"; then
+#  log_message "ERROR" "Blacklist BAM indexing failed for ${SAMPLE_NAME}"
+#  exit 1
+#fi
+#log_message "INFO" "Successfully indexed for ${SAMPLE_NAME}"
+#
+## Log completion
+#log_message "INFO" "Completed alignementSieve blacklist filtering..."
+#
+## Load required modules
+#module purge
+#module load python/2.7.13
+#module load deeptools/3.0.1
+#
+##if [ -f "$OUTPUT_BIGWIG" ]; then
+##  log_message "SKIP" "File already exists: ${OUTPUT_BIGWIG}"
+##  log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
+##  exit 0
+##fi
+#
+## Execute bamCoverage
+#log_message "INFO" "Starting bamCoverage processing"
+## shellcheck disable=SC2086 # Intentional: $BAMCOVERAGE_COMMON_PARAMS should be word-split
+#if ! measure_performance "bamcoverage" bamCoverage $BAMCOVERAGE_COMMON_PARAMS; then
+#  log_message "bamCoverage processing failed for ${SAMPLE_NAME}"
+#  exit 1
+#
+#fi
+#
+## Log completion
+#log_message "INFO" "bamCoverage command complete..."
+#log_message "INFO" "Successfully completed processing for ${SAMPLE_NAME}"
