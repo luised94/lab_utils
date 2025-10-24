@@ -531,17 +531,19 @@ else
     log_message "INFO" "Starting bamCoverage"
 
     # Build bamCoverage parameters
-    bamcoverage_params="--bam ${BLACKLIST_FILTERED_BAM_PATH}"
-    bamcoverage_params+=" --outFileName ${BIGWIG_OUT_PATH}"
-    bamcoverage_params+=" --binSize ${BIN_SIZE}"
-    bamcoverage_params+=" --ignoreDuplicates"
-    bamcoverage_params+=" --minMappingQuality ${MINIMUM_MAPPING_QUALITY}"
-    bamcoverage_params+=" --normalizeUsing ${NORM_METHOD}"
-    bamcoverage_params+=" --numberOfProcessors ${CPU_THREADS}"
+    bamcoverage_params=(
+        --bam "$BLACKLIST_FILTERED_BAM_PATH"
+        --outFileName "$BIGWIG_OUT_PATH"
+        --binSize "$BIN_SIZE"
+        --ignoreDuplicates
+        --minMappingQuality "$MINIMUM_MAPPING_QUALITY"
+        --normalizeUsing "$NORM_METHOD"
+        --numberOfProcessors "$CPU_THREADS"
+    )
 
     # Add RPGC-specific parameter if needed
     if [[ "${NORM_METHOD}" == "RPGC" ]]; then
-        bamcoverage_params+=" --effectiveGenomeSize ${EFFECTIVE_GENOME_SIZE}"
+      bamcoverage_params+=(--effectiveGenomeSize "${EFFECTIVE_GENOME_SIZE}")
         log_message "INFO" "Using RPGC normalization with effective genome size: ${EFFECTIVE_GENOME_SIZE}"
 
     fi
