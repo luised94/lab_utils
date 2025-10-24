@@ -125,7 +125,7 @@ mapfile -t initial_vars_declarations < <(compgen -A variable | sort)
 #==============================
 echo "Setting configuration..."
 CPU_THREADS="$SLURM_CPUS_PER_TASK"
-THREADS=$(nproc)
+#THREADS=$(nproc)
 # SLURM job configuration
 #REPO_DIRECTORY_PATH=$(git rev-parse --show-toplevel)
 #PROCESSING_SCRIPT_TO_SUBMIT="${REPO_DIRECTORY_PATH}/core_scripts/ngs_run_chip_processing.sbatch"
@@ -231,67 +231,67 @@ if [[ -z "$MANIFEST_ROW" ]]; then
 fi
 
 # Parse manifest columns
-IFS=$'\t' read -r SAMPLE_ID read1_path read2_path <<< "$MANIFEST_ROW"
+IFS=$'\t' read -r SAMPLE_ID READ1_PATH READ2_PATH <<< "$MANIFEST_ROW"
 
 # Validate minimum fields
-if [[ -z "$SAMPLE_ID" ]] || [[ -z "$read1_path" ]]; then
+if [[ -z "$SAMPLE_ID" ]] || [[ -z "$READ1_PATH" ]]; then
   log_message "ERROR" "Manifest row must have at least 2 fields: $MANIFEST_ROW"
   exit 1
 fi
 
 log_message "INFO" "Sample ID: $SAMPLE_ID"
-log_message "INFO" "Read 1: $read1_path"
-if [[ -n "$read2_path" ]]; then
-  log_message "INFO" "Read 2: $read2_path"
+log_message "INFO" "Read 1: $READ1_PATH"
+if [[ -n "$READ2_PATH" ]]; then
+  log_message "INFO" "Read 2: $READ2_PATH"
 fi
 
 #========================
 # Detect read type and build tool parameters
 #========================
 
-if [[ -z "$read2_path" ]]; then
+if [[ -z "$READ2_PATH" ]]; then
   # Single-end configuration
-  read_type="single-end"
+  READ_TYPE="single-end"
   log_message "INFO" "Processing as single-end reads"
 
   # Validate input exists
-  if [[ ! -f "$read1_path" ]]; then
-      log_message "ERROR" "Read1 file not found: $read1_path"
+  if [[ ! -f "$READ1_PATH" ]]; then
+      log_message "ERROR" "Read1 file not found: $READ1_PATH"
       exit 1
   fi
 
   # Define output paths
-  fastp_out1="${fastq_dir}/fastpfiltered_${SAMPLE_ID}_R1.fastq"
+  FASTP_OUT1="${FASTQ_DIR}/fastpfiltered_${SAMPLE_ID}_R1.fastq"
 
   # Build tool parameters
-  fastp_input_params="--in1 ${read1_path}"
-  fastp_output_params="--out1 ${fastp_out1}"
-  bowtie2_input_params="-U ${fastp_out1}"
+  FASTP_INPUT_PARAMS="--in1 ${READ1_PATH}"
+  FASTP_OUTPUT_PARAMS="--out1 ${FASTP_OUT1}"
+  BOWTIE2_INPUT_PARAMS="-U ${FASTP_OUT1}"
 
 else
   # Paired-end configuration
-  read_type="paired-end"
+  READ_TYPE="paired-end"
   log_message "INFO" "Processing as paired-end reads"
 
   # Validate inputs exist
-  if [[ ! -f "$read1_path" ]]; then
-      log_message "ERROR" "Read1 file not found: $read1_path"
+  if [[ ! -f "$READ1_PATH" ]]; then
+      log_message "ERROR" "Read1 file not found: $READ1_PATH"
       exit 1
   fi
 
-  if [[ ! -f "$read2_path" ]]; then
-      log_message "ERROR" "Read2 file not found: $read2_path"
+  if [[ ! -f "$READ2_PATH" ]]; then
+      log_message "ERROR" "Read2 file not found: $READ2_PATH"
       exit 1
   fi
 
   # Define output paths
-  fastp_out1="${fastq_dir}/fastpfiltered_${SAMPLE_ID}_R1.fastq"
-  fastp_out2="${fastq_dir}/fastpfiltered_${SAMPLE_ID}_R2.fastq"
+  FASTP_OUT1="${FASTQ_DIR}/fastpfiltered_${SAMPLE_ID}_R1.fastq"
+  FASTP_OUT2="${FASTQ_DIR}/fastpfiltered_${SAMPLE_ID}_R2.fastq"
 
   # Build tool parameters
-  fastp_input_params="--in1 ${read1_path} --in2 ${read2_path}"
-  fastp_output_params="--out1 ${fastp_out1} --out2 ${fastp_out2}"
-  bowtie2_input_params="-1 ${fastp_out1} -2 ${fastp_out2}"
+  FASTP_INPUT_PARAMS="--in1 ${READ1_PATH} --in2 ${READ2_PATH}"
+  FASTP_OUTPUT_PARAMS="--out1 ${FASTP_OUT1} --out2 ${FASTP_OUT2}"
+  BOWTIE2_INPUT_PARAMS="-1 ${FASTP_OUT1} -2 ${FASTP_OUT2}"
 
 fi
 
@@ -343,6 +343,62 @@ done < <(comm -13 <(printf "%s\n" "${initial_vars_declarations[@]}") \
 
 log_message "CONFIG" "=== End Configuration ==="
 
+# ============================================================================
+# PIPELINE STEP 1: FASTP QUALITY FILTERING
+# ============================================================================
+log_message "INFO" "=== Step 1: fastp quality filtering ==="
+
+# Check if output already exists
+if [[ -f "$FASTP_OUT1" ]] && [[ -f "$FASTP_JSON" ]]; then
+    if [[ "$READ_TYPE" == "paired-end" ]] && [[ ! -f "$FASTP_OUT2" ]]; then
+        log_message "WARN" "Paired-end run but FASTP_OUT2 missing - will reprocess"
+
+    else
+        log_message "SKIP" "fastp outputs already exist - skipping"
+        log_message "INFO" "  Output: $FASTP_OUT1"
+
+        if [[ "$READ_TYPE" == "paired-end" ]]; then
+            log_message "INFO" "  Output: $FASTP_OUT2"
+
+        fi
+
+    fi
+
+else
+    # Load fastp module
+    module purge
+    module load fastp/0.20.0
+
+    log_message "INFO" "Starting fastp filtering for ${READ_TYPE}"
+
+    # Execute fastp with dynamically built parameters
+    # shellcheck disable=SC2086
+    if measure_performance "fastp_filtering" \
+        fastp \
+            ${FASTP_INPUT_PARAMS} \
+            ${FASTP_OUTPUT_PARAMS} \
+            --adapter_sequence auto \
+            --cut_window_size "$COMPLEXITY_WINDOW_SIZE" \
+            --cut_mean_quality "$MINIMUM_BASE_QUALITY" \
+            --cut_front \
+            --cut_tail \
+            --cut_right \
+            --n_base_limit "$MAXIMUM_N_BASE_COUNT" \
+            --average_qual "$MINIMUM_BASE_QUALITY" \
+            --qualified_quality_phred "$MINIMUM_BASE_QUALITY" \
+            --unqualified_percent_limit "$MAXIMUM_UNQUALIFIED_BASE_PERCENT" \
+            --length_required "$MINIMUM_READ_LENGTH" \
+            --thread "$CPU_THREADS" \
+            --overrepresentation_analysis \
+            --OVERREPRESENTATION_SAMPLING "$OVERREPRESENTATION_SAMPLING" \
+            --json "$FASTP_JSON" \
+            --html "$FASTP_HTML"; then
+        log_message "INFO" "fastp filtering complete"
+    else
+        log_message "ERROR" "fastp filtering failed for ${sample_id}"
+        exit 1
+    fi
+fi
 
 BAMCOVERAGE_COMMON_PARAMS="--bam ${BLFILTERED_BAM_PATH} \
   --outFileName ${BAMCOVERAGE_PATH} \
@@ -474,7 +530,7 @@ if measure_performance "fastp_filtering" \
       --length_required "$MINIMUM_READ_LENGTH" \
       --thread "$CPU_THREADS" \
       --overrepresentation_analysis \
-      --overrepresentation_sampling "$OVERREPRESENTATION_SAMPLING" \
+      --OVERREPRESENTATION_SAMPLING "$OVERREPRESENTATION_SAMPLING" \
       --json "$QUALITY_CONTROL_DIR/${SAMPLE_ID}_fastp.json" \
       --html "$QUALITY_CONTROL_DIR/${SAMPLE_ID}_fastp.html"; then
   log_message "INFO" "Performed fastp filtering."
