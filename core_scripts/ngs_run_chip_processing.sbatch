@@ -539,7 +539,7 @@ else
 
     # Execute bamCoverage
     # shellcheck disable=SC2086
-    if measure_performance "bamcoverage" bamCoverage $bamcoverage_params; then
+    if measure_performance "bamcoverage" bamCoverage "${bamcoverage_params[@]}"; then
         log_message "INFO" "bamCoverage complete"
 
     else
