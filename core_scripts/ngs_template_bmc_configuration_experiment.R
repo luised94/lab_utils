@@ -108,11 +108,13 @@ EXPERIMENT_CONFIG <- list(
     "short_name"
   )
 
-  # @TODO: Add correction if mistake is made when submitting to core.
-  ## ROW_ORDER_CORRECTION = list(
-  #    rows_to_move = 12
-  #    target_row_position = 24
-  #  )
+  # Optional: specify a row reordering correction if a sample was misplaced during submission
+  # Use NULL (or omit) when no correction is needed.
+  # Example: move sample from row 12 to position 24 (1-based indexing)
+  ROW_ORDER_CORRECTION = list(
+    from_row = 12,
+    to_row   = 24
+  )
   ## ROW_ORDER_CORRECTION = quote(
   #  suppressor_allele == "4PS" & antibody == "ORC" & 
   #  cell_cycle_treatment == "ALPHA" & rescue_allele == "4R"

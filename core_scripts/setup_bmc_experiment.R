@@ -303,9 +303,45 @@ if (n_samples != expected) {
 # Adjust order of metadata
 #-------------------------------------------------------------------------------
 # If mistake was made during submission, this section of code will readjust based on the ROW_ORDER_CORRECTION value
-#if(is.null(ROW_ORDER_CORRECTION)) {
-#
-#}
+# Apply row order correction if specified in config
+if (!is.null(EXPERIMENT_CONFIG$ROW_ORDER_CORRECTION)) {
+  from_row <- EXPERIMENT_CONFIG$ROW_ORDER_CORRECTION$from_row
+  to_row <- EXPERIMENT_CONFIG$ROW_ORDER_CORRECTION$to_row
+
+  # Validate inputs
+  stopifnot(
+    is.numeric(from_row),
+    length(from_row) == 1,
+    is.numeric(to_row),
+    length(to_row) == 1,
+    from_row >= 1,
+    from_row <= nrow(metadata),
+    to_row >= 1,
+    to_row <= nrow(metadata)
+  )
+
+  # Build new row order: remove the source row, then insert it at target position
+  all_rows <- seq_len(nrow(metadata))
+  remaining_rows <- all_rows[all_rows != from_row]
+
+  # Insert 'from_row' at 'to_row' position in the new sequence
+  # Note: if to_row > from_row, the target shifts left by 1 after removal
+  adjusted_to_row <- if (to_row > from_row) to_row - 1 else to_row
+
+  new_order <- append(
+    x     = remaining_rows[seq_len(adjusted_to_row - 1)],
+    values = from_row,
+    after = adjusted_to_row - 1
+  )
+
+  new_order <- c(
+    new_order, 
+    remaining_rows[seq_len(length(remaining_rows)) >= adjusted_to_row]
+  )
+
+  metadata <- metadata[new_order, , drop = FALSE]
+}
+
   #print(table(metadata$antibody))  # Show antibody distribution
   #cat("\nFull sample breakdown:\n")
   #print(summary(metadata))     # Show all category distributions
