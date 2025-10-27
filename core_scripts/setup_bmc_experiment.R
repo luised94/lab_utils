@@ -30,6 +30,21 @@ EXPERIMENT_CONFIGURATION_PATH <- file.path(
   "configuration_experiment_bmc.R"
 )
 FUNCTION_FILENAME_TEMPLATE <- file.path(CORE_SCRIPTS_PATH, "functions_for_%s.R")
+
+# Define directory structure
+DATA_DIRECTORIES <- c(
+  "peak",
+  "fastq/raw",
+  "fastq/processed",
+  "quality_control",
+  "alignment",
+  "coverage",
+  "plots/genome_tracks/overview",
+  "plots/genome_tracks/experimental_comparisons",
+  "documentation/dna_qc_traces",
+  "documentation/config"
+)
+
 #---------------------------------------
 # Load user functions
 #---------------------------------------
@@ -37,6 +52,7 @@ function_filenames <- c(
   "logging", "script_control",
   "file_operations", "bmc_config_validation"
 )
+
 for (function_filename in function_filenames) {
   function_filepath <- sprintf(
     FUNCTION_FILENAME_TEMPLATE, 
@@ -189,70 +205,6 @@ stopifnot(
 
 message("All variables defined in the configuration file...")
 
-#-------------------------------------------------------------------------------
-# Load and Validate Experiment Configuration
-#-------------------------------------------------------------------------------
-# @TODO Replace all instances of "~/lab_utils/core_scripts/" with CORE_SCRIPTS_PATHset
-
-#required_modules <- list(
-#  list(
-#    path = EXPERIMENT_CONFIGURATION_PATH,
-#    description = "BMC Configuration",
-#    required = TRUE
-#  )
-#)
-#
-#EXPERIMENT_CONFIGURATION_PATH <- required_modules[[
-#  which(sapply(required_modules, function(x)
-#    x$description == "BMC Configuration"
-#  ))
-#]]$path
-#
-## Validate module structure
-#stopifnot(
-#  "modules must have required fields" = all(sapply(required_modules, function(m) {
-#    all(c("path", "description", "required") %in% names(m))
-#  }))
-#)
-#
-#load_status <- lapply(required_modules, function(module) {
-#  success <- safe_source(module$path, verbose = TRUE)
-#  if (!success && module$required) {
-#    stop(sprintf("Failed to load required module: %s\n  Path: %s",
-#      module$description, module$path))
-#  } else if (!success) {
-#    warning(sprintf("Optional module not loaded: %s\n  Path: %s",
-#      module$description, module$path))
-#  }
-#  list(
-#    module = module$description,
-#    path = module$path,
-#    loaded = success,
-#    required = module$required
-#  )
-#})
-#
-## Create debug info structure
-#module_info <- list(
-#  title = "Module Loading Status",
-#  "total_modules" = length(required_modules),
-#  "required_modules" = sum(sapply(required_modules, `[[`, "required"))
-#)
-#
-#for (status in load_status) {
-#  module_key <- paste0(
-#    if(status$required) "required." else "optional.",
-#    gsub(" ", "_", tolower(status$module))
-#  )
-#  module_info[[module_key]] <- sprintf(
-#    "%s (%s)",
-#    status$module,  # Now showing description
-#    if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
-#  )
-#}
-## Display using print_debug_info
-#print_debug_info(module_info)
-
 required_configs <- c("EXPERIMENT_CONFIG", "RUNTIME_CONFIG")
 validate_configs(required_configs)
 invisible(lapply(required_configs, function(config) {
@@ -263,59 +215,14 @@ stopifnot(
   "Script EXPERIMENT_IDS is not the same as CONFIG EXPERIMENT_IDS" =
     EXPERIMENT_IDS == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
 )
+
 message("Experiment configuration...")
 
 #-------------------------------------------------------------------------------
-# Directory Setup and User Confirmation
+# Directory Setup
 #-------------------------------------------------------------------------------
-# Handle configuration override (independent)
-#if (!is.null(args$override)) {
-#  structured_log_info("Starting override")
-#  override_result <- apply_runtime_override(
-#    config = RUNTIME_CONFIG,
-#    preset_name = args$override,
-#    preset_list = OVERRIDE_PRESETS
-#  )
-#  RUNTIME_CONFIG <- override_result$modified
-#
-# print_debug_info(modifyList(
-#   list(
-#     title = "Final Configuration",
-#     "override.mode" = override_result$mode
-#   ),
-#   RUNTIME_CONFIG  # Flat list of current settings
-# ))
-#}
-if (ACCEPT_CONFIGURATION) {
-  "Accept configuration enabled... Continuing"
-} else {
-  stop("Configuration not accepted... Update ACCEPT_CONFIGURATION when ready to continue")
-}
-#handle_configuration_checkpoint(
-#  accept_configuration = ACCEPT_CONFIGURATION,
-#  experiment_id = EXPERIMENT_ID
-#)
-
-#-------------------------------------------------------------------------------
-# Directory Structure Definition and Creation
-#-------------------------------------------------------------------------------
-# Define directory structure
-# @TODO Should go to configuration.
-data_directories <- c(
-  "peak",
-  "fastq/raw",
-  "fastq/processed",
-  "quality_control",
-  "alignment",
-  "coverage",
-  "plots/genome_tracks/overview",
-  "plots/genome_tracks/experimental_comparisons",
-  "documentation/dna_qc_traces",
-  "documentation/config"
-)
-
 # Create directory structure
-full_paths <- file.path(EXPERIMENT_DIR, data_directories)
+full_paths <- file.path(EXPERIMENT_DIR, DATA_DIRECTORIES)
 invisible(lapply(full_paths, function(path) {
   if (RUNTIME_CONFIG$output_dry_run) {
     cat(sprintf("[DRY RUN] Would create directory: %s\n", path))
@@ -391,6 +298,14 @@ if (n_samples != expected) {
   print(metadata)
   stop(sprintf("Expected %d samples, got %d", expected, n_samples))
 }
+
+#-------------------------------------------------------------------------------
+# Adjust order of metadata
+#-------------------------------------------------------------------------------
+# If mistake was made during submission, this section of code will readjust based on the ROW_ORDER_CORRECTION value
+#if(is.null(ROW_ORDER_CORRECTION)) {
+#
+#}
   #print(table(metadata$antibody))  # Show antibody distribution
   #cat("\nFull sample breakdown:\n")
   #print(summary(metadata))     # Show all category distributions
@@ -480,7 +395,6 @@ if (n_samples != expected) {
 #cat(sprintf("- Classified samples: %d\n", sum(table(metadata$sample_type))))
 #cat(sprintf("- Unclassified samples: %d\n", sum(is.na(metadata$sample_type))))
 
-
 # Generate sample names
 metadata$full_name <- apply(metadata, 1, paste, collapse = "_")
 metadata$short_name <- apply(
@@ -514,6 +428,11 @@ bmc_metadata <- data.frame(
 #-------------------------------------------------------------------------------
 # File Output Generation
 #-------------------------------------------------------------------------------
+if (ACCEPT_CONFIGURATION) {
+  "Accept configuration enabled... Continuing"
+} else {
+  stop("Configuration not accepted... Update ACCEPT_CONFIGURATION when ready to continue")
+}
 filenames <- c("sample_grid.csv", "bmc_table.tsv", "configuration_experiment_bmc.R")
 # Loop through each filename to handle path assignment and file writing
 for (filename in filenames) {
