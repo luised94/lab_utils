@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 ################################################################################
 # BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2025-10-25 | Version: 2.1.0
+# Author: Luis | Date: 2025-10-25 | Version: 2.2.0
 ################################################################################
 # PURPOSE:
 #   Creates standardized directory structure and metadata files for BMC ChIP-seq experiments
