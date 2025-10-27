@@ -44,6 +44,7 @@ FUNCTION_FILENAMES <- c(
   "logging", "script_control",
   "file_operations", "bmc_config_validation"
 )
+
 for (function_filename in FUNCTION_FILENAMES) {
   function_filepath <- sprintf(
     FUNCTION_FILENAME_TEMPLATE,
@@ -149,6 +150,7 @@ if ( length(missing_configuration_paths) > 0 ) {
 OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 message("Configuration and metadata paths created. Loading metadata...")
+
 #------------------------------
 # Three pattern variables must be defined in configuration file.
 # Config: configuration_script_bmc.R

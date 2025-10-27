@@ -17,35 +17,56 @@
 # - Svg or pdf files with genome tracks based on experiment comparisons written by the user
 #
 ################################################################################
+# Only run interactively
+if(interactive()) {
+  message("Running from repl... Loading functions.")
+} else {
+  stop("Run the script from the R repl in an interactive session.")
+}
+
+# Setup paths to configuration and root directory.
+# Accounts for my reorganization of the repos.
+ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
+CORE_SCRIPTS_PATH <- file.path(ROOT_DIRECTORY, "core_scripts")
+SCRIPT_CONFIGURATION_PATH <- file.path(
+  CORE_SCRIPTS_PATH,
+  "configuration_script_bmc.R"
+)
 
 #---------------------------------------
 # Load user functions
 #---------------------------------------
-function_filenames <- c("logging", "script_control", "file_operations")
-for (function_filename in function_filenames) {
-    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
-    normalized_path <- normalizePath(function_filepath)
-    if (!file.exists(normalized_path)) {
-        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
-    }
-    source(normalized_path)
+FUNCTION_FILENAME_TEMPLATE <- file.path(CORE_SCRIPTS_PATH, "functions_for_%s.R")
+FUNCTION_FILENAMES <- c(
+  "logging", "script_control",
+  "file_operations", "bmc_config_validation",
+  "metadata_processing", "genome_tracks"
+)
+
+for (function_filename in FUNCTION_FILENAMES) {
+  function_filepath <- sprintf(
+    FUNCTION_FILENAME_TEMPLATE,
+    function_filename
+  )
+  normalized_path <- normalizePath(function_filepath)
+  if (!file.exists(normalized_path)) {
+    stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
+  }
+  source(normalized_path)
 }
+
+message("Loaded functions... Sourcing configuration.")
 
 #---------------------------------------
 # Source configuration for interactive session
 #---------------------------------------
-if(interactive()) {
-  message("Interactive job... sourcing configuration file.")
-  script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_bmc.R"
-  stopifnot(
-    "Script configuration file does not exist. Please copy the template." =
-    file.exists(script_configuration_path)
-  )
-  source(script_configuration_path)
-  message("Configuration file sourced...")
-} else {
-  stop("Run the script from the R repl in an interactive session.")
-}
+stopifnot(
+  "Script configuration file does not exist. Please copy the template." =
+    file.exists(SCRIPT_CONFIGURATION_PATH),
+)
+source(SCRIPT_CONFIGURATION_PATH)
+message("Configuration file sourced... Checking configuration variables.")
+
 # Ensure the variables expected in the script were //
 # defined in the configuration file. //
 # See template_interactive_script_configuration.R or //
@@ -57,139 +78,81 @@ required_configuration_variables <- c(
   "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
   "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
+
 is_missing_variable <- !sapply(required_configuration_variables, exists)
 missing_variables <- required_configuration_variables[is_missing_variable]
 if (length(missing_variables) > 0 ) {
   stop("Missing variable. Please define in 'script_configuration.R' file.",
        paste(missing_variables, collapse = ", "))
 }
+
 message("All variables defined in the configuration file...")
 
+
 #-------------------------------------------------------------------------------
-# Load Required Libraries
+# Verify Required Libraries
 #-------------------------------------------------------------------------------
+# Add the packages that are used in the script.
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
-check_required_packages(
-    packages = required_packages,
-    verbose = TRUE,
-    skip_validation = args$skip_validation
-)
-
-#-------------------------------------------------------------------------------
-# Load and Validate Experiment Configuration and Dependencies
-#-------------------------------------------------------------------------------
-# TODO: Consolidate this into the previous for loop? Or use second for loop with safe_source //
-# Would need to remove the print_debug_info call. I probably need to adjust that function anyways. //
-# Define required dependencies
-required_modules <- list(
-    list(
-        path = "~/lab_utils/core_scripts/functions_for_metadata_processing.R",
-        description = "Process metadata grid for downstream analysis.",
-        required = TRUE
-    ),
-    list(
-        path = "~/lab_utils/core_scripts/functions_for_genome_tracks.R",
-        description = "Functions to load genome track objects for plotting",
-        required = TRUE
-    ),
-    list(
-        path = config_path,
-        description = "Functions to load genome track objects for plotting",
-        required = TRUE
-    )
-)
-
-# Validate module structure
-stopifnot(
-    "modules must have required fields" = all(sapply(required_modules, function(m) {
-        all(c("path", "description", "required") %in% names(m))
-    }))
-)
-
-# Load dependencies with status tracking
-# Process module loading
-load_status <- lapply(required_modules, function(module) {
-    success <- safe_source(module$path, verbose = TRUE)
-    if (!success && module$required) {
-        stop(sprintf("Failed to load required module: %s\n  Path: %s",
-            module$description, module$path))
-    } else if (!success) {
-        warning(sprintf("Optional module not loaded: %s\n  Path: %s",
-            module$description, module$path))
-    }
-    list(
-        module = module$description,
-        path = module$path,
-        loaded = success,
-        required = module$required
-    )
-})
-
-# Create debug info structure
-module_info <- list(
-    title = "Module Loading Status",
-    "total_modules" = length(required_modules),
-    "required_modules" = sum(sapply(required_modules, `[[`, "required"))
-)
-
-# Add status for each module
-for (status in load_status) {
-    module_key <- paste0(
-        if(status$required) "required." else "optional.",
-        gsub(" ", "_", tolower(status$module))
-    )
-    module_info[[module_key]] <- sprintf(
-        "%s (%s)",
-        status$module,  # Now showing description
-        if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
-    )
+if (!is.character(required_packages) || length(required_packages) == 0) {
+  stop("required_packages must be a non-empty character vector")
 }
 
-# Display using print_debug_info
-print_debug_info(module_info)
+if (!SKIP_PACKAGE_CHECKS) {
+  is_missing_package <- !sapply(
+    X = required_packages,
+    FUN = requireNamespace,
+    quietly = TRUE
+  )
+  missing_packages <- required_packages[is_missing_package]
+  if (length(missing_packages) > 0 ) {
+    stop("Missing packages. Please install using renv:\n",
+         paste(missing_packages, collapse = ", "))
+  }
+  SKIP_PACKAGE_CHECKS <- TRUE
+}
 
-required_configs <- c("EXPERIMENT_CONFIG", "GENOME_TRACK_CONFIG", "RUNTIME_CONFIG")
-validate_configs(required_configs)
-invisible(lapply(required_configs, function(config) {
-    print_config_settings(get(config), title = config)
-}))
-
-#if(!is.null(args$output_format)) {
-#    RUNTIME_CONFIG$output_format <- args$output_format
-#
-#    message(sprintf("Setting output format: %s", RUNTIME_CONFIG$output_format))
-#}
-#
-## Handle configuration override (independent)
-#if (!is.null(args$override)) {
-#    override_result <- apply_runtime_override(
-#        config = RUNTIME_CONFIG,
-#        preset_name = args$override,
-#        preset_list = OVERRIDE_PRESETS
-#    )
-#    RUNTIME_CONFIG <- override_result$modified
-# print_debug_info(modifyList(
-#     list(
-#         title = "Final Configuration",
-#         "override.mode" = override_result$mode
-#     ),
-#     RUNTIME_CONFIG  # Flat list of current settings
-# ))
-#}
+message("All required packages available...")
 
 #-------------------------------------------------------------------------------
-# Required configuration settings validation
+# Setup experiment-specific configuration path, directories and file metadata
 #-------------------------------------------------------------------------------
-# Ensure that the variables from the _CONFIG variables are set.
-# TODO: Add simple for loop or lapply that validates the required variables from the _CONFIG variable used in the script.
-#required_configuration_settings <- c()
+NUMBER_OF_EXPERIMENTS <- length(EXPERIMENT_DIR)
+config_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
+metadata_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
+for (experiment_index in seq_len(NUMBER_OF_EXPERIMENTS)) {
+  current_experiment_path <- EXPERIMENT_DIR[experiment_index]
+  current_experiment_id <- EXPERIMENT_IDS[experiment_index]
 
-# Checkpoint handler ---------------------------
-# See the settings before running.
-handle_configuration_checkpoint(
-    accept_configuration = ACCEPT_CONFIGURATION,
-    experiment_id = EXPERIMENT_ID
+  config_paths[experiment_index] <- file.path(
+    current_experiment_path, "documentation",
+    paste0(current_experiment_id, "_configuration_experiment_bmc.R")
+  )
+
+  metadata_paths[experiment_index] <- file.path(
+    current_experiment_path, "documentation",
+    paste0(current_experiment_id, "_sample_grid.csv")
+  )
+}
+
+names(config_paths) <- EXPERIMENT_IDS
+names(metadata_paths) <- EXPERIMENT_IDS
+
+required_configuration_paths <- c(config_paths, metadata_paths)
+is_missing_configuration_path <- !sapply(
+  X = required_configuration_paths,
+  FUN = file.exists
 )
+missing_configuration_paths <- required_configuration_paths[is_missing_configuration_path]
+
+if ( length(missing_configuration_paths) > 0 ) {
+  stop("Missing configuration paths. Please setup.\n",
+       paste(missing_configuration_paths, collapse = ", "))
+}
+
+OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
+dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+message("Configuration and metadata paths created. Loading metadata...")
 
 #-------------------------------------------------------------------------------
 # Setup directories, variables and metadata
