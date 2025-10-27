@@ -50,61 +50,35 @@ for (function_filename in function_filenames) {
 }
 
 message("Loaded functions... Sourcing configuration.")
-#---------------------------------------
-# Source configuration for interactive session
-#---------------------------------------
+
+# Ensure configuration files exist.
 stopifnot(
   "Script configuration file does not exist. Please copy the template." =
     file.exists(SCRIPT_CONFIGURATION_PATH),
   "Experiment configuration file does not exist. Please copy the template." =
     file.exists(EXPERIMENT_CONFIGURATION_PATH)
 )
-source(SCRIPT_CONFIGURATION_PATH)
-message("Configuration file sourced... Checking configuration variables.")
-
-# Ensure the variables expected in the script were //
-# defined in the configuration file. //
-# configuration_script_bmc.R //
-required_configuration_variables <- c(
-  "EXPERIMENT_ID", "EXPERIMENT_DIR",
-  "ACCEPT_CONFIGURATION"
-)
-
-is_missing_variable <- !sapply(required_configuration_variables, exists)
-missing_variables <- required_configuration_variables[is_missing_variable]
-
-if (length(missing_variables) > 0 ) {
-  stop("Missing variable. Please define in 'configuration_script_bmc.R' file.",
-     paste(missing_variables, collapse = ", "))
-}
-stopifnot(
-  "Only one experiment id required for this script" = length(EXPERIMENT_ID) == 1
-)
-
-message("All variables defined in the configuration file...")
 
 #-------------------------------------------------------------------------------
-# Load and Validate Experiment Configuration
+# Validate experiment configuration
 #-------------------------------------------------------------------------------
-# @TODO Replace all instances of "~/lab_utils/core_scripts/" with CORE_SCRIPTS_PATHset
 source(EXPERIMENT_CONFIGURATION_PATH)
+
 stopifnot(
   "EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID does not match configuration EXPERIMENT_ID" =
-    identical(EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID, EXPERIMENT_ID),
+    identical(EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID, EXPERIMENT_IDS),
   "Experiment configuration file does not exist. Please copy the template." =
     file.exists(EXPERIMENT_CONFIGURATION_PATH)
 )
 
-#-------------------------------------------------------------------------------
-# Configuration Validation
-#-------------------------------------------------------------------------------
-experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+EXPERIMENT_IDS <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
 category_names <- names(EXPERIMENT_CONFIG$CATEGORIES)
+
 stopifnot(
   "Experiment ID must be a character string" =
-    is.character(experiment_id),
+    is.character(EXPERIMENT_IDS),
   "Invalid experiment ID format. Expected: YYMMDD'Bel'" =
-    grepl("^\\d{6}Bel$", experiment_id)
+    grepl("^\\d{6}Bel$", EXPERIMENT_IDS)
 )
 
 required_sections <- c(
@@ -189,22 +163,37 @@ lapply(names(EXPERIMENT_CONFIG$CONTROL_FACTORS),
   }
 )
 
-#validate_column_references(
-#  categories = EXPERIMENT_CONFIG$CATEGORIES,
-#  comparisons = EXPERIMENT_CONFIG$COMPARISONS,
-#  control_factors = EXPERIMENT_CONFIG$CONTROL_FACTORS,
-#  #conditions = EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS,
-#  verbose = validation_verbose
-#)
-#
-#validate_column_order(
-#  categories = EXPERIMENT_CONFIG$CATEGORIES,
-#  column_order = EXPERIMENT_CONFIG$COLUMN_ORDER,
-#  verbose = validation_verbose
-#)
-
 cat("\n[VALIDATED] Experiment configuration loaded successfully\n")
-# Define required dependencies
+
+source(SCRIPT_CONFIGURATION_PATH)
+message("Configuration file sourced... Checking configuration variables.")
+
+# Ensure the variables expected in the script were //
+# defined in the configuration file. //
+# configuration_script_bmc.R //
+required_configuration_variables <- c(
+  "EXPERIMENT_IDS", "EXPERIMENT_DIR",
+  "ACCEPT_CONFIGURATION"
+)
+
+is_missing_variable <- !sapply(required_configuration_variables, exists)
+missing_variables <- required_configuration_variables[is_missing_variable]
+
+if (length(missing_variables) > 0 ) {
+  stop("Missing variable. Please define in 'configuration_script_bmc.R' file.",
+     paste(missing_variables, collapse = ", "))
+}
+stopifnot(
+  "Only one experiment id required for this script" = length(EXPERIMENT_IDS) == 1
+)
+
+message("All variables defined in the configuration file...")
+
+#-------------------------------------------------------------------------------
+# Load and Validate Experiment Configuration
+#-------------------------------------------------------------------------------
+# @TODO Replace all instances of "~/lab_utils/core_scripts/" with CORE_SCRIPTS_PATHset
+
 #required_modules <- list(
 #  list(
 #    path = EXPERIMENT_CONFIGURATION_PATH,
@@ -271,8 +260,8 @@ invisible(lapply(required_configs, function(config) {
 }))
 
 stopifnot(
-  "Script EXPERIMENT_ID is not the same as CONFIG EXPERIMENT_ID" =
-    EXPERIMENT_ID == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+  "Script EXPERIMENT_IDS is not the same as CONFIG EXPERIMENT_IDS" =
+    EXPERIMENT_IDS == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
 )
 message("Experiment configuration...")
 
@@ -342,7 +331,7 @@ invisible(lapply(full_paths, function(path) {
 # Report directory creation status
 if (RUNTIME_CONFIG$debug_verbose) {
   mode <- if (RUNTIME_CONFIG$output_dry_run) "DRY RUN" else "LIVE RUN"
-  cat(sprintf("\n[%s] Directory structure for experiment: %s\n", mode, EXPERIMENT_ID))
+  cat(sprintf("\n[%s] Directory structure for experiment: %s\n", mode, EXPERIMENT_IDS))
   cat(sprintf("[%s] Base directory: %s\n", mode, EXPERIMENT_DIR))
 }
 
@@ -532,7 +521,7 @@ for (filename in filenames) {
   output_file_path <- file.path(
     EXPERIMENT_DIR,
     "documentation",
-    paste0(EXPERIMENT_ID, "_", filename)
+    paste0(EXPERIMENT_IDS, "_", filename)
   )
   # Handle file writing with dry run checks
   if (RUNTIME_CONFIG$output_dry_run) {

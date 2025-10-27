@@ -81,31 +81,37 @@ EXPERIMENT_CONFIG <- list(
     )
   ),
 
+  COMPARISONS = list(
+  ),
+
   # Set the options for which bigwig file is used to create genome track plots.
   # They look mostly the same.
   # @TODO Remove this section of code?
   NORMALIZATION = list(
     methods = c("CPM", "BPM", "RPGC", "RPKM"),
     active = "CPM"
-  )
+  ),
 
-  #EXPERIMENTAL_CONDITIONS = list(
-  #  is_orc = quote(orc_phenotype == "WT" & cell_cycle == "nocodazole" & antibody == "ORC"),
-  #  is_nucleosomes = quote(antibody == "Nucleosomes"),
-  #  is_wt_37c = quote(orc_phenotype == "WT" & temperature == "37"),
-  #  is_async = quote(orc_phenotype == "WT" & cell_cycle == "async" & temperature == "23")
-  #),
+  TARGET_COMPARISON_COLUMNS = c(
+    "rescue_allele", "timepoints"
+  ),
+
+  COLUMNS_TO_EXCLUDE_FROM_REPLICATE_DETERMINATION = c(
+    "bigwig_file_paths",
+    "experiment_id",
+    "full_name",
+    "repeats",
+    "sample_ids",
+    "sample_type",
+    "short_name"
+  )
 
   #SAMPLE_CLASSIFICATIONS = list(
   #  is_positive = quote(orc_phenotype == "WT" & antibody == "ORC"),
   #  is_negative = quote(orc_phenotype == "orc1-161" & antibody == "ORC" & temperature == "37")
   #),
 
-  #COMPARISONS = list(
-  #  wt_vs_mutant = quote(orc_phenotype == "WT" | orc_phenotype == "orc1-161"),
-  #  temp_effect = quote(temperature == "23" | temperature == "37"),
-  #  cell_cycle_effect = quote(cell_cycle %in% c("alpha", "nocodazole", "async"))
-  #),
+
 
 )
 

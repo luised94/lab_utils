@@ -27,23 +27,6 @@ message("Sourcing script configuration file...")
 EXPERIMENT_IDS <- "250714Bel"
 EXPERIMENT_ID <- "250714Bel"
 
-# These columns will be the difference in the plot.
-# @TODO This should be experiment specific. Add to EXPERIMENT_CONFIG and iterate over.
-target_comparison_columns <- c("rescue_allele", "timepoints")
-#target_comparison_columns <- c("rescue_allele", "suppressor_allele")
-
-# These columns will be excluded from replicate determination.
-# They are metadata columns and created by the setup scripts.
-# @TODO Is this implied somewhere else?
-columns_to_exclude_from_replicate_determination <- c(
-  "bigwig_file_paths",
-  "experiment_id",
-  "full_name",
-  "repeats"
-  "sample_ids",
-  "sample_type",
-  "short_name",
-)
 #metadata_columns_to_exclude <- c(
 #  "sample_type", "sample_ids",
 #  "bigwig_file_paths", "full_name",
