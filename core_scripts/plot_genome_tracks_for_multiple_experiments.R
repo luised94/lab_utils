@@ -608,6 +608,7 @@ transparent_colors <- grDevices::adjustcolor(
 # TODO: Add the for loop inside the initial for loop to do this. //
 # then it should process the samples into overlap or by averaging. //
 # Will need to duplicate and rename the two scripts to differentiate. //
+stop("Breakpoint...")
 for (condition_index in seq_len(total_number_of_conditions)) {
   # Iteration setup ----------
   current_condition <- unique_experimental_conditions[condition_index]
