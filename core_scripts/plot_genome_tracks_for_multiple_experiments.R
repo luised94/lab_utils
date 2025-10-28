@@ -212,15 +212,18 @@ for (experiment_index in seq_len(NUMBER_OF_EXPERIMENTS)) {
     pattern = BIGWIG_PATTERN,
     full.names = TRUE
   )
+
   stopifnot(
     "No fastq files found." = length(fastq_files) > 0,
     "No bigwig files found." = length(bigwig_files) > 0
   )
+
   sample_ids <- gsub(
     pattern = SAMPLE_ID_CAPTURE_PATTERN,
     replacement = "\\1",
     x = fastq_files
   )
+  sample_ids <- unique(sub(".*-", "", sample_ids))
 
   stopifnot(
      "Length of samples_ids is not lower than length of fastq files." =

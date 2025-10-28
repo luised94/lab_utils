@@ -62,7 +62,7 @@ OUTPUT_FORMATS_VALID <- c("svg", "pdf", "png")
 OVERRIDE_CONFIGURATION_PATH <- "~/lab_utils/core_scripts/override_configuration.R"
 PADDING_FRACTION <- 0.1
 #SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
-SAMPLE_ID_CAPTURE_PATTERN <- "fastpfiltered_(D[0-9]{2}-[0-9]{1,6})_sequence\\.fastq$"
+SAMPLE_ID_CAPTURE_PATTERN <- "fastpfiltered_(D[0-9]{2}-[0-9]{1,6})_(R1|R2|NA)\\.fastq$"
 SKIP_PACKAGE_CHECKS <- TRUE
 VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
 
@@ -288,10 +288,15 @@ stopifnot(
 # EXPERIMENT CONFIGURATION SETUP
 #---------------------
 OUTPUT_EXTENSION <- paste0(".", OUTPUT_FORMAT)
+#BIGWIG_PATTERN <- sprintf(
+#  fmt = "processed_.*_sequence_to_S288C_%s_%s\\.bw$",
+#  BAM_PROCESSING, BIGWIG_NORM_METHOD
+#)
 BIGWIG_PATTERN <- sprintf(
-  fmt = "processed_.*_sequence_to_S288C_%s_%s\\.bw$",
-  BAM_PROCESSING, BIGWIG_NORM_METHOD
+  D[0-9]{2}-[0-9]{1,6}_%s\\.bw,
+  BIGWIG_NORM_METHOD
 )
+
 reproducible_subset_quote_list <- "~/lab_utils/core_scripts/metadata_subset.R"
 FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
 FILE_GENOME_PATTERN <- "S288C_refgenome.fna"
