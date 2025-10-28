@@ -80,23 +80,8 @@ stopifnot(
 #-------------------------------------------------------------------------------
 source(EXPERIMENT_CONFIGURATION_PATH)
 
-stopifnot(
-  "EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID does not match configuration EXPERIMENT_ID" =
-    identical(EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID, EXPERIMENT_IDS),
-  "Experiment configuration file does not exist. Please copy the template." =
-    file.exists(EXPERIMENT_CONFIGURATION_PATH)
-)
-
 EXPERIMENT_IDS <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
 category_names <- names(EXPERIMENT_CONFIG$CATEGORIES)
-
-stopifnot(
-  "Experiment ID must be a character string" =
-    is.character(EXPERIMENT_IDS),
-  "Invalid experiment ID format. Expected: YYMMDD'Bel'" =
-    grepl("^\\d{6}Bel$", EXPERIMENT_IDS)
-)
-
 required_sections <- c(
   "METADATA", "CATEGORIES", "INVALID_COMBINATIONS",
   "COMPARISONS", "CONTROL_FACTORS",
@@ -181,7 +166,22 @@ lapply(names(EXPERIMENT_CONFIG$CONTROL_FACTORS),
 
 cat("\n[VALIDATED] Experiment configuration loaded successfully\n")
 
+#====================
+# Source script configuration file
+#====================
 source(SCRIPT_CONFIGURATION_PATH)
+
+stopifnot(
+  "EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID does not match configuration EXPERIMENT_ID" =
+    identical(EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID, EXPERIMENT_IDS),
+  "Experiment configuration file does not exist. Please copy the template." =
+    file.exists(EXPERIMENT_CONFIGURATION_PATH),
+  "Experiment ID must be a character string" =
+    is.character(EXPERIMENT_IDS),
+  "Invalid experiment ID format. Expected: YYMMDD'Bel'" =
+    grepl("^\\d{6}Bel$", EXPERIMENT_IDS)
+)
+
 message("Configuration file sourced... Checking configuration variables.")
 
 # Ensure the variables expected in the script were //
@@ -317,29 +317,32 @@ if (!is.null(EXPERIMENT_CONFIG$ROW_ORDER_CORRECTION)) {
     from_row >= 1,
     from_row <= nrow(metadata),
     to_row >= 1,
-    to_row <= nrow(metadata)
+    to_row <= nrow(metadata),
+    from_row != to_row
   )
 
-  # Build new row order: remove the source row, then insert it at target position
-  all_rows <- seq_len(nrow(metadata))
-  remaining_rows <- all_rows[all_rows != from_row]
+  # Start with the original row indices (1, 2, 3, ..., N)
+  original_row_indices <- seq_len(nrow(metadata))
 
-  # Insert 'from_row' at 'to_row' position in the new sequence
-  # Note: if to_row > from_row, the target shifts left by 1 after removal
-  adjusted_to_row <- if (to_row > from_row) to_row - 1 else to_row
+  # Remove the row that will be moved, creating a shortened list of row indices
+  row_indices_without_moved_sample <- original_row_indices[original_row_indices != from_row]
 
-  new_order <- append(
-    x     = remaining_rows[seq_len(adjusted_to_row - 1)],
+  # Determine the insertion point in the shortened list so that the moved sample
+  # ends up at position 'to_row' in the final reordered metadata
+  insertion_index_in_shortened_list <- to_row - 1
+
+  # Insert the moved row at the calculated position to produce the final row order
+  final_row_order <- append(
+    x     = row_indices_without_moved_sample,
     values = from_row,
-    after = adjusted_to_row - 1
+    after = insertion_index_in_shortened_list
   )
 
-  new_order <- c(
-    new_order, 
-    remaining_rows[seq_len(length(remaining_rows)) >= adjusted_to_row]
-  )
+  metadata <- metadata[final_row_order, , drop = FALSE]
 
-  metadata <- metadata[new_order, , drop = FALSE]
+  moved_sample_final_position <- which(final_row_order == from_row)
+  cat("Moved sample (original row", from_row, ") is now at position:", moved_sample_final_position, "\n")
+  stopifnot(moved_sample_final_position == to_row)
 }
 
   #print(table(metadata$antibody))  # Show antibody distribution

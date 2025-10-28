@@ -94,6 +94,7 @@ EXPERIMENT_CONFIG <- list(
     active = "CPM"
   ),
 
+  # 
   TARGET_COMPARISON_COLUMNS = c(
     "rescue_allele", "timepoints"
   ),
@@ -106,7 +107,13 @@ EXPERIMENT_CONFIG <- list(
     "sample_ids",
     "sample_type",
     "short_name"
-  )
+  ),
+
+  METADATA_COLUMNS_TO_EXCLUDE = c(
+      "sample_type", "sample_ids",
+      "bigwig_file_paths", "full_name",
+      "short_name"
+  ),
 
   # Optional: specify a row reordering correction if a sample was misplaced during submission
   # Use NULL (or omit) when no correction is needed.
