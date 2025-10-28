@@ -121,6 +121,16 @@ EXPERIMENT_CONFIG <- list(
   ROW_ORDER_CORRECTION = list(
     from_row = 12,
     to_row   = 24
+  ),
+
+  # Optional: specify a sample that was dropped during prep and is missing from core data
+  # Use NULL when no dropout occurred.
+  # Identify the sample using a logical condition on metadata columns.
+  SAMPLE_DROPOUT_CONDITION = quote(
+    suppressor_allele == "4PS" & 
+    antibody == "ORC" & 
+    cell_cycle_treatment == "ALPHA" & 
+    rescue_allele == "4R"
   )
   ## ROW_ORDER_CORRECTION = quote(
   #  suppressor_allele == "4PS" & antibody == "ORC" & 

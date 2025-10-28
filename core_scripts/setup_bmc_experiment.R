@@ -345,6 +345,29 @@ if (!is.null(EXPERIMENT_CONFIG$ROW_ORDER_CORRECTION)) {
   stopifnot(moved_sample_final_position == to_row)
 }
 
+#-------------------------------------------------------------------------------
+# Remove samples that dropped out
+#-------------------------------------------------------------------------------
+# Remove sample that was dropped during preparation (if specified)
+if (!is.null(EXPERIMENT_CONFIG$SAMPLE_DROPOUT_CONDITION)) {
+  # Evaluate the quoted expression in the context of the metadata dataframe
+  dropout_rows <- eval(EXPERIMENT_CONFIG$SAMPLE_DROPOUT_CONDITION, envir = metadata)
+  #dropout_rows <- length(EXPERIMENT_CONFIG$SAMPLE_DROPOUT_CONDITION)
+
+  # Validate: must be logical and same length as rows
+  stopifnot(
+    is.logical(dropout_rows),
+    length(dropout_rows) == nrow(metadata)
+  )
+
+  # Ensure exactly one sample is being dropped (adjust if you ever drop multiple)
+  # Replace with length or other way to measure amount to drop
+  stopifnot(sum(dropout_rows, na.rm = TRUE) == 1)
+
+  # Remove the dropped sample
+  metadata <- metadata[!dropout_rows, , drop = FALSE]
+}
+
   #print(table(metadata$antibody))  # Show antibody distribution
   #cat("\nFull sample breakdown:\n")
   #print(summary(metadata))     # Show all category distributions
