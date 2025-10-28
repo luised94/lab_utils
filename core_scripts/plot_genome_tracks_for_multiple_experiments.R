@@ -67,7 +67,7 @@ message("Loaded functions... Sourcing configuration.")
 #---------------------------------------
 stopifnot(
   "Script configuration file does not exist. Please copy the template." =
-    file.exists(SCRIPT_CONFIGURATION_PATH),
+    file.exists(SCRIPT_CONFIGURATION_PATH)
 )
 source(SCRIPT_CONFIGURATION_PATH)
 message("Configuration file sourced... Checking configuration variables.")

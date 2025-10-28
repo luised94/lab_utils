@@ -53,14 +53,16 @@ BAM_PROCESSING <- "blFiltered"
 BIGWIG_NORM_METHOD <- "CPM"
 CHROMOSOMES_TO_PLOT <- c(7, 10, 14)
 EXPECTED_FORMAT_EXPERIMENT_ID <- "^\\d{6}Bel$"
-FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
+#FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
+FASTQ_PATTERN <- "fastpfiltered_.*_(R1|R2|NA)\\.fastq$"
 #GENOME_TRACK_SCALING_MODES_VALID <- c("local", "individual")
 GENOME_TRACK_Y_AXIS_SCALING <- c("individual")
 OUTPUT_FORMAT <- "svg"
 OUTPUT_FORMATS_VALID <- c("svg", "pdf", "png")
 OVERRIDE_CONFIGURATION_PATH <- "~/lab_utils/core_scripts/override_configuration.R"
 PADDING_FRACTION <- 0.1
-SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
+#SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
+SAMPLE_ID_CAPTURE_PATTERN <- "fastpfiltered_(D[0-9]{2}-[0-9]{1,6})_sequence\\.fastq$"
 SKIP_PACKAGE_CHECKS <- TRUE
 VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
 
