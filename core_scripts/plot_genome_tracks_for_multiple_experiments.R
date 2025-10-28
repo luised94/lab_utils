@@ -26,6 +26,10 @@ if(interactive()) {
 } else {
   stop("Run the script from the R repl in an interactive session.")
 }
+#====================
+# Configuration values
+#====================
+EXPECTED_NUMBER_OF_REPLICATES <- 1
 
 # Setup paths to configuration and root directory.
 # Accounts for my reorganization of the repos.
@@ -247,6 +251,7 @@ for (experiment_index in seq_len(NUMBER_OF_EXPERIMENTS)) {
   message("--- End iteration ---")
   message("\n")
 } # end For loop to load metadata
+
 message("Finished metadata loading...")
 
 # Get the union of the categories
@@ -271,9 +276,14 @@ metadata_aligned <- lapply(metadata_list,
     return(df)
   }
 )
-# Now bind
+
+# Combine the dataframes into one
 metadata_df <- do.call(rbind, metadata_aligned)
-stopifnot("Metadata does not have expected number of rows." = nrow(metadata_df) == expected_number_of_samples)
+
+stopifnot(
+  "Metadata does not have expected number of rows." =
+    nrow(metadata_df) == expected_number_of_samples
+)
 
 # Convert the columns of the metadata_df to factors.
 for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
@@ -358,22 +368,23 @@ if (!is.null(FEATURE_FILE)) {
 message("Genome reference and feature set...")
 
 # TODO: Move this to configuration. //
-reproducible_subset_quote_list <- "~/lab_utils/core_scripts/metadata_subset.R"
-if (!file.exists(reproducible_subset_quote_list)) {
-  message("File with subset logic for reproducible samples not found...")
-  stop("Please create or copy the file.")
-}
-source(reproducible_subset_quote_list)
-if (!is.null(SUBSET_REPRODUCIBLE_SAMPLES)) {
-  message("Subsetting metadata to reproducible samples...")
-  is_reproducible_sample <- Reduce(
-    `|`,
-    lapply(SUBSET_REPRODUCIBLE_SAMPLES, eval, envir = metadata_df)
-  )
-  metadata_df <- subset(metadata_df, is_reproducible_sample)
-}
+#reproducible_subset_quote_list <- "~/lab_utils/core_scripts/metadata_subset.R"
+#if (!file.exists(reproducible_subset_quote_list)) {
+#  message("File with subset logic for reproducible samples not found...")
+#  stop("Please create or copy the file.")
+#}
+#
+#source(reproducible_subset_quote_list)
+#if (!is.null(SUBSET_REPRODUCIBLE_SAMPLES)) {
+#  message("Subsetting metadata to reproducible samples...")
+#  is_reproducible_sample <- Reduce(
+#    `|`,
+#    lapply(SUBSET_REPRODUCIBLE_SAMPLES, eval, envir = metadata_df)
+#  )
+#  metadata_df <- subset(metadata_df, is_reproducible_sample)
+#}
 
-number_of_rows_after_reproducibility_subset <- nrow(metadata_df)
+#number_of_rows_after_reproducibility_subset <- nrow(metadata_df)
 message("Finished metadata reproducible subsetting...")
 stop("Breakpoint. Check metadata...")
 
@@ -384,30 +395,30 @@ stop("Breakpoint. Check metadata...")
 # QUESTION: Keeping the expression here is good to see flow but it is a configuration setting. //
 # Consider just assigning it here and keeping the other values in a list or something.//
 # that way it is clear that it comes from the configuration.
-row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
-if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
-  expr_vars <- all.vars(row_filtering_expression)
-  missing_expr_vars <- setdiff(expr_vars, colnames(metadata_df))
-  if (length(missing_expr_vars) > 0) {
-    stop("Expression refers to columns that don't exist in metadata_df: ",
-         paste(missing_expr_vars, collapse = ", "))
-  }
-  tryCatch({
-    # would need to add more conditionals if I assign to a new variable //
-    metadata_df <- metadata_df[eval(row_filtering_expression, envir = metadata_df), ]
-  }, error = function(e) {
-    stop("Error evaluating row_filtering_expression: ", e$message)
-  })
-} # end if error handling for expression
-number_of_rows_after_optional_subsetting <- nrow(metadata_df)
-message("Finished metadata additional optional subsetting...")
-
-debug_print(list(
-  "title" = "Debug after metadata",
-  ".Number of rows before subsetting" = number_rows_before_subset,
-  ".Number of rows after subsetting" = number_of_rows_after_reproducibility_subset,
-  ".Number of rows after subsetting" = number_of_rows_after_optional_subsetting
-))
+#row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
+#if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
+#  expr_vars <- all.vars(row_filtering_expression)
+#  missing_expr_vars <- setdiff(expr_vars, colnames(metadata_df))
+#  if (length(missing_expr_vars) > 0) {
+#    stop("Expression refers to columns that don't exist in metadata_df: ",
+#         paste(missing_expr_vars, collapse = ", "))
+#  }
+#  tryCatch({
+#    # would need to add more conditionals if I assign to a new variable //
+#    metadata_df <- metadata_df[eval(row_filtering_expression, envir = metadata_df), ]
+#  }, error = function(e) {
+#    stop("Error evaluating row_filtering_expression: ", e$message)
+#  })
+#} # end if error handling for expression
+#number_of_rows_after_optional_subsetting <- nrow(metadata_df)
+#message("Finished metadata additional optional subsetting...")
+#
+#debug_print(list(
+#  "title" = "Debug after metadata",
+#  ".Number of rows before subsetting" = number_rows_before_subset,
+#  ".Number of rows after subsetting" = number_of_rows_after_reproducibility_subset,
+#  ".Number of rows after subsetting" = number_of_rows_after_optional_subsetting
+#))
 
 # Add the replicate group
 # TODO: Move to configuration. //
