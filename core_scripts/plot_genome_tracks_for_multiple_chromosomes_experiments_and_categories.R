@@ -745,7 +745,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
             background.panel = "transparent"
           )
 
-        }
+
       }
 
       message("  Saved plot...")
