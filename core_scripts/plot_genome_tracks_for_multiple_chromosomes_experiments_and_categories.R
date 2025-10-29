@@ -678,65 +678,74 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         ". Track limits" = paste(y_limits, collapse = ",")
       ))
 
-      if (RUNTIME_CONFIG$output_dry_run) {
-          # Choose plotting device.
-          do.call(
-            # Device to call.
-            what = switch(OUTPUT_FORMAT,
-                          pdf = pdf,
-                          svg = svglite::svglite,
-                          png = png),
-            # Arguments for the called device function.
-            args = switch(OUTPUT_FORMAT,
-                          pdf = list(file = plot_output_file_path,
-                                     width = 10, height = 8,
-                                     bg = "white",
-                                     compress = TRUE,
-                                     colormodel = "srgb", useDingbats = FALSE),
-                          svg = list(filename = plot_output_file_path,
-                                     width = 10, height = 8,
-                                     bg = "white"),
-                          png = list(filename = plot_output_file_path,
-                                     width = 10, height = 8,
-                                     units = "in", res = 600, bg = "white"))
+        if (!RUNTIME_CONFIG$output_dry_run) {
+          if(file.exists(plot_output_file_path)) {
+            message("Output file already exists... Skipping file generation...")
+
+          } else {
+            message("Plot and save files...")
+            # Choose plotting device.
+            do.call(
+              # Device to call.
+              what = switch(OUTPUT_FORMAT,
+                            pdf = pdf,
+                            svg = svglite::svglite,
+                            png = png),
+              # Arguments for the called device function.
+              args = switch(OUTPUT_FORMAT,
+                            pdf = list(file = plot_output_file_path,
+                                       width = 10, height = 8,
+                                       bg = "white",
+                                       compress = TRUE,
+                                       colormodel = "srgb", useDingbats = FALSE),
+                            svg = list(filename = plot_output_file_path,
+                                       width = 10, height = 8,
+                                       bg = "white"),
+                            png = list(filename = plot_output_file_path,
+                                       width = 10, height = 8,
+                                       units = "in", res = 600, bg = "white"))
+              )
+
+            Gviz::plotTracks(
+                trackList = track_container,
+                chromosome = current_chromosome,
+                from = current_genome_range_to_load@ranges@start,
+                to = current_genome_range_to_load@ranges@width,
+                ylim = y_limits,
+                margin = 15,
+                innerMargin = 5,
+                spacing = 10,
+                main = current_condition_title,
+                col.axis = "black",
+                cex.axis = 0.8,
+                cex.main = 0.7,
+                fontface.main = 1,
+                background.panel = "transparent"
             )
 
+            dev.off()
+
+          }
+
+        } else {
           Gviz::plotTracks(
-              trackList = track_container,
-              chromosome = current_chromosome,
-              from = current_genome_range_to_load@ranges@start,
-              to = current_genome_range_to_load@ranges@width,
-              ylim = y_limits,
-              margin = 15,
-              innerMargin = 5,
-              spacing = 10,
-              main = current_condition_title,
-              col.axis = "black",
-              cex.axis = 0.8,
-              cex.main = 0.7,
-              fontface.main = 1,
-              background.panel = "transparent"
+            trackList = track_container,
+            chromosome = current_chromosome,
+            from = current_genome_range_to_load@ranges@start,
+            to = current_genome_range_to_load@ranges@width,
+            ylim = y_limits,
+            margin = 15,
+            innerMargin = 5,
+            spacing = 10,
+            main = current_condition_title,
+            col.axis = "black",
+            cex.axis = 0.8,
+            cex.main = 0.7,
+            fontface.main = 1,
+            background.panel = "transparent"
           )
 
-          dev.off()
-
-      } else {
-          Gviz::plotTracks(
-              trackList = track_container,
-              chromosome = current_chromosome,
-              from = current_genome_range_to_load@ranges@start,
-              to = current_genome_range_to_load@ranges@width,
-              ylim = y_limits,
-              margin = 15,
-              innerMargin = 5,
-              spacing = 10,
-              main = current_condition_title,
-              col.axis = "black",
-              cex.axis = 0.8,
-              cex.main = 0.7,
-              fontface.main = 1,
-              background.panel = "transparent"
-          )
+        }
       }
 
       message("  Saved plot...")
