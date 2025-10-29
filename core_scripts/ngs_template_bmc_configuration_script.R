@@ -27,11 +27,15 @@ message("Sourcing script configuration file...")
 EXPERIMENT_IDS <- "250714Bel"
 EXPERIMENT_ID <- "250714Bel"
 
-#metadata_columns_to_exclude <- c(
-#  "sample_type", "sample_ids",
-#  "bigwig_file_paths", "full_name",
-#  "short_name"
-#)
+target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+columns_to_exclude_from_replicate_determination <- c(
+  "sample_ids", "bigwig_file_paths", "full_name",
+  "short_name", "experiment_id"
+)
+metadata_columns_to_exclude <- c(
+    "sample_ids", "bigwig_file_paths",
+    "full_name", "short_name"
+)
 
 if (
   !exists("ROOT_DIRECTORY") ||

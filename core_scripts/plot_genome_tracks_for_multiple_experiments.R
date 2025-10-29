@@ -423,15 +423,6 @@ message("Genome reference and feature set...")
 #  ".Number of rows after subsetting" = number_of_rows_after_optional_subsetting
 #))
 
-# Add the replicate group
-# TODO: Move to configuration. //
-# TODO: I think I need to add the experiment_id and repeats column from this one. //
-columns_to_exclude_from_replicate_determination <- c(
-  "sample_type", "sample_ids",
-  "bigwig_file_paths", "full_name",
-  "short_name", "experiment_id",
-  "repeats"
-)
 missing_excluded_replicates <- setdiff(
   columns_to_exclude_from_replicate_determination,
   colnames(metadata_df)
@@ -476,30 +467,10 @@ if(!(all(have_at_least_two_replicates))) {
 #--------
 # Define columns to compare by and exclude columns for grouping
 #--------
-# TODO: Move to configuration. //
-#target_comparison_columns <- c("rescue_allele", "timepoints")
-target_comparison_columns <- c("rescue_allele", "suppressor_allele")
 plot_name_comparison_column_section <- paste(
   gsub("_", "", target_comparison_columns),
   collapse = "."
 )
-#metadata_columns_to_exclude <- c(
-#  "sample_type", "sample_ids",
-#  "bigwig_file_paths", "full_name",
-#  "short_name", "experiment_id",
-#  "repeats", "replicate_group"
-#)
-metadata_columns_to_exclude <- c(
-    "sample_type", "sample_ids",
-    "bigwig_file_paths", "full_name",
-    "short_name"
-)
-#columns_to_exclude_from_replicate_determination <- c(
-#  "sample_type", "sample_ids",
-#  "bigwig_file_paths", "full_name",
-#  "short_name", "experiment_id",
-#  "repeats"
-#)
 missing_excluded_columns <- setdiff(metadata_columns_to_exclude, colnames(metadata_df))
 missing_comparison_columns <- setdiff(target_comparison_columns, colnames(metadata_df))
 
