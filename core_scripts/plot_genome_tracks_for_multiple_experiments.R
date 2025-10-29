@@ -456,7 +456,6 @@ number_of_replicates_per_group <- unlist(lapply(unique_replicate_conditions,
     return(sum(is_replicate_condition))
 }))
 
-EXPECTED_NUMBER_OF_REPLICATES <- 2
 have_at_least_two_replicates <- number_of_replicates_per_group >= EXPECTED_NUMBER_OF_REPLICATES
 if(!(all(have_at_least_two_replicates))) {
   stop("Not all of the replicate conditions have at least two replicates",
