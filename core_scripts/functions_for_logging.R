@@ -248,6 +248,8 @@ print_config_settings <- function(
             "NULL"
         } else if (is.list(value)) {
             "LIST"
+        } else if (is.call(value) || is.language(value)) {
+            paste(deparse(value), collapse = " ")
         } else if (is.vector(value) & length(value) > 0) {
             escaped_newlines <- gsub("\n", "\\\\n", value)
             paste0("[", paste(escaped_newlines, collapse = ", "), "]")
