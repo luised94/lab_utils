@@ -611,6 +611,11 @@ for (condition_index in seq_len(total_number_of_conditions)) {
     current_replicate_df <- current_condition_df[is_replicate_condition,]
     current_number_of_replicates <- nrow(current_replicate_df)
     replicate_data_tracks <- list()
+    current_condition_title <- paste(
+      current_condition_base_title,
+      chromosome_title_section,
+      sep = "\n"
+    )
 
     debug_print(list(
       "title" = "Debug replicate condition processing",
