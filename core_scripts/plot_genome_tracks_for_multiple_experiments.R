@@ -246,7 +246,7 @@ for (experiment_index in seq_len(NUMBER_OF_EXPERIMENTS)) {
     ".Number of rows" = nrow(current_metadata_df),
     ".Number of samples ids" = length(sample_ids),
     ".Number of bigwig files" = length(bigwig_files),
-    ".Number of expected samples" = EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
+    ".Number of expected samples" = EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES_POST
   ))
 
   # Add determination of sample ids and addition to metadata frame
@@ -388,7 +388,8 @@ message("Genome reference and feature set...")
 #}
 
 #number_of_rows_after_reproducibility_subset <- nrow(metadata_df)
-message("Finished metadata reproducible subsetting...")
+#message("Finished metadata reproducible subsetting...")
+
 
 # Define any rows to exclude ----------
 # For example, remove rows that you dont want to be included in the plots
