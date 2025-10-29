@@ -236,7 +236,7 @@ for (experiment_index in seq_len(NUMBER_OF_EXPERIMENTS)) {
        nrow(current_metadata_df) == length(sample_ids)
   )
 
-  expected_number_of_samples <- expected_number_of_samples + EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
+  expected_number_of_samples <- expected_number_of_samples + EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES_POST
   metadata_categories_list[[experiment_index]] <- EXPERIMENT_CONFIG$CATEGORIES
   current_metadata_df$bigwig_file_paths <- bigwig_files
   current_metadata_df$sample_ids <- sample_ids

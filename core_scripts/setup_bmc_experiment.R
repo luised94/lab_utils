@@ -287,7 +287,7 @@ metadata <- metadata[
 
 # Verify sample count
 n_samples <- nrow(metadata)
-expected <- EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
+expected <- EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES_SETUP
 if (n_samples != expected) {
   terminal_width <- get_width()
   # Set width to 200
@@ -368,6 +368,19 @@ if (!is.null(EXPERIMENT_CONFIG$SAMPLE_DROPOUT_CONDITION)) {
   metadata <- metadata[!dropout_rows, , drop = FALSE]
 }
 
+# Verify sample count after processing
+n_samples <- nrow(metadata)
+expected <- EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES_POST
+if (n_samples != expected) {
+  terminal_width <- get_width()
+  # Set width to 200
+  options(width = terminal_width)
+  # Print diagnostic information
+  cat("\nDiagnostic Information:\n")
+  cat("----------------------\n")
+  print(metadata)
+  stop(sprintf("Expected %d samples, got %d", expected, n_samples))
+}
   #print(table(metadata$antibody))  # Show antibody distribution
   #cat("\nFull sample breakdown:\n")
   #print(summary(metadata))     # Show all category distributions

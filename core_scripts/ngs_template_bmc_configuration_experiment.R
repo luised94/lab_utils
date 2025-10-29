@@ -33,7 +33,8 @@ EXPERIMENT_CONFIG <- list(
   METADATA = list(
     # YYMMDDBel
     EXPERIMENT_ID = "250821Bel",
-    EXPECTED_SAMPLES = 5,
+    EXPECTED_SAMPLES_SETUP = 5,
+    EXPECTED_SAMPLES_POST = 5,
     VERSION = "1.0.0",
     PROJECT_ID = "project_002"
   ),
@@ -126,12 +127,14 @@ EXPERIMENT_CONFIG <- list(
   # Optional: specify a sample that was dropped during prep and is missing from core data
   # Use NULL when no dropout occurred.
   # Identify the sample using a logical condition on metadata columns.
+  # If you add, do not forget to adjust the EXPECTED_NUMBER_OF_SAMPLES above.
   SAMPLE_DROPOUT_CONDITION = quote(
     suppressor_allele == "4PS" & 
     antibody == "ORC" & 
     cell_cycle_treatment == "ALPHA" & 
     rescue_allele == "4R"
   )
+
   ## ROW_ORDER_CORRECTION = quote(
   #  suppressor_allele == "4PS" & antibody == "ORC" & 
   #  cell_cycle_treatment == "ALPHA" & rescue_allele == "4R"
