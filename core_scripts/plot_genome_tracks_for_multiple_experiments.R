@@ -582,6 +582,7 @@ transparent_colors <- grDevices::adjustcolor(
 # TODO: Add the for loop inside the initial for loop to do this. //
 # then it should process the samples into overlap or by averaging. //
 # Will need to duplicate and rename the two scripts to differentiate. //
+message("First for loop...")
 for (condition_index in seq_len(total_number_of_conditions)) {
   # Iteration setup ----------
   current_condition <- unique_experimental_conditions[condition_index]
@@ -589,6 +590,7 @@ for (condition_index in seq_len(total_number_of_conditions)) {
   is_condition_row <- metadata_df$experimental_condition_id == current_condition
   current_condition_df <- metadata_df[is_condition_row, ]
   current_number_of_samples <- nrow(current_condition_df)
+  y_limits <- c(0, 1000)
 
   debug_print(list(
     "title" = "Debug group plotting",
@@ -649,23 +651,23 @@ for (condition_index in seq_len(total_number_of_conditions)) {
       replicate_data_tracks[[length(replicate_data_tracks) + 1]] <- replicate_track
     } # end replicate sample for loop
 
-  overlay_track <- Gviz::OverlayTrack(
-    trackList = replicate_data_tracks,
-    name = replicate_condition,
-    # Styling for the overlay track
-    showAxis = TRUE,
-    showTitle = TRUE,
-    size = 1.2,
-    background.title = "white",
-    fontcolor.title = "black",
-    col.border.title = "#e0e0e0",
-    cex.title = 0.7,
-    fontface = 1,
-    title.width = 1.0
-  )
-  # Create overlay track combining all replicates
-  # Add overlay track to container
-  track_container[[length(track_container) + 1]] <- overlay_track
+    overlay_track <- Gviz::OverlayTrack(
+      trackList = replicate_data_tracks,
+      name = replicate_condition,
+      # Styling for the overlay track
+      showAxis = TRUE,
+      showTitle = TRUE,
+      size = 1.2,
+      background.title = "white",
+      fontcolor.title = "black",
+      col.border.title = "#e0e0e0",
+      cex.title = 0.7,
+      fontface = 1,
+      title.width = 1.0
+    )
+    # Create overlay track combining all replicates
+    # Add overlay track to container
+    track_container[[length(track_container) + 1]] <- overlay_track
   } # end replicate condition for loop
 
   #if (exists("GENOME_FEATURES")) {
@@ -748,14 +750,12 @@ for (condition_index in seq_len(total_number_of_conditions)) {
 
 }
 
-
 ####################
 # Plot bigwig files
 # For each repeat,
 #    subset by control column,
 #    plot the tracks for multiple chromosomes
 ####################
-
 for (condition_index in seq_len(total_number_of_conditions)) {
   # Iteration setup ----------
   current_condition <- unique_experimental_conditions[condition_index]
@@ -866,7 +866,7 @@ for (condition_index in seq_len(total_number_of_conditions)) {
       }
     } else {
       message("Mode set to individual...")
-      y_limits <- NULL
+      y_limits <- c(0,1000)
     }
     for (sample_index in seq_len(current_number_of_samples)) {
       # add for loop here I think were we go through the two replicates
