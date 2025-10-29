@@ -221,6 +221,7 @@ for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
     replacement = "\\1",
     x = fastq_files
   )
+  sample_ids <- unique(sub(".*-", "", sample_ids))
 
   stopifnot(
      "Length of samples_ids is not lower than length of fastq files." =
@@ -243,7 +244,7 @@ for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
     ".Number of rows" = nrow(current_metadata_df),
     ".Number of samples ids" = length(sample_ids),
     ".Number of bigwig files" = length(bigwig_files),
-    ".Number of expected samples" = EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
+    ".Number of expected samples" = EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES_POST
   ))
 
   # Add determination of sample ids and addition to metadata frame
