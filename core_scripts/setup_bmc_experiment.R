@@ -186,16 +186,11 @@ if (length(missing_variables) > 0 ) {
      paste(missing_variables, collapse = ", "))
 }
 stopifnot(
-  "Only one experiment id required for this script" = length(EXPERIMENT_IDS) == 1
+  "Only one experiment id required for this script" =
+    length(EXPERIMENT_IDS) == 1
 )
 
 message("All variables defined in the configuration file...")
-
-required_configs <- c("EXPERIMENT_CONFIG", "RUNTIME_CONFIG")
-validate_configs(required_configs)
-invisible(lapply(required_configs, function(config) {
-  print_config_settings(get(config), title = config)
-}))
 
 stopifnot(
   "Script EXPERIMENT_IDS is not the same as CONFIG EXPERIMENT_IDS" =
@@ -209,17 +204,19 @@ message("Experiment configuration...")
 #-------------------------------------------------------------------------------
 # Create directory structure
 full_paths <- file.path(EXPERIMENT_DIR, DATA_DIRECTORIES)
-invisible(lapply(full_paths, function(path) {
+for (path in full_paths){
   if (RUNTIME_CONFIG$output_dry_run) {
     cat(sprintf("[DRY RUN] Would create directory: %s\n", path))
-  } else {
-    dir_created <- dir.create(path, recursive = TRUE, showWarnings = FALSE)
-    if (RUNTIME_CONFIG$debug_verbose) {
-      status <- if (dir_created) "Created" else "Already exists"
-      cat(sprintf("[%s] %s\n", status, path))
-    }
+    next
   }
-}))
+
+  dir_created <- dir.create(path, recursive = TRUE, showWarnings = FALSE)
+  if (RUNTIME_CONFIG$debug_verbose) {
+    status <- if (dir_created) "Created" else "Already exists"
+    cat(sprintf("[%s] %s\n", status, path))
+  }
+
+}
 
 # Report directory creation status
 if (RUNTIME_CONFIG$debug_verbose) {
