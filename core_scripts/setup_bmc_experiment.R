@@ -29,29 +29,6 @@ EXPERIMENT_CONFIGURATION_PATH <- file.path(
   CORE_SCRIPTS_PATH,
   "configuration_experiment_bmc.R"
 )
-FUNCTION_FILENAME_TEMPLATE <- file.path(CORE_SCRIPTS_PATH, "functions_for_%s.R")
-
-#---------------------------------------
-# Load user functions
-#---------------------------------------
-function_filenames <- c(
-  "logging", "script_control",
-  "file_operations", "bmc_config_validation"
-)
-
-for (function_filename in function_filenames) {
-  function_filepath <- sprintf(
-    FUNCTION_FILENAME_TEMPLATE,
-    function_filename
-  )
-  normalized_path <- normalizePath(function_filepath)
-  if (!file.exists(normalized_path)) {
-    stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
-  }
-  source(normalized_path)
-}
-
-message("Loaded functions... Sourcing configuration.")
 
 # Ensure configuration files exist.
 stopifnot(
