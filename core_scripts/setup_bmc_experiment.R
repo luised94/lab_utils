@@ -64,70 +64,50 @@ stopifnot(
     all(required_sections %in% names(EXPERIMENT_CONFIG))
 )
 
-sapply(category_names,
-  function(category_name) {
-    category_values <- EXPERIMENT_CONFIG$CATEGORIES[[category_name]]
-    is_not_character <- !is.character(category_values)
-    is_duplicated <- duplicated(category_values)
-    if (any(is_not_character)) {
-      stop(sprintf("Some category values in '%s' category are not character: %s",
-        category_name,
-        paste(category_values[is_not_character], collapse = ", ")
-      ))
-    }
-    if (any(is_duplicated)) {
-      stop(sprintf("Some category values in '%s' category are duplicated: %s",
-        category_name,
-        paste(category_values[is_duplicated], collapse = ", ")
-      ))
-    }
+# Validate categories - simple for loop
+for (category_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
+  category_values <- EXPERIMENT_CONFIG$CATEGORIES[[category_name]]
+
+  if (!is.character(category_values)) {
+    stop(sprintf("Category '%s' must be character vector", category_name))
   }
-)
 
-categories_and_column_order_are_not_identical <- !identical(
-  sort(category_names),
-  sort(EXPERIMENT_CONFIG$COLUMN_ORDER)
-)
-
-if (categories_and_column_order_are_not_identical) {
-  stop("Column order must include all category columns.")
+  if (any(duplicated(category_values))) {
+    duplicated_values <- category_values[duplicated(category_values)]
+    stop(sprintf("Category '%s' has duplicates: %s",
+                category_name, paste(duplicated_values, collapse = ", ")))
+  }
 }
 
-lapply(names(EXPERIMENT_CONFIG$INVALID_COMBINATIONS),
-  function(invalid_combination_condition) {
-    combination_condition <- EXPERIMENT_CONFIG$INVALID_COMBINATIONS[[invalid_combination_condition]]
-    invalid_category <- setdiff(
-      all.vars(combination_condition),
-      category_names
-    )
-    if (length(invalid_category) > 0) {
-      stop(sprintf(
-        "Invalid columns in INVALID_COMBINATIONS '%s':\n%s",
-        combination_condition, paste(invalid_category, collapse = ", ")
-      ))
+# Validate invalid combinations - simple for loop
+for (combo_name in names(EXPERIMENT_CONFIG$INVALID_COMBINATIONS)) {
+  combo_expr <- EXPERIMENT_CONFIG$INVALID_COMBINATIONS[[combo_name]]
+  referenced_vars <- all.vars(combo_expr)
+  invalid_refs <- setdiff(referenced_vars, category_names)
 
-    }
+  if (length(invalid_refs) > 0) {
+    stop(sprintf("INVALID_COMBINATIONS '%s' references unknown categories: %s",
+                combo_name, paste(invalid_refs, collapse = ", ")))
   }
-)
+}
 
-lapply(names(EXPERIMENT_CONFIG$CONTROL_FACTORS),
-  function(control_factor_names) {
-    control_factor_categories <- EXPERIMENT_CONFIG$CONTROL_FACTORS[[control_factor_names]]
-    invalid_category <- setdiff(
-      control_factor_categories,
-      category_names
-    )
-    if (length(invalid_category) > 0) {
-      stop(sprintf(
-        "Invalid columns in CONTROL_FACTORS '%s':\n%s",
-        control_factor_names, paste(invalid_category, collapse = ", ")
-      ))
 
-    }
+# Validate COLUMN_ORDER matches CATEGORIES
+if (!identical(sort(names(EXPERIMENT_CONFIG$CATEGORIES)),
+               sort(EXPERIMENT_CONFIG$COLUMN_ORDER))) {
+  stop("COLUMN_ORDER must include exactly all category names")
+}
+
+# Validate CONTROL_FACTORS references valid categories
+for (factor_name in names(EXPERIMENT_CONFIG$CONTROL_FACTORS)) {
+  factor_categories <- EXPERIMENT_CONFIG$CONTROL_FACTORS[[factor_name]]
+  invalid_refs <- setdiff(factor_categories, names(EXPERIMENT_CONFIG$CATEGORIES))
+
+  if (length(invalid_refs) > 0) {
+    stop(sprintf("CONTROL_FACTORS '%s' references unknown categories: %s",
+                factor_name, paste(invalid_refs, collapse = ", ")))
   }
-)
-
-cat("\n[VALIDATED] Experiment configuration loaded successfully\n")
+}
 
 #====================
 # Source script configuration file
@@ -142,7 +122,11 @@ stopifnot(
   "Experiment ID must be a character string" =
     is.character(EXPERIMENT_IDS),
   "Invalid experiment ID format. Expected: YYMMDD'Bel'" =
-    grepl("^\\d{6}Bel$", EXPERIMENT_IDS)
+    grepl("^\\d{6}Bel$", EXPERIMENT_IDS),
+  "Script EXPERIMENT_IDS is not the same as CONFIG EXPERIMENT_IDS" =
+    EXPERIMENT_IDS == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID,
+  "Only one experiment id required for this script" =
+    length(EXPERIMENT_IDS) == 1
 )
 
 message("Configuration file sourced... Checking configuration variables.")
@@ -152,7 +136,7 @@ message("Configuration file sourced... Checking configuration variables.")
 # configuration_script_bmc.R //
 required_configuration_variables <- c(
   "EXPERIMENT_IDS", "EXPERIMENT_DIR",
-  "ACCEPT_CONFIGURATION"
+  "DATA_DIRECTORIES"
 )
 
 is_missing_variable <- !sapply(required_configuration_variables, exists)
@@ -162,44 +146,31 @@ if (length(missing_variables) > 0 ) {
   stop("Missing variable. Please define in 'configuration_script_bmc.R' file.",
      paste(missing_variables, collapse = ", "))
 }
-stopifnot(
-  "Only one experiment id required for this script" =
-    length(EXPERIMENT_IDS) == 1
-)
-
 message("All variables defined in the configuration file...")
-
-stopifnot(
-  "Script EXPERIMENT_IDS is not the same as CONFIG EXPERIMENT_IDS" =
-    EXPERIMENT_IDS == EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
-)
-
-message("Experiment configuration...")
 
 #-------------------------------------------------------------------------------
 # Directory Setup
 #-------------------------------------------------------------------------------
 # Create directory structure
 full_paths <- file.path(EXPERIMENT_DIR, DATA_DIRECTORIES)
-for (path in full_paths){
+for (path in full_paths) {
   if (RUNTIME_CONFIG$output_dry_run) {
-    cat(sprintf("[DRY RUN] Would create directory: %s\n", path))
+    cat(sprintf("[DRY RUN] Would create: %s\n", path))
     next
+
   }
 
   dir_created <- dir.create(path, recursive = TRUE, showWarnings = FALSE)
+
   if (RUNTIME_CONFIG$debug_verbose) {
-    status <- if (dir_created) "Created" else "Already exists"
-    cat(sprintf("[%s] %s\n", status, path))
+    cat(sprintf(
+      "[%s] %s\n", 
+      if (dir_created) "CREATED" else "EXISTS", 
+      path
+    ))
+
   }
 
-}
-
-# Report directory creation status
-if (RUNTIME_CONFIG$debug_verbose) {
-  mode <- if (RUNTIME_CONFIG$output_dry_run) "DRY RUN" else "LIVE RUN"
-  cat(sprintf("\n[%s] Directory structure for experiment: %s\n", mode, EXPERIMENT_IDS))
-  cat(sprintf("[%s] Base directory: %s\n", mode, EXPERIMENT_DIR))
 }
 
 cat("Directories created successfully!\n")
