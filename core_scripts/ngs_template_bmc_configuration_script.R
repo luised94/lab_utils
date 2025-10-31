@@ -69,6 +69,19 @@ PADDING_FRACTION <- 0.1
 SAMPLE_ID_CAPTURE_PATTERN <- "fastpfiltered_(D[0-9]{2}-[0-9]{1,6})_(R1|R2|NA)\\.fastq$"
 SKIP_PACKAGE_CHECKS <- TRUE
 VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
+# Define directory structure
+DATA_DIRECTORIES <- c(
+  "peak",
+  "fastq/raw",
+  "fastq/processed",
+  "quality_control",
+  "alignment",
+  "coverage",
+  "plots/genome_tracks/overview",
+  "plots/genome_tracks/experimental_comparisons",
+  "documentation/dna_qc_traces",
+  "documentation/config"
+)
 
 TIME_CONFIG <- list(
   # Format specifications
@@ -297,7 +310,7 @@ OUTPUT_EXTENSION <- paste0(".", OUTPUT_FORMAT)
 #  BAM_PROCESSING, BIGWIG_NORM_METHOD
 #)
 BIGWIG_PATTERN <- sprintf(
-  D[0-9]{2}-[0-9]{1,6}_%s\\.bw,
+  "D[0-9]{2}-[0-9]{1,6}_%s\\.bw",
   BIGWIG_NORM_METHOD
 )
 

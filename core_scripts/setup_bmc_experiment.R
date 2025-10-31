@@ -31,20 +31,6 @@ EXPERIMENT_CONFIGURATION_PATH <- file.path(
 )
 FUNCTION_FILENAME_TEMPLATE <- file.path(CORE_SCRIPTS_PATH, "functions_for_%s.R")
 
-# Define directory structure
-DATA_DIRECTORIES <- c(
-  "peak",
-  "fastq/raw",
-  "fastq/processed",
-  "quality_control",
-  "alignment",
-  "coverage",
-  "plots/genome_tracks/overview",
-  "plots/genome_tracks/experimental_comparisons",
-  "documentation/dna_qc_traces",
-  "documentation/config"
-)
-
 #---------------------------------------
 # Load user functions
 #---------------------------------------
@@ -55,7 +41,7 @@ function_filenames <- c(
 
 for (function_filename in function_filenames) {
   function_filepath <- sprintf(
-    FUNCTION_FILENAME_TEMPLATE, 
+    FUNCTION_FILENAME_TEMPLATE,
     function_filename
   )
   normalized_path <- normalizePath(function_filepath)
@@ -381,94 +367,6 @@ if (n_samples != expected) {
   print(metadata)
   stop(sprintf("Expected %d samples, got %d", expected, n_samples))
 }
-  #print(table(metadata$antibody))  # Show antibody distribution
-  #cat("\nFull sample breakdown:\n")
-  #print(summary(metadata))     # Show all category distributions
-  #cat("\n")
-  ## Control this in the configuration_experiment_bmc.R file.
-  ## Helps display metadata values to help narrow down where you need to add combinations to filter.
-  #if (show_all_metadata) {
-  #  print(metadata)
-  #} else if (show_particular_metadata) {
-  #  print(metadata[metadata[, category_to_show] == values_to_show, ])
-  #}
-
-#-------------------------------------------------------------------------------
-# Sample Classification
-#-------------------------------------------------------------------------------
-#sample_classifications <- EXPERIMENT_CONFIG$SAMPLE_CLASSIFICATIONS
-#
-## First, create a matrix/data frame to store all classification results
-#classification_results <- matrix(FALSE,
-#                 nrow = nrow(metadata),
-#                 ncol = length(sample_classifications),
-#                 dimnames = list(NULL, names(sample_classifications)))
-#
-## Evaluate each classification condition
-#for (type in names(sample_classifications)) {
-#  classification_results[, type] <- eval(sample_classifications[[type]],
-#                     envir = metadata)
-#}
-#
-## Create the final classification vector
-## Default classification
-#metadata$sample_type <- "treatment"
-#for (type in names(sample_classifications)) {
-#  # Find rows where this classification is TRUE
-#  matching_rows <- classification_results[, type]
-#  # Assign the type name (removing 'is_' prefix)
-#  metadata$sample_type[matching_rows] <- sub("^is_", "", type)
-#}
-#
-## Validation check
-#multiple_classifications <- rowSums(classification_results) > 1
-#if (any(multiple_classifications)) {
-#  cat("\nERROR: Multiple Classification Detected!\n")
-#  cat("----------------------------------------\n")
-#
-#  # Show problematic samples with their classifications
-#  problem_samples <- metadata[multiple_classifications, ]
-#  cat("Samples with multiple classifications:\n\n")
-#
-#  # Show which classifications were TRUE for each problematic sample
-#  for (i in which(multiple_classifications)) {
-#    cat(sprintf("\nSample %d:\n", i))
-#    cat("Sample details:\n")
-#    print(metadata[i, ])
-#    cat("\nMatching classifications:\n")
-#    matching_types <- names(classification_results[i,])[classification_results[i,]]
-#    print(matching_types)
-#    cat("----------------------------------------\n")
-#  }
-#
-#  stop("Please fix multiple classifications in experiment configuration")
-#}
-#
-## Success diagnostic display
-#cat("\nSample Classification Summary:\n")
-#cat("============================\n")
-#
-## Overall counts
-#cat("\n1. Distribution of sample types:\n")
-#print(table(metadata$sample_type))
-#
-## Detailed breakdown by relevant factors
-#cat("\n2. Sample types by antibody:\n")
-#print(table(metadata$sample_type, metadata$antibody))
-#
-## Show a few samples from each classification
-#cat("\n3. Example samples from each classification:\n")
-#for (type in unique(metadata$sample_type)) {
-#  cat(sprintf("\n%s samples:\n", toupper(type)))
-#  print(metadata[metadata$sample_type == type, ][1:min(3, sum(metadata$sample_type == type)), ])
-#  cat("----------------------------------------\n")
-#}
-#
-## Verification message
-#cat("\nClassification Verification:\n")
-#cat(sprintf("- Total samples: %d\n", nrow(metadata)))
-#cat(sprintf("- Classified samples: %d\n", sum(table(metadata$sample_type))))
-#cat(sprintf("- Unclassified samples: %d\n", sum(is.na(metadata$sample_type))))
 
 # Generate sample names
 metadata$full_name <- apply(metadata, 1, paste, collapse = "_")
@@ -503,65 +401,65 @@ bmc_metadata <- data.frame(
 #-------------------------------------------------------------------------------
 # File Output Generation
 #-------------------------------------------------------------------------------
-if (ACCEPT_CONFIGURATION) {
-  "Accept configuration enabled... Continuing"
-} else {
-  stop("Configuration not accepted... Update ACCEPT_CONFIGURATION when ready to continue")
-}
-filenames <- c("sample_grid.csv", "bmc_table.tsv", "configuration_experiment_bmc.R")
-# Loop through each filename to handle path assignment and file writing
-for (filename in filenames) {
-  # Construct the output file path
-  output_file_path <- file.path(
-    EXPERIMENT_DIR,
-    "documentation",
-    paste0(EXPERIMENT_IDS, "_", filename)
+# Define output files
+output_files <- list(
+  sample_grid = list(
+    data = metadata_grid,
+    path = file.path(EXPERIMENT_DIR, "documentation", sprintf("%s_sample_grid.csv", EXPERIMENT_ID)),
+    type = "csv"
+  ),
+  bmc_table = list(
+    data = bmc_table,
+    path = file.path(EXPERIMENT_DIR, "documentation", sprintf("%s_bmc_table.tsv", EXPERIMENT_ID)),
+    type = "tsv"
+  ),
+  experiment_configuration = list(
+    data = file.path(CORE_SCRIPTS_PATH, "configuration_experiment_bmc_v2.R"),
+    path = file.path(EXPERIMENT_DIR, "documentation", sprintf("%s_configuration_experiment_bmc.R", EXPERIMENT_ID)),
+    type = "r"
   )
-  # Handle file writing with dry run checks
-  if (RUNTIME_CONFIG$output_dry_run) {
-    # Dry-run message
-    if (file.exists(output_file_path)) {
-      cat(sprintf("[DRY RUN] File exists: %s. Overwrite will occur if dry-run is disabled.\n", output_file_path))
-    } else {
-      cat(sprintf("[DRY RUN] Would write file to: %s\n", output_file_path))
-    }
-  } else {
-    # Determine the appropriate write function based on the file extension
-    if (endsWith(filename, ".csv")) {
-      safe_write_file(
-        data = metadata,
-        path = output_file_path,
-        write_fn = write.csv,
-        verbose = RUNTIME_CONFIG$debug_verbose,
-        interactive = interactive(),  # Use interactive() to detect if running interactively
-        row.names = FALSE
-      )
-    } else if (endsWith(filename, ".tsv")) {
-      safe_write_file(
-        data = bmc_metadata,
-        path = output_file_path,
-        write_fn = write.table,
-        verbose = RUNTIME_CONFIG$debug_verbose,
-        interactive = interactive(),
-        sep = "\t",
-        row.names = FALSE,
-        quote = FALSE
-      )
-    } else if (endsWith(filename, ".R")) {
-      safe_write_file(
-        data = EXPERIMENT_CONFIGURATION_PATH,
-        path = output_file_path,
-        write_fn = file.copy,
-        verbose = RUNTIME_CONFIG$debug_verbose,
-        interactive = interactive(),
-        overwrite = TRUE
-      )
-    } else {
-      warning(sprintf("Unsupported file extension for file: %s", filename))
+)
+
+# Write files
+for (file_name in names(output_files)) {
+  file_info <- output_files[[file_name]]
+
+  # Extract to descriptive variables
+  output_data <- file_info$data
+  output_path <- file_info$path
+  file_type <- file_info$type
+
+  if (OUTPUT_DRY_RUN) {
+    status <- if (file.exists(output_path)) "OVERWRITE" else "CREATE"
+    message(sprintf("[DRY RUN] Would %s: %s", status, output_path))
+    next
+  }
+
+  # Check for existing file in interactive mode
+  if (interactive() && file.exists(output_path)) {
+    user_input <- readline(prompt = sprintf("File exists: %s. Overwrite? (y/n): ",
+                                            output_path))
+    if (tolower(user_input) != "y") {
+      message(sprintf("Skipped: %s", output_path))
+      next
     }
   }
+
+  # Write based on file type
+  tryCatch({
+    switch(file_type,
+      csv = write.csv(output_data, output_path, row.names = FALSE),
+      tsv = write.table(output_data, output_path, sep = "\t",
+                        row.names = FALSE, quote = FALSE),
+      r = file.copy(output_data, output_path, overwrite = TRUE),
+      rds = saveRDS(output_data, output_path),
+      stop(sprintf("Unknown file type: %s", file_type))
+    )
+    message(sprintf("Wrote: %s", output_path))
+
+  }, error = function(e) {
+    warning(sprintf("Failed to write %s: %s", output_path, e$message))
+
+  })
+
 }
-cat("Final metadata organization\n")
-cat("----------------------\n")
-print(metadata)
-cat("----------------------\n")
