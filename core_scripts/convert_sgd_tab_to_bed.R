@@ -1,19 +1,16 @@
-###############################################################################
-# Decompose sdg tab dataset to bed files 
 ################################################################################
-# PURPOSE: Output bed files for features found in the sgd tab files
-# Conclusion:
-#   = Works but wasnt sure if the bed files should include the header or not.
-#   = Went with header but this will require
+# Convert and split SGD tab dataset to bed files
+# Author: Luis | Date: 2025-04-07 | Version: 2.0.0
+################################################################################
+# PURPOSE: Convert SGD dataset (downloaded from Ross2021) to bed files and split into subset bed file based on feature type
+#
 # USAGE: source("reference_code/pipeline_completion/plot_bigwig_files.R")
-# DEPENDENCIES:
-# packages = dplyr
-# data = Sgd file is either from Rossi 2021 or from sgd website.
-# OUTPUT:
-# = Bed files for different gene feature sets and the sgd file per se. 
-# = Bed files are not valid because they have a header...
-# AUTHOR: LEMR
-# DATE: 2025-04-07
+#
+# DEPENDENCIES: dplyr, SGD file from Rossi2021
+#
+# OUTPUTS:
+# - Bed files for different features and entire sgd set.
+# CONCLUSION: Works well, had to update to output with proper header.
 ################################################################################
 # [1] Debugging Utilities ------------------------------------------------------
 # Summarize categorical data.

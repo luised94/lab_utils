@@ -1,26 +1,71 @@
 #!/usr/bin/env Rscript
-# Bootstrap phase
-# Also loads OVERRIDE_PRESETS
-FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
-for (function_filename in FUNCTION_FILENAMES) {
-    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
-    normalized_path <- normalizePath(function_filepath)
-    if (!file.exists(normalized_path)) {
-        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
-    }
-    source(normalized_path)
-}
-message("Bootstrap phase completed...")
+################################################################################
+# Plot bigwig files for multiple experiments, categories and chromosomes
+# Author: Luis | Date: 2024-11-27 | Version: 2.0.0
+################################################################################
+# PURPOSE:
+#   Creates standardized directory structure and metadata files for BMC ChIP-seq experiments
+#
+# USAGE:
+#   1) Update configuration_experiment_bmc.R file.
+#   2) From R REPL: source("core_scripts/plot_genome_tracks_for_multiple_chromosomes_experiments_an.R")
+
+#
+# DEPENDENCIES:
+#   configuration_experiment_bmc.R
+#   configuration_script_bmc.R
+#   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
+#
+# OUTPUTS:
+# - Svg or pdf files with genome tracks from multiple experiment ids for chromosomes and categories.
+################################################################################
 if(interactive()) {
-  message("Interactive job... sourcing configuration file.")
-  script_configuration_path <- "~/lab_utils/core_scripts/interactive_script_configuration.R"
-  stopifnot(
-    "Script configuration file does not exist. Please copy the template." =
-    file.exists(script_configuration_path)
-  )
-  source(script_configuration_path)
-  message("Configuration file sourced...")
+  message("Running from repl... Loading functions.")
+} else {
+  stop("Run the script from the R repl in an interactive session.")
 }
+
+# Setup paths to configuration and root directory.
+# Accounts for my reorganization of the repos.
+ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
+CORE_SCRIPTS_PATH <- file.path(ROOT_DIRECTORY, "core_scripts")
+SCRIPT_CONFIGURATION_PATH <- file.path(
+  CORE_SCRIPTS_PATH,
+  "configuration_script_bmc.R"
+)
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
+FUNCTION_FILENAME_TEMPLATE <- file.path(CORE_SCRIPTS_PATH, "functions_for_%s.R")
+FUNCTION_FILENAMES <- c(
+  "logging", "script_control",
+  "file_operations", "bmc_config_validation"
+)
+for (function_filename in FUNCTION_FILENAMES) {
+  function_filepath <- sprintf(
+    FUNCTION_FILENAME_TEMPLATE,
+    function_filename
+  )
+  normalized_path <- normalizePath(function_filepath)
+  if (!file.exists(normalized_path)) {
+    stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
+  }
+  source(normalized_path)
+}
+
+message("Loaded functions... Sourcing configuration.")
+#---------------------------------------
+# Source configuration for interactive session
+#---------------------------------------
+stopifnot(
+  "Script configuration file does not exist. Please copy the template." =
+    file.exists(SCRIPT_CONFIGURATION_PATH)
+)
+source(SCRIPT_CONFIGURATION_PATH)
+message("Configuration file sourced... Checking configuration variables.")
 
 # Ensure the variables expected in the script were //
 # defined in the configuration file. //
@@ -33,19 +78,18 @@ required_configuration_variables <- c(
   "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
   "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
-missing_variables <- required_configuration_variables[!sapply(required_configuration_variables, exists)]
+
+is_missing_variable <- !sapply(required_configuration_variables, exists)
+missing_variables <- required_configuration_variables[is_missing_variable]
 if (length(missing_variables) > 0 ) {
   stop("Missing variable. Please define in 'script_configuration.R' file.",
        paste(missing_variables, collapse = ", "))
 }
 message("All variables defined in the configuration file...")
 
-#} else {
-# add the args code?
-#}
-################################################################################
+#-------------------------------------------------------------------------------
 # Verify Required Libraries
-################################################################################
+#-------------------------------------------------------------------------------
 # Add the packages that are used in the script.
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 if (!is.character(required_packages) || length(required_packages) == 0) {
@@ -53,9 +97,12 @@ if (!is.character(required_packages) || length(required_packages) == 0) {
 }
 
 if (!SKIP_PACKAGE_CHECKS) {
-  missing_packages <- required_packages[!sapply(
-    X = required_packages, FUN = requireNamespace, quietly = TRUE
-  )]
+  is_missing_package <- !sapply(
+    X = required_packages,
+    FUN = requireNamespace,
+    quietly = TRUE
+  )
+  missing_packages <- required_packages[is_missing_package]
   if (length(missing_packages) > 0 ) {
     stop("Missing packages. Please install using renv:\n",
          paste(missing_packages, collapse = ", "))
@@ -64,56 +111,66 @@ if (!SKIP_PACKAGE_CHECKS) {
 }
 
 message("All required packages available...")
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup experiment-specific configuration path
-################################################################################
-number_of_experiments <- length(EXPERIMENT_DIR)
-config_paths <- vector("character", length = number_of_experiments)
-metadata_paths <- vector("character", length = number_of_experiments)
-for (experiment_idx in seq_len(number_of_experiments)) {
+#-------------------------------------------------------------------------------
+# @Question: Something is off. Feel like it can be simplified.
+NUMBER_OF_EXPERIMENTS <- length(EXPERIMENT_DIR)
+config_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
+metadata_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
+for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
   current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
   current_experiment_id <- EXPERIMENT_IDS[experiment_idx]
 
   config_paths[experiment_idx] <- file.path(
     current_experiment_path, "documentation",
-    paste0(current_experiment_id, "_bmc_config.R")
+    paste0(current_experiment_id, "_configuration_experiment_bmc.R")
   )
   metadata_paths[experiment_idx] <- file.path(
     current_experiment_path, "documentation",
     paste0(current_experiment_id, "_sample_grid.csv")
   )
 }
+
+names(config_paths) <- EXPERIMENT_IDS
+names(metadata_paths) <- EXPERIMENT_IDS
 required_configuration_paths <- c(config_paths, metadata_paths)
-missing_configuration_paths <- required_configuration_paths[!sapply(
-  X = required_configuration_paths, FUN = file.exists
-)]
+is_missing_configuration_path <- !sapply(
+  X = required_configuration_paths,
+  FUN = file.exists
+)
+missing_configuration_paths <- required_configuration_paths[is_missing_configuration_path]
+
 if ( length(missing_configuration_paths) > 0 ) {
-  stop("Missing configuration paths. Please setup.\n",
-       paste(missing_configuration_paths, collapse = ", "))
+  stop(
+    "Missing configuration paths. Please setup.\n",
+    paste(missing_configuration_paths, collapse = ", ")
+  )
 }
 
-################################################################################
+OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
+dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+message("Configuration and metadata paths created. Loading metadata...")
+
+#-------------------------------------------------------------------------------
 # Setup directories, genome file and file metadata
-################################################################################
+#-------------------------------------------------------------------------------
 # Three pattern variables must be defined in configuration
 # Config: interactive_script_configuration.R
 # They are validated at init
 #  BIGWIG_PATTERN: (for genome track files)
 #  FASTQ_PATTERN: (for sequence files)
 #  SAMPLE_ID_CAPTURE_PATTERN: (for sample ID extraction)
-
-OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
-dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
-
 expected_number_of_samples <- 0
 REQUIRED_DIRECTORIES <- c("fastq", "coverage")
+metadata_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
+metadata_categories_list <- vector("list", length = NUMBER_OF_EXPERIMENTS)
+
 # For loop to load metadata
 # Loop through number of experiments, find the fastq files and bigwig files.//
 # Get sample ids from fastq, add bigwig files to loaded metadata, add dataframe //
 # to list for further processing and binding //
-metadata_list <- vector("list", length = number_of_experiments)
-metadata_categories_list <- vector("list", length = number_of_experiments)
-for (experiment_idx in seq_len(number_of_experiments)) {
+for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
   message("--- Start experiment idx ---")
   current_experiment_path <- EXPERIMENT_DIR[experiment_idx]
   current_config_path <- config_paths[experiment_idx]
@@ -121,11 +178,13 @@ for (experiment_idx in seq_len(number_of_experiments)) {
   # Build all required directory paths for this experiment
   required_data_paths <- file.path(current_experiment_path, REQUIRED_DIRECTORIES)
   names(required_data_paths) <- REQUIRED_DIRECTORIES
+
   missing_dirs <- required_data_paths[!dir.exists(required_data_paths)]
   if (length(missing_dirs) > 0) {
     stop("Missing required experiment subdirectories: ",
          paste(missing_dirs, collapse = ", "))
   }
+
   debug_print(list(
     "title" = "Debug Path information",
     ".Current Experiment path" = current_experiment_path,
@@ -152,6 +211,7 @@ for (experiment_idx in seq_len(number_of_experiments)) {
     pattern = BIGWIG_PATTERN,
     full.names = TRUE
   )
+
   stopifnot(
     "No fastq files found." = length(fastq_files) > 0,
     "No bigwig files found." = length(bigwig_files) > 0
@@ -161,6 +221,7 @@ for (experiment_idx in seq_len(number_of_experiments)) {
     replacement = "\\1",
     x = fastq_files
   )
+  sample_ids <- unique(sub(".*-", "", sample_ids))
 
   stopifnot(
      "Length of samples_ids is not lower than length of fastq files." =
@@ -173,17 +234,19 @@ for (experiment_idx in seq_len(number_of_experiments)) {
        nrow(current_metadata_df) == length(sample_ids)
   )
 
-  expected_number_of_samples <- expected_number_of_samples + EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
+  expected_number_of_samples <- expected_number_of_samples + EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES_POST
   metadata_categories_list[[experiment_idx]] <- EXPERIMENT_CONFIG$CATEGORIES
   current_metadata_df$bigwig_file_paths <- bigwig_files
   current_metadata_df$sample_ids <- sample_ids
+
   debug_print(list(
     "title" = "Debug metadata loading",
     ".Number of rows" = nrow(current_metadata_df),
     ".Number of samples ids" = length(sample_ids),
     ".Number of bigwig files" = length(bigwig_files),
-    ".Number of expected samples" = EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES
+    ".Number of expected samples" = EXPERIMENT_CONFIG$METADATA$EXPECTED_SAMPLES_POST
   ))
+
   # Add determination of sample ids and addition to metadata frame
   metadata_list[[experiment_idx]] <- current_metadata_df
   message("--- End iteration ---")
@@ -218,6 +281,7 @@ metadata_df <- do.call(rbind, metadata_aligned)
 stopifnot("Metadata does not have expected number of rows." = nrow(metadata_df) == expected_number_of_samples)
 
 # Convert the columns of the metadata_df to factors.
+# Should not need to order since the loaded metadata is already ordered.
 for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
   metadata_df[[col_name]] <- factor(
     metadata_df[[col_name]],
@@ -228,9 +292,9 @@ for (col_name in intersect(names(merged_categories), colnames(metadata_df))) {
 message("Finished metadata processing...")
 #metadata_df <- metadata_df[do.call(order, metadata_df[intersect(EXPERIMENT_CONFIG$COLUMN_ORDER, colnames(metadata_df))]), ]
 # Oh. Can this be removed to the configuration file as well?
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 # Ensure supplementary files for plotting genome tracks are present
 # TODO: Move to configuration. //
 FILE_GENOME_DIRECTORY <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
@@ -320,34 +384,29 @@ names(category_colors) <- category_values
 # Define any rows to exclude
 # For example, remove rows that you dont want to be included in the plots
 # Prefilter the metadata_df
-# TODO: Move to configuration. //
-row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
-if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
-  expr_vars <- all.vars(row_filtering_expression)
-  missing_expr_vars <- setdiff(expr_vars, colnames(metadata_df))
-  if (length(missing_expr_vars) > 0) {
-    stop("Expression refers to columns that don't exist in metadata_df: ",
-         paste(missing_expr_vars, collapse = ", "))
-  }
-  tryCatch({
-    # would need to add more conditionals if I assign to a new variable //
-    metadata_df <- metadata_df[eval(row_filtering_expression, envir = metadata_df), ]
-  }, error = function(e) {
-    stop("Error evaluating row_filtering_expression: ", e$message)
-  })
-} # end if error handling for expression
+# @TODO: Move to configuration.
+#row_filtering_expression <- quote(!(rescue_allele == "4R" & suppressor_allele == "NONE"))
+#if (exists("row_filtering_expression") & !is.null(row_filtering_expression)) {
+#  expr_vars <- all.vars(row_filtering_expression)
+#  missing_expr_vars <- setdiff(expr_vars, colnames(metadata_df))
+#  if (length(missing_expr_vars) > 0) {
+#    stop("Expression refers to columns that don't exist in metadata_df: ",
+#         paste(missing_expr_vars, collapse = ", "))
+#  }
+#  tryCatch({
+#    # would need to add more conditionals if I assign to a new variable //
+#    metadata_df <- metadata_df[eval(row_filtering_expression, envir = metadata_df), ]
+#  }, error = function(e) {
+#    stop("Error evaluating row_filtering_expression: ", e$message)
+#  })
+#} # end if error handling for expression
 
 # Define columns to compare by and exclude columns for grouping
 # TODO: Move to configuration. //
-target_comparison_columns <- c("rescue_allele", "suppressor_allele")
+#target_comparison_columns <- c("rescue_allele", "timepoints")
 plot_name_comparison_column_section <- paste(
   gsub("_", "", target_comparison_columns),
   collapse = "."
-)
-metadata_columns_to_exclude <- c(
-    "sample_type", "sample_ids",
-    "bigwig_file_paths", "full_name",
-    "short_name"
 )
 
 missing_excluded_columns <- setdiff(metadata_columns_to_exclude, colnames(metadata_df))
@@ -358,6 +417,7 @@ if (length(missing_comparison_columns) > 0) {
   stop("Missing required comparison columns in metadata_df: ",
        paste(missing_comparison_columns, collapse = ", "))
 }
+
 # Validate excluded columns (warning only, not critical)
 if (length(missing_excluded_columns) > 0) {
   warning("Some excluded columns don't exist in metadata_df: ",
@@ -425,12 +485,14 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
     fmt = "  Processing group: %s / %s ",
     condition_idx, total_number_of_conditions)
   )
+
   # Iteration setup ----------
   current_condition <- unique_experimental_conditions[condition_idx]
   current_condition_base_title <- experimental_condition_titles[condition_idx]
   is_condition_row <- metadata_df$experimental_condition_id == current_condition
   current_condition_df <- metadata_df[is_condition_row, ]
   current_number_of_samples <- nrow(current_condition_df)
+
   # Move to each or inside the most nested
   debug_print(list(
     "title" = "Debug group plotting",
@@ -454,6 +516,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       fmt = "    Processing chromosome: %s / %s ",
       chromosome_idx, total_number_of_chromosomes
     ))
+
     # Iteration setup -----------
     current_chromosome <- CHROMOSOMES_IN_ROMAN[chromosome_idx]
     chromosome_title_section <- paste0("Chromosome: ", current_chromosome)
@@ -463,6 +526,7 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
       chromosome_title_section,
       sep = "\n"
     )
+
     track_container <- list(
       Gviz::GenomeAxisTrack(
         name = sprintf("Chr %s Axis", current_chromosome),
@@ -470,169 +534,232 @@ for (condition_idx in seq_len(total_number_of_conditions)) {
         cex.title = 0.7,
         background.title = "white"
       )
+
     )
-  for (mode in GENOME_TRACK_Y_AXIS_SCALING) {
-    plot_file_name <- paste(
-      "condition_plots", "_",
-      current_chromosome, "_",
-      gsub("\\|", ".", current_condition), "_",
-      plot_name_comparison_column_section, "_",
-      BAM_PROCESSING, "_", BIGWIG_NORM_METHOD, "_",
-      mode,
-      OUTPUT_EXTENSION,
-      sep = ""
-    )
-    plot_output_file_path <- file.path(OUTPUT_DIR, plot_file_name)
-    debug_print(list(
-      "title" = "Debug chromosome",
-      ".Current chromosome" = current_chromosome
-    ))
-    all_track_values <- c()
-    if (mode == "local") {
-      message("Mode set to local...")
-      # Calculate track limits for all of the tracks in the plot
+
+    for (mode in GENOME_TRACK_Y_AXIS_SCALING) {
+
+      all_track_values <- c()
+      plot_file_name <- paste(
+        "condition_plots", "_",
+        current_chromosome, "_",
+        gsub("\\|", ".", current_condition), "_",
+        plot_name_comparison_column_section, "_",
+        BAM_PROCESSING, "_", BIGWIG_NORM_METHOD, "_",
+        mode,
+        OUTPUT_EXTENSION,
+        sep = ""
+      )
+      plot_output_file_path <- file.path(OUTPUT_DIR, plot_file_name)
+
+      debug_print(list(
+        "title" = "Debug chromosome",
+        ".Current chromosome" = current_chromosome
+      ))
+
+      if (mode == "local") {
+        message("Mode set to local...")
+
+        # Calculate track limits for all of the tracks in the plot
+        for (sample_idx in seq_len(current_number_of_samples)) {
+          message("   Measuring track limits")
+
+          current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
+          bigwig_data <- rtracklayer::import(
+            current_bigwig_file_path,
+            format = "BigWig",
+            which = current_genome_range_to_load
+          )
+          values <- GenomicRanges::values(bigwig_data)$score
+          all_track_values <- c(all_track_values, values)
+
+        }
+
+        # Calculate limits
+        if (length(all_track_values) > 0) {
+
+          y_min <- min(all_track_values, na.rm = TRUE)
+          y_max <- max(all_track_values, na.rm = TRUE)
+          y_range <- y_max - y_min
+          y_limits <- c(
+            max(0, y_min - (y_range * PADDING_FRACTION)),
+                y_max + (y_range * PADDING_FRACTION)
+            )
+
+        }
+
+      } else {
+
+        message("Mode set to individual...")
+        y_limits <- NULL
+
+      }
+
       for (sample_idx in seq_len(current_number_of_samples)) {
-        message("   Measuring track limits")
+        message("    --- For loop for sample ---")
+        message(sprintf(
+          fmt = "      Processing row: %s / %s ",
+          sample_idx, current_number_of_samples
+        ))
+        # Iteration setup -----------
+        current_sample_track_name <- current_condition_df$track_name[sample_idx]
         current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
+        # Could be extracted out by determining if category_to_color_by is in target_comparison_columns
+        current_color_key <- current_condition_df[sample_idx, category_to_color_by]
+        track_color <- category_colors[[current_color_key]]
+        container_length <- length(track_container)
+
+        debug_print(list(
+          "title" = "Sample iteration",
+          ".Track name" = current_sample_track_name,
+          ".Bigwig file path" = current_bigwig_file_path,
+          ".Container Length" = container_length,
+          ".Track color" = track_color
+        ))
+
+        if (!file.exists(current_bigwig_file_path)) {
+          # INQ: Could probably just pass the strings instead of two function calls.
+          warning(sprintf(
+            fmt = "Bigwig file '%s' does not exist. Skipping",
+            current_bigwig_file_path
+          ))
+          next
+        }
         bigwig_data <- rtracklayer::import(
           current_bigwig_file_path,
           format = "BigWig",
           which = current_genome_range_to_load
         )
-        values <- GenomicRanges::values(bigwig_data)$score
-        all_track_values <- c(all_track_values, values)
-      }
-      # Calculate limits
-      if (length(all_track_values) > 0) {
-        y_min <- min(all_track_values, na.rm = TRUE)
-        y_max <- max(all_track_values, na.rm = TRUE)
-        y_range <- y_max - y_min
-        y_limits <- c(
-          max(0, y_min - (y_range * PADDING_FRACTION)),
-              y_max + (y_range * PADDING_FRACTION)
-          )
-      }
-    } else {
-      message("Mode set to individual...")
-      y_limits <- NULL
-    }
-    for (sample_idx in seq_len(current_number_of_samples)) {
-      message("    --- For loop for sample ---")
-      message(sprintf(
-        fmt = "      Processing row: %s / %s ",
-        sample_idx, current_number_of_samples
-      ))
-      # Iteration setup -----------
-      current_sample_track_name <- current_condition_df$track_name[sample_idx]
-      current_bigwig_file_path <- current_condition_df$bigwig_file_paths[sample_idx]
-      # Could be extracted out by determining if category_to_color_by is in target_comparison_columns
-      current_color_key <- current_condition_df[sample_idx, category_to_color_by]
-      track_color <- category_colors[[current_color_key]]
-      container_length <- length(track_container)
-      debug_print(list(
-        "title" = "Sample iteration",
-        ".Track name" = current_sample_track_name,
-        ".Bigwig file path" = current_bigwig_file_path,
-        ".Container Length" = container_length,
-        ".Track color" = track_color
-      ))
-      if (!file.exists(current_bigwig_file_path)) {
-        # INQ: Could probably just pass the strings instead of two function calls.
-        warning(sprintf(
-          fmt = "Bigwig file '%s' does not exist. Skipping",
-          current_bigwig_file_path
-        ))
-        next
-      }
-      bigwig_data <- rtracklayer::import(
-        current_bigwig_file_path,
-        format = "BigWig",
-        which = current_genome_range_to_load
-      )
-      track_container[[container_length + 1]] <- Gviz::DataTrack(
-          range = bigwig_data,
-          name = current_sample_track_name,
-          # Apply styling
-          showAxis = TRUE,
-          showTitle = TRUE,
-          type = "h",
-          size = 1.2,
-          background.title = "white",
-          fontcolor.title = "black",
-          col.border.title = "#e0e0e0",
-          cex.title = 0.7,
-          fontface = 1,
-          title.width = 1.0,
-          col = track_color,
-          fill = track_color
-      )
-      message("    --- end row iteration ---")
-    } # end sample row for loop
-    # Add Annotation Track (Conditional)
-    if (exists("GENOME_FEATURES")) {
-      current_genome_feature <- GenomeInfoDb::keepSeqlevels(GENOME_FEATURES, current_chromosome, pruning.mode = "coarse")
-      track_container[[length(track_container) + 1]] <- Gviz::AnnotationTrack(
-        current_genome_feature,
-        name = "Features",
-        size = 0.5,
-        background.title = "lightgray",
-        fontcolor.title = "black",
-        showAxis = FALSE,
-        background.panel = "#f5f5f5",
-        cex.title = 0.6,
-        fill = "#8b4513",
-        col = "#8b4513"
-      )
-    }
-    debug_print(list(
-      "title" = "Debug chromosome",
-      ".Current chromosome" = current_chromosome,
-      ".Plot output file path" = plot_output_file_path,
-      ". Current track length" = length(track_container),
-      ". Track limits" = paste(y_limits, collapse = ",")
-    ))
-
-    do.call(
-      what = switch(OUTPUT_FORMAT,
-        pdf = pdf,
-        svg = svglite::svglite,
-        png = png
-        ),
-      args = switch(OUTPUT_FORMAT,
-        pdf = list(file = plot_output_file_path, width = 10, height = 8,
-                   bg = "white", compress = TRUE, colormodel = "srgb", useDingbats = FALSE),
-        svg = list(filename = plot_output_file_path, width = 10, height = 8,
-                   bg = "white"),
-        png = list(filename = plot_output_file_path, width = 10, height = 8,
-                   units = "in", res = 600, bg = "white")
+        track_container[[container_length + 1]] <- Gviz::DataTrack(
+            range = bigwig_data,
+            name = current_sample_track_name,
+            # Apply styling
+            showAxis = TRUE,
+            showTitle = TRUE,
+            type = "h",
+            size = 1.2,
+            background.title = "white",
+            fontcolor.title = "black",
+            col.border.title = "#e0e0e0",
+            cex.title = 0.7,
+            fontface = 1,
+            title.width = 1.0,
+            col = track_color,
+            fill = track_color
         )
-    )
-    Gviz::plotTracks(
-        trackList = track_container,
-        chromosome = current_chromosome,
-        from = current_genome_range_to_load@ranges@start,
-        to = current_genome_range_to_load@ranges@width,
-        ylim = y_limits,
-        margin = 15,
-        innerMargin = 5,
-        spacing = 10,
-        main = current_condition_title,
-        col.axis = "black",
-        cex.axis = 0.8,
-        cex.main = 0.7,
-        fontface.main = 1,
-        background.panel = "transparent"
-    )
-    dev.off()
-    message("  Saved plot...")
-    message("  --- end scaling  iteration ---")
+        message("    --- end row iteration ---")
+      } # end sample row for loop
+      # Add Annotation Track (Conditional)
+      if (exists("GENOME_FEATURES")) {
+        current_genome_feature <- GenomeInfoDb::keepSeqlevels(
+          GENOME_FEATURES,
+          current_chromosome,
+          pruning.mode = "coarse"
+        )
+        track_container[[length(track_container) + 1]] <- Gviz::AnnotationTrack(
+          current_genome_feature,
+          name = "Features",
+          size = 0.5,
+          background.title = "lightgray",
+          fontcolor.title = "black",
+          showAxis = FALSE,
+          background.panel = "#f5f5f5",
+          cex.title = 0.6,
+          fill = "#8b4513",
+          col = "#8b4513"
+        )
+      }
 
-  } # end scaling mode for loop
+      debug_print(list(
+        "title" = "Debug chromosome",
+        ".Current chromosome" = current_chromosome,
+        ".Plot output file path" = plot_output_file_path,
+        ". Current track length" = length(track_container),
+        ". Track limits" = paste(y_limits, collapse = ",")
+      ))
+
+        if (!RUNTIME_CONFIG$output_dry_run) {
+          if(file.exists(plot_output_file_path)) {
+            message("Output file already exists... Skipping file generation...")
+
+          } else {
+            message("Plot and save files...")
+            # Choose plotting device.
+            do.call(
+              # Device to call.
+              what = switch(OUTPUT_FORMAT,
+                            pdf = pdf,
+                            svg = svglite::svglite,
+                            png = png),
+              # Arguments for the called device function.
+              args = switch(OUTPUT_FORMAT,
+                            pdf = list(file = plot_output_file_path,
+                                       width = 10, height = 8,
+                                       bg = "white",
+                                       compress = TRUE,
+                                       colormodel = "srgb", useDingbats = FALSE),
+                            svg = list(filename = plot_output_file_path,
+                                       width = 10, height = 8,
+                                       bg = "white"),
+                            png = list(filename = plot_output_file_path,
+                                       width = 10, height = 8,
+                                       units = "in", res = 600, bg = "white"))
+              )
+
+            Gviz::plotTracks(
+                trackList = track_container,
+                chromosome = current_chromosome,
+                from = current_genome_range_to_load@ranges@start,
+                to = current_genome_range_to_load@ranges@width,
+                ylim = y_limits,
+                margin = 15,
+                innerMargin = 5,
+                spacing = 10,
+                main = current_condition_title,
+                col.axis = "black",
+                cex.axis = 0.8,
+                cex.main = 0.7,
+                fontface.main = 1,
+                background.panel = "transparent"
+            )
+
+            dev.off()
+
+          }
+
+        } else {
+          Gviz::plotTracks(
+            trackList = track_container,
+            chromosome = current_chromosome,
+            from = current_genome_range_to_load@ranges@start,
+            to = current_genome_range_to_load@ranges@width,
+            ylim = y_limits,
+            margin = 15,
+            innerMargin = 5,
+            spacing = 10,
+            main = current_condition_title,
+            col.axis = "black",
+            cex.axis = 0.8,
+            cex.main = 0.7,
+            fontface.main = 1,
+            background.panel = "transparent"
+          )
+
+
+      }
+
+      message("  Saved plot...")
+      message("  --- end scaling  iteration ---")
+
+    } # end scaling mode for loop
+
   message("  --- end chromosome iteration ---")
 
-} # end chromosome for loop
-  message("  Ended condition iteration ", condition_idx)
+  } # end chromosome for loop
+
+  message("  Ended condition iteration -", condition_idx, "-")
   message("=== end condition iteration ===")
   message("\n")
+
 } # end condition for loop
 message("All done...")

@@ -1,4 +1,10 @@
 message("Sourcing .Rprofile...")
+ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
+#system("git rev-parse --show-toplevel", intern = TRUE)
+#if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null; then
+#  git rev-parse --show-toplevel
+#  return 0
+#fi
 if (!file.exists("~/.inputrc")){
   message("To set vi mode for the repl: ")
   message("Add set editing-mode vi to ~/.inputrc")
@@ -18,13 +24,13 @@ if(!grepl("Xeon", cpu_info) ||
 
 # Set to use nvim or vim as the viewer of the help page
 options(help_type = "text")
-options(pager = file.path(Sys.getenv("HOME"), "lab_utils/bash/helper/nvim_R_pager.sh"))
+options(pager = file.path(ROOT_DIRECTORY, "bash/helper/nvim_R_pager.sh"))
 
 # Remove previously defined objects to avoid polluting environment.
 rm(list = ls())
 
 if(interactive()){
-  vim <- function(path){
+  edit_vim <- function(path){
     stopifnot(
       "File path does not exist." = file.exists(path)
     )

@@ -1,0 +1,304 @@
+---
+title: Refactoring scripts to interactive form
+date: 2025-07-01
+author: Luis E. Martinez Rodriguez
+---
+
+## Overview
+This is not meant to be a formal essay. Just quick notes.
+I use large language models for questions and approaches. See references.
+
+I initially designed my R scripts to be usable from the cli. It works ok but having to run the commands each time and remembering the exact flags, while not catastrophic, was getting very annoying, especially while getting them up and running.
+Furthermore, I am also trying to use nvim and other standard tools to see if I can refactor this repository effectively. I think my first attempt will be to use vim as much as possible. If I need some additional tools, my second toolset will be cli commands (awk, sed, grep, etcetera) and my third will be base R.
+My other tools are: nvim (based on kickstart) and tmux.
+
+## Goals
+1. Convert all scripts into an interactive setup.
+2. Archive all code with the cli snippets.
+
+## Exploration Notes
+### 2025-07-16
+#### Session 1
+To start, I think I want to get all of the names of the variables that are defined in the R files. I also want to see the general features of the code blocks that I want to replace and their substitutions (i. e. the argument parsing blocks to the interactive blocks).
+
+The very first thing is to use vimgrep or to use the vim grep output to a file that is open, sort and see what is up.
+Tried a few regex by opening a file and seeing if what I wanted was getting highlighted. (I guess I could have created a testing file with a few examples).
+Ended up with the following:
+1. \w*\w*\s*<-
+2. ^\s*\w*\w*\s*<-
+3. ^\s*\w*\s*<-
+In natural language, it should be: optional spaces at the beginning, zero or more word characters, followed by zero or more word character, followed by optional spaces and the R assignment operator.
+Chaging the * to + does not work. Ended up with three which is simpler.
+Use bufdo vimgrepadd and % to add the matches to quickfixlist.
+
+#### Session 2
+Used vimgrep with another regex and then used a recursive macro.
+```vim
+vimgrep /^\s*\zs\w*\w*\ze\s*<-/j ##
+qq
+Ctrl+Q " Visual block mode
+f|;
+f<space> " Type the space
+x
+<CR>
+@q
+```
+Now while this is very cool and I am glad I remembered it from a previous reading, it is extremely slow.
+I let Claude "know" and it suggested disabling the clipboard and the using visual block mode to apply the macro right up to but not including the carriage return to run on all of the lines. Second, I also learned that cleaning up recursive macros is probably a good idea. The recursive macro was recorded and I activated it recursively again and I dont even know what was happening but I had to close the window via tmux a few times.
+```vim
+" Ensure macro is clean
+let @q = ''
+" Disabling clipboard
+set clipboard=
+
+" Record macro again and run.
+" OR
+" record macro till the x and then
+Ctrl+Q " Visual Block mode
+G
+<,>norm @q
+```
+While disabling the clipboard does make it faster, the second one is basically instantaneous. Furthermore, you would need to reset the clipboard again if you disable it. Alas, a nice adventure.
+I then removed everything after the first space, inclusive using similar strategy.
+Finally, I sorted with duplicate removal.
+```vim
+%sort u
+```
+At this stage, you can scroll through to see if there is anything weird. You can also yank everything to see the amount of variables (assuming the regex has zero false positive and zero false negatives, which is not proven). There were roughly 1600. Some weird variable names I didnt expect but could be from the files that have to be revised.
+Next up, I will look at the sections that should be substituted and potentially a macro and bufdo to do it using registers.
+
+#### Session 3: Trying to update all of the headers
+I overengineered the headers of the files. Need to simplify them a lot. Still like the banner style but even that could be removed.
+Started trying to use hashes and quickfixlists to find the files but my other sections inside scripts are also denoted by that. Decided to use the words in the headers instead.
+```vim
+vimgrep /PURPOSE:\|USAGE:\|OUTPUTS:\|CONTROLS:\|DEPENDENCIES:\|AUTHOR:\|INPUTS:\|REQUIRED UPDATES:/j ##
+```
+This returns the results from all of the directories, which I do not want to modify currently. To narrow down the results, just specify the directory. Can also directly remove them but have to make the quickfixlist editable.
+```vim
+" Grab all recursively.
+vimgrep /PURPOSE:\|USAGE:\|OUTPUTS:\|CONTROLS:\|DEPENDENCIES:\|AUTHOR:\|INPUTS:\|REQUIRED UPDATES:/j core_scripts/**/*.R
+```
+
+Grabbed header recommended by grok4, yanked into register a, then went to each unique file, recorded and executed a macro.
+```vim
+qq
+ggO"ap
+q
+```
+Save commit.
+
+### 2025-07-17
+#### Session 1
+Updating the headers after pasting the template version. It was better to do it by type of script. Fill out one of the headers and then paste that instead of the general one.
+
+Trying regex for getting banners:
+1. ^#\+\n#\+\w*.*\n^#\+
+2. ^#\+\n^#.*\n^#\+\n
+
+Needed to exclude : from the regex.
+1. ^#\+\n^# [^:]*\n^#\+\n
+
+For using parenthesis and brackets, have to escape them. !\{2} to find my marker although I will probably remove and maybe use to set marks.
+
+!! Had to deal with a weird problem in WSL. Everything got stuck, could not kill the processes. Had to use hard restart via powershell. Claude "suspects" that it was because of Windows Fast Startup (also called Hybrid Shutdown).
+Finished editing the headers and updated wsl to version 2.
+
+#### Session 2
+Update to wsl version 2 went ok.
+Move the deprecated generate*genome* files.
+
+Now I wanted to rename all instances of bmc_config.R to configuration_bmc.R. Use quickfixlist and cdo.
+```vim
+" commands
+vimgrep /bmc_config/j core_scripts/**/*.R
+cdo %s//configuration_bmc/gc "With confirmation
+" normal mode
+wa " To save
+```
+I know that my old configurations are not correct. So I need to fix that now. I am pretty sure I need to use find, mv and sed. I need to run on the cluster as well.
+```bash
+mapfile -t files_to_rename < <(find "$HOME/data/" -type f -name "*bmc_config*")
+for file in ${files_to_rename[@]}; do
+  echo "Processing $file"
+  #sed -i 's/bmc_config/configuration_bmc/g' "$file"
+  # Rename file
+  new_file="${file//bmc_config/configuration_bmc}"
+    mv "$file" "$new_file"
+  echo "Renamed to: $new_file"
+done
+```
+Another approach
+```bash
+find "$HOME/data/" -type f -name "*bmc_config*" -exec sed -i 's/bmc_config/configuration_bmc/g' {} \;
+# This may not work with bash 4.2, not super sure.
+find "$HOME/data/" -type f -name "*bmc_config*" -exec bash -c 'mv "$0" "${0/bmc_config/configuration_bmc}"' {} \;
+```
+I think that is basically it for this portion. Now I have to replace the sections of the cli blocks with the interactive blocks, consolidate and adjust some of the parameter names.
+
+#### Session 3
+Realized I should rename the configuration files as well.
+Reuse the code above but make some modifications. Also create parameters.
+```bash
+OLD_PATTERN="configuration_bmc"
+NEW_PATTERN="configuration_experiment_bmc"
+SEARCH_DIR="$HOME/data/"
+mapfile -t files_to_rename < <(find "$SEARCH_DIR" -type f -name "*${OLD_PATTERN}*")
+for file in ${files_to_rename[@]}; do
+  echo "Processing $file"
+sed -i 's/${OLD_PATTERN}/${NEW_PATTERN}/g' "$file"
+  # Rename file
+  new_file="${file//${OLD_PATTERN}/${NEW_PATTERN}}"
+mv "$file" "$new_file"
+  echo "Renamed to: $new_file"
+done
+```
+Renamed the other configuration files using standard move command.
+There are probably some unintended effects of the modifications. I think the only way to figure out at this point is to run the scripts. I can just switch to the other branch if the errors are too complex.
+
+### 2025-07-18
+#### Session 1
+I am going to perform the replacement of the banner styles.
+```vim
+"vimgrep /^#\+\n# [^:]*\n^#\{2,}/j core_scripts/**/*.R 
+" Find the banners and populate the quickfixlist.
+vimgrep /^#\+\n^# [^:]*\n^#\+\n/j core_scripts/**/*.R 
+cn " Verify the matches
+cp " Go back to the first.
+" Use a macro
+qq
+Ctrl+Q " Visual block mode
+3j
+" s/^#\zs#\+/\=repeat('-', len(submatch(0)))/ should also work.
+'<,'>s/^\(#\+$\)/\='#' . repeat('-', len(submatch(1)) - 1)/
+cn
+q
+@q " Just do one at a time. Maybe using % with gc would have made it more efficient and interactive
+```
+The reason why I didnt use cdo or recursive macro is that for some reason, one of the matches did not go to the first hash line but to the middle. Has to be an error in the regex but did not try to figure out and went with the just get it done now approach.
+
+#### Session 2
+Added some missing headers.
+Ready to work on the replacement of the arguments with the interactive code blocks. I am trying to be "smart" and efficient about the method.
+My first attempt:
+```vim
+" Find the assignment expressions.
+/\w\+\s<-
+" Grab the variable word and place into a new file using macro
+vnew variables.txt
+qqyiw<Ctrl+W>hpo<Esc><Ctrl+W>lnq
+@q " However many times you want.
+```
+
+Got distracted trying to figure out how to how to execute the replacements. I was trying to figure out how to replace content in different ways.
+```vim
+" Edit | 2025-07-18: This did not work the second time I tried it. See session 3 for this date.
+" All variations yank something into a reusable register
+norm "ayy
+" All require Visual Block mode
+<Ctrl+Q> " or V.
+" Select lines and go till the end.
+" Replace each selected lines with content of register a
+'<,'> norm "ap
+'<,'> norm dd"aP
+" Replaces but has space in between because of default put
+'<,'>s/.*/\=@a/
+" Replace all of the lines with the content of register a.
+norm "ap
+```
+I can use this for replacing the contents now.
+First, clean up the sections to replace of lines that are only newlines.
+```vim
+vimgrep /Handle script arguments/j core_scripts/**/*.R
+cn
+qq
+/Handle script arguments
+norm n
+<Ctrl+Q>
+norm /print_debug_info
+'<,'>s/^\n//
+cn
+q
+@q " However many times you need or based on the length of the quickfixlist.
+```
+
+#### Session 3
+Will replace the argument handling with the interactive block. There is only one flow cytometry script. To ensure that I paste the compatible code, I handled this one by itself.
+The replacement was causing the pasting to mess up the structure of the pasted code. Some of the lines would get joined together. Furthermore, the replacement would also join the lines instead of replacing. Just pasted and then deleted. Not sure what the issue was.
+
+Now I had to make sure the variables were corrected. One issue was that when I made the setup script I had not decided on capital letters for presumably constant variables.
+```vim
+* " While on top of the variable to adjust
+norm %s//\U&/g
+```
+Also wanted to see if I could adjust my indentation from 4 to 2 per level.
+```vim
+norm %s/\s\{4}/  /g
+" or on a selection
+'<,'>s/\s\{4}/  /g
+```
+
+### 2025-07-19
+#### Session 1
+Tried to replace the handle script argument sessions in the other one. Messed up the macro by not pasting the register. Furthermore, still had the issue were the contents were pasting in place.
+
+```vim
+norm '<,'>"ay
+norm qq/Handle script arguments<CR>2-:pu<CR>n-<C-Q>}$"_d<C-Q>}{:d<CR>:cn<CR>q
+" Pattern for deleting empty lines
+<Ctrl+Q>}{d
+```
+
+Random thought: Macro for modifying variables (untested)
+```vim
+norm /^\w\+\s<-
+qq*%s//<insert_mod_here>/gnq
+```
+
+#### Session 2
+Useful command to reopen modified files in commit relative to head. Replace one with whatever index you want.
+```bash
+nvim $(git diff --name-only HEAD~1)
+```
+
+You can use the * trick for reusing variables in expression to find an entire expression to refactor. Couple with vimgrep and macro.
+```vim
+" Highlight the expression by visually selecting the entire line.
+<Ctrl+Q>$*
+" Record macro
+norm qq<expression_to_refactor_here>cnq
+" End with @q for recursive macro. run let @q = '' to ensure it is empty.
+wa
+```
+
+### 2025-07-28
+#### Session 1
+Forgot I had to adjust the configuration for the experiments. Still considering if I should consolidate entirely or just denest experiment configuration specific and consolidate the sample things.
+Started running the new scripts and encountering errors. First, I accidentally altered the arguments passed to handle_configuration_checkpoint function by making upper case when the arguments are case sensitive.
+```nvim
+vimgrep /handle_configuration_checkpoint(\n/ core_scripts/**/*.R
+norm qq<CR>guiw<CR>guiw:cnq
+```
+
+### 2025-08-21
+#### Session 1
+Trying to create the info to submit new form and dealing with expected bugs.
+Need to simplify a lot and refactor the configuration files as well.
+
+#### Session 2
+Denest some of the logic from functions and the configurations.
+
+List of variable mentions to fix:
+- RUNTIME_CONFIG$<value> with whatever is denested or just renamed
+- "~/lab_utils/core_scripts/" with core_scripts_path
+- TIME_CONFIG$<value>
+- GENOMIC_TRACK_CONFIG$<value>
+
+## References
+- Trying vimgrep to see all of the variables
+  > https://www.kimi.com/chat/d1s4enumu6s6tajifb6g
+  > https://claude.ai/chat/09ea1d44-e2f4-4c44-931a-2c7713210475
+  > https://www.perplexity.ai/search/i-want-to-use-vimgrep-to-find-W6kfEaFkTX2gzFVrCbm1gA
+- Fixing the headers, renaming some files
+  > https://www.perplexity.ai/search/i-have-this-header-in-my-r-scr-EKhWFp.4Q9qLZmDJBYmpYg
+  > https://claude.ai/chat/9ddfa8fc-473d-45a4-a909-231a24c4c2c5
+  > https://www.kimi.com/chat/d1s762cn907771oagnr0

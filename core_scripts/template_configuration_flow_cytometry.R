@@ -1,12 +1,9 @@
 # TODO: Denest the logic of the functions. Easier to add, modify, verify the values of the EXPERIMENT_CONFIG for two different experiment types.
 EXPERIMENT_CONFIG <- list(
     METADATA = list(
-<<<<<<< HEAD
-=======
     # Expected format for experiment id is the default format by the machine //
     # Exp_<date_YYYYMMDD>_<num> "Exp_\\d{8}_\\d{1,6}" //
 
->>>>>>> pipeline_completion
         EXPERIMENT_ID = "Exp_20250310_1",
         EXPECTED_SAMPLES = 42,
         VERSION = "1.2.0",

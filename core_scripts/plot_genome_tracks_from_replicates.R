@@ -1,16 +1,27 @@
 #!/usr/bin/env Rscript
-###############################################################################
-# Plot bigwig files from multiple experiment-id
 ################################################################################
-# PURPOSE: Plot replicates from multiple distinct experiment-id directories.
-# USAGE: ./plot_genome_tracks_from_replicates.R --experiment-id=<experiment-id> <options>
-# DEPENDENCIES: GenomicRanges, rtracklayer
-# OUTPUT: svg plots with same samples from different experiment-ids 
-# AUTHOR: LEMR
-# DATE: 2025-02-25
-# NOTE: Metadata has to be the same. Should add that assertion
+# Plot bigwig files that are replicates
+# Author: Luis | Date: 2025-05-02 | Version: 2.0.0
 ################################################################################
-# Bootstrap phase
+# PURPOSE: Plot replicates from multiple experiment-ids
+#
+# USAGE:
+#   ./core_scripts/plot_genome_tracks_from_replicates.R --experiment-id=<experiment-id>
+#   experiment-ids should be provided as csv
+#
+# DEPENDENCIES:
+#   configuration_experiment_bmc
+#   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
+#
+# OUTPUTS:
+# - Svg or pdf files with genome tracks based on replicate information in the configuration_experiment_bmc and experiment-ids user provides.
+################################################################################
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
     function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
@@ -21,40 +32,48 @@ for (function_filename in function_filenames) {
     source(normalized_path)
 }
 
-################################################################################
-# Handle script arguments
-################################################################################
-# Parse arguments and validate configurations
-description <- "Plot tracks from different experiments in same plot."
-args <- parse_common_arguments(description = description)
-
 # Proceed if packages are installed. Can be disable.
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 check_required_packages(required_packages, verbose = TRUE, skip_validation = args$skip_validation)
 
-experiment_id <- args$experiment_id
-accept_configuration <- args$accept_configuration
-experiment_dir <- args$experiment_dir
-is_template <- args$is_template
-
-file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
-file_identifier <- if (is_template) "template" else args$experiment_id
-
-config_path <- file.path(file_directory, paste0(file_identifier, "_bmc_config.R"))
-metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
-
-args_info <- list(
-    title = "Script Configuration",
-    "script.name" = get_script_name(),
-    "script.description" = description
+#---------------------------------------
+# Source configuration for interactive session
+#---------------------------------------
+if(interactive()) {
+  message("Interactive job... sourcing configuration file.")
+  script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_bmc.R"
+  stopifnot(
+    "Script configuration file does not exist. Please copy the template." =
+    file.exists(script_configuration_path)
+  )
+  source(script_configuration_path)
+  message("Configuration file sourced...")
+} else {
+  stop("Run the script from the R repl in an interactive session.")
+}
+# Ensure the variables expected in the script were //
+# defined in the configuration file. //
+# See template_interactive_script_configuration.R or //
+# configuration_script_bmc.R //
+required_configuration_variables <- c(
+  "EXPERIMENT_ID", "EXPERIMENT_DIR",
+  "CHROMOSOME_TO_PLOT", "OUTPUT_FORMAT",
+  "OUTPUT_EXTENSION", "BIGWIG_PATTERN",
+  "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
+  "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
-print_debug_info(modifyList(args_info, args))
+is_missing_variable <- !sapply(required_configuration_variables, exists)
+missing_variables <- required_configuration_variables[is_missing_variable]
+if (length(missing_variables) > 0 ) {
+  stop("Missing variable. Please define in 'script_configuration.R' file.",
+       paste(missing_variables, collapse = ", "))
+}
+message("All variables defined in the configuration file...")
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration and Dependencies
-################################################################################
+#-------------------------------------------------------------------------------
 sapply(config_path[1], safe_source)
-
 # Define required dependencies
 required_modules <- list(
     list(
@@ -68,14 +87,12 @@ required_modules <- list(
         required = TRUE
     )
 )
-
 # Validate module structure
 stopifnot(
     "modules must have required fields" = all(sapply(required_modules, function(m) {
         all(c("path", "description", "required") %in% names(m))
     }))
 )
-
 # Load dependencies with status tracking
 # Process module loading
 load_status <- lapply(required_modules, function(module) {
@@ -94,14 +111,12 @@ load_status <- lapply(required_modules, function(module) {
         required = module$required
     )
 })
-
 # Create debug info structure
 module_info <- list(
     title = "Module Loading Status",
     "total_modules" = length(required_modules),
     "required_modules" = sum(sapply(required_modules, `[[`, "required"))
 )
-
 # Add status for each module
 # Add status for each module
 for (status in load_status) {
@@ -115,7 +130,6 @@ for (status in load_status) {
         if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
     )
 }
-
 # Display using print_debug_info
 print_debug_info(module_info)
 
@@ -146,8 +160,8 @@ if (!is.null(args$override)) {
 }
 
 handle_configuration_checkpoint(
-    accept_configuration = accept_configuration,
-    experiment_id = experiment_id
+    accept_configuration = ACCEPT_CONFIGURATION,
+    experiment_id = EXPERIMENT_ID
 )
 # Setup logging if requested (independent)
 #if (args$log_to_file) {
@@ -156,9 +170,9 @@ handle_configuration_checkpoint(
 #    flog.threshold(INFO)
 #}
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 stopifnot(
     "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
     "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)
@@ -183,9 +197,8 @@ if (!file.exists(ref_genome_file)) {
 genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
 
 # Create chromosome range
-chromosome_to_plot <- RUNTIME_CONFIG$process_chromosome
-chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
-chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
+chromosome_width <- genome_data[CHROMOSOME_TO_PLOT]@ranges@width
+chromosome_roman <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
 
 genome_range <- GenomicRanges::GRanges(
     seqnames = chromosome_roman,
@@ -244,7 +257,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
         ".File Accessible" = if(length(ref_genome_file) > 0) file.exists(ref_genome_file) else FALSE,
 
         "Chromosome Details" = NULL,
-        ".Target" = chromosome_to_plot,
+        ".Target" = CHROMOSOME_TO_PLOT,
         ".Roman Notation" = chromosome_roman,
         ".Width" = chromosome_width,
 
@@ -264,23 +277,23 @@ if (RUNTIME_CONFIG$debug_verbose) {
     print_debug_info(debug_info)
 }
 
-#####################
+#--------------------
 # Load the metadata dataframe with all experiments.
-#####################
+#--------------------
 project_id <- c()
 project_bigwig_files <- c()
 project_metadata <- data.frame()
 total_expected_rows <- 0
 for (path in config_path) {
     safe_source(path, verbose = FALSE)
-    experiment_dir <- dirname(dirname(path))
+    EXPERIMENT_DIR <- dirname(dirname(path))
     metadata_path <- file.path(
-        experiment_dir,
+        EXPERIMENT_DIR,
         "documentation",
         paste0(EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID, "_sample_grid.csv")
     )
     required_directories <- c("fastq", "documentation", "coverage")
-    dirs <- setup_experiment_dirs(experiment_dir = experiment_dir,
+    dirs <- setup_experiment_dirs(EXPERIMENT_DIR = EXPERIMENT_DIR,
         output_dir_name = "plots",
         required_input_dirs = required_directories
     )
@@ -297,10 +310,9 @@ for (path in config_path) {
     )
 
     # Find bigwig files
-    bigwig_pattern <- sprintf("processed_.*_sequence_to_S288C_%s\\.bw$", EXPERIMENT_CONFIG$NORMALIZATION$active)
     bigwig_files <- list.files(
         dirs$coverage,
-        pattern = bigwig_pattern,
+        pattern = BIGWIG_PATTERN,
         full.names = TRUE
     )
 
@@ -335,7 +347,7 @@ for (path in config_path) {
             ".Coverage" = dirs$coverage,
             "Pattern Matching" = NULL,
             ".FASTQ Pattern" = GENOME_TRACK_CONFIG$file_pattern,
-            ".Bigwig Pattern" = bigwig_pattern,
+            ".Bigwig Pattern" = BIGWIG_PATTERN,
             "File Discovery" = NULL,
             ".FASTQ Files" = sprintf("Found: %d", length(fastq_files))
         )
@@ -378,7 +390,7 @@ for (path in config_path) {
     )
 
     total_expected_rows <- total_expected_rows + nrow(metadata)
-    metadata$experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
+    metadata$EXPERIMENT_ID <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
     project_metadata <- rbind(project_metadata, metadata)
     project_bigwig_files <- c(project_bigwig_files, bigwig_files)
 
@@ -402,7 +414,7 @@ if (nrow(project_metadata) != total_expected_rows) {
     ))
 }
 
-if (length(unique(project_metadata$experiment_id)) != length(config_path)) {
+if (length(unique(project_metadata$EXPERIMENT_ID)) != length(config_path)) {
     warning("Number of unique experiment IDs doesn't match number of config files processed")
 }
 
@@ -412,7 +424,7 @@ if(RUNTIME_CONFIG$debug_verbose) {
 
         "Dataset Metrics" = NULL,
         ".Samples" = sprintf("%d samples, %d columns", nrow(project_metadata), ncol(project_metadata)),
-        ".Experiment" = unique(project_metadata$experiment_id),
+        ".Experiment" = unique(project_metadata$EXPERIMENT_ID),
 
         "Sample Categories" = NULL,
         ".Types" = paste(
@@ -527,7 +539,7 @@ for (short_name_idx in short_name_to_process) {
 
     # Use exact matching with the short name
     row_samples_to_visualize <- project_metadata[project_metadata$short_name == current_short_name, ]
-    row_samples_to_visualize <- row_samples_to_visualize[order(row_samples_to_visualize$experiment_id), ]
+    row_samples_to_visualize <- row_samples_to_visualize[order(row_samples_to_visualize$EXPERIMENT_ID), ]
 
     if (nrow(row_samples_to_visualize) == 0) {
         warning(sprintf("No samples found for short name: %s", current_short_name))
@@ -575,7 +587,7 @@ for (short_name_idx in short_name_to_process) {
     # Initialize tracks list with chromosome axis
     tracks <- list(
         Gviz::GenomeAxisTrack(
-            name = sprintf(GENOME_TRACK_CONFIG$format_genome_axis_track_name, chromosome_to_plot)
+            name = sprintf(GENOME_TRACK_CONFIG$format_genome_axis_track_name, CHROMOSOME_TO_PLOT)
         )
     )
 
@@ -747,7 +759,7 @@ for (short_name_idx in short_name_to_process) {
         title_replicate_template,
         unique(project_id),
         current_short_name,
-        chromosome_to_plot,
+        CHROMOSOME_TO_PLOT,
         TIME_CONFIG$current_timestamp,
         normalization_method
     )
@@ -769,7 +781,7 @@ for (short_name_idx in short_name_to_process) {
             TIME_CONFIG$current_timestamp,
             gsub("_", "", unique(project_id)),
             short_name_idx,
-            chromosome_to_plot,
+            CHROMOSOME_TO_PLOT,
             mode
          )
 
@@ -783,8 +795,8 @@ for (short_name_idx in short_name_to_process) {
             message(sprintf("\nScaling mode: %s", mode))
             message("\nPlot Generation Details:")
             message(sprintf("  Title Components:"))
-            message(sprintf("    Experiment: %s", experiment_id))
-            message(sprintf("    Chromosome: %s", chromosome_to_plot))
+            message(sprintf("    Experiment: %s", EXPERIMENT_ID))
+            message(sprintf("    Chromosome: %s", CHROMOSOME_TO_PLOT))
             message(sprintf("    Sample Count: %d", nrow(row_samples_to_visualize)))
             message(sprintf("    Timestamp: %s", TIME_CONFIG$current_timestamp))
             message(sprintf("    Normalization: %s", normalization_method))

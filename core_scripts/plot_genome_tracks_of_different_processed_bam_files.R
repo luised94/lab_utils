@@ -1,17 +1,26 @@
 #!/usr/bin/env Rscript
-###############################################################################
-# Plot bigwig files generated from bam from same sample but differentially processed
 ################################################################################
-# PURPOSE: Plot bigwig files to see if blacklist filtering helps samples with many reads
-#          at the ends or in blacklisted regions
-# USAGE: ./plot_genome_tracks_of_different_processed_bam_files.R --experiment-id=<experiment-id> <options>
-# DEPENDENCIES: GenomicRanges, rtracklayer
-# OUTPUT: svg plots with comparisons for blacklist and non-blacklisted files.
-# AUTHOR: LEMR
-# DATE: 2025-05-09
+# Plot bigwig files from same bam but normalized differently
+# Author: Luis | Date: 2025-05-09 | Version: 2.0.0
+################################################################################
+# PURPOSE: Plot bigwig files to see if blacklist filtering helps
+#
+# USAGE:
+#   ./core_scripts/plot_genome_tracks_of_different_processed_bam_files.R --experiment-id=<experiment-id>
+#
+# DEPENDENCIES: 
+#   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
+#
+# OUTPUTS:
+# - Svg or pdf files with genome tracks comparison for non-filtered and blacklist filtered files
 ################################################################################
 current_timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-# Bootstrap phase
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
 # Also loads OVERRIDE_PRESETS
 FUNCTION_FILENAMES <- c("logging", "script_control", "file_operations")
 for (function_filename in FUNCTION_FILENAMES) {
@@ -24,34 +33,43 @@ for (function_filename in FUNCTION_FILENAMES) {
 }
 message("Bootstrap phase completed...")
 
-################################################################################
-# Handle script arguments
-################################################################################
-# Parse arguments and validate configurations
-description <- "Plot genome tracks in batches"
-args <- parse_common_arguments(description = description)
-experiment_id <- args$experiment_id
-accept_configuration <- args$accept_configuration
-experiment_dir <- args$experiment_dir
-is_template <- args$is_template
-
-file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
-file_identifier <- if (is_template) "template" else args$experiment_id
-
-config_path <- file.path(file_directory, paste0(file_identifier, "_bmc_config.R"))
-metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
-message("Arguments parsed...")
-
-args_info <- list(
-    title = "Script Configuration",
-    "script.name" = get_script_name(),
-    "script.description" = description
+#---------------------------------------
+# Source configuration for interactive session
+#---------------------------------------
+if(interactive()) {
+  message("Interactive job... sourcing configuration file.")
+  script_configuration_path <- "~/lab_utils/core_scripts/configuration_script_bmc.R"
+  stopifnot(
+    "Script configuration file does not exist. Please copy the template." =
+    file.exists(script_configuration_path)
+  )
+  source(script_configuration_path)
+  message("Configuration file sourced...")
+} else {
+  stop("Run the script from the R repl in an interactive session.")
+}
+# Ensure the variables expected in the script were //
+# defined in the configuration file. //
+# See template_interactive_script_configuration.R or //
+# configuration_script_bmc.R //
+required_configuration_variables <- c(
+  "EXPERIMENT_ID", "EXPERIMENT_DIR",
+  "CHROMOSOME_TO_PLOT", "OUTPUT_FORMAT",
+  "OUTPUT_EXTENSION", "BIGWIG_PATTERN",
+  "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
+  "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
-print_debug_info(modifyList(args_info, args))
+is_missing_variable <- !sapply(required_configuration_variables, exists)
+missing_variables <- required_configuration_variables[is_missing_variable]
+if (length(missing_variables) > 0 ) {
+  stop("Missing variable. Please define in 'script_configuration.R' file.",
+       paste(missing_variables, collapse = ", "))
+}
+message("All variables defined in the configuration file...")
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Load Required Libraries
-################################################################################
+#-------------------------------------------------------------------------------
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 check_required_packages(
   packages = required_packages, verbose = TRUE,
@@ -59,9 +77,9 @@ check_required_packages(
 )
 
 message("Packages confirmed...")
-################################################################################
+#-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration and Dependencies
-################################################################################
+#-------------------------------------------------------------------------------
 # TODO: Consolidate this into the previous for loop? Or use second for loop with safe_source //
 # Would need to remove the print_debug_info call. I probably need to adjust that function anyways. //
 # Define required dependencies
@@ -138,43 +156,43 @@ invisible(lapply(required_configs, function(config) {
     print_config_settings(get(config), title = config)
 }))
 
-if(!is.null(args$output_format)) {
-    RUNTIME_CONFIG$output_format <- args$output_format
-    message(sprintf("Setting output format: %s", RUNTIME_CONFIG$output_format))
-}
+#if(!is.null(args$output_format)) {
+#    RUNTIME_CONFIG$output_format <- args$output_format
+#    message(sprintf("Setting output format: %s", RUNTIME_CONFIG$output_format))
+#}
 
 # Handle configuration override (independent)
-if (!is.null(args$override)) {
-    override_result <- apply_runtime_override(
-        config = RUNTIME_CONFIG,
-        preset_name = args$override,
-        preset_list = OVERRIDE_PRESETS
-    )
-    RUNTIME_CONFIG <- override_result$modified
- print_debug_info(modifyList(
-     list(
-         title = "Final Configuration",
-         "override.mode" = override_result$mode
-     ),
-     RUNTIME_CONFIG  # Flat list of current settings
- ))
-}
+#if (!is.null(args$override)) {
+#    override_result <- apply_runtime_override(
+#        config = RUNTIME_CONFIG,
+#        preset_name = args$override,
+#        preset_list = OVERRIDE_PRESETS
+#    )
+#    RUNTIME_CONFIG <- override_result$modified
+# print_debug_info(modifyList(
+#     list(
+#         title = "Final Configuration",
+#         "override.mode" = override_result$mode
+#     ),
+#     RUNTIME_CONFIG  # Flat list of current settings
+# ))
+#}
 
 # Checkpoint handler ---------------------------
 # See the settings before running. Override with --accept-configuration option.
 handle_configuration_checkpoint(
-  accept_configuration = accept_configuration,
-  experiment_id = experiment_id
+  accept_configuration = ACCEPT_CONFIGURATION,
+  experiment_id = EXPERIMENT_ID
 )
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup directories, variables and metadata
-################################################################################
+#-------------------------------------------------------------------------------
 # !! Add directories here.
 required_directories <- c("fastq", "documentation", "coverage")
 # Creates directories and stores them in dirs variable.
 dirs <- setup_experiment_dirs(
-  experiment_dir = experiment_dir,
+  EXPERIMENT_DIR = EXPERIMENT_DIR,
   output_dir_name = "plots",
   required_input_dirs = required_directories
 )
@@ -191,15 +209,14 @@ fastq_files <- list.files(
 )
 
 # Find bigwig files
-bigwig_pattern <- GENOME_TRACK_CONFIG$file_sample_id_from_bigwig
-#bigwig_pattern <- sprintf(
+#BIGWIG_PATTERN <- sprintf(
 #    "processed_.*_sequence_to_S288C_%s\\.bw$",
 #    EXPERIMENT_CONFIG$NORMALIZATION$active
 #)
 
 bigwig_files <- list.files(
     dirs$coverage,
-    pattern = bigwig_pattern,
+    pattern = BIGWIG_PATTERN,
     full.names = TRUE
 )
 
@@ -260,7 +277,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
   message(sprintf("    Coverage: %s", dirs$coverage))
   message("\n  Pattern Matching:")
   message(sprintf("    FASTQ pattern: %s", GENOME_TRACK_CONFIG$file_pattern))
-  message(sprintf("    Bigwig pattern: %s", bigwig_pattern))
+  message(sprintf("    Bigwig pattern: %s", BIGWIG_PATTERN))
   message("\n  File Discovery:")
   message(sprintf("    FASTQ files found: %d", length(fastq_files)))
   if (length(fastq_files) > 0) {
@@ -348,9 +365,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
   }))
   message("\n=== Initialization Complete ===")
 }
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 stopifnot(
   "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
   "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)
@@ -378,7 +395,6 @@ if (!file.exists(ref_genome_file)) {
 genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
 
 # Create chromosome range
-CHROMOSOME_TO_PLOT <- RUNTIME_CONFIG$process_chromosome
 CHROMOSOME_WIDTH <- genome_data[CHROMOSOME_TO_PLOT]@ranges@width
 CHROMOSOME_ROMAN <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
 
@@ -446,9 +462,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
 }
 
 
-################################################################################
+#-------------------------------------------------------------------------------
 # MAIN
-################################################################################
+#-------------------------------------------------------------------------------
 # Filter all of the bigwig files to CPM only.
 is_CPM_bw_file <- grepl("CPM\\.bw$", bigwig_files)
 bigwig_files_subset <- bigwig_files[is_CPM_bw_file]

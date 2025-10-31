@@ -1,17 +1,25 @@
 #!/usr/bin/env Rscript
-###############################################################################
-# 
 ################################################################################
-# PURPOSE: Not sure if this was a testing script or not.
-# USAGE: ./core_scripts/plot_genome_track_for_single_sample.R
-# DEPENDENCIES: GenomicRanges, rtracklayer
-# OUTPUT: svg plots with comparisons for cpm/rpkm/raw and for shifted/raw/deduped for cpm counts
-# AUTHOR: LEMR
-# DATE: 2025-02-25
-# DATE_V1_COMPLETE: 2025-04-08
-# DATE_V2_COMPLETE: 2025-05-02
+# Plot genome track for single samples
+# Author: Luis | Date: 2025-05-02 | Version: 2.0.0
 ################################################################################
-# Bootstrap phase
+# PURPOSE: Plot single sample to verify genome track generation using R packages
+#
+# USAGE:
+#   Source script.
+#
+# DEPENDENCIES: 
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
+#
+# OUTPUTS:
+# - Svg plots with comparisons of different normalizations and preprocessing
+################################################################################
+
+
+#---------------------------------------
+# Load user functions
+#---------------------------------------
 function_filenames <- c("logging", "script_control", "file_operations")
 for (function_filename in function_filenames) {
     function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
@@ -26,11 +34,11 @@ for (function_filename in function_filenames) {
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 check_required_packages(required_packages, verbose = TRUE, skip_validation = FALSE)
 
-config_path <- "~/lab_utils/core_scripts/template_bmc_config.R"
+config_path <- "~/lab_utils/core_scripts/template_configuration_experiment_bmc"
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Load and Validate Experiment Configuration and Dependencies
-################################################################################
+#-------------------------------------------------------------------------------
 # Define required dependencies
 required_modules <- list(
     list(
@@ -122,9 +130,9 @@ print_debug_info(modifyList(
     RUNTIME_CONFIG
 ))
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 stopifnot(
     "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
     "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)

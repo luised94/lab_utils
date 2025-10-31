@@ -6,8 +6,18 @@
 
 # FIX: No error handling for any of the functions...
 # setup_logging has to be used before the others are called.
+# Usage: eval $(setup_logging $1 $2 $3 $4)
 setup_logging() {
-    local tool_name="$1"
+    local experiment_id="$1"
+    local tool_name="$2"
+    local job_id="${3:-${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID:-na}}}"
+    local task_id="${4:-${SLURM_ARRAY_TASK_ID:-na}}"
+
+    # Add validation for experiment_id
+    if [[ -z "$experiment_id" ]]; then
+        echo "Error: Experiment ID cannot be empty" >&2
+        return 1
+    fi
 
     if [[ -z "$tool_name" || ! "$tool_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
         if [[ -z "$tool_name" ]]; then
@@ -23,26 +33,35 @@ setup_logging() {
         return 1
     fi
 
-    local log_root="$HOME/logs" # Or get from config/env var
-    local current_month; current_month=$(date +%Y-%m)
-    local month_dir="${log_root}/${current_month}"
-    local tool_dir="${month_dir}/${tool_name}"
-    local job_log_dir="${tool_dir}/job_${SLURM_ARRAY_JOB_ID}"
-    local task_log_dir="${job_log_dir}/task_${SLURM_ARRAY_TASK_ID}"
+    local log_root="$HOME/data/logs"
     local timestamp; timestamp=$(date +%Y%m%d_%H%M%S)
+    local base_name="${experiment_id}_${timestamp}_${tool_name}_job-${job_id}_task-${task_id}"
 
-    if ! mkdir -p "$task_log_dir"; then
-        echo "Error: Failed to create log directory: $task_log_dir" >&2
+
+
+    if ! mkdir -p "$log_root"; then
+        echo "Error: Failed to create log directory: $log_root" >&2
         return 1
     fi
 
-    printf "MAIN_LOG='%s'\nERROR_LOG='%s'\nPERFORMANCE_LOG='%s'\nTASK_LOG_DIR='%s'\nJOB_LOG_DIR='%s'\nTOOL_DIR='%s'\n" \
-           "${task_log_dir}/main_${timestamp}.log" "${task_log_dir}/error_${timestamp}.log" "${task_log_dir}/performance_${timestamp}.log" \
-           "${task_log_dir}" "${job_log_dir}" "${tool_dir}"
+    # Pass to output to eval to evaluate. Could capture and eval inside?
+    printf "MAIN_LOG='%s'\nERROR_LOG='%s'\nPERFORMANCE_LOG='%s'\nLOG_DIR='%s'\n" \
+           "${log_root}/${base_name}_main.log" \
+           "${log_root}/${base_name}_error.log" \
+           "${log_root}/${base_name}_performance.log" \
+           "${log_root}"
+
 }
 
 # Function to log messages
+# tee creates the file if it does not exist.
 log_message() {
+  # Now you can check the variable
+  #if [ -z "$MAIN_LOG" ]; then
+  #  echo "Error: Log file path is not set." >&2
+  #  exit 1
+
+  #fi
     local level=$1
     local message=$2
     local timestamp; timestamp=$(date +%Y%m%d_%H%M%S)
@@ -51,6 +70,12 @@ log_message() {
 
 # Function to log performance metrics
 log_performance() {
+  # Now you can check the variable
+  #if [ -z "$PERFORMANCE_LOG" ]; then
+  #  echo "Error: Log file path is not set." >&2
+  #  exit 1
+
+  #fi
     local stage=$1
     local duration=$2
     local timestamp; timestamp=$(date +%Y%m%d_%H%M%S)
@@ -59,6 +84,12 @@ log_performance() {
 
 # Function to measure command execution time
 measure_performance() {
+  # Now you can check the variable
+  #if [ -z "$ERROR_LOG" ]; then
+  #  echo "Error: Log file path is not set." >&2
+  #  exit 1
+
+  #fi
     local stage=$1
     shift
     local start_time; start_time=$(date +%s)
@@ -69,20 +100,32 @@ measure_performance() {
     log_performance "${stage}" "${duration}"
     return $status
 }
+# Function to log variables with specified prefixes
+#log_variables_by_prefix() {
+#  log_message "--- Logging Specified Variables ---"
+#  # Loop through each prefix passed as an argument to this function
+#  for prefix in "$@"; do
+#    # Find and log all variables matching the current prefix
+#    for var in "${!prefix@}"; do
+#      printf -v formatted_line "%s=%q" "$var" "${!var}"
+#      log_message "$formatted_line"
+#    done
+#  done
+#}
 
 # Function to validate array range
-validate_array_range() {
-    local total_files=$1
-    local array_start="$SLURM_ARRAY_TASK_MIN"
-    local array_end="$SLURM_ARRAY_TASK_MAX"
-    log_message "Validating array range..."
-    log_message "Total fastq files: $total_files"
-    log_message "Array range: $array_start-$array_end"
-    if [ "$array_end" -gt "$total_files" ]; then
-        log_message "WARNING: Array range ($array_end) exceeds number of fastq files ($total_files)"
-        log_message "Suggestion: Use --array=1-${total_files}%16"
-    fi
-}
+#validate_array_range() {
+#    local total_files=$1
+#    local array_start="$SLURM_ARRAY_TASK_MIN"
+#    local array_end="$SLURM_ARRAY_TASK_MAX"
+#    log_message "Validating array range..."
+#    log_message "Total fastq files: $total_files"
+#    log_message "Array range: $array_start-$array_end"
+#    if [ "$array_end" -gt "$total_files" ]; then
+#        log_message "WARNING: Array range ($array_end) exceeds number of fastq files ($total_files)"
+#        log_message "Suggestion: Use --array=1-${total_files}%16"
+#    fi
+#}
 
 #print_args_with_separators() {
 #  local args=("${@}")

@@ -1,186 +1,167 @@
 #!/usr/bin/env Rscript
-###############################################################################
-# Plot bigwig files based on EXPERIMENT_COMPARISONS list.
 ################################################################################
-# PURPOSE: Plot specific comparions for an experiment-id specified in the bmc_config.
-# USAGE: ./plot_genome_tracks_for_experiment_comparisons.R --experiment-id=<experiment-id> <options>
-# DEPENDENCIES: GenomicRanges, rtracklayer
-# OUTPUT: svg plots with comparisons defined in the bmc_config EXPERIMENT_COMPARISONS list.
-# AUTHOR: LEMR
-# DATE: 2025-02-25
-# DATE_V1_COMPLETE: 2025-04-08
-# DATE_V2_COMPLETE: 2025-05-02
+# Plot bigwig files based EXPERIMENT_COMPARISONS configuration parameter
+# Author: Luis | Date: 2025-05-02 | Version: 2.0.0
 ################################################################################
-# replace all metadata
-# Bootstrap phase
-function_filenames <- c("logging", "script_control", "file_operations")
-for (function_filename in function_filenames) {
-    function_filepath <- sprintf("~/lab_utils/core_scripts/functions_for_%s.R", function_filename)
-    normalized_path <- normalizePath(function_filepath)
-    if (!file.exists(normalized_path)) {
-        stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
-    }
-    source(normalized_path)
+# PURPOSE: Plot specific comparisons based on quote expressions based on configuration_experiment_bmc of the experiment.
+#
+# USAGE:
+#   ./core_scripts/plot_genome_tracks_for_experiment_comparisons.R --experiment-id=<experiment-id>
+#
+# DEPENDENCIES: 
+#   ~/lab_utils/core_scripts/setup_bmc_experiment.R outputs
+#   ~/lab_utils/core_scripts/{logging,script_control,file_operations}.R
+#   required_packages
+#
+# OUTPUTS:
+# - Svg or pdf files with genome tracks based on experiment comparisons written by the user
+#
+################################################################################
+# Only run interactively
+if(interactive()) {
+  message("Running from repl... Loading functions.")
+} else {
+  stop("Run the script from the R repl in an interactive session.")
 }
 
-################################################################################
-# Handle script arguments
-################################################################################
-# Parse arguments and validate configurations
-description <- "Plot genome tracks in batches"
-args <- parse_common_arguments(description = description)
-experiment_id <- args$experiment_id
-accept_configuration <- args$accept_configuration
-experiment_dir <- args$experiment_dir
-is_template <- args$is_template
-
-file_directory <- if (is_template) args$experiment_dir else file.path(args$experiment_dir, "documentation")
-file_identifier <- if (is_template) "template" else args$experiment_id
-
-config_path <- file.path(file_directory, paste0(file_identifier, "_bmc_config.R"))
-metadata_path <- file.path(file_directory, paste0(file_identifier, "_sample_grid.csv"))
-
-args_info <- list(
-    title = "Script Configuration",
-    "script.name" = get_script_name(),
-    "script.description" = description
-)
-print_debug_info(modifyList(args_info, args))
-
-################################################################################
-# Load Required Libraries
-################################################################################
-required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
-check_required_packages(
-    packages = required_packages,
-    verbose = TRUE,
-    skip_validation = args$skip_validation
+# Setup paths to configuration and root directory.
+# Accounts for my reorganization of the repos.
+ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
+CORE_SCRIPTS_PATH <- file.path(ROOT_DIRECTORY, "core_scripts")
+SCRIPT_CONFIGURATION_PATH <- file.path(
+  CORE_SCRIPTS_PATH,
+  "configuration_script_bmc.R"
 )
 
-################################################################################
-# Load and Validate Experiment Configuration and Dependencies
-################################################################################
-# TODO: Consolidate this into the previous for loop? Or use second for loop with safe_source //
-# Would need to remove the print_debug_info call. I probably need to adjust that function anyways. //
-# Define required dependencies
-required_modules <- list(
-    list(
-        path = "~/lab_utils/core_scripts/functions_for_metadata_processing.R",
-        description = "Process metadata grid for downstream analysis.",
-        required = TRUE
-    ),
-    list(
-        path = "~/lab_utils/core_scripts/functions_for_genome_tracks.R",
-        description = "Functions to load genome track objects for plotting",
-        required = TRUE
-    ),
-    list(
-        path = config_path,
-        description = "Functions to load genome track objects for plotting",
-        required = TRUE
-    )
+#---------------------------------------
+# Load user functions
+#---------------------------------------
+FUNCTION_FILENAME_TEMPLATE <- file.path(CORE_SCRIPTS_PATH, "functions_for_%s.R")
+FUNCTION_FILENAMES <- c(
+  "logging", "script_control",
+  "file_operations", "bmc_config_validation",
+  "metadata_processing", "genome_tracks"
 )
 
-# Validate module structure
+for (function_filename in FUNCTION_FILENAMES) {
+  function_filepath <- sprintf(
+    FUNCTION_FILENAME_TEMPLATE,
+    function_filename
+  )
+  normalized_path <- normalizePath(function_filepath)
+  if (!file.exists(normalized_path)) {
+    stop(sprintf("[FATAL] File with functions not found: %s", normalized_path))
+  }
+  source(normalized_path)
+}
+
+message("Loaded functions... Sourcing configuration.")
+
+#---------------------------------------
+# Source configuration for interactive session
+#---------------------------------------
 stopifnot(
-    "modules must have required fields" = all(sapply(required_modules, function(m) {
-        all(c("path", "description", "required") %in% names(m))
-    }))
+  "Script configuration file does not exist. Please copy the template." =
+    file.exists(SCRIPT_CONFIGURATION_PATH),
+)
+source(SCRIPT_CONFIGURATION_PATH)
+message("Configuration file sourced... Checking configuration variables.")
+
+# Ensure the variables expected in the script were //
+# defined in the configuration file. //
+# See template_interactive_script_configuration.R or //
+# configuration_script_bmc.R //
+required_configuration_variables <- c(
+  "EXPERIMENT_ID", "EXPERIMENT_DIR",
+  "CHROMOSOME_TO_PLOT", "OUTPUT_FORMAT",
+  "OUTPUT_EXTENSION", "BIGWIG_PATTERN",
+  "FASTQ_PATTERN", "SAMPLE_ID_CAPTURE_PATTERN",
+  "ACCEPT_CONFIGURATION", "SKIP_PACKAGE_CHECKS"
 )
 
-# Load dependencies with status tracking
-# Process module loading
-load_status <- lapply(required_modules, function(module) {
-    success <- safe_source(module$path, verbose = TRUE)
-    if (!success && module$required) {
-        stop(sprintf("Failed to load required module: %s\n  Path: %s",
-            module$description, module$path))
-    } else if (!success) {
-        warning(sprintf("Optional module not loaded: %s\n  Path: %s",
-            module$description, module$path))
-    }
-    list(
-        module = module$description,
-        path = module$path,
-        loaded = success,
-        required = module$required
-    )
-})
+is_missing_variable <- !sapply(required_configuration_variables, exists)
+missing_variables <- required_configuration_variables[is_missing_variable]
+if (length(missing_variables) > 0 ) {
+  stop("Missing variable. Please define in 'script_configuration.R' file.",
+       paste(missing_variables, collapse = ", "))
+}
 
-# Create debug info structure
-module_info <- list(
-    title = "Module Loading Status",
-    "total_modules" = length(required_modules),
-    "required_modules" = sum(sapply(required_modules, `[[`, "required"))
+message("All variables defined in the configuration file...")
+
+
+#-------------------------------------------------------------------------------
+# Verify Required Libraries
+#-------------------------------------------------------------------------------
+# Add the packages that are used in the script.
+required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
+if (!is.character(required_packages) || length(required_packages) == 0) {
+  stop("required_packages must be a non-empty character vector")
+}
+
+if (!SKIP_PACKAGE_CHECKS) {
+  is_missing_package <- !sapply(
+    X = required_packages,
+    FUN = requireNamespace,
+    quietly = TRUE
+  )
+  missing_packages <- required_packages[is_missing_package]
+  if (length(missing_packages) > 0 ) {
+    stop("Missing packages. Please install using renv:\n",
+         paste(missing_packages, collapse = ", "))
+  }
+  SKIP_PACKAGE_CHECKS <- TRUE
+}
+
+message("All required packages available...")
+
+#-------------------------------------------------------------------------------
+# Setup experiment-specific configuration path, directories and file metadata
+#-------------------------------------------------------------------------------
+NUMBER_OF_EXPERIMENTS <- length(EXPERIMENT_DIR)
+config_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
+metadata_paths <- vector("character", length = NUMBER_OF_EXPERIMENTS)
+for (experiment_index in seq_len(NUMBER_OF_EXPERIMENTS)) {
+  current_experiment_path <- EXPERIMENT_DIR[experiment_index]
+  current_experiment_id <- EXPERIMENT_IDS[experiment_index]
+
+  config_paths[experiment_index] <- file.path(
+    current_experiment_path, "documentation",
+    paste0(current_experiment_id, "_configuration_experiment_bmc.R")
+  )
+
+  metadata_paths[experiment_index] <- file.path(
+    current_experiment_path, "documentation",
+    paste0(current_experiment_id, "_sample_grid.csv")
+  )
+}
+
+names(config_paths) <- EXPERIMENT_IDS
+names(metadata_paths) <- EXPERIMENT_IDS
+
+required_configuration_paths <- c(config_paths, metadata_paths)
+is_missing_configuration_path <- !sapply(
+  X = required_configuration_paths,
+  FUN = file.exists
 )
+missing_configuration_paths <- required_configuration_paths[is_missing_configuration_path]
 
-# Add status for each module
-for (status in load_status) {
-    module_key <- paste0(
-        if(status$required) "required." else "optional.",
-        gsub(" ", "_", tolower(status$module))
-    )
-    module_info[[module_key]] <- sprintf(
-        "%s (%s)",
-        status$module,  # Now showing description
-        if(status$loaded) sprintf("loaded from %s", status$path) else "failed"
-    )
+if ( length(missing_configuration_paths) > 0 ) {
+  stop("Missing configuration paths. Please setup.\n",
+       paste(missing_configuration_paths, collapse = ", "))
 }
 
-# Display using print_debug_info
-print_debug_info(module_info)
+OUTPUT_DIR <- file.path(EXPERIMENT_DIR[1], "plots", "genome_tracks", "final_results")
+dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+message("Configuration and metadata paths created. Loading metadata...")
 
-required_configs <- c("EXPERIMENT_CONFIG", "GENOME_TRACK_CONFIG", "RUNTIME_CONFIG")
-validate_configs(required_configs)
-invisible(lapply(required_configs, function(config) {
-    print_config_settings(get(config), title = config)
-}))
-
-if(!is.null(args$output_format)) {
-    RUNTIME_CONFIG$output_format <- args$output_format
-
-    message(sprintf("Setting output format: %s", RUNTIME_CONFIG$output_format))
-}
-
-# Handle configuration override (independent)
-if (!is.null(args$override)) {
-    override_result <- apply_runtime_override(
-        config = RUNTIME_CONFIG,
-        preset_name = args$override,
-        preset_list = OVERRIDE_PRESETS
-    )
-    RUNTIME_CONFIG <- override_result$modified
- print_debug_info(modifyList(
-     list(
-         title = "Final Configuration",
-         "override.mode" = override_result$mode
-     ),
-     RUNTIME_CONFIG  # Flat list of current settings
- ))
-}
-
-################################################################################
-# Required configuration settings validation
-################################################################################
-# Ensure that the variables from the _CONFIG variables are set.
-# TODO: Add simple for loop or lapply that validates the required variables from the _CONFIG variable used in the script.
-#required_configuration_settings <- c()
-
-# Checkpoint handler ---------------------------
-# See the settings before running.
-handle_configuration_checkpoint(
-    accept_configuration = accept_configuration,
-    experiment_id = experiment_id
-)
-
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup directories, variables and metadata
-################################################################################
+#-------------------------------------------------------------------------------
 # !! Add directories here.
 required_directories <- c("fastq", "documentation", "coverage")
 # Creates directories and stores them in dirs variable.
 dirs <- setup_experiment_dirs(
-    experiment_dir = experiment_dir,
+    EXPERIMENT_DIR = EXPERIMENT_DIR,
     output_dir_name = "plots",
     required_input_dirs = required_directories
 )
@@ -196,11 +177,11 @@ fastq_files <- list.files(
     full.names = FALSE
 )
 
-# Find bigwig files
-bigwig_pattern <- sprintf(
-    "processed_.*_sequence_to_S288C_blFiltered_%s\\.bw$",
-    EXPERIMENT_CONFIG$NORMALIZATION$active
-)
+## Find bigwig files
+#bigwig_pattern <- sprintf(
+#    "processed_.*_sequence_to_S288C_blFiltered_%s\\.bw$",
+#    EXPERIMENT_CONFIG$NORMALIZATION$active
+#)
 
 bigwig_files <- list.files(
     dirs$coverage,
@@ -363,9 +344,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
     message("\n=== Initialization Complete ===")
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Setup genome and feature files
-################################################################################
+#-------------------------------------------------------------------------------
 stopifnot(
     "Genome directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_genome_directory),
     "Feature directory not found" = dir.exists(GENOME_TRACK_CONFIG$file_feature_directory)
@@ -390,9 +371,8 @@ if (!file.exists(ref_genome_file)) {
 genome_data <- Biostrings::readDNAStringSet(ref_genome_file)
 
 # Create chromosome range
-chromosome_to_plot <- RUNTIME_CONFIG$process_chromosome
-chromosome_width <- genome_data[chromosome_to_plot]@ranges@width
-chromosome_roman <- paste0("chr", utils::as.roman(chromosome_to_plot))
+chromosome_width <- genome_data[CHROMOSOME_TO_PLOT]@ranges@width
+chromosome_roman <- paste0("chr", utils::as.roman(CHROMOSOME_TO_PLOT))
 
 genome_range <- GenomicRanges::GRanges(
     seqnames = chromosome_roman,
@@ -440,7 +420,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
         ".File Accessible" = if(length(ref_genome_file) > 0) file.exists(ref_genome_file) else FALSE,
 
         "Chromosome Details" = NULL,
-        ".Target" = chromosome_to_plot,
+        ".Target" = CHROMOSOME_TO_PLOT,
         ".Roman Notation" = chromosome_roman,
         ".Width" = chromosome_width,
 
@@ -463,7 +443,7 @@ if (RUNTIME_CONFIG$debug_verbose) {
 # Determine which comparisons to process
 comparisons_to_process <- if (RUNTIME_CONFIG$process_single_comparison) {
     if (!RUNTIME_CONFIG$process_comparison %in% names(EXPERIMENT_CONFIG$COMPARISONS)) {
-        cat(sprintf("Verify process_comparison in RUNTIME_CONFIG of bmc_config.R file for %s or verify override_configuration.R", experiment_id))
+        cat(sprintf("Verify process_comparison in RUNTIME_CONFIG of configuration_experiment_bmc file for %s or verify override_configuration.R", EXPERIMENT_ID))
         stop("Debug comparison not found in EXPERIMENT_CONFIG$COMPARISONS")
     }
     RUNTIME_CONFIG$process_comparison
@@ -477,9 +457,9 @@ if (RUNTIME_CONFIG$debug_verbose) {
     message("- Comparisons: ", paste(comparisons_to_process, collapse = ", "))
 }
 
-################################################################################
+#-------------------------------------------------------------------------------
 # Main script logic for plotting experiment comparisons of genomic tracks
-################################################################################
+#-------------------------------------------------------------------------------
 scaling_modes <- c("local", "individual")
 #scaling_modes <- "local"
 for (comparison_name in comparisons_to_process) {
@@ -519,8 +499,8 @@ for (comparison_name in comparisons_to_process) {
     # Initialize track list with genome axis
     tracks <- list(
         Gviz::GenomeAxisTrack(
-           # name = paste("Chr ", chromosome_to_plot, " Axis", sep = "")
-            name = sprintf(GENOME_TRACK_CONFIG$format_genome_axis_track_name, chromosome_to_plot)
+           # name = paste("Chr ", CHROMOSOME_TO_PLOT, " Axis", sep = "")
+            name = sprintf(GENOME_TRACK_CONFIG$format_genome_axis_track_name, CHROMOSOME_TO_PLOT)
         )
     )
 
@@ -729,9 +709,9 @@ for (comparison_name in comparisons_to_process) {
 
     plot_title <- sprintf(
         GENOME_TRACK_CONFIG$title_comparison_template,
-        experiment_id,
+        EXPERIMENT_ID,
         sanitized_comparison_name,
-        chromosome_to_plot,
+        CHROMOSOME_TO_PLOT,
         nrow(row_samples_to_visualize),
         TIME_CONFIG$current_timestamp,
         normalization_method
@@ -751,9 +731,9 @@ for (comparison_name in comparisons_to_process) {
         plot_filename <- sprintf(
             GENOME_TRACK_CONFIG$filename_format_comparison_template,
             TIME_CONFIG$current_timestamp,
-            experiment_id,
+            EXPERIMENT_ID,
             sanitized_comparison_name,
-            chromosome_to_plot,
+            CHROMOSOME_TO_PLOT,
             mode
          )
 
@@ -767,8 +747,8 @@ for (comparison_name in comparisons_to_process) {
             message(sprintf("\nScaling mode: %s", mode))
             message("\nPlot Generation Details:")
             message(sprintf("  Title Components:"))
-            message(sprintf("    Experiment: %s", experiment_id))
-            message(sprintf("    Chromosome: %s", chromosome_to_plot))
+            message(sprintf("    Experiment: %s", EXPERIMENT_ID))
+            message(sprintf("    Chromosome: %s", CHROMOSOME_TO_PLOT))
             message(sprintf("    Sample Count: %d", nrow(row_samples_to_visualize)))
             message(sprintf("    Timestamp: %s", TIME_CONFIG$current_timestamp))
             message(sprintf("    Normalization: %s", normalization_method))

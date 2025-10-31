@@ -1,25 +1,20 @@
 library(optparse)
 
-# Load configuration options for --override option.
-configuration_options <- "~/lab_utils/core_scripts/override_configuration.R"
-stopifnot(
-    "Configuration for overrides does not exist. Copy template to override_configuration.R" =
-<<<<<<< HEAD
-    file.exists(configuration_options)
-=======
-    file.exists(configuration_options),
-    "File with logging functions does not exist." =
-    file.exists("~/lab_utils/core_scripts/functions_for_logging.R")
->>>>>>> pipeline_completion
-)
-source(configuration_options)
+#configuration_options <- "~/lab_utils/core_scripts/override_configuration.R"
+#stopifnot(
+#    "Configuration for overrides does not exist. Copy template to override_configuration.R" =
+#    file.exists(configuration_options),
+#    "File with logging functions does not exist." =
+#    file.exists("~/lab_utils/core_scripts/functions_for_logging.R")
+#)
+#source(configuration_options)
 
 # Control output formats for plotting scripts.
-OUTPUT_FORMATS <- c("svg", "png", "pdf")
+#OUTPUT_FORMATS <- c("svg", "png", "pdf")
 
-#########################################
+#----------------------------------------
 # Function Definitions
-#########################################
+#----------------------------------------
 
 # validate_configs ----------------------------------------------------
 #' Ensure configurations required for a script are present and follow the patterns
@@ -406,10 +401,7 @@ parse_flow_cytometry_arguments <- function(
             paste(OUTPUT_FORMATS, collapse = ", ")
         ))
     }
-<<<<<<< HEAD
-=======
     # end Validate all arguments --------
->>>>>>> pipeline_completion
 
     #todo: dropbox_path id validation and processing ----------
     # Experiment id validation and processing ----------
@@ -675,13 +667,7 @@ setup_experiment_dirs <- function(
 
     # Check for required input directories
     for (dir_name in required_input_dirs) {
-        full_path <- file.path(experiment_dir, dir_name)
-        if (!dir.exists(full_path)) {
-<<<<<<< HEAD
             stop(sprintf("Required experiment subdirectory '%s' not found: %s", 
-=======
-            stop(sprintf("Required experiment subdirectory '%s' not found: %s",
->>>>>>> pipeline_completion
                     dir_name,
                     full_path
                 )) #

@@ -1,0 +1,57 @@
+## Dimension error while creating group variable
+Error in apply(pData(filtered_flow_set)[, CONTROL_COLUMNS], 1, paste,  
+    dim(X) must have a positive length
+
+Just forgot to update the configuration file for the experiment after updating the control columns.
+
+## PDF corrupted when running script
+When I sourced the script from the R repl, the pdf would be corrupted but no error was there.
+First, I am unsure if using tryCatch around the code would have been enough. The script did not show any errors but there were was no message for device closure in the console either.
+
+To fix the issue, use one of the following methods:
+```{r}
+# ========== Approach 1: Using ggsave() ==========
+# This is the recommended approach as it handles device management internally
+
+# Create your plot and assign to a variable
+p <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
+  # Your plotting code with improved aesthetics
+  # ...
+  
+# Save using ggsave - no need to worry about graphics devices
+ggsave(
+  filename = "~/flow_cytometry_test/fl1a_density_plot.pdf", 
+  plot = p,
+  width = 10,       # Specify width
+  height = 8,       # Specify height
+  units = "in",     # Units for dimensions
+  dpi = 300         # Resolution
+)
+
+# ========== Approach 2: Explicit device management ==========
+# If you prefer the pdf() approach:
+
+# Ensure no graphics device is already open
+if (!is.null(dev.list())) {
+  dev.off()
+}
+
+# Create your output file with explicit dimensions
+pdf(
+  file = "~/flow_cytometry_test/fl1a_density_plot.pdf",
+  width = 10,
+  height = 8,
+  useDingbats = FALSE  # Can help with compatibility issues
+)
+
+# Create your plot
+p <- ggcyto(filtered_flow_set, aes(x = `FL1-A`)) +
+  # Your plotting code with improved aesthetics
+  # ...
+
+# Print the plot explicitly (necessary when in a script)
+print(p)
+
+# Capture the return value of dev.off()
+result <- dev.off()
+```

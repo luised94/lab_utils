@@ -187,8 +187,6 @@ todo: Create the genomic tracks, finish the test module, update configs for the 
 I think I added a bunch of nonsense to most of my scripts with the loading modules and printing a lot of things, especially without having more control over what prints out to the screen.
 They currently work at least but I may need to remove it.
 Scripts to generate publication figures will be more targeted and streamlined either way.
-<<<<<<< HEAD
-=======
 
 ## 2025-04-07
 Similar problems with functions. They are probably doing too much but not as bad as last time.
@@ -265,4 +263,23 @@ Collect the plots side by side via illustrator then move on to flow cytometry.
 
 ## 2025-05-21
 Something just looks wrong about the plots. They look terrible. I know duplication removal and normalization makes it look bad. Just want to see the raw data to make sure I am not missing anything. The terrible samples should remain the same.
->>>>>>> pipeline_completion
+
+## 2025-05-27
+Will finish the effect of smoothing today.
+Can remove genome axis and add the coordinates at the bottom of the plots.
+Can use illustrator to turn the plots into two columns or see if combination of Gviz and base R will do it.
+Complete the peak calling scripts
+Determine the reproducible samples.
+OBS: bamCoverage gives warning if smoothLength is smaller than bin size.
+
+## 2025-08-27
+Really need to turn the vimgrep into workflow. Substituting something, find references across file, update accordingly.
+
+## 2025-10-20
+Add disclaimer about AI.
+Need to update the documentation.
+Got the data from G4 sequencer so still dealing with the paired end read setup as opposed to single end which was easier.
+
+## 2025-10-24
+Finally consolidated the slurm scripts into one continuous script but still testing.
+Moved logs after fixing errors: mkdir -p ~/data/logs && mv ~/logs/* ~/data/logs/
