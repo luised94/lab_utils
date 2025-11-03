@@ -16,20 +16,6 @@
 #   Depends on the script.
 ################################################################################
 
-if (
-  !exists("ROOT_DIRECTORY") ||
-  is.null(ROOT_DIRECTORY) ||
-  ROOT_DIRECTORY == ""
-) {
-
-  ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
-    # Check if the command failed (returns error status or empty result)
-    if (length(ROOT_DIRECTORY) == 0 || ROOT_DIRECTORY == "") {
-      stop("Could not determine git root directory. Not in a git repository? Current working directory: ", getwd())
-    }
-}
-
-
 #---------------------
 # Validation layer
 #---------------------
