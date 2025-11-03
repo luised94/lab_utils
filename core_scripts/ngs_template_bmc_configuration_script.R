@@ -32,25 +32,28 @@ DRY_RUN <- FALSE             # Preview operations without executing
 TIMESTAMP_FORMAT <- "%Y%m%d_%H%M%S"  # YYYYMMDD_HHMMSS
 DATE_FORMAT <- "%Y%m%d"              # YYYYMMDD
 
-# TODO: Need to do global but not configured yet
-# TODO: Remove and rework these settings.
-ACCEPT_CONFIGURATION <- TRUE
-BAM_PROCESSING <- "blFiltered"
-BIGWIG_NORM_METHOD <- "CPM"
-CHROMOSOMES_TO_PLOT <- c(7, 10, 14)
-EXPECTED_FORMAT_EXPERIMENT_ID <- "^\\d{6}Bel$"
-#FASTQ_PATTERN <- "consolidated_.*_sequence\\.fastq$"
+#===============================================================================
+# FILE PATTERNS
+#===============================================================================
 FASTQ_PATTERN <- "fastpfiltered_.*_(R1|R2|NA)\\.fastq$"
-#GENOME_TRACK_SCALING_MODES_VALID <- c("local", "individual")
-GENOME_TRACK_Y_AXIS_SCALING <- c("individual")
+SAMPLE_ID_PATTERN <- "fastpfiltered_(D[0-9]{2}-[0-9]{1,6})_(R1|R2|NA)\\.fastq$"
+EXPERIMENT_ID_PATTERN <- "^\\d{6}Bel$"
+GENOME_FILE_PATTERN <- "S288C_refgenome.fna"
+FEATURE_FILE_PATTERN <- "eaton_peaks"
+
+#===============================================================================
+# OUTPUT SETTINGS
+#===============================================================================
 OUTPUT_FORMAT <- "svg"
 OUTPUT_FORMATS_VALID <- c("svg", "pdf", "png")
-OVERRIDE_CONFIGURATION_PATH <- "~/lab_utils/core_scripts/override_configuration.R"
-PADDING_FRACTION <- 0.1
-#SAMPLE_ID_CAPTURE_PATTERN <- "consolidated_([0-9]{1,6})_sequence\\.fastq$"
-SAMPLE_ID_CAPTURE_PATTERN <- "fastpfiltered_(D[0-9]{2}-[0-9]{1,6})_(R1|R2|NA)\\.fastq$"
-SKIP_PACKAGE_CHECKS <- TRUE
-VARIABLES_TO_REMOVE <- c("IS_COMMA_SEPARATED", "missing_dirs")
+
+#===============================================================================
+# PATHS
+#===============================================================================
+GENOME_DIR <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
+FEATURE_DIR <- file.path(Sys.getenv("HOME"), "data", "feature_files")
+
+
 # Define directory structure
 DATA_DIRECTORIES <- c(
   "peak",
@@ -65,150 +68,94 @@ DATA_DIRECTORIES <- c(
   "documentation/config"
 )
 
-GENOME_TRACK_CONFIG <- list(
-  use_custom_visualization = FALSE,  # Control flag
+#===============================================================================
+# GENOME TRACK VISUALIZATION
+#===============================================================================
+CHROMOSOMES_TO_PLOT <- c(7, 10, 14)
 
-  # Display dimensions
-  display_width = 10,
-  display_height = 8,
+# Display dimensions
+GTRACK_DISPLAY_WIDTH <- 10
+GTRACK_DISPLAY_HEIGHT <- 8
 
-  # Track Creation
-  track_points_default = 1000,
-  #track_show_title = TRUE,
+# Track parameters
+GTRACK_YLIM_DEFAULT <- c(0, 1000)
+GTRACK_Y_AXIS_SCALING <- "individual"  # Changed from array to single value
+#TRACK_SCALING_MODES_VALID <- c("local", "individual")
 
-  # Track defaults
-  track_ylim = c(0, 1000),  # Default y-limits, adjust as needed
-  track_sampling_rate = 100,  # Points per base pair for empty tracks
+# Track colors
+GTRACK_COLOR_INPUT <- "#808080"
 
-  # Track colors
-  color_placeholder = "#cccccc",
-  color_input = "#808080",
+# Track naming formats
+GTRACK_NAME_FORMAT_SAMPLE <- "%s: %s"
+GTRACK_NAME_FORMAT_CONTROL <- "%s: %s - %s"
+GTRACK_NAME_FORMAT_PLACEHOLDER <- "%s: %s - %s"
+GTRACK_NAME_FORMAT_SUFFIX <- "(No data)"
+GTRACK_NAME_FORMAT_AXIS <- "Chr %s Axis"
 
-  # Track naming
-  format_sample_track_name = "%s: %s",
-  format_control_track_name = "%s: %s - %s",
-  format_placeholder_track_name = "%s: %s - %s",
-  format_suffix = "(No data)",
-  format_genome_axis_track_name = "Chr %s Axis",
+# Filename formats
+GTRACK_FILENAME_GROUP <- "%s_%s_group%02d_chr%s_%s.svg"
+GTRACK_FILENAME_COMPARISON <- "%s_%s_%s_chr%s_%s.svg"
 
-  # Labels
-  label_always_show = "antibody",
-  label_never_show = c("sample_id", "full_name", "short_name", "X__cf_genotype"),
-  label_separator = "-",
+# Title templates (multi-line)
+GTRACK_TITLE_GROUP <- paste(
+  "%s",
+  "Group: %s",
+  "Chromosome %s (%d samples)",
+  "%s",
+  "Normalization: %s",
+  sep = "\n"
+)
 
-  # File handling
-  file_pattern = "consolidated_.*_sequence\\.fastq$",
-  file_sample_id = "consolidated_([0-9]{1,6})_sequence\\.fastq",
-  file_sample_id_from_bigwig = "processed_([0-9]{1,6})_sequence_to_S288C_(RPKM|CPM|BPM|RPGC)\\.bw",
-  #file_sample_id_from_bigwig = "processed_([0-9]{1,6})_sequence_to_S288C_.*_(RPKM|CPM|BPM|RPGC)\\.bw",
-  file_genome_pattern = "S288C_refgenome.fna",
-  file_genome_directory = file.path(Sys.getenv("HOME"), "data", "REFGENS"),
-  file_feature_directory = file.path(Sys.getenv("HOME"), "data", "feature_files"),
-  file_feature_pattern = "eaton_peaks",
+GTRACK_TITLE_COMPARISON <- paste(
+  "%s",
+  "Comparison: %s",
+  "Chromosome %s (%d samples)",
+  "%s",
+  "Normalization: %s",
+  sep = "\n"
+)
 
-  # File Names
-  filename_format_group_template = "%s_%s_group%02d_chr%s_%s.svg",
-  filename_format_comparison_template = "%s_%s_%s_chr%s_%s.svg",
-  title_group_template = paste(
-    "%s",         # Title
-    "Group: %s",   # Comparison ID
-    "Chromosome %s (%d samples)", # Chr info
-    "%s",         # Additional info
-    "Normalization: %s", # Norm method
-    sep = "\n"
-  ),
-  title_comparison_template = paste(
-    "%s",         # Title
-    "Comparison: %s",   # Comparison ID
-    "Chromosome %s (%d samples)", # Chr info
-    "%s",         # Additional info
-    "Normalization: %s", # Norm method
-    sep = "\n"
-  ),
-  # Development mode title
-  #title_dev_mode = "development",  # Enum: "development" | "publication"
-  #title_dev_style = 2,  # Bold
-  ## Publication mode title
-  #title_pub_template = "%s: Chr%s (%s)",
-  #title_pub_size = 1,
-  #title_pub_style = 2,  # Bold
-  ## Title constraints
-  #title_max_width = 40,
-  #title_max_lines = 5,
-  # Interactive mode
-  #interactive_prompt = "Options: [Enter] next plot, 's' skip rest, 'q' quit: ",
+# Styling parameters for different track types
 
-  track_defaults_sample = list(
-    showaxis = TRUE,
-    showtitle = TRUE,
-    type = "h",
-    size = 1.2,
-    background.title = "white",
-    fontcolor.title = "black",
-    col.border.title = "#e0e0e0",
-    cex.title = 0.6,
-    fontface = 1,
-    title.width = 1.2
-  ),
+GTRACK_DEFAULTS_SAMPLE <- list(
+  showaxis = TRUE,
+  showtitle = TRUE,
+  type = "h",
+  size = 1.2,
+  background.title = "white",
+  fontcolor.title = "black",
+  col.border.title = "#e0e0e0",
+  cex.title = 0.6,
+  fontface = 1,
+  title.width = 1.2
+)
 
-  track_defaults_placeholder = list(
-    showaxis = TRUE,
-    showtitle = TRUE,
-    type = "h",
-    size = 0.8,
-    background.title = "white",
-    background.panel = "#f5f5f5",  # light gray to indicate "empty"
-    fontcolor.title = "black",
-    col.border.title = "#e0e0e0",
-    cex.title = 0.7,
-    fontface = 1,
-    title.width = 0.9,
-    alpha = 0.5,
-    grid = FALSE
-    #ylim = c(0, 1)          # fixed range for empty tracks
-  ),
-  track_defaults_control = list(
-    showaxis = TRUE,
-    showtitle = TRUE,
-    type = "h",
-    size = 0.8,
-    background.title = "white",
-    background.panel = "white",
-    fontcolor.title = "black",
-    col.border.title = "#e0e0e0",
-    cex.title = 0.7,
-    fontface = 1,
-    title.width = 0.9
-    #alpha = 0.8
-  ),
-  track_defaults_feature = list(
-    showaxis = FALSE,
-    showtitle = TRUE,
-    size = 0.5,
-    background.title = "white",
-    background.panel = "#8b7355",
-    fontcolor.title = "black",
-    col.border.title = "#e0e0e0",
-    cex.title = 0.7,
-    fontface = 1,
-    title.width = 0.9,
-    fill = "#8b4513",
-    col = "#8b4513"
-  ),
+GTRACK_DEFAULTS_FEATURE <- list(
+  showaxis = FALSE,
+  showtitle = TRUE,
+  size = 0.5,
+  background.title = "white",
+  background.panel = "#8b7355",
+  fontcolor.title = "black",
+  col.border.title = "#e0e0e0",
+  cex.title = 0.7,
+  fontface = 1,
+  title.width = 0.9,
+  fill = "#8b4513",
+  col = "#8b4513"
+)
 
-  # New Plot Defaults
-  plot_defaults = list(
-    margin = 15,
-    innerMargin = 5,
-    spacing = 10,
-    extend.left = 0,
-    extend.right = 0,
-    col.axis = "black",
-    cex.axis = 0.8,
-    cex.main = 0.8,
-    fontface.main = 2,
-    background.panel = "transparent"
-  )
+GTRACK_PLOT_DEFAULTS <- list(
+  margin = 15,
+  innerMargin = 5,
+  spacing = 10,
+  extend.left = 0,
+  extend.right = 0,
+  col.axis = "black",
+  cex.axis = 0.8,
+  cex.main = 0.8,
+  fontface.main = 2,
+  background.panel = "transparent"
 )
 
 if (
