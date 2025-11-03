@@ -22,7 +22,6 @@ message("Sourcing script configuration file...")
 #===============================================================================
 # Write single experiment id or single character that is comma-separated
 EXPERIMENT_IDS <- "250714Bel"
-EXPERIMENT_ID <- "250714Bel"
 
 # Execution control
 VERBOSE <- TRUE              # Print progress messages to console
