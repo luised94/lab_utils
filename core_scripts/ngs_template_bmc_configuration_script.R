@@ -17,38 +17,20 @@
 #   Depends on the script.
 ################################################################################
 message("Sourcing script configuration file...")
-#---------------------
-# CONFIGURATION_PARAMETERS
-#---------------------
-# --- Variable ---
-# Likely updated every time a new experiment is created.
-
+#===============================================================================
+# GLOBAL CONFIGURATION
+#===============================================================================
 # Write single experiment id or single character that is comma-separated
 EXPERIMENT_IDS <- "250714Bel"
 EXPERIMENT_ID <- "250714Bel"
 
-target_comparison_columns <- c("rescue_allele", "suppressor_allele")
-columns_to_exclude_from_replicate_determination <- c(
-  "sample_ids", "bigwig_file_paths", "full_name",
-  "short_name", "experiment_id"
-)
-metadata_columns_to_exclude <- c(
-    "sample_ids", "bigwig_file_paths",
-    "full_name", "short_name"
-)
+# Execution control
+VERBOSE <- TRUE              # Print progress messages to console
+DRY_RUN <- FALSE             # Preview operations without executing
 
-if (
-  !exists("ROOT_DIRECTORY") ||
-  is.null(ROOT_DIRECTORY) ||
-  ROOT_DIRECTORY == ""
-) {
-
-  ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
-    # Check if the command failed (returns error status or empty result)
-    if (length(ROOT_DIRECTORY) == 0 || ROOT_DIRECTORY == "") {
-      stop("Could not determine git root directory. Not in a git repository? Current working directory: ", getwd())
-    }
-}
+# Time and date formats
+TIMESTAMP_FORMAT <- "%Y%m%d_%H%M%S"  # YYYYMMDD_HHMMSS
+DATE_FORMAT <- "%Y%m%d"              # YYYYMMDD
 
 # TODO: Need to do global but not configured yet
 # TODO: Remove and rework these settings.
@@ -82,56 +64,6 @@ DATA_DIRECTORIES <- c(
   "documentation/dna_qc_traces",
   "documentation/config"
 )
-
-TIME_CONFIG <- list(
-  # Format specifications
-  timestamp_format = "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
-  date_format = "%Y%m%d",        # YYYYMMDD
-
-  # Current values
-  current_timestamp = format(Sys.time(), "%Y%m%d_%H%M%S"),
-  current_date = format(Sys.Date(), "%Y%m%d")
-)
-
-#-------------------------------------------------------------------------------
-# DEBUG CONFIGURATIONS
-#-------------------------------------------------------------------------------
-RUNTIME_CONFIG <- list(
-  # Execution Mode
-  #show_debug_output = TRUE,    # (formerly debug_verbose)
-  #require_confirmation = FALSE,   # (formerly debug_interactive)
-  #validate_extensively = TRUE,  # (formerly debug_validate)
-
-  ## Processing Scope
-  #target_comparison = "comp_1108forNoneAndWT",
-  #target_chromosome = 10,
-  #target_batch = 10,
-  #samples_per_batch = 4,
-
-  ## Output Control
-  #plot_display_duration = 2
-
-  # Core control flags
-  debug_interactive = FALSE,
-  debug_verbose = TRUE,
-  debug_validate = TRUE,
-
-  # Processing control
-  process_single_file = FALSE,
-  process_single_comparison = TRUE,
-  process_comparison = "comp_1108forNoneAndWT",
-  process_chromosome = 14,
-  #process_group = 10,
-  process_batch = 10,
-  process_samples_per_batch = 4,
-  #process_samples_per_group = 4,
-  process_file_index = 1,
-  # Output control
-  output_save_plots = FALSE,
-  output_dry_run = TRUE,
-  output_display_time = 2
-)
-
 
 GENOME_TRACK_CONFIG <- list(
   use_custom_visualization = FALSE,  # Control flag
@@ -279,13 +211,19 @@ GENOME_TRACK_CONFIG <- list(
   )
 )
 
-#EXPERIMENT_DIR <-
-#LABEL_MAPPINGS <- list()
-#REQUIRED_DIRECTORIES <-
-##LOG_TO_FILE <-
-#OUTPUT_DIR <-
-#OVERRIDE <- NULL
-#SCRIPT_TO_RUN <- ""
+if (
+  !exists("ROOT_DIRECTORY") ||
+  is.null(ROOT_DIRECTORY) ||
+  ROOT_DIRECTORY == ""
+) {
+
+  ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
+    # Check if the command failed (returns error status or empty result)
+    if (length(ROOT_DIRECTORY) == 0 || ROOT_DIRECTORY == "") {
+      stop("Could not determine git root directory. Not in a git repository? Current working directory: ", getwd())
+    }
+}
+
 
 #---------------------
 # Validation layer
