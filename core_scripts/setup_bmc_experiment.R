@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 ################################################################################
 # BMC ChIP-seq Experiment Setup
-# Author: Luis | Date: 2025-10-25 | Version: 2.2.0
+# Author: Luis | Date: 2025-11-02 | Version: 3.0.0
 ################################################################################
 # PURPOSE:
 #   Creates standardized directory structure and metadata files for BMC ChIP-seq experiments
@@ -10,7 +10,9 @@
 #   1) Update configuration_experiment_bmc.R file.
 #   2) From R REPL: source("core_scripts/setup_bmc_experiment.R")
 #
-# DEPENDENCIES: ~/lab_utils/core_scripts/configuration_experiment_bmc.R
+# DEPENDENCIES: 
+#   ./core_scripts/configuration_experiment_bmc.R
+#   ./core_scripts/configuration_script_bmc.R
 #
 # OUTPUTS:
 # - Standard directory structure (peak/, fastq/, alignment/, bigwig/, plots/)
@@ -43,7 +45,6 @@ stopifnot(
 #-------------------------------------------------------------------------------
 source(EXPERIMENT_CONFIGURATION_PATH)
 
-EXPERIMENT_IDS <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
 category_names <- names(EXPERIMENT_CONFIG$CATEGORIES)
 required_sections <- c(
   "METADATA", "CATEGORIES", "INVALID_COMBINATIONS",
@@ -190,13 +191,6 @@ if (length(EXPERIMENT_CONFIG$INVALID_COMBINATIONS) > 0) {
   metadata <- subset(metadata, !invalid_idx)
 }
 
-# Apply experimental conditions
-#valid_idx <- Reduce(
-#  `|`,
-#  lapply(EXPERIMENT_CONFIG$EXPERIMENTAL_CONDITIONS, eval, envir = metadata)
-#)
-#metadata <- subset(metadata, valid_idx)
-
 # Enforce factor levels from config
 for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
   if (col_name %in% colnames(metadata)) {
@@ -209,6 +203,7 @@ for (col_name in names(EXPERIMENT_CONFIG$CATEGORIES)) {
 }
 
 # Sort metadata according to column order
+# Use do.call for multi-column ordering
 metadata <- metadata[
   do.call(
     order,
@@ -350,26 +345,25 @@ bmc_metadata <- data.frame(
 output_files <- list(
   sample_grid = list(
     data = metadata_grid,
-    path = file.path(EXPERIMENT_DIR, "documentation", sprintf("%s_sample_grid.csv", EXPERIMENT_ID)),
+    path = file.path(EXPERIMENT_DIR, "documentation", sprintf("%s_sample_grid.csv", EXPERIMENT_IDS)),
     type = "csv"
   ),
   bmc_table = list(
     data = bmc_table,
-    path = file.path(EXPERIMENT_DIR, "documentation", sprintf("%s_bmc_table.tsv", EXPERIMENT_ID)),
+    path = file.path(EXPERIMENT_DIR, "documentation", sprintf("%s_bmc_table.tsv", EXPERIMENT_IDS)),
     type = "tsv"
   ),
   experiment_configuration = list(
-    data = file.path(CORE_SCRIPTS_PATH, "configuration_experiment_bmc_v2.R"),
-    path = file.path(EXPERIMENT_DIR, "documentation", sprintf("%s_configuration_experiment_bmc.R", EXPERIMENT_ID)),
+    data = file.path(CORE_SCRIPTS_PATH, "configuration_experiment_bmc.R"),
+    path = file.path(EXPERIMENT_DIR, "documentation", sprintf("%s_configuration_experiment_bmc.R", EXPERIMENT_IDS)),
     type = "r"
   )
 )
 
 # Write files
 for (file_name in names(output_files)) {
-  file_info <- output_files[[file_name]]
-
   # Extract to descriptive variables
+  file_info <- output_files[[file_name]]
   output_data <- file_info$data
   output_path <- file_info$path
   file_type <- file_info$type
