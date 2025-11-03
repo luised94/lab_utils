@@ -50,8 +50,8 @@ OUTPUT_FORMATS_VALID <- c("svg", "pdf", "png")
 #===============================================================================
 # PATHS
 #===============================================================================
-GENOME_DIR <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
-FEATURE_DIR <- file.path(Sys.getenv("HOME"), "data", "feature_files")
+GENOME_DIR_PATH <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
+FEATURE_DIR_PATH <- file.path(Sys.getenv("HOME"), "data", "feature_files")
 
 
 # Define directory structure
@@ -72,6 +72,7 @@ DATA_DIRECTORIES <- c(
 # GENOME TRACK VISUALIZATION
 #===============================================================================
 CHROMOSOMES_TO_PLOT <- c(7, 10, 14)
+BIGWIG_NORM_METHOD <- "CPM"
 
 # Display dimensions
 GTRACK_DISPLAY_WIDTH <- 10
