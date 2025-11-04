@@ -46,7 +46,25 @@ suppressPackageStartupMessages({
 })
 
 # ==============================================================================
-# 1. LOAD SAMPLE METADATA
+# 1. DISCOVER BIGWIG FILES AND EXTRACT SAMPLE IDs
+# ==============================================================================
+
+message("\n=== Discovering BigWig Files ===")
+
+# Get all RAW bigwig files and sort them
+bw_files <- list.files(BW_DIR, pattern = "_RAW\\.bw$", full.names = FALSE)
+bw_files <- sort(bw_files)  # Sort to ensure consistent order
+
+# Extract sample IDs from filenames (e.g., D25-12496_RAW.bw -> D25-12496)
+sample_ids <- gsub("_RAW\\.bw", "", bw_files)
+
+message(paste("Found", length(bw_files), "RAW bigwig files (sorted):"))
+for (i in seq_along(sample_ids)) {
+  message(paste("  ", i, ":", sample_ids[i]))
+}
+
+# ==============================================================================
+# 2. LOAD SAMPLE METADATA AND MATCH BY POSITION
 # ==============================================================================
 
 message("\n=== Loading Sample Metadata ===")
@@ -56,91 +74,100 @@ if (!file.exists(METADATA_CSV)) {
 }
 
 metadata <- read.csv(METADATA_CSV, stringsAsFactors = FALSE)
-message(paste("Loaded metadata for", nrow(metadata), "samples from:"))
+message(paste("Loaded metadata for", nrow(metadata), "rows from:"))
 message(paste("  ", basename(METADATA_CSV)))
 
-# Display column names to help identify relevant columns
+# Display column names
 message("\nMetadata columns:")
 print(colnames(metadata))
 
-# Try to identify sample ID, sample type, and antibody columns
-# Common column names: sample_id, sample, ID, type, condition, antibody, target
-id_col <- colnames(metadata)[grep("sample.*id|sample$|^id$", 
-                                   colnames(metadata), ignore.case = TRUE)][1]
-type_col <- colnames(metadata)[grep("type|condition|group", 
-                                     colnames(metadata), ignore.case = TRUE)][1]
+# Check if number of samples matches
+if (nrow(metadata) != length(sample_ids)) {
+  message("\nWARNING: Mismatch between metadata rows and bigwig files!")
+  message(paste("  Metadata rows:", nrow(metadata)))
+  message(paste("  Bigwig files:", length(sample_ids)))
+  message("\nProceeding with assumption that they match by position...")
+  message("Please verify the order is correct!\n")
+}
+
+# Identify antibody column (required)
 antibody_col <- colnames(metadata)[grep("antibody|target|protein|factor", 
                                          colnames(metadata), ignore.case = TRUE)][1]
 
-if (is.na(id_col)) {
-  message("\nWARNING: Could not auto-detect sample ID column.")
-  message("Please specify manually by editing the script.")
+if (is.na(antibody_col)) {
+  message("\nERROR: Could not find antibody column.")
   message("Available columns: ", paste(colnames(metadata), collapse = ", "))
-  stop("Cannot proceed without sample IDs")
+  stop("Cannot proceed without antibody information")
 }
 
-message(paste("\nUsing columns:"))
-message(paste("  Sample ID:", id_col))
-message(paste("  Sample Type:", ifelse(is.na(type_col), "NOT FOUND", type_col)))
-message(paste("  Antibody/Target:", ifelse(is.na(antibody_col), "NOT FOUND", antibody_col)))
+message(paste("\nUsing antibody column:", antibody_col))
 
-# Create simplified sample mapping
+# Create sample mapping by matching positions
+# Row 1 of metadata -> First sample ID, etc.
+n_samples <- min(nrow(metadata), length(sample_ids))
+
 sample_map <- data.frame(
-  sample_id = metadata[[id_col]],
-  sample_type = if (!is.na(type_col)) metadata[[type_col]] else "Unknown",
-  antibody = if (!is.na(antibody_col)) metadata[[antibody_col]] else "Unknown"
+  sample_id = sample_ids[1:n_samples],
+  antibody = trimws(metadata[[antibody_col]][1:n_samples]),
+  stringsAsFactors = FALSE
 )
 
-# Classify as Input or IP
+# Classify as Input or IP based on antibody column
 sample_map$class <- ifelse(
-  grepl("input|Input|INPUT|control|Control", sample_map$sample_type, ignore.case = TRUE),
+  grepl("input|Input|INPUT|control|Control|mock|Mock|IgG", 
+        sample_map$antibody, ignore.case = TRUE),
   "Input",
   "IP"
 )
 
-# Print sample classification
-message("\n=== Sample Classification ===")
-print(sample_map)
+# Add any other useful metadata columns
+if ("cell_cycle_treatment" %in% colnames(metadata)) {
+  sample_map$treatment <- metadata$cell_cycle_treatment[1:n_samples]
+}
+
+# Print sample classification with position matching
+message("\n=== Sample Classification (Matched by Position) ===")
+message("Row | Sample ID    | Antibody | Class")
+message("----+-------------+----------+-------")
+for (i in 1:nrow(sample_map)) {
+  message(sprintf("%3d | %-12s | %-8s | %s", 
+                  i, sample_map$sample_id[i], 
+                  sample_map$antibody[i], 
+                  sample_map$class[i]))
+}
+
+message("\nPlease verify this mapping is correct!")
+message("If incorrect, stop the script (Ctrl+C) and check file order.\n")
+
+# Pause to let user verify (optional - comment out if running non-interactively)
+# Sys.sleep(5)
 
 # Save sample mapping
 write.table(sample_map, file.path(OUT_DIR, "sample_mapping.txt"),
             sep = "\t", quote = FALSE, row.names = FALSE)
 
 # ==============================================================================
-# 2. LOAD BIGWIG FILES
+# 3. LOAD BIGWIG FILES
 # ==============================================================================
 
 message("\n=== Loading BigWig Files ===")
 
-# Get all RAW bigwig files
-bw_files <- list.files(BW_DIR, pattern = "_RAW\\.bw$", full.names = FALSE)
-available_samples <- gsub("_RAW\\.bw", "", bw_files)
-
-message(paste("Found", length(bw_files), "RAW bigwig files"))
-
-# Match with metadata
-matched_samples <- intersect(available_samples, sample_map$sample_id)
-missing_samples <- setdiff(sample_map$sample_id, available_samples)
-
-message(paste("Matched", length(matched_samples), "samples with metadata"))
-if (length(missing_samples) > 0) {
-  message(paste("WARNING: Missing bigwig files for:", 
-                paste(missing_samples, collapse = ", ")))
-}
-
-# Load matched samples
+# Load all samples from sample_map
 signal_data <- list()
-for (sample_id in matched_samples) {
+for (sample_id in sample_map$sample_id) {
   bw_file <- file.path(BW_DIR, paste0(sample_id, "_RAW.bw"))
+  if (!file.exists(bw_file)) {
+    message(paste("WARNING: File not found:", basename(bw_file)))
+    next
+  }
   message(paste("Loading:", basename(bw_file)))
   signal_data[[sample_id]] <- import(bw_file, format = "BigWig")
 }
 
-# Filter sample_map to only matched samples
-sample_map <- sample_map[sample_map$sample_id %in% matched_samples, ]
+message(paste("\nSuccessfully loaded", length(signal_data), "bigwig files"))
 
 # ==============================================================================
-# 3. LOAD SGD FEATURES
+# 4. LOAD SGD FEATURES
 # ==============================================================================
 
 message("\n=== Loading SGD Features ===")
@@ -232,7 +259,7 @@ ars_gr <- GRanges(
 )
 
 # ==============================================================================
-# 4. SCAN CHROMOSOMES IN SLIDING WINDOWS
+# 5. SCAN CHROMOSOMES IN SLIDING WINDOWS
 # ==============================================================================
 
 message("\n=== Scanning Chromosomes for Artifacts ===")
@@ -286,7 +313,6 @@ for (chr in SUSPECT_CHRS) {
         end = window_end,
         window_id = paste0(chr, ":", window_start, "-", window_end),
         sample_id = sample_id,
-        sample_type = sample_info$sample_type,
         sample_class = sample_info$class,
         antibody = sample_info$antibody,
         signal = signal
@@ -306,7 +332,7 @@ write.table(all_windows, file.path(OUT_DIR, "all_window_signals.txt"),
             sep = "\t", quote = FALSE, row.names = FALSE)
 
 # ==============================================================================
-# 5. IDENTIFY ARTIFACT REGIONS
+# 6. IDENTIFY ARTIFACT REGIONS
 # ==============================================================================
 
 message("\n=== Identifying Artifact Regions ===")
@@ -367,7 +393,7 @@ if (nrow(artifact_windows) > 0) {
 }
 
 # ==============================================================================
-# 6. ANNOTATE ARTIFACTS WITH FEATURES
+# 7. ANNOTATE ARTIFACTS WITH FEATURES
 # ==============================================================================
 
 message("\n=== Annotating Artifacts ===")
@@ -444,7 +470,7 @@ if (nrow(artifact_windows) > 0) {
 }
 
 # ==============================================================================
-# 7. VISUALIZATIONS
+# 8. VISUALIZATIONS
 # ==============================================================================
 
 message("\n=== Generating Plots ===")
@@ -513,7 +539,7 @@ if (nrow(artifact_windows) > 0) {
 }
 
 # ==============================================================================
-# 8. SUMMARY REPORT
+# 9. SUMMARY REPORT
 # ==============================================================================
 
 message("\n=== Generating Summary Report ===")
