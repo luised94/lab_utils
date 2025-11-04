@@ -16,7 +16,7 @@
 # OUTPUTS:
 #   Depends on the script.
 ################################################################################
-message("Sourcing script configuration file...")
+message("Start script configuration file...")
 #===============================================================================
 # GLOBAL CONFIGURATION
 #===============================================================================
@@ -71,7 +71,7 @@ DATA_DIRECTORIES <- c(
 # GENOME TRACK VISUALIZATION
 #===============================================================================
 CHROMOSOMES_TO_PLOT <- c(7, 10, 14)
-BIGWIG_NORM_METHOD <- "CPM"
+BIGWIG_NORM_METHOD <- "CPM" # Use to find bigwig files
 
 # Display dimensions
 GTRACK_DISPLAY_WIDTH <- 10
