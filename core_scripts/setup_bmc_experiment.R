@@ -162,6 +162,20 @@ for (factor_name in names(EXPERIMENT_CONFIG$CONTROL_FACTORS)) {
   }
 }
 
+for (grouping_names in names(EXPERIMENT_CONFIG$EXPERIMENTAL_GROUPINGS)) {
+  grouping_columns <- EXPERIMENT_CONFIG$EXPERIMENTAL_GROUPINGS[[grouping_names]]
+  invalid_grouping <- !all(grouping_columns %in% names(EXPERIMENT_CONFIG$CATEGORIES))
+  if(invalid_grouping){
+    stop(sprintf(
+      "EXPERIMENTAL_GROUPINGS '%s' references unknown categories: %s",
+      grouping_names,
+      paste(grouping_columns, collapse = ", ")
+    ))
+
+  }
+
+}
+
 message("Validated EXPERIMENT_CONFIG list...")
 
 #===============================================================================

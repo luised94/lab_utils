@@ -87,9 +87,9 @@ if (length(missing_variables) > 0 ) {
 }
 message("All variables defined in the configuration file...")
 
-#-------------------------------------------------------------------------------
+#===============================================================================
 # Verify Required Libraries
-#-------------------------------------------------------------------------------
+#===============================================================================
 # Add the packages that are used in the script.
 required_packages <- c("rtracklayer", "GenomicRanges", "Gviz")
 if (!is.character(required_packages) || length(required_packages) == 0) {

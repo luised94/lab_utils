@@ -27,6 +27,16 @@ EXPERIMENT_IDS <- "250714Bel"
 VERBOSE <- TRUE              # Print progress messages to console
 DRY_RUN <- FALSE             # Preview operations without executing
 
+# Use flags to control execution of code sections
+# Used heavily in the prepare metadata script.
+RECOMPUTATION_FLAGS <- list(
+  FILE_PATHS = TRUE,
+  COLOR_SCHEMES = TRUE,
+  FRAGMENT_SIZES = TRUE,
+  TRACK_LIMITS = TRUE,
+  GROUPING_COLUMNS = TRUE
+)
+
 # Time and date formats
 TIMESTAMP_FORMAT <- "%Y%m%d_%H%M%S"  # YYYYMMDD_HHMMSS
 DATE_FORMAT <- "%Y%m%d"              # YYYYMMDD
@@ -51,7 +61,6 @@ OUTPUT_FORMATS_VALID <- c("svg", "pdf", "png")
 #===============================================================================
 GENOME_DIR_PATH <- file.path(Sys.getenv("HOME"), "data", "REFGENS")
 FEATURE_DIR_PATH <- file.path(Sys.getenv("HOME"), "data", "feature_files")
-
 
 # Define directory structure
 DATA_DIRECTORIES <- c(
