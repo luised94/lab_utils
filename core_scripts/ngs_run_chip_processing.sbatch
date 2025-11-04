@@ -145,7 +145,8 @@ BLFILTERED_OUT_SUFFIX="blFiltered"
 BIN_SIZE=10
 EFFECTIVE_GENOME_SIZE=12157105
 MINIMUM_MAPPING_QUALITY=20
-NORM_METHOD="CPM"
+VALID_NORM_METHODS=("RAW" "RPKM" "CPM" "BPM" "RPGC")
+NORM_METHOD="RAW"
 
 # Genome reference files (Saccharomyces cerevisiae S288C)
 GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
@@ -201,6 +202,7 @@ mkdir -p "$FASTQ_DIR"
 mkdir -p "$ALIGNMENT_DIR"
 mkdir -p "$QUALITY_CONTROL_DIR"
 mkdir -p "$COVERAGE_DIR"
+
 #============================== 
 # READ MANIFEST AND EXTRACT SAMPLE INFORMATION
 #============================== 
@@ -429,7 +431,7 @@ else
             -k "$ALIGNMENTS_TO_REPORT" \
             -p "$CPU_THREADS" \
             2>> "${ERROR_LOG}" | \
-        samtools view -@ "$CPU_THREADS" -bS - 2>> "${ERROR_LOG}" | \
+        samtools view -@ "$CPU_THREADS" -bS -F 256 - 2>> "${ERROR_LOG}" | \
         samtools sort -@ "$CPU_THREADS" -o "$SORTED_BAM_OUT_FILE" - 2>> "${ERROR_LOG}"; then
 
         log_message "INFO" "Alignment and sorting complete"
@@ -526,9 +528,20 @@ else
         --binSize "$BIN_SIZE"
         --ignoreDuplicates
         --minMappingQuality "$MINIMUM_MAPPING_QUALITY"
-        --normalizeUsing "$NORM_METHOD"
         --numberOfProcessors "$CPU_THREADS"
     )
+
+    if [[ ! " ${VALID_NORM_METHODS[@]} " =~ " ${NORM_METHOD} " ]]; then
+      log_message "ERROR" "Invalid NORM_METHOD: ${NORM_METHOD}. Must be one of: ${VALID_NORMS[*]}"
+      exit 1
+
+    fi
+
+    if [[ "${NORM_METHOD}" != "RAW" ]]; then
+      bamcoverage_params+=(--normalizeUsing "$NORM_METHOD")
+      log_message "INFO" "Using NORM_METHOD: ${NORM_METHOD}"
+
+    fi
 
     # Add RPGC-specific parameter if needed
     if [[ "${NORM_METHOD}" == "RPGC" ]]; then
