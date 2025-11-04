@@ -107,3 +107,94 @@ message("Packages loaded: ", paste(required_packages, collapse = ", "))
 message("Package verification complete...")
 
 
+#===============================================================================
+# SECTION 2: Select and Validate Experiment
+#===============================================================================
+message("=== SECTION 2: Select and Validate Experiment ===")
+
+# Handle multiple EXPERIMENT_IDS: process first only
+if (length(EXPERIMENT_IDS) > 1) {
+  message("Multiple experiment IDs detected: ", paste(EXPERIMENT_IDS, collapse = ", "))
+  message("Processing first experiment only: ", EXPERIMENT_IDS[1])
+  EXPERIMENT_ID <- EXPERIMENT_IDS[1]
+  EXPERIMENT_DIR_PATH <- EXPERIMENT_DIR_PATHS[1]
+} else {
+  EXPERIMENT_ID <- EXPERIMENT_IDS[1]
+  EXPERIMENT_DIR_PATH <- EXPERIMENT_DIR_PATHS[1]
+}
+
+# Validate experiment directory exists
+if (!dir.exists(EXPERIMENT_DIR_PATH)) {
+  stop("Experiment directory not found: ", EXPERIMENT_DIR_PATH, "\n",
+       "Run setup_bmc_experiment.R first for experiment: ", EXPERIMENT_ID)
+}
+
+# Build paths to required files
+experiment_config_path <- file.path(
+  EXPERIMENT_DIR_PATH,
+  "documentation",
+  paste0(EXPERIMENT_ID, "_configuration_experiment_bmc.R")
+)
+
+sample_grid_path <- file.path(
+  EXPERIMENT_DIR_PATH,
+  "documentation",
+  paste0(EXPERIMENT_ID, "_sample_grid.csv")
+)
+
+# Validate required files exist
+if (!file.exists(experiment_config_path)) {
+  stop("Experiment configuration not found: ", basename(experiment_config_path), "\n",
+       "Expected location: ", experiment_config_path)
+}
+
+if (!file.exists(sample_grid_path)) {
+  stop("Sample grid not found: ", basename(sample_grid_path), "\n",
+       "Run setup_bmc_experiment.R first")
+}
+
+message("Experiment ID: ", EXPERIMENT_ID)
+message("Experiment directory: ", EXPERIMENT_DIR_PATH)
+message("Configuration: ", basename(experiment_config_path))
+message("Sample grid: ", basename(sample_grid_path))
+message("Section 2 complete\n")
+#===============================================================================
+# SECTION 3: Load Experiment Configuration
+#===============================================================================
+message("=== SECTION 3: Load Experiment Configuration ===")
+
+# Source experiment-specific configuration
+source(experiment_config_path)
+
+# Validate EXPERIMENT_CONFIG exists
+if (!exists("EXPERIMENT_CONFIG") || !is.list(EXPERIMENT_CONFIG)) {
+  stop("EXPERIMENT_CONFIG not defined or not a list.\n",
+       "Check file: ", basename(experiment_config_path))
+}
+
+# Validate EXPERIMENT_CONFIG has required grouping columns
+#if (!exists("EXPERIMENTAL_GROUPING_COLUMNS", where = EXPERIMENT_CONFIG)) {
+#  stop("EXPERIMENT_CONFIG missing EXPERIMENTAL_GROUPING_COLUMNS.\n",
+#       "Check configuration file")
+#}
+
+message("Experiment configuration loaded")
+message("Section 3 complete\n")
+#===============================================================================
+# SECTION 4: Load Sample Grid
+#===============================================================================
+message("=== SECTION 4: Load Sample Grid ===")
+
+# Load sample grid CSV
+metadata_df <- read.csv(sample_grid_path, stringsAsFactors = FALSE)
+
+# Basic validation
+if (nrow(metadata_df) == 0) {
+  stop("Loaded metadata grid has zero rows: ", basename(sample_grid_path))
+}
+
+message("Sample grid loaded")
+message("  Samples: ", nrow(metadata_df))
+message("  Columns: ", ncol(metadata_df))
+message("  Column names: ", paste(colnames(metadata_df), collapse = ", "))
+message("Section 4 complete\n")
