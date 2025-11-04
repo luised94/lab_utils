@@ -26,12 +26,26 @@
 #   2) Initialize environment via script.
 #   3) Includes sourcing configuration_script_bmc.R.
 #===============================================================================
+message("=== BOOTSTRAP: Project root and environment ===")
+
+# Use git to set root directory.
+# Ensure different worktrees work from different directories.
 ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
 if (length(ROOT_DIRECTORY) == 0 || ROOT_DIRECTORY == "") {
   stop("Not in git repository. Current directory: ", getwd())
 }
+ROOT_DIRECTORY <- normalizePath(ROOT_DIRECTORY, mustWork = TRUE)
+
 CORE_SCRIPTS_PATH <- file.path(ROOT_DIRECTORY, "core_scripts")
 SETUP_ENV_SCRIPT_PATH <- file.path(CORE_SCRIPTS_PATH, "setup_ngs_script_environment.R")
+if (!dir.exists(CORE_SCRIPTS_PATH)) {
+  stop("Missing directory with scripts: ", SETUP_ENV_SCRIPT_PATH)
+}
+
+if (!file.exists(SETUP_ENV_SCRIPT_PATH)) {
+  stop("Environment setup script missing: ", SETUP_ENV_SCRIPT_PATH)
+}
+
 message("Repository root path: ", ROOT_DIRECTORY)
 message("Setup env script path: ", SETUP_ENV_SCRIPT_PATH)
 message("Sourcing environment setup script...")
@@ -43,9 +57,8 @@ message("Reentering analysis script...")
 # configuration_script_bmc.R //
 required_configuration_variables <- c(
   "EXPERIMENT_IDS", "EXPERIMENT_DIR_PATHS",
-  "CHROMOSOMES_TO_PLOT",
-  "OUTPUT_EXTENSION", "BIGWIG_PATTERN",
-  "FASTQ_PATTERN", "SAMPLE_ID_PATTERN",
+  "CHROMOSOMES_TO_PLOT", "OUTPUT_EXTENSION",
+  "BIGWIG_PATTERN", "FASTQ_PATTERN", "SAMPLE_ID_PATTERN",
 )
 
 is_missing_variable <- !sapply(required_configuration_variables, exists)
@@ -58,7 +71,23 @@ if (length(missing_vars) > 0) {
   )
 }
 
-message("All variables defined in the configuration file...")
+# Enforce single-experiment mode for this script
+# To run for multiple experiments, in R console:
+#for (exp_id in c("241105Bel", "241106Bel", "241107Bel")) {
+#  EXPERIMENT_IDS <- exp_id
+#  source("core_scripts/prepare_experiment_metadata.R")
+#}
+if (length(EXPERIMENT_IDS) != 1) {
+  stop(
+    "This script processes one experiment at a time.\n",
+    "Set EXPERIMENT_IDS to a single ID in configuration.\n",
+    "Found: ", paste(EXPERIMENT_IDS, collapse = ", ")
+  )
+}
+
+EXPERIMENT_ID <- EXPERIMENT_IDS[1]  # Simplify for single-experiment context
+
+message("Bootstrap complete. Processing experiment: ", EXPERIMENT_ID, "\n")
 
 #===============================================================================
 # SECTION 1: Load Required Packages
@@ -76,3 +105,5 @@ for (pkg in required_packages) {
 
 message("Packages loaded: ", paste(required_packages, collapse = ", "))
 message("Package verification complete...")
+
+
