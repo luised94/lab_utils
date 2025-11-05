@@ -166,7 +166,8 @@ for (i in seq_len(nrow(artifacts))) {
   # 4) Genomic features for the window
   message("  Adding genomic features...")
   current_genome_feature <- keepSeqlevels(GENOME_FEATURES, current_chromosome, pruning.mode = "coarse")
-  feature_subset <- GenomicRanges::subsetByOverlaps(current_genome_feature, current_genome_range)
+  hits <- findOverlaps(current_genome_feature, current_genome_range, ignore.strand = TRUE)
+  feature_subset <- current_genome_feature[queryHits(hits)]
 
   if (length(feature_subset) > 0L) {
     track_container[[length(track_container) + 1]] <- AnnotationTrack(
