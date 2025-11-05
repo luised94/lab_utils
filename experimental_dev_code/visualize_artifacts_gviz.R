@@ -305,100 +305,79 @@ for (current_chromosome in artifact_chromosomes) {
     stacking = "squish"
   )
   
-  # 3. Load full chromosome bigwig data
+  # 3. Load bigwig tracks - use DataTrack with file paths directly
+  #    Gviz will handle loading and binning automatically
+  
   # ORC track
   orc_file <- file.path(BW_DIR, paste0(ORC_SAMPLE, "_CPM.bw"))
   if (file.exists(orc_file)) {
-    message("  Loading ORC bigwig for full chromosome...")
+    message("  Adding ORC track...")
     
-    # Create GRanges for full chromosome (no subsetting)
-    orc_data_full <- import(
-      orc_file,
-      format = "BigWig",
-      as = "GRanges"
+    track_container[[length(track_container) + 1]] <- DataTrack(
+      range = orc_file,
+      genome = "sacCer3",
+      chromosome = current_chromosome,
+      name = "ORC",
+      showAxis = TRUE,
+      showTitle = TRUE,
+      type = "histogram",
+      size = 1.0,
+      background.title = "white",
+      fontcolor.title = "black",
+      cex.title = 0.7,
+      col = "darkgreen",
+      fill = "darkgreen",
+      ylim = c(0, NA),
+      window = -1  # Auto-binning
     )
-    
-    # Filter to current chromosome
-    orc_data_chr <- orc_data_full[seqnames(orc_data_full) == current_chromosome]
-    
-    if (length(orc_data_chr) > 0) {
-      track_container[[length(track_container) + 1]] <- DataTrack(
-        range = orc_data_chr,
-        name = "ORC",
-        showAxis = TRUE,
-        showTitle = TRUE,
-        type = "histogram",
-        size = 1.0,
-        background.title = "white",
-        fontcolor.title = "black",
-        cex.title = 0.7,
-        col = "darkgreen",
-        fill = "darkgreen",
-        ylim = c(0, NA)
-      )
-    }
   }
   
   # MCM track
   mcm_file <- file.path(BW_DIR, paste0(MCM_SAMPLE, "_CPM.bw"))
   if (file.exists(mcm_file)) {
-    message("  Loading MCM bigwig for full chromosome...")
+    message("  Adding MCM track...")
     
-    mcm_data_full <- import(
-      mcm_file,
-      format = "BigWig",
-      as = "GRanges"
+    track_container[[length(track_container) + 1]] <- DataTrack(
+      range = mcm_file,
+      genome = "sacCer3",
+      chromosome = current_chromosome,
+      name = "MCM",
+      showAxis = TRUE,
+      showTitle = TRUE,
+      type = "histogram",
+      size = 1.0,
+      background.title = "white",
+      fontcolor.title = "black",
+      cex.title = 0.7,
+      col = "purple",
+      fill = "purple",
+      ylim = c(0, NA),
+      window = -1  # Auto-binning
     )
-    
-    mcm_data_chr <- mcm_data_full[seqnames(mcm_data_full) == current_chromosome]
-    
-    if (length(mcm_data_chr) > 0) {
-      track_container[[length(track_container) + 1]] <- DataTrack(
-        range = mcm_data_chr,
-        name = "MCM",
-        showAxis = TRUE,
-        showTitle = TRUE,
-        type = "histogram",
-        size = 1.0,
-        background.title = "white",
-        fontcolor.title = "black",
-        cex.title = 0.7,
-        col = "purple",
-        fill = "purple",
-        ylim = c(0, NA)
-      )
-    }
   }
   
   # Input track
   input_file <- file.path(BW_DIR, paste0(INPUT_SAMPLE, "_CPM.bw"))
   if (file.exists(input_file)) {
-    message("  Loading Input bigwig for full chromosome...")
+    message("  Adding Input track...")
     
-    input_data_full <- import(
-      input_file,
-      format = "BigWig",
-      as = "GRanges"
+    track_container[[length(track_container) + 1]] <- DataTrack(
+      range = input_file,
+      genome = "sacCer3",
+      chromosome = current_chromosome,
+      name = "Input",
+      showAxis = TRUE,
+      showTitle = TRUE,
+      type = "histogram",
+      size = 1.0,
+      background.title = "white",
+      fontcolor.title = "black",
+      cex.title = 0.7,
+      col = "gray60",
+      fill = "gray60",
+      ylim = c(0, NA),
+      window = -1  # Auto-binning
     )
-    
-    input_data_chr <- input_data_full[seqnames(input_data_full) == current_chromosome]
-    
-    if (length(input_data_chr) > 0) {
-      track_container[[length(track_container) + 1]] <- DataTrack(
-        range = input_data_chr,
-        name = "Input",
-        showAxis = TRUE,
-        showTitle = TRUE,
-        type = "histogram",
-        size = 1.0,
-        background.title = "white",
-        fontcolor.title = "black",
-        cex.title = 0.7,
-        col = "gray60",
-        fill = "gray60",
-        ylim = c(0, NA)
-      )
-    }
   }
   
   # 4. Add genomic features (optional - can be dense)
