@@ -310,7 +310,7 @@ for (current_chromosome in artifact_chromosomes) {
   track_container <- list()
   
   # 1. Genome axis
-  track_container[[1]] <- GenomeAxisTrack(
+   genome_axis_track <- GenomeAxisTrack(
     name = sprintf("%s Position", current_chromosome),
     fontcolor.title = "black",
     cex.title = 0.7,
@@ -318,7 +318,7 @@ for (current_chromosome in artifact_chromosomes) {
   )
   
   # 2. Artifact regions (highlighted)
-  track_container[[2]] <- AnnotationTrack(
+   artifact_annotation_track <- AnnotationTrack(
     artifact_regions,
     name = "Artifacts",
     fill = "red",
@@ -485,7 +485,11 @@ for (current_chromosome in artifact_chromosomes) {
     )
     
     plotTracks(
-      trackList = highlighted_tracks,
+      trackList = list(
+        genome_axis_track, 
+        artifact_annotation_track,
+        highlighted_tracks
+      ),
       chromosome = current_chromosome,
       margin = 15,
       innerMargin = 5,
