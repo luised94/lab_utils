@@ -94,7 +94,11 @@ message("Bootstrap complete. Processing experiment: ", EXPERIMENT_ID, "\n")
 #===============================================================================
 message("=== SECTION 1: Load Required Packages ===")
 
-required_packages <- c("rtracklayer", "GenomicRanges", "Biostrings")
+required_packages <- c(
+  "rtracklayer", "GenomicRanges",
+  "Biostrings", "RColorBrewer"
+)
+
 for (pkg in required_packages) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     stop("Package not available: ", pkg, "\n",
@@ -200,7 +204,7 @@ if (RECOMPUTATION_FLAGS$FILE_PATHS) {
   message("=== SECTION 5: Discover and Match Files ===")
 
   # Define data directories
-  fastq_dir <- file.path(EXPERIMENT_DIR_PATH, "fastq", "processed")
+  fastq_dir <- file.path(EXPERIMENT_DIR_PATH, "fastq")
   coverage_dir <- file.path(EXPERIMENT_DIR_PATH, "coverage")
 
   # Validate directories exist
@@ -262,6 +266,7 @@ if (RECOMPUTATION_FLAGS$FILE_PATHS) {
             "Pattern: ", BIGWIG_PATTERN, "\n",
             "Bigwig paths will be NA")
     metadata_df$bigwig_file_path <- NA
+
   } else {
     message("Found ", length(bigwig_files), " bigwig files")
 
@@ -270,6 +275,7 @@ if (RECOMPUTATION_FLAGS$FILE_PATHS) {
     bigwig_sample_ids <- sub(".*_(D[0-9]{2}-[0-9]{1,6})_.*", "\\1", bigwig_basenames)
 
     # Create lookup table
+    # Works even if some bigwig files are missing.
     bigwig_lookup <- setNames(bigwig_files, bigwig_sample_ids)
 
     # Match bigwig files to metadata by sample ID
@@ -293,85 +299,92 @@ if (RECOMPUTATION_FLAGS$FILE_PATHS) {
 
 } else {
   message("=== SECTION 5: Skipped (FILE_PATHS = FALSE) ===\n")
+
 }
+
+
 #===============================================================================
 # SECTION 6: Compute Track Limits
 #===============================================================================
 if (RECOMPUTATION_FLAGS$TRACK_LIMITS) {
   message("=== SECTION 6: Compute Track Limits ===")
-
+  
   # Check if bigwig paths exist in metadata
   if (!"bigwig_file_path" %in% colnames(metadata_df)) {
     stop("Column 'bigwig_file_path' not found in metadata.\n",
          "Run Section 5 (FILE_PATHS) first")
   }
-
+  
   # Initialize track limit columns
   metadata_df$track_ymin <- 0
   metadata_df$track_ymax <- 100  # Default
-
+  
+  # Define chromosomes to analyze
+  chromosomes_roman <- paste0("chr", utils::as.roman(CHROMOSOMES_TO_PLOT))
+  
   # Count samples with valid bigwig files
   has_bigwig <- !is.na(metadata_df$bigwig_file_path) & 
                 file.exists(metadata_df$bigwig_file_path)
   n_with_bigwig <- sum(has_bigwig)
-
+  
   if (n_with_bigwig == 0) {
     warning("No valid bigwig files to compute track limits.\n",
             "Using default limits: 0-100")
     message("Section 6 complete\n")
   } else {
     message("Computing track limits for ", n_with_bigwig, " samples...")
-
-    # Create genome range for chromosomes of interest
-    # Note: This requires REFERENCE_GENOME_DSS loaded
-    # For now, we'll compute limits without restricting to specific chromosomes
-
-    # Process each sample
+    message("Chromosomes: ", paste(CHROMOSOMES_TO_PLOT, collapse = ", "))
+    
     n_processed <- 0
-
+    
     for (row_idx in seq_len(nrow(metadata_df))) {
       bigwig_path <- metadata_df$bigwig_file_path[row_idx]
-
+      
       # Skip if no bigwig file
       if (is.na(bigwig_path) || !file.exists(bigwig_path)) {
         next
       }
-
-      # Import bigwig data
+      
+      # Import and process bigwig data
       tryCatch({
+        # Load entire bigwig
         bigwig_gr <- rtracklayer::import(bigwig_path)
-
+        
+        # Filter to chromosomes of interest
+        bigwig_gr <- bigwig_gr[seqnames(bigwig_gr) %in% chromosomes_roman]
+        
         if (length(bigwig_gr) > 0) {
           # Get score values
           scores <- bigwig_gr$score
           scores <- scores[!is.na(scores) & is.finite(scores)]
-
+          
           if (length(scores) > 0) {
             metadata_df$track_ymin[row_idx] <- 0
             metadata_df$track_ymax[row_idx] <- max(scores, na.rm = TRUE)
           }
         }
-
+        
         n_processed <- n_processed + 1
-
+        
         # Progress message every 10 samples
         if (n_processed %% 10 == 0) {
           message("  Processed ", n_processed, " of ", n_with_bigwig)
         }
-
+        
       }, error = function(e) {
         warning("Failed to process bigwig: ", basename(bigwig_path), "\n",
                 "Error: ", e$message)
       })
     }
-
+    
     message("Track limits computed for ", n_processed, " samples")
     message("Section 6 complete\n")
   }
-
+  
 } else {
   message("=== SECTION 6: Skipped (TRACK_LIMITS = FALSE) ===\n")
 }
+
 #===============================================================================
 # SECTION 7: Generate Color Scheme
 #===============================================================================
@@ -400,10 +413,6 @@ if (RECOMPUTATION_FLAGS$COLOR_SCHEMES) {
 
   if (number_of_colors <= 8) {
     # Use ColorBrewer palette for small sets
-    if (!requireNamespace("RColorBrewer", quietly = TRUE)) {
-      stop("Package RColorBrewer required for color generation.\n",
-           "Install with: install.packages('RColorBrewer')")
-    }
     category_palette <- RColorBrewer::brewer.pal(
       max(3, number_of_colors),
       "Set2"
@@ -438,49 +447,53 @@ if (RECOMPUTATION_FLAGS$GROUPING_COLUMNS) {
 
   # Validate EXPERIMENTAL_GROUPING_COLUMNS exists
   if (!exists("EXPERIMENTAL_GROUPING_COLUMNS", where = EXPERIMENT_CONFIG)) {
-    stop("EXPERIMENTAL_GROUPING_COLUMNS not found in EXPERIMENT_CONFIG.\n",
-         "Check experiment configuration file")
-  }
+    message("EXPERIMENTAL_GROUPING_COLUMNS not found, skipping grouping columns")
+    message("Section 8 complete\n")
 
-  grouping_columns_list <- EXPERIMENT_CONFIG$EXPERIMENTAL_GROUPING_COLUMNS
+  } else {
 
-  # Validate it's a named list
-  if (!is.list(grouping_columns_list) || is.null(names(grouping_columns_list))) {
-    stop("EXPERIMENTAL_GROUPING_COLUMNS must be a named list.\n",
-         "Example: list(track_label = c('col1', 'col2'))")
-  }
+    grouping_columns_list <- EXPERIMENT_CONFIG$EXPERIMENTAL_GROUPING_COLUMNS
 
-  message("Creating ", length(grouping_columns_list), " grouping columns...")
-
-  # Create each grouping column
-  for (group_name in names(grouping_columns_list)) {
-    grouping_columns <- grouping_columns_list[[group_name]]
-
-    # Validate grouping columns exist in metadata
-    missing_cols <- setdiff(grouping_columns, colnames(metadata_df))
-    if (length(missing_cols) > 0) {
-      stop("Grouping '", group_name, "' references missing columns:\n",
-           "  ", paste(missing_cols, collapse = "\n  "), "\n",
-           "Available columns: ", paste(colnames(metadata_df), collapse = ", "))
+    # Validate it's a named list
+    if (!is.list(grouping_columns_list) || is.null(names(grouping_columns_list))) {
+      stop("EXPERIMENTAL_GROUPING_COLUMNS must be a named list.\n",
+           "Example: list(track_label = c('col1', 'col2'))")
     }
 
-    # Create grouping column by pasting specified columns
-    metadata_df[[group_name]] <- do.call(
-      paste,
-      c(lapply(metadata_df[, grouping_columns], as.character), sep = "-")
-    )
+    message("Creating ", length(grouping_columns_list), " grouping columns...")
 
-    # Report results
-    n_unique <- length(unique(metadata_df[[group_name]]))
-    message("  ", group_name, ":")
-    message("    Based on: ", paste(grouping_columns, collapse = ", "))
-    message("    Unique groups: ", n_unique)
+    # Create each grouping column
+    for (group_name in names(grouping_columns_list)) {
+      grouping_columns <- grouping_columns_list[[group_name]]
+
+      # Validate grouping columns exist in metadata
+      missing_cols <- setdiff(grouping_columns, colnames(metadata_df))
+      if (length(missing_cols) > 0) {
+        stop("Grouping '", group_name, "' references missing columns:\n",
+             "  ", paste(missing_cols, collapse = "\n  "), "\n",
+             "Available columns: ", paste(colnames(metadata_df), collapse = ", "))
+      }
+
+      # Create grouping column by pasting specified columns
+      metadata_df[[group_name]] <- do.call(
+        paste,
+        c(lapply(metadata_df[, grouping_columns], as.character), sep = "-")
+      )
+
+      # Report results
+      n_unique <- length(unique(metadata_df[[group_name]]))
+      message("  ", group_name, ":")
+      message("    Based on: ", paste(grouping_columns, collapse = ", "))
+      message("    Unique groups: ", n_unique)
+    }
+
+    message("Section 8 complete\n")
+
   }
-
-  message("Section 8 complete\n")
 
 } else {
   message("=== SECTION 8: Skipped (GROUPING_COLUMNS = FALSE) ===\n")
+
 }
 
 #===============================================================================
