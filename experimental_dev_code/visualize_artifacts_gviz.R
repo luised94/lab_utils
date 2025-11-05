@@ -17,6 +17,7 @@ GFF_FILE <- "/home/luised94/data/feature_files/240830_saccharomyces_cerevisiae.g
 GENOME_FILE <- "/home/luised94/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
 OUT_DIR <- "~/artifact_visualizations"
 dir.create(path.expand(OUT_DIR), showWarnings = FALSE, recursive = TRUE)
+REPEAT_ZOOM_IN <- FALSE
 
 # Samples to visualize (pick representative ORC, MCM, Input)
 ORC_SAMPLE <- "D25-12504"
@@ -64,6 +65,8 @@ message(paste("Loaded", length(GENOME_FEATURES), "genomic features"))
 # ==============================================================================
 # CREATE VISUALIZATIONS
 # ==============================================================================
+
+if (REPEAT_ZOOM_IN) {
 
 for (i in 1:nrow(artifacts)) {
   artifact <- artifacts[i, ]
@@ -276,6 +279,7 @@ for (i in 1:nrow(artifacts)) {
     message(paste("  ERROR:", e$message))
   })
 }
+}
 
 # ==============================================================================
 # CREATE CHROMOSOME-WIDE OVERVIEW PLOTS
@@ -433,6 +437,8 @@ for (current_chromosome in artifact_chromosomes) {
     major_features <- current_genome_feature[
       grepl("Ty|tRNA|rRNA", current_genome_feature$type, ignore.case = TRUE)
     ]
+    major_features <- major_features[GenomicRanges::width(major_features) > 0L]
+    GenomicRanges::strand(major_features) <- "*"
     
     if (length(major_features) > 0) {
       hl_color <- scales::alpha("#8b4513", 0.15)
@@ -440,8 +446,8 @@ for (current_chromosome in artifact_chromosomes) {
         trackList = track_container,
         range = major_features,
         chromosome = current_chromosome,
-        col = NA,
-        fill = hl_color
+        col =  "#FFFED6",
+        fill = "#ADD8E6"
       )
       #track_container[[length(track_container) + 1]] <- AnnotationTrack(
       #  major_features,
