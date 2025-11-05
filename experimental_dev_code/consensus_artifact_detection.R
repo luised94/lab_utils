@@ -6,19 +6,33 @@
 # CONFIGURATION
 # ==============================================================================
 
-# Use existing window data from previous run
-ARTIFACT_DIR <- "~/artifact_diagnosis"  # Moved outside git repo
+# BigWig directory and file pattern
+BW_DIR <- "/home/luised94/data/250930Bel/coverage"
+BW_PATTERN <- "_CPM.bw$"  # Use CPM-normalized bigwigs instead of RAW
+
+# Use existing window data from previous run OR re-scan with CPM bigwigs
+USE_EXISTING_WINDOWS <- FALSE  # Set to TRUE to use previous window data
+ARTIFACT_DIR <- "~/artifact_diagnosis"  # Only used if USE_EXISTING_WINDOWS = TRUE
 WINDOW_DATA <- file.path(ARTIFACT_DIR, "all_window_signals.txt")
 
 # Parameters
 SUSPECT_CHRS <- c("chrVII", "chrX", "chrXIV")  # Exclude chrXII (rDNA is expected)
-PERCENTILE_THRESHOLD <- 0.95  # Top 5% within each sample
+WINDOW_SIZE <- 10000  # Window size in bp
+PERCENTILE_THRESHOLD <- 0.90  # Top 10% within each sample (relaxed from 95%)
 MIN_IP_FRACTION <- 0.5  # Present in at least 50% of IP samples
-MAX_INPUT_FRACTION <- 0.2  # Present in at most 20% of Input samples
+MAX_INPUT_FRACTION <- 0.25  # Present in at most 25% of Input samples (relaxed from 20%)
+
+# Chromosome lengths (S288C)
+CHR_LENGTHS <- c(
+  chrVII = 1090940,
+  chrX = 745751,
+  chrXIV = 784333
+)
 
 # Feature annotations
 FEATURE_DIR <- "/home/luised94/data/feature_files"
 SGD_GFF <- file.path(FEATURE_DIR, "240830_saccharomyces_cerevisiae.gff")
+METADATA_CSV <- Sys.glob("/home/luised94/data/250930Bel/documentation/*.csv")[1]
 
 # Output
 OUT_DIR <- "consensus_artifacts"
@@ -41,25 +55,143 @@ message("Consensus Artifact Detection - Per-Sample Analysis")
 message("=================================================================\n")
 
 # ==============================================================================
-# 1. LOAD WINDOW DATA
+# 1. LOAD OR SCAN BIGWIG DATA
 # ==============================================================================
 
-message("=== Loading Window Data ===")
-
-if (!file.exists(WINDOW_DATA)) {
-  stop("Window data not found. Run chipseq_artifact_diagnosis.R first!")
+if (USE_EXISTING_WINDOWS && file.exists(WINDOW_DATA)) {
+  message("=== Loading Existing Window Data ===")
+  all_windows <- read.table(WINDOW_DATA, sep = "\t", header = TRUE, 
+                            stringsAsFactors = FALSE)
+  message(paste("Loaded", nrow(all_windows), "window measurements"))
+  
+} else {
+  message("=== Scanning CPM BigWig Files ===")
+  
+  # Load sample metadata
+  message("\nLoading sample metadata...")
+  metadata <- read.csv(METADATA_CSV, stringsAsFactors = FALSE)
+  
+  antibody_col <- colnames(metadata)[grep("antibody", colnames(metadata), 
+                                          ignore.case = TRUE)][1]
+  
+  # Get bigwig files
+  bw_files <- list.files(BW_DIR, pattern = BW_PATTERN, full.names = FALSE)
+  bw_files <- sort(bw_files)
+  sample_ids <- gsub(BW_PATTERN, "", bw_files)
+  
+  message(paste("Found", length(bw_files), "CPM bigwig files"))
+  
+  # Create sample mapping
+  sample_map <- data.frame(
+    sample_id = sample_ids[1:nrow(metadata)],
+    antibody = trimws(metadata[[antibody_col]][1:nrow(metadata)]),
+    stringsAsFactors = FALSE
+  )
+  
+  sample_map$class <- ifelse(
+    grepl("input|Input|INPUT|control", sample_map$antibody, ignore.case = TRUE),
+    "Input", "IP"
+  )
+  
+  message("\nSample classification:")
+  print(table(sample_map$class))
+  
+  # Load bigwig files
+  message("\nLoading bigwigs...")
+  signal_data <- list()
+  for (sample_id in sample_map$sample_id) {
+    bw_file <- file.path(BW_DIR, paste0(sample_id, "_CPM.bw"))
+    if (file.exists(bw_file)) {
+      message(paste("  Loading:", basename(bw_file)))
+      signal_data[[sample_id]] <- import(bw_file, format = "BigWig")
+    }
+  }
+  
+  # Pre-subset by chromosome
+  message("\nPre-subsetting by chromosome...")
+  bw_by_chr <- list()
+  for (chr in SUSPECT_CHRS) {
+    bw_by_chr[[chr]] <- list()
+    for (sample_id in names(signal_data)) {
+      bw_by_chr[[chr]][[sample_id]] <- signal_data[[sample_id]][
+        seqnames(signal_data[[sample_id]]) == chr
+      ]
+    }
+  }
+  
+  # Scan chromosomes
+  message("\n=== Scanning Chromosomes ===")
+  
+  calc_window_signal <- function(bw_gr, chr, start, end) {
+    window_gr <- GRanges(seqnames = chr, 
+                        ranges = IRanges(start = start, end = end))
+    overlaps <- findOverlaps(window_gr, bw_gr)
+    if (length(overlaps) == 0) return(0)
+    hits <- bw_gr[subjectHits(overlaps)]
+    mean(hits$score, na.rm = TRUE)
+  }
+  
+  all_windows_list <- list()
+  counter <- 1
+  
+  for (chr in SUSPECT_CHRS) {
+    message(paste("\nScanning", chr, "..."))
+    chr_len <- CHR_LENGTHS[chr]
+    
+    window_starts <- seq(1, chr_len - WINDOW_SIZE, by = WINDOW_SIZE)
+    window_ends <- window_starts + WINDOW_SIZE - 1
+    window_ends[length(window_ends)] <- min(window_ends[length(window_ends)], chr_len)
+    n_windows <- length(window_starts)
+    
+    message(paste("  Generated", n_windows, "windows"))
+    
+    for (i in seq_along(window_starts)) {
+      window_start <- window_starts[i]
+      window_end <- window_ends[i]
+      window_id <- paste0(chr, ":", window_start, "-", window_end)
+      
+      for (sample_id in names(signal_data)) {
+        bw_chr <- bw_by_chr[[chr]][[sample_id]]
+        signal <- calc_window_signal(bw_chr, chr, window_start, window_end)
+        
+        sample_info <- sample_map[sample_map$sample_id == sample_id, ]
+        
+        all_windows_list[[counter]] <- data.frame(
+          chr = chr,
+          start = window_start,
+          end = window_end,
+          window_id = window_id,
+          sample_id = sample_id,
+          sample_class = sample_info$class,
+          antibody = sample_info$antibody,
+          signal = signal,
+          stringsAsFactors = FALSE
+        )
+        counter <- counter + 1
+      }
+      
+      if (i %% 20 == 0 || i == n_windows) {
+        message(sprintf("    Progress: %d/%d (%.1f%%)", 
+                       i, n_windows, i/n_windows*100))
+      }
+    }
+  }
+  
+  message("\nCombining results...")
+  all_windows <- do.call(rbind, all_windows_list)
+  
+  # Save window data
+  write.table(all_windows, file.path(OUT_DIR, "cpm_window_signals.txt"),
+              sep = "\t", quote = FALSE, row.names = FALSE)
+  message(paste("Saved window data to:", 
+                file.path(OUT_DIR, "cpm_window_signals.txt")))
 }
-
-all_windows <- read.table(WINDOW_DATA, sep = "\t", header = TRUE,
-                          stringsAsFactors = FALSE)
-
-message(paste("Loaded", nrow(all_windows), "window measurements"))
 
 # Filter to suspect chromosomes only
 all_windows <- all_windows %>%
   filter(chr %in% SUSPECT_CHRS)
 
-message(paste("Analyzing", nrow(all_windows),
+message(paste("Analyzing", nrow(all_windows), 
               "measurements on chromosomes:", paste(SUSPECT_CHRS, collapse = ", ")))
 
 # Get sample info
@@ -101,7 +233,7 @@ message("\n=== Identifying Elevated Windows Per Sample ===")
 
 # Join thresholds to window data
 all_windows <- all_windows %>%
-  left_join(sample_thresholds %>% select(sample_id, threshold_95),
+  left_join(sample_thresholds %>% select(sample_id, threshold_95), 
             by = "sample_id")
 
 # Mark windows as elevated if signal > threshold
@@ -144,8 +276,8 @@ consensus <- all_windows %>%
   )
 
 # Identify consensus artifacts:
-# - Elevated in >=% of IP samples
-# - Elevated in >=% of Input samples
+# - Elevated in ò50% of IP samples
+# - Elevated in ó20% of Input samples
 consensus_artifacts <- consensus %>%
   filter(
     fraction_elevated_IP >= MIN_IP_FRACTION,
@@ -191,7 +323,7 @@ message("\n=== Annotating Artifacts with SGD GFF Features ===")
 if (!file.exists(SGD_GFF)) {
   message(paste("WARNING: GFF file not found at:", SGD_GFF))
   message("Skipping feature annotation")
-
+  
   # Add empty annotation columns
   consensus_artifacts$overlapping_features <- ""
   consensus_artifacts$feature_types <- ""
@@ -201,43 +333,43 @@ if (!file.exists(SGD_GFF)) {
   consensus_artifacts$has_repeat <- FALSE
   consensus_artifacts$has_y_prime <- FALSE
   consensus_artifacts$has_telomere <- FALSE
-
+  
 } else {
   message(paste("Loading GFF:", basename(SGD_GFF)))
-
+  
   # Import GFF
   gff <- import(SGD_GFF, format = "GFF")
-
+  
   message(paste("Loaded", length(gff), "features from GFF"))
-
+  
   # Convert to data frame for easier manipulation
   gff_df <- as.data.frame(gff)
-
+  
   # Create GRanges for artifacts
   artifact_gr <- GRanges(
     seqnames = consensus_artifacts$chr,
     ranges = IRanges(start = consensus_artifacts$start, end = consensus_artifacts$end),
     window_id = consensus_artifacts$window_id
   )
-
+  
   # Find overlaps
   overlaps <- findOverlaps(artifact_gr, gff)
-
+  
   # Initialize annotation columns
   consensus_artifacts$overlapping_features <- ""
   consensus_artifacts$feature_types <- ""
   consensus_artifacts$feature_names <- ""
-
+  
   # Annotate each artifact with overlapping features
   for (i in seq_along(artifact_gr)) {
     hits <- subjectHits(overlaps)[queryHits(overlaps) == i]
-
+    
     if (length(hits) > 0) {
       hit_features <- gff_df[hits, ]
-
+      
       # Extract feature information
       feature_types <- unique(hit_features$type)
-
+      
       # Try to get feature names from different possible columns
       feature_names <- character()
       if ("Name" %in% colnames(hit_features)) {
@@ -249,37 +381,37 @@ if (!file.exists(SGD_GFF)) {
       if ("gene" %in% colnames(hit_features)) {
         feature_names <- c(feature_names, na.omit(hit_features$gene))
       }
-
+      
       feature_names <- unique(feature_names)
-
+      
       # Combine all information
       all_info <- unique(c(feature_types, feature_names))
-
+      
       consensus_artifacts$overlapping_features[i] <- paste(all_info, collapse = "; ")
       consensus_artifacts$feature_types[i] <- paste(feature_types, collapse = "; ")
       consensus_artifacts$feature_names[i] <- paste(feature_names, collapse = "; ")
     }
   }
-
+  
   # Identify specific feature categories
   consensus_artifacts <- consensus_artifacts %>%
     mutate(
-      has_ty = grepl("Ty|delta|transpos|LTR|long_terminal_repeat",
+      has_ty = grepl("Ty|delta|transpos|LTR|long_terminal_repeat", 
                      overlapping_features, ignore.case = TRUE),
-      has_ars = grepl("ARS|autonomously_replicating_sequence|origin",
+      has_ars = grepl("ARS|autonomously_replicating_sequence|origin", 
                       overlapping_features, ignore.case = TRUE),
-      has_repeat = grepl("repeat|repetitive",
+      has_repeat = grepl("repeat|repetitive", 
                          overlapping_features, ignore.case = TRUE),
-      has_y_prime = grepl("Y_prime|Y'|YRF",
+      has_y_prime = grepl("Y_prime|Y'|YRF", 
                           overlapping_features, ignore.case = TRUE),
-      has_telomere = grepl("telomere|TEL",
+      has_telomere = grepl("telomere|TEL", 
                            overlapping_features, ignore.case = TRUE),
-      has_trna = grepl("tRNA|transfer_RNA",
+      has_trna = grepl("tRNA|transfer_RNA", 
                        overlapping_features, ignore.case = TRUE),
-      has_rrna = grepl("rRNA|ribosomal_RNA",
+      has_rrna = grepl("rRNA|ribosomal_RNA", 
                        overlapping_features, ignore.case = TRUE)
     )
-
+  
   message("Feature annotation complete")
 }
 
@@ -294,7 +426,7 @@ write.table(consensus_artifacts, file.path(OUT_DIR, "consensus_artifacts_annotat
 message("\n=== Feature Overlap Summary ===")
 
 feature_summary <- data.frame(
-  Feature = c("Ty elements", "ARS elements", "Repeats", "Y' elements",
+  Feature = c("Ty elements", "ARS elements", "Repeats", "Y' elements", 
               "Telomeres", "tRNA", "rRNA", "No annotation"),
   Count = c(
     sum(consensus_artifacts$has_ty),
@@ -321,7 +453,7 @@ artifact_windows <- consensus_artifacts$window_id
 
 artifact_details <- all_windows %>%
   filter(window_id %in% artifact_windows) %>%
-  select(window_id, chr, start, end, sample_id, sample_class,
+  select(window_id, chr, start, end, sample_id, sample_class, 
          antibody, signal, is_elevated) %>%
   arrange(window_id, sample_class, sample_id)
 
@@ -340,23 +472,23 @@ if (nrow(consensus_artifacts) > 0) {
     geom_bar() +
     labs(title = "Consensus Artifacts by Chromosome",
          subtitle = sprintf("Total: %d regions elevated in >=%.0f%% of IPs, >=%.0f%% of Inputs",
-                           nrow(consensus_artifacts),
+                           nrow(consensus_artifacts), 
                            MIN_IP_FRACTION * 100,
                            MAX_INPUT_FRACTION * 100),
          x = "Chromosome", y = "Number of Artifact Windows",
          fill = "Contains\nTy Element") +
     theme_bw() +
     theme(legend.position = "right")
-
-  ggsave(file.path(OUT_DIR, "artifacts_by_chromosome.pdf"), p1,
+  
+  ggsave(file.path(OUT_DIR, "artifacts_by_chromosome.pdf"), p1, 
          width = 8, height = 6)
 }
 
 # Plot 2: IP fraction vs Input fraction
-p2 <- ggplot(consensus, aes(x = fraction_elevated_Input,
+p2 <- ggplot(consensus, aes(x = fraction_elevated_Input, 
                              y = fraction_elevated_IP)) +
   geom_point(alpha = 0.3, color = "gray60") +
-  geom_point(data = consensus_artifacts,
+  geom_point(data = consensus_artifacts, 
              aes(x = fraction_elevated_Input, y = fraction_elevated_IP),
              color = "red", size = 2) +
   geom_hline(yintercept = MIN_IP_FRACTION, linetype = "dashed", color = "blue") +
@@ -367,20 +499,20 @@ p2 <- ggplot(consensus, aes(x = fraction_elevated_Input,
        y = "Fraction of IP Samples with Elevated Signal") +
   theme_bw()
 
-ggsave(file.path(OUT_DIR, "consensus_scatter.pdf"), p2,
+ggsave(file.path(OUT_DIR, "consensus_scatter.pdf"), p2, 
        width = 8, height = 6)
 
 # Plot 3: Signal heatmap for top artifacts
 if (nrow(consensus_artifacts) > 0) {
   top_artifacts <- head(consensus_artifacts$window_id, 20)
-
+  
   heatmap_data <- artifact_details %>%
     filter(window_id %in% top_artifacts) %>%
     mutate(
       window_label = paste0(chr, ":", start/1000, "kb"),
       sample_label = paste0(sample_id, " (", antibody, ")")
     )
-
+  
   p3 <- ggplot(heatmap_data, aes(x = sample_label, y = window_label, fill = signal)) +
     geom_tile() +
     geom_point(data = heatmap_data %>% filter(is_elevated),
@@ -395,8 +527,8 @@ if (nrow(consensus_artifacts) > 0) {
     theme_bw() +
     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 8),
           axis.text.y = element_text(size = 8))
-
-  ggsave(file.path(OUT_DIR, "artifact_heatmap.pdf"), p3,
+  
+  ggsave(file.path(OUT_DIR, "artifact_heatmap.pdf"), p3, 
          width = 14, height = 10)
 }
 
@@ -417,9 +549,9 @@ cat("Date:", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n")
 cat("Analysis Parameters:\n")
 cat(paste("  Chromosomes analyzed:", paste(SUSPECT_CHRS, collapse = ", "), "\n"))
 cat(paste("  Per-sample threshold: Top", (1 - PERCENTILE_THRESHOLD) * 100, "% of signal\n"))
-cat(paste("  Minimum IP fraction:", MIN_IP_FRACTION,
+cat(paste("  Minimum IP fraction:", MIN_IP_FRACTION, 
           sprintf("(>=%.0f%% of IP samples)\n", MIN_IP_FRACTION * 100)))
-cat(paste("  Maximum Input fraction:", MAX_INPUT_FRACTION,
+cat(paste("  Maximum Input fraction:", MAX_INPUT_FRACTION, 
           sprintf("(>=%.0f%% of Input samples)\n", MAX_INPUT_FRACTION * 100)))
 
 cat("\nSamples:\n")
