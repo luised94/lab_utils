@@ -11,7 +11,7 @@ library(GenomicRanges)
 # ==============================================================================
 
 BW_DIR <- "/home/luised94/data/250930Bel/coverage"
-ARTIFACT_FILE <- "consensus_artifacts/consensus_artifacts_annotated.txt"
+ARTIFACT_FILE <- "~/consensus_artifacts/consensus_artifacts_annotated.txt"
 GFF_FILE <- "/home/luised94/data/feature_files/240830_saccharomyces_cerevisiae.gff"
 OUT_DIR <- "artifact_visualizations"
 dir.create(OUT_DIR, showWarnings = FALSE)
