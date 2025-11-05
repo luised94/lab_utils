@@ -278,9 +278,20 @@ calc_window_signal <- function(bw_gr, chr, start, end) {
   mean(hits$score, na.rm = TRUE)
 }
 
-# Scan each chromosome
-all_windows <- data.frame()
+# Pre-allocate lists for speed (avoid repeated rbind)
+all_windows_list <- list()
+counter <- 1
 
+# Pre-subset bigwigs by chromosome (do once, not in loop)
+bw_by_chr <- list()
+for (chr in SUSPECT_CHRS) {
+  bw_by_chr[[chr]] <- list()
+  for (sample_id in names(signal_data)) {
+    bw_by_chr[[chr]][[sample_id]] <- signal_data[[sample_id]][seqnames(signal_data[[sample_id]]) == chr]
+  }
+}
+
+# Scan each chromosome
 for (chr in SUSPECT_CHRS) {
   message(paste("\nScanning", chr, "..."))
   chr_len <- CHR_LENGTHS[chr]
@@ -289,41 +300,49 @@ for (chr in SUSPECT_CHRS) {
   window_starts <- seq(1, chr_len - WINDOW_SIZE, by = WINDOW_SIZE)
   window_ends <- window_starts + WINDOW_SIZE - 1
   window_ends[length(window_ends)] <- min(window_ends[length(window_ends)], chr_len)
+  n_windows <- length(window_starts)
   
-  message(paste("  Generated", length(window_starts), "windows"))
+  message(paste("  Generated", n_windows, "windows"))
   
   # Calculate signal for each window across all samples
   for (i in seq_along(window_starts)) {
     window_start <- window_starts[i]
     window_end <- window_ends[i]
+    window_id <- paste0(chr, ":", window_start, "-", window_end)
     
     # Calculate mean signal for each sample in this window
     for (sample_id in names(signal_data)) {
-      bw <- signal_data[[sample_id]]
-      bw_chr <- bw[seqnames(bw) == chr]
+      bw_chr <- bw_by_chr[[chr]][[sample_id]]  # Pre-subsetted
       
       signal <- calc_window_signal(bw_chr, chr, window_start, window_end)
       
-      # Get sample info from metadata
+      # Get sample info from metadata (lookup once)
       sample_info <- sample_map[sample_map$sample_id == sample_id, ]
       
-      all_windows <- rbind(all_windows, data.frame(
+      # Store in list (much faster than rbind)
+      all_windows_list[[counter]] <- data.frame(
         chr = chr,
         start = window_start,
         end = window_end,
-        window_id = paste0(chr, ":", window_start, "-", window_end),
+        window_id = window_id,
         sample_id = sample_id,
         sample_class = sample_info$class,
         antibody = sample_info$antibody,
-        signal = signal
-      ))
+        signal = signal,
+        stringsAsFactors = FALSE
+      )
+      counter <- counter + 1
     }
     
-    if (i %% 10 == 0) {
-      message(paste("    Progress:", i, "/", length(window_starts)))
+    if (i %% 20 == 0 || i == n_windows) {
+      message(sprintf("    Progress: %d/%d (%.1f%%)", i, n_windows, i/n_windows*100))
     }
   }
 }
+
+# Combine all at once (much faster than repeated rbind)
+message("\nCombining results...")
+all_windows <- do.call(rbind, all_windows_list)
 
 message("\nWindow scanning complete")
 
@@ -363,7 +382,32 @@ if (!"mean_signal_Input" %in% colnames(window_summary)) {
 window_summary$ip_input_ratio <- window_summary$mean_signal_IP / 
                                   (window_summary$mean_signal_Input + 0.1)
 
-# Identify artifact windows
+# Print diagnostic info
+message("\n=== Signal Distribution Diagnostics ===")
+message(sprintf("IP signal range: %.1f - %.1f (median: %.1f)", 
+                min(window_summary$mean_signal_IP, na.rm = TRUE),
+                max(window_summary$mean_signal_IP, na.rm = TRUE),
+                median(window_summary$mean_signal_IP, na.rm = TRUE)))
+message(sprintf("Input signal range: %.1f - %.1f (median: %.1f)", 
+                min(window_summary$mean_signal_Input, na.rm = TRUE),
+                max(window_summary$mean_signal_Input, na.rm = TRUE),
+                median(window_summary$mean_signal_Input, na.rm = TRUE)))
+message(sprintf("IP/Input ratio range: %.1f - %.1f (median: %.1f)", 
+                min(window_summary$ip_input_ratio, na.rm = TRUE),
+                max(window_summary$ip_input_ratio, na.rm = TRUE),
+                median(window_summary$ip_input_ratio, na.rm = TRUE)))
+
+# Count windows passing each threshold
+n_high_ip <- sum(window_summary$mean_signal_IP > ARTIFACT_THRESHOLD, na.rm = TRUE)
+n_high_ratio <- sum(window_summary$ip_input_ratio > IP_VS_INPUT_RATIO, na.rm = TRUE)
+n_low_input <- sum(window_summary$mean_signal_Input < 50, na.rm = TRUE)
+
+message("\nWindows passing thresholds:")
+message(sprintf("  IP signal > %d: %d windows", ARTIFACT_THRESHOLD, n_high_ip))
+message(sprintf("  IP/Input ratio > %d: %d windows", IP_VS_INPUT_RATIO, n_high_ratio))
+message(sprintf("  Input signal < 50: %d windows", n_low_input))
+
+# Identify artifact windows with relaxed thresholds if none found
 artifact_windows <- window_summary %>%
   filter(
     mean_signal_IP > ARTIFACT_THRESHOLD,
@@ -372,7 +416,43 @@ artifact_windows <- window_summary %>%
   ) %>%
   arrange(chr, start)
 
+message(sprintf("\nArtifacts (all 3 thresholds): %d windows", nrow(artifact_windows)))
+
+# If no artifacts found, try relaxed criteria
+if (nrow(artifact_windows) == 0) {
+  message("\n=== No artifacts with strict thresholds. Trying relaxed criteria ===")
+  
+  # Try: High IP signal OR high ratio
+  artifact_windows_relaxed <- window_summary %>%
+    filter(
+      mean_signal_IP > ARTIFACT_THRESHOLD | 
+      (ip_input_ratio > IP_VS_INPUT_RATIO & mean_signal_IP > 50)
+    ) %>%
+    arrange(desc(mean_signal_IP)) %>%
+    head(50)  # Top 50
+  
+  message(sprintf("Found %d candidate regions with relaxed criteria", 
+                  nrow(artifact_windows_relaxed)))
+  
+  if (nrow(artifact_windows_relaxed) > 0) {
+    # Use relaxed criteria
+    artifact_windows <- artifact_windows_relaxed
+    message("Using relaxed artifact windows for further analysis")
+  }
+}
+
 message(paste("Identified", nrow(artifact_windows), "artifact windows"))
+
+# Always save top signal regions for inspection
+top_signal_windows <- window_summary %>%
+  arrange(desc(mean_signal_IP)) %>%
+  head(100)
+
+write.table(top_signal_windows, file.path(OUT_DIR, "top_100_signal_windows.txt"),
+            sep = "\t", quote = FALSE, row.names = FALSE)
+
+message(paste("Saved top 100 signal windows to:", 
+              file.path(OUT_DIR, "top_100_signal_windows.txt")))
 
 if (nrow(artifact_windows) > 0) {
   write.table(artifact_windows, file.path(OUT_DIR, "artifact_windows.txt"),
@@ -564,7 +644,7 @@ cat(paste("  Artifact threshold:", ARTIFACT_THRESHOLD, "AU\n"))
 cat(paste("  IP/Input ratio:", IP_VS_INPUT_RATIO, "\n\n"))
 
 cat("Samples Analyzed:\n")
-cat(paste("  Total:", length(matched_samples), "\n"))
+cat(paste("  Total:", nrow(sample_map), "\n"))
 sample_counts <- table(sample_map$class)
 for (class in names(sample_counts)) {
   cat(paste("  ", class, ":", sample_counts[class], "\n"))
