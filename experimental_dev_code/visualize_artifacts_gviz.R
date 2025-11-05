@@ -436,8 +436,8 @@ for (current_chromosome in artifact_chromosomes) {
     
     if (length(major_features) > 0) {
       hl_color <- scales::alpha("#8b4513", 0.15)
-      track_container[[length(track_container) + 1]] <- Gviz::HighlightTrack(
-        trackList = major_features,
+      highlighted_tracks <- Gviz::HighlightTrack(
+        trackList = track_container,
         range = major_features,
         chromosome = current_chromosome,
         col = NA,
@@ -479,7 +479,7 @@ for (current_chromosome in artifact_chromosomes) {
     )
     
     plotTracks(
-      trackList = track_container,
+      trackList = highlighted_tracks,
       chromosome = current_chromosome,
       margin = 15,
       innerMargin = 5,
