@@ -464,8 +464,15 @@ for (current_chromosome in artifact_chromosomes) {
       if (length(current_features) > 0) {
         message(sprintf("  Adding highlight layer for '%s'", pattern))
 
+        # Determine the correct trackList structure
+        current_track_list <- if (is(highlight_wrapper, "HighlightTrack")) {
+          list(highlight_wrapper) # If it's already a HighlightTrack, wrap it in a list
+        } else {
+          highlight_wrapper # If it's the initial list of DataTracks, use it directly
+        }
+
         highlight_wrapper <- Gviz::HighlightTrack(
-          trackList = if (i == 1 && !is(highlight_wrapper, "HighlightTrack")) highlight_wrapper else list(highlight_wrapper),
+          trackList = current_track_list,
           range = current_features,
           chromosome = current_chromosome,
           inBackground = FALSE,
