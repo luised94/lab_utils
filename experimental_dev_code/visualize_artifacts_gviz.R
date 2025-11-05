@@ -434,8 +434,10 @@ for (current_chromosome in artifact_chromosomes) {
   if (length(current_genome_feature) > 0) {
     # Only show major features to avoid overcrowding
     #grepl("gene|CDS|ARS|Ty|tRNA|rRNA", current_genome_feature$type, ignore.case = TRUE)
+    #grepl("Ty|tRNA|rRNA", current_genome_feature$type, ignore.case = TRUE)
     major_features <- current_genome_feature[
-      grepl("Ty|tRNA|rRNA", current_genome_feature$type, ignore.case = TRUE)
+      grepl("Ty|tRNA|rRNA|LTR|retrotransposon|telomere|subtelomeric|X_element|Y_prime|centromere", 
+      current_genome_feature$type, ignore.case = TRUE)
     ]
     major_features <- major_features[GenomicRanges::width(major_features) > 0L]
     GenomicRanges::strand(major_features) <- "*"
@@ -446,8 +448,12 @@ for (current_chromosome in artifact_chromosomes) {
         trackList = track_container,
         range = major_features,
         chromosome = current_chromosome,
-        col =  "#FFFED6",
-        fill = "#ADD8E6"
+        inBackground = FALSE,
+        # --- Appearance Parameters ---
+        fill = "saddlebrown",  # A strong base color (#8B4513)
+        col = "saddlebrown",    # Border color
+        alpha = 0.3,            # Transparency for the fill and border
+        lwd = 2                 # Line width for the border
       )
       #track_container[[length(track_container) + 1]] <- AnnotationTrack(
       #  major_features,
