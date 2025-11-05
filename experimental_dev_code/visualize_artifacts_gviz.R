@@ -5,22 +5,20 @@
 library(Gviz)
 library(rtracklayer)
 library(GenomicRanges)
-library(Biostrings)
+library(GenomeInfoDb)
 
 # ==============================================================================
 # CONFIGURATION
 # ==============================================================================
 
-# Directories
 BW_DIR <- "/home/luised94/data/250930Bel/coverage"
 ARTIFACT_FILE <- "~/consensus_artifacts/consensus_artifacts_annotated.txt"
 GFF_FILE <- "/home/luised94/data/feature_files/240830_saccharomyces_cerevisiae.gff"
-GENOME_FILE <- "/home/luised94/data/REFGENS/SaccharomycescerevisiaeS288C/SaccharomycescerevisiaeS288C_refgenome.fna"
 OUT_DIR <- "~/artifact_visualizations"
-dir.create(OUT_DIR, showWarnings = FALSE, recursive = TRUE)
+dir.create(path.expand(OUT_DIR), showWarnings = FALSE, recursive = TRUE)
 
 # Samples to visualize (pick representative ORC, MCM, Input)
-ORC_SAMPLE <- "D25-12504"  # Adjust to your actual sample IDs
+ORC_SAMPLE <- "D25-12504"
 MCM_SAMPLE <- "D25-12510"
 INPUT_SAMPLE <- "D25-12496"
 
@@ -28,39 +26,19 @@ INPUT_SAMPLE <- "D25-12496"
 CONTEXT_WINDOW <- 20000
 
 # ==============================================================================
-# LOAD GENOME AND GET CHROMOSOME LENGTHS
-# ==============================================================================
-
-message("Loading genome to get chromosome lengths...")
-
-# Read chromosome lengths from FASTA index
-fai_file <- paste0(GENOME_FILE, ".fai")
-
-if (file.exists(fai_file)) {
-  fai <- read.table(fai_file, header = FALSE, stringsAsFactors = FALSE)
-  chr_lengths <- setNames(fai$V2, fai$V1)
-  message(paste("  Loaded", length(chr_lengths), "chromosomes from FAI"))
-} else {
-  # Create FAI if it doesn't exist
-  message("  Creating FASTA index...")
-  genome <- readDNAStringSet(GENOME_FILE)
-  chr_lengths <- setNames(width(genome), names(genome))
-  message(paste("  Indexed", length(chr_lengths), "chromosomes"))
-}
-
-# ==============================================================================
 # LOAD DATA
 # ==============================================================================
 
-message("\nLoading artifacts...")
+message("Loading artifacts...")
 artifacts <- read.table(path.expand(ARTIFACT_FILE), sep = "\t", header = TRUE, 
                        stringsAsFactors = FALSE)
 
 message(paste("Found", nrow(artifacts), "artifacts to visualize"))
 
-# Load GFF
+# Load GFF once
 message("Loading GFF annotations...")
-gff <- import(GFF_FILE, format = "GFF")
+GENOME_FEATURES <- import(GFF_FILE, format = "GFF")
+message(paste("Loaded", length(GENOME_FEATURES), "genomic features"))
 
 # ==============================================================================
 # CREATE VISUALIZATIONS
@@ -69,179 +47,217 @@ gff <- import(GFF_FILE, format = "GFF")
 for (i in 1:nrow(artifacts)) {
   artifact <- artifacts[i, ]
   
-  chr <- artifact$chr
+  current_chromosome <- artifact$chr
+  artifact_start <- artifact$start
+  artifact_end <- artifact$end
   
-  # Get chromosome length
-  chr_len <- chr_lengths[chr]
-  if (is.na(chr_len)) {
-    message(sprintf("  WARNING: Chromosome %s not found in genome, skipping", chr))
-    next
-  }
-  
-  start <- max(1, artifact$start - CONTEXT_WINDOW)
-  end <- min(chr_len, artifact$end + CONTEXT_WINDOW)
+  # Define region to visualize
+  region_start <- max(1, artifact_start - CONTEXT_WINDOW)
+  region_end <- artifact_end + CONTEXT_WINDOW
   
   message(sprintf("\nVisualizing artifact %d/%d: %s:%d-%d", 
-                 i, nrow(artifacts), chr, artifact$start, artifact$end))
+                 i, nrow(artifacts), current_chromosome, artifact_start, artifact_end))
   
-  # Extract feature info (clean up for filename)
-  features <- artifact$overlapping_features
-  feature_short <- gsub("[^A-Za-z0-9_]", "_", substr(features, 1, 40))
+  # Create GRanges for this region
+  current_genome_range <- GRanges(
+    seqnames = current_chromosome,
+    ranges = IRanges(start = region_start, end = region_end)
+  )
+  
+  # Initialize track container
+  track_container <- list()
+  
+  # 1. Genome axis track
+  track_container[[1]] <- GenomeAxisTrack(
+    name = sprintf("%s Axis", current_chromosome),
+    fontcolor.title = "black",
+    cex.title = 0.7,
+    background.title = "white"
+  )
+  
+  # 2. Artifact region highlight
+  artifact_gr <- GRanges(
+    seqnames = current_chromosome,
+    ranges = IRanges(start = artifact_start, end = artifact_end)
+  )
+  
+  track_container[[2]] <- AnnotationTrack(
+    artifact_gr,
+    name = "Artifact",
+    fill = "pink",
+    col = "red",
+    alpha = 0.5,
+    background.title = "lightcoral",
+    fontcolor.title = "black",
+    cex.title = 0.7
+  )
+  
+  # 3. Load and add bigwig tracks
+  # ORC track
+  orc_file <- file.path(BW_DIR, paste0(ORC_SAMPLE, "_CPM.bw"))
+  if (file.exists(orc_file)) {
+    message("  Loading ORC bigwig...")
+    orc_data <- import(
+      orc_file,
+      format = "BigWig",
+      which = current_genome_range
+    )
+    
+    if (length(orc_data) > 0) {
+      track_container[[length(track_container) + 1]] <- DataTrack(
+        range = orc_data,
+        name = "ORC",
+        showAxis = TRUE,
+        showTitle = TRUE,
+        type = "histogram",
+        size = 1.2,
+        background.title = "white",
+        fontcolor.title = "black",
+        cex.title = 0.7,
+        col = "darkgreen",
+        fill = "darkgreen"
+      )
+    } else {
+      message("  WARNING: No ORC data in this region")
+    }
+  }
+  
+  # MCM track
+  mcm_file <- file.path(BW_DIR, paste0(MCM_SAMPLE, "_CPM.bw"))
+  if (file.exists(mcm_file)) {
+    message("  Loading MCM bigwig...")
+    mcm_data <- import(
+      mcm_file,
+      format = "BigWig",
+      which = current_genome_range
+    )
+    
+    if (length(mcm_data) > 0) {
+      track_container[[length(track_container) + 1]] <- DataTrack(
+        range = mcm_data,
+        name = "MCM",
+        showAxis = TRUE,
+        showTitle = TRUE,
+        type = "histogram",
+        size = 1.2,
+        background.title = "white",
+        fontcolor.title = "black",
+        cex.title = 0.7,
+        col = "purple",
+        fill = "purple"
+      )
+    } else {
+      message("  WARNING: No MCM data in this region")
+    }
+  }
+  
+  # Input track
+  input_file <- file.path(BW_DIR, paste0(INPUT_SAMPLE, "_CPM.bw"))
+  if (file.exists(input_file)) {
+    message("  Loading Input bigwig...")
+    input_data <- import(
+      input_file,
+      format = "BigWig",
+      which = current_genome_range
+    )
+    
+    if (length(input_data) > 0) {
+      track_container[[length(track_container) + 1]] <- DataTrack(
+        range = input_data,
+        name = "Input",
+        showAxis = TRUE,
+        showTitle = TRUE,
+        type = "histogram",
+        size = 1.2,
+        background.title = "white",
+        fontcolor.title = "black",
+        cex.title = 0.7,
+        col = "gray60",
+        fill = "gray60"
+      )
+    } else {
+      message("  WARNING: No Input data in this region")
+    }
+  }
+  
+  # 4. Add genomic features
+  message("  Adding genomic features...")
+  current_genome_feature <- keepSeqlevels(
+    GENOME_FEATURES,
+    current_chromosome,
+    pruning.mode = "coarse"
+  )
+  
+  # Subset to region
+  feature_subset <- subsetByOverlaps(current_genome_feature, current_genome_range)
+  
+  if (length(feature_subset) > 0) {
+    track_container[[length(track_container) + 1]] <- AnnotationTrack(
+      feature_subset,
+      name = "Features",
+      size = 1.0,
+      background.title = "lightgray",
+      fontcolor.title = "black",
+      showAxis = FALSE,
+      cex.title = 0.6,
+      fill = "#8b4513",
+      col = "#8b4513",
+      stacking = "squish"
+    )
+  }
   
   # Create filename
+  features_short <- gsub("[^A-Za-z0-9_]", "_", substr(artifact$overlapping_features, 1, 40))
   filename <- sprintf("%s_%d-%d_%s.pdf", 
-                     gsub("chr", "", chr), 
-                     artifact$start, 
-                     artifact$end,
-                     feature_short)
+                     gsub("chr", "", current_chromosome), 
+                     artifact_start, 
+                     artifact_end,
+                     features_short)
   
-  pdf(file.path(path.expand(OUT_DIR), filename), width = 12, height = 8)
+  plot_output_file <- file.path(path.expand(OUT_DIR), filename)
   
-  tryCatch({
-    # Genome axis
-    gtrack <- GenomeAxisTrack()
-    
-    # GFF features in region
-    gff_region <- subsetByOverlaps(gff, GRanges(chr, IRanges(start, end)))
-    
-    track_list <- list(gtrack)
-    
-    # Artifact region highlight (add first so it's in background)
-    artifact_gr <- GRanges(chr, IRanges(artifact$start, artifact$end))
-    artifact_track <- AnnotationTrack(artifact_gr,
-                                     name = "Artifact",
-                                     fill = "pink",
-                                     col = "red",
-                                     alpha = 0.5)
-    track_list <- c(track_list, list(artifact_track))
-    
-    # BigWig tracks
-    orc_file <- file.path(BW_DIR, paste0(ORC_SAMPLE, "_CPM.bw"))
-    mcm_file <- file.path(BW_DIR, paste0(MCM_SAMPLE, "_CPM.bw"))
-    input_file <- file.path(BW_DIR, paste0(INPUT_SAMPLE, "_CPM.bw"))
-    
-    if (file.exists(orc_file)) {
-      orc_track <- DataTrack(range = orc_file,
-                            chromosome = chr,
-                            name = "ORC",
-                            type = "histogram",
-                            fill = "darkgreen",
-                            col = "darkgreen",
-                            ylim = c(0, NA))
-      track_list <- c(track_list, list(orc_track))
-    }
-    
-    if (file.exists(mcm_file)) {
-      mcm_track <- DataTrack(range = mcm_file,
-                            chromosome = chr,
-                            name = "MCM",
-                            type = "histogram",
-                            fill = "purple",
-                            col = "purple",
-                            ylim = c(0, NA))
-      track_list <- c(track_list, list(mcm_track))
-    }
-    
-    if (file.exists(input_file)) {
-      input_track <- DataTrack(range = input_file,
-                              chromosome = chr,
-                              name = "Input",
-                              type = "histogram",
-                              fill = "gray60",
-                              col = "gray60",
-                              ylim = c(0, NA))
-      track_list <- c(track_list, list(input_track))
-    }
-    
-    # Add GFF features if present
-    if (length(gff_region) > 0) {
-      # Color features by type
-      feature_colors <- rep("lightblue", length(gff_region))
-      feature_colors[grepl("Ty|transpos|LTR", gff_region$type, ignore.case = TRUE)] <- "orange"
-      feature_colors[grepl("ARS|origin", gff_region$type, ignore.case = TRUE)] <- "red"
-      feature_colors[grepl("tRNA", gff_region$type, ignore.case = TRUE)] <- "green"
-      feature_colors[grepl("repeat", gff_region$type, ignore.case = TRUE)] <- "yellow"
-      
-      atrack <- AnnotationTrack(gff_region, 
-                               name = "Features",
-                               fill = feature_colors,
-                               col = "black",
-                               stacking = "squish",
-                               fontsize = 6,
-                               rotation.title = 0)
-      track_list <- c(track_list, list(atrack))
-    }
-    
-    # Plot all tracks
-    plotTracks(track_list,
-              from = start,
-              to = end,
-              chromosome = chr,
-              main = sprintf("Artifact %d: %s:%d-%d\nFeatures: %s", 
-                           i, chr, artifact$start, artifact$end,
-                           features),
-              cex.main = 0.7,
-              cex.axis = 0.7,
-              background.title = "darkgray")
-    
-    message("  Success!")
-    
-  }, error = function(e) {
-    message(paste("  Error plotting:", e$message))
-  })
-  
-  dev.off()
-  message(paste("  Saved:", filename))
-}
-
-# ==============================================================================
-# CREATE SUMMARY FIGURE
-# ==============================================================================
-
-message("\n=== Creating Summary Figure ===")
-
-# Pick top 3 artifacts for summary
-top_artifacts <- head(artifacts, 3)
-
-pdf(file.path(path.expand(OUT_DIR), "artifact_summary.pdf"), 
-    width = 12, height = 10)
-
-par(mfrow = c(3, 1), mar = c(4, 4, 3, 1))
-
-for (i in 1:nrow(top_artifacts)) {
-  artifact <- top_artifacts[i, ]
-  chr <- artifact$chr
-  
-  message(sprintf("Adding to summary: %s:%d-%d", chr, artifact$start, artifact$end))
+  # Plot
+  message("  Creating PDF...")
   
   tryCatch({
-    # Simple plotting without Gviz for summary
-    plot(1, type = "n", 
-         xlim = c(artifact$start, artifact$end),
-         ylim = c(0, 20),
-         xlab = sprintf("%s position (bp)", chr),
-         ylab = "Signal (CPM)",
-         main = sprintf("Artifact %d: %s\n%s", 
-                       i, artifact$window_id, artifact$overlapping_features),
-         cex.main = 0.8)
+    pdf(
+      file = plot_output_file,
+      width = 10,
+      height = 8,
+      bg = "white",
+      compress = TRUE,
+      colormodel = "srgb",
+      useDingbats = FALSE
+    )
     
-    # Add shaded artifact region
-    rect(artifact$start, 0, artifact$end, 20, 
-         col = rgb(1, 0, 0, 0.2), border = NA)
+    plotTracks(
+      trackList = track_container,
+      chromosome = current_chromosome,
+      from = region_start,
+      to = region_end,
+      margin = 15,
+      innerMargin = 5,
+      main = sprintf("Artifact: %s:%d-%d\n%s", 
+                    current_chromosome, artifact_start, artifact_end,
+                    artifact$overlapping_features),
+      col.axis = "black",
+      cex.axis = 0.8,
+      cex.main = 0.7,
+      fontface.main = 1,
+      background.panel = "white"
+    )
     
-    legend("topright", 
-           legend = c("ORC", "MCM", "Input", "Artifact region"),
-           col = c("darkgreen", "purple", "gray60", "pink"),
-           lty = 1, lwd = 2, cex = 0.7)
+    dev.off()
+    message(paste("  SUCCESS! Saved:", filename))
     
   }, error = function(e) {
-    message(paste("  Error in summary:", e$message))
+    dev.off()
+    message(paste("  ERROR:", e$message))
   })
 }
 
-dev.off()
-
-message("\n=== Visualization Complete ===")
+message("\n=================================================================")
+message("Visualization Complete")
+message("=================================================================")
 message(paste("Output directory:", path.expand(OUT_DIR)))
-message(paste("Generated", nrow(artifacts), "individual PDFs"))
-message("Generated artifact_summary.pdf")
+message(paste("Generated", nrow(artifacts), "PDF files"))
