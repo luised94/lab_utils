@@ -65,6 +65,15 @@ get_chr_len <- function(chr, bw_path, genome = "sacCer3") {
   NA_integer_
 }
 
+# Sanitize strand for any GRanges object
+sanitize_strand <- function(gr) {
+  s <- as.character(strand(gr))
+  # Replace NA/empty/invalid with "*"
+  s[is.na(s) | s == "" | !(s %in% c("+","-","*"))] <- "*"
+  strand(gr) <- s
+  gr
+}
+
 # ==============================================================================
 # LOAD DATA
 # ==============================================================================
@@ -311,6 +320,7 @@ for (current_chromosome in artifact_chromosomes) {
       grepl("gene|CDS|ARS|Ty|tRNA|rRNA", mcols(current_genome_feature)$type, ignore.case = TRUE)
     ]
     if (length(major_features) > 0L) {
+      major_features <- sanitize_strand(major_features)
       track_container[[length(track_container) + 1]] <- AnnotationTrack(
         major_features,
         name = "Features",
