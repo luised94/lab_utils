@@ -429,8 +429,9 @@ for (current_chromosome in artifact_chromosomes) {
   
   if (length(current_genome_feature) > 0) {
     # Only show major features to avoid overcrowding
+    #grepl("gene|CDS|ARS|Ty|tRNA|rRNA", current_genome_feature$type, ignore.case = TRUE)
     major_features <- current_genome_feature[
-      grepl("gene|CDS|ARS|Ty|tRNA|rRNA", current_genome_feature$type, ignore.case = TRUE)
+      grepl("Ty|tRNA|rRNA", current_genome_feature$type, ignore.case = TRUE)
     ]
     
     if (length(major_features) > 0) {
