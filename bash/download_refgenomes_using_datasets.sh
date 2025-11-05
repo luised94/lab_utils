@@ -36,35 +36,6 @@ setup_ncbi_datasets() {
 
 setup_ncbi_datasets
 #-------------------------------------------------------------------------------
-<<<<<<< HEAD
-=======
-# Setup NCBI datasets
-#-------------------------------------------------------------------------------
-setup_ncbi_datasets() {
-    local tool="datasets"
-    
-    if command -v "$tool" &> /dev/null; then
-        return 0
-    fi
-
-    DATASETS_DIR=$(ls "${HOME}" | grep "ncbi-datasets-cli" | grep -v tar.gz)
-    if [[ -n "$DATASETS_DIR" ]]; then
-        echo "Found NCBI datasets CLI in ${HOME}/${DATASETS_DIR}"
-        export PATH="${PATH}:${HOME}/${DATASETS_DIR}/bin"
-        
-        if command -v "$tool" &> /dev/null; then
-            return 0
-        fi
-    fi
-
-    echo "Error: $tool not found"
-    echo "Please run ~/lab_utils/core_scripts/install_ncbi_datasets_cli.sh first"
-    exit 1
-}
-
-setup_ncbi_datasets
-#-------------------------------------------------------------------------------
->>>>>>> 95c20b9 (- Move files to proper scripts under the programming language.)
 # Configuration
 #-------------------------------------------------------------------------------
 DOWNLOAD_DIR="$HOME/data/REFGENS"
@@ -185,10 +156,6 @@ for accession in "${ACCESSIONS[@]}"; do
         echo "Error: Extracted organism name is too short: $organism_name"
         exit 1
     fi
-<<<<<<< HEAD
-
-=======
->>>>>>> 95c20b9 (- Move files to proper scripts under the programming language.)
     echo "Reorganizing files for: $organism_name"
     
     # Move all files to root directory
