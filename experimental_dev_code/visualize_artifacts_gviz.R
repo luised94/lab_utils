@@ -434,18 +434,26 @@ for (current_chromosome in artifact_chromosomes) {
     ]
     
     if (length(major_features) > 0) {
-      track_container[[length(track_container) + 1]] <- AnnotationTrack(
-        major_features,
-        name = "Features",
-        size = 0.8,
-        background.title = "lightgray",
-        fontcolor.title = "black",
-        showAxis = FALSE,
-        cex.title = 0.6,
-        fill = "#8b4513",
-        col = "#8b4513",
-        stacking = "dense"  # Dense stacking for chromosome view
+      hl_color <- scales::alpha("#8b4513", 0.15)
+      track_container[[length(track_container) + 1]] <- Gviz::HighlightTrack(
+        trackList = major_features,
+        range = major_features,
+        chromosome = current_chromosome,
+        col = NA,
+        fill = hl_color
       )
+      #track_container[[length(track_container) + 1]] <- AnnotationTrack(
+      #  major_features,
+      #  name = "Features",
+      #  size = 0.8,
+      #  background.title = "lightgray",
+      #  fontcolor.title = "black",
+      #  showAxis = FALSE,
+      #  cex.title = 0.6,
+      #  fill = "#8b4513",
+      #  col = "#8b4513",
+      #  stacking = "dense"  # Dense stacking for chromosome view
+      #)
     }
   }
   
