@@ -354,8 +354,7 @@ for (current_chromosome in artifact_chromosomes) {
         fontcolor.title = "black",
         cex.title = 0.7,
         col = "darkgreen",
-        fill = "darkgreen",
-        ylim = c(0, NA)
+        fill = "darkgreen"
       )
     }
   }
@@ -385,8 +384,7 @@ for (current_chromosome in artifact_chromosomes) {
         fontcolor.title = "black",
         cex.title = 0.7,
         col = "purple",
-        fill = "purple",
-        ylim = c(0, NA)
+        fill = "purple"
       )
     }
   }
@@ -416,8 +414,7 @@ for (current_chromosome in artifact_chromosomes) {
         fontcolor.title = "black",
         cex.title = 0.7,
         col = "gray60",
-        fill = "gray60",
-        ylim = c(0, NA)
+        fill = "gray60"
       )
     }
   }
