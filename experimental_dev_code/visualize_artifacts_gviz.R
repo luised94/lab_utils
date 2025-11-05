@@ -70,27 +70,27 @@ if (REPEAT_ZOOM_IN) {
 
 for (i in 1:nrow(artifacts)) {
   artifact <- artifacts[i, ]
-  
+
   current_chromosome <- artifact$chr
   artifact_start <- artifact$start
   artifact_end <- artifact$end
-  
+
   # Define region to visualize
   region_start <- max(1, artifact_start - CONTEXT_WINDOW)
   region_end <- artifact_end + CONTEXT_WINDOW
-  
+
   message(sprintf("\nVisualizing artifact %d/%d: %s:%d-%d", 
                  i, nrow(artifacts), current_chromosome, artifact_start, artifact_end))
-  
+
   # Create GRanges for this region
   current_genome_range <- GRanges(
     seqnames = current_chromosome,
     ranges = IRanges(start = region_start, end = region_end)
   )
-  
+
   # Initialize track container
   track_container <- list()
-  
+
   # 1. Genome axis track
   track_container[[1]] <- GenomeAxisTrack(
     name = sprintf("%s Axis", current_chromosome),
@@ -98,13 +98,13 @@ for (i in 1:nrow(artifacts)) {
     cex.title = 0.7,
     background.title = "white"
   )
-  
+
   # 2. Artifact region highlight
   artifact_gr <- GRanges(
     seqnames = current_chromosome,
     ranges = IRanges(start = artifact_start, end = artifact_end)
   )
-  
+
   track_container[[2]] <- AnnotationTrack(
     artifact_gr,
     name = "Artifact",
@@ -115,7 +115,7 @@ for (i in 1:nrow(artifacts)) {
     fontcolor.title = "black",
     cex.title = 0.7
   )
-  
+
   # 3. Load and add bigwig tracks
   # ORC track
   orc_file <- file.path(BW_DIR, paste0(ORC_SAMPLE, "_CPM.bw"))
@@ -126,7 +126,7 @@ for (i in 1:nrow(artifacts)) {
       format = "BigWig",
       which = current_genome_range
     )
-    
+
     if (length(orc_data) > 0) {
       track_container[[length(track_container) + 1]] <- DataTrack(
         range = orc_data,
@@ -145,7 +145,7 @@ for (i in 1:nrow(artifacts)) {
       message("  WARNING: No ORC data in this region")
     }
   }
-  
+
   # MCM track
   mcm_file <- file.path(BW_DIR, paste0(MCM_SAMPLE, "_CPM.bw"))
   if (file.exists(mcm_file)) {
@@ -155,7 +155,7 @@ for (i in 1:nrow(artifacts)) {
       format = "BigWig",
       which = current_genome_range
     )
-    
+
     if (length(mcm_data) > 0) {
       track_container[[length(track_container) + 1]] <- DataTrack(
         range = mcm_data,
@@ -174,7 +174,7 @@ for (i in 1:nrow(artifacts)) {
       message("  WARNING: No MCM data in this region")
     }
   }
-  
+
   # Input track
   input_file <- file.path(BW_DIR, paste0(INPUT_SAMPLE, "_CPM.bw"))
   if (file.exists(input_file)) {
@@ -184,7 +184,7 @@ for (i in 1:nrow(artifacts)) {
       format = "BigWig",
       which = current_genome_range
     )
-    
+
     if (length(input_data) > 0) {
       track_container[[length(track_container) + 1]] <- DataTrack(
         range = input_data,
@@ -203,7 +203,7 @@ for (i in 1:nrow(artifacts)) {
       message("  WARNING: No Input data in this region")
     }
   }
-  
+
   # 4. Add genomic features
   message("  Adding genomic features...")
   current_genome_feature <- keepSeqlevels(
@@ -211,10 +211,10 @@ for (i in 1:nrow(artifacts)) {
     current_chromosome,
     pruning.mode = "coarse"
   )
-  
+
   # Subset to region
   feature_subset <- subsetByOverlaps(current_genome_feature, current_genome_range)
-  
+
   if (length(feature_subset) > 0) {
     track_container[[length(track_container) + 1]] <- AnnotationTrack(
       feature_subset,
@@ -229,7 +229,7 @@ for (i in 1:nrow(artifacts)) {
       stacking = "squish"
     )
   }
-  
+
   # Create filename
   features_short <- gsub("[^A-Za-z0-9_]", "_", substr(artifact$overlapping_features, 1, 40))
   filename <- sprintf("%s_%d-%d_%s.pdf", 
@@ -237,12 +237,12 @@ for (i in 1:nrow(artifacts)) {
                      artifact_start, 
                      artifact_end,
                      features_short)
-  
+
   plot_output_file <- file.path(path.expand(OUT_DIR), filename)
-  
+
   # Plot
   message("  Creating PDF...")
-  
+
   tryCatch({
     pdf(
       file = plot_output_file,
@@ -253,7 +253,7 @@ for (i in 1:nrow(artifacts)) {
       colormodel = "srgb",
       useDingbats = FALSE
     )
-    
+
     plotTracks(
       trackList = track_container,
       chromosome = current_chromosome,
@@ -270,32 +270,44 @@ for (i in 1:nrow(artifacts)) {
       fontface.main = 1,
       background.panel = "white"
     )
-    
+
     dev.off()
     message(paste("  SUCCESS! Saved:", filename))
-    
+
   }, error = function(e) {
     dev.off()
     message(paste("  ERROR:", e$message))
   })
 }
-}
+
+} # end skip for loop
 
 # ==============================================================================
 # CREATE CHROMOSOME-WIDE OVERVIEW PLOTS
 # ==============================================================================
 
 message("\n=== Creating Chromosome-Wide Overview Plots ===")
+# 1. Define the feature types you want to highlight
+feature_patterns <- c("Ty", "tRNA", "rRNA", "LTR", "retrotransposon", "telomere", 
+                      "subtelomeric", "X_element", "Y_prime", "centromere"
+                      "ARS")
+
+# 2. Generate a unique color for each feature type
+#    RColorBrewer's "Set1" or "Set3" are good starting points for distinct colors.
+#    Since we have more than 9 patterns, we use colorRampPalette to create enough colors.
+library(RColorBrewer)
+number_of_colors <- length(feature_patterns)
+feature_colors <- colorRampPalette(brewer.pal(min(number_of_colors, 9), "Set1"))(number_of_colors)
 
 # Get unique chromosomes with artifacts
 artifact_chromosomes <- unique(artifacts$chr)
 
 for (current_chromosome in artifact_chromosomes) {
   message(sprintf("\nCreating overview for %s...", current_chromosome))
-  
+
   # Get all artifacts on this chromosome
   chr_artifacts <- artifacts[artifacts$chr == current_chromosome, ]
-  
+
   # Create GRanges for all artifacts on this chromosome
   artifact_regions <- GRanges(
     seqnames = current_chromosome,
@@ -305,10 +317,10 @@ for (current_chromosome in artifact_chromosomes) {
     ),
     name = paste0("Artifact_", seq_len(nrow(chr_artifacts)))
   )
-  
+
   # Initialize track container
   track_container <- list()
-  
+
   # 1. Genome axis
    genome_axis_track <- GenomeAxisTrack(
     name = sprintf("%s Position", current_chromosome),
@@ -316,7 +328,7 @@ for (current_chromosome in artifact_chromosomes) {
     cex.title = 0.7,
     background.title = "white"
   )
-  
+
   # 2. Artifact regions (highlighted)
    artifact_annotation_track <- AnnotationTrack(
     artifact_regions,
@@ -329,23 +341,24 @@ for (current_chromosome in artifact_chromosomes) {
     cex.title = 0.7,
     stacking = "squish"
   )
-  
+
+  # --- Load datatracks ---
   # 3. Load full chromosome bigwig data
   # ORC track
   orc_file <- file.path(BW_DIR, paste0(ORC_SAMPLE, "_CPM.bw"))
   if (file.exists(orc_file)) {
     message("  Loading ORC bigwig for full chromosome...")
-    
+
     # Create GRanges for full chromosome (no subsetting)
     orc_data_full <- import(
       orc_file,
       format = "BigWig",
       as = "GRanges"
     )
-    
+
     # Filter to current chromosome
     orc_data_chr <- orc_data_full[seqnames(orc_data_full) == current_chromosome]
-    
+
     if (length(orc_data_chr) > 0) {
       track_container[[length(track_container) + 1]] <- DataTrack(
         range = orc_data_chr,
@@ -362,20 +375,20 @@ for (current_chromosome in artifact_chromosomes) {
       )
     }
   }
-  
+
   # MCM track
   mcm_file <- file.path(BW_DIR, paste0(MCM_SAMPLE, "_CPM.bw"))
   if (file.exists(mcm_file)) {
     message("  Loading MCM bigwig for full chromosome...")
-    
+
     mcm_data_full <- import(
       mcm_file,
       format = "BigWig",
       as = "GRanges"
     )
-    
+
     mcm_data_chr <- mcm_data_full[seqnames(mcm_data_full) == current_chromosome]
-    
+
     if (length(mcm_data_chr) > 0) {
       track_container[[length(track_container) + 1]] <- DataTrack(
         range = mcm_data_chr,
@@ -392,20 +405,20 @@ for (current_chromosome in artifact_chromosomes) {
       )
     }
   }
-  
+
   # Input track
   input_file <- file.path(BW_DIR, paste0(INPUT_SAMPLE, "_CPM.bw"))
   if (file.exists(input_file)) {
     message("  Loading Input bigwig for full chromosome...")
-    
+
     input_data_full <- import(
       input_file,
       format = "BigWig",
       as = "GRanges"
     )
-    
+
     input_data_chr <- input_data_full[seqnames(input_data_full) == current_chromosome]
-    
+
     if (length(input_data_chr) > 0) {
       track_container[[length(track_container) + 1]] <- DataTrack(
         range = input_data_chr,
@@ -422,7 +435,7 @@ for (current_chromosome in artifact_chromosomes) {
       )
     }
   }
-  
+
   # 4. Add genomic features (optional - can be dense)
   message("  Adding genomic features...")
   current_genome_feature <- keepSeqlevels(
@@ -430,55 +443,60 @@ for (current_chromosome in artifact_chromosomes) {
     current_chromosome,
     pruning.mode = "coarse"
   )
-  
-  if (length(current_genome_feature) > 0) {
-    # Only show major features to avoid overcrowding
-    #grepl("gene|CDS|ARS|Ty|tRNA|rRNA", current_genome_feature$type, ignore.case = TRUE)
-    #grepl("Ty|tRNA|rRNA", current_genome_feature$type, ignore.case = TRUE)
-    major_features <- current_genome_feature[
-      grepl("Ty|tRNA|rRNA|LTR|retrotransposon|telomere|subtelomeric|X_element|Y_prime|centromere", 
-      current_genome_feature$type, ignore.case = TRUE)
-    ]
-    major_features <- major_features[GenomicRanges::width(major_features) > 0L]
-    GenomicRanges::strand(major_features) <- "*"
-    
-    if (length(major_features) > 0) {
-      hl_color <- scales::alpha("#8b4513", 0.15)
-      highlighted_tracks <- Gviz::HighlightTrack(
-        trackList = track_container,
-        range = major_features,
-        chromosome = current_chromosome,
-        inBackground = FALSE,
-        # --- Appearance Parameters ---
-        fill = "saddlebrown",  # A strong base color (#8B4513)
-        col = "saddlebrown",    # Border color
-        alpha = 0.3,            # Transparency for the fill and border
-        lwd = 2                 # Line width for the border
-      )
-      #track_container[[length(track_container) + 1]] <- AnnotationTrack(
-      #  major_features,
-      #  name = "Features",
-      #  size = 0.8,
-      #  background.title = "lightgray",
-      #  fontcolor.title = "black",
-      #  showAxis = FALSE,
-      #  cex.title = 0.6,
-      #  fill = "#8b4513",
-      #  col = "#8b4513",
-      #  stacking = "dense"  # Dense stacking for chromosome view
-      #)
+
+  # --- DYNAMIC HIGHLIGHTING SECTION ---
+
+  # Start with the data tracks as the base layer to be wrapped
+  highlight_wrapper <- track_container
+  major_features <- current_genome_feature[GenomicRanges::width(current_genome_feature) > 0L]
+  GenomicRanges::strand(major_features) <- "*"
+
+  # Loop through each feature pattern to build nested highlight layers
+  if (length(major_features) > 0 && length(track_container) > 0) {
+    for (i in 1:length(feature_patterns)) {
+      pattern <- feature_patterns[i]
+      color <- feature_colors[i]
+
+      # Subset features for the current pattern
+      current_features <- major_features[grepl(pattern, major_features$type, ignore.case = TRUE)]
+
+      # Only add a highlight layer if features of this type exist on the chromosome
+      if (length(current_features) > 0) {
+        message(sprintf("  Adding highlight layer for '%s'", pattern))
+
+        highlight_wrapper <- Gviz::HighlightTrack(
+          trackList = if (i == 1 && !is(highlight_wrapper, "HighlightTrack")) highlight_wrapper else list(highlight_wrapper),
+          range = current_features,
+          chromosome = current_chromosome,
+          inBackground = FALSE,
+          fill = color,
+          alpha = 0.4,
+          col = "transparent"
+        )
+      }
     }
+  } else {
+      message("major_features or trackcontainer are empty...")
+       stop()
+
   }
-  
+
+  # Assemble the final list of tracks for plotting
+  final_plot_list <- list(
+    genome_axis_track,
+    artifact_annotation_track,
+    highlight_wrapper # This now contains all data tracks and highlight layers
+  )
+
   # Create filename
   filename <- sprintf("%s_full_chromosome_overview.pdf", 
                      gsub("chr", "", current_chromosome))
-  
+
   plot_output_file <- file.path(path.expand(OUT_DIR), filename)
-  
+
   # Plot full chromosome
   message("  Creating chromosome-wide PDF...")
-  
+
   tryCatch({
     pdf(
       file = plot_output_file,
@@ -489,13 +507,9 @@ for (current_chromosome in artifact_chromosomes) {
       colormodel = "srgb",
       useDingbats = FALSE
     )
-    
+
     plotTracks(
-      trackList = list(
-        genome_axis_track, 
-        artifact_annotation_track,
-        highlighted_tracks
-      ),
+      trackList = final_plot_list,
       chromosome = current_chromosome,
       margin = 15,
       innerMargin = 5,
@@ -507,10 +521,10 @@ for (current_chromosome in artifact_chromosomes) {
       fontface.main = 2,
       background.panel = "white"
     )
-    
+
     dev.off()
     message(paste("  SUCCESS! Saved:", filename))
-    
+
   }, error = function(e) {
     dev.off()
     message(paste("  ERROR:", e$message))
