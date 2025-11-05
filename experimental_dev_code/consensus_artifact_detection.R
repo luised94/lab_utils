@@ -144,8 +144,8 @@ consensus <- all_windows %>%
   )
 
 # Identify consensus artifacts:
-# - Elevated in ò50% of IP samples
-# - Elevated in ó20% of Input samples
+# - Elevated in >=% of IP samples
+# - Elevated in >=% of Input samples
 consensus_artifacts <- consensus %>%
   filter(
     fraction_elevated_IP >= MIN_IP_FRACTION,
@@ -154,8 +154,8 @@ consensus_artifacts <- consensus %>%
   arrange(desc(fraction_elevated_IP))
 
 message(sprintf("\nFound %d consensus artifact windows:", nrow(consensus_artifacts)))
-message(sprintf("  Elevated in ò%.0f%% of IP samples", MIN_IP_FRACTION * 100))
-message(sprintf("  Elevated in ó%.0f%% of Input samples", MAX_INPUT_FRACTION * 100))
+message(sprintf("  Elevated in >=%.0f%% of IP samples", MIN_IP_FRACTION * 100))
+message(sprintf("  Elevated in >=%.0f%% of Input samples", MAX_INPUT_FRACTION * 100))
 
 if (nrow(consensus_artifacts) == 0) {
   message("\nNo consensus artifacts found with current thresholds.")
@@ -339,7 +339,7 @@ if (nrow(consensus_artifacts) > 0) {
   p1 <- ggplot(consensus_artifacts, aes(x = chr, fill = has_ty)) +
     geom_bar() +
     labs(title = "Consensus Artifacts by Chromosome",
-         subtitle = sprintf("Total: %d regions elevated in ò%.0f%% of IPs, ó%.0f%% of Inputs",
+         subtitle = sprintf("Total: %d regions elevated in >=%.0f%% of IPs, >=%.0f%% of Inputs",
                            nrow(consensus_artifacts),
                            MIN_IP_FRACTION * 100,
                            MAX_INPUT_FRACTION * 100),
@@ -418,9 +418,9 @@ cat("Analysis Parameters:\n")
 cat(paste("  Chromosomes analyzed:", paste(SUSPECT_CHRS, collapse = ", "), "\n"))
 cat(paste("  Per-sample threshold: Top", (1 - PERCENTILE_THRESHOLD) * 100, "% of signal\n"))
 cat(paste("  Minimum IP fraction:", MIN_IP_FRACTION,
-          sprintf("(ò%.0f%% of IP samples)\n", MIN_IP_FRACTION * 100)))
+          sprintf("(>=%.0f%% of IP samples)\n", MIN_IP_FRACTION * 100)))
 cat(paste("  Maximum Input fraction:", MAX_INPUT_FRACTION,
-          sprintf("(ó%.0f%% of Input samples)\n", MAX_INPUT_FRACTION * 100)))
+          sprintf("(>=%.0f%% of Input samples)\n", MAX_INPUT_FRACTION * 100)))
 
 cat("\nSamples:\n")
 cat(paste("  IP samples:", length(ip_samples), "\n"))
