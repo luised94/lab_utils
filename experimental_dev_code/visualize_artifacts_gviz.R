@@ -256,8 +256,227 @@ for (i in 1:nrow(artifacts)) {
   })
 }
 
+# ==============================================================================
+# CREATE CHROMOSOME-WIDE OVERVIEW PLOTS
+# ==============================================================================
+
+message("\n=== Creating Chromosome-Wide Overview Plots ===")
+
+# Get unique chromosomes with artifacts
+artifact_chromosomes <- unique(artifacts$chr)
+
+for (current_chromosome in artifact_chromosomes) {
+  message(sprintf("\nCreating overview for %s...", current_chromosome))
+  
+  # Get all artifacts on this chromosome
+  chr_artifacts <- artifacts[artifacts$chr == current_chromosome, ]
+  
+  # Create GRanges for all artifacts on this chromosome
+  artifact_regions <- GRanges(
+    seqnames = current_chromosome,
+    ranges = IRanges(
+      start = chr_artifacts$start,
+      end = chr_artifacts$end
+    ),
+    name = paste0("Artifact_", seq_len(nrow(chr_artifacts)))
+  )
+  
+  # Initialize track container
+  track_container <- list()
+  
+  # 1. Genome axis
+  track_container[[1]] <- GenomeAxisTrack(
+    name = sprintf("%s Position", current_chromosome),
+    fontcolor.title = "black",
+    cex.title = 0.7,
+    background.title = "white"
+  )
+  
+  # 2. Artifact regions (highlighted)
+  track_container[[2]] <- AnnotationTrack(
+    artifact_regions,
+    name = "Artifacts",
+    fill = "red",
+    col = "darkred",
+    alpha = 0.4,
+    background.title = "lightcoral",
+    fontcolor.title = "black",
+    cex.title = 0.7,
+    stacking = "squish"
+  )
+  
+  # 3. Load full chromosome bigwig data
+  # ORC track
+  orc_file <- file.path(BW_DIR, paste0(ORC_SAMPLE, "_CPM.bw"))
+  if (file.exists(orc_file)) {
+    message("  Loading ORC bigwig for full chromosome...")
+    
+    # Create GRanges for full chromosome (no subsetting)
+    orc_data_full <- import(
+      orc_file,
+      format = "BigWig",
+      as = "GRanges"
+    )
+    
+    # Filter to current chromosome
+    orc_data_chr <- orc_data_full[seqnames(orc_data_full) == current_chromosome]
+    
+    if (length(orc_data_chr) > 0) {
+      track_container[[length(track_container) + 1]] <- DataTrack(
+        range = orc_data_chr,
+        name = "ORC",
+        showAxis = TRUE,
+        showTitle = TRUE,
+        type = "histogram",
+        size = 1.0,
+        background.title = "white",
+        fontcolor.title = "black",
+        cex.title = 0.7,
+        col = "darkgreen",
+        fill = "darkgreen",
+        ylim = c(0, NA)
+      )
+    }
+  }
+  
+  # MCM track
+  mcm_file <- file.path(BW_DIR, paste0(MCM_SAMPLE, "_CPM.bw"))
+  if (file.exists(mcm_file)) {
+    message("  Loading MCM bigwig for full chromosome...")
+    
+    mcm_data_full <- import(
+      mcm_file,
+      format = "BigWig",
+      as = "GRanges"
+    )
+    
+    mcm_data_chr <- mcm_data_full[seqnames(mcm_data_full) == current_chromosome]
+    
+    if (length(mcm_data_chr) > 0) {
+      track_container[[length(track_container) + 1]] <- DataTrack(
+        range = mcm_data_chr,
+        name = "MCM",
+        showAxis = TRUE,
+        showTitle = TRUE,
+        type = "histogram",
+        size = 1.0,
+        background.title = "white",
+        fontcolor.title = "black",
+        cex.title = 0.7,
+        col = "purple",
+        fill = "purple",
+        ylim = c(0, NA)
+      )
+    }
+  }
+  
+  # Input track
+  input_file <- file.path(BW_DIR, paste0(INPUT_SAMPLE, "_CPM.bw"))
+  if (file.exists(input_file)) {
+    message("  Loading Input bigwig for full chromosome...")
+    
+    input_data_full <- import(
+      input_file,
+      format = "BigWig",
+      as = "GRanges"
+    )
+    
+    input_data_chr <- input_data_full[seqnames(input_data_full) == current_chromosome]
+    
+    if (length(input_data_chr) > 0) {
+      track_container[[length(track_container) + 1]] <- DataTrack(
+        range = input_data_chr,
+        name = "Input",
+        showAxis = TRUE,
+        showTitle = TRUE,
+        type = "histogram",
+        size = 1.0,
+        background.title = "white",
+        fontcolor.title = "black",
+        cex.title = 0.7,
+        col = "gray60",
+        fill = "gray60",
+        ylim = c(0, NA)
+      )
+    }
+  }
+  
+  # 4. Add genomic features (optional - can be dense)
+  message("  Adding genomic features...")
+  current_genome_feature <- keepSeqlevels(
+    GENOME_FEATURES,
+    current_chromosome,
+    pruning.mode = "coarse"
+  )
+  
+  if (length(current_genome_feature) > 0) {
+    # Only show major features to avoid overcrowding
+    major_features <- current_genome_feature[
+      grepl("gene|CDS|ARS|Ty|tRNA|rRNA", current_genome_feature$type, ignore.case = TRUE)
+    ]
+    
+    if (length(major_features) > 0) {
+      track_container[[length(track_container) + 1]] <- AnnotationTrack(
+        major_features,
+        name = "Features",
+        size = 0.8,
+        background.title = "lightgray",
+        fontcolor.title = "black",
+        showAxis = FALSE,
+        cex.title = 0.6,
+        fill = "#8b4513",
+        col = "#8b4513",
+        stacking = "dense"  # Dense stacking for chromosome view
+      )
+    }
+  }
+  
+  # Create filename
+  filename <- sprintf("%s_full_chromosome_overview.pdf", 
+                     gsub("chr", "", current_chromosome))
+  
+  plot_output_file <- file.path(path.expand(OUT_DIR), filename)
+  
+  # Plot full chromosome
+  message("  Creating chromosome-wide PDF...")
+  
+  tryCatch({
+    pdf(
+      file = plot_output_file,
+      width = 16,  # Wider for full chromosome
+      height = 8,
+      bg = "white",
+      compress = TRUE,
+      colormodel = "srgb",
+      useDingbats = FALSE
+    )
+    
+    plotTracks(
+      trackList = track_container,
+      chromosome = current_chromosome,
+      margin = 15,
+      innerMargin = 5,
+      main = sprintf("%s - Full Chromosome with %d Artifacts Highlighted", 
+                    current_chromosome, nrow(chr_artifacts)),
+      col.axis = "black",
+      cex.axis = 0.7,
+      cex.main = 0.8,
+      fontface.main = 2,
+      background.panel = "white"
+    )
+    
+    dev.off()
+    message(paste("  SUCCESS! Saved:", filename))
+    
+  }, error = function(e) {
+    dev.off()
+    message(paste("  ERROR:", e$message))
+  })
+}
+
 message("\n=================================================================")
 message("Visualization Complete")
 message("=================================================================")
 message(paste("Output directory:", path.expand(OUT_DIR)))
-message(paste("Generated", nrow(artifacts), "PDF files"))
+message(paste("Generated", nrow(artifacts), "zoomed PDF files"))
+message(paste("Generated", length(artifact_chromosomes), "chromosome-wide overview PDF files"))
