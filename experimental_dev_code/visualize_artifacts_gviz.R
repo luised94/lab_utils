@@ -289,7 +289,7 @@ for (i in 1:nrow(artifacts)) {
 message("\n=== Creating Chromosome-Wide Overview Plots ===")
 # 1. Define the feature types you want to highlight
 feature_patterns <- c("Ty", "tRNA", "rRNA", "LTR", "retrotransposon", "telomere", 
-                      "subtelomeric", "X_element", "Y_prime", "centromere"
+                      "subtelomeric", "X_element", "Y_prime", "centromere",
                       "ARS")
 
 # 2. Generate a unique color for each feature type
