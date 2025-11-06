@@ -297,7 +297,7 @@ feature_patterns_collapsed <- paste(feature_patterns, collapse = "|")
 #    Since we have more than 9 patterns, we use colorRampPalette to create enough colors.
 library(RColorBrewer)
 number_of_colors <- length(feature_patterns)
-feature_colors <- colorRampPalette(brewer.pal(min(number_of_colors, 9), "Set1"))(number_of_colors)
+feature_colors <- colorRampPalette(brewer.pal(min(number_of_colors, 9), "Dark2"))(number_of_colors)
 feature_color_map <- setNames(feature_colors, feature_patterns)
 # Get unique chromosomes with artifacts
 artifact_chromosomes <- unique(artifacts$chr)
@@ -458,7 +458,7 @@ for (current_chromosome in artifact_chromosomes) {
           range = major_features,
           chromosome = current_chromosome,
           inBackground = FALSE,
-          alpha = 0.4,
+          alpha = 0.8,
           col = "transparent"
         )
 
@@ -518,6 +518,34 @@ for (current_chromosome in artifact_chromosomes) {
     message(paste("  ERROR:", e$message))
   })
 }
+
+# --- Code to generate a graphical legend PDF ---
+
+# 1. Define the names and colors from your map
+legend_labels <- names(feature_color_map)
+legend_colors <- unname(feature_color_map)
+legend_filename <- "legend_for_plots.pdf"
+
+# 2. Open a PDF device
+pdf(file = file.path(path.expand(OUT_DIR), legend_filename), width = 8, height = 6)
+
+# 3. Create an empty plot. The 'plot.new' command creates a blank canvas.
+plot.new()
+
+# 4. Add the legend to the blank canvas
+legend(
+  "center",                     # Position the legend in the center
+  legend = legend_labels,       # The text labels
+  fill = legend_colors,         # The colors for the boxes
+  title = "Feature Types",      # A title for the legend
+  bty = "n",                    # No box around the legend (bty = "o" for a box)
+  cex = 1.2                     # Adjust text size if needed
+)
+
+# 5. Close the PDF device, which saves the file
+dev.off()
+
+message("\nLegend has been saved to legend_for_plots.pdf")
 
 message("\n=================================================================")
 message("Visualization Complete")
