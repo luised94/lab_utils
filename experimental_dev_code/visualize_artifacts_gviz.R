@@ -291,14 +291,14 @@ message("\n=== Creating Chromosome-Wide Overview Plots ===")
 feature_patterns <- c("Ty", "tRNA", "rRNA", "LTR", "retrotransposon", "telomere", 
                       "subtelomeric", "X_element", "Y_prime", "centromere",
                       "ARS")
-
+feature_patterns_collapsed <- paste(feature_patterns, collapse = "|")
 # 2. Generate a unique color for each feature type
 #    RColorBrewer's "Set1" or "Set3" are good starting points for distinct colors.
 #    Since we have more than 9 patterns, we use colorRampPalette to create enough colors.
 library(RColorBrewer)
 number_of_colors <- length(feature_patterns)
 feature_colors <- colorRampPalette(brewer.pal(min(number_of_colors, 9), "Set1"))(number_of_colors)
-
+feature_color_map <- setNames(feature_colors, feature_patterns)
 # Get unique chromosomes with artifacts
 artifact_chromosomes <- unique(artifacts$chr)
 
@@ -447,52 +447,36 @@ for (current_chromosome in artifact_chromosomes) {
   # --- DYNAMIC HIGHLIGHTING SECTION ---
 
   # Start with the data tracks as the base layer to be wrapped
-  highlight_wrapper <- track_container
+  #highlight_wrapper <- track_container
   major_features <- current_genome_feature[GenomicRanges::width(current_genome_feature) > 0L]
+  major_features <- major_features[grepl(feature_patterns_collapsed, major_features$type, ignore.case = TRUE)]
   GenomicRanges::strand(major_features) <- "*"
 
   # Loop through each feature pattern to build nested highlight layers
   if (length(major_features) > 0 && length(track_container) > 0) {
-    for (i in 1:length(feature_patterns)) {
-      pattern <- feature_patterns[i]
-      color <- feature_colors[i]
-
-      # Subset features for the current pattern
-      current_features <- major_features[grepl(pattern, major_features$type, ignore.case = TRUE)]
-
-      # Only add a highlight layer if features of this type exist on the chromosome
-      if (length(current_features) > 0) {
-        message(sprintf("  Adding highlight layer for '%s'", pattern))
-
-        # Determine the correct trackList structure
-        current_track_list <- if (is(highlight_wrapper, "HighlightTrack")) {
-          list(highlight_wrapper) # If it's already a HighlightTrack, wrap it in a list
-        } else {
-          highlight_wrapper # If it's the initial list of DataTracks, use it directly
-        }
 
         highlight_wrapper <- Gviz::HighlightTrack(
-          trackList = current_track_list,
-          range = current_features,
+          trackList = track_container,
+          range = major_features,
           chromosome = current_chromosome,
           inBackground = FALSE,
           fill = color,
           alpha = 0.4,
           col = "transparent"
         )
+
       }
-    }
-  } else {
-      message("major_features or trackcontainer are empty...")
-       stop()
 
   }
+
+  region_colors <- feature_color_map[major_features$type]
+  displayPars(highlight_wrapper) <- list(fill = region_colors)
 
   # Assemble the final list of tracks for plotting
   final_plot_list <- list(
     genome_axis_track,
     artifact_annotation_track,
-    highlight_wrapper # This now contains all data tracks and highlight layers
+    highlight_wrapper
   )
 
   # Create filename
@@ -520,7 +504,7 @@ for (current_chromosome in artifact_chromosomes) {
       chromosome = current_chromosome,
       margin = 15,
       innerMargin = 5,
-      main = sprintf("%s - Full Chromosome with %d Artifacts Highlighted", 
+      main = sprintf("%s - Full Chromosome with %d Artifacts Highlighted",
                     current_chromosome, nrow(chr_artifacts)),
       col.axis = "black",
       cex.axis = 0.7,
