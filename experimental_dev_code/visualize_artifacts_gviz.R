@@ -444,8 +444,6 @@ for (current_chromosome in artifact_chromosomes) {
     pruning.mode = "coarse"
   )
 
-  # --- DYNAMIC HIGHLIGHTING SECTION ---
-
   # Start with the data tracks as the base layer to be wrapped
   #highlight_wrapper <- track_container
   major_features <- current_genome_feature[GenomicRanges::width(current_genome_feature) > 0L]
@@ -460,14 +458,13 @@ for (current_chromosome in artifact_chromosomes) {
           range = major_features,
           chromosome = current_chromosome,
           inBackground = FALSE,
-          fill = color,
           alpha = 0.4,
           col = "transparent"
         )
 
-      }
-
   }
+
+
 
   region_colors <- feature_color_map[major_features$type]
   displayPars(highlight_wrapper) <- list(fill = region_colors)
