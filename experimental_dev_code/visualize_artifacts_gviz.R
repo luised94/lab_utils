@@ -287,19 +287,27 @@ for (i in 1:nrow(artifacts)) {
 # ==============================================================================
 
 message("\n=== Creating Chromosome-Wide Overview Plots ===")
-# 1. Define the feature types you want to highlight
-#grepl("Ty|tRNA|rRNA|LTR|retrotransposon|telomere|subtelomeric|X_element|Y_prime|centromere"
-feature_patterns <- c("Ty", "tRNA", "rRNA", "LTR", "retrotransposon", "telomere", 
-                      "subtelomeric", "X_element", "Y_prime", "centromere",
                       "ARS")
-feature_patterns_collapsed <- paste(feature_patterns, collapse = "|")
-# 2. Generate a unique color for each feature type
-#    RColorBrewer's "Set1" or "Set3" are good starting points for distinct colors.
-#    Since we have more than 9 patterns, we use colorRampPalette to create enough colors.
+# 1. Define your groupings as a named list.
+#    The name is the final category. The value is the regex pattern.
+grouped_feature_map <- list(
+  "ARS"                = "ARS",
+  "Centromere"         = "centromere",
+  "Telomere_Associated"= "telomere|X_element|Y_prime",
+  "tRNA"               = "tRNA",
+  "LTR_Elements"       = "LTR|Ty|retrotransposon",
+  "rRNA"               = "rRNA"
+)
+
+# 2. Derive the final group names and create the color map.
+#    This is now driven directly by your mapping list.
+final_group_names <- names(grouped_feature_map)
 library(RColorBrewer)
-number_of_colors <- length(feature_patterns)
-feature_colors <- colorRampPalette(brewer.pal(min(number_of_colors, 9), "Dark2"))(number_of_colors)
-feature_color_map <- setNames(feature_colors, feature_patterns)
+# Add a neutral color for the 'Other' category if we want to show it
+number_of_colors <- length(final_group_names)
+final_colors <- brewer.pal(min(number_of_colors, 8), "Dark2") # Using 'Dark2' as requested
+final_color_map <- setNames(final_colors, final_group_names)
+
 # Get unique chromosomes with artifacts
 artifact_chromosomes <- unique(artifacts$chr)
 
@@ -455,12 +463,17 @@ for (current_chromosome in artifact_chromosomes) {
   major_features$group <- "Other"
 
   # 2. Loop through your patterns and assign the correct group name.
-  #    This standardizes names like "tRNA_gene" to just "tRNA".
-  for (pattern in feature_patterns) {
-    # Find which features match the current pattern
+  Loop through your new map to assign groups.
+  message("  Standardizing feature types into groups...")
+  for (group_name in final_group_names) {
+    # Get the regex pattern for the current group
+    pattern <- grouped_feature_map[[group_name]]
+    
+    # Find features matching the pattern
     matching_indices <- grepl(pattern, major_features$type, ignore.case = TRUE)
-    # Assign the standardized pattern name to the 'group' column for those features
-    major_features$group[matching_indices] <- pattern
+    
+    # Assign the clean group name to those features
+    major_features$group[matching_indices] <- group_name
   }
 
   # Loop through each feature pattern to build nested highlight layers
@@ -477,9 +490,7 @@ for (current_chromosome in artifact_chromosomes) {
 
   }
 
-
-
-  region_colors <- feature_color_map[major_features$group]
+  region_colors <- final_color_map[major_features$group]
   region_colors[is.na(region_colors)] <- "#D3D3D3" # Assign a default gray for any NAs
   displayPars(highlight_wrapper) <- list(fill = region_colors)
 
