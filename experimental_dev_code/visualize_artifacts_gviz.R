@@ -288,6 +288,7 @@ for (i in 1:nrow(artifacts)) {
 
 message("\n=== Creating Chromosome-Wide Overview Plots ===")
 # 1. Define the feature types you want to highlight
+#grepl("Ty|tRNA|rRNA|LTR|retrotransposon|telomere|subtelomeric|X_element|Y_prime|centromere"
 feature_patterns <- c("Ty", "tRNA", "rRNA", "LTR", "retrotransposon", "telomere", 
                       "subtelomeric", "X_element", "Y_prime", "centromere",
                       "ARS")
@@ -450,6 +451,18 @@ for (current_chromosome in artifact_chromosomes) {
   major_features <- major_features[grepl(feature_patterns_collapsed, major_features$type, ignore.case = TRUE)]
   GenomicRanges::strand(major_features) <- "*"
 
+  # 1. Create a new metadata column for the standardized group name, initializing it.
+  major_features$group <- "Other"
+
+  # 2. Loop through your patterns and assign the correct group name.
+  #    This standardizes names like "tRNA_gene" to just "tRNA".
+  for (pattern in feature_patterns) {
+    # Find which features match the current pattern
+    matching_indices <- grepl(pattern, major_features$type, ignore.case = TRUE)
+    # Assign the standardized pattern name to the 'group' column for those features
+    major_features$group[matching_indices] <- pattern
+  }
+
   # Loop through each feature pattern to build nested highlight layers
   if (length(major_features) > 0 && length(track_container) > 0) {
 
@@ -466,7 +479,8 @@ for (current_chromosome in artifact_chromosomes) {
 
 
 
-  region_colors <- feature_color_map[major_features$type]
+  region_colors <- feature_color_map[major_features$group]
+  region_colors[is.na(region_colors)] <- "#D3D3D3" # Assign a default gray for any NAs
   displayPars(highlight_wrapper) <- list(fill = region_colors)
 
   # Assemble the final list of tracks for plotting
