@@ -287,7 +287,6 @@ for (i in 1:nrow(artifacts)) {
 # ==============================================================================
 
 message("\n=== Creating Chromosome-Wide Overview Plots ===")
-                      "ARS")
 # 1. Define your groupings as a named list.
 #    The name is the final category. The value is the regex pattern.
 grouped_feature_map <- list(
@@ -463,7 +462,6 @@ for (current_chromosome in artifact_chromosomes) {
   major_features$group <- "Other"
 
   # 2. Loop through your patterns and assign the correct group name.
-  Loop through your new map to assign groups.
   message("  Standardizing feature types into groups...")
   for (group_name in final_group_names) {
     # Get the regex pattern for the current group
@@ -547,8 +545,8 @@ for (current_chromosome in artifact_chromosomes) {
 # --- Code to generate a graphical legend PDF ---
 
 # 1. Define the names and colors from your map
-legend_labels <- names(feature_color_map)
-legend_colors <- unname(feature_color_map)
+legend_labels <- names(final_color_map)
+legend_colors <- unname(final_color_map)
 legend_filename <- "legend_for_plots.pdf"
 
 # 2. Open a PDF device
