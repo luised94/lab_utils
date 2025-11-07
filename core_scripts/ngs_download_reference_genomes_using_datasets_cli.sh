@@ -191,10 +191,6 @@ for accession in "${accession_list[@]}"; do
 
     echo "Raw organism name: $organism_name_raw"
 
-    # Remove spaces from organism name
-    organism_name_clean=$(echo "$organism_name_raw" | sed 's/ /_/g')
-    echo "Cleaned organism name: $organism_name_clean"
-
     # Extract strain from JSON
     # Format: "infraspecificNames":{"strain":"S288C"}
     strain_name=$(grep -o '"strain":"[^"]*"' "$assembly_metadata_file" | head -n 1 | sed 's/"strain":"//;s/"$//')
@@ -205,7 +201,22 @@ for accession in "${accession_list[@]}"; do
         echo "No strain found, using: $strain_name"
     else
         echo "Strain: $strain_name"
+        # Fix organism name redundancy
+        # If organism name ends with strain name, remove it to avoid duplication
+        # Example: "Saccharomyces cerevisiae S288C" + strain "S288C" 
+        #       -> "Saccharomyces cerevisiae" + "S288C"
+        if [[ "$organism_name_raw" == *" $strain_name" ]]; then
+            organism_name_without_strain=$(echo "$organism_name_raw" | sed "s/ $strain_name$//")
+            echo "Removed strain from organism name:"
+            echo "  Before: $organism_name_raw"
+            echo "  After:  $organism_name_without_strain"
+            organism_name_raw="$organism_name_without_strain"
+        fi
     fi
+
+    # Remove spaces from organism name
+    organism_name_clean=$(echo "$organism_name_raw" | sed 's/ /_/g')
+    echo "Cleaned organism name: $organism_name_clean"
 
     # Extract assembly name for metadata file
     assembly_name=$(grep -o '"assemblyName":"[^"]*"' "$assembly_metadata_file" | head -n 1 | sed 's/"assemblyName":"//;s/"$//')
