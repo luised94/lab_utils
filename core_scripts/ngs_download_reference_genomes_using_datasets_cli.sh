@@ -409,3 +409,36 @@ echo "All operations completed successfully."
 echo "========================================"
 echo "All downloads completed"
 echo "========================================"
+
+echo ""
+echo "========================================"
+echo "Transferring Data to Cluster"
+echo "========================================"
+cat << 'EOF'
+
+To transfer these genome files to your Linux cluster:
+
+1. Verify data locally first:
+   ls -lh ~/data/reference_genomes/*_genome.fna
+
+2. Create destination directory on cluster (if needed):
+   ssh YOUR_USER@cluster_hostname "mkdir -p ~/data/reference_genomes"
+
+3. Sync all files to cluster:
+   rsync -avz --progress \
+     ~/data/reference_genomes/ \
+     YOUR_USER@cluster_hostname:~/data/reference_genomes/
+
+   Options explained:
+   -a: archive mode (preserves permissions, timestamps)
+   -v: verbose (shows files being transferred)
+   -z: compress during transfer (faster over network)
+   --progress: shows transfer progress
+
+4. Verify on cluster:
+   ssh YOUR_USER@cluster_hostname "ls -lh ~/data/reference_genomes/*_genome.fna"
+
+Note: The trailing slash on source (~/data/reference_genomes/) is important!
+It syncs the contents, not the directory itself.
+
+EOF
