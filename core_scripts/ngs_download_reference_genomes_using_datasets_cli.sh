@@ -107,6 +107,28 @@ for accession in "${accession_list[@]}"; do
     echo "Processing: $accession"
     echo "========================================"
 
+    # Sanitize accession early for existence check
+    accession_sanitized=$(echo "$accession" | sed 's/[._]//g')
+    echo "Sanitized accession: $accession_sanitized"
+
+    # Check if files with this accession already exist
+    genome_pattern="*${accession_sanitized}*_genome.fna"
+    annotation_pattern="*${accession_sanitized}*_annotation.gff"
+
+    existing_genome=$(find "$download_base_directory" -maxdepth 1 -name "$genome_pattern" | head -n 1)
+    existing_annotation=$(find "$download_base_directory" -maxdepth 1 -name "$annotation_pattern" | head -n 1)
+
+    if [[ -n "$existing_genome" ]] && [[ -n "$existing_annotation" ]]; then
+        echo "Required files already exist for accession: $accession"
+        echo "  Found genome: $(basename "$existing_genome")"
+        echo "  Found annotation: $(basename "$existing_annotation")"
+        echo "Skipping download"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - SKIPPED (already exists): $accession" >> "$log_file_path"
+        continue
+    fi
+
+    echo "Files not found, proceeding with download..."
+
     # Create temporary directory for this accession
     accession_temp_directory="${temp_download_directory}/${accession}"
     mkdir -p "$accession_temp_directory"
@@ -265,7 +287,7 @@ for accession in "${accession_list[@]}"; do
     for mapping in "${file_mappings[@]}"; do
         # Parse mapping: pattern:suffix:required:special_flag
         IFS=':' read -r search_pattern output_suffix required_flag special_flag <<< "$mapping"
-        
+
         # Find file matching pattern
         if [[ "$special_flag" == "exclude_cds" ]]; then
             # For genome file, exclude cds files
@@ -273,7 +295,7 @@ for accession in "${accession_list[@]}"; do
         else
             file_found=$(find "$accession_temp_directory" -maxdepth 1 -name "$search_pattern" | head -n 1)
         fi
-    
+
         if [[ -f "$file_found" ]]; then
             # File exists - rename it
             file_new="${accession_temp_directory}/${filename_prefix}_${output_suffix}"
