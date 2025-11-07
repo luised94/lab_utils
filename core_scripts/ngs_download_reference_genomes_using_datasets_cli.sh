@@ -47,13 +47,20 @@ accession_list=(
 )
 
 # File types we expect from NCBI
-expected_genome_file="genomic.fna"
-expected_cds_file="cds_from_genomic.fna"
-expected_protein_file="protein.faa"
-expected_gff_file="genomic.gff"
 expected_assembly_metadata="assembly_data_report.jsonl"
-expected_sequence_metadata="sequence_report.jsonl"
-expected_dataset_catalog="dataset_catalog.json"
+
+# File mappings for renaming: search_pattern:output_suffix:required_flag
+file_mappings=(
+    "*.fna:genome.fna:required"
+    "*cds*.fna:cds.fna:optional"
+    "*.faa:protein.faa:optional"
+    "rna.fna:rna.fna:optional"
+    "*.gff:annotation.gff:required"
+    "md5sum.txt:md5sum.txt:optional"
+    "assembly_data_report.jsonl:assembly_data_report.jsonl:optional"
+    "sequence_report.jsonl:sequence_report.jsonl:optional"
+    "dataset_catalog.json:dataset_catalog.json:optional"
+)
 
 # Create directories if they don't exist
 mkdir -p "$download_base_directory"
@@ -191,20 +198,22 @@ for accession in "${accession_list[@]}"; do
 
     echo "Raw organism name: $organism_name_raw"
 
-    # Extract strain from JSON
-    # Format: "infraspecificNames":{"strain":"S288C"}
-    strain_name=$(grep -o '"strain":"[^"]*"' "$assembly_metadata_file" | head -n 1 | sed 's/"strain":"//;s/"$//')
 
-    # If no strain found, use NA
+    # Extract strain from JSON if it exists
+    if grep -q '"strain":' "$assembly_metadata_file"; then
+        strain_name=$(grep -o '"strain":"[^"]*"' "$assembly_metadata_file" | head -n 1 | sed 's/"strain":"//;s/"$//')
+        echo "Strain: $strain_name"
+    else
+        strain_name=""
+        echo "No strain field in metadata"
+    fi
+
+    # Handle missing or empty strain
     if [[ -z "$strain_name" ]]; then
         strain_name="NA"
-        echo "No strain found, using: $strain_name"
+        echo "Using: $strain_name"
     else
-        echo "Strain: $strain_name"
         # Fix organism name redundancy
-        # If organism name ends with strain name, remove it to avoid duplication
-        # Example: "Saccharomyces cerevisiae S288C" + strain "S288C" 
-        #       -> "Saccharomyces cerevisiae" + "S288C"
         if [[ "$organism_name_raw" == *" $strain_name" ]]; then
             organism_name_without_strain=$(echo "$organism_name_raw" | sed "s/ $strain_name$//")
             echo "Removed strain from organism name:"
@@ -251,99 +260,56 @@ for accession in "${accession_list[@]}"; do
     find "$ncbi_data_directory" -type f -exec mv {} "$accession_temp_directory/" \;
 
     # Remove now-empty ncbi_dataset directory structure
+    echo "Flattening directory structure..."
     rm -rf "${accession_temp_directory}/ncbi_dataset"
 
-    # Find and rename genome file
-    echo "Renaming genome file..."
-    genome_file_found=$(find "$accession_temp_directory" -name "*.fna" ! -name "*cds*" ! -name "*rna*" | head -n 1)
+    # Process each file type
+    for mapping in "${file_mappings[@]}"; do
+        # Parse mapping: pattern:suffix:required_flag:exclusions
+        IFS=':' read -r search_pattern output_suffix required_flag exclusions <<< "$mapping"
 
-    if [[ -f "$genome_file_found" ]]; then
-        genome_file_new="${accession_temp_directory}/${filename_prefix}_genome.fna"
-        mv "$genome_file_found" "$genome_file_new"
-        echo "  Genome: $(basename "$genome_file_new")"
-    else
-        echo "  WARNING: Genome file not found"
-    fi
+        # Find file matching pattern
+        if [[ -n "$exclusions" ]]; then
+            # Handle exclusions (for genome file - exclude cds and rna)
+            file_found=$(find "$accession_temp_directory" -maxdepth 1 -name "$search_pattern" ! -name "*cds*" ! -name "*rna*" | head -n 1)
+        else
+            file_found=$(find "$accession_temp_directory" -maxdepth 1 -name "$search_pattern" | head -n 1)
+        fi
 
-    # Find and rename CDS file
-    echo "Renaming CDS file..."
-    cds_file_found=$(find "$accession_temp_directory" -name "*cds*.fna" | head -n 1)
-
-    if [[ -f "$cds_file_found" ]]; then
-        cds_file_new="${accession_temp_directory}/${filename_prefix}_cds.fna"
-        mv "$cds_file_found" "$cds_file_new"
-        echo "  CDS: $(basename "$cds_file_new")"
-    else
-        echo "  WARNING: CDS file not found"
-    fi
-
-    # Find and rename protein file
-    echo "Renaming protein file..."
-    protein_file_found=$(find "$accession_temp_directory" -name "*.faa" | head -n 1)
-
-    if [[ -f "$protein_file_found" ]]; then
-        protein_file_new="${accession_temp_directory}/${filename_prefix}_protein.faa"
-        mv "$protein_file_found" "$protein_file_new"
-        echo "  Protein: $(basename "$protein_file_new")"
-    else
-        echo "  WARNING: Protein file not found"
-    fi
-
-    # Find and rename GFF annotation file
-    echo "Renaming annotation file..."
-    gff_file_found=$(find "$accession_temp_directory" -name "*.gff" -o -name "*.gff3" | head -n 1)
-
-    if [[ -f "$gff_file_found" ]]; then
-        # Keep original extension (.gff or .gff3)
-        gff_extension="${gff_file_found##*.}"
-        gff_file_new="${accession_temp_directory}/${filename_prefix}_annotation.${gff_extension}"
-        mv "$gff_file_found" "$gff_file_new"
-        echo "  Annotation: $(basename "$gff_file_new")"
-    else
-        echo "  WARNING: GFF annotation file not found"
-    fi
-
-    # Rename NCBI metadata files
-    echo "Renaming metadata files..."
-
-    if [[ -f "${accession_temp_directory}/${expected_assembly_metadata}" ]]; then
-        mv "${accession_temp_directory}/${expected_assembly_metadata}" \
-           "${accession_temp_directory}/${filename_prefix}_assembly_data_report.jsonl"
-        echo "  Assembly metadata: ${filename_prefix}_assembly_data_report.jsonl"
-    fi
-
-    if [[ -f "${accession_temp_directory}/${expected_sequence_metadata}" ]]; then
-        mv "${accession_temp_directory}/${expected_sequence_metadata}" \
-           "${accession_temp_directory}/${filename_prefix}_sequence_report.jsonl"
-        echo "  Sequence metadata: ${filename_prefix}_sequence_report.jsonl"
-    fi
-
-    if [[ -f "${accession_temp_directory}/${expected_dataset_catalog}" ]]; then
-        mv "${accession_temp_directory}/${expected_dataset_catalog}" \
-           "${accession_temp_directory}/${filename_prefix}_dataset_catalog.json"
-        echo "  Dataset catalog: ${filename_prefix}_dataset_catalog.json"
-    fi
+        if [[ -f "$file_found" ]]; then
+            # File exists - rename it
+            file_new="${accession_temp_directory}/${filename_prefix}_${output_suffix}"
+            mv "$file_found" "$file_new"
+            echo "  $(basename "$file_new")"
+        else
+            # File not found
+            if [[ "$required_flag" == "required" ]]; then
+                echo "  ERROR: Required file not found: $search_pattern"
+                echo "$(date '+%Y-%m-%d %H:%M:%S') - FAILED (missing $output_suffix): $accession" >> "$log_file_path"
+                continue 2  # Skip to next accession
+            else
+                echo "  ? Optional file not found: $search_pattern"
+            fi
+        fi
+    done # file mapping for loop
 
     # Create simple human-readable metadata file
     echo "Creating metadata summary..."
     metadata_file_new="${accession_temp_directory}/${filename_prefix}_metadata.txt"
 
     cat > "$metadata_file_new" << EOF
-        Organism: $organism_name_raw
-        Strain: $strain_name
-        Assembly: $assembly_name
-        Accession: $accession
-        Accession_Sanitized: $accession_sanitized
-        Tax_ID: $tax_id
-        Download_Date: $(date '+%Y-%m-%d %H:%M:%S')
-        Download_Directory: $download_base_directory
-        Filename_Prefix: $filename_prefix
+Organism: $organism_name_raw
+Strain: $strain_name
+Assembly: $assembly_name
+Accession: $accession
+Accession_Sanitized: $accession_sanitized
+Tax_ID: $tax_id
+Download_Date: $(date '+%Y-%m-%d %H:%M:%S')
+Download_Directory: $download_base_directory
+Filename_Prefix: $filename_prefix
 EOF
 
-    echo "  Metadata: $(basename "$metadata_file_new")"
-
     echo "File renaming complete"
-
     echo ""
     echo "Moving files to final location..."
 
@@ -376,8 +342,7 @@ EOF
     echo "Completed processing: $accession"
     echo "All files prefixed with: $filename_prefix"
 
-done
-# [After the for loop ends]
+done # [After the for loop ends]
 
 echo ""
 echo "========================================"
