@@ -8,12 +8,11 @@
 #   Output manifest of paired files for subsequent scripts.
 # USAGE:
 #   From the command line
-#   $ ./sequencing_verify_fastq_pairs.sh /path/to/fastq/directory
+#   $ ./ngs_verify_fastq_pairs.sh /path/to/fastq/directory
 # DEPENDENCIES:
 #   bash 4.2
 # OUTPUTS:
 #   No outputs produced by file or script.
-#   Scripts (such as setup_bmc_experiment.R) source this script.
 ################################################################################
 # ============================================
 # Usage and Help
