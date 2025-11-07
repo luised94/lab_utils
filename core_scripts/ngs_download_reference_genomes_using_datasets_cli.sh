@@ -51,17 +51,15 @@ expected_assembly_metadata="assembly_data_report.jsonl"
 
 # File mappings for renaming: search_pattern:output_suffix:required_flag
 file_mappings=(
-    "*.fna:genome.fna:required"
+    "*_genomic.fna:genome.fna:required:exclude_cds"  # Ensure cds file does not interfere with genome file
     "*cds*.fna:cds.fna:optional"
     "*.faa:protein.faa:optional"
     "rna.fna:rna.fna:optional"
     "*.gff:annotation.gff:required"
     "md5sum.txt:md5sum.txt:optional"
     "assembly_data_report.jsonl:assembly_data_report.jsonl:optional"
-    "sequence_report.jsonl:sequence_report.jsonl:optional"
     "dataset_catalog.json:dataset_catalog.json:optional"
 )
-
 # Create directories if they don't exist
 mkdir -p "$download_base_directory"
 mkdir -p "$temp_download_directory"
@@ -265,17 +263,17 @@ for accession in "${accession_list[@]}"; do
 
     # Process each file type
     for mapping in "${file_mappings[@]}"; do
-        # Parse mapping: pattern:suffix:required_flag:exclusions
-        IFS=':' read -r search_pattern output_suffix required_flag exclusions <<< "$mapping"
-
+        # Parse mapping: pattern:suffix:required:special_flag
+        IFS=':' read -r search_pattern output_suffix required_flag special_flag <<< "$mapping"
+        
         # Find file matching pattern
-        if [[ -n "$exclusions" ]]; then
-            # Handle exclusions (for genome file - exclude cds and rna)
-            file_found=$(find "$accession_temp_directory" -maxdepth 1 -name "$search_pattern" ! -name "*cds*" ! -name "*rna*" | head -n 1)
+        if [[ "$special_flag" == "exclude_cds" ]]; then
+            # For genome file, exclude cds files
+            file_found=$(find "$accession_temp_directory" -maxdepth 1 -name "$search_pattern" ! -name "*cds*" | head -n 1)
         else
             file_found=$(find "$accession_temp_directory" -maxdepth 1 -name "$search_pattern" | head -n 1)
         fi
-
+    
         if [[ -f "$file_found" ]]; then
             # File exists - rename it
             file_new="${accession_temp_directory}/${filename_prefix}_${output_suffix}"
