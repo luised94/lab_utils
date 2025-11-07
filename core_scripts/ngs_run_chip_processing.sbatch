@@ -151,6 +151,8 @@ NORM_METHOD="RAW"
 # Genome reference files (Saccharomyces cerevisiae S288C)
 GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
 GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
+#GENOME_DIR="$HOME/data/reference_genomes/"
+#GENOME_INDEX="$GENOME_DIR/Saccharomyces_cerevisiae_S288C_GCF0001460452_genome"
 BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
 FASTQ_FILEPATH_PATTERN="consolidated*.fastq"
 
