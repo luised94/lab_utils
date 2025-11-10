@@ -111,6 +111,8 @@ fi
 #============================== 
 echo "-------Start $0-------"
 echo "Setting up configuration..."
+NCORES=$(nproc)
+
 #============================== 
 # Setup and preprocessing
 #============================== 
