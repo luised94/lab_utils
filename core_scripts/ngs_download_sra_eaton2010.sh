@@ -84,6 +84,7 @@ echo "INFO: 'mkdir' command has been run."
 if [[ -f "$MANIFEST_FILEPATH" ]]; then
     echo "Manifest file already exists, skipping all processing: $MANIFEST_FILEPATH"
     exit 0
+
 fi
 
 echo "INFO: Manifest not found, proceeding to create it."
@@ -105,7 +106,9 @@ done
 if ls "$FASTQ_DIR"/consolidated*.fastq 1> /dev/null 2>/dev/null; then
     echo "INFO: Found existing consolidated FASTQ files in $FASTQ_DIR. Exiting."
     exit 0
+
 fi
+
 echo "INFO: No consolidated files detected. Downloading using sra-tools."
 
 # Download and convert each SRA file
