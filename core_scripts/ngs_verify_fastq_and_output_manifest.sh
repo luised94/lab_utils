@@ -231,13 +231,11 @@ for fastq_file in "${all_fastq_files[@]}"; do
   # --- Extract lane number (conditionally) ---
   if [[ $LANE_IDX -ne -1 ]]; then
       lane_number="${parts[$LANE_IDX]}"
-      lane_map["$lane_number"]=1
-
   else
-      # If there's no lane, you can assign a default value
-      lane_map["NA"]=1
-
+      # If there's no lane, assign "NA" to both the variable and the map
+      lane_number="NA"
   fi
+  lane_map["$lane_number"]=1 # Add to map after setting the variable
 
 
   # --- Extract read pair indicator ---

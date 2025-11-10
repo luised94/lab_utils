@@ -114,13 +114,6 @@ echo "Setting configuration..."
 
 # Filename parsing configuration
 FILENAME_DELIMITERS='_-'  # Delimiters used to split filename components
-# Filename parsing indices (split on _ and -)
-# Example: 250930Bel_D25-12496-2_1_sequence.fastq
-# Parts: [250930Bel, D25, 12496, 2, 1, sequence.fastq]
-SAMPLE_ID_START_IDX=1   # "D25"
-SAMPLE_ID_END_IDX=2     # "12496"
-LANE_IDX=3              # "2"
-READ_PAIR_IDX=4         # "1" or "2"
 OUTPUT_PREFIX="consolidated"
 OUTPUT_SUFFIX=".fastq"
 #NCORES=$(nproc)
@@ -133,7 +126,7 @@ MANIFEST_FILENAME="consolidated_reads_manifest.tsv"
 #============================== 
 EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
 FASTQ_DIRECTORY="$EXPERIMENT_DIR/fastq/"
-DOCUMENTATION_DIR="$(dirname "$FASTQ_DIRECTORY")/documentation"
+DOCUMENTATION_DIR="${EXPERIMENT_DIR}/documentation"
 MANIFEST_FILEPATH="$DOCUMENTATION_DIR/$MANIFEST_FILENAME"
 
 #============================== 
@@ -324,14 +317,45 @@ for fastq_file in "${all_fastq_files[@]}"; do
   # Split on _ and - to get components
   IFS="$FILENAME_DELIMITERS" read -ra parts <<< "$filename"
 
-  # --- Extract the metadata ---
-  sample_id="${parts[$SAMPLE_ID_START_IDX]}-${parts[$SAMPLE_ID_END_IDX]}"
-  lane_number="${parts[$LANE_IDX]}"
-  read_indicator="${parts[$READ_PAIR_IDX]}"
+  # Inside your loop, after splitting the filename into 'parts'
+  num_parts=${#parts[@]}
 
-  # --- Add the values to the associative array ---
+  # Check the number of parts to decide the structure
+  if [[ $num_parts -eq 6 ]]; then
+      # Format: 250930Bel_D25-12496-2_1_sequence.fastq
+      # Parts: [250930Bel, D25, 12496, 2, 1, sequence.fastq]
+      SAMPLE_ID_START_IDX=1
+      SAMPLE_ID_END_IDX=2
+      LANE_IDX=3
+      READ_PAIR_IDX=4
+  elif [[ $num_parts -eq 5 ]]; then
+      # Format: 250930Bel_D25-12496_1_sequence.fastq
+      # Parts: [250930Bel, D25, 12496, 1, sequence.fastq]
+      SAMPLE_ID_START_IDX=1
+      SAMPLE_ID_END_IDX=2
+      LANE_IDX=-1 # Use an invalid index to indicate no lane
+      READ_PAIR_IDX=3
+  else
+      echo "ERROR: Unexpected number of parts in filename: $filename"
+      continue # Skip to the next file
+  fi
+
+
+  # --- Extract sample ID ---
+  sample_id="${parts[$SAMPLE_ID_START_IDX]}-${parts[$SAMPLE_ID_END_IDX]}"
   sample_id_map["$sample_id"]=1
-  lane_map["$lane_number"]=1
+
+  # --- Extract lane number (conditionally) ---
+  if [[ $LANE_IDX -ne -1 ]]; then
+      lane_number="${parts[$LANE_IDX]}"
+  else
+      # If there's no lane, assign "NA" to both the variable and the map
+      lane_number="NA"
+  fi
+  lane_map["$lane_number"]=1 # Add to map after setting the variable
+
+  # --- Extract read pair indicator ---
+  read_indicator="${parts[$READ_PAIR_IDX]}"
   pair_indicator_map["$read_indicator"]=1
 
   # Store for consolidation (grouped by sample, with lane prefix for sorting)
@@ -367,25 +391,38 @@ if [[ ${#unique_sample_ids[@]} -eq 0 ]]; then
 
 fi
 
-if [[ ${#detected_lanes[@]} -eq 0 ]]; then
-  echo "ERROR: No lanes detected after extraction."
-  exit 1
+# Determine the filename convention based on detected lanes
+LANE_FORMAT=""
+if [[ ${#detected_lanes[@]} -eq 1 && "${detected_lanes[0]}" == "NA" ]]; then
+    # This is a valid case: only files with no lane identifiers were found.
+    echo "INFO: No lane identifiers were found in filenames. Setting format to 'none'."
+    LANE_FORMAT="none"
+
+else
+    # This block executes if actual lane numbers were found.
+    echo "INFO: Detected lanes: ${detected_lanes[*]}. Setting format to 'numeric'."
+    LANE_FORMAT="numeric"
 
 fi
 
-if [[ ${#unique_pair_indicator[@]} -eq 0 ]]; then
-  echo "ERROR: No lanes detected after extraction."
-  exit 1
-
-fi
-
-# Validate lane numbers are reasonable (1-4 typical)
 for lane in "${detected_lanes[@]}"; do
+  if [[ "$lane" == "NA" ]]; then
+    continue
+
+  fi
+
   if [[ ! "$lane" =~ ^[1-4]$ ]]; then
     echo "WARNING: Unusual lane number detected: $lane"
+
   fi
 
 done
+
+if [[ ${#unique_pair_indicator[@]} -eq 0 ]]; then
+  echo "ERROR: No read pairs detected after extraction."
+  exit 1
+
+fi
 
 # Determine read type and validate
 has_paired_indicators=false
