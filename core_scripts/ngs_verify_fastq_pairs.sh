@@ -111,16 +111,6 @@ fi
 #============================== 
 echo "-------Start $0-------"
 echo "Setting up configuration..."
-# Filename parsing indices (split on _ and -)
-# Example: 250930Bel_D25-12496-2_1_sequence.fastq
-# Parts: [250930Bel, D25, 12496, 2, 1, sequence.fastq]
-SAMPLE_ID_START_IDX=1   # "D25"
-SAMPLE_ID_END_IDX=2     # "12496"
-LANE_IDX=3              # "2"
-READ_PAIR_IDX=4         # "1" or "2"
-NCORES=$(nproc)
-#FASTQ_LINES_PER_READ=4
-
 #============================== 
 # Setup and preprocessing
 #============================== 
@@ -133,6 +123,8 @@ MANIFEST_FILE="$DOCUMENTATION_DIR/paired_reads_manifest.tsv"
 
 # Ensure DOCUMENTATION_DIR exists
 mkdir -p "$DOCUMENTATION_DIR"
+
+
 
 # ============================================
 # Validation and Error Checking
@@ -206,19 +198,51 @@ for fastq_file in "${all_fastq_files[@]}"; do
 
   # Split on _ and - to get components
   IFS='_-' read -ra parts <<< "$filename"
+  #
+  # Inside your loop, after splitting the filename into 'parts'
+  num_parts=${#parts[@]}
+
+  # Check the number of parts to decide the structure
+  if [[ $num_parts -eq 6 ]]; then
+      # Format: 250930Bel_D25-12496-2_1_sequence.fastq
+      # Parts: [250930Bel, D25, 12496, 2, 1, sequence.fastq]
+      SAMPLE_ID_START_IDX=1
+      SAMPLE_ID_END_IDX=2
+      LANE_IDX=3
+      READ_PAIR_IDX=4
+  elif [[ $num_parts -eq 5 ]]; then
+      # Format: 250930Bel_D25-12496_1_sequence.fastq
+      # Parts: [250930Bel, D25, 12496, 1, sequence.fastq]
+      SAMPLE_ID_START_IDX=1
+      SAMPLE_ID_END_IDX=2
+      LANE_IDX=-1 # Use an invalid index to indicate no lane
+      READ_PAIR_IDX=3
+  else
+      echo "ERROR: Unexpected number of parts in filename: $filename"
+      continue # Skip to the next file
+  fi
 
   # --- Extract sample ID ---
   sample_id="${parts[$SAMPLE_ID_START_IDX]}-${parts[$SAMPLE_ID_END_IDX]}"
   sample_id_map["$sample_id"]=1
 
-  # --- Extract lane number ---
-  lane_number="${parts[$LANE_IDX]}"
-  lane_map["$lane_number"]=1
+  # --- Extract lane number (conditionally) ---
+  if [[ $LANE_IDX -ne -1 ]]; then
+      lane_number="${parts[$LANE_IDX]}"
+      lane_map["$lane_number"]=1
+
+  else
+      # If there's no lane, you can assign a default value
+      lane_map["NA"]=1
+
+  fi
+
 
   # --- Extract read pair indicator ---
   read_indicator="${parts[$READ_PAIR_IDX]}"
   pair_indicator_map["$read_indicator"]=1
-done
+
+done # end read metadata for loop
 
 echo "Extracting unique metadata values..."
 mapfile -t unique_sample_ids < <(printf '%s\n' "${!sample_id_map[@]}" | sort)
@@ -235,11 +259,33 @@ if [[ ${#unique_sample_ids[@]} -eq 0 ]]; then
 
 fi
 
-if [[ ${#detected_lanes[@]} -eq 0 ]]; then
-  echo "ERROR: No lanes detected after extraction."
-  exit 1
+
+# Determine the filename convention based on detected lanes
+LANE_FORMAT=""
+if [[ ${#detected_lanes[@]} -eq 1 && "${detected_lanes[0]}" == "NA" ]]; then
+    # This is a valid case: only files with no lane identifiers were found.
+    echo "INFO: No lane identifiers were found in filenames. Setting format to 'none'."
+    LANE_FORMAT="none"
+
+else
+    # This block executes if actual lane numbers were found.
+    echo "INFO: Detected lanes: ${detected_lanes[*]}. Setting format to 'numeric'."
+    LANE_FORMAT="numeric"
 
 fi
+
+for lane in "${detected_lanes[@]}"; do
+  if [[ "$lane" == "NA" ]]; then
+    continue
+
+  fi
+
+  if [[ ! "$lane" =~ ^[1-4]$ ]]; then
+    echo "WARNING: Unusual lane number detected: $lane"
+
+  fi
+
+done
 
 if [[ ${#unique_pair_indicator[@]} -eq 0 ]]; then
   echo "ERROR: No lanes detected after extraction."
@@ -257,12 +303,6 @@ if [[ "$VERBOSE" == true ]]; then
 
 fi
 
-# Validate lane numbers are reasonable (1-4 typical)
-for lane in "${detected_lanes[@]}"; do
-  if [[ ! "$lane" =~ ^[1-4]$ ]]; then
-    echo "WARNING: Unusual lane number detected: $lane"
-  fi
-done
 
 
 # Determine read type and validate
@@ -350,116 +390,101 @@ done
 # ============================================
 # Process based on read type
 # ============================================
+# ============================================
+# Process based on read type
+# ============================================
 if [[ "$IS_PAIRED_END" == true ]]; then
   echo ""
   echo "Processing paired-end reads..."
 
-  # Build paired file structure
-  declare -A sample_pairs
-
-  for sample_id in "${unique_sample_ids[@]}"; do
-    echo "Pairing files for sample: $sample_id"
-    IFS=' ' read -ra sample_files <<< "${sample_file_lists[$sample_id]}"
-    pairs_for_sample=""
-
-    for lane_num in "${detected_lanes[@]}"; do
-      if [[ "$VERBOSE" == true ]]; then
-        echo "  Processing lane $lane_num"
-      fi
-
-      r1="" r2=""
-      for file in "${sample_files[@]}"; do
-        IFS='_-' read -ra parts <<< "$(basename "$file")"
-        [[ "${parts[$LANE_IDX]}" == "$lane_num" && "${parts[$READ_PAIR_IDX]}" == "1" ]] && r1="$file"
-        [[ "${parts[$LANE_IDX]}" == "$lane_num" && "${parts[$READ_PAIR_IDX]}" == "2" ]] && r2="$file"
-
-      done
-
-      pairs_for_sample="$pairs_for_sample$r1 $r2 "
-
-    done
-
-    sample_pairs["$sample_id"]="$pairs_for_sample"
-    if [[ $VERBOSE == true ]]; then
-      echo "    Pairs for sample: "
-      printf "    %s\n" $pairs_for_sample
-
-    fi
-
-  done
-
-  # Verify read counts match
-  echo ""
-  echo "Verifying read counts in pairs..."
-
-  temp_pairs_file=$(mktemp)
-  for sample_id in "${unique_sample_ids[@]}"; do
-    #echo "Sample: $sample_id"
-    IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
-    for ((i=0; i<${#pair_files[@]}; i+=2)); do
-      r1_file="${pair_files[$i]}"
-      r2_file="${pair_files[$((i+1))]}"
-      [[ -z "$r1_file" || -z "$r2_file" ]] && continue
-      echo "$sample_id|$r1_file|$r2_file" >> "$temp_pairs_file"
-
-    done
-  done
-  #
-  # Use xargs to run in parallel, messages are not sorted.
-  cat "$temp_pairs_file" | xargs -P "$NCORES" -I {} bash -c '
-    IFS="|" read -r sample r1 r2 <<< "{}"
-    r1_lines=$(wc -l < "$r1")
-    r2_lines=$(wc -l < "$r2")
-    r1_reads=$((r1_lines / 4))
-    r2_reads=$((r2_lines / 4))
-    if [[ $r1_reads -eq $r2_reads ]]; then
-      echo "OK|$sample|$(basename "$r1")|$(basename "$r2")|$r1_reads"
-    else
-      echo "ERROR|$sample|$r1_reads|$r2_reads"
-    fi
-  ' | while IFS="|" read -r status sample_or_r1 file1_or_r2 file2_or_count rest; do
-      if [[ "$status" == "OK" ]]; then
-        [[ "$VERBOSE" == true ]] && echo "  [OK] $file1_or_r2 <-> $file2_or_count: $rest reads"
-
-      else
-        echo "  [ERROR] Read count mismatch for $sample_or_r1: R1=$file1_or_r2, R2=$file2_or_count"
-
-      fi
-    done
-
-  rm "$temp_pairs_file"
-
   # ============================================
-  # Generate paired reads manifest
+  # Generate Paired Reads Manifest and Prepare for Verification
   # ============================================
-  echo "Writing paired reads manifest to: $MANIFEST_FILE"
+  echo "Pairing files and generating manifest: $MANIFEST_FILE"
 
   if [[ -f "$MANIFEST_FILE" ]]; then
     echo "Manifest already exists: $MANIFEST_FILE"
     echo "  To regenerate, delete the file and rerun this script"
     echo "  rm \"$MANIFEST_FILE\""
   else
-    echo "Writing paired reads manifest to: $MANIFEST_FILE"
-
-    # Write header and data rows (sample_id, lane, R1_path, R2_path)
+    # Write header for the manifest file
     echo -e "sample_id\tlane\tread1_path\tread2_path" > "$MANIFEST_FILE"
+    
+    # Create a temporary file to hold pairs for the read count verification step
+    temp_pairs_file=$(mktemp)
 
     for sample_id in "${unique_sample_ids[@]}"; do
-      IFS=' ' read -ra pair_files <<< "${sample_pairs[$sample_id]}"
+      echo "  Processing sample: $sample_id"
+      IFS=' ' read -ra sample_files <<< "${sample_file_lists[$sample_id]}"
 
-      lane_num=1
-      for ((i=0; i<${#pair_files[@]}; i+=2)); do
-        r1="${pair_files[$i]}"
-        r2="${pair_files[$((i+1))]}"
-        [[ -z "$r1" || -z "$r2" ]] && continue  # Skip empty pairs
+      for lane_num in "${detected_lanes[@]}"; do
+        r1="" r2=""
+        
+        # Find the R1/R2 pair based on the detected naming format
+        if [[ "$LANE_FORMAT" == "numeric" ]]; then
+          # Format includes lane numbers, so we match on the lane
+          for file in "${sample_files[@]}"; do
+            IFS='_-' read -ra parts <<< "$(basename "$file")"
+            if [[ "${parts[$LANE_IDX]}" == "$lane_num" ]]; then
+              [[ "${parts[$READ_PAIR_IDX]}" == "1" ]] && r1="$file"
+              [[ "${parts[$READ_PAIR_IDX]}" == "2" ]] && r2="$file"
+            fi
+          done
+        else # LANE_FORMAT is "none"
+          # Format does not include lanes, so we only look for R1/R2
+          for file in "${sample_files[@]}"; do
+            IFS='_-' read -ra parts <<< "$(basename "$file")"
+            [[ "${parts[$READ_PAIR_IDX]}" == "1" ]] && r1="$file"
+            [[ "${parts[$READ_PAIR_IDX]}" == "2" ]] && r2="$file"
+          done
+        fi
 
-        echo -e "$sample_id\t$lane_num\t$r1\t$r2" >> "$MANIFEST_FILE"
-        ((lane_num++))
+        # If a valid pair is found, write to manifest and verification file
+        if [[ -n "$r1" && -n "$r2" ]]; then
+          if [[ "$VERBOSE" == true ]]; then
+            echo "    Found pair for lane $lane_num: $(basename $r1) <-> $(basename $r2)"
+          fi
+          # Write the correct data to the manifest
+          echo -e "$sample_id\t$lane_num\t$r1\t$r2" >> "$MANIFEST_FILE"
+          # Write data for the verification step
+          echo "$sample_id|$r1|$r2" >> "$temp_pairs_file"
+        elif [[ -n "$r1" || -n "$r2" ]]; then
+          echo "    [WARNING] Unmatched file for sample $sample_id in lane $lane_num."
+        fi
+
       done
     done
+    
+    echo "Manifest complete: $(($(wc -l < "$MANIFEST_FILE") - 1)) pairs written"
 
-    echo "Manifest complete: $(wc -l < "$MANIFEST_FILE") pairs written"
-
+    # ============================================
+    # Verify read counts match
+    # ============================================
+    echo ""
+    echo "Verifying read counts in pairs..."
+    
+    # Use xargs to run in parallel, messages are not sorted.
+    cat "$temp_pairs_file" | xargs -P "$NCORES" -I {} bash -c '
+      IFS="|" read -r sample r1 r2 <<< "{}"
+      r1_lines=$(wc -l < "$r1")
+      r2_lines=$(wc -l < "$r2")
+      r1_reads=$((r1_lines / 4))
+      r2_reads=$((r2_lines / 4))
+      if [[ $r1_reads -eq $r2_reads ]]; then
+        echo "OK|$sample|$(basename "$r1")|$(basename "$r2")|$r1_reads"
+      else
+        echo "ERROR|$sample|$r1_reads|$r2_reads"
+      fi
+    ' | while IFS="|" read -r status sample_or_r1 file1_or_r2 file2_or_count rest; do
+        if [[ "$status" == "OK" ]]; then
+          [[ "$VERBOSE" == true ]] && echo "  [OK] $sample_or_r1: $file1_or_r2 <-> $file2_or_count: $rest reads"
+        else
+          echo "  [ERROR] Read count mismatch for $sample_or_r1: R1=$file1_or_r2, R2=$file2_or_count"
+        fi
+      done
+    
+    # Clean up the temporary file
+    rm "$temp_pairs_file"
   fi
 
 else
