@@ -198,6 +198,11 @@ for (experiment_idx in seq_len(NUMBER_OF_EXPERIMENTS)) {
   source(current_config_path)
   current_metadata_df <- read.csv(current_metadata_path, stringsAsFactors = FALSE)
 
+  # Have to process the eaton reference data to reorder. Very poor way but what can you do?
+  if (EXPERIMENT_ID == "100303Bel") {
+    current_metadata_df <- current_metadata_df[c(2,3,4,1,5),]
+  }
+
   # Gather additional metadata --------
   current_metadata_df$experiment_id <- EXPERIMENT_CONFIG$METADATA$EXPERIMENT_ID
   # Find fastq files and extract sample IDs
