@@ -667,11 +667,11 @@ setup_experiment_dirs <- function(
 
     # Check for required input directories
     for (dir_name in required_input_dirs) {
-            stop(sprintf("Required experiment subdirectory '%s' not found: %s", 
-                    dir_name,
-                    full_path
-                )) #
-        }
+        stop(sprintf("Required experiment subdirectory '%s' not found: %s", 
+              dir_name,
+              full_path
+        ))
+
         dirs[[dir_name]] <- full_path
     }
 
