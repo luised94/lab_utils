@@ -42,6 +42,7 @@ setup_sratools() {
 #-------------------------------------------------------------------------------
 # Configuration
 #-------------------------------------------------------------------------------
+LINUX_HOME="/home/luised94/"
 OUTPUT_DIR="${HOME}/data/100303Bel"
 FASTQ_DIR="${OUTPUT_DIR}/fastq"
 DOCUMENTATION_DIR="${OUTPUT_DIR}/documentation"
@@ -191,6 +192,7 @@ for gsm in "${!gsm_groups[@]}"; do
     sample_id="D10-${id}"
     files=${gsm_groups[$gsm]}
     output_file="${FASTQ_DIR}/consolidated_${sample_id}_sequence.fastq"
+    cluster_filename="${LINUX_HOME}/data/100303Bel/fastq/consolidated_${sample_id}_sequence.fastq"
 
     echo "Consolidating files into $output_file..."
     echo "Input files: $files"
@@ -209,7 +211,7 @@ for gsm in "${!gsm_groups[@]}"; do
                 echo "Original files removed"
 
                 # Append to manifest file with the new decompressed filename
-                echo -e "${sample_id}\t${output_file}\t" >> "$MANIFEST_FILEPATH"
+                echo -e "${sample_id}\t${cluster_filename}\t" >> "$MANIFEST_FILEPATH"
                 echo "Appended to manifest: $MANIFEST_FILEPATH"
 
             else

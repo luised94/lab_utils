@@ -19,7 +19,7 @@
 #============================== 
 show_usage() {
   cat << EOF
-Usage: srun $(basename "$0") <fastq_directory> [-v]
+Usage: srun $(basename "$0") <EXPERIMENT_ID> [-v]
 
 Description:
   Consolidate fastq files from different lanes of the sequencer into a single file. Paired end files are consolidated in lane order.
