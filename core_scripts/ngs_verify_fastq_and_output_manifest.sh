@@ -4,11 +4,11 @@
 # Author: Luis | Date: 2025-10-20 | Version: 1.0.0
 ################################################################################
 # PURPOSE:
-#   For a fastq directory, find paired end files according to BMC naming convention and verify that paired end files have same number of reads (simplest check)
+#   For an experiment id, find paired end files according to BMC naming convention and verify that paired end files have same number of reads (simplest check)
 #   Output manifest of paired files for subsequent scripts.
 # USAGE:
 #   From the command line
-#   $ ./ngs_verify_fastq_pairs.sh /path/to/fastq/directory
+#   $ ./ngs_verify_fastq_pairs.sh <EXPERIMENT_ID>
 # DEPENDENCIES:
 #   bash 4.2
 # OUTPUTS:
@@ -200,7 +200,7 @@ for fastq_file in "${all_fastq_files[@]}"; do
 
   # Split on _ and - to get components
   IFS='_-' read -ra parts <<< "$filename"
-  #
+
   # Inside your loop, after splitting the filename into 'parts'
   num_parts=${#parts[@]}
 
@@ -261,7 +261,6 @@ if [[ ${#unique_sample_ids[@]} -eq 0 ]]; then
 
 fi
 
-
 # Determine the filename convention based on detected lanes
 LANE_FORMAT=""
 if [[ ${#detected_lanes[@]} -eq 1 && "${detected_lanes[0]}" == "NA" ]]; then
@@ -304,8 +303,6 @@ if [[ "$VERBOSE" == true ]]; then
   echo "  Expected lanes per sample: $EXPECTED_LANES_PER_SAMPLE"
 
 fi
-
-
 
 # Determine read type and validate
 has_paired_indicators=false
@@ -392,9 +389,6 @@ done
 # ============================================
 # Process based on read type
 # ============================================
-# ============================================
-# Process based on read type
-# ============================================
 if [[ "$IS_PAIRED_END" == true ]]; then
   echo ""
   echo "Processing paired-end reads..."
@@ -411,7 +405,7 @@ if [[ "$IS_PAIRED_END" == true ]]; then
   else
     # Write header for the manifest file
     echo -e "sample_id\tlane\tread1_path\tread2_path" > "$MANIFEST_FILE"
-    
+
     # Create a temporary file to hold pairs for the read count verification step
     temp_pairs_file=$(mktemp)
 
@@ -421,7 +415,7 @@ if [[ "$IS_PAIRED_END" == true ]]; then
 
       for lane_num in "${detected_lanes[@]}"; do
         r1="" r2=""
-        
+
         # Find the R1/R2 pair based on the detected naming format
         if [[ "$LANE_FORMAT" == "numeric" ]]; then
           # Format includes lane numbers, so we match on the lane
@@ -456,7 +450,7 @@ if [[ "$IS_PAIRED_END" == true ]]; then
 
       done
     done
-    
+
     echo "Manifest complete: $(($(wc -l < "$MANIFEST_FILE") - 1)) pairs written"
 
     # ============================================
@@ -464,7 +458,7 @@ if [[ "$IS_PAIRED_END" == true ]]; then
     # ============================================
     echo ""
     echo "Verifying read counts in pairs..."
-    
+
     # Use xargs to run in parallel, messages are not sorted.
     cat "$temp_pairs_file" | xargs -P "$NCORES" -I {} bash -c '
       IFS="|" read -r sample r1 r2 <<< "{}"
@@ -484,7 +478,7 @@ if [[ "$IS_PAIRED_END" == true ]]; then
           echo "  [ERROR] Read count mismatch for $sample_or_r1: R1=$file1_or_r2, R2=$file2_or_count"
         fi
       done
-    
+
     # Clean up the temporary file
     rm "$temp_pairs_file"
   fi
