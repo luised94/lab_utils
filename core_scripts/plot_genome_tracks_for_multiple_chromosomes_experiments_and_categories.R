@@ -409,6 +409,8 @@ names(category_colors) <- category_values
 # Define columns to compare by and exclude columns for grouping
 # TODO: Move to configuration. //
 #target_comparison_columns <- c("rescue_allele", "timepoints")
+#target_comparison_columns <- c("antibody", "dna_cleanup")
+target_comparison_columns <- c("dna_cleanup", "detergent")
 plot_name_comparison_column_section <- paste(
   gsub("_", "", target_comparison_columns),
   collapse = "."
@@ -437,7 +439,7 @@ experimental_condition_columns <- setdiff(
 )
 metadata_df$track_name <- do.call(paste,
   args = c(
-    lapply(metadata_df[, target_comparison_columns],
+    lapply(metadata_df[, target_comparison_columns, drop = FALSE],
            as.character),
     sep = "-"
   )
