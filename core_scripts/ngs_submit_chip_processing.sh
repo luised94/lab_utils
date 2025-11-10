@@ -99,17 +99,6 @@ if [[ ! $EXPERIMENT_ID =~ $EXPECTED_EXPERIMENT_ID_PATTERN ]]; then
   exit 1
 fi
 
-# Handle second argument: Set dry-run mode.
-#DRY_RUN=true
-#if [[ $# -eq $MAX_NUMBER_OF_ARGS ]]; then
-#    if [[ "$2" != "--active-run" ]]; then
-#        echo "Error: Unknown option '$2'" >&2
-#        echo "Use --active-run to perform actual sync." >&2
-#        exit 1
-#    fi
-#    DRY_RUN=false
-#fi
-
 #==============================
 # Configuration
 #==============================
@@ -127,7 +116,7 @@ NGS_FILE_PATTERNS=("consolidated*.fastq" "*.bam" "*.bw")
 #==============================
 EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
 FASTQ_DIRECTORY="$EXPERIMENT_DIR/fastq/"
-DOCUMENTATION_DIR="$(dirname "$FASTQ_DIRECTORY")/documentation"
+DOCUMENTATION_DIR="${EXPERIMENT_DIR}/documentation"
 JOB_LOG="${DOCUMENTATION_DIR}/experiment_job_info.md"
 MANIFEST_FILEPATH="$DOCUMENTATION_DIR/$MANIFEST_FILENAME"
 #FASTQ_FILE_PATTERN="consolidated*.fastq"
@@ -374,6 +363,6 @@ fi
 } >> "$JOB_LOG"
 
 echo "Job $job_id submitted successfully. Details logged to $JOB_LOG"
-echo "See logs: vim \$\(ls -t ~/logs/250930Bel_*chip_processing*_main.log | head -1\)"
+echo "See logs: vim \$\(ls -t ~/data/logs/${EXPERIMENT_ID}_*chip_processing*_main.log | head -1\)"
 echo "Monitor job status: squeue -u $USER"
 echo "Script complete."
