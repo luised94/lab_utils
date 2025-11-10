@@ -48,9 +48,6 @@ DOCUMENTATION_DIR="${OUTPUT_DIR}/documentation"
 MANIFEST_FILENAME="consolidated_reads_manifest.tsv"
 MANIFEST_FILEPATH="$DOCUMENTATION_DIR/$MANIFEST_FILENAME"
 
-# Create output directory
-mkdir -p "$FASTQ_DIR" "$DOCUMENTATION_DIR"
-
 SAMPLES=(
     "WT_G1_37C_Nucleosomes:SRR034477:GSM442537"
     "WT_G2_ORC_rep1:SRR034475:GSM424494"
@@ -69,14 +66,31 @@ setup_sratools "fasterq-dump"
 #-------------------------------------------------------------------------------
 # Main Process
 #-------------------------------------------------------------------------------
+# --- START OF DEBUGGING LINES ---
+echo "----------------------------------------"
+echo "DEBUGGING:"
+echo "HOME directory is: $HOME"
+echo "OUTPUT_DIR is: $OUTPUT_DIR"
+echo "DOCUMENTATION_DIR is: $DOCUMENTATION_DIR"
+echo "MANIFEST_FILEPATH is: $MANIFEST_FILEPATH"
+echo "----------------------------------------"
+# --- END OF DEBUGGING LINES ---
+# Create output directory
+mkdir -p "$FASTQ_DIR"
+mkdir -p "$DOCUMENTATION_DIR"
+echo "INFO: 'mkdir' command has been run."
+
 # Check if manifest file already exists and exit if it does
 if [[ -f "$MANIFEST_FILEPATH" ]]; then
     echo "Manifest file already exists, skipping all processing: $MANIFEST_FILEPATH"
     exit 0
 fi
 
+echo "INFO: Manifest not found, proceeding to create it."
+
 # Initialize manifest file with header
 echo -e "sample_id\tread1_path\tread2_path" > "$MANIFEST_FILEPATH"
+echo "INFO: Manifest header has been written."
 
 # Extract accessions from SAMPLES array
 ACCESSIONS=()
@@ -86,12 +100,20 @@ for sample in "${SAMPLES[@]}"; do
 
 done
 
+# Check for existing consolidated FASTQ files and exit if found
+# The '2>/dev/null' part suppresses the error message if no files are found
+if ls "$FASTQ_DIR"/consolidated*.fastq 1> /dev/null 2>/dev/null; then
+    echo "INFO: Found existing consolidated FASTQ files in $FASTQ_DIR. Exiting."
+    exit 0
+fi
+echo "INFO: No consolidated files detected. Downloading using sra-tools."
+
 # Download and convert each SRA file
 for acc in "${ACCESSIONS[@]}"; do
     echo "Processing $acc..."
     echo "Downloading $acc..."
 
-    if ! prefetch "$acc" -O "$OUTPUT_DIR"; then
+    if ! prefetch "$acc" -O "$FASTQ_DIR"; then
         echo "Error: Failed to download $acc"
         continue
 
@@ -99,7 +121,7 @@ for acc in "${ACCESSIONS[@]}"; do
 
     echo "Converting $acc to FASTQ..."
 
-    if ! fasterq-dump "$OUTPUT_DIR/$acc/$acc.sra" -O "$OUTPUT_DIR" -p; then
+    if ! fasterq-dump "$FASTQ_DIR/$acc/$acc.sra" -O "$FASTQ_DIR" -p; then
         echo "Error: Failed to convert $acc to FASTQ"
         continue
 
@@ -112,16 +134,7 @@ done
 #-------------------------------------------------------------------------------
 # Cleanup and Consolidation
 #-------------------------------------------------------------------------------
-echo "Organizing files..."
 
-# Move all FASTQ files to FASTQ directory
-find "$OUTPUT_DIR" -type f -name "*.fastq" -exec mv {} "$FASTQ_DIR" \;
-#
-## Remove all non-FASTQ files
-find "$OUTPUT_DIR" -type f ! -name "*.fastq" -delete
-#
-## Remove empty directories
-find "$OUTPUT_DIR" -type d -empty -delete
 
 echo "Processing completed. FASTQ files are in ${FASTQ_DIR}"
 echo "Starting consolidation process..."
@@ -192,8 +205,6 @@ for gsm in "${!gsm_groups[@]}"; do
                 rm -f $files
                 echo "Original files removed"
 
-
-
                 # Append to manifest file with the new decompressed filename
                 echo -e "${sample_id}\t${output_file}\t" >> "$MANIFEST_FILEPATH"
                 echo "Appended to manifest: $MANIFEST_FILEPATH"
@@ -217,6 +228,16 @@ for gsm in "${!gsm_groups[@]}"; do
 done
 
 echo "Consolidation completed"
+echo "Organizing files..."
+# Move all FASTQ files to FASTQ directory
+#find "$FASTQ_DIR" -type f -name "*.fastq" -exec mv {} "$FASTQ_DIR" \;
+
+# Remove all non-FASTQ files
+find "$FASTQ_DIR" -type f ! -name "*.fastq" -delete
+
+# Remove empty directories
+find "$OUTPUT_DIR" -type d -empty -delete
+
 # Simple download summary at the end, counting the decompressed files
 echo ""
 echo "Consolidation and decompression complete. Files in: $FASTQ_DIR"
