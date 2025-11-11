@@ -410,6 +410,37 @@ names(category_colors) <- category_values
 # TODO: Move to configuration. //
 #target_comparison_columns <- c("rescue_allele", "timepoints")
 #target_comparison_columns <- c("antibody", "dna_cleanup")
+metadata_df <- subset(metadata_df, dna_cleanup == "qiagen")
+track_grouping_columns <- c("antibody")
+metadata_columns_to_exclude <- c(
+  "bigwig_file_paths", "experiment_id", "full_name", "repeats",
+  "sample_ids", "sample_type", "short_name"
+)
+# Identify columns that describe the experimental condition
+experimental_condition_columns <- setdiff(
+  colnames(metadata_df),
+  union(track_grouping_columns, metadata_columns_to_exclude)
+)
+
+# Create 'track_name' based on the grouping column (antibody)
+# Using drop = FALSE to prevent errors when there's only one grouping column
+metadata_df$track_name <- do.call(paste,
+  args = c(
+    lapply(filtered_metadata_df[, track_grouping_columns, drop = FALSE],
+           as.character),
+    sep = "-"
+  )
+)
+
+# Create a unique ID for each row's experimental condition
+condition_descriptor_data <- metadata_df[, experimental_condition_columns, drop = FALSE]
+filtered_metadata_df$experimental_condition_id <- do.call(
+  paste,
+  args = c(condition_descriptor_data, sep = "|")
+)
+
+stop("Breakpoint inserted...")
+
 target_comparison_columns <- c("dna_cleanup", "detergent")
 plot_name_comparison_column_section <- paste(
   gsub("_", "", target_comparison_columns),
