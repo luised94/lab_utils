@@ -426,7 +426,7 @@ experimental_condition_columns <- setdiff(
 # Using drop = FALSE to prevent errors when there's only one grouping column
 metadata_df$track_name <- do.call(paste,
   args = c(
-    lapply(filtered_metadata_df[, track_grouping_columns, drop = FALSE],
+    lapply(metadata_df[, track_grouping_columns, drop = FALSE],
            as.character),
     sep = "-"
   )
@@ -434,55 +434,13 @@ metadata_df$track_name <- do.call(paste,
 
 # Create a unique ID for each row's experimental condition
 condition_descriptor_data <- metadata_df[, experimental_condition_columns, drop = FALSE]
-filtered_metadata_df$experimental_condition_id <- do.call(
+metadata_df$experimental_condition_id <- do.call(
   paste,
   args = c(condition_descriptor_data, sep = "|")
 )
 
-stop("Breakpoint inserted...")
-
-target_comparison_columns <- c("dna_cleanup", "detergent")
-plot_name_comparison_column_section <- paste(
-  gsub("_", "", target_comparison_columns),
-  collapse = "."
-)
-
-missing_excluded_columns <- setdiff(metadata_columns_to_exclude, colnames(metadata_df))
-missing_comparison_columns <- setdiff(target_comparison_columns, colnames(metadata_df))
-
-# Validate target comparison columns exist
-if (length(missing_comparison_columns) > 0) {
-  stop("Missing required comparison columns in metadata_df: ",
-       paste(missing_comparison_columns, collapse = ", "))
-}
-
-# Validate excluded columns (warning only, not critical)
-if (length(missing_excluded_columns) > 0) {
-  warning("Some excluded columns don't exist in metadata_df: ",
-          paste(missing_excluded_columns, collapse = ", "))
-  # Remove non-existent columns from the exclusion list
-  metadata_columns_to_exclude <- intersect(metadata_columns_to_exclude, colnames(metadata_df))
-}
-
-experimental_condition_columns <- setdiff(
-  colnames(metadata_df),
-  union(target_comparison_columns, metadata_columns_to_exclude)
-)
-metadata_df$track_name <- do.call(paste,
-  args = c(
-    lapply(metadata_df[, target_comparison_columns, drop = FALSE],
-           as.character),
-    sep = "-"
-  )
-)
-experimental_condition_data <- metadata_df[, experimental_condition_columns, drop = FALSE]
-metadata_df$experimental_condition_id <- do.call(
-  paste,
-  args = c(experimental_condition_data, sep = "|")
-)
-
 unique_experimental_conditions <- unique(metadata_df$experimental_condition_id)
-unique_condition_data <- unique(experimental_condition_data)
+unique_condition_data <- unique(condition_descriptor_data)
 
 unique_condition_text_df <- data.frame(
   lapply(unique_condition_data, as.character),
@@ -516,6 +474,81 @@ stopifnot(
   "Expect same number of titles and conditions. See condition_plot_titles and unique_experimental_condtions." =
     length(experimental_condition_titles) == total_number_of_conditions
 )
+#
+#target_comparison_columns <- c("dna_cleanup", "detergent")
+#plot_name_comparison_column_section <- paste(
+#  gsub("_", "", target_comparison_columns),
+#  collapse = "."
+#)
+#
+#missing_excluded_columns <- setdiff(metadata_columns_to_exclude, colnames(metadata_df))
+#missing_comparison_columns <- setdiff(target_comparison_columns, colnames(metadata_df))
+#
+## Validate target comparison columns exist
+#if (length(missing_comparison_columns) > 0) {
+#  stop("Missing required comparison columns in metadata_df: ",
+#       paste(missing_comparison_columns, collapse = ", "))
+#}
+#
+## Validate excluded columns (warning only, not critical)
+#if (length(missing_excluded_columns) > 0) {
+#  warning("Some excluded columns don't exist in metadata_df: ",
+#          paste(missing_excluded_columns, collapse = ", "))
+#  # Remove non-existent columns from the exclusion list
+#  metadata_columns_to_exclude <- intersect(metadata_columns_to_exclude, colnames(metadata_df))
+#}
+#
+#experimental_condition_columns <- setdiff(
+#  colnames(metadata_df),
+#  union(target_comparison_columns, metadata_columns_to_exclude)
+#)
+#metadata_df$track_name <- do.call(paste,
+#  args = c(
+#    lapply(metadata_df[, target_comparison_columns, drop = FALSE],
+#           as.character),
+#    sep = "-"
+#  )
+#)
+#experimental_condition_data <- metadata_df[, experimental_condition_columns, drop = FALSE]
+#metadata_df$experimental_condition_id <- do.call(
+#  paste,
+#  args = c(experimental_condition_data, sep = "|")
+#)
+#unique_experimental_conditions <- unique(metadata_df$experimental_condition_id)
+#unique_condition_data <- unique(experimental_condition_data)
+#
+#unique_condition_text_df <- data.frame(
+#  lapply(unique_condition_data, as.character),
+#  stringsAsFactors = FALSE
+#)
+## For each row, create "column_name: value" strings
+#experimental_condition_titles <- apply(
+#  X = unique_condition_text_df, MARGIN = 1,
+#  FUN = function(row_values) {
+#    paste(names(row_values),
+#      row_values,
+#      sep = ": ",
+#      collapse = "\n"
+#    )
+#  }
+#)
+#
+#total_number_of_conditions <- length(unique_experimental_conditions)
+#total_number_of_samples <- nrow(metadata_df)
+#total_number_of_chromosomes <- length(CHROMOSOMES_TO_PLOT)
+#
+#stopifnot(
+#  "No experimental condition columns remain. See experimental_condition_columns" =
+#    length(experimental_condition_columns) > 0,
+#  "No unique experimental conditions identified. See unique_experimental_conditions." =
+#    total_number_of_conditions > 0,
+#  "No samples in metadata df. See metadata_df." =
+#    total_number_of_samples > 0,
+#  "No chromosomes to plot. See CHROMOSOMES_TO_PLOT." =
+#    total_number_of_chromosomes > 0,
+#  "Expect same number of titles and conditions. See condition_plot_titles and unique_experimental_condtions." =
+#    length(experimental_condition_titles) == total_number_of_conditions
+#)
 
 for (condition_idx in seq_len(total_number_of_conditions)) {
   message("=== For loop for group ===")
