@@ -12,37 +12,23 @@ Each script carries out a particular operation along a chip-seq pipeline and req
     > Creates: '*_sample_grid.csv','*_bmc_table.tsv','*_configuration_experiment_bmc.R',
 
 2. Download the data to the local directory according to the BMC's email instructions.
- ```{bash}
- srun rsync -av /path/in/BMC/email ~/data/<experiment-id>
- ```
-  - Usually this would be all you need to do but if you submit two different orders and they get sequenced together, they will be delivered together. Use 'bmc_move_fastq_to_target_directory.sh' by modifying the variables and running as script.
-  > Moves fastq files to target directory.
+  > ngs_sync_data_from_bmc_to_personal_data_folder.sh
+  - REQUIRES UPDATE (2025-11-10): Usually this would be all you need to do but if you submit two different orders and they get sequenced together, they will be delivered together. Use 'bmc_move_fastq_to_target_directory.sh' by modifying the variables and running as script.
 
-3. Clean up the fastq directory (cleanup_bmc_directory.sh).
-  > Run the commands instead of as a script. Files can also be moved and inspected preliminarily. I remove them since I prefer to use my own scripts.
-  > Leaves only fastq files in the fastq subdirectory.
+3. Clean up the directory.
+  > ngs_cleanup_experiment_directory.sh: Leaves only fastq files in the fastq subdirectory.
 
-4. Consolidate the fastq files from both lanes (consolidate_fastq.sh). There could be differences between the lanes. However, if one lane has enough reads of good-enough quality, then you do not need to worry.
+4. Verify fastq files for paired ends. Also checks the metadata extracted from the filename of the fastq files.
+  > ngs_verify_fastq_and_output_manifest.sh
+
+5. Consolidate the fastq files from lanes and rename the fastq files to consolidate_*.fastq convention.
   > Creates: 'consolidated*.fastq'
-  > Fastp will filter out the reads either way. 
 
-The next set of scripts run an sbatch file that contains the information for slurm program to administrate the script and resources.
+6. Submit script to go from fastq to bam and bigwig files.
+  > Uses fastp, bowtie2, alignmentSieve, and bamcoverage.
 
-5. Filter the fastq files (submit_fastp_filter.sh).
-  > Creates: 'processed*.fastq'
-
-6. Align the fastq files (submit_bowtie2_alignment.sh) to the reference genome specified in script, and sorts the bam file before outputting.
-  > Creates: 'processed*_to_S288C_sorted.bam'
-
-7. Filter the bam file with the blacklist filtering script.
-  > Requires: "$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
-  > Creates: 'processed*_to_S288C_blFiltered.bam'
-
-8. Generate the coverage files (submit_bamcoverage_normalizations.sh).
-  > Run the submit bash script first to generate the bigwig files.
-  > Creates: *.bigwig
-
-9. Create plots from the bigwig files.
+7. Create plots from the bigwig files.
+  > plot_genome_tracks_for_multiple_chromosomes_experiments_and_categories.R
   > Use the plot_*.R scripts to create the plots of the bigwig files as genomic tracks.
 
   > Scripts use 'configuration_experiment_bmc.R' and 'configuration_script_bmc.R'
@@ -50,7 +36,8 @@ The next set of scripts run an sbatch file that contains the information for slu
   > View generated html, pdf or svg files (recommend pdf).
   > Creates: *.svg, *.html or *.pdf of plots generated via Gviz package.
 
-10. Call peaks (submit_macs2_peak_calling.sh).
+10. Call peaks.
+  > REQUIRES UPDATE (2025-11-10): Quick test of eaton peak calling replication.
 
 11. TODO: Determine motifs.
 

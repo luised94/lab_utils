@@ -19,7 +19,7 @@
 #============================== 
 show_usage() {
   cat << EOF
-Usage: srun $(basename "$0") <fastq_directory> [-v]
+Usage: srun $(basename "$0") <EXPERIMENT_ID> [-v]
 
 Description:
   Consolidate fastq files from different lanes of the sequencer into a single file. Paired end files are consolidated in lane order.
@@ -114,13 +114,6 @@ echo "Setting configuration..."
 
 # Filename parsing configuration
 FILENAME_DELIMITERS='_-'  # Delimiters used to split filename components
-# Filename parsing indices (split on _ and -)
-# Example: 250930Bel_D25-12496-2_1_sequence.fastq
-# Parts: [250930Bel, D25, 12496, 2, 1, sequence.fastq]
-SAMPLE_ID_START_IDX=1   # "D25"
-SAMPLE_ID_END_IDX=2     # "12496"
-LANE_IDX=3              # "2"
-READ_PAIR_IDX=4         # "1" or "2"
 OUTPUT_PREFIX="consolidated"
 OUTPUT_SUFFIX=".fastq"
 #NCORES=$(nproc)
@@ -133,7 +126,7 @@ MANIFEST_FILENAME="consolidated_reads_manifest.tsv"
 #============================== 
 EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
 FASTQ_DIRECTORY="$EXPERIMENT_DIR/fastq/"
-DOCUMENTATION_DIR="$(dirname "$FASTQ_DIRECTORY")/documentation"
+DOCUMENTATION_DIR="${EXPERIMENT_DIR}/documentation"
 MANIFEST_FILEPATH="$DOCUMENTATION_DIR/$MANIFEST_FILENAME"
 
 #============================== 
@@ -324,14 +317,45 @@ for fastq_file in "${all_fastq_files[@]}"; do
   # Split on _ and - to get components
   IFS="$FILENAME_DELIMITERS" read -ra parts <<< "$filename"
 
-  # --- Extract the metadata ---
-  sample_id="${parts[$SAMPLE_ID_START_IDX]}-${parts[$SAMPLE_ID_END_IDX]}"
-  lane_number="${parts[$LANE_IDX]}"
-  read_indicator="${parts[$READ_PAIR_IDX]}"
+  # Inside your loop, after splitting the filename into 'parts'
+  num_parts=${#parts[@]}
 
-  # --- Add the values to the associative array ---
+  # Check the number of parts to decide the structure
+  if [[ $num_parts -eq 6 ]]; then
+      # Format: 250930Bel_D25-12496-2_1_sequence.fastq
+      # Parts: [250930Bel, D25, 12496, 2, 1, sequence.fastq]
+      SAMPLE_ID_START_IDX=1
+      SAMPLE_ID_END_IDX=2
+      LANE_IDX=3
+      READ_PAIR_IDX=4
+  elif [[ $num_parts -eq 5 ]]; then
+      # Format: 250930Bel_D25-12496_1_sequence.fastq
+      # Parts: [250930Bel, D25, 12496, 1, sequence.fastq]
+      SAMPLE_ID_START_IDX=1
+      SAMPLE_ID_END_IDX=2
+      LANE_IDX=-1 # Use an invalid index to indicate no lane
+      READ_PAIR_IDX=3
+  else
+      echo "ERROR: Unexpected number of parts in filename: $filename"
+      continue # Skip to the next file
+  fi
+
+
+  # --- Extract sample ID ---
+  sample_id="${parts[$SAMPLE_ID_START_IDX]}-${parts[$SAMPLE_ID_END_IDX]}"
   sample_id_map["$sample_id"]=1
-  lane_map["$lane_number"]=1
+
+  # --- Extract lane number (conditionally) ---
+  if [[ $LANE_IDX -ne -1 ]]; then
+      lane_number="${parts[$LANE_IDX]}"
+  else
+      # If there's no lane, assign "NA" to both the variable and the map
+      lane_number="NA"
+  fi
+  lane_map["$lane_number"]=1 # Add to map after setting the variable
+
+  # --- Extract read pair indicator ---
+  read_indicator="${parts[$READ_PAIR_IDX]}"
   pair_indicator_map["$read_indicator"]=1
 
   # Store for consolidation (grouped by sample, with lane prefix for sorting)
@@ -367,25 +391,38 @@ if [[ ${#unique_sample_ids[@]} -eq 0 ]]; then
 
 fi
 
-if [[ ${#detected_lanes[@]} -eq 0 ]]; then
-  echo "ERROR: No lanes detected after extraction."
-  exit 1
+# Determine the filename convention based on detected lanes
+LANE_FORMAT=""
+if [[ ${#detected_lanes[@]} -eq 1 && "${detected_lanes[0]}" == "NA" ]]; then
+    # This is a valid case: only files with no lane identifiers were found.
+    echo "INFO: No lane identifiers were found in filenames. Setting format to 'none'."
+    LANE_FORMAT="none"
+
+else
+    # This block executes if actual lane numbers were found.
+    echo "INFO: Detected lanes: ${detected_lanes[*]}. Setting format to 'numeric'."
+    LANE_FORMAT="numeric"
 
 fi
 
-if [[ ${#unique_pair_indicator[@]} -eq 0 ]]; then
-  echo "ERROR: No lanes detected after extraction."
-  exit 1
-
-fi
-
-# Validate lane numbers are reasonable (1-4 typical)
 for lane in "${detected_lanes[@]}"; do
+  if [[ "$lane" == "NA" ]]; then
+    continue
+
+  fi
+
   if [[ ! "$lane" =~ ^[1-4]$ ]]; then
     echo "WARNING: Unusual lane number detected: $lane"
+
   fi
 
 done
+
+if [[ ${#unique_pair_indicator[@]} -eq 0 ]]; then
+  echo "ERROR: No read pairs detected after extraction."
+  exit 1
+
+fi
 
 # Determine read type and validate
 has_paired_indicators=false
@@ -534,89 +571,46 @@ for sample_id in "${unique_sample_ids[@]}"; do
 
     # Only consolidate if not in dry-run mode
     if [[ "$DRY_RUN" == false ]]; then
-      # Consolidate R1 files with atomic write
-      echo "  Consolidating R1 files..."
+      # Consolidate and verify R1 files
+      echo "  Consolidating and verifying R1 files..."
       tmp_r1="${output_r1}.tmp"
 
-      if cat "${r1_files_array[@]}" > "$tmp_r1"; then
-        mv "$tmp_r1" "$output_r1"
-        echo "  [OK] Created $output_r1"
+      # Use tee to write to the file and pipe to md5sum simultaneously
+      # This captures the checksum of the stream being written.
+      stream_checksum_r1=$(cat "${r1_files_array[@]}" | tee "$tmp_r1" | md5sum | cut -d' ' -f1)
 
-      else
-        echo "  ERROR: Failed to consolidate R1 files"
+      # Now verify the file on disk matches the stream it came from.
+      file_checksum_r1=$(md5sum "$tmp_r1" | cut -d' ' -f1)
+
+      if [[ "$stream_checksum_r1" != "$file_checksum_r1" ]]; then
+        echo "  ERROR: R1 checksum mismatch during consolidation." >&2
         rm -f "$tmp_r1"
         ((samples_skipped++))
         continue
-
-      fi
-
-      # Consolidate R2 files with atomic write
-      echo "  Consolidating R2 files..."
-      tmp_r2="${output_r2}.tmp"
-      if cat "${r2_files_array[@]}" > "$tmp_r2"; then
-        mv "$tmp_r2" "$output_r2"
-        echo "  [OK] Created $output_r2"
-
       else
-        echo "  ERROR: Failed to consolidate R2 files"
-        rm -f "$tmp_r2" "$output_r1"  # Clean up R1 too if R2 fails
-        ((samples_skipped++))
-        continue
-
+        # Verification passed, atomically move the file.
+        mv "$tmp_r1" "$output_r1"
+        echo "  [OK] R1 consolidation and verification passed."
       fi
 
-      # Verify R1 consolidation
-      echo "  Verifying R1 consolidation..."
-      if [[ ! -s "$output_r1" ]]; then
-        echo "  ERROR: R1 output file is empty"
-        rm -f "$output_r1" "$output_r2"
+      # Consolidate and verify R2 files
+      echo "  Consolidating and verifying R2 files..."
+      tmp_r2="${output_r2}.tmp"
+
+      stream_checksum_r2=$(cat "${r2_files_array[@]}" | tee "$tmp_r2" | md5sum | cut -d' ' -f1)
+      file_checksum_r2=$(md5sum "$tmp_r2" | cut -d' ' -f1)
+
+      if [[ "$stream_checksum_r2" != "$file_checksum_r2" ]]; then
+        echo "  ERROR: R2 checksum mismatch during consolidation." >&2
+        rm -f "$tmp_r2" "$output_r1" # Clean up successfully created R1 file
         ((samples_skipped++))
         continue
-
+      else
+        mv "$tmp_r2" "$output_r2"
+        echo "  [OK] R2 consolidation and verification passed."
       fi
 
-      # Calculate and compare R1 checksums
-      original_r1_checksum=$(cat "${r1_files_array[@]}" | md5sum | cut -d' ' -f1)
-      consolidated_r1_checksum=$(md5sum "$output_r1" | cut -d' ' -f1)
-
-      if [[ "$original_r1_checksum" != "$consolidated_r1_checksum" ]]; then
-        echo "  ERROR: R1 checksum mismatch" >&2
-        echo "    Expected: $original_r1_checksum" >&2
-        echo "    Got:      $consolidated_r1_checksum" >&2
-        rm -f "$output_r1" "$output_r2"
-        ((samples_skipped++))
-        continue
-
-      fi
-
-      echo "  [OK] R1 verification passed"
-
-      # Verify R2 consolidation
-      echo "  Verifying R2 consolidation..."
-      if [[ ! -s "$output_r2" ]]; then
-        echo "  ERROR: R2 output file is empty"
-        rm -f "$output_r1" "$output_r2"
-        ((samples_skipped++))
-        continue
-
-      fi
-
-      # Calculate and compare R2 checksums
-      original_r2_checksum=$(cat "${r2_files_array[@]}" | md5sum | cut -d' ' -f1)
-      consolidated_r2_checksum=$(md5sum "$output_r2" | cut -d' ' -f1)
-
-      if [[ "$original_r2_checksum" != "$consolidated_r2_checksum" ]]; then
-        echo "  ERROR: R2 checksum mismatch" >&2
-        echo "    Expected: $original_r2_checksum" >&2
-        echo "    Got:      $consolidated_r2_checksum" >&2
-        rm -f "$output_r1" "$output_r2"
-        ((samples_skipped++))
-        continue
-
-      fi
-      echo "  [OK] R2 verification passed"
-
-      # Only remove originals after both verifications pass
+      # Both R1 and R2 were successful, now remove originals
       echo "  Removing original files..."
       rm -f "${r1_files_array[@]}" "${r2_files_array[@]}"
       echo "  [OK] Original files removed"
@@ -669,48 +663,31 @@ for sample_id in "${unique_sample_ids[@]}"; do
     echo "  Will create:"
     echo "    $output_se"
 
+
     # Only consolidate if not in dry-run mode
     if [[ "$DRY_RUN" == false ]]; then
-      # Consolidate single-end files with atomic write
-      echo "  Consolidating files..."
+      # Consolidate and verify single-end files in one step
+      echo "  Consolidating and verifying files..."
       tmp_se="${output_se}.tmp"
-      if cat "${se_files_array[@]}" > "$tmp_se"; then
-        mv "$tmp_se" "$output_se"
-        echo "  [OK] Created $output_se"
-      else
-        echo "  ERROR: Failed to consolidate files"
+
+      # Use tee to write to the file and pipe to md5sum simultaneously
+      stream_checksum_se=$(cat "${se_files_array[@]}" | tee "$tmp_se" | md5sum | cut -d' ' -f1)
+
+      # Verify the file on disk matches the stream it came from.
+      file_checksum_se=$(md5sum "$tmp_se" | cut -d' ' -f1)
+
+      if [[ "$stream_checksum_se" != "$file_checksum_se" ]]; then
+        echo "  ERROR: Checksum mismatch during consolidation." >&2
         rm -f "$tmp_se"
         ((samples_skipped++))
         continue
-
+      else
+        # Verification passed, atomically move the file.
+        mv "$tmp_se" "$output_se"
+        echo "  [OK] Consolidation and verification passed."
       fi
 
-      # Verify consolidation
-      echo "  Verifying consolidation..."
-      if [[ ! -s "$output_se" ]]; then
-        echo "  ERROR: Output file is empty"
-        rm -f "$output_se"
-        ((samples_skipped++))
-        continue
-
-      fi
-
-      # Calculate and compare checksums
-      original_checksum=$(cat "${se_files_array[@]}" | md5sum | cut -d' ' -f1)
-      consolidated_checksum=$(md5sum "$output_se" | cut -d' ' -f1)
-
-      if [[ "$original_checksum" != "$consolidated_checksum" ]]; then
-        echo "  ERROR: Checksum mismatch" >&2
-        echo "    Expected: $original_checksum" >&2
-        echo "    Got:      $consolidated_checksum" >&2
-        rm -f "$output_se"
-        ((samples_skipped++))
-        continue
-
-      fi
-      echo "  [OK] Verification passed"
-
-      # Only remove originals after verification passes
+      # Verification is complete, now remove originals
       echo "  Removing original files..."
       rm -f "${se_files_array[@]}"
       echo "  [OK] Original files removed"
@@ -722,7 +699,6 @@ for sample_id in "${unique_sample_ids[@]}"; do
       ((samples_processed++))
 
     fi
-
   fi
 
   echo "--------------------"
