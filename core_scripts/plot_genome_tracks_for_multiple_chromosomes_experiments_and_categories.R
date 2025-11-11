@@ -412,6 +412,10 @@ names(category_colors) <- category_values
 #target_comparison_columns <- c("antibody", "dna_cleanup")
 metadata_df <- subset(metadata_df, dna_cleanup == "qiagen")
 track_grouping_columns <- c("antibody")
+plot_name_comparison_column_section <- paste(
+  gsub("_", "", track_grouping_columns),
+  collapse = "."
+)
 metadata_columns_to_exclude <- c(
   "bigwig_file_paths", "experiment_id", "full_name", "repeats",
   "sample_ids", "sample_type", "short_name"
@@ -476,10 +480,6 @@ stopifnot(
 )
 #
 #target_comparison_columns <- c("dna_cleanup", "detergent")
-#plot_name_comparison_column_section <- paste(
-#  gsub("_", "", target_comparison_columns),
-#  collapse = "."
-#)
 #
 #missing_excluded_columns <- setdiff(metadata_columns_to_exclude, colnames(metadata_df))
 #missing_comparison_columns <- setdiff(target_comparison_columns, colnames(metadata_df))
