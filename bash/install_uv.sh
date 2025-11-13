@@ -7,6 +7,7 @@
 #   Install uv as a python package and environment manager.
 # USAGE:
 #   chmod +x install_uv.sh;./install_uv.sh
+#   Must confirm installation.
 # DEPENDENCIES:
 #   Curl.
 # OUTPUTS:
@@ -26,7 +27,14 @@ if command -v uv &> /dev/null; then
 
 fi
 
-echo "uv is not installed. Proceeding with installation..."
+echo "uv is not installed..."
+
+read -p "Continue with the installation? (y/n): " confirm
+if [[ ! $confirm =~ ^[Yy]$ ]]; then
+    echo "Operation cancelled"
+    exit 0
+
+fi
 
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
