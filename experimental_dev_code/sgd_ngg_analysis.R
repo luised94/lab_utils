@@ -172,3 +172,178 @@ cat("=== VERIFICATION COMPLETE ===\n")
 cat("Gene:", gene_name_chr, "\n")
 cat("CDS: position", CDS_START_EXPECTED_pos_int, "to", cds_end_pos_int, 
     "(", cds_length_bp_int, "bp)\n")
+
+# ============================================================================
+# STEP 6: Calculate search region (CDS ñ 100bp)
+# ============================================================================
+
+search_start_pos_int <- max(1, CDS_START_EXPECTED_pos_int - UPSTREAM_EXTENSION_bp_int)
+search_end_pos_int <- min(seq_length_bp_int, 
+                           cds_end_pos_int + DOWNSTREAM_EXTENSION_bp_int)
+
+cat("Search region: position", search_start_pos_int, "to", search_end_pos_int,
+    "(", search_end_pos_int - search_start_pos_int + 1, "bp)\n\n")
+
+# Extract search sequence
+search_seq_dna <- Biostrings::subseq(x = seq_dna,
+                                      start = search_start_pos_int,
+                                      end = search_end_pos_int)
+
+cat("Search sequence length:", length(search_seq_dna), "bp\n")
+
+# ============================================================================
+# STEP 7: Find PAM sites on forward strand
+# ============================================================================
+
+cat("\nSearching for PAM sites (", PAM_SEQUENCE_chr, ") on forward strand...\n", sep = "")
+
+pam_matches_fwd_vws <- Biostrings::matchPattern(pattern = PAM_SEQUENCE_chr,
+                                                  subject = search_seq_dna,
+                                                  fixed = FALSE)
+
+cat("Found", length(pam_matches_fwd_vws), "PAM sites on forward strand\n")
+
+# ============================================================================
+# STEP 8: Find PAM sites on reverse strand
+# ============================================================================
+
+cat("Searching for PAM sites on reverse strand...\n")
+
+# Get reverse complement of search sequence
+search_seq_rc_dna <- Biostrings::reverseComplement(x = search_seq_dna)
+
+pam_matches_rev_vws <- Biostrings::matchPattern(pattern = PAM_SEQUENCE_chr,
+                                                  subject = search_seq_rc_dna,
+                                                  fixed = FALSE)
+
+cat("Found", length(pam_matches_rev_vws), "PAM sites on reverse strand\n")
+
+# ============================================================================
+# STEP 9: Extract guide sequences for forward strand PAMs
+# ============================================================================
+
+cat("\nExtracting guide sequences for forward strand...\n")
+
+guides_fwd_lst <- list()
+search_seq_length_bp_int <- length(search_seq_dna)
+
+for (i in seq_along(pam_matches_fwd_vws)) {
+  # Get PAM position in search sequence
+  pam_start_search_int <- BiocGenerics::start(pam_matches_fwd_vws)[i]
+  pam_end_search_int <- BiocGenerics::end(pam_matches_fwd_vws)[i]
+  
+  # Calculate guide position (20bp upstream of PAM)
+  guide_start_search_int <- pam_start_search_int - GUIDE_LENGTH_bp_int
+  guide_end_search_int <- pam_start_search_int - 1
+  
+  # Check if we have enough sequence for full-length guide
+  if (guide_start_search_int >= 1) {
+    # Extract sequences
+    guide_seq_chr <- as.character(Biostrings::subseq(x = search_seq_dna,
+                                                       start = guide_start_search_int,
+                                                       end = guide_end_search_int))
+    
+    pam_seq_chr <- as.character(Biostrings::subseq(x = search_seq_dna,
+                                                     start = pam_start_search_int,
+                                                     end = pam_end_search_int))
+    
+    full_seq_chr <- as.character(Biostrings::subseq(x = search_seq_dna,
+                                                      start = guide_start_search_int,
+                                                      end = pam_end_search_int))
+    
+    # Convert to original sequence coordinates
+    guide_start_orig_int <- search_start_pos_int + guide_start_search_int - 1
+    guide_end_orig_int <- search_start_pos_int + guide_end_search_int - 1
+    pam_start_orig_int <- search_start_pos_int + pam_start_search_int - 1
+    pam_end_orig_int <- search_start_pos_int + pam_end_search_int - 1
+    
+    # Store guide information
+    guides_fwd_lst[[length(guides_fwd_lst) + 1]] <- list(
+      gene_name = gene_name_chr,
+      guide_strand = "+",
+      guide_sequence = guide_seq_chr,
+      pam_sequence = pam_seq_chr,
+      full_sequence = full_seq_chr,
+      guide_start_pos = guide_start_orig_int,
+      guide_end_pos = guide_end_orig_int,
+      pam_start_pos = pam_start_orig_int,
+      pam_end_pos = pam_end_orig_int
+    )
+  }
+}
+
+cat("Extracted", length(guides_fwd_lst), "full-length guides from forward strand\n")
+
+# ============================================================================
+# STEP 10: Extract guide sequences for reverse strand PAMs
+# ============================================================================
+
+cat("Extracting guide sequences for reverse strand...\n")
+
+guides_rev_lst <- list()
+
+for (i in seq_along(pam_matches_rev_vws)) {
+  # Get PAM position in reverse complement
+  pam_start_rc_int <- BiocGenerics::start(pam_matches_rev_vws)[i]
+  pam_end_rc_int <- BiocGenerics::end(pam_matches_rev_vws)[i]
+  
+  # Calculate guide position in reverse complement
+  guide_start_rc_int <- pam_start_rc_int - GUIDE_LENGTH_bp_int
+  guide_end_rc_int <- pam_start_rc_int - 1
+  
+  # Check if we have enough sequence for full-length guide
+  if (guide_start_rc_int >= 1) {
+    # Extract from reverse complement
+    guide_seq_rc_chr <- as.character(Biostrings::subseq(x = search_seq_rc_dna,
+                                                          start = guide_start_rc_int,
+                                                          end = guide_end_rc_int))
+    
+    pam_seq_rc_chr <- as.character(Biostrings::subseq(x = search_seq_rc_dna,
+                                                        start = pam_start_rc_int,
+                                                        end = pam_end_rc_int))
+    
+    full_seq_rc_chr <- as.character(Biostrings::subseq(x = search_seq_rc_dna,
+                                                         start = guide_start_rc_int,
+                                                         end = pam_end_rc_int))
+    
+    # Reverse complement to get forward strand representation
+    guide_seq_chr <- as.character(Biostrings::reverseComplement(
+      Biostrings::DNAString(guide_seq_rc_chr)))
+    pam_seq_chr <- as.character(Biostrings::reverseComplement(
+      Biostrings::DNAString(pam_seq_rc_chr)))
+    full_seq_chr <- as.character(Biostrings::reverseComplement(
+      Biostrings::DNAString(full_seq_rc_chr)))
+    
+    # Convert RC coordinates to original sequence coordinates
+    pam_end_orig_int <- search_start_pos_int + search_seq_length_bp_int - pam_start_rc_int
+    pam_start_orig_int <- search_start_pos_int + search_seq_length_bp_int - pam_end_rc_int
+    guide_end_orig_int <- search_start_pos_int + search_seq_length_bp_int - guide_start_rc_int
+    guide_start_orig_int <- search_start_pos_int + search_seq_length_bp_int - guide_end_rc_int
+    
+    # Store guide information
+    guides_rev_lst[[length(guides_rev_lst) + 1]] <- list(
+      gene_name = gene_name_chr,
+      guide_strand = "-",
+      guide_sequence = guide_seq_chr,
+      pam_sequence = pam_seq_chr,
+      full_sequence = full_seq_chr,
+      guide_start_pos = guide_start_orig_int,
+      guide_end_pos = guide_end_orig_int,
+      pam_start_pos = pam_start_orig_int,
+      pam_end_pos = pam_end_orig_int
+    )
+  }
+}
+
+cat("Extracted", length(guides_rev_lst), "full-length guides from reverse strand\n")
+
+# ============================================================================
+# STEP 11: Combine guides from both strands
+# ============================================================================
+
+all_guides_lst <- c(guides_fwd_lst, guides_rev_lst)
+
+cat("\n=== GUIDE EXTRACTION COMPLETE ===\n")
+cat("Total guides found:", length(all_guides_lst), "\n")
+cat("Forward strand:", length(guides_fwd_lst), "\n")
+cat("Reverse strand:", length(guides_rev_lst), "\n")
