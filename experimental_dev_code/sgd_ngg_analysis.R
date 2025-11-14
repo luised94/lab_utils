@@ -556,3 +556,419 @@ cat("\n=== ANALYSIS SUMMARY ===\n")
 cat("Guides overlapping CDS:", sum(sapply(all_guides_lst, function(x) x$overlaps_cds)), "\n")
 cat("Difficulty distribution:\n")
 print(table(sapply(all_guides_lst, function(x) x$silencing_difficulty)))
+# ============================================================================
+# STEP 14: Process all FASTA files
+# ============================================================================
+
+cat("\n=== PROCESSING ALL FILES ===\n")
+
+# Storage for all genes
+all_genes_results_lst <- list()
+
+for (file_idx in seq_along(fasta_files_chr)) {
+  fasta_file_path_chr <- fasta_files_chr[file_idx]
+
+  cat("\nProcessing file", file_idx, "of", length(fasta_files_chr), ":",
+      basename(fasta_file_path_chr), "\n")
+
+  # Read sequence
+  seq_dss <- Biostrings::readDNAStringSet(filepath = fasta_file_path_chr,
+                                          format = "fasta")
+
+  # Extract gene name
+  header_chr <- names(seq_dss)[1]
+  gene_name_chr <- strsplit(x = header_chr, split = " ")[[1]][1]
+
+  cat("  Gene:", gene_name_chr, "\n")
+
+  # Get sequence
+  seq_dna <- seq_dss[[1]]
+  seq_length_bp_int <- length(seq_dna)
+
+  # ==========================================================================
+  # Verify CDS boundaries
+  # ==========================================================================
+
+  # Check start codon
+  start_codon_chr <- as.character(Biostrings::subseq(x = seq_dna,
+                                                       start = CDS_START_EXPECTED_pos_int,
+                                                       end = CDS_START_EXPECTED_pos_int + 2))
+
+  if (start_codon_chr != "ATG") {
+    warning(paste("Gene", gene_name_chr, ": Start codon is not ATG at position",
+                  CDS_START_EXPECTED_pos_int, ". Found:", start_codon_chr, "- SKIPPING"))
+    next
+  }
+
+  # Calculate stop codon position
+  cds_end_pos_int <- seq_length_bp_int - CDS_END_OFFSET_bp_int
+  stop_codon_start_pos_int <- cds_end_pos_int - 2
+
+  stop_codon_chr <- as.character(Biostrings::subseq(x = seq_dna,
+                                                      start = stop_codon_start_pos_int,
+                                                      end = cds_end_pos_int))
+
+  valid_stop_codons_chr <- c("TAA", "TAG", "TGA")
+
+  if (!stop_codon_chr %in% valid_stop_codons_chr) {
+    warning(paste("Gene", gene_name_chr, ": Stop codon is not valid at expected position.",
+                  "Found:", stop_codon_chr, "- SKIPPING"))
+    next
+  }
+
+  # Calculate CDS length
+  cds_length_bp_int <- cds_end_pos_int - CDS_START_EXPECTED_pos_int + 1
+
+  if (cds_length_bp_int %% 3 != 0) {
+    warning(paste("Gene", gene_name_chr, ": CDS length is not a multiple of 3:",
+                  cds_length_bp_int, "- SKIPPING"))
+    next
+  }
+
+  cat("  CDS:", CDS_START_EXPECTED_pos_int, "-", cds_end_pos_int,
+      "(", cds_length_bp_int, "bp,", cds_length_bp_int / 3, "codons)\n")
+
+  # ==========================================================================
+  # Calculate search region
+  # ==========================================================================
+
+  search_start_pos_int <- max(1, CDS_START_EXPECTED_pos_int - UPSTREAM_EXTENSION_bp_int)
+  search_end_pos_int <- min(seq_length_bp_int,
+                            cds_end_pos_int + DOWNSTREAM_EXTENSION_bp_int)
+
+  search_seq_dna <- Biostrings::subseq(x = seq_dna,
+                                        start = search_start_pos_int,
+                                        end = search_end_pos_int)
+
+  search_seq_length_bp_int <- length(search_seq_dna)
+
+  # ==========================================================================
+  # Find PAMs on both strands
+  # ==========================================================================
+
+  # Forward strand
+  pam_matches_fwd_vws <- Biostrings::matchPattern(pattern = PAM_SEQUENCE_chr,
+                                                    subject = search_seq_dna,
+                                                    fixed = FALSE)
+
+  # Reverse strand
+  search_seq_rc_dna <- Biostrings::reverseComplement(x = search_seq_dna)
+  pam_matches_rev_vws <- Biostrings::matchPattern(pattern = PAM_SEQUENCE_chr,
+                                                    subject = search_seq_rc_dna,
+                                                    fixed = FALSE)
+
+  cat("  PAMs found: forward =", length(pam_matches_fwd_vws),
+      ", reverse =", length(pam_matches_rev_vws), "\n")
+
+  # ==========================================================================
+  # Extract guides from forward strand
+  # ==========================================================================
+
+  guides_fwd_lst <- list()
+
+  for (i in seq_along(pam_matches_fwd_vws)) {
+    pam_start_search_int <- BiocGenerics::start(pam_matches_fwd_vws)[i]
+    pam_end_search_int <- BiocGenerics::end(pam_matches_fwd_vws)[i]
+
+    guide_start_search_int <- pam_start_search_int - GUIDE_LENGTH_bp_int
+    guide_end_search_int <- pam_start_search_int - 1
+
+    if (guide_start_search_int >= 1) {
+      guide_seq_chr <- as.character(Biostrings::subseq(x = search_seq_dna,
+                                                         start = guide_start_search_int,
+                                                         end = guide_end_search_int))
+
+      pam_seq_chr <- as.character(Biostrings::subseq(x = search_seq_dna,
+                                                       start = pam_start_search_int,
+                                                       end = pam_end_search_int))
+
+      full_seq_chr <- as.character(Biostrings::subseq(x = search_seq_dna,
+                                                        start = guide_start_search_int,
+                                                        end = pam_end_search_int))
+
+      # Validate
+      if (nchar(guide_seq_chr) != 20 || nchar(pam_seq_chr) != 3 || 
+          substr(pam_seq_chr, 2, 3) != "GG" || nchar(full_seq_chr) != 23) {
+        next
+      }
+
+      # Convert to original coordinates
+      guide_start_orig_int <- search_start_pos_int + guide_start_search_int - 1
+      guide_end_orig_int <- search_start_pos_int + guide_end_search_int - 1
+      pam_start_orig_int <- search_start_pos_int + pam_start_search_int - 1
+      pam_end_orig_int <- search_start_pos_int + pam_end_search_int - 1
+
+      guides_fwd_lst[[length(guides_fwd_lst) + 1]] <- list(
+        gene_name = gene_name_chr,
+        guide_strand = "+",
+        guide_sequence = guide_seq_chr,
+        pam_sequence = pam_seq_chr,
+        full_sequence = full_seq_chr,
+        guide_start_pos = guide_start_orig_int,
+        guide_end_pos = guide_end_orig_int,
+        pam_start_pos = pam_start_orig_int,
+        pam_end_pos = pam_end_orig_int
+      )
+    }
+  }
+
+  # ==========================================================================
+  # Extract guides from reverse strand
+  # ==========================================================================
+
+  guides_rev_lst <- list()
+
+  for (i in seq_along(pam_matches_rev_vws)) {
+    pam_start_rc_int <- BiocGenerics::start(pam_matches_rev_vws)[i]
+    pam_end_rc_int <- BiocGenerics::end(pam_matches_rev_vws)[i]
+
+    guide_start_rc_int <- pam_start_rc_int - GUIDE_LENGTH_bp_int
+    guide_end_rc_int <- pam_start_rc_int - 1
+
+    if (guide_start_rc_int >= 1) {
+      guide_seq_rc_chr <- as.character(Biostrings::subseq(x = search_seq_rc_dna,
+                                                            start = guide_start_rc_int,
+                                                            end = guide_end_rc_int))
+
+      pam_seq_rc_chr <- as.character(Biostrings::subseq(x = search_seq_rc_dna,
+                                                          start = pam_start_rc_int,
+                                                          end = pam_end_rc_int))
+
+      full_seq_rc_chr <- as.character(Biostrings::subseq(x = search_seq_rc_dna,
+                                                           start = guide_start_rc_int,
+                                                           end = pam_end_rc_int))
+
+      # Validate
+      if (nchar(guide_seq_rc_chr) != 20 || nchar(pam_seq_rc_chr) != 3 ||
+          substr(pam_seq_rc_chr, 2, 3) != "GG" || nchar(full_seq_rc_chr) != 23) {
+        next
+      }
+
+      # Convert RC coordinates to original coordinates
+      pam_end_orig_int <- search_start_pos_int + search_seq_length_bp_int - pam_start_rc_int
+      pam_start_orig_int <- search_start_pos_int + search_seq_length_bp_int - pam_end_rc_int
+      guide_end_orig_int <- search_start_pos_int + search_seq_length_bp_int - guide_start_rc_int
+      guide_start_orig_int <- search_start_pos_int + search_seq_length_bp_int - guide_end_rc_int
+
+      guides_rev_lst[[length(guides_rev_lst) + 1]] <- list(
+        gene_name = gene_name_chr,
+        guide_strand = "-",
+        guide_sequence = guide_seq_rc_chr,
+        pam_sequence = pam_seq_rc_chr,
+        full_sequence = full_seq_rc_chr,
+        guide_start_pos = guide_start_orig_int,
+        guide_end_pos = guide_end_orig_int,
+        pam_start_pos = pam_start_orig_int,
+        pam_end_pos = pam_end_orig_int
+      )
+    }
+  }
+
+  # Combine guides
+  gene_guides_lst <- c(guides_fwd_lst, guides_rev_lst)
+
+  cat("  Guides extracted:", length(gene_guides_lst), "\n")
+
+  # ==========================================================================
+  # CDS overlap and synonymous mutation analysis
+  # ==========================================================================
+
+  if (length(gene_guides_lst) > 0) {
+    # Extract CDS sequence once
+    cds_seq_dna <- Biostrings::subseq(x = seq_dna,
+                                       start = CDS_START_EXPECTED_pos_int,
+                                       end = cds_end_pos_int)
+    cds_seq_chr <- as.character(cds_seq_dna)
+
+    for (guide_idx in seq_along(gene_guides_lst)) {
+      guide_info_lst <- gene_guides_lst[[guide_idx]]
+
+      # Check CDS overlap
+      guide_region_start_int <- guide_info_lst$guide_start_pos
+      guide_region_end_int <- guide_info_lst$pam_end_pos
+
+      overlaps_cds_lgl <- (guide_region_start_int <= cds_end_pos_int &&
+                           guide_region_end_int >= CDS_START_EXPECTED_pos_int)
+
+      guide_info_lst$overlaps_cds <- overlaps_cds_lgl
+
+      if (overlaps_cds_lgl) {
+        guide_info_lst$cds_start <- CDS_START_EXPECTED_pos_int
+        guide_info_lst$cds_end <- cds_end_pos_int
+
+        # Determine which PAM positions to check
+        if (guide_info_lst$guide_strand == "+") {
+          pam_check_positions_int <- 2:3
+          pam_for_analysis_chr <- guide_info_lst$pam_sequence
+        } else {
+          pam_check_positions_int <- 1:2
+          pam_for_analysis_chr <- as.character(
+            Biostrings::reverseComplement(
+              Biostrings::DNAString(guide_info_lst$pam_sequence)
+            )
+          )
+        }
+
+        # Check PAM mutability
+        pam_positions_int <- guide_info_lst$pam_start_pos:guide_info_lst$pam_end_pos
+        pam_can_mutate_lgl <- FALSE
+
+        for (pam_idx in pam_check_positions_int) {
+          pam_abs_pos_int <- pam_positions_int[pam_idx]
+          pos_in_cds_int <- pam_abs_pos_int - CDS_START_EXPECTED_pos_int + 1
+
+          if (pos_in_cds_int >= 1 && pos_in_cds_int <= nchar(cds_seq_chr)) {
+            codon_number_int <- ceiling(pos_in_cds_int / 3)
+            position_in_codon_int <- ((pos_in_cds_int - 1) %% 3) + 1
+
+            codon_start_int <- (codon_number_int - 1) * 3 + 1
+            codon_end_int <- codon_start_int + 2
+
+            if (codon_end_int <= nchar(cds_seq_chr)) {
+              codon_chr <- substr(cds_seq_chr, codon_start_int, codon_end_int)
+              current_aa_chr <- GENETIC_CODE_nls[[codon_chr]]
+
+              if (!is.null(current_aa_chr) && !is.na(current_aa_chr)) {
+                current_nt_chr <- substr(codon_chr, position_in_codon_int, position_in_codon_int)
+
+                for (new_nt_chr in c("A", "T", "G", "C")) {
+                  if (new_nt_chr != current_nt_chr) {
+                    mutated_codon_chr <- codon_chr
+                    substr(mutated_codon_chr, position_in_codon_int, position_in_codon_int) <- new_nt_chr
+                    mutated_aa_chr <- GENETIC_CODE_nls[[mutated_codon_chr]]
+
+                    if (!is.null(mutated_aa_chr) && !is.na(mutated_aa_chr) &&
+                        mutated_aa_chr == current_aa_chr) {
+                      pam_can_mutate_lgl <- TRUE
+                      break
+                    }
+                  }
+                }
+              }
+            }
+          }
+          if (pam_can_mutate_lgl) break
+        }
+
+        guide_info_lst$pam_gg_can_mutate <- pam_can_mutate_lgl
+
+        # Count wobble positions
+        guide_positions_int <- guide_info_lst$guide_start_pos:guide_info_lst$guide_end_pos
+        guide_in_cds_int <- guide_positions_int[
+          guide_positions_int >= CDS_START_EXPECTED_pos_int &
+          guide_positions_int <= cds_end_pos_int
+        ]
+
+        if (length(guide_in_cds_int) > 0) {
+          pos_in_cds_int <- guide_in_cds_int - CDS_START_EXPECTED_pos_int + 1
+          position_in_codon_int <- ((pos_in_cds_int - 1) %% 3) + 1
+          wobble_count_int <- sum(position_in_codon_int == 3)
+        } else {
+          wobble_count_int <- 0
+        }
+
+        guide_info_lst$guide_wobble_sites <- wobble_count_int
+
+        # Determine difficulty
+        if (guide_info_lst$pam_gg_can_mutate) {
+          guide_info_lst$silencing_difficulty <- "easy"
+          guide_info_lst$silencing_strategy <- "PAM_mutation"
+        } else if (wobble_count_int >= 3) {
+          guide_info_lst$silencing_difficulty <- "moderate"
+          guide_info_lst$silencing_strategy <- "guide_mutations"
+        } else if (wobble_count_int >= 1) {
+          guide_info_lst$silencing_difficulty <- "difficult"
+          guide_info_lst$silencing_strategy <- "limited_guide_mutations"
+        } else {
+          guide_info_lst$silencing_difficulty <- "very_difficult"
+          guide_info_lst$silencing_strategy <- "non_synonymous_required"
+        }
+
+      } else {
+        # Non-coding
+        guide_info_lst$cds_start <- NA
+        guide_info_lst$cds_end <- NA
+        guide_info_lst$pam_gg_can_mutate <- TRUE
+        guide_info_lst$guide_wobble_sites <- NA
+        guide_info_lst$silencing_difficulty <- "easy"
+        guide_info_lst$silencing_strategy <- "non_coding_region"
+      }
+
+      gene_guides_lst[[guide_idx]] <- guide_info_lst
+    }
+
+    # Store results for this gene
+    all_genes_results_lst[[gene_name_chr]] <- gene_guides_lst
+
+    cat("  CDS overlap:", sum(sapply(gene_guides_lst, function(x) x$overlaps_cds)), "/",
+        length(gene_guides_lst), "\n")
+  }
+}
+
+cat("\n=== ALL FILES PROCESSED ===\n")
+cat("Total genes processed:", length(all_genes_results_lst), "\n")
+# ============================================================================
+# STEP 15: Convert results to data frame and write output
+# ============================================================================
+
+cat("\n=== CREATING OUTPUT FILE ===\n")
+
+# Flatten all results into single list
+all_guides_flat_lst <- unlist(all_genes_results_lst, recursive = FALSE)
+
+cat("Total guides across all genes:", length(all_guides_flat_lst), "\n")
+
+# Convert to data frame
+results_df <- data.frame(
+  gene_name = sapply(all_guides_flat_lst, function(x) x$gene_name),
+  guide_strand = sapply(all_guides_flat_lst, function(x) x$guide_strand),
+  guide_sequence = sapply(all_guides_flat_lst, function(x) x$guide_sequence),
+  pam_sequence = sapply(all_guides_flat_lst, function(x) x$pam_sequence),
+  full_sequence = sapply(all_guides_flat_lst, function(x) x$full_sequence),
+  guide_start_pos = sapply(all_guides_flat_lst, function(x) x$guide_start_pos),
+  guide_end_pos = sapply(all_guides_flat_lst, function(x) x$guide_end_pos),
+  pam_start_pos = sapply(all_guides_flat_lst, function(x) x$pam_start_pos),
+  pam_end_pos = sapply(all_guides_flat_lst, function(x) x$pam_end_pos),
+  overlaps_cds = sapply(all_guides_flat_lst, function(x) x$overlaps_cds),
+  cds_start = sapply(all_guides_flat_lst, function(x) 
+    ifelse(is.null(x$cds_start) || is.na(x$cds_start), NA, x$cds_start)),
+  cds_end = sapply(all_guides_flat_lst, function(x) 
+    ifelse(is.null(x$cds_end) || is.na(x$cds_end), NA, x$cds_end)),
+  pam_gg_can_mutate = sapply(all_guides_flat_lst, function(x) x$pam_gg_can_mutate),
+  guide_wobble_sites = sapply(all_guides_flat_lst, function(x) 
+    ifelse(is.null(x$guide_wobble_sites) || is.na(x$guide_wobble_sites), NA, x$guide_wobble_sites)),
+  silencing_difficulty = sapply(all_guides_flat_lst, function(x) x$silencing_difficulty),
+  silencing_strategy = sapply(all_guides_flat_lst, function(x) x$silencing_strategy),
+  stringsAsFactors = FALSE
+)
+
+# Show summary
+cat("\nData frame created with", nrow(results_df), "rows and", ncol(results_df), "columns\n")
+
+cat("\nFinal summary statistics:\n")
+cat("Genes analyzed:", length(unique(results_df$gene_name)), "\n")
+cat("Forward strand guides:", sum(results_df$guide_strand == "+"), "\n")
+cat("Reverse strand guides:", sum(results_df$guide_strand == "-"), "\n")
+cat("Guides overlapping CDS:", sum(results_df$overlaps_cds), "\n")
+cat("Guides in non-coding regions:", sum(!results_df$overlaps_cds), "\n")
+
+cat("\nSilencing difficulty distribution:\n")
+print(table(results_df$silencing_difficulty))
+
+# Write to TSV file
+cat("\nWriting output to:", OUTPUT_FILE_PATH_chr, "\n")
+
+utils::write.table(x = results_df,
+                   file = OUTPUT_FILE_PATH_chr,
+                   sep = "\t",
+                   row.names = FALSE,
+                   quote = FALSE,
+                   na = "NA")
+
+cat("\n=== OUTPUT COMPLETE ===\n")
+cat("File written:", OUTPUT_FILE_PATH_chr, "\n")
+cat("Total guides:", nrow(results_df), "\n")
+
+# Show first few rows as preview
+cat("\nPreview of output (first 5 rows):\n")
+print(head(results_df, 5))
