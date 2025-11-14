@@ -394,130 +394,133 @@ cds_start_pos_int <- CDS_START_EXPECTED_pos_int  # 1001
 cds_end_pos_int <- cds_end_pos_int  # Already calculated
 cds_phase_int <- 0  # Phase is always 0 for these SGD files (starts at ATG)
 # ============================================================================
-# Extract CDS sequence once (same for all guides)
+# CDS overlap and synonymous mutation analysis
 # ============================================================================
 
+# Extract CDS sequence once
 cds_seq_dna <- Biostrings::subseq(x = seq_dna,
                                    start = cds_start_pos_int,
                                    end = cds_end_pos_int)
-
 cds_seq_chr <- as.character(cds_seq_dna)
 
 cat("\nAnalyzing CDS overlap and synonymous mutations...\n")
-cat("CDS sequence extracted:", cds_length_bp_int, "bp\n")
 
 guides_analyzed_int <- 0
 
 for (guide_idx in seq_along(all_guides_lst)) {
   guide_info_lst <- all_guides_lst[[guide_idx]]
-  
-  # =========================================================================
-  # Check if guide+PAM overlaps CDS
-  # =========================================================================
-  
+
+  # Check overlap
   guide_region_start_int <- guide_info_lst$guide_start_pos
   guide_region_end_int <- guide_info_lst$pam_end_pos
-  
+
   overlaps_cds_lgl <- (guide_region_start_int <= cds_end_pos_int && 
                        guide_region_end_int >= cds_start_pos_int)
-  
+
   guide_info_lst$overlaps_cds <- overlaps_cds_lgl
-  
+
+  # If it overlaps cds, must determine if pam can be mutated easily.
   if (overlaps_cds_lgl) {
     guide_info_lst$cds_start <- cds_start_pos_int
     guide_info_lst$cds_end <- cds_end_pos_int
-    
+
     # =======================================================================
-    # CRITICAL: For PAM destruction, we only care about positions 2 and 3
-    # PAM = NGG, so we need to check if either G can be mutated synonymously
+    # Determine which PAM positions to check based on strand
     # =======================================================================
-    
-    # Get PAM positions (3 nucleotides)
+
+    if (guide_info_lst$guide_strand == "+") {
+      # Forward strand: PAM is NGG, check positions 2-3 (the GG)
+      pam_check_positions_int <- 2:3
+      pam_for_analysis_chr <- guide_info_lst$pam_sequence
+
+    } else {
+      # Reverse strand: stored PAM is RC form
+      # Need to analyze forward strand, check positions 1-2
+      pam_check_positions_int <- 1:2
+
+      # Reverse complement to get forward strand representation
+      pam_for_analysis_chr <- as.character(
+        Biostrings::reverseComplement(
+          Biostrings::DNAString(guide_info_lst$pam_sequence)
+        )
+      )
+    }
+
+    # =======================================================================
+    # Get PAM positions and check if can mutate synonymously
+    # =======================================================================
+
     pam_positions_int <- guide_info_lst$pam_start_pos:guide_info_lst$pam_end_pos
-    
-    # Check if each PAM nucleotide can be synonymously mutated
-    # We only care about positions 2 and 3 (the GG part)
-    pam_can_mutate_lgl <- c(FALSE, FALSE, FALSE)  # positions 1, 2, 3
-    
-    for (pam_nt_idx in 2:3) {  # Only check positions 2 and 3 (the GG)
-      pam_abs_pos_int <- pam_positions_int[pam_nt_idx]
-      
-      # Position relative to CDS start (1-based)
+    pam_can_mutate_lgl <- FALSE
+
+    for (pam_idx in pam_check_positions_int) {
+      pam_abs_pos_int <- pam_positions_int[pam_idx]
+
+      # Position in CDS (1-based)
       pos_in_cds_int <- pam_abs_pos_int - cds_start_pos_int + 1
-      
-      # Which codon and which position within that codon?
+
+      # Which codon and position within codon
       codon_number_int <- ceiling(pos_in_cds_int / 3)
       position_in_codon_int <- ((pos_in_cds_int - 1) %% 3) + 1
-      
-      # Extract the codon
+
+      # Extract codon
       codon_start_int <- (codon_number_int - 1) * 3 + 1
       codon_end_int <- codon_start_int + 2
-      
+
       if (codon_end_int <= nchar(cds_seq_chr)) {
         codon_chr <- substr(cds_seq_chr, codon_start_int, codon_end_int)
-        
-        # Get current amino acid
         current_aa_chr <- GENETIC_CODE_nls[[codon_chr]]
-        
+
         if (!is.null(current_aa_chr) && !is.na(current_aa_chr)) {
-          # Get the nucleotide at this position
           current_nt_chr <- substr(codon_chr, position_in_codon_int, position_in_codon_int)
-          
-          # Test if any mutation is synonymous
+
+          # Test all mutations
           for (new_nt_chr in c("A", "T", "G", "C")) {
             if (new_nt_chr != current_nt_chr) {
-              # Create mutated codon
               mutated_codon_chr <- codon_chr
               substr(mutated_codon_chr, position_in_codon_int, position_in_codon_int) <- new_nt_chr
-              
-              # Check if synonymous
+
               mutated_aa_chr <- GENETIC_CODE_nls[[mutated_codon_chr]]
-              
+
               if (!is.null(mutated_aa_chr) && !is.na(mutated_aa_chr) && 
                   mutated_aa_chr == current_aa_chr) {
-                pam_can_mutate_lgl[pam_nt_idx] <- TRUE
-                break  # Found a synonymous mutation, no need to check others
+                pam_can_mutate_lgl <- TRUE
+                break
               }
             }
           }
         }
       }
+
+      if (pam_can_mutate_lgl) break  # Found one, no need to check other position
     }
-    
-    # Store boolean flags for PAM mutability (positions 2 and 3 only)
-    guide_info_lst$pam_gg_can_mutate <- any(pam_can_mutate_lgl[2:3])
-    
+
+    guide_info_lst$pam_gg_can_mutate <- pam_can_mutate_lgl
+
     # =======================================================================
-    # Count wobble positions in guide sequence
+    # Count wobble positions in guide
     # =======================================================================
-    
+
     guide_positions_int <- guide_info_lst$guide_start_pos:guide_info_lst$guide_end_pos
-    
-    # Only count positions that are actually in the CDS
-    guide_in_cds_positions_int <- guide_positions_int[
+    guide_in_cds_int <- guide_positions_int[
       guide_positions_int >= cds_start_pos_int & 
       guide_positions_int <= cds_end_pos_int
     ]
-    
-    if (length(guide_in_cds_positions_int) > 0) {
-      # Positions in CDS (1-based)
-      pos_in_cds_int <- guide_in_cds_positions_int - cds_start_pos_int + 1
-      
-      # Position within codon (1, 2, or 3)
+
+    if (length(guide_in_cds_int) > 0) {
+      pos_in_cds_int <- guide_in_cds_int - cds_start_pos_int + 1
       position_in_codon_int <- ((pos_in_cds_int - 1) %% 3) + 1
-      
-      # Count position 3 (wobble positions)
       wobble_count_int <- sum(position_in_codon_int == 3)
     } else {
       wobble_count_int <- 0
     }
-    
+
     guide_info_lst$guide_wobble_sites <- wobble_count_int
-    
+
     # =======================================================================
-    # Determine silencing difficulty
+    # Silencing difficulty
     # =======================================================================
-    
+
     if (guide_info_lst$pam_gg_can_mutate) {
       guide_info_lst$silencing_difficulty <- "easy"
       guide_info_lst$silencing_strategy <- "PAM_mutation"
@@ -531,17 +534,17 @@ for (guide_idx in seq_along(all_guides_lst)) {
       guide_info_lst$silencing_difficulty <- "very_difficult"
       guide_info_lst$silencing_strategy <- "non_synonymous_required"
     }
-    
+
   } else {
-    # Non-coding region
+    # Non-coding
     guide_info_lst$cds_start <- NA
     guide_info_lst$cds_end <- NA
-    guide_info_lst$pam_gg_can_mutate <- TRUE  # Can mutate freely
+    guide_info_lst$pam_gg_can_mutate <- TRUE
     guide_info_lst$guide_wobble_sites <- NA
     guide_info_lst$silencing_difficulty <- "easy"
     guide_info_lst$silencing_strategy <- "non_coding_region"
   }
-  
+
   all_guides_lst[[guide_idx]] <- guide_info_lst
   guides_analyzed_int <- guides_analyzed_int + 1
 }
@@ -550,10 +553,6 @@ cat("Analyzed", guides_analyzed_int, "guides\n")
 
 # Summary
 cat("\n=== ANALYSIS SUMMARY ===\n")
-overlaps_cds_count_int <- sum(sapply(all_guides_lst, function(x) x$overlaps_cds))
-cat("Guides overlapping CDS:", overlaps_cds_count_int, "\n")
-cat("Guides in non-coding:", length(all_guides_lst) - overlaps_cds_count_int, "\n")
-
-difficulty_counts_tbl <- table(sapply(all_guides_lst, function(x) x$silencing_difficulty))
-cat("\nSilencing difficulty:\n")
-print(difficulty_counts_tbl)
+cat("Guides overlapping CDS:", sum(sapply(all_guides_lst, function(x) x$overlaps_cds)), "\n")
+cat("Difficulty distribution:\n")
+print(table(sapply(all_guides_lst, function(x) x$silencing_difficulty)))
