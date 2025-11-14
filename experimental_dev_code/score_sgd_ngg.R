@@ -51,3 +51,48 @@ cat("GC range:", GC_MIN_PERCENT_dbl, "-", GC_MAX_PERCENT_dbl, "%\n")
 cat("Homopolymer threshold:", HOMOPOLYMER_THRESHOLD_bp_int, "bp\n")
 cat("Top guides per gene:", TOP_N_GUIDES_int, "\n")
 cat("\n")
+# ============================================================================
+# SECTION: Load input data
+# ============================================================================
+
+# Load guide RNA data from pipeline output
+guides_df <- read.table(
+  file = INPUT_FILE_PATH_chr,
+  header = TRUE,
+  sep = "\t",
+  stringsAsFactors = FALSE,
+  na.strings = c("NA", ""),
+  comment.char = "",
+  quote = ""
+)
+
+# Verify data structure
+cat("=== Data Loading Summary ===\n")
+cat("Total guides loaded:", nrow(guides_df), "\n")
+cat("Total columns:", ncol(guides_df), "\n")
+cat("Unique genes:", length(unique(guides_df$gene_name)), "\n")
+cat("\n")
+
+cat("Column names:\n")
+print(names(guides_df))
+cat("\n")
+
+cat("Data structure:\n")
+str(guides_df, give.attr = FALSE)
+cat("\n")
+
+cat("First few rows:\n")
+print(head(guides_df, n = 3))
+cat("\n")
+
+cat("Strand distribution:\n")
+print(table(guides_df$guide_strand))
+cat("\n")
+
+cat("CDS overlap distribution:\n")
+print(table(guides_df$overlaps_cds, useNA = "ifany"))
+cat("\n")
+
+cat("Silencing difficulty distribution:\n")
+print(table(guides_df$silencing_difficulty, useNA = "ifany"))
+cat("\n")
