@@ -231,32 +231,32 @@ for (i in seq_along(pam_matches_fwd_vws)) {
   # Get PAM position in search sequence
   pam_start_search_int <- BiocGenerics::start(pam_matches_fwd_vws)[i]
   pam_end_search_int <- BiocGenerics::end(pam_matches_fwd_vws)[i]
-  
+
   # Calculate guide position (20bp upstream of PAM)
   guide_start_search_int <- pam_start_search_int - GUIDE_LENGTH_bp_int
   guide_end_search_int <- pam_start_search_int - 1
-  
+
   # Check if we have enough sequence for full-length guide
   if (guide_start_search_int >= 1) {
     # Extract sequences
     guide_seq_chr <- as.character(Biostrings::subseq(x = search_seq_dna,
                                                        start = guide_start_search_int,
                                                        end = guide_end_search_int))
-    
+
     pam_seq_chr <- as.character(Biostrings::subseq(x = search_seq_dna,
                                                      start = pam_start_search_int,
                                                      end = pam_end_search_int))
-    
+
     full_seq_chr <- as.character(Biostrings::subseq(x = search_seq_dna,
                                                       start = guide_start_search_int,
                                                       end = pam_end_search_int))
-    
+
     # Convert to original sequence coordinates
     guide_start_orig_int <- search_start_pos_int + guide_start_search_int - 1
     guide_end_orig_int <- search_start_pos_int + guide_end_search_int - 1
     pam_start_orig_int <- search_start_pos_int + pam_start_search_int - 1
     pam_end_orig_int <- search_start_pos_int + pam_end_search_int - 1
-    
+
     # Store guide information
     guides_fwd_lst[[length(guides_fwd_lst) + 1]] <- list(
       gene_name = gene_name_chr,
@@ -286,47 +286,40 @@ for (i in seq_along(pam_matches_rev_vws)) {
   # Get PAM position in reverse complement
   pam_start_rc_int <- BiocGenerics::start(pam_matches_rev_vws)[i]
   pam_end_rc_int <- BiocGenerics::end(pam_matches_rev_vws)[i]
-  
+
   # Calculate guide position in reverse complement
   guide_start_rc_int <- pam_start_rc_int - GUIDE_LENGTH_bp_int
   guide_end_rc_int <- pam_start_rc_int - 1
-  
+
   # Check if we have enough sequence for full-length guide
   if (guide_start_rc_int >= 1) {
     # Extract from reverse complement
     guide_seq_rc_chr <- as.character(Biostrings::subseq(x = search_seq_rc_dna,
                                                           start = guide_start_rc_int,
                                                           end = guide_end_rc_int))
-    
+
     pam_seq_rc_chr <- as.character(Biostrings::subseq(x = search_seq_rc_dna,
                                                         start = pam_start_rc_int,
                                                         end = pam_end_rc_int))
-    
+
     full_seq_rc_chr <- as.character(Biostrings::subseq(x = search_seq_rc_dna,
                                                          start = guide_start_rc_int,
                                                          end = pam_end_rc_int))
-    
-    # Reverse complement to get forward strand representation
-    guide_seq_chr <- as.character(Biostrings::reverseComplement(
-      Biostrings::DNAString(guide_seq_rc_chr)))
-    pam_seq_chr <- as.character(Biostrings::reverseComplement(
-      Biostrings::DNAString(pam_seq_rc_chr)))
-    full_seq_chr <- as.character(Biostrings::reverseComplement(
-      Biostrings::DNAString(full_seq_rc_chr)))
-    
+
+
     # Convert RC coordinates to original sequence coordinates
     pam_end_orig_int <- search_start_pos_int + search_seq_length_bp_int - pam_start_rc_int
     pam_start_orig_int <- search_start_pos_int + search_seq_length_bp_int - pam_end_rc_int
     guide_end_orig_int <- search_start_pos_int + search_seq_length_bp_int - guide_start_rc_int
     guide_start_orig_int <- search_start_pos_int + search_seq_length_bp_int - guide_end_rc_int
-    
+
     # Store guide information
     guides_rev_lst[[length(guides_rev_lst) + 1]] <- list(
       gene_name = gene_name_chr,
       guide_strand = "-",
-      guide_sequence = guide_seq_chr,
-      pam_sequence = pam_seq_chr,
-      full_sequence = full_seq_chr,
+      guide_sequence = guide_seq_rc_chr,
+      pam_sequence = pam_seq_rc_chr,
+      full_sequence = full_seq_rc_chr,
       guide_start_pos = guide_start_orig_int,
       guide_end_pos = guide_end_orig_int,
       pam_start_pos = pam_start_orig_int,
