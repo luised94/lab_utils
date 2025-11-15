@@ -55,7 +55,7 @@ file_mappings=(
     "*cds*.fna:cds.fna:optional"
     "*.faa:protein.faa:optional"
     "rna.fna:rna.fna:optional"
-    "*.gff:annotation.gff:required"
+    "*.gff3:annotation.gff3:optional"
     "md5sum.txt:md5sum.txt:optional"
     "assembly_data_report.jsonl:assembly_data_report.jsonl:optional"
     "dataset_catalog.json:dataset_catalog.json:optional"
@@ -113,7 +113,7 @@ for accession in "${accession_list[@]}"; do
 
     # Check if files with this accession already exist
     genome_pattern="*${accession_sanitized}*_genome.fna"
-    annotation_pattern="*${accession_sanitized}*_annotation.gff"
+    annotation_pattern="*${accession_sanitized}*_annotation.gff3"
 
     existing_genome=$(find "$download_base_directory" -maxdepth 1 -name "$genome_pattern" | head -n 1)
     existing_annotation=$(find "$download_base_directory" -maxdepth 1 -name "$annotation_pattern" | head -n 1)
