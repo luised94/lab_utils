@@ -18,6 +18,7 @@ GENOME_FILE_NAME_chr <- "Saccharomyces_cerevisiae_W303_GCA0021635151_genome.fna"
 OUTPUT_FULL_NAME_chr <- "grna_results_quality.tsv"
 OUTPUT_TOP5_NAME_chr <- "grna_top5_per_gene.tsv"
 OUTPUT_SUMMARY_NAME_chr <- "grna_quality_summary.txt"
+WRITE_OUTPUT_lgl <- FALSE # Change to true to generate tsv files!
 
 # Directory paths
 OUTPUT_DIRECTORY_PATH <- file.path(HOME_DIRECTORY, OUTPUT_DIRECTORY_NAME)
@@ -127,7 +128,7 @@ gc_percent_dbl <- (gc_count_int / guide_length_int) * 100
 gc_distance_from_optimal_dbl <- abs(gc_percent_dbl - GC_OPTIMAL_PERCENT_dbl)
 
 # Flag guides within optimal range
-gc_in_optimal_range_lgl <- (gc_percent_dbl >= GC_MIN_PERCENT_dbl) & 
+gc_in_optimal_range_lgl <- (gc_percent_dbl >= GC_MIN_PERCENT_dbl) &
                             (gc_percent_dbl <= GC_MAX_PERCENT_dbl)
 
 # Add to dataframe
@@ -147,8 +148,8 @@ cat("GC% distribution:\n")
 print(summary(gc_percent_dbl))
 cat("\n")
 
-cat("Guides in optimal range (40-60%):", sum(gc_in_optimal_range_lgl), 
-    "/", nrow(guides_df), 
+cat("Guides in optimal range (40-60%):", sum(gc_in_optimal_range_lgl),
+    "/", nrow(guides_df),
     "(", round(100 * mean(gc_in_optimal_range_lgl), 1), "%)\n")
 cat("Guides below 40%:", sum(gc_percent_dbl < GC_MIN_PERCENT_dbl), "\n")
 cat("Guides above 60%:", sum(gc_percent_dbl > GC_MAX_PERCENT_dbl), "\n")
@@ -165,11 +166,11 @@ cat("\n")
 find_longest_run <- function(sequence_chr, nucleotide_chr) {
   # Create pattern for consecutive runs of the nucleotide
   pattern_chr <- paste0(nucleotide_chr, "+")
-  
+
   # Find all runs
   runs_lst <- gregexpr(pattern = pattern_chr, text = sequence_chr)
   run_lengths_int <- attr(runs_lst[[1]], "match.length")
-  
+
   # Return longest run length (0 if none found)
   if (run_lengths_int[1] == -1) {
     return(0L)
@@ -200,7 +201,7 @@ guides_df$no_polyT_lgl <- no_polyT_lgl
 # Verify calculations
 cat("=== Poly-T Analysis ===\n")
 cat("Longest poly-T run range:", range(longest_polyT_run_int), "bp\n")
-cat("Guides with poly-T >= 4:", sum(has_polyT_problem_lgl), 
+cat("Guides with poly-T >= 4:", sum(has_polyT_problem_lgl),
     "/", nrow(guides_df),
     "(", round(100 * mean(has_polyT_problem_lgl), 1), "%)\n")
 cat("\n")
@@ -210,7 +211,7 @@ print(table(longest_polyT_run_int))
 cat("\n")
 
 cat("Sample guides with poly-T runs >= 4:\n")
-polyT_examples_df <- guides_df[has_polyT_problem_lgl, 
+polyT_examples_df <- guides_df[has_polyT_problem_lgl,
                                c("gene_name", "guide_sequence", "longest_polyT_run_int")]
 if (nrow(polyT_examples_df) > 0) {
   print(head(polyT_examples_df, n = 10))
@@ -290,8 +291,8 @@ cat("\n")
 
 cat("Sample guides with homopolymer runs >= 4:\n")
 homopoly_examples_df <- guides_df[has_homopolymer_problem_lgl,
-                                  c("gene_name", "guide_sequence", 
-                                    "longest_homopolymer_run_int", 
+                                  c("gene_name", "guide_sequence",
+                                    "longest_homopolymer_run_int",
                                     "homopolymer_nucleotide_chr")]
 if (nrow(homopoly_examples_df) > 0) {
   print(head(homopoly_examples_df, n = 10))
@@ -360,7 +361,7 @@ cat("Overall quality score median:", round(median(overall_quality_score_dbl), 2)
 cat("\n")
 
 cat("Distribution of guides by combined quality:\n")
-cat("Perfect quality (all 3 flags + easy silencing):", 
+cat("Perfect quality (all 3 flags + easy silencing):",
     sum(quality_flags_passed_int == 3 & silencing_difficulty_score_int == 1), "\n")
 cat("High quality (2-3 flags + easy/moderate silencing):",
     sum(quality_flags_passed_int >= 2 & silencing_difficulty_score_int <= 2), "\n")
@@ -372,7 +373,7 @@ cat("\n")
 
 cat("Sample guides with quality scores:\n")
 sample_indices_int <- c(1, 100, 500, 1000, 1500)
-print(guides_df[sample_indices_int, 
+print(guides_df[sample_indices_int,
                 c("gene_name", "guide_sequence", "gc_percent_dbl",
                   "quality_flags_passed_int", "silencing_difficulty",
                   "overall_quality_score_dbl")])
@@ -382,7 +383,7 @@ cat("\n")
 # ============================================================================
 
 # Sort entire dataset by quality score (descending)
-guides_sorted_df <- guides_df[order(guides_df$overall_quality_score_dbl, 
+guides_sorted_df <- guides_df[order(guides_df$overall_quality_score_dbl,
                                     decreasing = TRUE), ]
 
 # Reset row names after sorting
@@ -399,12 +400,12 @@ guides_with_gene_rank_df <- do.call(
     X = split(x = guides_sorted_df, f = guides_sorted_df$gene_name),
     FUN = function(gene_df) {
       # Sort by quality score within gene (already sorted, but explicit)
-      gene_df <- gene_df[order(gene_df$overall_quality_score_dbl, 
+      gene_df <- gene_df[order(gene_df$overall_quality_score_dbl,
                                decreasing = TRUE), ]
-      
+
       # Add gene-specific rank
       gene_df$gene_rank_int <- seq_len(nrow(gene_df))
-      
+
       return(gene_df)
     }
   )
@@ -434,14 +435,51 @@ cat("\n")
 
 cat("Sample of gene-specific rankings (RPO21):\n")
 rpo21_guides_df <- guides_df[guides_df$gene_name == "RPO21", ]
-print(head(rpo21_guides_df[, c("gene_rank_int", "guide_sequence", 
+print(head(rpo21_guides_df[, c("gene_rank_int", "guide_sequence",
                                 "overall_quality_score_dbl",
                                 "quality_flags_passed_int",
                                 "silencing_difficulty")], n = 10))
 cat("\n")
+
+cat("=== Output 1: Full Dataset ===\n")
+cat("Written to:", OUTPUT_FULL_PATH_chr, "\n")
+cat("Total guides:", nrow(guides_df), "\n")
+cat("Total columns:", ncol(guides_df), "\n")
+cat("\n")
+
+# Filter to top N guides per gene
+top_guides_df <- guides_df[guides_df$gene_rank_int <= TOP_N_GUIDES_int, ]
+
+# Sort by gene name, then by rank within gene
+top_guides_df <- top_guides_df[order(top_guides_df$gene_name,
+                                      top_guides_df$gene_rank_int), ]
+
+# Reset row names
+rownames(top_guides_df) <- NULL
+
+
+cat("=== Output 2: Top Guides Per Gene ===\n")
+cat("Written to:", OUTPUT_TOP5_PATH_chr, "\n")
+cat("Total guides:", nrow(top_guides_df), "\n")
+cat("Guides per gene:", TOP_N_GUIDES_int, "\n")
+cat("\n")
+
+cat("Top guide per gene summary:\n")
+top1_per_gene_df <- guides_df[guides_df$gene_rank_int == 1,
+                               c("gene_name", "guide_sequence",
+                                 "overall_quality_score_dbl",
+                                 "quality_flags_passed_int",
+                                 "gc_percent_dbl",
+                                 "silencing_difficulty")]
+top1_per_gene_df <- top1_per_gene_df[order(top1_per_gene_df$gene_name), ]
+rownames(top1_per_gene_df) <- NULL
+print(top1_per_gene_df)
+cat("\n")
+
 # ============================================================================
 # SECTION: Write output files
 # ============================================================================
+if (WRITE_OUTPUT_lgl) {
 
 # ============================================================================
 # Output 1: Full dataset with quality metrics
@@ -457,26 +495,9 @@ write.table(
   na = "NA"
 )
 
-cat("=== Output 1: Full Dataset ===\n")
-cat("Written to:", OUTPUT_FULL_PATH_chr, "\n")
-cat("Total guides:", nrow(guides_df), "\n")
-cat("Total columns:", ncol(guides_df), "\n")
-cat("\n")
-
 # ============================================================================
 # Output 2: Top N guides per gene
 # ============================================================================
-
-# Filter to top N guides per gene
-top_guides_df <- guides_df[guides_df$gene_rank_int <= TOP_N_GUIDES_int, ]
-
-# Sort by gene name, then by rank within gene
-top_guides_df <- top_guides_df[order(top_guides_df$gene_name, 
-                                      top_guides_df$gene_rank_int), ]
-
-# Reset row names
-rownames(top_guides_df) <- NULL
-
 write.table(
   x = top_guides_df,
   file = OUTPUT_TOP5_PATH_chr,
@@ -487,23 +508,6 @@ write.table(
   na = "NA"
 )
 
-cat("=== Output 2: Top Guides Per Gene ===\n")
-cat("Written to:", OUTPUT_TOP5_PATH_chr, "\n")
-cat("Total guides:", nrow(top_guides_df), "\n")
-cat("Guides per gene:", TOP_N_GUIDES_int, "\n")
-cat("\n")
-
-cat("Top guide per gene summary:\n")
-top1_per_gene_df <- guides_df[guides_df$gene_rank_int == 1, 
-                               c("gene_name", "guide_sequence", 
-                                 "overall_quality_score_dbl",
-                                 "quality_flags_passed_int",
-                                 "gc_percent_dbl",
-                                 "silencing_difficulty")]
-top1_per_gene_df <- top1_per_gene_df[order(top1_per_gene_df$gene_name), ]
-rownames(top1_per_gene_df) <- NULL
-print(top1_per_gene_df)
-cat("\n")
 # ============================================================================
 # SECTION: Generate summary statistics report
 # ============================================================================
@@ -523,11 +527,11 @@ write_section <- function(title_chr) {
 # ============================================================================
 # Report header
 # ============================================================================
-writeLines(text = "CRISPR GUIDE RNA QUALITY CONTROL REPORT", 
+writeLines(text = "CRISPR GUIDE RNA QUALITY CONTROL REPORT",
            con = summary_file_con)
-writeLines(text = paste("Generated:", Sys.time()), 
+writeLines(text = paste("Generated:", Sys.time()),
            con = summary_file_con)
-writeLines(text = paste("Input file:", INPUT_FILE_PATH_chr), 
+writeLines(text = paste("Input file:", INPUT_FILE_PATH_chr),
            con = summary_file_con)
 
 # ============================================================================
@@ -535,11 +539,11 @@ writeLines(text = paste("Input file:", INPUT_FILE_PATH_chr),
 # ============================================================================
 write_section("DATASET OVERVIEW")
 
-writeLines(text = paste("Total guides analyzed:", nrow(guides_df)), 
+writeLines(text = paste("Total guides analyzed:", nrow(guides_df)),
            con = summary_file_con)
-writeLines(text = paste("Total genes:", length(unique(guides_df$gene_name))), 
+writeLines(text = paste("Total genes:", length(unique(guides_df$gene_name))),
            con = summary_file_con)
-writeLines(text = paste("Average guides per gene:", 
+writeLines(text = paste("Average guides per gene:",
                        round(nrow(guides_df) / length(unique(guides_df$gene_name)), 1)),
            con = summary_file_con)
 
@@ -555,7 +559,7 @@ for (gene_chr in names(guides_per_gene_tbl)) {
 # ============================================================================
 write_section("QUALITY METRICS SUMMARY")
 
-writeLines(text = paste("Quality flags passed distribution:"), 
+writeLines(text = paste("Quality flags passed distribution:"),
            con = summary_file_con)
 quality_flags_tbl <- table(guides_df$quality_flags_passed_int)
 for (flag_count in names(quality_flags_tbl)) {
@@ -565,7 +569,7 @@ for (flag_count in names(quality_flags_tbl)) {
              con = summary_file_con)
 }
 
-writeLines(text = "\nSilencing difficulty distribution:", 
+writeLines(text = "\nSilencing difficulty distribution:",
            con = summary_file_con)
 silencing_tbl <- table(guides_df$silencing_difficulty)
 for (diff_chr in c("easy", "moderate", "difficult", "very_difficult")) {
@@ -579,22 +583,22 @@ for (diff_chr in c("easy", "moderate", "difficult", "very_difficult")) {
 
 writeLines(text = "\nOverall quality tiers:", con = summary_file_con)
 writeLines(text = paste("  Perfect (3 flags + easy silencing):",
-                       sum(guides_df$quality_flags_passed_int == 3 & 
+                       sum(guides_df$quality_flags_passed_int == 3 &
                            guides_df$silencing_difficulty_score_int == 1),
                        "guides"),
            con = summary_file_con)
 writeLines(text = paste("  High (2-3 flags + easy/moderate silencing):",
-                       sum(guides_df$quality_flags_passed_int >= 2 & 
+                       sum(guides_df$quality_flags_passed_int >= 2 &
                            guides_df$silencing_difficulty_score_int <= 2),
                        "guides"),
            con = summary_file_con)
 writeLines(text = paste("  Moderate (1-2 flags):",
-                       sum(guides_df$quality_flags_passed_int >= 1 & 
+                       sum(guides_df$quality_flags_passed_int >= 1 &
                            guides_df$quality_flags_passed_int < 3),
                        "guides"),
            con = summary_file_con)
 writeLines(text = paste("  Low (0 flags or difficult silencing):",
-                       sum(guides_df$quality_flags_passed_int == 0 | 
+                       sum(guides_df$quality_flags_passed_int == 0 |
                            guides_df$silencing_difficulty_score_int >= 3),
                        "guides"),
            con = summary_file_con)
@@ -604,7 +608,7 @@ writeLines(text = paste("  Low (0 flags or difficult silencing):",
 # ============================================================================
 write_section("GC CONTENT ANALYSIS")
 
-writeLines(text = paste("Optimal range:", GC_MIN_PERCENT_dbl, "-", 
+writeLines(text = paste("Optimal range:", GC_MIN_PERCENT_dbl, "-",
                        GC_MAX_PERCENT_dbl, "%"),
            con = summary_file_con)
 writeLines(text = paste("Guides in optimal range:",
@@ -648,7 +652,7 @@ writeLines(text = paste("Guides with homopolymer problems:",
                        paste0("(", round(100 * mean(guides_df$has_homopolymer_problem_lgl), 1), "%)")),
            con = summary_file_con)
 
-writeLines(text = "\nHomopolymer nucleotide distribution:", 
+writeLines(text = "\nHomopolymer nucleotide distribution:",
            con = summary_file_con)
 homopoly_nuc_tbl <- table(guides_df$homopolymer_nucleotide_chr, useNA = "ifany")
 for (nuc_chr in c("A", "T", "G", "C")) {
@@ -673,7 +677,7 @@ top1_per_gene_df <- top1_per_gene_df[order(top1_per_gene_df$gene_name), ]
 
 for (i in seq_len(nrow(top1_per_gene_df))) {
   gene_chr <- top1_per_gene_df$gene_name[i]
-  
+
   writeLines(text = paste("Gene:", gene_chr), con = summary_file_con)
   writeLines(text = paste("  Sequence:", top1_per_gene_df$guide_sequence[i]),
              con = summary_file_con)
@@ -711,7 +715,7 @@ for (gene_chr in names(guides_per_gene_tbl)) {
   gene_guides_df <- guides_df[guides_df$gene_name == gene_chr, ]
   high_quality_count <- sum(gene_guides_df$quality_flags_passed_int >= 2 &
                             gene_guides_df$silencing_difficulty_score_int <= 2)
-  
+
   if (high_quality_count >= 10) {
     writeLines(text = paste("  ", gene_chr, ":", high_quality_count, "high-quality guides"),
                con = summary_file_con)
@@ -726,7 +730,7 @@ for (gene_chr in names(guides_per_gene_tbl)) {
   gene_guides_df <- guides_df[guides_df$gene_name == gene_chr, ]
   high_quality_count <- sum(gene_guides_df$quality_flags_passed_int >= 2 &
                             gene_guides_df$silencing_difficulty_score_int <= 2)
-  
+
   if (high_quality_count <= 5) {
     writeLines(text = paste("  ", gene_chr, ":", high_quality_count, "high-quality guides"),
                con = summary_file_con)
@@ -753,7 +757,6 @@ writeLines(text = paste("This summary:", OUTPUT_SUMMARY_PATH_chr),
 
 # Close file connection
 close(summary_file_con)
-
 cat("=== Output 3: Summary Statistics ===\n")
 cat("Written to:", OUTPUT_SUMMARY_PATH_chr, "\n")
 cat("\n")
@@ -762,4 +765,55 @@ cat("=== ALL OUTPUTS COMPLETE ===\n")
 cat("1. Full dataset with quality metrics:", OUTPUT_FULL_PATH_chr, "\n")
 cat("2. Top", TOP_N_GUIDES_int, "guides per gene:", OUTPUT_TOP5_PATH_chr, "\n")
 cat("3. Summary statistics report:", OUTPUT_SUMMARY_PATH_chr, "\n")
+cat("\n")
+
+
+} # end write outputs dry-run flag.
+# ============================================================================
+# SECTION: Load reference genome for off-target analysis
+# ============================================================================
+
+cat("=== Loading Reference Genome ===\n")
+
+# Load W303 genome
+genome_dss <- Biostrings::readDNAStringSet(
+  filepath = GENOME_FILE_PATH_chr
+)
+
+# Verify genome loaded correctly
+cat("Genome file:", GENOME_FILE_PATH_chr, "\n")
+cat("Sequences loaded:", length(genome_dss), "\n")
+cat("Total genome size:", round(sum(Biostrings::width(genome_dss)) / 1e6, 2), "Mb\n")
+cat("\n")
+
+# Extract chromosome types for reporting
+chromosome_names_chr <- names(genome_dss)
+is_nuclear_chr_lgl <- grepl(pattern = "chromosome (I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI)(?!I)",
+                            x = chromosome_names_chr,
+                            perl = TRUE)
+is_mitochondrial_lgl <- grepl(pattern = "mitochondrion",
+                              x = chromosome_names_chr,
+                              ignore.case = TRUE)
+is_plasmid_lgl <- grepl(pattern = "plasmid",
+                        x = chromosome_names_chr,
+                        ignore.case = TRUE)
+
+cat("Sequence breakdown:\n")
+cat("  Nuclear chromosomes:", sum(is_nuclear_chr_lgl), "\n")
+cat("  Mitochondrial:", sum(is_mitochondrial_lgl), "\n")
+cat("  Plasmid:", sum(is_plasmid_lgl), "\n")
+cat("  Other:", sum(!is_nuclear_chr_lgl & !is_mitochondrial_lgl & !is_plasmid_lgl), "\n")
+cat("\n")
+
+# Display first few chromosome names (truncated for readability)
+cat("Sample chromosome names (first 5):\n")
+for (i in 1:min(5, length(chromosome_names_chr))) {
+  # Extract just the accession and chromosome number for display
+  name_parts_chr <- strsplit(x = chromosome_names_chr[i], split = " ")[[1]]
+  short_name_chr <- paste(name_parts_chr[1:4], collapse = " ")
+  cat("  ", i, ":", short_name_chr, "...\n")
+}
+cat("\n")
+
+cat("Reference genome loaded successfully.\n")
 cat("\n")
