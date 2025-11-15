@@ -1055,3 +1055,76 @@ print(guides_df[top_sample_indices_int,
                   "quality_flags_passed_int", "is_unique_in_genome_lgl",
                   "silencing_difficulty")])
 cat("\n")
+# ============================================================================
+# SECTION: Re-rank guides with updated quality scores
+# ============================================================================
+
+cat("=== Re-ranking Guides with Updated Scores ===\n")
+cat("\n")
+
+# Sort entire dataset by updated quality score (descending)
+guides_sorted_df <- guides_df[order(guides_df$overall_quality_score_dbl,
+                                    decreasing = TRUE), ]
+
+# Reset row names
+rownames(guides_sorted_df) <- NULL
+
+# Update overall rank
+guides_sorted_df$overall_rank_int <- seq_len(nrow(guides_sorted_df))
+
+# Calculate per-gene rank with updated scores
+guides_with_gene_rank_df <- do.call(
+  what = rbind,
+  args = lapply(
+    X = split(x = guides_sorted_df, f = guides_sorted_df$gene_name),
+    FUN = function(gene_df) {
+      # Sort by quality score within gene (already sorted globally, but explicit)
+      gene_df <- gene_df[order(gene_df$overall_quality_score_dbl,
+                               decreasing = TRUE), ]
+      
+      # Add gene-specific rank
+      gene_df$gene_rank_int <- seq_len(nrow(gene_df))
+      
+      return(gene_df)
+    }
+  )
+)
+
+# Reset row names
+rownames(guides_with_gene_rank_df) <- NULL
+
+# Update main dataframe
+guides_df <- guides_with_gene_rank_df
+
+# Verify re-ranking
+cat("Re-ranking complete.\n")
+cat("Total guides:", nrow(guides_df), "\n")
+cat("\n")
+
+cat("Top 10 guides overall (with uniqueness):\n")
+print(guides_df[1:10, c("overall_rank_int", "gene_name", "guide_sequence",
+                        "overall_quality_score_dbl", "quality_flags_passed_int",
+                        "is_unique_in_genome_lgl", "silencing_difficulty")])
+cat("\n")
+
+cat("Bottom 10 guides overall:\n")
+bottom_indices_int <- (nrow(guides_df) - 9):nrow(guides_df)
+print(guides_df[bottom_indices_int, c("overall_rank_int", "gene_name", 
+                                      "guide_sequence", "overall_quality_score_dbl",
+                                      "quality_flags_passed_int",
+                                      "is_unique_in_genome_lgl",
+                                      "silencing_difficulty")])
+cat("\n")
+
+cat("Top guide per gene (updated rankings):\n")
+top1_per_gene_df <- guides_df[guides_df$gene_rank_int == 1,
+                               c("gene_name", "guide_sequence",
+                                 "overall_quality_score_dbl",
+                                 "quality_flags_passed_int",
+                                 "is_unique_in_genome_lgl",
+                                 "gc_percent_dbl",
+                                 "silencing_difficulty")]
+top1_per_gene_df <- top1_per_gene_df[order(top1_per_gene_df$gene_name), ]
+rownames(top1_per_gene_df) <- NULL
+print(top1_per_gene_df)
+cat("\n")
