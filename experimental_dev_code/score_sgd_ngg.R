@@ -851,3 +851,132 @@ cat("\n")
 
 cat("Reference genome ready for uniqueness analysis.\n")
 cat("\n")
+# ============================================================================
+# SECTION: Search genome for guide uniqueness
+# ============================================================================
+
+cat("=== Analyzing Guide Uniqueness in Genome ===\n")
+cat("Searching", nrow(guides_df), "guides across nuclear genome...\n")
+cat("This may take 10-30 seconds...\n")
+cat("\n")
+
+# Record start time
+start_time <- Sys.time()
+
+# Initialize result vectors
+matches_forward_int <- integer(nrow(guides_df))
+matches_reverse_int <- integer(nrow(guides_df))
+
+# Progress indicator interval
+PROGRESS_INTERVAL_int <- 100L
+
+# Search each guide in genome
+for (i in seq_len(nrow(guides_df))) {
+  
+  # Progress indicator
+  if (i %% PROGRESS_INTERVAL_int == 0) {
+    cat("  Processing guide", i, "/", nrow(guides_df), "...\n")
+  }
+  
+  # Get guide sequence
+  guide_seq_chr <- guides_df$guide_sequence[i]
+  guide_seq_dna <- Biostrings::DNAString(guide_seq_chr)
+  
+  # Count matches on forward strand across all chromosomes
+  forward_counts_int <- Biostrings::vcountPattern(
+    pattern = guide_seq_dna,
+    subject = genome_nuclear_dss,
+    max.mismatch = 0,
+    fixed = TRUE
+  )
+  matches_forward_int[i] <- sum(forward_counts_int)
+  
+  # Count matches on reverse complement
+  guide_rc_dna <- Biostrings::reverseComplement(guide_seq_dna)
+  reverse_counts_int <- Biostrings::vcountPattern(
+    pattern = guide_rc_dna,
+    subject = genome_nuclear_dss,
+    max.mismatch = 0,
+    fixed = TRUE
+  )
+  matches_reverse_int[i] <- sum(reverse_counts_int)
+}
+
+# Calculate total matches
+matches_total_int <- matches_forward_int + matches_reverse_int
+
+# Calculate flags
+is_unique_in_genome_lgl <- (matches_total_int == 1L)
+not_found_in_genome_lgl <- (matches_total_int == 0L)
+is_nonunique_in_genome_lgl <- (matches_total_int > 1L)
+
+# Add to dataframe
+guides_df$matches_forward_int <- matches_forward_int
+guides_df$matches_reverse_int <- matches_reverse_int
+guides_df$matches_total_int <- matches_total_int
+guides_df$is_unique_in_genome_lgl <- is_unique_in_genome_lgl
+guides_df$not_found_in_genome_lgl <- not_found_in_genome_lgl
+guides_df$is_nonunique_in_genome_lgl <- is_nonunique_in_genome_lgl
+
+# Record end time
+end_time <- Sys.time()
+elapsed_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
+
+# Verify results
+cat("\n=== Uniqueness Analysis Complete ===\n")
+cat("Processing time:", round(elapsed_time, 1), "seconds\n")
+cat("Average time per guide:", round(elapsed_time / nrow(guides_df) * 1000, 1), "ms\n")
+cat("\n")
+
+cat("Match distribution:\n")
+cat("  Unique (1 match):", sum(is_unique_in_genome_lgl), 
+    paste0("(", round(100 * mean(is_unique_in_genome_lgl), 1), "%)"), "\n")
+cat("  Non-unique (>1 match):", sum(is_nonunique_in_genome_lgl),
+    paste0("(", round(100 * mean(is_nonunique_in_genome_lgl), 1), "%)"), "\n")
+cat("  Not found (0 matches):", sum(not_found_in_genome_lgl),
+    paste0("(", round(100 * mean(not_found_in_genome_lgl), 1), "%)"), "\n")
+cat("\n")
+
+cat("Total matches breakdown:\n")
+print(table(matches_total_int))
+cat("\n")
+
+cat("Forward vs Reverse matches:\n")
+cat("  Forward only:", sum(matches_forward_int > 0 & matches_reverse_int == 0), "\n")
+cat("  Reverse only:", sum(matches_forward_int == 0 & matches_reverse_int > 0), "\n")
+cat("  Both strands:", sum(matches_forward_int > 0 & matches_reverse_int > 0), "\n")
+cat("\n")
+
+# Show examples of each category
+cat("Sample unique guides (first 5):\n")
+unique_indices_int <- which(is_unique_in_genome_lgl)[1:min(5, sum(is_unique_in_genome_lgl))]
+if (length(unique_indices_int) > 0) {
+  print(guides_df[unique_indices_int, 
+                  c("gene_name", "guide_sequence", "matches_total_int",
+                    "matches_forward_int", "matches_reverse_int")])
+}
+cat("\n")
+
+if (sum(is_nonunique_in_genome_lgl) > 0) {
+  cat("Sample non-unique guides (first 5):\n")
+  nonunique_indices_int <- which(is_nonunique_in_genome_lgl)[1:min(5, sum(is_nonunique_in_genome_lgl))]
+  print(guides_df[nonunique_indices_int,
+                  c("gene_name", "guide_sequence", "matches_total_int",
+                    "matches_forward_int", "matches_reverse_int")])
+  cat("\n")
+}
+
+if (sum(not_found_in_genome_lgl) > 0) {
+  cat("WARNING: Guides not found in genome (first 10):\n")
+  notfound_indices_int <- which(not_found_in_genome_lgl)[1:min(10, sum(not_found_in_genome_lgl))]
+  print(guides_df[notfound_indices_int,
+                  c("gene_name", "guide_sequence", "guide_start_pos",
+                    "matches_total_int")])
+  cat("\n")
+  cat("These guides may indicate:\n")
+  cat("  - Strain-specific variants between FASTA files and reference\n")
+  cat("  - Sequencing errors in reference genome\n")
+  cat("  - Issues with original gene FASTA files\n")
+  cat("Consider manual verification in SnapGene.\n")
+  cat("\n")
+}
