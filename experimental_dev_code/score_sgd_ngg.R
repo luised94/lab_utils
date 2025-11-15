@@ -980,3 +980,78 @@ if (sum(not_found_in_genome_lgl) > 0) {
   cat("Consider manual verification in SnapGene.\n")
   cat("\n")
 }
+
+# ============================================================================
+# SECTION: Update quality scores with uniqueness bonus
+# ============================================================================
+
+cat("=== Updating Quality Scores with Uniqueness ===\n")
+cat("\n")
+
+# Add uniqueness to quality flags count
+# Now we have 4 binary quality metrics: GC, poly-T, homopolymer, uniqueness
+quality_flags_passed_with_uniqueness_int <- (
+  as.integer(guides_df$gc_in_optimal_range_lgl) +
+  as.integer(guides_df$no_polyT_lgl) +
+  as.integer(guides_df$no_homopolymer_lgl) +
+  as.integer(guides_df$is_unique_in_genome_lgl)
+)
+
+guides_df$quality_flags_passed_int <- quality_flags_passed_with_uniqueness_int
+
+# Recalculate overall quality score with uniqueness weighted heavily
+# Formula: (quality_flags * 10) - (silencing_difficulty * 3) - gc_distance + (uniqueness * 5)
+# Bit arbitrary at the moment but good enough for now.
+# Uniqueness gets extra weight beyond the flag because it's critical for specificity
+overall_quality_score_with_uniqueness_dbl <- (
+  (quality_flags_passed_with_uniqueness_int * 10) -
+  (guides_df$silencing_difficulty_score_int * 3) -
+  guides_df$gc_distance_from_optimal_dbl +
+  (as.integer(guides_df$is_unique_in_genome_lgl) * 5)  # Extra uniqueness bonus
+)
+
+guides_df$overall_quality_score_dbl <- overall_quality_score_with_uniqueness_dbl
+
+# Verify updated scores
+cat("Updated quality flags (now 0-4 possible):\n")
+print(table(quality_flags_passed_with_uniqueness_int))
+cat("\n")
+
+cat("Quality score range:", round(range(overall_quality_score_with_uniqueness_dbl), 2), "\n")
+cat("Quality score mean:", round(mean(overall_quality_score_with_uniqueness_dbl), 2), "\n")
+cat("Quality score median:", round(median(overall_quality_score_with_uniqueness_dbl), 2), "\n")
+cat("\n")
+
+cat("Quality tier distribution (with uniqueness):\n")
+cat("  Perfect (4 flags + easy silencing):",
+    sum(quality_flags_passed_with_uniqueness_int == 4 & 
+        guides_df$silencing_difficulty_score_int == 1), "\n")
+cat("  Excellent (3-4 flags + easy/moderate silencing):",
+    sum(quality_flags_passed_with_uniqueness_int >= 3 & 
+        guides_df$silencing_difficulty_score_int <= 2), "\n")
+cat("  High (3-4 flags, any silencing):",
+    sum(quality_flags_passed_with_uniqueness_int >= 3), "\n")
+cat("  Moderate (2 flags):",
+    sum(quality_flags_passed_with_uniqueness_int == 2), "\n")
+cat("  Low (0-1 flags):",
+    sum(quality_flags_passed_with_uniqueness_int <= 1), "\n")
+cat("\n")
+
+cat("Impact of non-uniqueness:\n")
+cat("  Non-unique guides:", sum(guides_df$is_nonunique_in_genome_lgl), "\n")
+cat("  Average score (unique):", 
+    round(mean(guides_df$overall_quality_score_dbl[guides_df$is_unique_in_genome_lgl]), 2), "\n")
+if (sum(guides_df$is_nonunique_in_genome_lgl) > 0) {
+  cat("  Average score (non-unique):",
+      round(mean(guides_df$overall_quality_score_dbl[guides_df$is_nonunique_in_genome_lgl]), 2), "\n")
+}
+cat("\n")
+
+cat("Sample of top scoring guides (with uniqueness):\n")
+top_sample_indices_int <- order(guides_df$overall_quality_score_dbl, 
+                                decreasing = TRUE)[1:min(10, nrow(guides_df))]
+print(guides_df[top_sample_indices_int, 
+                c("gene_name", "guide_sequence", "overall_quality_score_dbl",
+                  "quality_flags_passed_int", "is_unique_in_genome_lgl",
+                  "silencing_difficulty")])
+cat("\n")
