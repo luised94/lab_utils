@@ -786,22 +786,38 @@ cat("  Total sequences:", length(genome_full_dss), "\n")
 cat("  Total size:", round(sum(Biostrings::width(genome_full_dss)) / 1e6, 2), "Mb\n")
 cat("\n")
 
-# Filter to nuclear chromosomes only (CM007964-CM007979)
-# Exclude: Chr XII fragments (LYZE*), mitochondria, plasmid
+# Filter to nuclear chromosomes using stepwise exclusion
 chromosome_names_chr <- names(genome_full_dss)
 
-# Keep only main nuclear chromosome entries (CM007964.1 through CM007979.1)
-keep_nuclear_lgl <- grepl(pattern = "^CM00796[4-9]\\.|^CM00797[0-9]\\.", 
-                          x = chromosome_names_chr)
+# Start with all sequences included
+keep_lgl <- rep(TRUE, length(genome_full_dss))
 
-# Verify what we're keeping vs excluding
-cat("Filtering genome sequences:\n")
-cat("  Keeping (nuclear chromosomes):", sum(keep_nuclear_lgl), "\n")
-cat("  Excluding:", sum(!keep_nuclear_lgl), "\n")
+# Exclude Chr XII fragments (LYZE sequences)
+is_lyze_lgl <- grepl(pattern = "^LYZE", x = chromosome_names_chr)
+keep_lgl <- keep_lgl & !is_lyze_lgl
+cat("Excluding Chr XII fragments (LYZE):", sum(is_lyze_lgl), "sequences\n")
+
+# Exclude 2-micron plasmid
+is_plasmid_lgl <- grepl(pattern = "plasmid", x = chromosome_names_chr, ignore.case = TRUE)
+keep_lgl <- keep_lgl & !is_plasmid_lgl
+cat("Excluding 2-micron plasmid:", sum(is_plasmid_lgl), "sequences\n")
+
+# Exclude mitochondrion
+is_mitochondrion_lgl <- grepl(pattern = "mitochondrion", x = chromosome_names_chr, ignore.case = TRUE)
+keep_lgl <- keep_lgl & !is_mitochondrion_lgl
+cat("Excluding mitochondrion:", sum(is_mitochondrion_lgl), "sequences\n")
+
+cat("\n")
+
+# Summary of filtering
+cat("Filtering summary:\n")
+cat("  Starting sequences:", length(genome_full_dss), "\n")
+cat("  Excluded (total):", sum(!keep_lgl), "\n")
+cat("  Retained (nuclear chromosomes):", sum(keep_lgl), "\n")
 cat("\n")
 
 cat("Excluded sequences:\n")
-excluded_names_chr <- chromosome_names_chr[!keep_nuclear_lgl]
+excluded_names_chr <- chromosome_names_chr[!keep_lgl]
 for (name_chr in excluded_names_chr) {
   # Show abbreviated name
   name_parts_chr <- strsplit(x = name_chr, split = " ")[[1]]
@@ -811,8 +827,8 @@ for (name_chr in excluded_names_chr) {
 }
 cat("\n")
 
-# Filter genome to nuclear chromosomes only
-genome_nuclear_dss <- genome_full_dss[keep_nuclear_lgl]
+# Apply filter
+genome_nuclear_dss <- genome_full_dss[keep_lgl]
 
 # Verify filtered genome
 cat("Filtered nuclear genome:\n")
