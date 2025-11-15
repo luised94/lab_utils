@@ -769,51 +769,69 @@ cat("\n")
 
 
 } # end write outputs dry-run flag.
+
 # ============================================================================
-# SECTION: Load reference genome for off-target analysis
+# SECTION: Load and filter reference genome for off-target analysis
 # ============================================================================
 
 cat("=== Loading Reference Genome ===\n")
 
-# Load W303 genome
-genome_dss <- Biostrings::readDNAStringSet(
+# Load complete W303 genome
+genome_full_dss <- Biostrings::readDNAStringSet(
   filepath = GENOME_FILE_PATH_chr
 )
 
-# Verify genome loaded correctly
-cat("Genome file:", GENOME_FILE_PATH_chr, "\n")
-cat("Sequences loaded:", length(genome_dss), "\n")
-cat("Total genome size:", round(sum(Biostrings::width(genome_dss)) / 1e6, 2), "Mb\n")
+cat("Complete genome loaded:\n")
+cat("  Total sequences:", length(genome_full_dss), "\n")
+cat("  Total size:", round(sum(Biostrings::width(genome_full_dss)) / 1e6, 2), "Mb\n")
 cat("\n")
 
-# Extract chromosome types for reporting
-chromosome_names_chr <- names(genome_dss)
-is_nuclear_chr_lgl <- grepl(pattern = "chromosome (I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI)(?!I)",
-                            x = chromosome_names_chr,
-                            perl = TRUE)
-is_mitochondrial_lgl <- grepl(pattern = "mitochondrion",
-                              x = chromosome_names_chr,
-                              ignore.case = TRUE)
-is_plasmid_lgl <- grepl(pattern = "plasmid",
-                        x = chromosome_names_chr,
-                        ignore.case = TRUE)
+# Filter to nuclear chromosomes only (CM007964-CM007979)
+# Exclude: Chr XII fragments (LYZE*), mitochondria, plasmid
+chromosome_names_chr <- names(genome_full_dss)
 
-cat("Sequence breakdown:\n")
-cat("  Nuclear chromosomes:", sum(is_nuclear_chr_lgl), "\n")
-cat("  Mitochondrial:", sum(is_mitochondrial_lgl), "\n")
-cat("  Plasmid:", sum(is_plasmid_lgl), "\n")
-cat("  Other:", sum(!is_nuclear_chr_lgl & !is_mitochondrial_lgl & !is_plasmid_lgl), "\n")
+# Keep only main nuclear chromosome entries (CM007964.1 through CM007979.1)
+keep_nuclear_lgl <- grepl(pattern = "^CM00796[4-9]\\.|^CM00797[0-9]\\.", 
+                          x = chromosome_names_chr)
+
+# Verify what we're keeping vs excluding
+cat("Filtering genome sequences:\n")
+cat("  Keeping (nuclear chromosomes):", sum(keep_nuclear_lgl), "\n")
+cat("  Excluding:", sum(!keep_nuclear_lgl), "\n")
 cat("\n")
 
-# Display first few chromosome names (truncated for readability)
-cat("Sample chromosome names (first 5):\n")
-for (i in 1:min(5, length(chromosome_names_chr))) {
-  # Extract just the accession and chromosome number for display
-  name_parts_chr <- strsplit(x = chromosome_names_chr[i], split = " ")[[1]]
-  short_name_chr <- paste(name_parts_chr[1:4], collapse = " ")
-  cat("  ", i, ":", short_name_chr, "...\n")
+cat("Excluded sequences:\n")
+excluded_names_chr <- chromosome_names_chr[!keep_nuclear_lgl]
+for (name_chr in excluded_names_chr) {
+  # Show abbreviated name
+  name_parts_chr <- strsplit(x = name_chr, split = " ")[[1]]
+  short_name_chr <- paste(name_parts_chr[1:min(6, length(name_parts_chr))], 
+                         collapse = " ")
+  cat("  -", short_name_chr, "...\n")
 }
 cat("\n")
 
-cat("Reference genome loaded successfully.\n")
+# Filter genome to nuclear chromosomes only
+genome_nuclear_dss <- genome_full_dss[keep_nuclear_lgl]
+
+# Verify filtered genome
+cat("Filtered nuclear genome:\n")
+cat("  Sequences:", length(genome_nuclear_dss), "\n")
+cat("  Total size:", round(sum(Biostrings::width(genome_nuclear_dss)) / 1e6, 2), "Mb\n")
+cat("\n")
+
+cat("Nuclear chromosomes included:\n")
+for (i in seq_along(genome_nuclear_dss)) {
+  name_parts_chr <- strsplit(x = names(genome_nuclear_dss)[i], split = " ")[[1]]
+  # Extract chromosome number (I, II, III, etc.)
+  chr_num_chr <- name_parts_chr[grep(pattern = "chromosome", x = name_parts_chr) + 1]
+  chr_num_chr <- sub(pattern = ",", replacement = "", x = chr_num_chr)
+  
+  cat("  ", i, ": Chr", chr_num_chr, 
+      " (", round(Biostrings::width(genome_nuclear_dss)[i] / 1e6, 2), "Mb)\n", 
+      sep = "")
+}
+cat("\n")
+
+cat("Reference genome ready for uniqueness analysis.\n")
 cat("\n")
