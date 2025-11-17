@@ -87,6 +87,10 @@ fasta_files_chr <- list.files(path = INPUT_DIR_PATH_chr,
                                pattern = "\\.fsa$",
                                full.names = TRUE)
 
+if (length(fasta_files_chr) == 0){
+  stop("No fasta files found in INPUT_DIR_PATH_chr: ", INPUT_DIR_PATH_chr)
+}
+
 cat("Found", length(fasta_files_chr), "FASTA files\n")
 cat("Files:", paste(basename(fasta_files_chr), collapse = ", "), "\n\n")
 
