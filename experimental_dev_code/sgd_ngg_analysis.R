@@ -584,6 +584,25 @@ for (file_idx in seq_along(fasta_files_chr)) {
   gene_name_chr <- strsplit(x = header_chr, split = " ")[[1]][1]
 
   cat("  Gene:", gene_name_chr, "\n")
+  # Handle the specific cases of MCM3 and TAH11.
+  if (gene_name_chr == "MCM3") {
+    # CDS position in SGD W303 format is 939 for some reason.
+    message("[INFO] Dealing with MCM3, adjusting CDS_START_EXPECTED_pos_int to 939...")
+    CDS_START_EXPECTED_pos_int <- 940
+    CDS_END_OFFSET_bp_int <- 1000
+
+  } else if (gene_name_chr == "TAH11") {
+    # CDS position in SGD W303 format is 939 for some reason.
+    message("[INFO] Dealing with TAH11, adjusting CDS_END_OFFSET_bp_int to 939...")
+    CDS_START_EXPECTED_pos_int <- 662
+    CDS_END_OFFSET_bp_int <- 180
+
+  } else {
+    cat("  Gene:", gene_name_chr, "\n")
+    CDS_START_EXPECTED_pos_int <- 1001
+    CDS_END_OFFSET_bp_int <- 1000
+
+  }
 
   # Get sequence
   seq_dna <- seq_dss[[1]]
