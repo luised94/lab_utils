@@ -32,13 +32,14 @@ library(IRanges)
 # Input directory containing .fsa files from SGD
 HOME_DIRECTORY <- Sys.getenv("HOME")
 FASTA_FILE_DIRECTORY_NAME <- "data/fasta_files"
+GRNA_FILE_DIRECTORY_PATH <- "data/grna_files"
 INPUT_DIR_PATH_chr <- file.path(HOME_DIRECTORY, FASTA_FILE_DIRECTORY_NAME)
 
 # Output file
 
 OUTPUT_FILENAME_chr <- "grna_results.tsv"
 OUTPUT_FILE_PATH_chr <- file.path(
-  HOME_DIRECTORY, FASTA_FILE_DIRECTORY_NAME,
+  HOME_DIRECTORY, GRNA_FILE_DIRECTORY_PATH,
   OUTPUT_FILENAME_chr
 )
 
@@ -76,6 +77,12 @@ GENETIC_CODE_nls <- list(
   GAT = "D", GAC = "D", GAA = "E", GAG = "E",
   GGT = "G", GGC = "G", GGA = "G", GGG = "G"
 )
+
+# Create the output directory
+if (!dir.exists(GRNA_FILE_DIRECTORY_PATH)){
+  message("Creating output directory: ", GRNA_FILE_DIRECTORY_PATH)
+  dir.create(GRNA_FILE_DIRECTORY_PATH, showWarnings = FALSE, recursive = TRUE)
+}
 
 # ============================================================================
 # STEP 1: List all .fsa files in input directory

@@ -10,11 +10,13 @@
 # ============================================================================
 
 HOME_DIRECTORY <- Sys.getenv("HOME")
-OUTPUT_DIRECTORY_NAME <- "data/fasta_files"
+INPUT_DIRECTORY_NAME <- "data/fasta_files"
+OUTPUT_DIRECTORY_NAME <- "data/grna_files"
 REFERENCE_GENOME_DIR_NAME <- "data/reference_genomes"
 
 INPUT_FILE_NAME_chr <- "grna_results.tsv"
-GENOME_FILE_NAME_chr <- "Saccharomyces_cerevisiae_W303_GCA0021635151_genome.fna"
+#GENOME_FILE_NAME_chr <- "Saccharomyces_cerevisiae_W303_GCA0021635151_genome.fna"
+GENOME_FILE_NAME_chr <- "Saccharomyces_cerevisiae_W303_JRIU00000000_genome.fna"
 OUTPUT_FULL_NAME_chr <- "grna_results_quality.tsv"
 OUTPUT_TOP5_NAME_chr <- "grna_top5_per_gene.tsv"
 OUTPUT_SUMMARY_NAME_chr <- "grna_quality_summary.txt"
@@ -26,8 +28,8 @@ INPUT_DIRECTORY_PATH <- file.path(HOME_DIRECTORY, OUTPUT_DIRECTORY_NAME)
 REFERENCE_GENOME_DIR_PATH <- file.path(HOME_DIRECTORY, REFERENCE_GENOME_DIR_NAME)
 
 # File paths
-INPUT_FILE_PATH_chr <- file.path(OUTPUT_DIRECTORY_PATH, "grna_results.tsv")
-GENOME_FILE_PATH_chr <- file.path(REFERENCE_GENOME_DIR_PATH, "Saccharomyces_cerevisiae_W303_GCA0021635151_genome.fna")
+INPUT_FILE_PATH_chr <- file.path(INPUT_DIRECTORY_PATH, "grna_results.tsv")
+GENOME_FILE_PATH_chr <- file.path(REFERENCE_GENOME_DIR_PATH, GENOME_FILE_NAME_chr)
 OUTPUT_FULL_PATH_chr <- file.path(OUTPUT_DIRECTORY_PATH, "grna_results_quality.tsv")
 OUTPUT_TOP5_PATH_chr <- file.path(OUTPUT_DIRECTORY_PATH, "grna_top5_per_gene.tsv")
 OUTPUT_SUMMARY_PATH_chr <- file.path(OUTPUT_DIRECTORY_PATH,"grna_quality_summary.txt")
@@ -45,6 +47,14 @@ POLYT_THRESHOLD_bp_int <- 4L        # Flag if >= 4 consecutive T's
 TOP_N_GUIDES_int <- 5L  # Top guides to output per gene
 
 # Verification
+if (!file.exists(INPUT_FILE_PATH_chr)){
+  stop("Required input file not found: ", INPUT_FILE_PATH_chr)
+}
+if (!file.exists(GENOME_FILE_PATH_chr)){
+  stop("Required input file not found: ", GENOME_FILE_PATH_chr)
+
+}
+
 cat("=== Configuration Loaded ===\n")
 cat("Input file:", INPUT_FILE_PATH_chr, "\n")
 cat("Genome file:", GENOME_FILE_PATH_chr, "\n")
