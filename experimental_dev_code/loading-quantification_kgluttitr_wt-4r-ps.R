@@ -159,3 +159,29 @@ ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, fill = Label)) +
   labs(x = "kGlut", y = "MCM (pmol)", title = "Intensity vs kGlut", fill = "Protein") +
   theme_classic()
 dev.off()
+
+pdf(
+  file = "~/output_1.pdf",
+  width = 10, height = 8,
+  bg = "white",
+  compress = TRUE,
+  colormodel = "srgb", useDingbats = FALSE
+)
+ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill = Label)) +
+  geom_col(position = position_dodge(width = 0.9), width = 0.7) +
+  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd),
+                position = position_dodge(width = 0.9), width = 0.2) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Sample", y = "MCM (pmol)", title = "Intensity by Sample", fill = "Protein") +
+  theme_classic()
+dev.off()
+
+
+
+ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill = kGlut)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd),
+                position = position_dodge(width = 0.8), width = 0.2) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Sample", y = "MCM (pmol)", title = "All Samples by Sample Type and kGlut", fill = "kGlut") +
+  theme_classic()
