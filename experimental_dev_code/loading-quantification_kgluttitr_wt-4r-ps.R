@@ -1,25 +1,51 @@
 library(xlsx)
 library(tidyverse)
 
+FILENAME <- "Analysis.xlsx"
+OUTPUT_DIRECTORY <- "~/data/loading_analysis"
+EXPERIMENT_DIRECTORY <- "Lab/Experiments/Loading/2022_12_18 Loading Assays Repeats for publication"
+# required columns: Intensity	Lane	ORC 	Suppressor	kGlut	Input
+# @NOTE: An additional space in the excel sheet cell with cause column name to have dot at the end.
+#   > "ORC " would be read in as "ORC."
+REQUIRED_COLUMNS <- c(
+  "NA.", "Intensity", "Lane",
+  "ORC", "Suppressor",
+  "kGlut", "Input"
+)
+
 DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
+FILE_PATH <- file.path(DROPBOX_PATH, EXPERIMENT_DIRECTORY, FILENAME)
 if (nchar(DROPBOX_PATH) == 0) {
   stop("DROPBOX_PATH not defined: ")
 }
 
-EXPERIMENT_DIRECTORY <- "Experiments/Loading/2022_12_18 Loading Assays Repeats for publication"
-FILENAME <- "Analysis.xlsx"
-OUTPUT_DIRECTORY <- "~/data/loading_analysis"
 
 if (!dir.exists(OUTPUT_DIRECTORY)) {
   dir.create(OUTPUT_DIRECTORY, showWarnings = FALSE, recursive = TRUE)
 }
 
-FILE_PATH <- file.path(DROPBOX_PATH, EXPERIMENT_DIRECTORY, FILENAME)
 if (!file.exists(FILE_PATH)) {
   stop("FILE_PATH does not exist: ", FILE_PATH)
 }
 
+message("Paths for input and output set...")
 sheet_indices <- c(2, 3, 4)
+df_lst <- vector(mode = "list", length = length(sheet_indices))
+loading_df <- data.frame(
+
+)
+df_count <- 0
+
+message("Reading in loading assay sheets...")
+for (sheet_idx in sheet_indices){
+  df_count <- df_count + 1
+  df_lst[[df_count]] <- read.xlsx(FILE_PATH, header = TRUE, sheetIndex = sheet_idx)
+  colnames(df_lst[[df_count]])
+  #all(unlist(lapply(REQUIRED_COLUMNS, function(x) {x %in% colnames(df_lst[[df_count]])})))
+
+}
+
+stop("Breakpoint...")
 
 df1 <- read.xlsx(FILE_PATH, header = TRUE, sheetIndex = 2)
 df2 <- read.xlsx(FILE_PATH, header = TRUE, sheetIndex =  3) 
