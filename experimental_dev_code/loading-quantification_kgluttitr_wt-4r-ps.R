@@ -4,7 +4,11 @@ library(tidyverse)
 FILENAME <- "Analysis.xlsx"
 OUTPUT_DIRECTORY <- "~/data/loading_analysis"
 EXPERIMENT_DIRECTORY <- "Lab/Experiments/Loading/2022_12_18 Loading Assays Repeats for publication"
-# required columns: Intensity	Lane	ORC 	Suppressor	kGlut	Input
+sheet_indices <- c(2, 3, 4)
+EXPECTED_NUMBER_OF_ROWS <- 14
+EXPECTED_NUMBER_OF_COLS <- 7
+COLUMN_TO_REMOVE <- "NA." # Column has row numbers from imagej export/copy-paste
+
 # @NOTE: An additional space in the excel sheet cell with cause column name to have dot at the end.
 #   > "ORC " would be read in as "ORC."
 REQUIRED_COLUMNS <- c(
@@ -12,39 +16,69 @@ REQUIRED_COLUMNS <- c(
   "ORC", "Suppressor",
   "kGlut", "Input"
 )
-
 DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
 FILE_PATH <- file.path(DROPBOX_PATH, EXPERIMENT_DIRECTORY, FILENAME)
+
 if (nchar(DROPBOX_PATH) == 0) {
   stop("DROPBOX_PATH not defined: ")
+
 }
-
-
 if (!dir.exists(OUTPUT_DIRECTORY)) {
   dir.create(OUTPUT_DIRECTORY, showWarnings = FALSE, recursive = TRUE)
-}
 
+}
 if (!file.exists(FILE_PATH)) {
   stop("FILE_PATH does not exist: ", FILE_PATH)
+
 }
 
 message("Paths for input and output set...")
-sheet_indices <- c(2, 3, 4)
 df_lst <- vector(mode = "list", length = length(sheet_indices))
-loading_df <- data.frame(
-
-)
-df_count <- 0
+temp_df <- data.frame(matrix(
+  NA,
+  nrow = EXPECTED_NUMBER_OF_ROWS,
+  ncol = EXPECTED_NUMBER_OF_COLS
+))
+loading_df <- data.frame(matrix(
+  NA,
+  nrow = EXPECTED_NUMBER_OF_ROWS * length(sheet_indices),
+  ncol = EXPECTED_NUMBER_OF_COLS
+))
 
 message("Reading in loading assay sheets...")
+
+df_count <- 0
 for (sheet_idx in sheet_indices){
   df_count <- df_count + 1
-  df_lst[[df_count]] <- read.xlsx(FILE_PATH, header = TRUE, sheetIndex = sheet_idx)
-  colnames(df_lst[[df_count]])
-  #all(unlist(lapply(REQUIRED_COLUMNS, function(x) {x %in% colnames(df_lst[[df_count]])})))
+  temp_df <- read.xlsx(FILE_PATH, header = TRUE, sheetIndex = sheet_idx)
 
-}
+  stopifnot(
+    "Number of rows in temp_df does not match EXPECTED_NUMBER_OF_ROWS." =
+      nrow(temp_df) == EXPECTED_NUMBER_OF_ROWS,
+    "Number of columns in temp_df does not match EXPECTED_NUMBER_OF_ROWS." =
+      ncol(temp_df) == EXPECTED_NUMBER_OF_COLS,
+    "df_lst[[df_count]] colnames not identical to REQUIRED_COLUMNS." =
+      identical(REQUIRED_COLUMNS, colnames(temp_df))
+  )
 
+  temp_df <- temp_df %>%
+    mutate(
+      Intensity = Intensity - Intensity[2],
+      Experiment = paste0("Exp_", df_count)
+    ) %>%
+    slice(-2) %>%
+    mutate(Intensity = (Intensity / Intensity[Input == "yes"]) * 0.5) %>%
+    filter(Input == "no")
+
+  df_lst[[df_count]] <- temp_df
+
+
+} # end read-data for loop
+
+loading_df <- do.call(rbind, df_lst)
+loading_df <- loading_df[, names(loading_df) != COLUMN_TO_REMOVE]
+
+message("loading_df preparation complete...")
 stop("Breakpoint...")
 
 df1 <- read.xlsx(FILE_PATH, header = TRUE, sheetIndex = 2)
