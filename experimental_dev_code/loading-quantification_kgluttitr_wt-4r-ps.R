@@ -132,50 +132,132 @@ df_summary <- loading_df %>%
   summarise(pmol_MCM = mean(Intensity), 
             sd = sd(Intensity))
 
-# Create plots with consistent naming: *_plot
-intensity_vs_kglut_plot <- ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, color = Label)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(ymin = pmol_MCM-sd, ymax = pmol_MCM+sd), width = .1) +
+intensity_vs_kglut_plot <- ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, color = Label, fill = Label)) +
+  geom_line(size = 1.2, aes(group = Label)) +
+  geom_point(size = 4, shape = 21, color = "black", stroke = 0.8) +
+  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd), 
+                width = 0.15, size = 0.6) +
   scale_color_brewer(palette = "Set1") +
-  labs(x = "kGlut", y = "MCM (pmol)", title = "Intensity vs kGlut", color = "Protein") +
-  theme_classic()
+  scale_fill_brewer(palette = "Set1") +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  labs(x = "kGlut Concentration (mM)", 
+       y = "MCM (pmol)", 
+       title = "Intensity vs kGlut",
+       color = "Protein",
+       fill = "Protein") +
+  theme_classic(base_size = 13) +
+  theme(
+    legend.position = c(0.85, 0.85),
+    legend.background = element_rect(fill = "white", color = "black"),
+    panel.grid.major.y = element_line(color = "gray90", size = 0.3)
+  )
 
 all_samples_dodged_plot <- ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill = Label, group = kGlut)) +
-  geom_col(
-    position = position_dodge(width = 0.8),
-    width = 0.7,
-    color = "black",
-    linewidth = 0.3
-  ) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7, 
+           color = "black", size = 0.4) +
   geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd),
-                position = position_dodge(width = 0.8), width = 0.2) +
+                position = position_dodge(width = 0.8), 
+                width = 0.25, size = 0.6) +
   scale_fill_brewer(palette = "Set1") +
-  labs(x = "Sample", y = "MCM (pmol)", title = "All Samples by Sample Type and kGlut", fill = "Label") +
-  theme_classic() + 
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
-    theme_classic(base_size = 13) +
-    theme(
-      legend.position = "bottom",
-      strip.background = element_rect(fill = "gray90", color = "black"),
-      strip.text = element_text(face = "bold"),
-      panel.spacing = unit(1, "lines")
-    )
+  labs(x = "Sample Type", 
+       y = "MCM (pmol)", 
+       title = "MCM Levels by Sample Type and kGlut Concentration", 
+       fill = "Sample") +
+  theme_classic(base_size = 13) +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(face = "bold")
+  )
 
 faceted_by_kglut_plot <- ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill = Label)) +
-  geom_col(width = 0.7) +
-  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd), width = 0.2) +
-  facet_wrap(~kGlut, nrow = 1) +
+  geom_col(width = 0.7, color = "black", size = 0.4) +
+  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd), 
+                width = 0.25, size = 0.6) +
+  facet_wrap(~kGlut, nrow = 1, labeller = label_both) +
   scale_fill_brewer(palette = "Set1") +
-  labs(x = "Sample", y = "MCM (pmol)", title = "Label Effects Across kGlut Concentrations") +
-  theme_classic()
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  labs(x = "Sample Type", 
+       y = "MCM (pmol)", 
+       title = "Label Effects Across kGlut Concentrations",
+       fill = "Sample") +
+  theme_classic(base_size = 13) +
+  theme(
+    strip.background = element_rect(fill = "gray90", color = "black"),
+    strip.text = element_text(face = "bold", size = 12),
+    legend.position = "bottom",
+    panel.spacing = unit(1, "lines")
+  )
 
 df_summary_300 <- df_summary %>% filter(kGlut == "300")
+
 kglut_300_only_plot <- ggplot(df_summary_300, aes(x = Label, y = pmol_MCM, fill = Label)) +
-  geom_col(width = 0.7) +
-  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd), width = 0.2) +
+  geom_col(width = 0.7, color = "black", size = 0.4) +
+  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd), 
+                width = 0.25, size = 0.6) +
   scale_fill_brewer(palette = "Set1") +
-  labs(x = "Sample", y = "MCM (pmol)", title = "300 mM kGlut Only", fill = "Sample") +
-  theme_classic()
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  labs(x = "Sample Type", 
+       y = "MCM (pmol)", 
+       title = "300 mM kGlut Only", 
+       fill = "Sample") +
+  theme_classic(base_size = 13) +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(face = "bold")
+  )
+
+# Calculate fold change relative to WT
+df_normalized <- df_summary %>%
+  group_by(kGlut) %>%
+  mutate(
+    wt_value = pmol_MCM[Label == "WT"],
+    fold_change = pmol_MCM / wt_value,
+    # Propagate error for fold change (approximate)
+    fold_change_sd = fold_change * sqrt((sd/pmol_MCM)^2 + (sd[Label == "WT"]/wt_value)^2)
+  ) %>%
+  ungroup()
+
+normalized_to_wt_plot <- ggplot(df_normalized, aes(x = kGlut, y = fold_change, color = Label, fill = Label)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "gray40", size = 0.8) +
+  geom_line(size = 1.2, aes(group = Label)) +
+  geom_point(size = 4, shape = 21, color = "black", stroke = 0.8) +
+  geom_errorbar(aes(ymin = fold_change - fold_change_sd, 
+                    ymax = fold_change + fold_change_sd), 
+                width = 0.15, size = 0.6) +
+  scale_color_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Set1") +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  labs(x = "kGlut Concentration (mM)", 
+       y = "Fold Change (relative to WT)", 
+       title = "Normalized to Wildtype",
+       color = "Sample",
+       fill = "Sample") +
+  theme_classic(base_size = 13) +
+  theme(
+    legend.position = c(0.85, 0.85),
+    legend.background = element_rect(fill = "white", color = "black"),
+    panel.grid.major.y = element_line(color = "gray90", size = 0.3)
+  )
+
+faceted_by_label_plot <- ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, fill = kGlut)) +
+  geom_col(width = 0.7, color = "black", size = 0.4) +
+  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd), 
+                width = 0.25, size = 0.6) +
+  facet_wrap(~Label, nrow = 1) +
+  scale_fill_brewer(palette = "Set1") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  labs(x = "kGlut Concentration (mM)", 
+       y = "MCM (pmol)", 
+       title = "kGlut Dose-Response by Sample Type",
+       fill = "kGlut") +
+  theme_classic(base_size = 13) +
+  theme(
+    strip.background = element_rect(fill = "gray90", color = "black"),
+    strip.text = element_text(face = "bold", size = 12),
+    legend.position = "bottom",
+    panel.spacing = unit(1, "lines")
+  )
 
 # Your pattern-based saving approach
 plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
