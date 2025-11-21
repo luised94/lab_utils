@@ -8,6 +8,13 @@ sheet_indices <- c(2, 3, 4)
 EXPECTED_NUMBER_OF_ROWS <- 14
 EXPECTED_NUMBER_OF_COLS <- 7
 COLUMN_TO_REMOVE <- "NA." # Column has row numbers from imagej export/copy-paste
+# Define custom orderings
+factor_order <- list(
+  "Suppressor" = c("None", "1EK", "3PL", "4PS"),
+  "kGlut" = c("250", "300", "350"), # In inverse order (as factor, alphabetical would be "250", ...)
+  "Label" = c("WT", "ORC4R",  "+1sofr",  "+3sofr", "+4sofr") # Adjust this as needed
+)
+
 
 # @NOTE: An additional space in the excel sheet cell with cause column name to have dot at the end.
 #   > "ORC " would be read in as "ORC."
@@ -23,6 +30,7 @@ if (nchar(DROPBOX_PATH) == 0) {
   stop("DROPBOX_PATH not defined: ")
 
 }
+
 if (!dir.exists(OUTPUT_DIRECTORY)) {
   dir.create(OUTPUT_DIRECTORY, showWarnings = FALSE, recursive = TRUE)
 
@@ -89,6 +97,34 @@ loading_df <- loading_df %>%
     ORC == "RA" & Suppressor == "3PL" ~ "+3sofr"
   ))
 
+for (col_name in names(factor_order)) {
+
+  loading_df[[col_name]] <- factor(
+    loading_df[[col_name]],
+    levels = factor_order[[col_name]],
+    ordered = TRUE
+  )
+}
+
+#mutate(
+#  Suppressor = factor(Suppressor, levels = suppressor_levels),
+#  kGlut = factor(kGlut, levels = kGlut_levels),
+#  Label = factor(Label, levels = label_levels)
+#)
+
+
+#COLUMNS_TO_IGNORE <- c(
+#  "Intensity", "Lane", "Input"
+#)
+#lapply(colnames(loading_df), function(column_name){
+#  if (!column_name %in% COLUMNS_TO_IGNORE){
+#    unique(loading_df[, column_name])
+#
+#  }
+#})
+
+#sapply(loading_df, function(x) if(!is.numeric(x)) unique(x))
+
 # Calculate mean and sd for each kGlut
 df_summary <- loading_df %>% 
   filter(!(Label %in% c("+1sofr","+3sofr"))) %>%
@@ -106,3 +142,20 @@ ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, color = Label)) +
        title = "Intensity vs kGlut",
        color = "Protein") +
   theme_classic()
+
+pdf(
+  file = "~/output.pdf",
+  width = 10, height = 8,
+  bg = "white",
+  compress = TRUE,
+  colormodel = "srgb", useDingbats = FALSE
+)
+
+ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, fill = Label)) +
+  geom_col(position = position_dodge(width = 0.9), width = 0.7) +
+  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd),
+                position = position_dodge(width = 0.9), width = 0.2) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "kGlut", y = "MCM (pmol)", title = "Intensity vs kGlut", fill = "Protein") +
+  theme_classic()
+dev.off()
