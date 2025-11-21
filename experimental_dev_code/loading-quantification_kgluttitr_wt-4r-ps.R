@@ -132,6 +132,68 @@ df_summary <- loading_df %>%
   summarise(pmol_MCM = mean(Intensity), 
             sd = sd(Intensity))
 
+# Create plots with consistent naming: *_plot
+intensity_vs_kglut_plot <- ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, color = Label)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = pmol_MCM-sd, ymax = pmol_MCM+sd), width = .1) +
+  scale_color_brewer(palette = "Set1") +
+  labs(x = "kGlut", y = "MCM (pmol)", title = "Intensity vs kGlut", color = "Protein") +
+  theme_classic()
+
+all_samples_dodged_plot <- ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill = Label, group = kGlut)) +
+  geom_col(
+    position = position_dodge(width = 0.8),
+    width = 0.7,
+    color = "black",
+    linewidth = 0.3
+  ) +
+  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd),
+                position = position_dodge(width = 0.8), width = 0.2) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Sample", y = "MCM (pmol)", title = "All Samples by Sample Type and kGlut", fill = "Label") +
+  theme_classic() + 
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    theme_classic(base_size = 13) +
+    theme(
+      legend.position = "bottom",
+      strip.background = element_rect(fill = "gray90", color = "black"),
+      strip.text = element_text(face = "bold"),
+      panel.spacing = unit(1, "lines")
+    )
+
+faceted_by_kglut_plot <- ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill = Label)) +
+  geom_col(width = 0.7) +
+  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd), width = 0.2) +
+  facet_wrap(~kGlut, nrow = 1) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Sample", y = "MCM (pmol)", title = "Label Effects Across kGlut Concentrations") +
+  theme_classic()
+
+df_summary_300 <- df_summary %>% filter(kGlut == "300")
+kglut_300_only_plot <- ggplot(df_summary_300, aes(x = Label, y = pmol_MCM, fill = Label)) +
+  geom_col(width = 0.7) +
+  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd), width = 0.2) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Sample", y = "MCM (pmol)", title = "300 mM kGlut Only", fill = "Sample") +
+  theme_classic()
+
+# Your pattern-based saving approach
+plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
+file_paths <- normalizePath(
+  file.path(OUTPUT_DIRECTORY, paste0(plot_object_names, ".pdf")),
+  mustWork = FALSE
+)
+names(file_paths) <- plot_object_names
+
+# Save using names
+for (plot_name in names(file_paths)) {
+  current_plot <- get(plot_name, envir = .GlobalEnv)
+  ggsave(file_paths[plot_name], current_plot, width = 8, height = 5)
+  cat("Saved:", basename(file_paths[plot_name]), "\n")
+}
+
+stop("Breakpoint...")
+
 # Plot
 ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, color = Label)) +
   geom_point(size = 3) +
