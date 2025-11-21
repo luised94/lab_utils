@@ -79,46 +79,18 @@ loading_df <- do.call(rbind, df_lst)
 loading_df <- loading_df[, names(loading_df) != COLUMN_TO_REMOVE]
 
 message("loading_df preparation complete...")
-stop("Breakpoint...")
 
-df1 <- read.xlsx(FILE_PATH, header = TRUE, sheetIndex = 2)
-df2 <- read.xlsx(FILE_PATH, header = TRUE, sheetIndex =  3) 
-df3 <- read.xlsx(FILE_PATH, header = TRUE, sheetIndex =  4)
-
-df1 <- df1 %>%
-  mutate(Intensity = Intensity - df1$Intensity[2],
-         Experiment = "Exp_1") %>% 
-  slice(-2) %>% 
-  mutate(Intensity = (Intensity/Intensity[Input == "yes"])*.5) %>%
-  filter(Input == "no")
-
-df2 <- df2 %>%
-  mutate(Intensity = Intensity - df2$Intensity[2],  
-         Experiment = "Exp_2") %>%
-  slice(-2) %>%
-  mutate(Intensity = (Intensity/Intensity[Input == "yes"])*.5) %>%
-  filter(Input == "no")
-
-df3 <- df3 %>%
-  mutate(Intensity = Intensity - df3$Intensity[2],
-         Experiment = "Exp_3") %>%
-  slice(-2) %>% 
-  mutate(Intensity = (Intensity/Intensity[Input == "yes"])*.5) %>%
-  filter(Input == "no")  
-
-df <- bind_rows(df1, df2, df3)
-
-df <- df %>%
+loading_df <- loading_df %>%
   mutate(Label = case_when(
-    ORC. == "WT" & Suppressor == "None" ~ "WT",
-    ORC. == "RA" & Suppressor == "None" ~ "ORC4R", 
-    ORC. == "RA" & Suppressor == "4PS" ~ "+4sofr",
-    ORC. == "RA" & Suppressor == "1EK" ~ "+1sofr",
-    ORC. == "RA" & Suppressor == "3PL" ~ "+3sofr"
+    ORC == "WT" & Suppressor == "None" ~ "WT",
+    ORC == "RA" & Suppressor == "None" ~ "ORC4R",
+    ORC == "RA" & Suppressor == "4PS" ~ "+4sofr",
+    ORC == "RA" & Suppressor == "1EK" ~ "+1sofr",
+    ORC == "RA" & Suppressor == "3PL" ~ "+3sofr"
   ))
 
-# Calculate mean and sd for each kGlut 
-df_summary <- df %>% 
+# Calculate mean and sd for each kGlut
+df_summary <- loading_df %>% 
   filter(!(Label %in% c("+1sofr","+3sofr"))) %>%
   group_by(kGlut, Label) %>%
   summarise(pmol_MCM = mean(Intensity), 
