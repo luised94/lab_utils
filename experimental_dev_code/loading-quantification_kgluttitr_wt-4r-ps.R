@@ -8,14 +8,6 @@ sheet_indices <- c(2, 3, 4)
 EXPECTED_NUMBER_OF_ROWS <- 14
 EXPECTED_NUMBER_OF_COLS <- 7
 COLUMN_TO_REMOVE <- "NA." # Column has row numbers from imagej export/copy-paste
-# Define custom orderings
-factor_order <- list(
-  "Suppressor" = c("None", "1EK", "3PL", "4PS"),
-  "kGlut" = c("250", "300", "350"), # In inverse order (as factor, alphabetical would be "250", ...)
-  "Label" = c("WT", "ORC4R",  "+1sofr",  "+3sofr", "+4sofr") # Adjust this as needed
-)
-
-
 # @NOTE: An additional space in the excel sheet cell with cause column name to have dot at the end.
 #   > "ORC " would be read in as "ORC."
 REQUIRED_COLUMNS <- c(
@@ -23,6 +15,13 @@ REQUIRED_COLUMNS <- c(
   "ORC", "Suppressor",
   "kGlut", "Input"
 )
+# Define custom orderings
+factor_order <- list(
+  "Suppressor" = c("None", "1EK", "3PL", "4PS"),
+  "kGlut" = c("250", "300", "350"), # In inverse order (as factor, alphabetical would be "250", ...)
+  "Label" = c("WT", "ORC4R",  "+1sofr",  "+3sofr", "+4sofr") # Adjust this as needed
+)
+
 DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
 FILE_PATH <- file.path(DROPBOX_PATH, EXPERIMENT_DIRECTORY, FILENAME)
 
@@ -30,7 +29,6 @@ if (nchar(DROPBOX_PATH) == 0) {
   stop("DROPBOX_PATH not defined: ")
 
 }
-
 if (!dir.exists(OUTPUT_DIRECTORY)) {
   dir.create(OUTPUT_DIRECTORY, showWarnings = FALSE, recursive = TRUE)
 
@@ -106,23 +104,7 @@ for (col_name in names(factor_order)) {
   )
 }
 
-#mutate(
-#  Suppressor = factor(Suppressor, levels = suppressor_levels),
-#  kGlut = factor(kGlut, levels = kGlut_levels),
-#  Label = factor(Label, levels = label_levels)
-#)
-
-
-#COLUMNS_TO_IGNORE <- c(
-#  "Intensity", "Lane", "Input"
-#)
-#lapply(colnames(loading_df), function(column_name){
-#  if (!column_name %in% COLUMNS_TO_IGNORE){
-#    unique(loading_df[, column_name])
-#
-#  }
-#})
-
+message("Adjust loading_df to factor order...")
 #sapply(loading_df, function(x) if(!is.numeric(x)) unique(x))
 
 # Calculate mean and sd for each kGlut
@@ -259,6 +241,7 @@ faceted_by_label_plot <- ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, fill = 
     panel.spacing = unit(1, "lines")
   )
 
+message("Plotting completed...")
 # Your pattern-based saving approach
 plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
 file_paths <- normalizePath(
@@ -273,59 +256,5 @@ for (plot_name in names(file_paths)) {
   ggsave(file_paths[plot_name], current_plot, width = 8, height = 5)
   cat("Saved:", basename(file_paths[plot_name]), "\n")
 }
-
-stop("Breakpoint...")
-
-# Plot
-ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, color = Label)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(ymin = pmol_MCM-sd, ymax = pmol_MCM+sd), width = .1) +
-  scale_color_brewer(palette = "Set1") +
-  labs(x = "kGlut", 
-       y = "MCM (pmol)",
-       title = "Intensity vs kGlut",
-       color = "Protein") +
-  theme_classic()
-
-pdf(
-  file = "~/output.pdf",
-  width = 10, height = 8,
-  bg = "white",
-  compress = TRUE,
-  colormodel = "srgb", useDingbats = FALSE
-)
-
-ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, fill = Label)) +
-  geom_col(position = position_dodge(width = 0.9), width = 0.7) +
-  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd),
-                position = position_dodge(width = 0.9), width = 0.2) +
-  scale_fill_brewer(palette = "Set1") +
-  labs(x = "kGlut", y = "MCM (pmol)", title = "Intensity vs kGlut", fill = "Protein") +
-  theme_classic()
-dev.off()
-
-pdf(
-  file = "~/output_1.pdf",
-  width = 10, height = 8,
-  bg = "white",
-  compress = TRUE,
-  colormodel = "srgb", useDingbats = FALSE
-)
-ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill = Label)) +
-  geom_col(position = position_dodge(width = 0.9), width = 0.7) +
-  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd),
-                position = position_dodge(width = 0.9), width = 0.2) +
-  scale_fill_brewer(palette = "Set1") +
-  labs(x = "Sample", y = "MCM (pmol)", title = "Intensity by Sample", fill = "Protein") +
-  theme_classic()
-dev.off()
-
-
-
-ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill = kGlut)) +
-  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
-  geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd),
-                position = position_dodge(width = 0.8), width = 0.2) +
-  scale_fill_brewer(palette = "Set1") +
-  labs(x = "Sample", y = "MCM (pmol)", title = "All Samples by Sample Type and kGlut", fill = "kGlut") +
-  theme_classic()
+message("Plots saved to OUTPUT_DIRECTORY...")
+message("Script complete.")
