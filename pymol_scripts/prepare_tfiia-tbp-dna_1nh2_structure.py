@@ -127,6 +127,62 @@ print(f"  Hydrophobic core residues: {core_count} atoms")
 cmd.select("nearby_chain_b", f"byres (chain B within {DISTANCE_CUTOFF} of hydrophobic_core)")
 cmd.select("hydrophobic_core", f"hydrophobic_core or (nearby_chain_b and resn {HYDROPHOBIC_SET})")
 
+# Color ROI red
+cmd.color("red", "roi")
+cmd.show("spheres", "roi")
+cmd.set("sphere_scale", 1.5, "roi")
+print("Colored ROI red")
+
+# ============================================================================
+# SCENE 1: OVERALL VIEW WITH 360 ROTATION
+# ============================================================================
+
+print("\n" + "=" * 60)
+print("Creating Scene 1: Overall View with 360 Rotation")
+print("=" * 60)
+
+cmd.set_view((
+     0.074909329,    0.990534842,   -0.115008026,
+     0.582228422,    0.050188679,    0.811473668,
+     0.809565485,   -0.127748311,   -0.572958469,
+     0.000000000,    0.000000000, -246.975219727,
+     5.988648415,    2.612197876,    0.841152191,
+   194.940582275,  299.009948730,  -20.000000000 ))
+
+# Better ray-tracing settings
+cmd.set("hash_max", HASH_MAX)
+cmd.set("antialias", 2)
+cmd.set("ray_shadows", 1)
+#cmd.set("ray_shadows", 1)
+cmd.set("ray_shadow", 0.2)  # Default is 0.5, lower = lighter shadows
+cmd.set("ray_shadow_decay_factor", 0.1)  # How fast shadow fades
+cmd.set("ray_shadow_decay_range", 2)
+cmd.set("ray_trace_fog", 0)
+cmd.set("depth_cue", 0)
+cmd.set("fog", 0)
+
+# Generate 360 rotation images (every 90 degrees)
+angles = [0, 90, 180, 270]
+for angle in angles:
+    print(f"Capturing view at {angle}...")
+    output_file = os.path.join(OUTPUT_DIR, f"01_overall_view_{angle:03d}.png")
+    cmd.png(output_file, width=IMAGE_WIDTH, height=IMAGE_HEIGHT, dpi=300, ray=RAY_TRACE)
+    print(f"  Saved: {output_file}")
+
+    if angle < 270:  # Don't rotate after last image
+        cmd.turn("y", 90)
+
+print(f"Generated {len(angles)} rotation views")
+
+# Reset to original view
+cmd.set_view((
+     0.074909329,    0.990534842,   -0.115008026,
+     0.582228422,    0.050188679,    0.811473668,
+     0.809565485,   -0.127748311,   -0.572958469,
+     0.000000000,    0.000000000, -246.975219727,
+     5.988648415,    2.612197876,    0.841152191,
+   194.940582275,  299.009948730,  -20.000000000))
+
 # ============================================================================
 # CREATE INDIVIDUAL CHAIN OBJECTS FOR APBS CALCULATIONS
 # ============================================================================
@@ -165,5 +221,14 @@ print("\nPreparation script complete!")
 print(f"Main object: {obj_name}")
 print(f"Chain objects: {', '.join(chain_objects)}")
 
-print("STOPPING HERE FOR REVIEW")
-sys.exit()
+# Set the view to show the hydrophobic core.
+cmd.set_view((
+    -0.275569350,    0.849549353,   -0.449802339,
+     0.956983745,    0.198277250,   -0.211805791,
+    -0.090754412,   -0.488821685,   -0.867647946,
+     0.000000000,    0.000000000, -148.670715332,
+    -1.743014336,  -25.174198151,  -14.948152542,
+   117.213119507,  180.128311157,  -20.000000000))
+
+#print("STOPPING HERE FOR REVIEW")
+#sys.exit()
