@@ -207,6 +207,27 @@ cmd.set_view((
 #    -1.743014336,  -25.174198151,  -14.948152542,
 #   117.213119507,  180.128311157,  -20.000000000))
 
+# ============================================================================
+# Take picture of four helix bundle, looking down the center
+# ============================================================================
+print("\n" + "=" * 60)
+print("Taking four helix bundle hydrophobic_core sphere picture")
+print("=" * 60)
+
+cmd.hide("spheres", "roi")
+cmd.set("sphere_scale", 0.8, "hydrophobic_core")
+cmd.show("spheres", "hydrophobic_core")
+cmd.color("orange", "hydrophobic_core")
+
+helper_functions.save_png(
+    filename = "tfiia_1nh2_hydrophobic_core_sphere.png",
+    width = IMAGE_WIDTH,
+    height = IMAGE_HEIGHT,
+    dpi = 300,
+    ray = RAY_TRACE,
+    overwrite = FLAG_OVERWRITE,
+    output_dir = OUTPUT_DIR
+)
 
 # ============================================================================
 # CREATE INDIVIDUAL CHAIN OBJECTS FOR APBS CALCULATIONS
