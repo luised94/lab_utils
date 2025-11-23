@@ -10,6 +10,7 @@ import sys
 
 # Import user functions
 import helper_functions
+#from helper_functions import save_png
 
 # ============================================================================
 # START
@@ -19,6 +20,7 @@ cmd.reinitialize()
 # ============================================================================
 # CONFIGURATION - Modify these values for your specific case
 # ============================================================================
+FLAG_OVERWRITE = True
 BACKGROUND_COLOR = "white"
 HASH_MAX = 200  # For better ray-traced image quality
 
@@ -172,9 +174,16 @@ cmd.set("fog", 0)
 angles = [0, 90, 180, 270]
 for angle in angles:
     print(f"Capturing view at {angle}...")
-    output_file = os.path.join(OUTPUT_DIR, f"01_overall_view_{angle:03d}.png")
-    cmd.png(output_file, width=IMAGE_WIDTH, height=IMAGE_HEIGHT, dpi=300, ray=RAY_TRACE)
-    print(f"  Saved: {output_file}")
+
+    helper_functions.save_png(
+        filename = f"01_overall_view_{angle:03d}.png",
+        width = IMAGE_WIDTH,
+        height = IMAGE_HEIGHT,
+        dpi = 300,
+        ray = RAY_TRACE,
+        overwrite = FLAG_OVERWRITE,
+        output_dir = OUTPUT_DIR
+    )
 
     if angle < 270:  # Don't rotate after last image
         cmd.turn("y", 90)

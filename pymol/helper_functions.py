@@ -13,7 +13,7 @@ import os
 from pymol import cmd
 from typing import Optional
 
-def help_save_image(
+def save_png(
     filename: str,
     width: int,
     height: int,
