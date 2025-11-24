@@ -34,10 +34,13 @@ FIELDS_uniprot_chr <- paste(
   "organism_name",
   "length",
   "sequence",
-  "ft_domain",
-  "ft_chain",
-  "xref_interpro",
-  "xref_pfam",
+  "ft_domain",      # Domain annotations
+  "ft_repeat",      # Repeat regions
+  "ft_region",      # Regions of interest
+  "ft_motif",       # Short sequence motifs
+  "ft_chain",       # Mature protein chain
+  "xref_interpro",  # InterPro cross-references (for metadata)
+  "xref_pfam",      # Pfam cross-references (for metadata)
   sep = ","
 )
 
@@ -332,3 +335,93 @@ print(head(features_df[, c("gene_name", "type", "begin", "end", "length")], n = 
 cat("\nCoordinate validation:\n")
 cat("All begin < end?", all(features_df$begin < features_df$end), "\n")
 cat("Any negative coordinates?", any(features_df$begin < 0 | features_df$end < 0), "\n")
+
+# PARSE INTERPRO CROSS-REFERENCES ============================================
+cat("\n=== Extracting InterPro Cross-References ===\n")
+
+# Initialize list to collect InterPro references
+interpro_refs_list <- list()
+
+# Extract InterPro IDs from each protein entry
+for (i in 1:n_results_int) {
+  protein_lst <- response_data_lst$results[[i]]
+  
+  # Get protein identifiers
+  accession_chr <- protein_lst$primaryAccession
+  gene_chr <- if (length(protein_lst$genes) > 0) {
+    protein_lst$genes[[1]]$geneName$value
+  } else {
+    NA_character_
+  }
+  
+  # Check if cross-references exist
+  if (is.null(protein_lst$uniProtKBCrossReferences)) {
+    cat("No cross-references for", accession_chr, "\n")
+    next
+  }
+  
+  # Filter for InterPro references
+  for (j in 1:length(protein_lst$uniProtKBCrossReferences)) {
+    xref_lst <- protein_lst$uniProtKBCrossReferences[[j]]
+    
+    if (xref_lst$database == "InterPro") {
+      # Extract InterPro ID and name
+      interpro_id_chr <- xref_lst$id
+      
+      # Get InterPro entry name from properties
+      interpro_name_chr <- NA_character_
+      if (!is.null(xref_lst$properties)) {
+        for (prop in xref_lst$properties) {
+          if (prop$key == "EntryName") {
+            interpro_name_chr <- prop$value
+            break
+          }
+        }
+      }
+      
+      # Create reference record
+      ref_record <- data.frame(
+        accession = accession_chr,
+        gene_name = gene_chr,
+        interpro_id = interpro_id_chr,
+        interpro_name = interpro_name_chr,
+        stringsAsFactors = FALSE
+      )
+      
+      interpro_refs_list[[length(interpro_refs_list) + 1]] <- ref_record
+    }
+  }
+}
+
+# Combine into dataframe
+interpro_refs_df <- do.call(rbind, interpro_refs_list)
+
+# Sort by gene name
+interpro_refs_df <- interpro_refs_df[order(interpro_refs_df$gene_name), ]
+
+# Save InterPro references
+interpro_refs_path <- file.path(
+  OUTPUT_DIR_path,
+  paste0(OUTPUT_PREFIX_chr, "_interpro_refs.tsv")
+)
+
+write.table(
+  x = interpro_refs_df,
+  file = interpro_refs_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+
+cat("InterPro references saved to:", interpro_refs_path, "\n")
+
+# VERIFICATION ===============================================================
+cat("\n=== InterPro References Verification ===\n")
+cat("Total InterPro references:", nrow(interpro_refs_df), "\n")
+cat("\nReferences per protein:\n")
+print(table(interpro_refs_df$gene_name))
+
+cat("\nSample InterPro references:\n")
+print(head(interpro_refs_df, n = 10))
+
+cat("\nUnique InterPro IDs:", length(unique(interpro_refs_df$interpro_id)), "\n")
