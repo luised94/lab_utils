@@ -7,6 +7,7 @@
 
 # CONSTANTS BLOCK ============================================================
 # Define all configuration parameters upfront
+FORCE_DOWNLOAD_lgl <- FALSE
 
 # UniProt API configuration
 BASE_URL_uniprot_chr <- "https://rest.uniprot.org"
@@ -89,69 +90,117 @@ accession_query_chr <- paste(
 cat("\n=== Building API Query ===\n")
 cat("Accession query:", accession_query_chr, "\n")
 
-# EXECUTE API REQUEST ========================================================
-cat("\n=== Executing UniProt API Request ===\n")
-cat("Sending GET request...\n")
+# CHECK CACHE ================================================================
+# Skip download if valid cached file exists
 
-# Build request with httr2 - proper method
-base_endpoint_chr <- paste0(BASE_URL_uniprot_chr, ENDPOINT_search_chr)
-
-request_obj <- httr2::request(base_url = base_endpoint_chr) |>
-  httr2::req_url_query(
-    query = accession_query_chr,
-    format = "json",
-    fields = FIELDS_uniprot_chr,
-    .multi = "comma"
-  ) |>
-  httr2::req_user_agent(string = USER_AGENT_chr) |>
-  httr2::req_retry(
-    max_tries = RETRY_MAX_int,
-    backoff = ~ RETRY_DELAY_sec
-  ) |>
-  httr2::req_timeout(seconds = 120)
-
-# Execute request
-response_obj <- httr2::req_perform(req = request_obj)
-
-# Check response status
-status_code_int <- httr2::resp_status(resp = response_obj)
-cat("Response status code:", status_code_int, "\n")
-
-if (status_code_int != 200) {
-  stop("API request failed with status code: ", status_code_int)
-}
-
-# EXTRACT AND SAVE RAW RESPONSE =============================================
-# Get response body as text
-response_text_chr <- httr2::resp_body_string(resp = response_obj)
-
-# Save raw JSON response
 raw_json_path <- file.path(
   OUTPUT_DIR_path,
   paste0(OUTPUT_PREFIX_chr, "_raw.json")
 )
 
-writeLines(text = response_text_chr, con = raw_json_path)
+# Check if cached file exists
+if (file.exists(raw_json_path) && !FORCE_DOWNLOAD_lgl) {
+  cat("\n=== Found Cached Data ===\n")
+  cat("Reading from:", raw_json_path, "\n")
 
-cat("Raw JSON saved to:", raw_json_path, "\n")
+  # Read cached JSON
+  response_text_chr <- readLines(con = raw_json_path, warn = FALSE)
+  response_text_chr <- paste(response_text_chr, collapse = "\n")
 
-# Parse JSON to verify content
-response_data_lst <- jsonlite::fromJSON(
-  txt = response_text_chr,
-  simplifyDataFrame = FALSE
-)
+  # Parse to verify
+  response_data_lst <- jsonlite::fromJSON(
+    txt = response_text_chr,
+    simplifyDataFrame = FALSE
+  )
 
-# Verify number of results
-n_results_int <- length(response_data_lst$results)
-cat("Number of proteins retrieved:", n_results_int, "\n")
+  n_results_int <- length(response_data_lst$results)
 
-# Print first protein accession as verification
-if (n_results_int > 0) {
-  first_accession_chr <- response_data_lst$results[[1]]$primaryAccession
-  first_gene_chr <- response_data_lst$results[[1]]$genes[[1]]$geneName$value
-  cat("First protein - Accession:", first_accession_chr, "Gene:", first_gene_chr, "\n")
+  # Validate cache
+  if (n_results_int == length(ORC_ACCESSIONS_chr)) {
+    cat("Cache valid:", n_results_int, "proteins found\n")
+    cat("Skipping API request. Set FORCE_DOWNLOAD_lgl = TRUE to refresh.\n")
+
+    # Skip to next chunk (don't execute API request below)
+  } else {
+    cat("Cache invalid:", n_results_int, "proteins, expected", 
+        length(ORC_ACCESSIONS_chr), "\n")
+    cat("Will re-download...\n")
+    FORCE_DOWNLOAD_lgl <- TRUE  # Force download due to invalid cache
+  }
+} else {
+  if (FORCE_DOWNLOAD_lgl) {
+    cat("\n=== FORCE_DOWNLOAD enabled - requesting fresh data ===\n")
+  } else {
+    cat("\n=== No cached data found - downloading ===\n")
+  }
 }
 
+# Only execute API request if needed
+if (!file.exists(raw_json_path) || FORCE_DOWNLOAD_lgl || n_results_int != length(ORC_ACCESSIONS_chr)) {
+
+  # EXECUTE API REQUEST ========================================================
+  cat("\n=== Executing UniProt API Request ===\n")
+  cat("Sending GET request...\n")
+
+  # Build request with httr2 - proper method
+  base_endpoint_chr <- paste0(BASE_URL_uniprot_chr, ENDPOINT_search_chr)
+
+  request_obj <- httr2::request(base_url = base_endpoint_chr) |>
+    httr2::req_url_query(
+      query = accession_query_chr,
+      format = "json",
+      fields = FIELDS_uniprot_chr,
+      .multi = "comma"
+    ) |>
+    httr2::req_user_agent(string = USER_AGENT_chr) |>
+    httr2::req_retry(
+      max_tries = RETRY_MAX_int,
+      backoff = ~ RETRY_DELAY_sec
+    ) |>
+    httr2::req_timeout(seconds = 120)
+
+  # Execute request
+  response_obj <- httr2::req_perform(req = request_obj)
+
+  # Check response status
+  status_code_int <- httr2::resp_status(resp = response_obj)
+  cat("Response status code:", status_code_int, "\n")
+
+  if (status_code_int != 200) {
+    stop("API request failed with status code: ", status_code_int)
+  }
+
+  # EXTRACT AND SAVE RAW RESPONSE =============================================
+  # Get response body as text
+  response_text_chr <- httr2::resp_body_string(resp = response_obj)
+
+  # Save raw JSON response
+  raw_json_path <- file.path(
+    OUTPUT_DIR_path,
+    paste0(OUTPUT_PREFIX_chr, "_raw.json")
+  )
+
+  writeLines(text = response_text_chr, con = raw_json_path)
+
+  cat("Raw JSON saved to:", raw_json_path, "\n")
+
+  # Parse JSON to verify content
+  response_data_lst <- jsonlite::fromJSON(
+    txt = response_text_chr,
+    simplifyDataFrame = FALSE
+  )
+
+  # Verify number of results
+  n_results_int <- length(response_data_lst$results)
+  cat("Number of proteins retrieved:", n_results_int, "\n")
+
+  # Print first protein accession as verification
+  if (n_results_int > 0) {
+    first_accession_chr <- response_data_lst$results[[1]]$primaryAccession
+    first_gene_chr <- response_data_lst$results[[1]]$genes[[1]]$geneName$value
+    cat("First protein - Accession:", first_accession_chr, "Gene:", first_gene_chr, "\n")
+  }
+}
 
 # PARSE METADATA TABLE =======================================================
 cat("\n=== Parsing Protein Metadata ===\n")
@@ -168,11 +217,11 @@ sequence_vct <- character(length = n_results_int)
 # Extract data from each protein entry
 for (i in 1:n_results_int) {
   protein_lst <- response_data_lst$results[[i]]
-  
+
   # Basic identifiers
   accession_vct[i] <- protein_lst$primaryAccession
   uniprot_id_vct[i] <- protein_lst$uniProtkbId
-  
+
   # Gene name (first gene name from genes array)
   if (length(protein_lst$genes) > 0 && 
       !is.null(protein_lst$genes[[1]]$geneName$value)) {
@@ -180,17 +229,17 @@ for (i in 1:n_results_int) {
   } else {
     gene_name_vct[i] <- NA_character_
   }
-  
+
   # Protein description (recommended name)
   if (!is.null(protein_lst$proteinDescription$recommendedName$fullName$value)) {
     protein_name_vct[i] <- protein_lst$proteinDescription$recommendedName$fullName$value
   } else {
     protein_name_vct[i] <- NA_character_
   }
-  
+
   # Organism
   organism_vct[i] <- protein_lst$organism$scientificName
-  
+
   # Sequence information
   length_aa_vct[i] <- protein_lst$sequence$length
   sequence_vct[i] <- protein_lst$sequence$value
@@ -249,7 +298,7 @@ features_list <- list()
 # Extract features from each protein entry
 for (i in 1:n_results_int) {
   protein_lst <- response_data_lst$results[[i]]
-  
+
   # Get protein identifiers for this entry
   accession_chr <- protein_lst$primaryAccession
   gene_chr <- if (length(protein_lst$genes) > 0) {
@@ -257,17 +306,17 @@ for (i in 1:n_results_int) {
   } else {
     NA_character_
   }
-  
+
   # Check if features exist
   if (is.null(protein_lst$features) || length(protein_lst$features) == 0) {
     cat("No features found for", accession_chr, "\n")
     next
   }
-  
+
   # Process each feature
   for (j in 1:length(protein_lst$features)) {
     feature_lst <- protein_lst$features[[j]]
-    
+
     # Extract feature information
     feature_type_chr <- feature_lst$type
     feature_desc_chr <- if (!is.null(feature_lst$description)) {
@@ -275,11 +324,11 @@ for (i in 1:n_results_int) {
     } else {
       NA_character_
     }
-    
+
     # Extract coordinates
     start_int <- feature_lst$location$start$value
     end_int <- feature_lst$location$end$value
-    
+
     # Create feature record
     feature_record <- data.frame(
       accession = accession_chr,
@@ -290,7 +339,7 @@ for (i in 1:n_results_int) {
       end = end_int,
       stringsAsFactors = FALSE
     )
-    
+
     features_list[[length(features_list) + 1]] <- feature_record
   }
 }
@@ -336,92 +385,225 @@ cat("\nCoordinate validation:\n")
 cat("All begin < end?", all(features_df$begin < features_df$end), "\n")
 cat("Any negative coordinates?", any(features_df$begin < 0 | features_df$end < 0), "\n")
 
-# PARSE INTERPRO CROSS-REFERENCES ============================================
-cat("\n=== Extracting InterPro Cross-References ===\n")
+# InterPro API configuration
+BASE_URL_interpro_chr <- "https://www.ebi.ac.uk/interpro/api"
 
-# Initialize list to collect InterPro references
-interpro_refs_list <- list()
+# Initialize list to collect domain data
+interpro_domains_list <- list()
 
-# Extract InterPro IDs from each protein entry
-for (i in 1:n_results_int) {
-  protein_lst <- response_data_lst$results[[i]]
-  
-  # Get protein identifiers
-  accession_chr <- protein_lst$primaryAccession
-  gene_chr <- if (length(protein_lst$genes) > 0) {
-    protein_lst$genes[[1]]$geneName$value
-  } else {
-    NA_character_
-  }
-  
-  # Check if cross-references exist
-  if (is.null(protein_lst$uniProtKBCrossReferences)) {
-    cat("No cross-references for", accession_chr, "\n")
-    next
-  }
-  
-  # Filter for InterPro references
-  for (j in 1:length(protein_lst$uniProtKBCrossReferences)) {
-    xref_lst <- protein_lst$uniProtKBCrossReferences[[j]]
-    
-    if (xref_lst$database == "InterPro") {
-      # Extract InterPro ID and name
-      interpro_id_chr <- xref_lst$id
-      
-      # Get InterPro entry name from properties
-      interpro_name_chr <- NA_character_
-      if (!is.null(xref_lst$properties)) {
-        for (prop in xref_lst$properties) {
-          if (prop$key == "EntryName") {
-            interpro_name_chr <- prop$value
-            break
+# Query InterPro for each unique protein accession
+unique_accessions_chr <- unique(metadata_df$accession)
+
+for (accession_chr in unique_accessions_chr) {
+
+  # Get gene name for this accession
+  gene_chr <- metadata_df$gene_name[metadata_df$accession == accession_chr]
+
+  cat("\nQuerying InterPro for", gene_chr, "(", accession_chr, ")...\n")
+
+  # CORRECTED: Build proper endpoint URL combining protein and entry blocks
+  # This gets entries (domains) that match this protein
+  interpro_url_chr <- paste0(
+    BASE_URL_interpro_chr,
+    "/protein/uniprot/",
+    accession_chr,
+    "/entry"
+  )
+
+  cat("  URL:", interpro_url_chr, "\n")
+
+  tryCatch({
+    interpro_request <- httr2::request(base_url = interpro_url_chr) |>
+      httr2::req_url_query(
+        format = "json",
+        page_size = 200  # Increase page size to get all results
+      ) |>
+      httr2::req_user_agent(string = USER_AGENT_chr) |>
+      httr2::req_retry(max_tries = RETRY_MAX_int) |>
+      httr2::req_timeout(seconds = 60)
+
+    interpro_response <- httr2::req_perform(req = interpro_request)
+
+    # Check HTTP status
+    if (httr2::resp_status(resp = interpro_response) != 200) {
+      cat("  HTTP error:", httr2::resp_status(resp = interpro_response), "\n")
+      next
+    }
+
+    interpro_text_chr <- httr2::resp_body_string(resp = interpro_response)
+    interpro_data_lst <- jsonlite::fromJSON(txt = interpro_text_chr)
+
+    # DEBUG: Check response structure
+    cat("  Response keys:", paste(names(interpro_data_lst), collapse=", "), "\n")
+
+    # Check if results exist
+    if (is.null(interpro_data_lst$results) || 
+        length(interpro_data_lst$results) == 0) {
+      cat("  No InterPro results for", accession_chr, "\n")
+      next
+    }
+
+    cat("  Found", length(interpro_data_lst$results), "InterPro entries\n")
+
+    # Parse each InterPro entry
+    for (i in 1:length(interpro_data_lst$results)) {
+      entry_lst <- interpro_data_lst$results[[i]]
+
+      # Extract metadata
+      interpro_accession_chr <- entry_lst$metadata$accession
+      interpro_name_chr <- entry_lst$metadata$name
+      interpro_type_chr <- entry_lst$metadata$type
+
+      cat("    Entry", i, ":", interpro_name_chr, "(", interpro_accession_chr, ")\n")
+
+      # Extract protein matches - CORRECTED nested structure
+      if (!is.null(entry_lst$proteins)) {
+        # entry_lst$proteins is a dataframe with one row per protein match
+        proteins_df <- entry_lst$proteins
+
+        # Find rows for our target accession
+        target_rows <- which(proteins_df$accession == accession_chr)
+
+        if (length(target_rows) > 0) {
+          cat("      Found", length(target_rows), "protein matches\n")
+
+          for (target_row in target_rows) {
+            # Get entry_protein_locations for this protein
+            locations_lst <- proteins_df$entry_protein_locations[[target_row]]
+
+            if (!is.null(locations_lst) && nrow(locations_lst) > 0) {
+              cat("      Processing", nrow(locations_lst), "locations\n")
+
+              # Process each location
+              for (j in 1:nrow(locations_lst)) {
+                location_lst <- locations_lst[j, ]
+
+                # Extract fragments (the actual coordinate ranges)
+                if (!is.null(location_lst$fragments)) {
+                  fragments_df <- location_lst$fragments[[1]]
+
+                  if (!is.null(fragments_df) && nrow(fragments_df) > 0) {
+                    for (k in 1:nrow(fragments_df)) {
+                      fragment <- fragments_df[k, ]
+
+                      # Create domain record
+                      domain_record <- data.frame(
+                        accession = accession_chr,
+                        gene_name = gene_chr,
+                        source = "InterPro",
+                        interpro_id = interpro_accession_chr,
+                        type = interpro_type_chr,
+                        description = interpro_name_chr,
+                        begin = as.numeric(fragment$start),
+                        end = as.numeric(fragment$end),
+                        stringsAsFactors = FALSE
+                      )
+
+                      interpro_domains_list[[length(interpro_domains_list) + 1]] <- 
+                        domain_record
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
-      
-      # Create reference record
-      ref_record <- data.frame(
-        accession = accession_chr,
-        gene_name = gene_chr,
-        interpro_id = interpro_id_chr,
-        interpro_name = interpro_name_chr,
-        stringsAsFactors = FALSE
-      )
-      
-      interpro_refs_list[[length(interpro_refs_list) + 1]] <- ref_record
     }
-  }
+
+    domains_found <- sum(sapply(
+      interpro_domains_list, 
+      function(x) x$accession == accession_chr
+    ))
+    cat("  Total domains retrieved:", domains_found, "\n")
+
+    # Be polite to API
+    Sys.sleep(time = 1)
+
+  }, error = function(e) {
+    cat("  Error querying", accession_chr, ":", conditionMessage(e), "\n")
+  })
 }
 
-# Combine into dataframe
-interpro_refs_df <- do.call(rbind, interpro_refs_list)
+# CORRECTED: Check if any results were collected
+if (length(interpro_domains_list) == 0) {
+  cat("\n!!! No domains found from InterPro !!!\n")
+  cat("This might indicate:\n")
+  cat("  1. API endpoint is incorrect\n")
+  cat("  2. Proteins have no InterPro annotations\n")
+  cat("  3. Network connectivity issue\n")
 
-# Sort by gene name
-interpro_refs_df <- interpro_refs_df[order(interpro_refs_df$gene_name), ]
+  # Create empty dataframe with correct structure
+  interpro_domains_df <- data.frame(
+    accession = character(),
+    gene_name = character(),
+    source = character(),
+    interpro_id = character(),
+    type = character(),
+    description = character(),
+    begin = numeric(),
+    end = numeric(),
+    stringsAsFactors = FALSE
+  )
+} else {
+  # Combine all domains into dataframe
+  interpro_domains_df <- do.call(rbind, interpro_domains_list)
+  rownames(interpro_domains_df) <- NULL
+}
 
-# Save InterPro references
-interpro_refs_path <- file.path(
+# Calculate domain length (only if dataframe is not empty)
+if (nrow(interpro_domains_df) > 0) {
+  interpro_domains_df$length <- interpro_domains_df$end - 
+    interpro_domains_df$begin + 1
+
+  # Sort by gene name and start position
+  interpro_domains_df <- interpro_domains_df[
+    order(interpro_domains_df$gene_name, interpro_domains_df$begin), 
+  ]
+}
+
+# Save InterPro domains
+interpro_domains_path <- file.path(
   OUTPUT_DIR_path,
-  paste0(OUTPUT_PREFIX_chr, "_interpro_refs.tsv")
+  paste0(OUTPUT_PREFIX_chr, "_interpro_domains.tsv")
 )
 
 write.table(
-  x = interpro_refs_df,
-  file = interpro_refs_path,
+  x = interpro_domains_df,
+  file = interpro_domains_path,
   sep = "\t",
   row.names = FALSE,
   quote = FALSE
 )
 
-cat("InterPro references saved to:", interpro_refs_path, "\n")
+cat("\n=== InterPro Domains Saved ===\n")
+cat("File:", interpro_domains_path, "\n")
 
 # VERIFICATION ===============================================================
-cat("\n=== InterPro References Verification ===\n")
-cat("Total InterPro references:", nrow(interpro_refs_df), "\n")
-cat("\nReferences per protein:\n")
-print(table(interpro_refs_df$gene_name))
+cat("\n=== InterPro Domains Verification ===\n")
+cat("Total domain locations:", nrow(interpro_domains_df), "\n")
 
-cat("\nSample InterPro references:\n")
-print(head(interpro_refs_df, n = 10))
+if (nrow(interpro_domains_df) > 0) {
+  cat("\nDomains per protein:\n")
+  print(table(interpro_domains_df$gene_name))
 
-cat("\nUnique InterPro IDs:", length(unique(interpro_refs_df$interpro_id)), "\n")
+  cat("\nDomain types:\n")
+  print(table(interpro_domains_df$type))
+
+  cat("\nSample domains (first 15):\n")
+  print(head(interpro_domains_df[, c("gene_name", "interpro_id", 
+                                      "description", "begin", "end", "length")], 
+             n = 15))
+
+  cat("\nAAA+ domains found:\n")
+  aaa_domains <- interpro_domains_df[
+    grepl(pattern = "AAA", x = interpro_domains_df$description, ignore.case = TRUE), 
+  ]
+  if (nrow(aaa_domains) > 0) {
+    print(aaa_domains[, c("gene_name", "description", "begin", "end")])
+  } else {
+    cat("No AAA+ domains found in InterPro data\n")
+  }
+} else {
+  cat("No domains retrieved - dataframe is empty\n")
+}
