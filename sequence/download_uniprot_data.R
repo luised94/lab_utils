@@ -73,7 +73,7 @@ cat("Output directory:", OUTPUT_DIR_path, "\n")
 cat("Fields to retrieve:", FIELDS_uniprot_chr, "\n")
 
 # BUILD QUERY ================================================================
-# Construct query URL with explicit parameters
+# Construct query components explicitly
 
 # Build accession query string (P54784 OR P32833 OR ...)
 accession_query_chr <- paste(
@@ -86,23 +86,20 @@ accession_query_chr <- paste(
 cat("\n=== Building API Query ===\n")
 cat("Accession query:", accession_query_chr, "\n")
 
-# Construct full query URL
-query_url_chr <- paste0(
-  BASE_URL_uniprot_chr,
-  ENDPOINT_search_chr,
-  "?query=", accession_query_chr,
-  "&format=json",
-  "&fields=", FIELDS_uniprot_chr
-)
-
-cat("Full query URL:\n", query_url_chr, "\n")
-
 # EXECUTE API REQUEST ========================================================
 cat("\n=== Executing UniProt API Request ===\n")
 cat("Sending GET request...\n")
 
-# Build request with httr2
-request_obj <- httr2::request(base_url = query_url_chr) |>
+# Build request with httr2 - proper method
+base_endpoint_chr <- paste0(BASE_URL_uniprot_chr, ENDPOINT_search_chr)
+
+request_obj <- httr2::request(base_url = base_endpoint_chr) |>
+  httr2::req_url_query(
+    query = accession_query_chr,
+    format = "json",
+    fields = FIELDS_uniprot_chr,
+    .multi = "comma"
+  ) |>
   httr2::req_user_agent(string = USER_AGENT_chr) |>
   httr2::req_retry(
     max_tries = RETRY_MAX_int,
@@ -148,5 +145,6 @@ cat("Number of proteins retrieved:", n_results_int, "\n")
 # Print first protein accession as verification
 if (n_results_int > 0) {
   first_accession_chr <- response_data_lst$results[[1]]$primaryAccession
-  cat("First protein accession:", first_accession_chr, "\n")
+  first_gene_chr <- response_data_lst$results[[1]]$genes[[1]]$geneName$value
+  cat("First protein - Accession:", first_accession_chr, "Gene:", first_gene_chr, "\n")
 }
