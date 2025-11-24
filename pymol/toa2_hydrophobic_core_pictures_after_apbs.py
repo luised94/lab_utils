@@ -1,3 +1,18 @@
+# Take hydrophobic core pictures of TFIIA after preparation.
+# Show surface of hydrophobic core.
+# Usage:
+# File > Run script...
+# Or place the script in the working directory (File > Working Directory > Change)
+# run toa2_hydrophobic_core_pictures_after_apbs.py
+
+
+from pymol import cmd
+import os
+import sys
+
+# Import user functions
+import helper_functions
+
 # ============================================================================
 # VALIDATION: Check Prerequisites Before Running
 # ============================================================================
@@ -115,6 +130,19 @@ cmd.set_view((
      0.000177816,   -0.000032090, -148.673400879,
      2.425498962,  -25.367309570,   -6.927139282,
    117.213119507,  180.128311157,  -20.000000000))
+
+# Turn 90 degrees
+# Hide everything.
+# Show chain_D, save.
+# Show run02, save.
+# Show chain_B, save.
+# Show chain_B hydrophobic, save.
+# Turn y -180 degreers.
+# Hide everything.
+# Show chain_B, save.
+# show run02, save.
+# Show chain_D, save.
+# Show chain_B, hydrophobic, save.
 
 # ============================================================================
 # Use the mapping in visualization
