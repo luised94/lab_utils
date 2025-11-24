@@ -106,3 +106,194 @@ domain_summary_df <- domains_df[, c("gene_name", "source", "type",
 domain_summary_df <- domain_summary_df[order(domain_summary_df$gene_name, 
                                                domain_summary_df$begin), ]
 print(domain_summary_df, row.names = FALSE)
+
+# TRANSFORM DOMAIN DATA ========================================================
+
+# Step 1: Add protein order based on ORC subunit number
+cat("Adding protein order...\n")
+
+# Create order mapping (ORC1=1, ORC2=2, etc.)
+gene_order_nls <- c(
+  "ORC1" = 1,
+  "ORC2" = 2,
+  "ORC3" = 3,
+  "ORC4" = 4,
+  "ORC5" = 5,
+  "ORC6" = 6
+)
+
+domains_df$order <- gene_order_nls[domains_df$gene_name]
+
+cat("Order assigned:\n")
+print(table(domains_df$gene_name, domains_df$order))
+cat("\n")
+
+
+# Step 2: Add entryName from metadata (drawProteins requirement)
+cat("Adding entryName column...\n")
+
+domains_df <- merge(
+  domains_df,
+  metadata_df[, c("accession", "uniprot_id")],
+  by = "accession",
+  all.x = TRUE
+)
+
+# Rename uniprot_id to entryName for drawProteins compatibility
+domains_df$entryName <- domains_df$uniprot_id
+domains_df$uniprot_id <- NULL
+
+cat("Sample entryNames:\n")
+print(unique(domains_df[, c("gene_name", "entryName")]))
+cat("\n")
+
+
+# Step 3: Add taxonomy ID
+domains_df$taxid <- TAXID_cerevisiae_int
+
+
+# Step 4: Handle discontinuous domains (collapse to continuous span)
+cat("Handling discontinuous domains...\n")
+cat("Original domain count:", nrow(domains_df), "\n")
+
+# For each unique domain (same accession + interpro_id + description),
+# collapse to single entry spanning min(begin) to max(end)
+
+# Create grouping key
+domains_df$domain_key_chr <- paste(
+  domains_df$accession,
+  domains_df$interpro_id,
+  domains_df$description,
+  sep = "___"
+)
+
+# Aggregate: take min begin, max end for each domain group
+# Keep first occurrence of other columns
+domains_collapsed_df <- data.frame(
+  accession = character(),
+  gene_name = character(),
+  source = character(),
+  interpro_id = character(),
+  type = character(),
+  description = character(),
+  begin = integer(),
+  end = integer(),
+  order = integer(),
+  entryName = character(),
+  taxid = integer(),
+  stringsAsFactors = FALSE
+)
+
+for (key_chr in unique(domains_df$domain_key_chr)) {
+  subset_df <- domains_df[domains_df$domain_key_chr == key_chr, ]
+  
+  collapsed_row <- subset_df[1, ]  # Keep first row as template
+  collapsed_row$begin <- min(subset_df$begin)
+  collapsed_row$end <- max(subset_df$end)
+  
+  domains_collapsed_df <- rbind(domains_collapsed_df, collapsed_row[, colnames(domains_collapsed_df)])
+}
+
+# Recalculate length after collapsing
+domains_collapsed_df$length <- domains_collapsed_df$end - domains_collapsed_df$begin + 1
+
+cat("After collapsing discontinuous domains:", nrow(domains_collapsed_df), "\n")
+cat("\n")
+
+
+# Step 5: Filter by minimum domain length
+cat("Filtering domains by minimum length (", MIN_DOMAIN_LENGTH_aa, " aa)...\n", sep = "")
+
+domains_filtered_df <- domains_collapsed_df[
+  domains_collapsed_df$length >= MIN_DOMAIN_LENGTH_aa,
+]
+
+cat("Domains after length filter:", nrow(domains_filtered_df), "\n")
+cat("Removed:", nrow(domains_collapsed_df) - nrow(domains_filtered_df), "short domains\n")
+cat("\n")
+
+
+# Step 6: Create CHAIN entries for full-length proteins
+cat("Creating CHAIN entries for full-length proteins...\n")
+
+chain_entries_df <- data.frame(
+  accession = metadata_df$accession,
+  gene_name = metadata_df$gene_name,
+  source = "metadata",
+  interpro_id = NA,
+  type = "CHAIN",
+  description = paste(metadata_df$gene_name, "full length"),
+  begin = 1,
+  end = metadata_df$length_aa,
+  length = metadata_df$length_aa,
+  order = gene_order_nls[metadata_df$gene_name],
+  entryName = metadata_df$uniprot_id,
+  taxid = TAXID_cerevisiae_int,
+  stringsAsFactors = FALSE
+)
+
+cat("CHAIN entries created:\n")
+print(chain_entries_df[, c("gene_name", "description", "begin", "end")])
+cat("\n")
+
+
+# Step 7: Combine CHAIN and domain entries
+domain_features_df <- rbind(chain_entries_df, domains_filtered_df)
+
+# Sort by order (protein) then begin position
+domain_features_df <- domain_features_df[
+  order(domain_features_df$order, domain_features_df$begin),
+]
+
+cat("Final domain features data frame:\n")
+cat("Total rows:", nrow(domain_features_df), "(", nrow(chain_entries_df), 
+    "chains +", nrow(domains_filtered_df), "domains)\n")
+cat("\n")
+
+
+# VERIFY TRANSFORMED DATA ======================================================
+
+cat("Verification:\n")
+cat("=" , rep("=", 78), "\n", sep = "")
+
+# Check all required columns present
+required_cols_chr <- c("type", "description", "begin", "end", "order", 
+                       "entryName", "taxid")
+missing_cols_chr <- required_cols_chr[!required_cols_chr %in% colnames(domain_features_df)]
+
+if (length(missing_cols_chr) > 0) {
+  stop("ERROR: Missing required columns: ", paste(missing_cols_chr, collapse = ", "))
+} else {
+  cat(" All required drawProteins columns present\n")
+}
+
+# Check order values
+if (all(domain_features_df$order %in% 1:6)) {
+  cat(" Order values valid (1-6)\n")
+} else {
+  stop("ERROR: Invalid order values found")
+}
+
+# Check all proteins have CHAIN entry
+chains_per_protein_df <- table(domain_features_df$gene_name[domain_features_df$type == "CHAIN"])
+if (all(chains_per_protein_df == 1) && length(chains_per_protein_df) == 6) {
+  cat(" All 6 proteins have exactly 1 CHAIN entry\n")
+} else {
+  cat("WARNING: CHAIN entry counts per protein:\n")
+  print(chains_per_protein_df)
+}
+
+# Show final domain counts per protein
+cat("\nFinal domain counts (excluding CHAIN):\n")
+domains_only_df <- domain_features_df[domain_features_df$type != "CHAIN", ]
+final_counts_df <- as.data.frame(table(domains_only_df$gene_name))
+colnames(final_counts_df) <- c("gene_name", "domain_count")
+print(final_counts_df)
+cat("\n")
+
+# Display final domain list for review
+cat("Final domains to be plotted:\n")
+cat("=" , rep("=", 78), "\n", sep = "")
+review_df <- domain_features_df[, c("gene_name", "type", "description", 
+                                     "begin", "end", "length", "source")]
+print(review_df, row.names = FALSE)
