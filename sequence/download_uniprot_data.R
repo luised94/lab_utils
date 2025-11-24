@@ -592,3 +592,191 @@ if (nrow(interpro_domains_df) > 0) {
     cat("  No AAA+ domains found\n")
   }
 }
+
+# QUERY TED API FOR STRUCTURE-BASED DOMAINS =================================
+cat("\n=== Querying TED API for Structure-Based Domains ===\n")
+
+# TED API configuration
+BASE_URL_ted_chr <- "https://ted.cathdb.info/api/v1"
+ENDPOINT_uniprot_summary_chr <- "/uniprot/summary"
+
+# Identify proteins needing TED annotation (missing AAA+/P-loop)
+proteins_with_aaa_ploop_chr <- unique(c(
+  interpro_domains_df$gene_name[grepl("AAA", interpro_domains_df$description, ignore.case = TRUE)],
+  interpro_domains_df$gene_name[grepl("P-loop", interpro_domains_df$description, ignore.case = TRUE)]
+))
+
+all_proteins_chr <- metadata_df$gene_name
+proteins_needing_ted_chr <- setdiff(all_proteins_chr, proteins_with_aaa_ploop_chr)
+
+cat("Proteins needing TED annotation:", paste(proteins_needing_ted_chr, collapse = ", "), "\n")
+
+# Initialize list for TED domains
+ted_domains_list <- list()
+
+# Query TED for each protein needing annotation
+for (gene_chr in proteins_needing_ted_chr) {
+
+  # Get accession for this gene
+  accession_chr <- metadata_df$accession[metadata_df$gene_name == gene_chr]
+
+  cat("\nQuerying TED for", gene_chr, "(", accession_chr, ")...\n")
+
+  # Build TED API URL
+  ted_url_chr <- paste0(
+    BASE_URL_ted_chr,
+    ENDPOINT_uniprot_summary_chr,
+    "/",
+    accession_chr
+  )
+
+  # Execute request with error handling
+  tryCatch({
+    ted_request <- httr2::request(base_url = ted_url_chr) |>
+      httr2::req_user_agent(string = USER_AGENT_chr) |>
+      httr2::req_retry(max_tries = RETRY_MAX_int) |>
+      httr2::req_timeout(seconds = 60)
+
+    ted_response <- httr2::req_perform(req = ted_request)
+
+    # Check status
+    status_int <- httr2::resp_status(resp = ted_response)
+    if (status_int != 200) {
+      cat("  HTTP status:", status_int, "\n")
+      next
+    }
+
+    # Parse JSON response
+    ted_response_lst <- httr2::resp_body_json(resp = ted_response)
+
+    # Access the 'data' array (not the top-level response)
+    if (is.null(ted_response_lst$data) || length(ted_response_lst$data) == 0) {
+      cat("  No TED domains found\n")
+      next
+    }
+
+    ted_domains_array <- ted_response_lst$data
+    cat("  Found", length(ted_domains_array), "TED domains\n")
+
+    # Parse each TED domain in the data array
+    for (i in 1:length(ted_domains_array)) {
+      domain_lst <- ted_domains_array[[i]]
+
+      # Extract domain information
+      ted_id_chr <- domain_lst$ted_id
+      chopping_chr <- domain_lst$chopping
+      cath_label_chr <- domain_lst$cath_label
+      consensus_level_chr <- domain_lst$consensus_level
+
+      # Check if chopping exists
+      if (is.null(chopping_chr) || is.na(chopping_chr)) {
+        cat("  Warning: No chopping for domain", ted_id_chr, "\n")
+        next
+      }
+
+      # Parse chopping string (format: "71-191_208-273" for multi-segment, or "2-103" for single)
+      # Split by underscore for multiple segments
+      segments_chr <- strsplit(x = chopping_chr, split = "_", fixed = TRUE)[[1]]
+
+      # Process each segment as a separate domain entry
+      for (segment_chr in segments_chr) {
+        # Parse begin-end
+        coords_chr <- strsplit(x = segment_chr, split = "-", fixed = TRUE)[[1]]
+        begin_int <- as.integer(coords_chr[1])
+        end_int <- as.integer(coords_chr[2])
+
+        # Create domain record
+        domain_record <- data.frame(
+          accession = accession_chr,
+          gene_name = gene_chr,
+          source = "TED",
+          interpro_id = ted_id_chr,
+          type = paste0("CATH_", cath_label_chr),
+          description = paste0("TED domain (CATH ", cath_label_chr, ", ",
+                             consensus_level_chr, " confidence)"),
+          begin = begin_int,
+          end = end_int,
+          stringsAsFactors = FALSE
+        )
+
+        ted_domains_list[[length(ted_domains_list) + 1]] <- domain_record
+      }
+    }
+
+    n_domains_this_protein <- sum(sapply(
+      ted_domains_list,
+      function(x) x$accession == accession_chr
+    ))
+    cat("  Retrieved", n_domains_this_protein, "domain segments\n")
+
+    # Be polite to API
+    Sys.sleep(time = 1)
+
+  }, error = function(e) {
+    cat("  Error querying", accession_chr, ":", conditionMessage(e), "\n")
+  })
+}
+
+# MERGE INTERPRO AND TED DOMAINS ============================================
+cat("\n=== Merging InterPro and TED Domains ===\n")
+
+if (length(ted_domains_list) > 0) {
+  # Combine TED domains
+  ted_domains_df <- do.call(rbind, ted_domains_list)
+
+  # Calculate length
+  ted_domains_df$length <- ted_domains_df$end - ted_domains_df$begin + 1
+
+  cat("TED domains retrieved:", nrow(ted_domains_df), "\n")
+
+  # Combine with InterPro domains
+  all_domains_df <- rbind(interpro_domains_df, ted_domains_df)
+
+} else {
+  cat("No TED domains retrieved, using InterPro only\n")
+  all_domains_df <- interpro_domains_df
+}
+
+# Sort by gene name and start position
+all_domains_df <- all_domains_df[
+  order(all_domains_df$gene_name, all_domains_df$begin),
+]
+
+# Save combined domains
+all_domains_path <- file.path(
+  OUTPUT_DIR_path,
+  paste0(OUTPUT_PREFIX_chr, "_all_domains.tsv")
+)
+
+write.table(
+  x = all_domains_df,
+  file = all_domains_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+
+cat("\nCombined domains saved to:", all_domains_path, "\n")
+
+# VERIFICATION ===============================================================
+cat("\n=== Combined Domains Verification ===\n")
+cat("Total domains:", nrow(all_domains_df), "\n")
+
+cat("\nDomains per protein:\n")
+print(table(all_domains_df$gene_name))
+
+cat("\nDomains by source:\n")
+print(table(all_domains_df$source))
+
+cat("\nSample combined domains:\n")
+print(head(all_domains_df[, c("gene_name", "source", "description", "begin", "end")], n = 15))
+
+cat("\nCoverage check - proteins with domains:\n")
+proteins_with_domains_chr <- unique(all_domains_df$gene_name)
+print(proteins_with_domains_chr)
+missing_proteins_chr <- setdiff(all_proteins_chr, proteins_with_domains_chr)
+if (length(missing_proteins_chr) > 0) {
+  cat("Missing:", paste(missing_proteins_chr, collapse = ", "), "\n")
+} else {
+  cat("All proteins have domain annotations!\n")
+}
