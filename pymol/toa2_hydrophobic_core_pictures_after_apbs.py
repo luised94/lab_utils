@@ -5,13 +5,15 @@
 # Or place the script in the working directory (File > Working Directory > Change)
 # run toa2_hydrophobic_core_pictures_after_apbs.py
 
-
 from pymol import cmd
 import os
 import sys
 
 # Import user functions
 import helper_functions
+
+# Configuration
+FLAG_OVERWRITE = True
 
 # ============================================================================
 # VALIDATION: Check Prerequisites Before Running
@@ -131,6 +133,7 @@ cmd.set_view((
      2.425498962,  -25.367309570,   -6.927139282,
    117.213119507,  180.128311157,  -20.000000000))
 
+
 # ============================================================================
 # ELECTROSTATIC SURFACE VISUALIZATION
 # ============================================================================
@@ -138,6 +141,20 @@ cmd.set_view((
 print("\n" + "=" * 60)
 print("Creating Electrostatic Surface Views")
 print("=" * 60)
+
+# Enable all necessary objects first
+# Enable all objects programmatically
+#print("\nEnabling all objects...")
+#all_objects = cmd.get_object_list()
+#for obj in all_objects:
+#    cmd.enable(obj)
+#print(f"Enabled {len(all_objects)} objects")
+print("\nEnabling all objects...")
+cmd.enable("1nh2")  # Original structure with hydrophobic_core selection
+cmd.enable("chain_B")
+cmd.enable("chain_D")
+cmd.enable("prepared01")
+cmd.enable("prepared02")
 
 # Image counter for sequential naming
 img_counter = 1
@@ -149,7 +166,14 @@ img_counter = 1
 print("\nView 1: Chain D interface (90 degrees)")
 
 # Turn 90 degrees
-cmd.turn("y", 90)
+#cmd.turn("y", 90)
+cmd.set_view((
+    -0.450920254,    0.852479875,    0.264468431,
+    -0.212777704,    0.185093418,   -0.959405780,
+    -0.866829515,   -0.488889456,    0.097926863,
+    -0.000032587,   -0.000011193, -154.020599365,
+    -2.366145849,  -16.602687836,   -7.165100098,
+   105.576972961,  197.627319336,  -20.000000000 ))
 
 # Hide everything
 cmd.hide("everything")
@@ -193,11 +217,11 @@ helper_functions.save_png(
 )
 img_counter += 1
 
-# Show hydrophobic core (from chain_B toward chain_D)
-cmd.show("spheres", "chain_B and hydrophobic_core")
-cmd.set("sphere_scale", 0.8, "chain_B and hydrophobic_core")
-cmd.color("orange", "chain_B and hydrophobic_core")
-cmd.set("sphere_transparency", 0.3, "chain_B and hydrophobic_core")
+# Show hydrophobic core (selection exists in original 1nh2 object)
+cmd.show("spheres", "hydrophobic_core")
+cmd.set("sphere_scale", 0.6, "hydrophobic_core")
+cmd.color("orange", "hydrophobic_core")
+cmd.set("sphere_transparency", 0.2, "hydrophobic_core")
 helper_functions.save_png(
     filename=f"{img_counter:02d}_surface_D_cartoon_B_hydrophobic.png",
     width=IMAGE_WIDTH,
@@ -216,7 +240,14 @@ img_counter += 1
 print("\nView 2: Chain B interface (270 degrees)")
 
 # Turn -180 degrees
-cmd.turn("y", -180)
+#cmd.turn("y", -180)
+cmd.set_view((
+     0.527584910,    0.820460081,    0.220202491,
+     0.216749787,   -0.380644381,    0.898955524,
+     0.821382821,   -0.426547915,   -0.378658950,
+     0.000019502,   -0.000110969, -119.689163208,
+    -2.949608326,  -20.330551147,  -17.304233551,
+    75.965362549,  163.015731812,  -20.000000000 ))
 
 # Hide everything
 cmd.hide("everything")
@@ -260,11 +291,11 @@ helper_functions.save_png(
 )
 img_counter += 1
 
-# Show hydrophobic core (from chain_D toward chain_B)
-cmd.show("spheres", "chain_D and hydrophobic_core")
-cmd.set("sphere_scale", 0.8, "chain_D and hydrophobic_core")
-cmd.color("orange", "chain_D and hydrophobic_core")
-cmd.set("sphere_transparency", 0.3, "chain_D and hydrophobic_core")
+# Show hydrophobic core (selection exists in original 1nh2 object)
+cmd.show("spheres", "hydrophobic_core")
+cmd.set("sphere_scale", 0.6, "hydrophobic_core")
+cmd.color("orange", "hydrophobic_core")
+cmd.set("sphere_transparency", 0.2, "hydrophobic_core")
 helper_functions.save_png(
     filename=f"{img_counter:02d}_surface_B_cartoon_D_hydrophobic.png",
     width=IMAGE_WIDTH,
@@ -279,47 +310,3 @@ img_counter += 1
 print("\n" + "=" * 60)
 print(f"Electrostatic visualization complete! Generated {img_counter - 1} images.")
 print("=" * 60)
-
-#set_view (\
-#    -0.450920254,    0.852479875,    0.264468431,\
-#    -0.212777704,    0.185093418,   -0.959405780,\
-#    -0.866829515,   -0.488889456,    0.097926863,\
-#    -0.000032587,   -0.000011193, -154.020599365,\
-#    -2.366145849,  -16.602687836,   -7.165100098,\
-#   105.576972961,  197.627319336,  -20.000000000 )
-#set_view (\
-#     0.527584910,    0.820460081,    0.220202491,\
-#     0.216749787,   -0.380644381,    0.898955524,\
-#     0.821382821,   -0.426547915,   -0.378658950,\
-#     0.000019502,   -0.000110969, -119.689163208,\
-#    -2.949608326,  -20.330551147,  -17.304233551,\
-#    75.965362549,  163.015731812,  -20.000000000 )
-# Turn 90 degrees
-# Hide everything.
-# Show chain_D, save.
-# Show run02, save.
-# Show chain_B, save.
-# Show chain_B hydrophobic, save.
-# Turn y -180 degreers.
-# Hide everything.
-# Show chain_B, save.
-# show run02, save.
-# Show chain_D, save.
-# Show chain_B, hydrophobic, save.
-#cmd.show("spheres", "hydrophobic_core")
-#cmd.set("sphere_scale", 0.8, "hydrophobic_core")
-#cmd.color("orange", "hydrophobic_core")
-#cmd.set("sphere_transparency", 0.3, "hydrophobic_core")
-#
-#cmd.show("spheres", "chain_D and hydrophobic_core")
-#cmd.set("sphere_scale", 0.8, "chain_D and hydrophobic_core")
-#cmd.color("orange", "chain_D and hydrophobic_core")
-#cmd.set("sphere_transparency", 0.3, "chain_D and hydrophobic_core")
-
-# ============================================================================
-# Use the mapping in visualization
-# ============================================================================
-
-# Example usage:
-# chain_D_map = apbs_mapping['D']['map']  # 'apbs_map01'
-# chain_B_map = apbs_mapping['B']['map']  # 'apbs_map02'
