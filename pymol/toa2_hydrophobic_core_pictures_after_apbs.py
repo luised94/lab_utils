@@ -131,6 +131,169 @@ cmd.set_view((
      2.425498962,  -25.367309570,   -6.927139282,
    117.213119507,  180.128311157,  -20.000000000))
 
+# ============================================================================
+# ELECTROSTATIC SURFACE VISUALIZATION
+# ============================================================================
+
+print("\n" + "=" * 60)
+print("Creating Electrostatic Surface Views")
+print("=" * 60)
+
+# Image counter for sequential naming
+img_counter = 1
+
+# ============================================================================
+# View 1: Chain D interface (90 degrees)
+# ============================================================================
+
+print("\nView 1: Chain D interface (90 degrees)")
+
+# Turn 90 degrees
+cmd.turn("y", 90)
+
+# Hide everything
+cmd.hide("everything")
+
+# Show chain_D cartoon, save
+cmd.show("cartoon", "chain_D")
+helper_functions.save_png(
+    filename=f"{img_counter:02d}_cartoon_D.png",
+    width=IMAGE_WIDTH,
+    height=IMAGE_HEIGHT,
+    dpi=300,
+    ray=RAY_TRACE,
+    overwrite=FLAG_OVERWRITE,
+    output_dir=OUTPUT_DIR
+)
+img_counter += 1
+
+# Show prepared02 (chain_D electrostatics), save
+cmd.show("surface", "prepared02")
+helper_functions.save_png(
+    filename=f"{img_counter:02d}_surface_D.png",
+    width=IMAGE_WIDTH,
+    height=IMAGE_HEIGHT,
+    dpi=300,
+    ray=RAY_TRACE,
+    overwrite=FLAG_OVERWRITE,
+    output_dir=OUTPUT_DIR
+)
+img_counter += 1
+
+# Show chain_B cartoon, save
+cmd.show("cartoon", "chain_B")
+helper_functions.save_png(
+    filename=f"{img_counter:02d}_surface_D_cartoon_B.png",
+    width=IMAGE_WIDTH,
+    height=IMAGE_HEIGHT,
+    dpi=300,
+    ray=RAY_TRACE,
+    overwrite=FLAG_OVERWRITE,
+    output_dir=OUTPUT_DIR
+)
+img_counter += 1
+
+# Show hydrophobic core (from chain_B toward chain_D)
+cmd.show("spheres", "chain_B and hydrophobic_core")
+cmd.set("sphere_scale", 0.8, "chain_B and hydrophobic_core")
+cmd.color("orange", "chain_B and hydrophobic_core")
+cmd.set("sphere_transparency", 0.3, "chain_B and hydrophobic_core")
+helper_functions.save_png(
+    filename=f"{img_counter:02d}_surface_D_cartoon_B_hydrophobic.png",
+    width=IMAGE_WIDTH,
+    height=IMAGE_HEIGHT,
+    dpi=300,
+    ray=RAY_TRACE,
+    overwrite=FLAG_OVERWRITE,
+    output_dir=OUTPUT_DIR
+)
+img_counter += 1
+
+# ============================================================================
+# View 2: Chain B interface (270 degrees = turn -180 from current)
+# ============================================================================
+
+print("\nView 2: Chain B interface (270 degrees)")
+
+# Turn -180 degrees
+cmd.turn("y", -180)
+
+# Hide everything
+cmd.hide("everything")
+
+# Show chain_B cartoon, save
+cmd.show("cartoon", "chain_B")
+helper_functions.save_png(
+    filename=f"{img_counter:02d}_cartoon_B.png",
+    width=IMAGE_WIDTH,
+    height=IMAGE_HEIGHT,
+    dpi=300,
+    ray=RAY_TRACE,
+    overwrite=FLAG_OVERWRITE,
+    output_dir=OUTPUT_DIR
+)
+img_counter += 1
+
+# Show prepared01 (chain_B electrostatics), save
+cmd.show("surface", "prepared01")
+helper_functions.save_png(
+    filename=f"{img_counter:02d}_surface_B.png",
+    width=IMAGE_WIDTH,
+    height=IMAGE_HEIGHT,
+    dpi=300,
+    ray=RAY_TRACE,
+    overwrite=FLAG_OVERWRITE,
+    output_dir=OUTPUT_DIR
+)
+img_counter += 1
+
+# Show chain_D cartoon, save
+cmd.show("cartoon", "chain_D")
+helper_functions.save_png(
+    filename=f"{img_counter:02d}_surface_B_cartoon_D.png",
+    width=IMAGE_WIDTH,
+    height=IMAGE_HEIGHT,
+    dpi=300,
+    ray=RAY_TRACE,
+    overwrite=FLAG_OVERWRITE,
+    output_dir=OUTPUT_DIR
+)
+img_counter += 1
+
+# Show hydrophobic core (from chain_D toward chain_B)
+cmd.show("spheres", "chain_D and hydrophobic_core")
+cmd.set("sphere_scale", 0.8, "chain_D and hydrophobic_core")
+cmd.color("orange", "chain_D and hydrophobic_core")
+cmd.set("sphere_transparency", 0.3, "chain_D and hydrophobic_core")
+helper_functions.save_png(
+    filename=f"{img_counter:02d}_surface_B_cartoon_D_hydrophobic.png",
+    width=IMAGE_WIDTH,
+    height=IMAGE_HEIGHT,
+    dpi=300,
+    ray=RAY_TRACE,
+    overwrite=FLAG_OVERWRITE,
+    output_dir=OUTPUT_DIR
+)
+img_counter += 1
+
+print("\n" + "=" * 60)
+print(f"Electrostatic visualization complete! Generated {img_counter - 1} images.")
+print("=" * 60)
+
+#set_view (\
+#    -0.450920254,    0.852479875,    0.264468431,\
+#    -0.212777704,    0.185093418,   -0.959405780,\
+#    -0.866829515,   -0.488889456,    0.097926863,\
+#    -0.000032587,   -0.000011193, -154.020599365,\
+#    -2.366145849,  -16.602687836,   -7.165100098,\
+#   105.576972961,  197.627319336,  -20.000000000 )
+#set_view (\
+#     0.527584910,    0.820460081,    0.220202491,\
+#     0.216749787,   -0.380644381,    0.898955524,\
+#     0.821382821,   -0.426547915,   -0.378658950,\
+#     0.000019502,   -0.000110969, -119.689163208,\
+#    -2.949608326,  -20.330551147,  -17.304233551,\
+#    75.965362549,  163.015731812,  -20.000000000 )
 # Turn 90 degrees
 # Hide everything.
 # Show chain_D, save.
@@ -143,6 +306,15 @@ cmd.set_view((
 # show run02, save.
 # Show chain_D, save.
 # Show chain_B, hydrophobic, save.
+#cmd.show("spheres", "hydrophobic_core")
+#cmd.set("sphere_scale", 0.8, "hydrophobic_core")
+#cmd.color("orange", "hydrophobic_core")
+#cmd.set("sphere_transparency", 0.3, "hydrophobic_core")
+#
+#cmd.show("spheres", "chain_D and hydrophobic_core")
+#cmd.set("sphere_scale", 0.8, "chain_D and hydrophobic_core")
+#cmd.color("orange", "chain_D and hydrophobic_core")
+#cmd.set("sphere_transparency", 0.3, "chain_D and hydrophobic_core")
 
 # ============================================================================
 # Use the mapping in visualization
