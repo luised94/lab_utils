@@ -236,3 +236,99 @@ print(summary(metadata_df$length_aa))
 
 cat("\nAny NA values in gene_name?", any(is.na(metadata_df$gene_name)), "\n")
 cat("Any NA values in sequence?", any(is.na(metadata_df$sequence)), "\n")
+
+# PARSE FEATURE COORDINATES ==================================================
+cat("\n=== Parsing Protein Features ===\n")
+
+# Initialize list to collect features from all proteins
+features_list <- list()
+
+# Extract features from each protein entry
+for (i in 1:n_results_int) {
+  protein_lst <- response_data_lst$results[[i]]
+  
+  # Get protein identifiers for this entry
+  accession_chr <- protein_lst$primaryAccession
+  gene_chr <- if (length(protein_lst$genes) > 0) {
+    protein_lst$genes[[1]]$geneName$value
+  } else {
+    NA_character_
+  }
+  
+  # Check if features exist
+  if (is.null(protein_lst$features) || length(protein_lst$features) == 0) {
+    cat("No features found for", accession_chr, "\n")
+    next
+  }
+  
+  # Process each feature
+  for (j in 1:length(protein_lst$features)) {
+    feature_lst <- protein_lst$features[[j]]
+    
+    # Extract feature information
+    feature_type_chr <- feature_lst$type
+    feature_desc_chr <- if (!is.null(feature_lst$description)) {
+      feature_lst$description
+    } else {
+      NA_character_
+    }
+    
+    # Extract coordinates
+    start_int <- feature_lst$location$start$value
+    end_int <- feature_lst$location$end$value
+    
+    # Create feature record
+    feature_record <- data.frame(
+      accession = accession_chr,
+      gene_name = gene_chr,
+      type = feature_type_chr,
+      description = feature_desc_chr,
+      begin = start_int,
+      end = end_int,
+      stringsAsFactors = FALSE
+    )
+    
+    features_list[[length(features_list) + 1]] <- feature_record
+  }
+}
+
+# Combine all features into single dataframe
+features_df <- do.call(rbind, features_list)
+
+# Sort by gene name and start position
+features_df <- features_df[order(features_df$gene_name, features_df$begin), ]
+
+# Calculate feature length
+features_df$length <- features_df$end - features_df$begin + 1
+
+# Save features table
+features_path <- file.path(
+  OUTPUT_DIR_path,
+  paste0(OUTPUT_PREFIX_chr, "_features.tsv")
+)
+
+write.table(
+  x = features_df,
+  file = features_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+
+cat("Features table saved to:", features_path, "\n")
+
+# VERIFICATION ===============================================================
+cat("\n=== Features Verification ===\n")
+cat("Total features extracted:", nrow(features_df), "\n")
+cat("Feature types:\n")
+print(table(features_df$type))
+
+cat("\nFeatures per protein:\n")
+print(table(features_df$gene_name))
+
+cat("\nSample features:\n")
+print(head(features_df[, c("gene_name", "type", "begin", "end", "length")], n = 10))
+
+cat("\nCoordinate validation:\n")
+cat("All begin < end?", all(features_df$begin < features_df$end), "\n")
+cat("Any negative coordinates?", any(features_df$begin < 0 | features_df$end < 0), "\n")
