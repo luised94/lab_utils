@@ -148,3 +148,91 @@ if (n_results_int > 0) {
   first_gene_chr <- response_data_lst$results[[1]]$genes[[1]]$geneName$value
   cat("First protein - Accession:", first_accession_chr, "Gene:", first_gene_chr, "\n")
 }
+
+
+# PARSE METADATA TABLE =======================================================
+cat("\n=== Parsing Protein Metadata ===\n")
+
+# Initialize vectors for each column
+accession_vct <- character(length = n_results_int)
+uniprot_id_vct <- character(length = n_results_int)
+gene_name_vct <- character(length = n_results_int)
+protein_name_vct <- character(length = n_results_int)
+organism_vct <- character(length = n_results_int)
+length_aa_vct <- integer(length = n_results_int)
+sequence_vct <- character(length = n_results_int)
+
+# Extract data from each protein entry
+for (i in 1:n_results_int) {
+  protein_lst <- response_data_lst$results[[i]]
+  
+  # Basic identifiers
+  accession_vct[i] <- protein_lst$primaryAccession
+  uniprot_id_vct[i] <- protein_lst$uniProtkbId
+  
+  # Gene name (first gene name from genes array)
+  if (length(protein_lst$genes) > 0 && 
+      !is.null(protein_lst$genes[[1]]$geneName$value)) {
+    gene_name_vct[i] <- protein_lst$genes[[1]]$geneName$value
+  } else {
+    gene_name_vct[i] <- NA_character_
+  }
+  
+  # Protein description (recommended name)
+  if (!is.null(protein_lst$proteinDescription$recommendedName$fullName$value)) {
+    protein_name_vct[i] <- protein_lst$proteinDescription$recommendedName$fullName$value
+  } else {
+    protein_name_vct[i] <- NA_character_
+  }
+  
+  # Organism
+  organism_vct[i] <- protein_lst$organism$scientificName
+  
+  # Sequence information
+  length_aa_vct[i] <- protein_lst$sequence$length
+  sequence_vct[i] <- protein_lst$sequence$value
+}
+
+# Construct metadata dataframe
+metadata_df <- data.frame(
+  accession = accession_vct,
+  uniprot_id = uniprot_id_vct,
+  gene_name = gene_name_vct,
+  protein_name = protein_name_vct,
+  organism = organism_vct,
+  length_aa = length_aa_vct,
+  sequence = sequence_vct,
+  stringsAsFactors = FALSE
+)
+
+# Sort by gene name for consistent ordering
+metadata_df <- metadata_df[order(metadata_df$gene_name), ]
+
+# Save metadata table
+metadata_path <- file.path(
+  OUTPUT_DIR_path,
+  paste0(OUTPUT_PREFIX_chr, "_metadata.tsv")
+)
+
+write.table(
+  x = metadata_df,
+  file = metadata_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+
+cat("Metadata table saved to:", metadata_path, "\n")
+
+# VERIFICATION ===============================================================
+cat("\n=== Metadata Verification ===\n")
+cat("Number of rows:", nrow(metadata_df), "\n")
+cat("Columns:", paste(names(metadata_df), collapse = ", "), "\n")
+cat("\nGene names:\n")
+print(metadata_df[, c("gene_name", "accession", "length_aa")])
+
+cat("\nSequence length summary:\n")
+print(summary(metadata_df$length_aa))
+
+cat("\nAny NA values in gene_name?", any(is.na(metadata_df$gene_name)), "\n")
+cat("Any NA values in sequence?", any(is.na(metadata_df$sequence)), "\n")
