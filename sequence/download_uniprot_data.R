@@ -780,3 +780,43 @@ if (length(missing_proteins_chr) > 0) {
 } else {
   cat("All proteins have domain annotations!\n")
 }
+
+# WRITE FASTA SEQUENCES ======================================================
+cat("\n=== Writing FASTA Sequences ===\n")
+
+# Create AAStringSet from sequences
+sequences_aas <- Biostrings::AAStringSet(x = metadata_df$sequence)
+
+# Set names using gene names
+names(sequences_aas) <- paste0(
+  metadata_df$gene_name,
+  "|",
+  metadata_df$accession,
+  "|",
+  metadata_df$organism
+)
+
+# Save FASTA file
+fasta_path <- file.path(
+  OUTPUT_DIR_path,
+  paste0(OUTPUT_PREFIX_chr, "_sequences.fasta")
+)
+
+Biostrings::writeXStringSet(
+  x = sequences_aas,
+  filepath = fasta_path,
+  format = "fasta"
+)
+
+cat("FASTA file saved to:", fasta_path, "\n")
+
+# VERIFICATION ===============================================================
+cat("\n=== FASTA Verification ===\n")
+cat("Number of sequences:", length(sequences_aas), "\n")
+cat("Sequence names:\n")
+print(names(sequences_aas))
+
+cat("\nSequence lengths:\n")
+print(Biostrings::width(sequences_aas))
+
+cat("\nFile size:", file.info(fasta_path)$size, "bytes\n")
