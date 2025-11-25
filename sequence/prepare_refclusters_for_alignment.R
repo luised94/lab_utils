@@ -287,3 +287,147 @@ for (gene_chr in names(sequences_length_filtered_lst)) {
   scer_present <- any(df$taxid == "559292", na.rm = TRUE)
   cat(sprintf("  %s: %s\n", gene_chr, ifelse(scer_present, "YES", "MISSING!")))
 }
+
+# === CHUNK 1.4: REMOVE EXACT DUPLICATE SEQUENCES ===
+cat("\n=== Removing exact duplicate sequences ===\n")
+
+# Storage for deduplication report
+dedup_report_df <- data.frame(
+  gene = character(),
+  n_before = integer(),
+  n_duplicates_removed = integer(),
+  n_unique = integer(),
+  percent_unique = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Track removed sequences
+duplicates_removed_lst <- list()
+
+# Deduplicate each gene
+sequences_dedup_lst <- list()
+
+for (gene_chr in names(sequences_length_filtered_lst)) {
+
+  df <- sequences_length_filtered_lst[[gene_chr]]
+  n_before <- nrow(df)
+
+  # Find duplicate sequences
+  # Mark duplicates (keeping first occurrence)
+  is_duplicate_lgl <- duplicated(df$sequence)
+
+  # If we have duplicates, prefer keeping 'sp' over 'tr'
+  if (any(is_duplicate_lgl)) {
+
+    # For each unique sequence, find all instances
+    unique_seqs_chr <- unique(df$sequence)
+    keep_indices_int <- integer()
+    removed_ids_chr <- character()
+
+    for (seq_chr in unique_seqs_chr) {
+      # Find all rows with this sequence
+      seq_indices_int <- which(df$sequence == seq_chr)
+
+      if (length(seq_indices_int) == 1) {
+        # No duplicates for this sequence
+        keep_indices_int <- c(keep_indices_int, seq_indices_int)
+      } else {
+        # Multiple copies - prioritize sp over tr, then first occurrence
+        seq_rows_df <- df[seq_indices_int, ]
+
+        # Prefer reviewed (sp) entries
+        sp_indices <- which(seq_rows_df$review_status == "sp")
+        if (length(sp_indices) > 0) {
+          keep_idx <- seq_indices_int[sp_indices[1]]
+        } else {
+          # All unreviewed - keep first
+          keep_idx <- seq_indices_int[1]
+        }
+
+        keep_indices_int <- c(keep_indices_int, keep_idx)
+
+        # Track removed
+        removed_indices <- seq_indices_int[seq_indices_int != keep_idx]
+        removed_ids_chr <- c(removed_ids_chr, df$accession[removed_indices])
+      }
+    }
+
+    # Keep only selected sequences
+    df_dedup <- df[keep_indices_int, ]
+
+    # Store removed IDs
+    if (length(removed_ids_chr) > 0) {
+      duplicates_removed_lst[[gene_chr]] <- removed_ids_chr
+    }
+
+  } else {
+    # No duplicates
+    df_dedup <- df
+    removed_ids_chr <- character()
+  }
+
+  n_unique <- nrow(df_dedup)
+  n_removed <- n_before - n_unique
+
+  # Store deduplicated data
+  sequences_dedup_lst[[gene_chr]] <- df_dedup
+
+  # Add to report
+  dedup_report_df <- rbind(
+    dedup_report_df,
+    data.frame(
+      gene = gene_chr,
+      n_before = n_before,
+      n_duplicates_removed = n_removed,
+      n_unique = n_unique,
+      percent_unique = round(100 * n_unique / n_before, 1),
+      stringsAsFactors = FALSE
+    )
+  )
+
+  # Console output
+  if (n_removed > 0) {
+    cat(sprintf("  %s: Removed %d duplicate sequences, kept %d unique (%.1f%%)\n",
+                gene_chr, n_removed, n_unique, 100 * n_unique / n_before))
+  } else {
+    cat(sprintf("  %s: No duplicates found (%d unique sequences)\n", gene_chr, n_before))
+  }
+}
+
+# Print summary table
+cat("\n=== Deduplication Summary ===\n")
+print(dedup_report_df, row.names = FALSE)
+
+# Write deduplication report
+report_file_path <- file.path(OUTPUT_DIR_path, "uniref50_deduplication_report.tsv")
+write.table(
+  dedup_report_df,
+  file = report_file_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+cat("\nReport saved:", report_file_path, "\n")
+
+# Write list of removed duplicate IDs
+if (length(duplicates_removed_lst) > 0) {
+  removed_file_path <- file.path(OUTPUT_DIR_path, "uniref50_duplicates_removed.txt")
+  removed_file_conn <- file(removed_file_path, "w")
+
+  for (gene_chr in names(duplicates_removed_lst)) {
+    writeLines(paste0("# ", gene_chr), removed_file_conn)
+    writeLines(duplicates_removed_lst[[gene_chr]], removed_file_conn)
+    writeLines("", removed_file_conn)
+  }
+
+  close(removed_file_conn)
+  cat("Removed IDs saved:", removed_file_path, "\n")
+}
+
+# Verify no duplicates remain
+cat("\n=== Verification: No duplicates remaining ===\n")
+for (gene_chr in names(sequences_dedup_lst)) {
+  df <- sequences_dedup_lst[[gene_chr]]
+  n_dup <- sum(duplicated(df$sequence))
+  cat(sprintf("  %s: %d duplicates (should be 0)\n", gene_chr, n_dup))
+}
