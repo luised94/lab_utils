@@ -458,3 +458,77 @@ org_coverage_df <- data.frame(
 )
 org_coverage_df <- org_coverage_df[order(-org_coverage_df$Found), ]
 print(org_coverage_df)
+# WRITE PER-PROTEIN FASTA FILES ==============================================
+cat("\n=== Writing Per-Protein FASTA Files ===\n")
+
+# Filter to only found sequences
+found_sequences_list <- sequences_list[sapply(sequences_list, function(x) x$status == "found")]
+
+cat("Total sequences to write:", length(found_sequences_list), "\n\n")
+
+# Process each gene separately
+for (gene_name_chr in GENE_NAMES_chr) {
+  
+  # Filter sequences for this gene
+  gene_sequences <- found_sequences_list[
+    sapply(found_sequences_list, function(x) x$gene == gene_name_chr)
+  ]
+  
+  if (length(gene_sequences) == 0) {
+    cat("  ", gene_name_chr, "- No sequences found, skipping\n")
+    next
+  }
+  
+  cat("  ", gene_name_chr, "- Processing", length(gene_sequences), "sequences... ")
+  
+  # Extract sequences and create names
+  seq_vector_chr <- sapply(gene_sequences, function(x) x$sequence)
+  seq_names_chr <- sapply(gene_sequences, function(x) {
+    paste0(
+      x$organism_name, "_", x$gene,
+      "|", x$accession,
+      "|", x$taxid,
+      "|", x$length, "aa"
+    )
+  })
+  
+  # Create AAStringSet
+  sequences_aas <- Biostrings::AAStringSet(x = seq_vector_chr)
+  names(sequences_aas) <- seq_names_chr
+  
+  # Write FASTA file
+  fasta_path <- file.path(
+    OUTPUT_DIR_path,
+    paste0(gene_name_chr, "_model_organisms.fasta")
+  )
+  
+  Biostrings::writeXStringSet(
+    x = sequences_aas,
+    filepath = fasta_path,
+    format = "fasta"
+  )
+  
+  cat("Written to:", basename(fasta_path), "\n")
+}
+
+# VERIFICATION ===============================================================
+cat("\n=== FASTA Files Summary ===\n")
+
+for (gene_name_chr in GENE_NAMES_chr) {
+  fasta_path <- file.path(
+    OUTPUT_DIR_path,
+    paste0(gene_name_chr, "_model_organisms.fasta")
+  )
+  
+  if (file.exists(fasta_path)) {
+    # Read back to verify
+    sequences_aas <- Biostrings::readAAStringSet(filepath = fasta_path)
+    cat(sprintf("  %-5s: %2d sequences (", 
+                gene_name_chr, 
+                length(sequences_aas)))
+    cat(paste(sapply(strsplit(names(sequences_aas), "_"), `[`, 1), collapse = ", "))
+    cat(")\n")
+  } else {
+    cat(sprintf("  %-5s: File not created (no sequences)\n", gene_name_chr))
+  }
+}
