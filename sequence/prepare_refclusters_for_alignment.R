@@ -213,3 +213,77 @@ if ("ORC1" %in% names(sequences_raw_lst)) {
                                                      "organism_short", "taxid", "length")]
   print(example_df, row.names = FALSE)
 }
+
+# === CHUNK 1.3: FILTER BY SEQUENCE LENGTH ===
+cat("\n=== Filtering by sequence length (>= ", MIN_SEQUENCE_LENGTH_int, " aa) ===\n")
+
+# Storage for filtering report
+length_filter_report_df <- data.frame(
+  gene = character(),
+  n_original = integer(),
+  n_below_threshold = integer(),
+  n_retained = integer(),
+  percent_retained = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Filter each gene
+sequences_length_filtered_lst <- list()
+
+for (gene_chr in names(sequences_raw_lst)) {
+
+  df <- sequences_raw_lst[[gene_chr]]
+  n_original <- nrow(df)
+
+  # Apply length filter
+  df_filtered <- subset(df, length >= MIN_SEQUENCE_LENGTH_int)
+  n_retained <- nrow(df_filtered)
+  n_removed <- n_original - n_retained
+
+  # Store filtered data
+  sequences_length_filtered_lst[[gene_chr]] <- df_filtered
+
+  # Add to report
+  length_filter_report_df <- rbind(
+    length_filter_report_df,
+    data.frame(
+      gene = gene_chr,
+      n_original = n_original,
+      n_below_threshold = n_removed,
+      n_retained = n_retained,
+      percent_retained = round(100 * n_retained / n_original, 1),
+      stringsAsFactors = FALSE
+    )
+  )
+
+  # Console output
+  if (n_removed > 0) {
+    cat(sprintf("  %s: Removed %d short sequences, kept %d (%.1f%%)\n",
+                gene_chr, n_removed, n_retained, 100 * n_retained / n_original))
+  } else {
+    cat(sprintf("  %s: All %d sequences passed length filter\n", gene_chr, n_original))
+  }
+}
+
+# Print summary table
+cat("\n=== Length Filter Summary ===\n")
+print(length_filter_report_df, row.names = FALSE)
+
+# Write report to file
+report_file_path <- file.path(OUTPUT_DIR_path, "uniref50_length_filter_report.tsv")
+write.table(
+  length_filter_report_df,
+  file = report_file_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+cat("\nReport saved:", report_file_path, "\n")
+
+# Verify S. cerevisiae retained in all genes
+cat("\n=== Verification: S. cerevisiae sequences retained ===\n")
+for (gene_chr in names(sequences_length_filtered_lst)) {
+  df <- sequences_length_filtered_lst[[gene_chr]]
+  scer_present <- any(df$taxid == "559292", na.rm = TRUE)
+  cat(sprintf("  %s: %s\n", gene_chr, ifelse(scer_present, "YES", "MISSING!")))
+}
