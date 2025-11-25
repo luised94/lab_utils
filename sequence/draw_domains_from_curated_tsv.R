@@ -49,7 +49,7 @@ domains_curated_df$uniprot_id <- NULL
 domains_curated_df$taxid <- TAXID_cerevisiae_int
 domains_curated_df$source <- "manual_curation"
 
-# Create chains
+# Create chains with simple description
 proteins_in_plot_chr <- unique(domains_curated_df$gene_name)
 metadata_for_plot_df <- metadata_df[metadata_df$gene_name %in% proteins_in_plot_chr, ]
 
@@ -57,7 +57,7 @@ chain_entries_df <- data.frame(
   accession = metadata_for_plot_df$accession,
   gene_name = metadata_for_plot_df$gene_name,
   type = "CHAIN",
-  description = paste(metadata_for_plot_df$gene_name, "full length"),
+  description = "protein chain",  # Simple description for all chains
   begin = 1,
   end = metadata_for_plot_df$length_aa,
   length = metadata_for_plot_df$length_aa,
@@ -69,8 +69,8 @@ chain_entries_df <- data.frame(
 )
 
 # Combine
-common_cols_chr <- c("accession", "gene_name", "type", "description",
-                     "begin", "end", "length", "order", "entryName",
+common_cols_chr <- c("accession", "gene_name", "type", "description", 
+                     "begin", "end", "length", "order", "entryName", 
                      "taxid", "source")
 
 plot_data_df <- rbind(
@@ -89,17 +89,20 @@ cat("Creating base plot layers...\n")
 
 plot_final_plt <- draw_canvas(plot_data_df)
 
+# Draw chains
 plot_final_plt <- draw_chains(
   p = plot_final_plt,
   data = plot_data_df
 )
 
+# Draw domains
 plot_final_plt <- draw_domains(
   p = plot_final_plt,
   data = plot_data_df,
   label_domains = FALSE
 )
 
+# Draw motifs
 plot_final_plt <- draw_motif(
   p = plot_final_plt,
   data = plot_data_df
@@ -108,48 +111,94 @@ plot_final_plt <- draw_motif(
 cat(" Base layers created\n\n")
 
 
+# MANUALLY EMPHASIZE MOTIFS ====================================================
+
+cat("Adding emphasis to motifs...\n")
+
+# Get motif positions
+motifs_df <- plot_data_df[plot_data_df$type == "MOTIF", ]
+
+# Add emphasized rectangles for each motif
+for (i in seq_len(nrow(motifs_df))) {
+  motif_row <- motifs_df[i, ]
+  
+  # Add larger rectangle with black border
+  plot_final_plt <- plot_final_plt +
+    annotate(
+      "rect",
+      xmin = motif_row$begin - 3,
+      xmax = motif_row$end + 3,
+      ymin = motif_row$order - 0.4,
+      ymax = motif_row$order + 0.4,
+      fill = "red",
+      color = "black",
+      size = 1.5,
+      alpha = 0.8
+    )
+  
+  # Add position label above motif
+  plot_final_plt <- plot_final_plt +
+    annotate(
+      "text",
+      x = motif_row$begin,
+      y = motif_row$order + 0.6,
+      label = as.character(motif_row$begin),
+      size = 3.5,
+      fontface = "bold",
+      color = "red"
+    )
+}
+
+cat(" Motifs emphasized with borders and labels\n\n")
+
+
 # APPLY FINAL STYLING ==========================================================
 
 cat("Applying final styling...\n")
 
 plot_final_plt <- plot_final_plt +
-
-  # Reverse y-axis so ORC1 appears on top
-  scale_y_reverse() +
-
-  # Clean theme
+  
+  # Clean theme first
   theme_bw(base_size = 14) +
   theme(
-    # Remove all y-axis elements (not informative)
+    # Remove all y-axis elements
     axis.line.y = element_blank(),
     axis.ticks.y = element_blank(),
     axis.text.y = element_blank(),
     axis.title.y = element_blank(),
-
+    
     # Keep x-axis clean
     axis.line.x = element_line(color = "black", size = 0.5),
-
+    
     # Remove panel elements
     panel.grid.minor = element_blank(),
     panel.grid.major = element_blank(),
     panel.border = element_blank(),
     panel.background = element_blank(),
-
-    # Legend styling
+    
+    # Legend styling - hide "protein chain" entry
     legend.position = "right",
     legend.title = element_text(face = "bold"),
     legend.key.size = unit(0.8, "cm"),
-
-    # Plot margins
-    plot.margin = margin(10, 10, 10, 10)
+    
+    # Plot margins - extra on left for protein labels
+    plot.margin = margin(10, 10, 10, 50)
   ) +
-
+  
+  # Reverse y-axis so ORC1 appears on top
+  scale_y_reverse() +
+  
+  # Remove "protein chain" from legend by filtering fill scale
+  scale_fill_discrete(
+    breaks = unique(plot_data_df$description[plot_data_df$type != "CHAIN"]),
+    name = "Feature Type"
+  ) +
+  
   # Labels
   labs(
     title = "S. cerevisiae ORC Complex - Domain Architecture",
     x = "Amino Acid Position",
-    y = NULL,
-    fill = "Feature Type"
+    y = NULL
   )
 
 cat(" Styling applied\n\n")
@@ -159,19 +208,17 @@ cat(" Styling applied\n\n")
 
 cat("Adding protein name labels at left margin...\n")
 
-# Get y positions for each protein (midpoint of order)
 protein_labels_df <- data.frame(
   gene_name = c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", "TOA2"),
   order = c(1, 2, 3, 4, 5, 6, 7),
   stringsAsFactors = FALSE
 )
 
-# Add labels as text annotations
 for (i in seq_len(nrow(protein_labels_df))) {
   plot_final_plt <- plot_final_plt +
     annotate(
       "text",
-      x = -50,  # Left of plot area
+      x = -100,
       y = protein_labels_df$order[i],
       label = protein_labels_df$gene_name[i],
       hjust = 1,
@@ -188,27 +235,26 @@ cat(" Protein labels added\n\n")
 
 cat("Adding position labels at chain ends...\n")
 
-# Add start (1) and end (length) labels for each chain
 for (i in seq_len(nrow(chain_entries_df))) {
   chain_row <- chain_entries_df[i, ]
-
-  # Start position label
+  
+  # Start position
   plot_final_plt <- plot_final_plt +
     annotate(
       "text",
       x = 1,
-      y = chain_row$order - 0.35,  # Below chain
+      y = chain_row$order - 0.5,
       label = "1",
       size = 3,
       color = "gray40"
     )
-
-  # End position label
+  
+  # End position
   plot_final_plt <- plot_final_plt +
     annotate(
       "text",
       x = chain_row$end,
-      y = chain_row$order - 0.35,  # Below chain
+      y = chain_row$order - 0.5,
       label = as.character(chain_row$end),
       size = 3,
       color = "gray40"
@@ -218,11 +264,11 @@ for (i in seq_len(nrow(chain_entries_df))) {
 cat(" Position labels added\n\n")
 
 
-# SAVE FINAL PUBLICATION-READY PLOT ===========================================
+# SAVE FINAL PLOTS =============================================================
 
 cat("Saving final publication-ready plot...\n")
 
-final_plot_path <- file.path(OUTPUT_DIR_path,
+final_plot_path <- file.path(OUTPUT_DIR_path, 
                               paste0(OUTPUT_PREFIX_chr, "_final.pdf"))
 
 ggsave(
@@ -235,8 +281,7 @@ ggsave(
 
 cat(" Final plot saved to:", final_plot_path, "\n\n")
 
-# Also save as SVG for easier Illustrator editing
-final_svg_path <- file.path(OUTPUT_DIR_path,
+final_svg_path <- file.path(OUTPUT_DIR_path, 
                              paste0(OUTPUT_PREFIX_chr, "_final.svg"))
 
 ggsave(
@@ -248,7 +293,7 @@ ggsave(
 )
 
 cat(" SVG version saved to:", final_svg_path, "\n")
-cat("  (Recommended for Illustrator editing)\n\n")
+cat("  (Ready for Illustrator editing)\n\n")
 
 
 # FINAL VERIFICATION ===========================================================
@@ -261,25 +306,13 @@ cat("  PDF:", final_plot_path, "\n")
 cat("  SVG:", final_svg_path, "\n\n")
 
 cat("Plot features:\n")
-cat("   ORC1 on top (reversed y-axis)\n")
-cat("   Protein names labeled on left\n")
-cat("   Position labels at chain ends (1 and length)\n")
-cat("   Y-axis removed (not informative)\n")
-cat("   Clean white background\n")
-cat("   Domains without internal labels\n")
-cat("   Motifs visible\n")
-cat("   Legend on right side\n\n")
+cat("   ORC1 on top\n")
+cat("   Protein names on left (no chain labels)\n")
+cat("   Position labels at chain ends\n")
+cat("   Motifs emphasized (red, black border, position labels)\n")
+cat("   Legend excludes protein chains\n")
+cat("   Clean background\n\n")
 
-cat("For Illustrator refinement:\n")
-cat("  - Use SVG file for vector editing\n")
-cat("  - Add thicker borders to domain rectangles\n")
-cat("  - Add emphasis border around motifs (sofr alleles)\n")
-cat("  - Adjust colors if needed\n")
-cat("  - Fine-tune label positions\n")
-cat("  - Add figure legends/annotations\n\n")
-
-cat("Domain and motif counts:\n")
-domains_only_df <- plot_data_df[plot_data_df$type == "DOMAIN", ]
-motifs_only_df <- plot_data_df[plot_data_df$type == "MOTIF", ]
-cat("  Domains:", nrow(domains_only_df), "\n")
-cat("  Motifs:", nrow(motifs_only_df), "\n\n")
+cat("Motif positions highlighted:\n")
+print(motifs_df[, c("gene_name", "description", "begin")])
+cat("\n")
