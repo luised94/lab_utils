@@ -315,12 +315,11 @@ cat("\n")
 
 cat("Drawing protein chains...\n")
 
-# draw_chains() adds horizontal bars representing full-length proteins
-# It automatically uses CHAIN type entries
-# Each protein will be scaled proportionally to its length
+# Pass data frame to 'data' argument, not 'labels'
+# draw_chains() adds horizontal bars for CHAIN type entries
 domain_canvas_plt <- draw_chains(
-  domain_canvas_plt,
-  labels = domain_features_df
+  p = domain_canvas_plt,
+  data = domain_features_df
 )
 
 cat(" Chains added to canvas\n")
@@ -333,14 +332,16 @@ cat("Displaying basic plot with chains only...\n")
 
 # Add minimal styling for verification
 domain_canvas_plt <- domain_canvas_plt +
-  theme_bw() +
+  theme_bw(base_size = 12) +
   theme(
     panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank()
+    panel.grid.major.x = element_blank(),
+    legend.position = "none"
   ) +
   labs(
+    title = "S. cerevisiae ORC Complex - Protein Chains",
     x = "Amino Acid Position",
-    y = "Protein"
+    y = ""
   )
 
 # Display the plot
@@ -352,14 +353,16 @@ cat("VERIFICATION CHECKPOINT\n")
 cat("=" , rep("=", 78), "\n", sep = "")
 cat("\nCheck the plot above:\n")
 cat("1. You should see 6 horizontal bars (one per protein)\n")
-cat("2. Bars should be stacked vertically (ORC1 at top, ORC6 at bottom)\n")
-cat("3. Bar widths should be proportional to protein lengths:\n")
+cat("2. Bars should be stacked vertically\n")
+cat("3. Bar widths proportional to protein lengths:\n\n")
 
 # Show expected lengths for reference
 length_reference_df <- metadata_df[order(metadata_df$gene_name), 
                                     c("gene_name", "length_aa")]
 print(length_reference_df, row.names = FALSE)
 
-cat("\n4. X-axis should show amino acid positions (starts at 0 or 1)\n")
-cat("5. Y-axis should show protein numbers or names\n")
+cat("\n")
+cat("   Expected: ORC1 longest (~914 aa), ORC6 shortest (~435 aa)\n")
+cat("\n4. X-axis shows amino acid positions (0-1000 range)\n")
+cat("5. Each protein labeled on y-axis\n")
 cat("\n")
