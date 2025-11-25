@@ -1,6 +1,7 @@
 # ==============================================================================
-# Script: 01_download_uniprot_data.R
-# Purpose: Download S. cerevisiae ORC protein data from UniProt REST API
+# Script: download_uniprot_data.R
+# Purpose: Download S. cerevisiae ORC protein domain data.
+# Notes: Needs clean up. Ended up using curated set instead of this script.
 # Author: [Your name]
 # Date: 2025-01-XX
 # ==============================================================================

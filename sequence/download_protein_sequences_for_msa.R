@@ -11,15 +11,6 @@
 # Organism taxonomy IDs (17 total)
 ORGANISM_TAXIDS_int <- c(
   559292,   # S. cerevisiae (budding yeast)
-  #27292,    # S. pastorianus (lager yeast)
-  1080349,  # S. arboricola
-  1080088,  # S. eubayanus
-  230603,   # S. uvarum
-  27291,    # S. paradoxus
-  4954,     # Z. rouxii
-  2763761,  # Z. mellis
-  37769,    # T. globosa
-  5478,     # C. glabrata
   284812,   # S. pombe (fission yeast)
   7227,     # D. melanogaster (fruit fly)
   6239,     # C. elegans (worm)
@@ -31,23 +22,19 @@ ORGANISM_TAXIDS_int <- c(
 
 # Short organism names for FASTA headers
 ORGANISM_NAMES_chr <- c(
-  "Scer", "Sarb", "Seub", "Suva", "Spar", #"Spas",
-  "Zrou", "Zmel", "Tglo", "Cgla", "Spom",
-  "Dmel", "Cele", "Mmus", "Hsap", "Xlae", "Drer"
+  "Scer",
+  "Spom",
+  "Dmel",
+  "Cele",
+  "Mmus",
+  "Hsap",
+  "Xlae",
+  "Drer"
 )
 
 # Full organism names for metadata
 ORGANISM_FULL_NAMES_chr <- c(
   "Saccharomyces cerevisiae",
-  #"Saccharomyces pastorianus",
-  "Saccharomyces arboricola",
-  "Saccharomyces eubayanus",
-  "Saccharomyces uvarum",
-  "Saccharomyces paradoxus",
-  "Zygosaccharomyces rouxii",
-  "Zygosaccharomyces mellis",
-  "Torulaspora globosa",
-  "Candida glabrata",
   "Schizosaccharomyces pombe",
   "Drosophila melanogaster",
   "Caenorhabditis elegans",
@@ -113,8 +100,6 @@ cat(" ", paste(GENE_NAMES_chr, collapse = ", "), "\n")
 
 # QUERY UNIPROT WITH IMPROVED SEARCH STRATEGIES =============================
 cat("\n=== Querying UniProt for Model Organism Sequences ===\n")
-cat("Using cascading search strategies for better coverage...\n")
-cat("This will take ~3-4 minutes with rate limiting...\n\n")
 
 # Define protein name mappings for better searching
 PROTEIN_NAMES_chr <- c(
@@ -415,7 +400,7 @@ for (i in 1:nrow(metadata_df)) {
   gene_chr <- metadata_df$gene[i]
   org_chr <- metadata_df$organism_name[i]
   status_chr <- metadata_df$status[i]
-  
+
   summary_matrix[gene_chr, org_chr] <- ifelse(
     status_chr == "found",
     "yes",
@@ -458,6 +443,7 @@ org_coverage_df <- data.frame(
 )
 org_coverage_df <- org_coverage_df[order(-org_coverage_df$Found), ]
 print(org_coverage_df)
+
 # WRITE PER-PROTEIN FASTA FILES ==============================================
 cat("\n=== Writing Per-Protein FASTA Files ===\n")
 
@@ -468,19 +454,19 @@ cat("Total sequences to write:", length(found_sequences_list), "\n\n")
 
 # Process each gene separately
 for (gene_name_chr in GENE_NAMES_chr) {
-  
+
   # Filter sequences for this gene
   gene_sequences <- found_sequences_list[
     sapply(found_sequences_list, function(x) x$gene == gene_name_chr)
   ]
-  
+
   if (length(gene_sequences) == 0) {
     cat("  ", gene_name_chr, "- No sequences found, skipping\n")
     next
   }
-  
+
   cat("  ", gene_name_chr, "- Processing", length(gene_sequences), "sequences... ")
-  
+
   # Extract sequences and create names
   seq_vector_chr <- sapply(gene_sequences, function(x) x$sequence)
   seq_names_chr <- sapply(gene_sequences, function(x) {
@@ -491,23 +477,23 @@ for (gene_name_chr in GENE_NAMES_chr) {
       "|", x$length, "aa"
     )
   })
-  
+
   # Create AAStringSet
   sequences_aas <- Biostrings::AAStringSet(x = seq_vector_chr)
   names(sequences_aas) <- seq_names_chr
-  
+
   # Write FASTA file
   fasta_path <- file.path(
     OUTPUT_DIR_path,
     paste0(gene_name_chr, "_model_organisms.fasta")
   )
-  
+
   Biostrings::writeXStringSet(
     x = sequences_aas,
     filepath = fasta_path,
     format = "fasta"
   )
-  
+
   cat("Written to:", basename(fasta_path), "\n")
 }
 
@@ -519,7 +505,7 @@ for (gene_name_chr in GENE_NAMES_chr) {
     OUTPUT_DIR_path,
     paste0(gene_name_chr, "_model_organisms.fasta")
   )
-  
+
   if (file.exists(fasta_path)) {
     # Read back to verify
     sequences_aas <- Biostrings::readAAStringSet(filepath = fasta_path)
