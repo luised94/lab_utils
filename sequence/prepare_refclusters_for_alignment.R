@@ -109,3 +109,107 @@ if ("ORC1" %in% names(sequences_raw_lst)) {
     cat(sprintf("[%d] %s\n", i, sample_headers_chr[i]))
   }
 }
+
+
+# === CHUNK 1.2: PARSE HEADERS TO EXTRACT METADATA ===
+cat("\n=== Parsing sequence headers ===\n")
+
+# Parse headers for all genes
+for (gene_chr in names(sequences_raw_lst)) {
+
+  cat(sprintf("  Parsing %s headers...\n", gene_chr))
+
+  df <- sequences_raw_lst[[gene_chr]]
+  n_seqs <- nrow(df)
+
+  # Initialize new columns
+  df$accession <- character(n_seqs)
+  df$review_status <- character(n_seqs)
+  df$organism_full <- character(n_seqs)
+  df$organism_short <- character(n_seqs)
+  df$taxid <- character(n_seqs)
+
+  # Parse each header
+  for (i in 1:n_seqs) {
+     # Initialize result with NA values
+     result_lst <- list(
+       accession = NA_character_,
+       review_status = NA_character_,
+       organism_full = NA_character_,
+       organism_short = NA_character_,
+       taxid = NA_character_
+     )
+
+    # Get the header information.
+    header_chr <- df$header_full[i]
+
+     # Extract accession (second field in pipe-delimited start)
+     # Format: sp|P54784|ORC1_YEAST or tr|J6EQC4|J6EQC4_SACK1
+     accession_match <- regexpr("^[a-z]+\\|([A-Z0-9]+)\\|", header_chr, perl = TRUE)
+     if (accession_match[1] > 0) {
+       accession_full <- regmatches(header_chr, accession_match)
+       result_lst$accession <- sub("^[a-z]+\\|([A-Z0-9]+)\\|.*", "\\1", accession_full)
+     }
+
+     # Extract review status (sp or tr)
+     review_match <- regexpr("^(sp|tr)\\|", header_chr, perl = TRUE)
+     if (review_match[1] > 0) {
+       result_lst$review_status <- sub("^(sp|tr)\\|.*", "\\1", header_chr)
+     }
+
+     # Extract full organism (between OS= and OX=)
+     os_match <- regexpr("OS=([^=]+)OX=", header_chr, perl = TRUE)
+     if (os_match[1] > 0) {
+       os_full <- regmatches(header_chr, os_match)
+       # Clean up: remove OS= and OX=, trim whitespace
+       organism_full <- sub("OS=(.+)OX=", "\\1", os_full)
+       organism_full <- gsub("^\\s+|\\s+$", "", organism_full)  # trim
+       result_lst$organism_full <- organism_full
+
+       # Extract short name (first two words, typically genus + species)
+       # Stop at parenthesis if present
+       organism_short <- sub("\\s*\\(.*", "", organism_full)  # remove parenthetical
+       words <- strsplit(organism_short, "\\s+")[[1]]
+       result_lst$organism_short <- paste(words[1:min(2, length(words))], collapse = " ")
+     }
+
+     # Extract taxonomy ID (digits after OX=)
+     ox_match <- regexpr("OX=([0-9]+)", header_chr, perl = TRUE)
+     if (ox_match[1] > 0) {
+       ox_full <- regmatches(header_chr, ox_match)
+       result_lst$taxid <- sub("OX=([0-9]+).*", "\\1", ox_full)
+     }
+
+    df$accession[i] <- result_lst$accession
+    df$review_status[i] <- result_lst$review_status
+    df$organism_full[i] <- result_lst$organism_full
+    df$organism_short[i] <- result_lst$organism_short
+    df$taxid[i] <- result_lst$taxid
+  }
+
+  # Update the list
+  sequences_raw_lst[[gene_chr]] <- df
+
+  # Report parsing success
+  n_parsed <- sum(!is.na(df$taxid))
+  cat(sprintf("    Successfully parsed %d/%d sequences (%.1f%%)\n",
+              n_parsed, n_seqs, 100 * n_parsed / n_seqs))
+}
+
+# Print summary statistics
+cat("\n=== Parsing Summary ===\n")
+cat("Review status distribution:\n")
+for (gene_chr in names(sequences_raw_lst)) {
+  df <- sequences_raw_lst[[gene_chr]]
+  n_sp <- sum(df$review_status == "sp", na.rm = TRUE)
+  n_tr <- sum(df$review_status == "tr", na.rm = TRUE)
+  cat(sprintf("  %s: sp=%d, tr=%d\n", gene_chr, n_sp, n_tr))
+}
+
+# Show example parsed data (first 3 rows of ORC1)
+cat("\n=== Example Parsed Data (ORC1, first 3) ===\n")
+if ("ORC1" %in% names(sequences_raw_lst)) {
+  example_df <- sequences_raw_lst[["ORC1"]][1:3, c("accession", "review_status",
+                                                     "organism_short", "taxid", "length")]
+  print(example_df, row.names = FALSE)
+}
