@@ -7,7 +7,7 @@
 
 # CONSTANTS BLOCK ============================================================
 # Define all configuration parameters upfront
-FORCE_DOWNLOAD_lgl <- FALSE
+FORCE_DOWNLOAD_lgl <- TRUE
 
 # UniProt API configuration
 BASE_URL_uniprot_chr <- "https://rest.uniprot.org"
@@ -20,7 +20,9 @@ ORC_ACCESSIONS_chr <- c(
   "P54790",  # ORC3
   "P54791",  # ORC4
   "P50874",  # ORC5
-  "P38826"   # ORC6
+  "P38826",   # ORC6
+  "P32774",  # Toa2
+  "P32773" # Toa1
 )
 
 # Organism taxonomy
