@@ -350,3 +350,111 @@ missing_by_gene <- table(sapply(
   function(x) x$gene
 ))
 print(missing_by_gene)
+
+# CREATE METADATA TABLE ======================================================
+cat("\n=== Creating Metadata Table ===\n")
+
+# Convert list to dataframe
+metadata_df <- data.frame(
+  gene = character(length(sequences_list)),
+  organism_name = character(length(sequences_list)),
+  organism_full = character(length(sequences_list)),
+  taxid = integer(length(sequences_list)),
+  accession = character(length(sequences_list)),
+  uniprot_id = character(length(sequences_list)),
+  length = integer(length(sequences_list)),
+  status = character(length(sequences_list)),
+  search_method = character(length(sequences_list)),
+  stringsAsFactors = FALSE
+)
+
+for (i in 1:length(sequences_list)) {
+  seq_lst <- sequences_list[[i]]
+  metadata_df$gene[i] <- seq_lst$gene
+  metadata_df$organism_name[i] <- seq_lst$organism_name
+  metadata_df$organism_full[i] <- seq_lst$organism_full
+  metadata_df$taxid[i] <- seq_lst$taxid
+  metadata_df$accession[i] <- ifelse(is.na(seq_lst$accession), NA_character_, seq_lst$accession)
+  metadata_df$uniprot_id[i] <- ifelse(is.na(seq_lst$uniprot_id), NA_character_, seq_lst$uniprot_id)
+  metadata_df$length[i] <- ifelse(is.na(seq_lst$length), NA_integer_, seq_lst$length)
+  metadata_df$status[i] <- seq_lst$status
+  metadata_df$search_method[i] <- ifelse(is.na(seq_lst$search_method), NA_character_, seq_lst$search_method)
+}
+
+# Sort by gene then organism
+metadata_df <- metadata_df[order(metadata_df$gene, metadata_df$organism_name), ]
+
+# Save metadata table
+metadata_path <- file.path(
+  OUTPUT_DIR_path,
+  paste0(OUTPUT_PREFIX_chr, "_metadata.tsv")
+)
+
+write.table(
+  x = metadata_df,
+  file = metadata_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+
+cat("Metadata table saved to:", metadata_path, "\n")
+
+# CREATE SUMMARY MATRIX ======================================================
+cat("\n=== Creating Summary Matrix ===\n")
+
+# Create presence/absence matrix
+summary_matrix <- matrix(
+  data = NA_character_,
+  nrow = length(GENE_NAMES_chr),
+  ncol = length(ORGANISM_NAMES_chr),
+  dimnames = list(GENE_NAMES_chr, ORGANISM_NAMES_chr)
+)
+
+for (i in 1:nrow(metadata_df)) {
+  gene_chr <- metadata_df$gene[i]
+  org_chr <- metadata_df$organism_name[i]
+  status_chr <- metadata_df$status[i]
+  
+  summary_matrix[gene_chr, org_chr] <- ifelse(
+    status_chr == "found",
+    "yes",
+    "no"
+  )
+}
+
+# Convert to dataframe for saving
+summary_df <- as.data.frame(summary_matrix, stringsAsFactors = FALSE)
+summary_df <- cbind(Gene = rownames(summary_df), summary_df)
+rownames(summary_df) <- NULL
+
+# Save summary matrix
+summary_path <- file.path(
+  OUTPUT_DIR_path,
+  paste0(OUTPUT_PREFIX_chr, "_summary.tsv")
+)
+
+write.table(
+  x = summary_df,
+  file = summary_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+
+cat("Summary matrix saved to:", summary_path, "\n")
+
+# PRINT SUMMARY ==============================================================
+cat("\n=== Coverage Summary ===\n")
+print(summary_df)
+
+cat("\n=== Organisms by Coverage ===\n")
+org_coverage <- colSums(summary_matrix == "yes", na.rm = TRUE)
+org_coverage_df <- data.frame(
+  Organism = names(org_coverage),
+  Found = org_coverage,
+  Total = length(GENE_NAMES_chr),
+  Percent = sprintf("%.1f%%", 100 * org_coverage / length(GENE_NAMES_chr))
+)
+org_coverage_df <- org_coverage_df[order(-org_coverage_df$Found), ]
+print(org_coverage_df)
