@@ -568,7 +568,7 @@ for (gene_chr in names(sequences_dedup_lst)) {
     cat(sprintf("  %s: %d species represented, removed %d redundant sequences, kept %d\n",
                 gene_chr, n_species, n_removed, n_after))
   } else {
-    cat(sprintf("  %s: %d species, no redundancy (1 sequence per species)\n", 
+    cat(sprintf("  %s: %d species, no redundancy (1 sequence per species)\n",
                 gene_chr, n_species))
   }
 }
@@ -605,9 +605,151 @@ cat("\n=== Example: Species with multiple sequences available ===\n")
 multi_seq_species <- subset(all_selection_details_df, n_sequences > 1)
 if (nrow(multi_seq_species) > 0) {
   cat(sprintf("Found %d species with multiple sequences\n", nrow(multi_seq_species)))
-  print(head(multi_seq_species[, c("gene", "organism", "n_sequences", 
+  print(head(multi_seq_species[, c("gene", "organism", "n_sequences",
                                     "selected_review_status", "selected_length")], 5),
         row.names = FALSE)
 } else {
   cat("All species had only one sequence\n")
 }
+
+# === CHUNK 1.6: WRITE FINAL FILTERED FASTA FILES ===
+cat("\n=== Writing filtered FASTA files ===\n")
+
+# Process each gene
+for (gene_chr in names(sequences_final_lst)) {
+
+  df <- sequences_final_lst[[gene_chr]]
+  n_seqs <- nrow(df)
+
+  # Create organism abbreviations (first 4 letters of genus + first 4 letters of species)
+  organism_abbrevs_chr <- character(n_seqs)
+
+  for (i in 1:n_seqs) {
+    organism_short <- df$organism_short[i]
+    words <- strsplit(organism_short, " ")[[1]]
+
+    if (length(words) >= 2) {
+      genus <- words[1]
+      species <- words[2]
+
+      # Take first 4 letters of each (or less if shorter)
+      genus_abbrev <- substr(genus, 1, min(3, nchar(genus)))
+      species_abbrev <- substr(species, 1, min(3, nchar(species)))
+
+      organism_abbrevs_chr[i] <- paste0(genus_abbrev, " ", species_abbrev)
+    } else {
+      # Fallback: just use first 8 letters
+      organism_abbrevs_chr[i] <- substr(organism_short, 1, 8)
+    }
+  }
+
+  df$organism_abbrev <- organism_abbrevs_chr
+
+  # Create new FASTA headers
+  # Format: >Saccpast_ORC1|A0A0K2RW89|823aa
+  new_headers_chr <- paste0(
+    df$organism_abbrev, " ", gene_chr, "|",
+    df$accession, "|",
+    df$length, "aa"
+  )
+
+  # Create AAStringSet with new headers
+  seqs_AAStringSet <- AAStringSet(df$sequence)
+  names(seqs_AAStringSet) <- new_headers_chr
+
+  # Write to file
+  output_file_path <- file.path(OUTPUT_DIR_path,
+                                 paste0(gene_chr, "_uniref50_filtered.fasta"))
+  writeXStringSet(seqs_AAStringSet, filepath = output_file_path)
+
+  cat(sprintf("  %s: Wrote %d sequences to %s\n",
+              gene_chr, n_seqs, basename(output_file_path)))
+}
+
+# Create final summary file
+cat("\n=== Creating final filtering summary ===\n")
+
+# Compile summary statistics from all filtering steps
+final_summary_df <- data.frame(
+  gene = character(),
+  original = integer(),
+  after_length_filter = integer(),
+  after_dedup = integer(),
+  after_species_filter = integer(),
+  final_count = integer(),
+  percent_retained = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (gene_chr in GENE_NAMES_chr) {
+
+  # Get counts from each stage
+  n_original <- nrow(sequences_raw_lst[[gene_chr]])
+  n_length <- nrow(sequences_length_filtered_lst[[gene_chr]])
+  n_dedup <- nrow(sequences_dedup_lst[[gene_chr]])
+  n_final <- nrow(sequences_final_lst[[gene_chr]])
+
+  final_summary_df <- rbind(
+    final_summary_df,
+    data.frame(
+      gene = gene_chr,
+      original = n_original,
+      after_length_filter = n_length,
+      after_dedup = n_dedup,
+      after_species_filter = n_final,
+      final_count = n_final,
+      percent_retained = round(100 * n_final / n_original, 1),
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+# Add totals row
+totals_row <- data.frame(
+  gene = "TOTAL",
+  original = sum(final_summary_df$original),
+  after_length_filter = sum(final_summary_df$after_length_filter),
+  after_dedup = sum(final_summary_df$after_dedup),
+  after_species_filter = sum(final_summary_df$after_species_filter),
+  final_count = sum(final_summary_df$final_count),
+  percent_retained = round(100 * sum(final_summary_df$final_count) /
+                            sum(final_summary_df$original), 1),
+  stringsAsFactors = FALSE
+)
+
+final_summary_df <- rbind(final_summary_df, totals_row)
+
+# Print summary
+cat("\n=== Final Filtering Summary ===\n")
+print(final_summary_df, row.names = FALSE)
+
+# Write summary file
+summary_file_path <- file.path(OUTPUT_DIR_path, "uniref50_filtering_summary.tsv")
+write.table(
+  final_summary_df,
+  file = summary_file_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+cat("\nSummary saved:", summary_file_path, "\n")
+
+# Final verification
+cat("\n=== Final Verification ===\n")
+cat("FASTA files created:\n")
+for (gene_chr in GENE_NAMES_chr) {
+  fasta_file <- file.path(OUTPUT_DIR_path, paste0(gene_chr, "_uniref50_filtered.fasta"))
+  if (file.exists(fasta_file)) {
+    file_size <- file.info(fasta_file)$size
+    cat(sprintf("   %s (%.1f KB)\n", basename(fasta_file), file_size / 1024))
+  } else {
+    cat(sprintf("  ? %s MISSING!\n", basename(fasta_file)))
+  }
+}
+
+cat("\n=== Processing Complete ===\n")
+cat(sprintf("Filtered %d sequences down to %d (%.1f%% retained)\n",
+            totals_row$original,
+            totals_row$final_count,
+            totals_row$percent_retained))
+cat("Output directory:", OUTPUT_DIR_path, "\n")
