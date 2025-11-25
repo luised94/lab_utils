@@ -109,3 +109,153 @@ for (i in 1:length(ORGANISM_NAMES_chr)) {
 
 cat("\nGene list:\n")
 cat(" ", paste(GENE_NAMES_chr, collapse = ", "), "\n")
+
+
+# QUERY UNIPROT FOR ALL SEQUENCES ============================================
+cat("\n=== Querying UniProt for Model Organism Sequences ===\n")
+
+# Initialize list to store all sequence results
+sequences_list <- list()
+sequences_count_int <- 0
+
+# Nested loop: for each gene, query each organism
+for (gene_idx in 1:length(GENE_NAMES_chr)) {
+  gene_name_chr <- GENE_NAMES_chr[gene_idx]
+
+  cat("\n--- Processing", gene_name_chr,
+      paste0("(", gene_idx, "/", length(GENE_NAMES_chr), ")"), "---\n")
+
+  for (org_idx in 1:length(ORGANISM_TAXIDS_int)) {
+    taxid_int <- ORGANISM_TAXIDS_int[org_idx]
+    org_name_chr <- ORGANISM_NAMES_chr[org_idx]
+    org_full_chr <- ORGANISM_FULL_NAMES_chr[org_idx]
+
+    cat(sprintf("  Querying %s in %s (taxid:%d)... ",
+                gene_name_chr, org_name_chr, taxid_int))
+
+    # Build query: gene name + taxonomy ID + reviewed entries only
+    query_chr <- paste0(
+      "(gene:", gene_name_chr, ") ",
+      "AND (organism_id:", taxid_int, ") "
+      #"AND (reviewed:true)"
+    )
+
+    # Execute request with error handling
+    tryCatch({
+      # Build request
+      request_obj <- httr2::request(
+        base_url = paste0(BASE_URL_uniprot_chr, ENDPOINT_search_chr)
+      ) |>
+        httr2::req_url_query(
+          query = query_chr,
+          format = "json",
+          fields = FIELDS_uniprot_chr,
+          size = 1  # Only need first result
+        ) |>
+        httr2::req_user_agent(string = USER_AGENT_chr) |>
+        httr2::req_retry(
+          max_tries = RETRY_MAX_int,
+          backoff = ~ RETRY_DELAY_sec
+        ) |>
+        httr2::req_timeout(seconds = 60)
+
+      # Perform request
+      response_obj <- httr2::req_perform(req = request_obj)
+      status_int <- httr2::resp_status(resp = response_obj)
+
+      if (status_int == 200) {
+        # Parse response
+        response_text_chr <- httr2::resp_body_string(resp = response_obj)
+        response_data_lst <- jsonlite::fromJSON(
+          txt = response_text_chr,
+          simplifyDataFrame = FALSE
+        )
+
+        # Check if result found
+        if (!is.null(response_data_lst$results) &&
+            length(response_data_lst$results) > 0) {
+
+          result_lst <- response_data_lst$results[[1]]
+
+          # Extract sequence data
+          accession_chr <- result_lst$primaryAccession
+          uniprot_id_chr <- result_lst$uniProtkbId
+          sequence_chr <- result_lst$sequence$value
+          length_int <- result_lst$sequence$length
+
+          # Store in results list
+          sequences_count_int <- sequences_count_int + 1
+          sequences_list[[sequences_count_int]] <- list(
+            gene = gene_name_chr,
+            organism_name = org_name_chr,
+            organism_full = org_full_chr,
+            taxid = taxid_int,
+            accession = accession_chr,
+            uniprot_id = uniprot_id_chr,
+            sequence = sequence_chr,
+            length = length_int,
+            status = "found"
+          )
+
+          cat("FOUND -", accession_chr, paste0("(", length_int, " aa)\n"))
+
+        } else {
+          # No results found
+          cat("NOT FOUND\n")
+
+          # Record missing protein
+          sequences_count_int <- sequences_count_int + 1
+          sequences_list[[sequences_count_int]] <- list(
+            gene = gene_name_chr,
+            organism_name = org_name_chr,
+            organism_full = org_full_chr,
+            taxid = taxid_int,
+            accession = NA_character_,
+            uniprot_id = NA_character_,
+            sequence = NA_character_,
+            length = NA_integer_,
+            status = "missing"
+          )
+        }
+      } else {
+        cat("HTTP ERROR:", status_int, "\n")
+      }
+
+      # Rate limiting: be polite to API
+      Sys.sleep(time = REQUEST_DELAY_sec)
+
+    }, error = function(e) {
+      cat("ERROR:", conditionMessage(e), "\n")
+
+      # Record error
+      sequences_count_int <<- sequences_count_int + 1
+      sequences_list[[sequences_count_int]] <<- list(
+        gene = gene_name_chr,
+        organism_name = org_name_chr,
+        organism_full = org_full_chr,
+        taxid = taxid_int,
+        accession = NA_character_,
+        uniprot_id = NA_character_,
+        sequence = NA_character_,
+        length = NA_integer_,
+        status = "error"
+      )
+    })
+  }
+}
+
+# SUMMARY ====================================================================
+cat("\n=== Query Summary ===\n")
+cat("Total queries executed:", length(sequences_list), "\n")
+
+# Count results by status
+status_counts <- table(sapply(sequences_list, function(x) x$status))
+cat("Found:", status_counts["found"], "\n")
+cat("Missing:", status_counts["missing"], "\n")
+if ("error" %in% names(status_counts)) {
+  cat("Errors:", status_counts["error"], "\n")
+}
+
+cat("\nRetrieval rate:",
+    sprintf("%.1f%%", 100 * status_counts["found"] / length(sequences_list)),
+    "\n")
