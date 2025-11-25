@@ -431,3 +431,183 @@ for (gene_chr in names(sequences_dedup_lst)) {
   n_dup <- sum(duplicated(df$sequence))
   cat(sprintf("  %s: %d duplicates (should be 0)\n", gene_chr, n_dup))
 }
+
+# === CHUNK 1.5: SELECT ONE REPRESENTATIVE PER SPECIES ===
+cat("\n=== Selecting one representative per species (by taxid) ===\n")
+
+# Storage for species selection report
+species_filter_report_df <- data.frame(
+  gene = character(),
+  n_before = integer(),
+  n_species = integer(),
+  n_after = integer(),
+  reduction_percent = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Storage for detailed selection info
+species_selection_details_lst <- list()
+
+# Filter each gene
+sequences_final_lst <- list()
+
+for (gene_chr in names(sequences_dedup_lst)) {
+
+  df <- sequences_dedup_lst[[gene_chr]]
+  n_before <- nrow(df)
+
+  # Get unique taxonomy IDs
+  unique_taxids_chr <- unique(df$taxid)
+  n_species <- length(unique_taxids_chr)
+
+  # For each taxid, select best representative
+  selected_rows_lst <- list()
+  selection_details_df <- data.frame(
+    gene = character(),
+    taxid = character(),
+    organism = character(),
+    n_sequences = integer(),
+    selected_accession = character(),
+    selected_review_status = character(),
+    selected_length = integer(),
+    stringsAsFactors = FALSE
+  )
+
+  for (taxid_chr in unique_taxids_chr) {
+    # Get all sequences for this species
+    species_rows_df <- subset(df, taxid == taxid_chr)
+    n_seqs_for_species <- nrow(species_rows_df)
+
+    if (n_seqs_for_species == 1) {
+      # Only one sequence - keep it
+      selected_idx <- 1
+    } else {
+      # Multiple sequences - apply selection criteria
+      # Priority: 1) reviewed (sp) > unreviewed (tr)
+      #          2) longer sequence
+      #          3) first alphabetically by accession
+
+      # First, prioritize by review status
+      sp_indices <- which(species_rows_df$review_status == "sp")
+
+      if (length(sp_indices) > 0) {
+        # Has reviewed entries - choose among them
+        candidates_df <- species_rows_df[sp_indices, ]
+      } else {
+        # All unreviewed
+        candidates_df <- species_rows_df
+      }
+
+      # Among candidates, prefer longest
+      max_length <- max(candidates_df$length)
+      longest_indices <- which(candidates_df$length == max_length)
+
+      if (length(longest_indices) == 1) {
+        selected_candidate_idx <- longest_indices[1]
+      } else {
+        # Tie - use alphabetical by accession
+        tied_accessions <- candidates_df$accession[longest_indices]
+        selected_accession <- sort(tied_accessions)[1]
+        selected_candidate_idx <- which(candidates_df$accession == selected_accession)[1]
+      }
+
+      # Map back to original species_rows_df index
+      if (length(sp_indices) > 0) {
+        selected_idx <- sp_indices[selected_candidate_idx]
+      } else {
+        selected_idx <- selected_candidate_idx
+      }
+    }
+
+    # Store selected row
+    selected_row <- species_rows_df[selected_idx, ]
+    selected_rows_lst[[length(selected_rows_lst) + 1]] <- selected_row
+
+    # Add to detailed report
+    selection_details_df <- rbind(
+      selection_details_df,
+      data.frame(
+        gene = gene_chr,
+        taxid = taxid_chr,
+        organism = selected_row$organism_short,
+        n_sequences = n_seqs_for_species,
+        selected_accession = selected_row$accession,
+        selected_review_status = selected_row$review_status,
+        selected_length = selected_row$length,
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+
+  # Combine selected sequences
+  df_final <- do.call(rbind, selected_rows_lst)
+  n_after <- nrow(df_final)
+
+  # Store final filtered data
+  sequences_final_lst[[gene_chr]] <- df_final
+
+  # Store selection details
+  species_selection_details_lst[[gene_chr]] <- selection_details_df
+
+  # Add to summary report
+  species_filter_report_df <- rbind(
+    species_filter_report_df,
+    data.frame(
+      gene = gene_chr,
+      n_before = n_before,
+      n_species = n_species,
+      n_after = n_after,
+      reduction_percent = round(100 * (n_before - n_after) / n_before, 1),
+      stringsAsFactors = FALSE
+    )
+  )
+
+  # Console output
+  n_removed <- n_before - n_after
+  if (n_removed > 0) {
+    cat(sprintf("  %s: %d species represented, removed %d redundant sequences, kept %d\n",
+                gene_chr, n_species, n_removed, n_after))
+  } else {
+    cat(sprintf("  %s: %d species, no redundancy (1 sequence per species)\n", 
+                gene_chr, n_species))
+  }
+}
+
+# Print summary table
+cat("\n=== Species Selection Summary ===\n")
+print(species_filter_report_df, row.names = FALSE)
+
+# Write species filter report
+report_file_path <- file.path(OUTPUT_DIR_path, "uniref50_species_filter_report.tsv")
+write.table(
+  species_filter_report_df,
+  file = report_file_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+cat("\nReport saved:", report_file_path, "\n")
+
+# Write detailed selection info (all genes combined)
+all_selection_details_df <- do.call(rbind, species_selection_details_lst)
+details_file_path <- file.path(OUTPUT_DIR_path, "uniref50_species_selection_details.tsv")
+write.table(
+  all_selection_details_df,
+  file = details_file_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+cat("Selection details saved:", details_file_path, "\n")
+
+# Show example of species with multiple sequences (from details file)
+cat("\n=== Example: Species with multiple sequences available ===\n")
+multi_seq_species <- subset(all_selection_details_df, n_sequences > 1)
+if (nrow(multi_seq_species) > 0) {
+  cat(sprintf("Found %d species with multiple sequences\n", nrow(multi_seq_species)))
+  print(head(multi_seq_species[, c("gene", "organism", "n_sequences", 
+                                    "selected_review_status", "selected_length")], 5),
+        row.names = FALSE)
+} else {
+  cat("All species had only one sequence\n")
+}
