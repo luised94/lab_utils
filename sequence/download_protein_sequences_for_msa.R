@@ -11,7 +11,7 @@
 # Organism taxonomy IDs (17 total)
 ORGANISM_TAXIDS_int <- c(
   559292,   # S. cerevisiae (budding yeast)
-  27292,    # S. pastorianus (lager yeast)
+  #27292,    # S. pastorianus (lager yeast)
   1080349,  # S. arboricola
   1080088,  # S. eubayanus
   230603,   # S. uvarum
@@ -31,7 +31,7 @@ ORGANISM_TAXIDS_int <- c(
 
 # Short organism names for FASTA headers
 ORGANISM_NAMES_chr <- c(
-  "Scer", "Spas", "Sarb", "Seub", "Suva", "Spar",
+  "Scer", "Sarb", "Seub", "Suva", "Spar", #"Spas",
   "Zrou", "Zmel", "Tglo", "Cgla", "Spom",
   "Dmel", "Cele", "Mmus", "Hsap", "Xlae", "Drer"
 )
@@ -39,7 +39,7 @@ ORGANISM_NAMES_chr <- c(
 # Full organism names for metadata
 ORGANISM_FULL_NAMES_chr <- c(
   "Saccharomyces cerevisiae",
-  "Saccharomyces pastorianus",
+  #"Saccharomyces pastorianus",
   "Saccharomyces arboricola",
   "Saccharomyces eubayanus",
   "Saccharomyces uvarum",
@@ -111,16 +111,73 @@ cat("\nGene list:\n")
 cat(" ", paste(GENE_NAMES_chr, collapse = ", "), "\n")
 
 
-# QUERY UNIPROT FOR ALL SEQUENCES ============================================
+# QUERY UNIPROT WITH IMPROVED SEARCH STRATEGIES =============================
 cat("\n=== Querying UniProt for Model Organism Sequences ===\n")
+cat("Using cascading search strategies for better coverage...\n")
+cat("This will take ~3-4 minutes with rate limiting...\n\n")
+
+# Define protein name mappings for better searching
+PROTEIN_NAMES_chr <- c(
+  "ORC1" = "origin recognition complex subunit 1",
+  "ORC2" = "origin recognition complex subunit 2",
+  "ORC3" = "origin recognition complex subunit 3",
+  "ORC4" = "origin recognition complex subunit 4",
+  "ORC5" = "origin recognition complex subunit 5",
+  "ORC6" = "origin recognition complex subunit 6",
+  "TOA1" = "transcription initiation factor IIA subunit 1",
+  "TOA2" = "transcription initiation factor IIA subunit 2"
+)
 
 # Initialize list to store all sequence results
 sequences_list <- list()
 sequences_count_int <- 0
 
-# Nested loop: for each gene, query each organism
+# Helper function to try a single query
+try_query <- function(query_chr, description_chr) {
+  tryCatch({
+    request_obj <- httr2::request(
+      base_url = paste0(BASE_URL_uniprot_chr, ENDPOINT_search_chr)
+    ) |>
+      httr2::req_url_query(
+        query = query_chr,
+        format = "json",
+        fields = FIELDS_uniprot_chr,
+        size = 1
+      ) |>
+      httr2::req_user_agent(string = USER_AGENT_chr) |>
+      httr2::req_retry(max_tries = RETRY_MAX_int, backoff = ~ RETRY_DELAY_sec) |>
+      httr2::req_timeout(seconds = 60)
+
+    response_obj <- httr2::req_perform(req = request_obj)
+
+    if (httr2::resp_status(resp = response_obj) == 200) {
+      response_text_chr <- httr2::resp_body_string(resp = response_obj)
+      response_data_lst <- jsonlite::fromJSON(
+        txt = response_text_chr,
+        simplifyDataFrame = FALSE
+      )
+
+      if (!is.null(response_data_lst$results) &&
+          length(response_data_lst$results) > 0) {
+        return(list(
+          success = TRUE,
+          result = response_data_lst$results[[1]],
+          method = description_chr
+        ))
+      }
+    }
+
+    return(list(success = FALSE))
+
+  }, error = function(e) {
+    return(list(success = FALSE, error = conditionMessage(e)))
+  })
+}
+
+# Main query loop
 for (gene_idx in 1:length(GENE_NAMES_chr)) {
   gene_name_chr <- GENE_NAMES_chr[gene_idx]
+  protein_name_chr <- PROTEIN_NAMES_chr[gene_name_chr]
 
   cat("\n--- Processing", gene_name_chr,
       paste0("(", gene_idx, "/", length(GENE_NAMES_chr), ")"), "---\n")
@@ -130,106 +187,122 @@ for (gene_idx in 1:length(GENE_NAMES_chr)) {
     org_name_chr <- ORGANISM_NAMES_chr[org_idx]
     org_full_chr <- ORGANISM_FULL_NAMES_chr[org_idx]
 
-    cat(sprintf("  Querying %s in %s (taxid:%d)... ",
-                gene_name_chr, org_name_chr, taxid_int))
+    cat(sprintf("  %s in %s... ", gene_name_chr, org_name_chr))
 
-    # Build query: gene name + taxonomy ID + reviewed entries only
-    query_chr <- paste0(
-      "(gene:", gene_name_chr, ") ",
-      "AND (organism_id:", taxid_int, ") "
-      #"AND (reviewed:true)"
-    )
+    result_found <- FALSE
+    result_data <- NULL
+    search_method <- NULL
 
-    # Execute request with error handling
-    tryCatch({
-      # Build request
-      request_obj <- httr2::request(
-        base_url = paste0(BASE_URL_uniprot_chr, ENDPOINT_search_chr)
-      ) |>
-        httr2::req_url_query(
-          query = query_chr,
-          format = "json",
-          fields = FIELDS_uniprot_chr,
-          size = 1  # Only need first result
-        ) |>
-        httr2::req_user_agent(string = USER_AGENT_chr) |>
-        httr2::req_retry(
-          max_tries = RETRY_MAX_int,
-          backoff = ~ RETRY_DELAY_sec
-        ) |>
-        httr2::req_timeout(seconds = 60)
+    # STRATEGY 1: Exact gene match, reviewed only
+    if (!result_found) {
+      query_chr <- paste0(
+        "(gene_exact:", gene_name_chr, ") ",
+        "AND (organism_id:", taxid_int, ") ",
+        "AND (reviewed:true)"
+      )
+      attempt <- try_query(query_chr, "gene_exact+reviewed")
 
-      # Perform request
-      response_obj <- httr2::req_perform(req = request_obj)
-      status_int <- httr2::resp_status(resp = response_obj)
-
-      if (status_int == 200) {
-        # Parse response
-        response_text_chr <- httr2::resp_body_string(resp = response_obj)
-        response_data_lst <- jsonlite::fromJSON(
-          txt = response_text_chr,
-          simplifyDataFrame = FALSE
-        )
-
-        # Check if result found
-        if (!is.null(response_data_lst$results) &&
-            length(response_data_lst$results) > 0) {
-
-          result_lst <- response_data_lst$results[[1]]
-
-          # Extract sequence data
-          accession_chr <- result_lst$primaryAccession
-          uniprot_id_chr <- result_lst$uniProtkbId
-          sequence_chr <- result_lst$sequence$value
-          length_int <- result_lst$sequence$length
-
-          # Store in results list
-          sequences_count_int <- sequences_count_int + 1
-          sequences_list[[sequences_count_int]] <- list(
-            gene = gene_name_chr,
-            organism_name = org_name_chr,
-            organism_full = org_full_chr,
-            taxid = taxid_int,
-            accession = accession_chr,
-            uniprot_id = uniprot_id_chr,
-            sequence = sequence_chr,
-            length = length_int,
-            status = "found"
-          )
-
-          cat("FOUND -", accession_chr, paste0("(", length_int, " aa)\n"))
-
-        } else {
-          # No results found
-          cat("NOT FOUND\n")
-
-          # Record missing protein
-          sequences_count_int <- sequences_count_int + 1
-          sequences_list[[sequences_count_int]] <- list(
-            gene = gene_name_chr,
-            organism_name = org_name_chr,
-            organism_full = org_full_chr,
-            taxid = taxid_int,
-            accession = NA_character_,
-            uniprot_id = NA_character_,
-            sequence = NA_character_,
-            length = NA_integer_,
-            status = "missing"
-          )
-        }
-      } else {
-        cat("HTTP ERROR:", status_int, "\n")
+      if (attempt$success) {
+        result_found <- TRUE
+        result_data <- attempt$result
+        search_method <- attempt$method
       }
+    }
 
-      # Rate limiting: be polite to API
-      Sys.sleep(time = REQUEST_DELAY_sec)
+    # STRATEGY 2: Fuzzy gene match, reviewed only
+    if (!result_found) {
+      query_chr <- paste0(
+        "(gene:", gene_name_chr, ") ",
+        "AND (organism_id:", taxid_int, ") ",
+        "AND (reviewed:true)"
+      )
+      attempt <- try_query(query_chr, "gene_fuzzy+reviewed")
 
-    }, error = function(e) {
-      cat("ERROR:", conditionMessage(e), "\n")
+      if (attempt$success) {
+        result_found <- TRUE
+        result_data <- attempt$result
+        search_method <- attempt$method
+      }
+    }
 
-      # Record error
-      sequences_count_int <<- sequences_count_int + 1
-      sequences_list[[sequences_count_int]] <<- list(
+    # STRATEGY 3: Protein name search, reviewed only
+    if (!result_found) {
+      query_chr <- paste0(
+        "(protein_name:\"", protein_name_chr, "\") ",
+        "AND (organism_id:", taxid_int, ") ",
+        "AND (reviewed:true)"
+      )
+      attempt <- try_query(query_chr, "protein_name+reviewed")
+
+      if (attempt$success) {
+        result_found <- TRUE
+        result_data <- attempt$result
+        search_method <- attempt$method
+      }
+    }
+
+    # STRATEGY 4: Fuzzy gene match, include unreviewed
+    if (!result_found) {
+      # Avoid getting small fragments.
+      query_chr <- paste0(
+        "(gene:", gene_name_chr, ") ",
+        "AND (organism_id:", taxid_int, ") ",
+        "AND (fragment:false)"
+      )
+      attempt <- try_query(query_chr, "gene_fuzzy+unreviewed")
+
+      if (attempt$success) {
+        result_found <- TRUE
+        result_data <- attempt$result
+        search_method <- attempt$method
+      }
+    }
+
+    # STRATEGY 5: Protein name, include unreviewed
+    if (!result_found) {
+      query_chr <- paste0(
+        "(gene:", gene_name_chr, ") ",
+        "AND (organism_id:", taxid_int, ") ",
+        "AND (fragment:false)"
+      )
+      attempt <- try_query(query_chr, "protein_name+unreviewed")
+
+      if (attempt$success) {
+        result_found <- TRUE
+        result_data <- attempt$result
+        search_method <- attempt$method
+      }
+    }
+
+    # Process result or record as missing
+    if (result_found) {
+      accession_chr <- result_data$primaryAccession
+      uniprot_id_chr <- result_data$uniProtkbId
+      sequence_chr <- result_data$sequence$value
+      length_int <- result_data$sequence$length
+
+      sequences_count_int <- sequences_count_int + 1
+      sequences_list[[sequences_count_int]] <- list(
+        gene = gene_name_chr,
+        organism_name = org_name_chr,
+        organism_full = org_full_chr,
+        taxid = taxid_int,
+        accession = accession_chr,
+        uniprot_id = uniprot_id_chr,
+        sequence = sequence_chr,
+        length = length_int,
+        status = "found",
+        search_method = search_method
+      )
+
+      cat("FOUND -", accession_chr,
+          paste0("(", length_int, " aa, ", search_method, ")\n"))
+
+    } else {
+      cat("NOT FOUND\n")
+
+      sequences_count_int <- sequences_count_int + 1
+      sequences_list[[sequences_count_int]] <- list(
         gene = gene_name_chr,
         organism_name = org_name_chr,
         organism_full = org_full_chr,
@@ -238,9 +311,13 @@ for (gene_idx in 1:length(GENE_NAMES_chr)) {
         uniprot_id = NA_character_,
         sequence = NA_character_,
         length = NA_integer_,
-        status = "error"
+        status = "missing",
+        search_method = NA_character_
       )
-    })
+    }
+
+    # Rate limiting
+    Sys.sleep(time = REQUEST_DELAY_sec)
   }
 }
 
@@ -248,14 +325,28 @@ for (gene_idx in 1:length(GENE_NAMES_chr)) {
 cat("\n=== Query Summary ===\n")
 cat("Total queries executed:", length(sequences_list), "\n")
 
-# Count results by status
 status_counts <- table(sapply(sequences_list, function(x) x$status))
 cat("Found:", status_counts["found"], "\n")
 cat("Missing:", status_counts["missing"], "\n")
-if ("error" %in% names(status_counts)) {
-  cat("Errors:", status_counts["error"], "\n")
-}
 
 cat("\nRetrieval rate:",
     sprintf("%.1f%%", 100 * status_counts["found"] / length(sequences_list)),
     "\n")
+
+# Show search method effectiveness
+found_sequences <- sequences_list[sapply(sequences_list, function(x) x$status == "found")]
+if (length(found_sequences) > 0) {
+  method_counts <- table(sapply(found_sequences, function(x) x$search_method))
+  cat("\nSearch methods used:\n")
+  for (method in names(method_counts)) {
+    cat(sprintf("  %s: %d\n", method, method_counts[method]))
+  }
+}
+
+# Show which genes/organisms are most problematic
+cat("\nMissing by gene:\n")
+missing_by_gene <- table(sapply(
+  sequences_list[sapply(sequences_list, function(x) x$status == "missing")],
+  function(x) x$gene
+))
+print(missing_by_gene)
