@@ -2,12 +2,16 @@
 library(drawProteins)  # Protein domain visualization
 library(ggplot2)       # Plot styling and export
 
+# Plot dimensions
+FIGURE_WIDTH_inches <- 12
+FIGURE_HEIGHT_inches <- 8
+
 # Taxonomy
 TAXID_cerevisiae_int <- 559292  # S. cerevisiae
 
-# LOAD MANUALLY CURATED DOMAINS AND MOTIFS =====================================
+# RELOAD DATA FOR FINAL STYLING ================================================
 
-cat("Loading manually curated domain file with motifs...\n")
+cat("Reloading curated data for final styling...\n")
 
 CURATED_DOMAINS_path <- "~/data/protein_files/domains_manual_curation_for_plotting.tsv"
 
@@ -20,17 +24,7 @@ domains_curated_df <- read.table(
   comment.char = ""
 )
 
-cat("Curated data loaded:\n")
-cat("Total entries:", nrow(domains_curated_df), "\n")
-cat("Domains:", sum(domains_curated_df$type == "DOMAIN"), "\n")
-cat("Motifs:", sum(domains_curated_df$type == "MOTIF"), "\n")
-cat("Proteins:", length(unique(domains_curated_df$gene_name)), "\n\n")
-
-
-# ADD REQUIRED DRAWPROTEINS COLUMNS ============================================
-
-cat("Adding required columns for drawProteins...\n")
-
+# Add required columns
 gene_order_nls <- c(
   "ORC1" = 1,
   "ORC2" = 2,
@@ -43,7 +37,6 @@ gene_order_nls <- c(
 
 domains_curated_df$order <- gene_order_nls[domains_curated_df$gene_name]
 
-# Add entryName from metadata
 domains_curated_df <- merge(
   domains_curated_df,
   metadata_df[, c("accession", "uniprot_id")],
@@ -53,17 +46,10 @@ domains_curated_df <- merge(
 
 domains_curated_df$entryName <- domains_curated_df$uniprot_id
 domains_curated_df$uniprot_id <- NULL
-
 domains_curated_df$taxid <- TAXID_cerevisiae_int
 domains_curated_df$source <- "manual_curation"
 
-cat(" Required columns added\n\n")
-
-
-# CREATE CHAIN ENTRIES =========================================================
-
-cat("Creating CHAIN entries...\n")
-
+# Create chains
 proteins_in_plot_chr <- unique(domains_curated_df$gene_name)
 metadata_for_plot_df <- metadata_df[metadata_df$gene_name %in% proteins_in_plot_chr, ]
 
@@ -82,13 +68,9 @@ chain_entries_df <- data.frame(
   stringsAsFactors = FALSE
 )
 
-cat(" CHAIN entries created\n\n")
-
-
-# COMBINE ALL DATA =============================================================
-
-common_cols_chr <- c("accession", "gene_name", "type", "description", 
-                     "begin", "end", "length", "order", "entryName", 
+# Combine
+common_cols_chr <- c("accession", "gene_name", "type", "description",
+                     "begin", "end", "length", "order", "entryName",
                      "taxid", "source")
 
 plot_data_df <- rbind(
@@ -98,94 +80,206 @@ plot_data_df <- rbind(
 
 plot_data_df <- plot_data_df[order(plot_data_df$order, plot_data_df$begin), ]
 
-cat("Final plot data:\n")
-cat("Chains:", sum(plot_data_df$type == "CHAIN"), "\n")
-cat("Domains:", sum(plot_data_df$type == "DOMAIN"), "\n")
-cat("Motifs:", sum(plot_data_df$type == "MOTIF"), "\n\n")
+cat(" Data loaded and prepared\n\n")
 
 
-# CREATE PLOT WITH ALL FEATURES ================================================
+# CREATE BASE PLOT =============================================================
 
-cat("Creating plot with domains and motifs...\n")
+cat("Creating base plot layers...\n")
 
-# Initialize canvas
 plot_final_plt <- draw_canvas(plot_data_df)
 
-# Draw chains
 plot_final_plt <- draw_chains(
   p = plot_final_plt,
   data = plot_data_df
 )
 
-# Draw domains (will draw DOMAIN types)
 plot_final_plt <- draw_domains(
   p = plot_final_plt,
   data = plot_data_df,
-  label_domains = FALSE  # Remove labels as requested
+  label_domains = FALSE
 )
 
-# Draw motifs explicitly (will draw MOTIF types)
 plot_final_plt <- draw_motif(
   p = plot_final_plt,
   data = plot_data_df
 )
 
-cat(" Chains, domains, and motifs drawn\n\n")
+cat(" Base layers created\n\n")
 
 
-# APPLY BASIC STYLING ==========================================================
+# APPLY FINAL STYLING ==========================================================
+
+cat("Applying final styling...\n")
 
 plot_final_plt <- plot_final_plt +
-  theme_bw(base_size = 12) +
+
+  # Reverse y-axis so ORC1 appears on top
+  scale_y_reverse() +
+
+  # Clean theme
+  theme_bw(base_size = 14) +
   theme(
+    # Remove all y-axis elements (not informative)
+    axis.line.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+
+    # Keep x-axis clean
+    axis.line.x = element_line(color = "black", size = 0.5),
+
+    # Remove panel elements
     panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.border = element_blank(),  # Remove border
-    axis.line.x = element_line(color = "black"),
-    legend.position = "right"
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+
+    # Legend styling
+    legend.position = "right",
+    legend.title = element_text(face = "bold"),
+    legend.key.size = unit(0.8, "cm"),
+
+    # Plot margins
+    plot.margin = margin(10, 10, 10, 10)
   ) +
+
+  # Labels
   labs(
-    title = "Protein Domain Architecture",
+    title = "S. cerevisiae ORC Complex - Domain Architecture",
     x = "Amino Acid Position",
-    y = ""
+    y = NULL,
+    fill = "Feature Type"
   )
 
+cat(" Styling applied\n\n")
 
-# SAVE PLOT ====================================================================
 
-cat("Saving plot with motifs...\n")
+# ADD PROTEIN NAME LABELS ======================================================
 
-plot_with_motifs_path <- file.path(OUTPUT_DIR_path, "orc_domains_with_motifs.pdf")
+cat("Adding protein name labels at left margin...\n")
+
+# Get y positions for each protein (midpoint of order)
+protein_labels_df <- data.frame(
+  gene_name = c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", "TOA2"),
+  order = c(1, 2, 3, 4, 5, 6, 7),
+  stringsAsFactors = FALSE
+)
+
+# Add labels as text annotations
+for (i in seq_len(nrow(protein_labels_df))) {
+  plot_final_plt <- plot_final_plt +
+    annotate(
+      "text",
+      x = -50,  # Left of plot area
+      y = protein_labels_df$order[i],
+      label = protein_labels_df$gene_name[i],
+      hjust = 1,
+      vjust = 0.5,
+      size = 5,
+      fontface = "bold"
+    )
+}
+
+cat(" Protein labels added\n\n")
+
+
+# ADD POSITION LABELS AT CHAIN ENDS ============================================
+
+cat("Adding position labels at chain ends...\n")
+
+# Add start (1) and end (length) labels for each chain
+for (i in seq_len(nrow(chain_entries_df))) {
+  chain_row <- chain_entries_df[i, ]
+
+  # Start position label
+  plot_final_plt <- plot_final_plt +
+    annotate(
+      "text",
+      x = 1,
+      y = chain_row$order - 0.35,  # Below chain
+      label = "1",
+      size = 3,
+      color = "gray40"
+    )
+
+  # End position label
+  plot_final_plt <- plot_final_plt +
+    annotate(
+      "text",
+      x = chain_row$end,
+      y = chain_row$order - 0.35,  # Below chain
+      label = as.character(chain_row$end),
+      size = 3,
+      color = "gray40"
+    )
+}
+
+cat(" Position labels added\n\n")
+
+
+# SAVE FINAL PUBLICATION-READY PLOT ===========================================
+
+cat("Saving final publication-ready plot...\n")
+
+final_plot_path <- file.path(OUTPUT_DIR_path,
+                              paste0(OUTPUT_PREFIX_chr, "_final.pdf"))
 
 ggsave(
-  filename = plot_with_motifs_path,
+  filename = final_plot_path,
   plot = plot_final_plt,
-  width = 12,
-  height = 8,
+  width = FIGURE_WIDTH_inches,
+  height = FIGURE_HEIGHT_inches,
   device = "pdf"
 )
 
-cat(" Plot saved to:", plot_with_motifs_path, "\n\n")
+cat(" Final plot saved to:", final_plot_path, "\n\n")
+
+# Also save as SVG for easier Illustrator editing
+final_svg_path <- file.path(OUTPUT_DIR_path,
+                             paste0(OUTPUT_PREFIX_chr, "_final.svg"))
+
+ggsave(
+  filename = final_svg_path,
+  plot = plot_final_plt,
+  width = FIGURE_WIDTH_inches,
+  height = FIGURE_HEIGHT_inches,
+  device = "svg"
+)
+
+cat(" SVG version saved to:", final_svg_path, "\n")
+cat("  (Recommended for Illustrator editing)\n\n")
 
 
-# VERIFICATION =================================================================
+# FINAL VERIFICATION ===========================================================
 
 cat("=" , rep("=", 78), "\n", sep = "")
-cat("VERIFICATION\n")
+cat("FINAL PLOT COMPLETE\n")
 cat("=" , rep("=", 78), "\n", sep = "")
-cat("\nPlease open:", plot_with_motifs_path, "\n\n")
-cat("Expected:\n")
-cat("1. All domains visible (no labels on domains)\n")
-cat("2. Motifs visible as small rectangles or markers\n")
-cat("3. Panel border removed\n")
-cat("4. Check motif positions:\n\n")
+cat("\nFiles created:\n")
+cat("  PDF:", final_plot_path, "\n")
+cat("  SVG:", final_svg_path, "\n\n")
 
-motifs_df <- plot_data_df[plot_data_df$type == "MOTIF", ]
-print(motifs_df[, c("gene_name", "description", "begin")])
+cat("Plot features:\n")
+cat("   ORC1 on top (reversed y-axis)\n")
+cat("   Protein names labeled on left\n")
+cat("   Position labels at chain ends (1 and length)\n")
+cat("   Y-axis removed (not informative)\n")
+cat("   Clean white background\n")
+cat("   Domains without internal labels\n")
+cat("   Motifs visible\n")
+cat("   Legend on right side\n\n")
 
-cat("\n")
-cat("Next refinements needed:\n")
-cat("  - Reverse protein order (ORC1 on top)\n")
-cat("  - Customize colors\n")
-cat("  - Add position labels at chain ends\n")
-cat("\n")
+cat("For Illustrator refinement:\n")
+cat("  - Use SVG file for vector editing\n")
+cat("  - Add thicker borders to domain rectangles\n")
+cat("  - Add emphasis border around motifs (sofr alleles)\n")
+cat("  - Adjust colors if needed\n")
+cat("  - Fine-tune label positions\n")
+cat("  - Add figure legends/annotations\n\n")
+
+cat("Domain and motif counts:\n")
+domains_only_df <- plot_data_df[plot_data_df$type == "DOMAIN", ]
+motifs_only_df <- plot_data_df[plot_data_df$type == "MOTIF", ]
+cat("  Domains:", nrow(domains_only_df), "\n")
+cat("  Motifs:", nrow(motifs_only_df), "\n\n")
