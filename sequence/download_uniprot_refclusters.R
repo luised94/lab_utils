@@ -58,7 +58,7 @@ for (gene_idx in 1:length(GENE_NAMES_chr)) {
   gene_name_chr <- GENE_NAMES_chr[gene_idx]
   seed_accession_chr <- SEED_ACCESSIONS_chr[gene_idx]
 
-  cat("\n--- Processing", gene_name_chr, 
+  cat("\n--- Processing", gene_name_chr,
       paste0("(", gene_idx, "/", length(GENE_NAMES_chr), ")"), "---\n")
   cat("Seed accession:", seed_accession_chr, "\n")
 
@@ -150,3 +150,62 @@ for (gene_idx in 1:length(GENE_NAMES_chr)) {
     cat("ERROR:", conditionMessage(e), "\n")
   })
 }
+
+# SUMMARY STATISTICS =========================================================
+cat("\n=== UniRef50 Cluster Summary ===\n")
+
+summary_df <- data.frame(
+  Gene = character(0),
+  Cluster_ID = character(0),
+  N_Sequences = integer(0),
+  stringsAsFactors = FALSE
+)
+
+for (gene_idx in 1:length(GENE_NAMES_chr)) {
+  gene_name_chr <- GENE_NAMES_chr[gene_idx]
+  seed_accession_chr <- SEED_ACCESSIONS_chr[gene_idx]
+  cluster_id_chr <- paste0("UniRef", CLUSTER_IDENTITY_chr, "_", seed_accession_chr)
+
+  fasta_path <- file.path(
+    OUTPUT_DIR_path,
+    paste0(gene_name_chr, "_uniref50.fasta")
+  )
+
+  if (file.exists(fasta_path)) {
+    sequences_aas <- Biostrings::readAAStringSet(filepath = fasta_path)
+    n_seq_int <- length(sequences_aas)
+
+    summary_df <- rbind(
+      summary_df,
+      data.frame(
+        Gene = gene_name_chr,
+        Cluster_ID = cluster_id_chr,
+        N_Sequences = n_seq_int,
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+}
+
+print(summary_df)
+
+cat("\nTotal sequences across all clusters:", sum(summary_df$N_Sequences), "\n")
+
+# Save summary
+summary_path <- file.path(
+  OUTPUT_DIR_path,
+  paste0(OUTPUT_PREFIX_chr, "_summary.tsv")
+)
+
+write.table(
+  x = summary_df,
+  file = summary_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+
+cat("Summary saved to:", summary_path, "\n")
+
+cat("\n=== Script 5 Complete ===\n")
+cat("UniRef50 FASTA files ready for MSA analysis\n")
