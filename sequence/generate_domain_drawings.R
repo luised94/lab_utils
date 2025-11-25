@@ -298,97 +298,114 @@ review_df <- domain_features_df[, c("gene_name", "type", "description",
                                      "begin", "end", "length", "source")]
 print(review_df, row.names = FALSE)
 
-# CREATE DRAWING CANVAS ========================================================
+# FIX DOMAIN TYPES FOR DRAWPROTEINS ============================================
 
-cat("Initializing drawProteins canvas...\n")
+cat("Converting type values to drawProteins format...\n")
 
-# draw_canvas() requires the full feature data frame
-# It sets up the coordinate system for all subsequent drawing
-domain_canvas_plt <- draw_canvas(domain_features_df)
+# Show current type distribution
+cat("Before conversion:\n")
+print(table(domain_features_df$type))
+cat("\n")
 
-cat(" Canvas created\n")
-cat("  Canvas class:", class(domain_canvas_plt), "\n")
+# Remap all non-CHAIN types to "DOMAIN" (drawProteins standard)
+# Keep CHAIN as-is, convert everything else
+domain_features_df$type <- ifelse(
+  domain_features_df$type == "CHAIN",
+  "CHAIN",
+  "DOMAIN"
+)
+
+cat("After conversion:\n")
+print(table(domain_features_df$type))
+cat("\n")
+
+cat(" Type values converted\n")
+cat("  CHAIN entries:", sum(domain_features_df$type == "CHAIN"), "\n")
+cat("  DOMAIN entries:", sum(domain_features_df$type == "DOMAIN"), "\n")
 cat("\n")
 
 
-# DRAW PROTEIN CHAINS ==========================================================
+# RECREATE CANVAS WITH CORRECTED DATA ==========================================
 
-cat("Drawing protein chains...\n")
+cat("Recreating canvas with corrected domain types...\n")
 
-# Pass data frame to 'data' argument
-# draw_chains() adds horizontal bars for CHAIN type entries
+# Start fresh with corrected data
+domain_canvas_plt <- draw_canvas(domain_features_df)
+
 domain_canvas_plt <- draw_chains(
   p = domain_canvas_plt,
   data = domain_features_df
 )
 
-cat(" Chains added to canvas\n")
+cat(" Chains drawn\n")
+
+# Now add domains with corrected types
+domain_canvas_plt <- draw_domains(
+  p = domain_canvas_plt,
+  data = domain_features_df,
+  label_domains = TRUE
+)
+
+cat(" Domains added (should be visible now)\n")
 cat("\n")
 
 
-# APPLY STYLING ================================================================
+# APPLY BASIC STYLING ==========================================================
 
-cat("Applying plot styling...\n")
-
-# Add minimal styling for verification
 domain_canvas_plt <- domain_canvas_plt +
   theme_bw(base_size = 12) +
   theme(
     panel.grid.minor = element_blank(),
     panel.grid.major.x = element_blank(),
-    legend.position = "none"
+    legend.position = "right"
   ) +
   labs(
-    title = "S. cerevisiae ORC Complex - Protein Chains",
+    title = "S. cerevisiae ORC Complex - Domain Architecture",
     x = "Amino Acid Position",
     y = ""
   )
 
-cat(" Styling applied\n")
-cat("\n")
 
+# SAVE CORRECTED PLOT ==========================================================
 
-# SAVE PLOT TO PDF =============================================================
+cat("Saving corrected plot with visible domains...\n")
 
-cat("Saving plot to PDF file...\n")
+verification_domains_path <- file.path(OUTPUT_DIR_path, 
+                                       "orc_domains_corrected.pdf")
 
-# Define output filename for verification
-verification_plot_path <- file.path(OUTPUT_DIR_path, "orc_chains_verification.pdf")
-
-# Save using PDF device - handles fonts internally
 ggsave(
-  filename = verification_plot_path,
+  filename = verification_domains_path,
   plot = domain_canvas_plt,
-  width = 10,
-  height = 6,
+  width = 12,
+  height = 8,
   device = "pdf"
 )
 
-cat(" Plot saved to:", verification_plot_path, "\n")
+cat(" Plot saved to:", verification_domains_path, "\n")
 cat("\n")
 
 
-# VERIFICATION INSTRUCTIONS ====================================================
+# VERIFICATION =================================================================
 
 cat("=" , rep("=", 78), "\n", sep = "")
 cat("VERIFICATION CHECKPOINT\n")
 cat("=" , rep("=", 78), "\n", sep = "")
-cat("\nPlease open the PDF file:", verification_plot_path, "\n\n")
-cat("Expected appearance:\n")
-cat("1. Six horizontal bars (one per protein)\n")
-cat("2. Bars stacked vertically (ORC1 at top, ORC6 at bottom)\n")
-cat("3. Bar widths proportional to protein lengths:\n\n")
+cat("\nPlease open:", verification_domains_path, "\n\n")
+cat("You should NOW see:\n")
+cat("1. Six protein chains\n")
+cat("2. Colored domain rectangles on each chain\n")
+cat("3. Domain counts per protein:\n\n")
 
-# Show expected lengths for reference
-length_reference_df <- metadata_df[order(metadata_df$gene_name), 
-                                    c("gene_name", "length_aa")]
-print(length_reference_df, row.names = FALSE)
+actual_domains_df <- domain_features_df[domain_features_df$type == "DOMAIN", ]
+counts_df <- as.data.frame(table(actual_domains_df$gene_name))
+colnames(counts_df) <- c("gene_name", "domain_count")
+print(counts_df)
 
+cat("\n4. Legend showing domain descriptions (right side)\n")
+cat("5. Domains positioned at correct coordinates\n")
 cat("\n")
-cat("   Expected: ORC1 longest (~914 aa), ORC6 shortest (~435 aa)\n")
-cat("4. X-axis shows amino acid positions (0 to ~900 range)\n")
-cat("5. Each protein labeled on y-axis\n")
-cat("6. Clean white background with minimal grid lines\n")
+cat("If domains are NOW visible, we can proceed to refinement\n")
+cat("(fix order, colors, labels, styling)\n")
 cat("\n")
-cat("If the plot looks correct, confirm and we proceed to Chunk 4\n")
-cat("\n")
+
+
