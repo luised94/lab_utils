@@ -297,3 +297,69 @@ cat("=" , rep("=", 78), "\n", sep = "")
 review_df <- domain_features_df[, c("gene_name", "type", "description", 
                                      "begin", "end", "length", "source")]
 print(review_df, row.names = FALSE)
+
+# CREATE DRAWING CANVAS ========================================================
+
+cat("Initializing drawProteins canvas...\n")
+
+# draw_canvas() requires the full feature data frame
+# It sets up the coordinate system for all subsequent drawing
+domain_canvas_plt <- draw_canvas(domain_features_df)
+
+cat(" Canvas created\n")
+cat("  Canvas class:", class(domain_canvas_plt), "\n")
+cat("\n")
+
+
+# DRAW PROTEIN CHAINS ==========================================================
+
+cat("Drawing protein chains...\n")
+
+# draw_chains() adds horizontal bars representing full-length proteins
+# It automatically uses CHAIN type entries
+# Each protein will be scaled proportionally to its length
+domain_canvas_plt <- draw_chains(
+  domain_canvas_plt,
+  labels = domain_features_df
+)
+
+cat(" Chains added to canvas\n")
+cat("\n")
+
+
+# DISPLAY BASIC PLOT ===========================================================
+
+cat("Displaying basic plot with chains only...\n")
+
+# Add minimal styling for verification
+domain_canvas_plt <- domain_canvas_plt +
+  theme_bw() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  ) +
+  labs(
+    x = "Amino Acid Position",
+    y = "Protein"
+  )
+
+# Display the plot
+print(domain_canvas_plt)
+
+cat("\n")
+cat("=" , rep("=", 78), "\n", sep = "")
+cat("VERIFICATION CHECKPOINT\n")
+cat("=" , rep("=", 78), "\n", sep = "")
+cat("\nCheck the plot above:\n")
+cat("1. You should see 6 horizontal bars (one per protein)\n")
+cat("2. Bars should be stacked vertically (ORC1 at top, ORC6 at bottom)\n")
+cat("3. Bar widths should be proportional to protein lengths:\n")
+
+# Show expected lengths for reference
+length_reference_df <- metadata_df[order(metadata_df$gene_name), 
+                                    c("gene_name", "length_aa")]
+print(length_reference_df, row.names = FALSE)
+
+cat("\n4. X-axis should show amino acid positions (starts at 0 or 1)\n")
+cat("5. Y-axis should show protein numbers or names\n")
+cat("\n")
