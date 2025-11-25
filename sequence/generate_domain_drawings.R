@@ -315,7 +315,7 @@ cat("\n")
 
 cat("Drawing protein chains...\n")
 
-# Pass data frame to 'data' argument, not 'labels'
+# Pass data frame to 'data' argument
 # draw_chains() adds horizontal bars for CHAIN type entries
 domain_canvas_plt <- draw_chains(
   p = domain_canvas_plt,
@@ -326,9 +326,9 @@ cat(" Chains added to canvas\n")
 cat("\n")
 
 
-# DISPLAY BASIC PLOT ===========================================================
+# APPLY STYLING ================================================================
 
-cat("Displaying basic plot with chains only...\n")
+cat("Applying plot styling...\n")
 
 # Add minimal styling for verification
 domain_canvas_plt <- domain_canvas_plt +
@@ -344,16 +344,39 @@ domain_canvas_plt <- domain_canvas_plt +
     y = ""
   )
 
-# Display the plot
-print(domain_canvas_plt)
-
+cat(" Styling applied\n")
 cat("\n")
+
+
+# SAVE PLOT TO PDF =============================================================
+
+cat("Saving plot to PDF file...\n")
+
+# Define output filename for verification
+verification_plot_path <- file.path(OUTPUT_DIR_path, "orc_chains_verification.pdf")
+
+# Save using PDF device - handles fonts internally
+ggsave(
+  filename = verification_plot_path,
+  plot = domain_canvas_plt,
+  width = 10,
+  height = 6,
+  device = "pdf"
+)
+
+cat(" Plot saved to:", verification_plot_path, "\n")
+cat("\n")
+
+
+# VERIFICATION INSTRUCTIONS ====================================================
+
 cat("=" , rep("=", 78), "\n", sep = "")
 cat("VERIFICATION CHECKPOINT\n")
 cat("=" , rep("=", 78), "\n", sep = "")
-cat("\nCheck the plot above:\n")
-cat("1. You should see 6 horizontal bars (one per protein)\n")
-cat("2. Bars should be stacked vertically\n")
+cat("\nPlease open the PDF file:", verification_plot_path, "\n\n")
+cat("Expected appearance:\n")
+cat("1. Six horizontal bars (one per protein)\n")
+cat("2. Bars stacked vertically (ORC1 at top, ORC6 at bottom)\n")
 cat("3. Bar widths proportional to protein lengths:\n\n")
 
 # Show expected lengths for reference
@@ -363,6 +386,9 @@ print(length_reference_df, row.names = FALSE)
 
 cat("\n")
 cat("   Expected: ORC1 longest (~914 aa), ORC6 shortest (~435 aa)\n")
-cat("\n4. X-axis shows amino acid positions (0-1000 range)\n")
+cat("4. X-axis shows amino acid positions (0 to ~900 range)\n")
 cat("5. Each protein labeled on y-axis\n")
+cat("6. Clean white background with minimal grid lines\n")
+cat("\n")
+cat("If the plot looks correct, confirm and we proceed to Chunk 4\n")
 cat("\n")
