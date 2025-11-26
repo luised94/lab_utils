@@ -43,27 +43,6 @@ FORCE_REALIGNMENT_lgl <- TRUE
 # Cache aligned FASTA files for faster re-runs
 USE_ALIGNMENT_CACHE_lgl <- TRUE
 
-# === REGIONS OF INTEREST ======================================================
-# Positions refer to UNGAPPED S. cerevisiae reference sequence coordinates
-# The script will map these to gapped alignment positions automatically
-#
-# UPDATE THESE with your actual positions of interest
-# Leave as c() to skip visualization for that gene
-
-REGIONS_OF_INTEREST_lst <- list(
-  ORC1 = c(495),   # Example positions - UPDATE AS NEEDED
-  ORC2 = c(),         # Example positions - UPDATE AS NEEDED
-  ORC3 = c(481),         # Example positions - UPDATE AS NEEDED
-  ORC4 = c(225),              # Example positions - UPDATE AS NEEDED
-  ORC5 = c(104),         # Example positions - UPDATE AS NEEDED
-  ORC6 = c(305),                 # No visualizations for this gene
-  TOA1 = c(49),         # Example positions - UPDATE AS NEEDED
-  TOA2 = c(16)           # Example positions - UPDATE AS NEEDED
-)
-
-# Window size for zoomed plots:  residues around center position
-ZOOM_WINDOW_RESIDUES_int <- 10
-
 # === CONSERVATION ANALYSIS ====================================================
 
 # Calculate conservation as percent identity per position
