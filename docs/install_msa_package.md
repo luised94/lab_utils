@@ -123,3 +123,49 @@ install.packages("BiocManager")
 BiocManager::install("ggtree", lib = .libPaths()[1], force = TRUE)
 
 Updated a bunch of packages.
+Still did not work. Give up on installing with this current environment.
+
+## Seventh solution
+Update R version and switch to rig for R version management.
+Create a simple installation [script](./sequence/install_rig.sh) for [rig](https://github.com/r-lib/rig).
+Installation script worked well.
+```bash
+rig add 4.4
+R-4.4.3 # Test installation.
+```
+Moved the renv.lock file and archived.
+
+```R
+renv::init() # Start project from scratch.
+renv::install("BiocManager")
+renv::install("DECIPHER")
+# Tried
+renv::install("ggmsa")
+renv::install("ggtree")
+```
+Still ran into trouble even after switching version. First, ensured I updated renv and libraries in renv.
+```R
+# 1. Update BiocManager (ensures Bioc 3.20 repos)
+install.packages("BiocManager")
+BiocManager::install(version = "3.20")  # Confirms R 4.4 compatibility [web:388]
+
+# 2. Update ggplot2 explicitly (fixes 'check_linewidth')
+install.packages("ggplot2")  # Gets 3.5.1+
+
+# 3. Install ggtree first (handles ggalt automatically via BiocViews)
+BiocManager::install("ggtree", dependencies = TRUE)
+
+# 4. Now ggmsa
+BiocManager::install("ggmsa", dependencies = TRUE)
+```
+
+Still did not work.
+Trying devtools now.
+Use devtools for both ggtree and ggmsa.
+```R
+# Install development version of ggtree
+devtools::install_github("YuLab-SMU/ggtree")
+
+# Then install ggmsa from GitHub as well
+devtools::install_github("YuLab-SMU/ggmsa")
+```
