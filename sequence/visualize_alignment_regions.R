@@ -73,10 +73,10 @@ UNIREF50_N_SEQUENCES_int <- 15  # Top N by identity to S. cerevisiae
 
 # Color scheme for amino acids
 # Options: "Chemistry_AA", "Shapely_AA", "Zappo_AA", "Taylor_AA", "Clustal"
-PLOT_COLOR_SCHEME_chr <- "Shapely_AA"
+PLOT_COLOR_SCHEME_chr <- "Chemistry_AA"
 
 # Show sequence logo (conservation bar) above alignment
-SHOW_SEQUENCE_LOGO_lgl <- TRUE
+SHOW_SEQUENCE_LOGO_lgl <- FALSE
 
 # Show sequence names on left
 SHOW_SEQUENCE_NAMES_lgl <- TRUE
@@ -90,7 +90,7 @@ PLOT_HEIGHT_inches <- 8
 
 # Output formats
 SAVE_PNG_lgl <- TRUE
-SAVE_SVG_lgl <- FALSE
+SAVE_SVG_lgl <- TRUE
 
 # === S. CEREVISIAE IDENTIFICATION =============================================
 

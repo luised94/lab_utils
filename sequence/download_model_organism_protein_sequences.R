@@ -1,8 +1,8 @@
 # ==============================================================================
-# Script: 03_download_model_organisms.R
+# Script: download_model_organisms_protein_sequences.R
 # Purpose: Download ORC and TFIIA sequences from model organisms for MSA
 # Author: [Your name]
-# Date: 2025-01-XX
+# Date: 2025-11-25
 # ==============================================================================
 
 # CONSTANTS BLOCK ============================================================
