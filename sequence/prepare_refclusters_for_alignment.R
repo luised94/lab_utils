@@ -10,6 +10,7 @@ library(Biostrings)
 # === PATHS ===
 INPUT_DIR_path <- "~/data/protein_files"
 OUTPUT_DIR_path <- "~/data/protein_files/alignments"
+FORCE_OVERWRITE_lgl <- TRUE
 
 # === GENES TO PROCESS ===
 GENE_NAMES_chr <- c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", "TOA1", "TOA2")
@@ -17,36 +18,6 @@ GENE_NAMES_chr <- c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", "TOA1", "TOA
 # === FILTERING CRITERIA ===
 MIN_SEQUENCE_LENGTH_int <- 50  # minimum amino acids
 KEEP_ONE_PER_SPECIES_lgl <- TRUE
-
-# === REGIONS OF INTEREST (Manual specification) ===
-# Positions refer to S. cerevisiae reference sequence (ungapped)
-# TO BE UPDATED after alignment inspection
-
-REGIONS_OF_INTEREST_lst <- list(
-  ORC1 = c(100, 250, 500),  # Example - UPDATE AFTER INSPECTION
-  ORC2 = c(150, 300),        # Example - UPDATE AFTER INSPECTION
-  ORC3 = c(200, 400),        # Example - UPDATE AFTER INSPECTION
-  ORC4 = c(180),             # Example - UPDATE AFTER INSPECTION
-  ORC5 = c(220, 450),        # Example - UPDATE AFTER INSPECTION
-  ORC6 = c(130, 280),        # Example - UPDATE AFTER INSPECTION
-  TOA1 = c(100, 200),        # Example - UPDATE AFTER INSPECTION
-  TOA2 = c(90, 180)          # Example - UPDATE AFTER INSPECTION
-)
-
-# Window around each position for zoomed plots
-ZOOM_WINDOW_RESIDUES_int <- 10  # +/- residues around center position
-
-# === ALIGNMENT CONFIGURATION ===
-ALIGNMENT_METHOD_chr <- "ClustalOmega"
-ALIGNMENT_ORDER_chr <- "input"
-FORCE_REALIGNMENT_lgl <- FALSE
-
-# === VISUALIZATION CONFIGURATION ===
-PLOT_COLOR_SCHEME_chr <- "Chemistry_AA"
-PLOT_FONT_chr <- "TimesNewRoman"
-SHOW_SEQUENCE_LOGO_lgl <- TRUE
-PLOT_WIDTH_inches <- 12
-PLOT_HEIGHT_inches <- 8
 
 # Create output directory if needed
 if (!dir.exists(OUTPUT_DIR_path)) {
@@ -109,7 +80,6 @@ if ("ORC1" %in% names(sequences_raw_lst)) {
     cat(sprintf("[%d] %s\n", i, sample_headers_chr[i]))
   }
 }
-
 
 # === CHUNK 1.2: PARSE HEADERS TO EXTRACT METADATA ===
 cat("\n=== Parsing sequence headers ===\n")
@@ -433,13 +403,13 @@ for (gene_chr in names(sequences_dedup_lst)) {
 }
 
 # === CHUNK 1.5: SELECT ONE REPRESENTATIVE PER SPECIES ===
-cat("\n=== Selecting one representative per species (by taxid) ===\n")
+cat("\n=== Selecting one representative per species (by organism name) ===\n")
 
 # Storage for species selection report
 species_filter_report_df <- data.frame(
   gene = character(),
   n_before = integer(),
-  n_species = integer(),
+  n_unique_organisms = integer(),
   n_after = integer(),
   reduction_percent = numeric(),
   stringsAsFactors = FALSE
@@ -456,16 +426,16 @@ for (gene_chr in names(sequences_dedup_lst)) {
   df <- sequences_dedup_lst[[gene_chr]]
   n_before <- nrow(df)
 
-  # Get unique taxonomy IDs
-  unique_taxids_chr <- unique(df$taxid)
-  n_species <- length(unique_taxids_chr)
+  # Get unique organism names (e.g., "Sac Cer", "Sac Par")
+  unique_organisms_chr <- unique(df$organism_short)
+  n_unique_organisms <- length(unique_organisms_chr)
 
-  # For each taxid, select best representative
+  # For each organism, select best representative
   selected_rows_lst <- list()
   selection_details_df <- data.frame(
     gene = character(),
-    taxid = character(),
     organism = character(),
+    taxid = character(),
     n_sequences = integer(),
     selected_accession = character(),
     selected_review_status = character(),
@@ -473,12 +443,12 @@ for (gene_chr in names(sequences_dedup_lst)) {
     stringsAsFactors = FALSE
   )
 
-  for (taxid_chr in unique_taxids_chr) {
-    # Get all sequences for this species
-    species_rows_df <- subset(df, taxid == taxid_chr)
-    n_seqs_for_species <- nrow(species_rows_df)
+  for (organism_chr in unique_organisms_chr) {
+    # Get all sequences for this organism
+    organism_rows_df <- subset(df, organism_short == organism_chr)
+    n_seqs_for_organism <- nrow(organism_rows_df)
 
-    if (n_seqs_for_species == 1) {
+    if (n_seqs_for_organism == 1) {
       # Only one sequence - keep it
       selected_idx <- 1
     } else {
@@ -488,14 +458,14 @@ for (gene_chr in names(sequences_dedup_lst)) {
       #          3) first alphabetically by accession
 
       # First, prioritize by review status
-      sp_indices <- which(species_rows_df$review_status == "sp")
+      sp_indices <- which(organism_rows_df$review_status == "sp")
 
       if (length(sp_indices) > 0) {
         # Has reviewed entries - choose among them
-        candidates_df <- species_rows_df[sp_indices, ]
+        candidates_df <- organism_rows_df[sp_indices, ]
       } else {
         # All unreviewed
-        candidates_df <- species_rows_df
+        candidates_df <- organism_rows_df
       }
 
       # Among candidates, prefer longest
@@ -511,7 +481,7 @@ for (gene_chr in names(sequences_dedup_lst)) {
         selected_candidate_idx <- which(candidates_df$accession == selected_accession)[1]
       }
 
-      # Map back to original species_rows_df index
+      # Map back to original organism_rows_df index
       if (length(sp_indices) > 0) {
         selected_idx <- sp_indices[selected_candidate_idx]
       } else {
@@ -520,7 +490,7 @@ for (gene_chr in names(sequences_dedup_lst)) {
     }
 
     # Store selected row
-    selected_row <- species_rows_df[selected_idx, ]
+    selected_row <- organism_rows_df[selected_idx, ]
     selected_rows_lst[[length(selected_rows_lst) + 1]] <- selected_row
 
     # Add to detailed report
@@ -528,9 +498,9 @@ for (gene_chr in names(sequences_dedup_lst)) {
       selection_details_df,
       data.frame(
         gene = gene_chr,
-        taxid = taxid_chr,
         organism = selected_row$organism_short,
-        n_sequences = n_seqs_for_species,
+        taxid = selected_row$taxid,
+        n_sequences = n_seqs_for_organism,
         selected_accession = selected_row$accession,
         selected_review_status = selected_row$review_status,
         selected_length = selected_row$length,
@@ -555,7 +525,7 @@ for (gene_chr in names(sequences_dedup_lst)) {
     data.frame(
       gene = gene_chr,
       n_before = n_before,
-      n_species = n_species,
+      n_unique_organisms = n_unique_organisms,
       n_after = n_after,
       reduction_percent = round(100 * (n_before - n_after) / n_before, 1),
       stringsAsFactors = FALSE
@@ -565,17 +535,18 @@ for (gene_chr in names(sequences_dedup_lst)) {
   # Console output
   n_removed <- n_before - n_after
   if (n_removed > 0) {
-    cat(sprintf("  %s: %d species represented, removed %d redundant sequences, kept %d\n",
-                gene_chr, n_species, n_removed, n_after))
+    cat(sprintf("  %s: %d unique organisms, removed %d redundant sequences, kept %d\n",
+      gene_chr, n_unique_organisms, n_removed, n_after))
   } else {
-    cat(sprintf("  %s: %d species, no redundancy (1 sequence per species)\n",
-                gene_chr, n_species))
+    cat(sprintf("  %s: %d organisms, no redundancy (1 sequence per organism)\n",
+      gene_chr, n_unique_organisms))
   }
 }
 
-# Print summary table
-cat("\n=== Species Selection Summary ===\n")
-print(species_filter_report_df, row.names = FALSE)
+# Print summary
+cat("\nSpecies filtering summary:\n")
+print(species_filter_report_df)
+cat("\n")
 
 # Write species filter report
 report_file_path <- file.path(OUTPUT_DIR_path, "uniref50_species_filter_report.tsv")

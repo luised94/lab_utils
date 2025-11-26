@@ -38,7 +38,7 @@ ALIGNMENT_METHOD_chr <- "MUSCLE"
 ALIGNMENT_ORDER_chr <- "input"
 
 # Force re-alignment even if cached files exist?
-FORCE_REALIGNMENT_lgl <- FALSE
+FORCE_REALIGNMENT_lgl <- TRUE
 
 # Cache aligned FASTA files for faster re-runs
 USE_ALIGNMENT_CACHE_lgl <- TRUE
