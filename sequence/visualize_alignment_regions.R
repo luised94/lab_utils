@@ -73,7 +73,7 @@ UNIREF50_N_SEQUENCES_int <- 15  # Top N by identity to S. cerevisiae
 
 # Color scheme for amino acids
 # Options: "Chemistry_AA", "Shapely_AA", "Zappo_AA", "Taylor_AA", "Clustal"
-PLOT_COLOR_SCHEME_chr <- "Chemistry_AA"
+PLOT_COLOR_SCHEME_chr <- "Shapely_AA"
 
 # Show sequence logo (conservation bar) above alignment
 SHOW_SEQUENCE_LOGO_lgl <- TRUE
@@ -219,7 +219,10 @@ for (gene_chr in GENE_NAMES_chr) {
           end_pos_int <- min(width(aligned_AAStringSet)[1],
                             alignment_position_int + ZOOM_WINDOW_RESIDUES_int)
 
-          cat(" alignment positions", start_pos_int, "-", end_pos_int, "\n")
+          scer_residue_found_chr <- scer_seq_split_chr[alignment_position_int]
+          cat(" alignment positions", start_pos_int, "-", end_pos_int,
+              "| Scer residue:", scer_residue_found_chr, "\n")
+
 
           # Generate plot
           plot_obj <- ggmsa::ggmsa(
@@ -229,13 +232,18 @@ for (gene_chr in GENE_NAMES_chr) {
             color = PLOT_COLOR_SCHEME_chr,
             char_width = PLOT_CHAR_WIDTH_dbl,
             seq_name = SHOW_SEQUENCE_NAMES_lgl,
-            consensus_views = SHOW_SEQUENCE_LOGO_lgl
+            consensus_views = SHOW_SEQUENCE_LOGO_lgl,
+            disagreement = FALSE,
+            use_dot = FALSE,
+            by_conservation = FALSE,
+            none_bg = FALSE
           ) +
             ggplot2::ggtitle(paste0(gene_chr, " - Model Organisms - Position ", pos_int)) +
             ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 14, face = "bold"))
 
           # Save plot
           output_base <- paste0(gene_chr, "_model_orgs_pos", pos_int)
+          output_file_saved_chr <- NA
 
           if (SAVE_PNG_lgl) {
             png_path <- file.path(PLOT_OUTPUT_DIR_path, paste0(output_base, ".png"))
@@ -244,6 +252,7 @@ for (gene_chr in GENE_NAMES_chr) {
                           width = PLOT_WIDTH_inches,
                           height = PLOT_HEIGHT_inches,
                           dpi = 300)
+            output_file_saved_chr <- paste0(output_base, ".png")
           }
 
           if (SAVE_SVG_lgl) {
@@ -252,6 +261,9 @@ for (gene_chr in GENE_NAMES_chr) {
                           plot = plot_obj,
                           width = PLOT_WIDTH_inches,
                           height = PLOT_HEIGHT_inches)
+            if (is.na(output_file_saved_chr)) {
+              output_file_saved_chr <- paste0(output_base, ".svg")
+            }
           }
 
           # Record in summary
@@ -260,7 +272,8 @@ for (gene_chr in GENE_NAMES_chr) {
                                             dataset = "model_orgs",
                                             position = pos_int,
                                             status = "complete",
-                                            output_file = paste0(output_base, ".png")))
+                                            output_file = output_file_saved_chr))
+
         }
       }
     }
@@ -416,7 +429,8 @@ for (gene_chr in GENE_NAMES_chr) {
           end_pos_int <- min(width(aligned_AAStringSet)[1],
                             alignment_position_int + ZOOM_WINDOW_RESIDUES_int)
 
-          cat(" alignment positions", start_pos_int, "-", end_pos_int, "\n")
+          cat(" alignment positions", start_pos_int, "-", end_pos_int,
+              "| Scer residue:", scer_residue_found_chr, "\n")
 
           # Generate plot
           plot_obj <- ggmsa::ggmsa(
@@ -426,13 +440,18 @@ for (gene_chr in GENE_NAMES_chr) {
             color = PLOT_COLOR_SCHEME_chr,
             char_width = PLOT_CHAR_WIDTH_dbl,
             seq_name = SHOW_SEQUENCE_NAMES_lgl,
-            consensus_views = SHOW_SEQUENCE_LOGO_lgl
+            consensus_views = SHOW_SEQUENCE_LOGO_lgl,
+            disagreement = FALSE,
+            use_dot = FALSE,
+            by_conservation = FALSE,
+            none_bg = FALSE
           ) +
             ggplot2::ggtitle(paste0(gene_chr, " - UniRef50 - Position ", pos_int)) +
             ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 14, face = "bold"))
 
           # Save plot
           output_base <- paste0(gene_chr, "_uniref50_pos", pos_int)
+          output_file_saved_chr <- NA
 
           if (SAVE_PNG_lgl) {
             png_path <- file.path(PLOT_OUTPUT_DIR_path, paste0(output_base, ".png"))
@@ -441,6 +460,7 @@ for (gene_chr in GENE_NAMES_chr) {
                           width = PLOT_WIDTH_inches,
                           height = PLOT_HEIGHT_inches,
                           dpi = 300)
+            output_file_saved_chr <- paste0(output_base, ".png")
           }
 
           if (SAVE_SVG_lgl) {
@@ -449,6 +469,9 @@ for (gene_chr in GENE_NAMES_chr) {
                           plot = plot_obj,
                           width = PLOT_WIDTH_inches,
                           height = PLOT_HEIGHT_inches)
+            if (is.na(output_file_saved_chr)) {
+              output_file_saved_chr <- paste0(output_base, ".svg")
+            }
           }
 
           # Record in summary
@@ -457,7 +480,8 @@ for (gene_chr in GENE_NAMES_chr) {
                                             dataset = "uniref50",
                                             position = pos_int,
                                             status = "complete",
-                                            output_file = paste0(output_base, ".svg")))
+                                            output_file = output_file_saved_chr))
+
         }
       }
     }
