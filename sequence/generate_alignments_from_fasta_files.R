@@ -26,7 +26,7 @@ OUTPUT_DIR_path <- "~/data/protein_files/alignments"
 
 # === GENES TO PROCESS =========================================================
 
-GENE_NAMES_chr <- c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", 
+GENE_NAMES_chr <- c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6",
                     "TOA1", "TOA2")
 
 # === ALIGNMENT CONFIGURATION ==================================================
@@ -46,7 +46,7 @@ USE_ALIGNMENT_CACHE_lgl <- TRUE
 # === REGIONS OF INTEREST ======================================================
 # Positions refer to UNGAPPED S. cerevisiae reference sequence coordinates
 # The script will map these to gapped alignment positions automatically
-# 
+#
 # UPDATE THESE with your actual positions of interest
 # Leave as c() to skip visualization for that gene
 
@@ -89,10 +89,10 @@ UNIREF50_KEEP_REFERENCE_lgl <- TRUE
 # === S. CEREVISIAE REFERENCE IDENTIFICATION ==================================
 
 # Pattern to identify S. cerevisiae sequences in alignments
-# Model organisms format: "Scer_GENE|..." 
+# Model organisms format: "Scer_GENE|..."
 # UniRef50 format: "Sac Cer GENE|..."
 SCER_PATTERN_MODEL_ORGS_chr <- "^Scer_"
-SCER_PATTERN_UNIREF50_chr <- "^Sac Cer"
+SCER_PATTERN_UNIREF50_chr <- "^Sac cer"
 
 # ==============================================================================
 # End of Configuration
@@ -126,7 +126,7 @@ for (gene_chr in GENE_NAMES_chr) {
   cat("  [1/2] Model organisms...\n")
 
   # Construct file paths
-  input_fasta_path <- file.path(INPUT_DIR_path, 
+  input_fasta_path <- file.path(INPUT_DIR_path,
                                  paste0(gene_chr, "_model_organisms.fasta"))
   output_fasta_path <- file.path(OUTPUT_DIR_path,
                                   paste0(gene_chr, "_model_orgs_aligned.fasta"))
@@ -144,7 +144,7 @@ for (gene_chr in GENE_NAMES_chr) {
 
     # Check cache
     skip_alignment_lgl <- FALSE
-    if (USE_ALIGNMENT_CACHE_lgl && !FORCE_REALIGNMENT_lgl && 
+    if (USE_ALIGNMENT_CACHE_lgl && !FORCE_REALIGNMENT_lgl &&
         file.exists(output_fasta_path)) {
       cat("    Using cached alignment\n")
       skip_alignment_lgl <- TRUE
@@ -172,7 +172,7 @@ for (gene_chr in GENE_NAMES_chr) {
     # Report dimensions
     n_seqs_int <- length(aligned_AAStringSet)
     aln_length_int <- unique(width(aligned_AAStringSet))
-    cat("    Alignment dimensions:", n_seqs_int, "sequences x", 
+    cat("    Alignment dimensions:", n_seqs_int, "sequences x",
         aln_length_int, "positions\n")
 
     # Record summary
@@ -206,7 +206,7 @@ for (gene_chr in GENE_NAMES_chr) {
 
     # Check cache
     skip_alignment_lgl <- FALSE
-    if (USE_ALIGNMENT_CACHE_lgl && !FORCE_REALIGNMENT_lgl && 
+    if (USE_ALIGNMENT_CACHE_lgl && !FORCE_REALIGNMENT_lgl &&
         file.exists(output_fasta_path)) {
       cat("    Using cached alignment\n")
       skip_alignment_lgl <- TRUE
@@ -234,7 +234,7 @@ for (gene_chr in GENE_NAMES_chr) {
     # Report dimensions
     n_seqs_int <- length(aligned_AAStringSet)
     aln_length_int <- unique(width(aligned_AAStringSet))
-    cat("    Alignment dimensions:", n_seqs_int, "sequences x", 
+    cat("    Alignment dimensions:", n_seqs_int, "sequences x",
         aln_length_int, "positions\n")
 
     # Record summary
@@ -260,4 +260,295 @@ write.table(x = alignment_summary_df,
 cat("=== ALIGNMENT GENERATION COMPLETE ===\n")
 cat("Summary saved to:", summary_path, "\n")
 print(alignment_summary_df)
+cat("\n")
+# ==============================================================================
+# CHUNK 2: CONSERVATION ANALYSIS
+# ==============================================================================
+# Calculate percent identity at each S. cerevisiae position
+# Conservation profile includes all ungapped Scer positions
+
+cat("\n=== STARTING CONSERVATION ANALYSIS ===\n")
+cat("Timestamp:", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n")
+
+# Initialize tracking
+conservation_summary_df <- data.frame(
+  gene = character(),
+  dataset = character(),
+  n_positions = integer(),
+  mean_conservation = numeric(),
+  status = character(),
+  stringsAsFactors = FALSE
+)
+
+# Process each gene
+for (gene_chr in GENE_NAMES_chr) {
+
+  cat("Processing gene:", gene_chr, "\n")
+
+  # === MODEL ORGANISMS CONSERVATION ===
+  if (CALCULATE_MODEL_ORGS_CONSERVATION_lgl) {
+    cat("  [1/2] Model organisms conservation...\n")
+
+    # Load alignment
+    alignment_path <- file.path(OUTPUT_DIR_path,
+                                paste0(gene_chr, "_model_orgs_aligned.fasta"))
+
+    if (!file.exists(alignment_path)) {
+      cat("    WARNING: Alignment file not found, skipping\n")
+      conservation_summary_df <- rbind(conservation_summary_df,
+                                       data.frame(gene = gene_chr,
+                                                dataset = "model_orgs",
+                                                n_positions = NA,
+                                                mean_conservation = NA,
+                                                status = "alignment_missing"))
+    } else {
+
+      # Load aligned sequences
+      aligned_AAStringSet <- Biostrings::readAAStringSet(filepath = alignment_path)
+
+      # Find S. cerevisiae sequence
+      seq_names_chr <- names(aligned_AAStringSet)
+      scer_index_int <- grep(pattern = SCER_PATTERN_MODEL_ORGS_chr,
+                            x = seq_names_chr)
+
+      if (length(scer_index_int) == 0) {
+        cat("    WARNING: S. cerevisiae sequence not found, skipping\n")
+        conservation_summary_df <- rbind(conservation_summary_df,
+                                         data.frame(gene = gene_chr,
+                                                  dataset = "model_orgs",
+                                                  n_positions = NA,
+                                                  mean_conservation = NA,
+                                                  status = "scer_not_found"))
+      } else {
+
+        if (length(scer_index_int) > 1) {
+          cat("    WARNING: Multiple Scer sequences found, using first\n")
+          scer_index_int <- scer_index_int[1]
+        }
+
+        # Extract Scer sequence
+        scer_seq_chr <- as.character(aligned_AAStringSet[scer_index_int])
+        scer_seq_split_chr <- strsplit(scer_seq_chr, "")[[1]]
+
+        # Convert alignment to matrix for easier column access
+        aln_matrix_chr <- as.matrix(aligned_AAStringSet)
+        n_seqs_int <- nrow(aln_matrix_chr)
+        aln_length_int <- ncol(aln_matrix_chr)
+
+        # Initialize conservation profile
+        conservation_profile_df <- data.frame(
+          ungapped_position = integer(),
+          residue = character(),
+          conservation_pct = numeric(),
+          stringsAsFactors = FALSE
+        )
+
+        # Walk through Scer sequence and calculate conservation
+        ungapped_pos_int <- 0
+
+        for (aln_pos_int in 1:aln_length_int) {
+
+          scer_residue_chr <- scer_seq_split_chr[aln_pos_int]
+
+          # Skip gaps in Scer sequence
+          if (scer_residue_chr == "-") {
+            next
+          }
+
+          # Increment ungapped position counter
+          ungapped_pos_int <- ungapped_pos_int + 1
+
+          # Get column of alignment at this position
+          column_chr <- aln_matrix_chr[, aln_pos_int]
+
+          # Count non-gap sequences at this position
+          non_gap_seqs_lgl <- column_chr != "-"
+          n_non_gap_int <- sum(non_gap_seqs_lgl)
+
+          # Count sequences identical to Scer (excluding Scer itself)
+          identical_seqs_lgl <- column_chr == scer_residue_chr
+          n_identical_int <- sum(identical_seqs_lgl) - 1  # Exclude Scer
+
+          # Calculate percent identity (among non-gap sequences, excluding Scer)
+          if (n_non_gap_int > 1) {
+            conservation_pct_dbl <- (n_identical_int / (n_non_gap_int - 1)) * 100
+          } else {
+            conservation_pct_dbl <- NA  # Only Scer at this position
+          }
+
+          # Add to profile
+          conservation_profile_df <- rbind(conservation_profile_df,
+                                          data.frame(ungapped_position = ungapped_pos_int,
+                                                   residue = scer_residue_chr,
+                                                   conservation_pct = conservation_pct_dbl))
+        }
+
+        # Save conservation profile
+        output_path <- file.path(OUTPUT_DIR_path,
+                                paste0(gene_chr, "_model_orgs_conservation.tsv"))
+        write.table(x = conservation_profile_df,
+                   file = output_path,
+                   sep = "\t",
+                   row.names = FALSE,
+                   quote = FALSE)
+
+        # Calculate summary statistics
+        mean_conservation_dbl <- mean(conservation_profile_df$conservation_pct,
+                                     na.rm = TRUE)
+
+        cat("    Analyzed", nrow(conservation_profile_df), "Scer positions\n")
+        cat("    Mean conservation:", round(mean_conservation_dbl, 1), "%\n")
+        cat("    Saved to:", basename(output_path), "\n")
+
+        # Record summary
+        conservation_summary_df <- rbind(conservation_summary_df,
+                                        data.frame(gene = gene_chr,
+                                                 dataset = "model_orgs",
+                                                 n_positions = nrow(conservation_profile_df),
+                                                 mean_conservation = mean_conservation_dbl,
+                                                 status = "complete"))
+      }
+    }
+  }
+
+  # === UNIREF50 CONSERVATION ===
+  if (CALCULATE_UNIREF50_CONSERVATION_lgl) {
+    cat("  [2/2] UniRef50 conservation...\n")
+
+    # Load alignment
+    alignment_path <- file.path(OUTPUT_DIR_path,
+                                paste0(gene_chr, "_uniref50_aligned.fasta"))
+
+    if (!file.exists(alignment_path)) {
+      cat("    WARNING: Alignment file not found, skipping\n")
+      conservation_summary_df <- rbind(conservation_summary_df,
+                                       data.frame(gene = gene_chr,
+                                                dataset = "uniref50",
+                                                n_positions = NA,
+                                                mean_conservation = NA,
+                                                status = "alignment_missing"))
+    } else {
+
+      # Load aligned sequences
+      aligned_AAStringSet <- Biostrings::readAAStringSet(filepath = alignment_path)
+
+      # Find S. cerevisiae sequence
+      seq_names_chr <- names(aligned_AAStringSet)
+      scer_index_int <- grep(pattern = SCER_PATTERN_UNIREF50_chr,
+                            x = seq_names_chr)
+
+      if (length(scer_index_int) == 0) {
+        cat("    WARNING: S. cerevisiae sequence not found, skipping\n")
+        conservation_summary_df <- rbind(conservation_summary_df,
+                                         data.frame(gene = gene_chr,
+                                                  dataset = "uniref50",
+                                                  n_positions = NA,
+                                                  mean_conservation = NA,
+                                                  status = "scer_not_found"))
+      } else {
+
+        if (length(scer_index_int) > 1) {
+          cat("    WARNING: Multiple Scer sequences found, using first\n")
+          scer_index_int <- scer_index_int[1]
+        }
+
+        # Extract Scer sequence
+        scer_seq_chr <- as.character(aligned_AAStringSet[scer_index_int])
+        scer_seq_split_chr <- strsplit(scer_seq_chr, "")[[1]]
+
+        # Convert alignment to matrix for easier column access
+        aln_matrix_chr <- as.matrix(aligned_AAStringSet)
+        n_seqs_int <- nrow(aln_matrix_chr)
+        aln_length_int <- ncol(aln_matrix_chr)
+
+        # Initialize conservation profile
+        conservation_profile_df <- data.frame(
+          ungapped_position = integer(),
+          residue = character(),
+          conservation_pct = numeric(),
+          stringsAsFactors = FALSE
+        )
+
+        # Walk through Scer sequence and calculate conservation
+        ungapped_pos_int <- 0
+
+        for (aln_pos_int in 1:aln_length_int) {
+
+          scer_residue_chr <- scer_seq_split_chr[aln_pos_int]
+
+          # Skip gaps in Scer sequence
+          if (scer_residue_chr == "-") {
+            next
+          }
+
+          # Increment ungapped position counter
+          ungapped_pos_int <- ungapped_pos_int + 1
+
+          # Get column of alignment at this position
+          column_chr <- aln_matrix_chr[, aln_pos_int]
+
+          # Count non-gap sequences at this position
+          non_gap_seqs_lgl <- column_chr != "-"
+          n_non_gap_int <- sum(non_gap_seqs_lgl)
+
+          # Count sequences identical to Scer (excluding Scer itself)
+          identical_seqs_lgl <- column_chr == scer_residue_chr
+          n_identical_int <- sum(identical_seqs_lgl) - 1  # Exclude Scer
+
+          # Calculate percent identity (among non-gap sequences, excluding Scer)
+          if (n_non_gap_int > 1) {
+            conservation_pct_dbl <- (n_identical_int / (n_non_gap_int - 1)) * 100
+          } else {
+            conservation_pct_dbl <- NA  # Only Scer at this position
+          }
+
+          # Add to profile
+          conservation_profile_df <- rbind(conservation_profile_df,
+                                          data.frame(ungapped_position = ungapped_pos_int,
+                                                   residue = scer_residue_chr,
+                                                   conservation_pct = conservation_pct_dbl))
+        }
+
+        # Save conservation profile
+        output_path <- file.path(OUTPUT_DIR_path,
+                                paste0(gene_chr, "_uniref50_conservation.tsv"))
+        write.table(x = conservation_profile_df,
+                   file = output_path,
+                   sep = "\t",
+                   row.names = FALSE,
+                   quote = FALSE)
+
+        # Calculate summary statistics
+        mean_conservation_dbl <- mean(conservation_profile_df$conservation_pct,
+                                     na.rm = TRUE)
+
+        cat("    Analyzed", nrow(conservation_profile_df), "Scer positions\n")
+        cat("    Mean conservation:", round(mean_conservation_dbl, 1), "%\n")
+        cat("    Saved to:", basename(output_path), "\n")
+
+        # Record summary
+        conservation_summary_df <- rbind(conservation_summary_df,
+                                        data.frame(gene = gene_chr,
+                                                 dataset = "uniref50",
+                                                 n_positions = nrow(conservation_profile_df),
+                                                 mean_conservation = mean_conservation_dbl,
+                                                 status = "complete"))
+      }
+    }
+  }
+
+  cat("\n")
+}
+
+# Save conservation summary
+summary_path <- file.path(OUTPUT_DIR_path, "conservation_summary.tsv")
+write.table(x = conservation_summary_df,
+            file = summary_path,
+            sep = "\t",
+            row.names = FALSE,
+            quote = FALSE)
+
+cat("=== CONSERVATION ANALYSIS COMPLETE ===\n")
+cat("Summary saved to:", summary_path, "\n")
+print(conservation_summary_df)
 cat("\n")
