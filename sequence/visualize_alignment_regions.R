@@ -57,7 +57,7 @@ REGIONS_OF_INTEREST_lst <- list(
 )
 
 # Window size:  residues around center position
-ZOOM_WINDOW_RESIDUES_int <- 10
+ZOOM_WINDOW_RESIDUES_int <- 15
 
 # === DATASET CONFIGURATION ====================================================
 

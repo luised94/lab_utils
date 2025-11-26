@@ -8,40 +8,66 @@
 # Define all configuration parameters upfront
 
 # Organism taxonomy IDs (17 total)
+# Verify taxids at: https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi
 ORGANISM_TAXIDS_int <- c(
-  559292,   # S. cerevisiae (budding yeast)
-  284812,   # S. pombe (fission yeast)
-  7227,     # D. melanogaster (fruit fly)
-  6239,     # C. elegans (worm)
-  10090,    # M. musculus (mouse)
-  9606,     # H. sapiens (human)
-  8355,     # X. laevis (frog)
-  7955      # D. rerio (zebrafish)
+  559292,   # S. cerevisiae
+  10090,    # M. musculus
+  27288,    # N. castellii
+  284812,   # S. pombe
+  28985,    # K. lactis
+  33169,    # A. gossypii
+  3702,     # A. thaliana
+  4914,     # K. waltii
+  4922,     # P. pastoris
+  4931,      # S. bayanus
+  4934,     # L. kluyveri
+  4950,     # T. delbrueckii
+  4952,     # Y. lipolytica
+  4956,     # Z. rouxii
+  4959,     # D. hansenii
+  5141,     # N. crassa
+  5476,     # C. albicans
+  5478,     # C. glabrata
+  7227,     # D. melanogaster
+  8355,     # X. laevis
+  9606     # H. sapiens
 )
+stop("breakpoint")
+#ORGANISM_TAXIDS_int <- c(
+#  559292,   # S. cerevisiae (budding yeast)
+#  284812,   # S. pombe (fission yeast)
+#  7227,     # D. melanogaster (fruit fly)
+#  6239,     # C. elegans (worm)
+#  10090,    # M. musculus (mouse)
+#  9606,     # H. sapiens (human)
+#  8355,     # X. laevis (frog)
+#  7955      # D. rerio (zebrafish)
+#)
 
 # Short organism names for FASTA headers
-ORGANISM_NAMES_chr <- c(
-  "Scer",
-  "Spom",
-  "Dmel",
-  "Cele",
-  "Mmus",
-  "Hsap",
-  "Xlae",
-  "Drer"
-)
+# @TODO: These are not used in the query. Can remove.
+#ORGANISM_NAMES_chr <- c(
+#  "Scer",
+#  "Spom",
+#  "Dmel",
+#  "Cele",
+#  "Mmus",
+#  "Hsap",
+#  "Xlae",
+#  "Drer"
+#)
 
 # Full organism names for metadata
-ORGANISM_FULL_NAMES_chr <- c(
-  "Saccharomyces cerevisiae",
-  "Schizosaccharomyces pombe",
-  "Drosophila melanogaster",
-  "Caenorhabditis elegans",
-  "Mus musculus",
-  "Homo sapiens",
-  "Xenopus laevis",
-  "Danio rerio"
-)
+#ORGANISM_FULL_NAMES_chr <- c(
+#  "Saccharomyces cerevisiae",
+#  "Schizosaccharomyces pombe",
+#  "Drosophila melanogaster",
+#  "Caenorhabditis elegans",
+#  "Mus musculus",
+#  "Homo sapiens",
+#  "Xenopus laevis",
+#  "Danio rerio"
+#)
 
 # Genes to query (8 total)
 GENE_NAMES_chr <- c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", "TOA1", "TOA2")
@@ -53,7 +79,7 @@ FIELDS_uniprot_chr <- "accession,id,gene_names,organism_name,length,sequence"
 
 # Output configuration
 OUTPUT_DIR_path <- "~/data/protein_files"
-OUTPUT_PREFIX_chr <- "model_organisms"
+OUTPUT_PREFIX_chr <- "curated_organisms"
 
 # Cache control
 FORCE_DOWNLOAD_lgl <- FALSE
@@ -168,10 +194,10 @@ for (gene_idx in 1:length(GENE_NAMES_chr)) {
 
   for (org_idx in 1:length(ORGANISM_TAXIDS_int)) {
     taxid_int <- ORGANISM_TAXIDS_int[org_idx]
-    org_name_chr <- ORGANISM_NAMES_chr[org_idx]
-    org_full_chr <- ORGANISM_FULL_NAMES_chr[org_idx]
+    #org_name_chr <- ORGANISM_NAMES_chr[org_idx]
+    #org_full_chr <- ORGANISM_FULL_NAMES_chr[org_idx]
 
-    cat(sprintf("  %s in %s... ", gene_name_chr, org_name_chr))
+    cat(sprintf("  %s in %s... ", gene_name_chr))#, org_name_chr))
 
     result_found <- FALSE
     result_data <- NULL
@@ -268,8 +294,8 @@ for (gene_idx in 1:length(GENE_NAMES_chr)) {
       sequences_count_int <- sequences_count_int + 1
       sequences_list[[sequences_count_int]] <- list(
         gene = gene_name_chr,
-        organism_name = org_name_chr,
-        organism_full = org_full_chr,
+        #organism_name = org_name_chr,
+        #organism_full = org_full_chr,
         taxid = taxid_int,
         accession = accession_chr,
         uniprot_id = uniprot_id_chr,
@@ -288,8 +314,8 @@ for (gene_idx in 1:length(GENE_NAMES_chr)) {
       sequences_count_int <- sequences_count_int + 1
       sequences_list[[sequences_count_int]] <- list(
         gene = gene_name_chr,
-        organism_name = org_name_chr,
-        organism_full = org_full_chr,
+        #organism_name = org_name_chr,
+        #organism_full = org_full_chr,
         taxid = taxid_int,
         accession = NA_character_,
         uniprot_id = NA_character_,
@@ -484,7 +510,7 @@ for (gene_name_chr in GENE_NAMES_chr) {
   # Write FASTA file
   fasta_path <- file.path(
     OUTPUT_DIR_path,
-    paste0(gene_name_chr, "_model_organisms.fasta")
+    paste0(gene_name_chr, "_curated_organisms.fasta")
   )
 
   Biostrings::writeXStringSet(
@@ -502,7 +528,7 @@ cat("\n=== FASTA Files Summary ===\n")
 for (gene_name_chr in GENE_NAMES_chr) {
   fasta_path <- file.path(
     OUTPUT_DIR_path,
-    paste0(gene_name_chr, "_model_organisms.fasta")
+    paste0(gene_name_chr, "_curated_organisms.fasta")
   )
 
   if (file.exists(fasta_path)) {
