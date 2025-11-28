@@ -168,3 +168,37 @@ if (response_status_int != 200) {
 }
 
 cat("Request successful\n\n")
+
+# JSON PARSING AND INITIAL VERIFICATION =======================================
+
+cat("=== Parsing JSON Response ===\n")
+
+# Extract response body as text
+response_text_chr <- httr2::resp_body_string(resp = response_obj)
+
+# Parse JSON with automatic dataframe flattening
+response_data <- jsonlite::fromJSON(txt = response_text_chr, simplifyDataFrame = TRUE)
+
+# Extract results array
+results_df <- response_data$results
+
+# Verify we got results
+if (is.null(results_df) || nrow(results_df) == 0) {
+  stop("No results returned from UniProt query", call. = FALSE)
+}
+
+cat("Results retrieved:", nrow(results_df), "sequences\n")
+cat("Columns in results:", ncol(results_df), "\n")
+
+# Display column names to understand structure
+cat("\nColumn names:\n")
+print(names(results_df))
+
+# Check for list-columns that need extraction
+list_cols_lgl <- sapply(results_df, is.list)
+if (any(list_cols_lgl)) {
+  cat("\nList-columns requiring extraction:\n")
+  print(names(results_df)[list_cols_lgl])
+}
+
+cat("\nJSON parsing complete\n\n")
