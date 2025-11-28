@@ -86,3 +86,39 @@ cat("Target organisms:", length(ORGANISM_TAXIDS_int), "\n")
 cat("Expected max results:", length(GENE_NAMES_chr) * length(ORGANISM_TAXIDS_int), "\n")
 cat("Dry run mode:", DRY_RUN_lgl, "\n")
 cat("Output directory:", OUTPUT_DIR_chr, "\n\n")
+
+# QUERY CONSTRUCTION ==========================================================
+
+cat("=== Constructing Query ===\n")
+
+# Build gene name clause: (gene:ORC1 OR gene:ORC2 OR ...)
+gene_clauses_chr <- paste0("gene:", GENE_NAMES_chr)
+gene_clause_combined_chr <- paste0("(", paste(gene_clauses_chr, collapse = " OR "), ")")
+
+# Build protein family clause: (protein_name:"..." OR protein_name:"...")
+protein_clauses_chr <- paste0("protein_name:\"", PROTEIN_FAMILIES_chr, "\"")
+protein_clause_combined_chr <- paste0("(", paste(protein_clauses_chr, collapse = " OR "), ")")
+
+# Combine gene and protein clauses
+gene_protein_clause_chr <- paste0("(", gene_clause_combined_chr, " OR ", protein_clause_combined_chr, ")")
+
+# Build organism clause: (organism_id:559292 OR organism_id:10090 OR ...)
+organism_clauses_chr <- paste0("organism_id:", ORGANISM_TAXIDS_int)
+organism_clause_chr <- paste0("(", paste(organism_clauses_chr, collapse = " OR "), ")")
+
+# Build fragment filter
+fragment_clause_chr <- "(fragment:false)"
+
+# Combine all clauses into final query
+query_chr <- paste(gene_protein_clause_chr, "AND", organism_clause_chr, "AND", fragment_clause_chr)
+
+cat("Query length:", nchar(query_chr), "characters\n")
+
+if (DRY_RUN_lgl) {
+  cat("\n=== DRY RUN: Query String ===\n")
+  cat(query_chr, "\n")
+  cat("\n=== DRY RUN: Complete - Set DRY_RUN_lgl <- FALSE to execute ===\n")
+  stop("Dry run complete", call. = FALSE)
+}
+
+cat("Query constructed successfully\n\n")
