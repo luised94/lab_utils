@@ -1,0 +1,88 @@
+# ==============================================================================
+# Purpose: Download ORC and TFIIA sequences via single batched UniProt query
+# Strategy: One API call for all genes x all organisms, filter locally
+# ==============================================================================
+
+# CONFIGURATION BLOCK =========================================================
+
+# Control flags
+DRY_RUN_lgl <- TRUE  # Set to FALSE to execute query
+
+# Load required packages
+library(httr2)      # For REST API requests
+library(Biostrings) # For FASTA file handling
+
+# Target genes (8 total)
+GENE_NAMES_chr <- c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", "TOA1", "TOA2")
+
+# Protein family names for broader matching
+# These capture all subunits without specifying numbers
+PROTEIN_FAMILIES_chr <- c(
+  "origin recognition complex subunit",
+  "Transcription initiation factor IIA subunit"
+)
+
+# Target organism taxonomy IDs (21 total)
+ORGANISM_TAXIDS_int <- c(
+  559292,   # S. cerevisiae
+  10090,    # M. musculus
+  27288,    # N. castellii
+  284812,   # S. pombe
+  28985,    # K. lactis
+  33169,    # A. gossypii
+  3702,     # A. thaliana
+  4914,     # K. waltii
+  4922,     # P. pastoris
+  4931,     # S. bayanus
+  4934,     # L. kluyveri
+  4950,     # T. delbrueckii
+  4952,     # Y. lipolytica
+  4956,     # Z. rouxii
+  4959,     # D. hansenii
+  5141,     # N. crassa
+  5476,     # C. albicans
+  5478,     # C. glabrata
+  7227,     # D. melanogaster
+  8355,     # X. laevis
+  9606      # H. sapiens
+)
+
+# UniProt API configuration
+BASE_URL_chr <- "https://rest.uniprot.org"
+ENDPOINT_chr <- "/uniprotkb/search"
+FIELDS_chr <- "accession,id,gene_names,organism_name,organism_id,length,sequence,reviewed"
+SIZE_int <- 1000  # Max results to retrieve (generous for ~168 potential sequences)
+
+# Request configuration
+TIMEOUT_sec <- 120
+USER_AGENT_chr <- "ORC_TFIIA_Batch_Download/1.0 (R; contact@example.com)"
+
+# Output configuration
+OUTPUT_DIR_chr <- "~/data/protein_files"
+METADATA_FILENAME_chr <- "curated_sequences_metadata.tsv"
+SUMMARY_FILENAME_chr <- "curated_sequences_summary.tsv"
+FASTA_SUFFIX_chr <- "_curated_organisms.fasta"
+
+# Ensure output directory exists
+if (!dir.exists(paths = OUTPUT_DIR_chr)) {
+  dir.create(path = OUTPUT_DIR_chr, recursive = TRUE)
+}
+
+# Validation assertions
+stopifnot(
+  "GENE_NAMES_chr must not be empty" = length(GENE_NAMES_chr) > 0,
+  "ORGANISM_TAXIDS_int must not be empty" = length(ORGANISM_TAXIDS_int) > 0,
+  "ORGANISM_TAXIDS_int must be integers" = is.double(ORGANISM_TAXIDS_int),
+  "SIZE_int must be positive" = SIZE_int > 0,
+  "TIMEOUT_sec must be positive" = TIMEOUT_sec > 0,
+  "OUTPUT_DIR_chr must be non-empty string" = nchar(OUTPUT_DIR_chr) > 0,
+  "Expected results should not exceed SIZE_int" = 
+    (length(GENE_NAMES_chr) * length(ORGANISM_TAXIDS_int) * 2) <= SIZE_int
+)
+
+cat("=== Configuration Loaded ===\n")
+cat("Target genes:", length(GENE_NAMES_chr), "\n")
+cat("Target organisms:", length(ORGANISM_TAXIDS_int), "\n")
+cat("Expected max results:", length(GENE_NAMES_chr) * length(ORGANISM_TAXIDS_int), "\n")
+cat("Dry run mode:", DRY_RUN_lgl, "\n")
+cat("Output directory:", OUTPUT_DIR_chr, "\n\n")
