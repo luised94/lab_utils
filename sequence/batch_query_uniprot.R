@@ -127,6 +127,9 @@ cat("Query constructed successfully\n\n")
 
 cat("=== Executing API Request ===\n")
 
+# Define cache file location
+RESPONSE_CACHE_FILE_chr <- file.path(OUTPUT_DIR_chr, "uniprot_response_cache.rds")
+
 # Build request object
 request_obj <- httr2::request(base_url = paste0(BASE_URL_chr, ENDPOINT_chr)) |>
   httr2::req_url_query(
@@ -138,11 +141,25 @@ request_obj <- httr2::request(base_url = paste0(BASE_URL_chr, ENDPOINT_chr)) |>
   httr2::req_user_agent(string = USER_AGENT_chr) |>
   httr2::req_timeout(seconds = TIMEOUT_sec)
 
-# Perform request
-cat("Sending request to UniProt...\n")
-response_obj <- httr2::req_perform(req = request_obj)
+# Check for cached response (session  disk  query)
+if (!exists("response_obj")) {
+  if (file.exists(RESPONSE_CACHE_FILE_chr)) {
+    cat("Loading cached response from disk...\n")
+    response_obj <- readRDS(file = RESPONSE_CACHE_FILE_chr)
+    cat("Cache loaded:", RESPONSE_CACHE_FILE_chr, "\n")
+  } else {
+    cat("No cache found - querying UniProt API...\n")
+    response_obj <- httr2::req_perform(req = request_obj)
 
-# Check response status
+    # Cache to disk for future sessions
+    saveRDS(object = response_obj, file = RESPONSE_CACHE_FILE_chr)
+    cat("Response cached to disk:", RESPONSE_CACHE_FILE_chr, "\n")
+  }
+} else {
+  cat("Using existing response_obj from current session\n")
+}
+
+# Verify response status
 response_status_int <- httr2::resp_status(resp = response_obj)
 cat("Response status:", response_status_int, "\n")
 
