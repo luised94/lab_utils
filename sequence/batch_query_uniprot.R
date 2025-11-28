@@ -6,7 +6,7 @@
 # CONFIGURATION BLOCK =========================================================
 
 # Control flags
-DRY_RUN_lgl <- TRUE  # Set to FALSE to execute query
+DRY_RUN_lgl <- FALSE  # Set to FALSE to execute query
 
 # Load required packages
 library(httr2)      # For REST API requests
@@ -51,7 +51,7 @@ ORGANISM_TAXIDS_int <- c(
 BASE_URL_chr <- "https://rest.uniprot.org"
 ENDPOINT_chr <- "/uniprotkb/search"
 FIELDS_chr <- "accession,id,gene_names,organism_name,organism_id,length,sequence,reviewed"
-SIZE_int <- 1000  # Max results to retrieve (generous for ~168 potential sequences)
+SIZE_int <- 500  # Max results to retrieve (generous for ~168 potential sequences)
 
 # Request configuration
 TIMEOUT_sec <- 120
@@ -73,7 +73,7 @@ stopifnot(
   "GENE_NAMES_chr must not be empty" = length(GENE_NAMES_chr) > 0,
   "ORGANISM_TAXIDS_int must not be empty" = length(ORGANISM_TAXIDS_int) > 0,
   "ORGANISM_TAXIDS_int must be integers" = is.double(ORGANISM_TAXIDS_int),
-  "SIZE_int must be positive" = SIZE_int > 0,
+  "SIZE_int must be positive and less than 500" = SIZE_int > 0 & SIZE_int <= 500,
   "TIMEOUT_sec must be positive" = TIMEOUT_sec > 0,
   "OUTPUT_DIR_chr must be non-empty string" = nchar(OUTPUT_DIR_chr) > 0,
   "Expected results should not exceed SIZE_int" = 
@@ -122,3 +122,32 @@ if (DRY_RUN_lgl) {
 }
 
 cat("Query constructed successfully\n\n")
+
+# API CALL EXECUTION ==========================================================
+
+cat("=== Executing API Request ===\n")
+
+# Build request object
+request_obj <- httr2::request(base_url = paste0(BASE_URL_chr, ENDPOINT_chr)) |>
+  httr2::req_url_query(
+    query = query_chr,
+    format = "json",
+    fields = FIELDS_chr,
+    size = SIZE_int
+  ) |>
+  httr2::req_user_agent(string = USER_AGENT_chr) |>
+  httr2::req_timeout(seconds = TIMEOUT_sec)
+
+# Perform request
+cat("Sending request to UniProt...\n")
+response_obj <- httr2::req_perform(req = request_obj)
+
+# Check response status
+response_status_int <- httr2::resp_status(resp = response_obj)
+cat("Response status:", response_status_int, "\n")
+
+if (response_status_int != 200) {
+  stop("API request failed with status ", response_status_int, call. = FALSE)
+}
+
+cat("Request successful\n\n")
