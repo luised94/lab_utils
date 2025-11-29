@@ -2,11 +2,14 @@
 # Purpose: Download ORC and TFIIA sequences via single batched UniProt query
 # Strategy: One API call for all genes x all organisms, filter locally
 # ==============================================================================
+# Purpose: Download ORC and TFIIA sequences via single batched UniProt query
+# Strategy: One API call for all genes x all organisms, filter locally
+# ==============================================================================
 
 # CONFIGURATION BLOCK =========================================================
 
 # Control flags
-DRY_RUN_lgl <- TRUE  # Set to FALSE to execute query
+DRY_RUN_lgl <- FALSE  # Set to FALSE to execute query
 
 # Load required packages
 library(httr2)      # For REST API requests
@@ -18,8 +21,8 @@ GENE_NAMES_chr <- c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", "TOA1", "TOA
 # Protein family names for broader matching
 # These capture all subunits without specifying numbers
 PROTEIN_FAMILIES_chr <- c(
-  "origin recognition complex subunit",
-  "Transcription initiation factor IIA subunit"
+  "origin recognition complex",
+  "transcription factor iia"
 )
 
 # Target organism taxonomy IDs (21 total)
@@ -80,6 +83,7 @@ stopifnot(
     (length(GENE_NAMES_chr) * length(ORGANISM_TAXIDS_int) * 2) <= SIZE_int
 )
 
+
 cat("=== Configuration Loaded ===\n")
 cat("Target genes:", length(GENE_NAMES_chr), "\n")
 cat("Target organisms:", length(ORGANISM_TAXIDS_int), "\n")
@@ -126,7 +130,6 @@ cat("Query constructed successfully\n\n")
 # API CALL EXECUTION ==========================================================
 
 cat("=== Executing API Request ===\n")
-
 # Define cache file location
 RESPONSE_CACHE_FILE_chr <- file.path(OUTPUT_DIR_chr, "uniprot_response_cache.rds")
 
@@ -159,7 +162,11 @@ if (!exists("response_obj")) {
   cat("Using existing response_obj from current session\n")
 }
 
-# Verify response status
+# Perform request
+cat("Sending request to UniProt...\n")
+response_obj <- httr2::req_perform(req = request_obj)
+
+# Check response status
 response_status_int <- httr2::resp_status(resp = response_obj)
 cat("Response status:", response_status_int, "\n")
 
@@ -189,8 +196,6 @@ if (is.null(results_df) || nrow(results_df) == 0) {
 
 cat("Results retrieved:", nrow(results_df), "sequences\n")
 cat("Columns in results:", ncol(results_df), "\n")
-
-# Display column names to understand structure
 cat("\nColumn names:\n")
 print(names(results_df))
 
@@ -207,7 +212,7 @@ cat("\nJSON parsing complete\n\n")
 
 cat("=== Extracting and Flattening Fields ===\n")
 
-# Auto-detect column types among list-columns
+# Categorize list-columns by structure type
 dataframe_cols_chr <- names(results_df)[list_cols_lgl & sapply(results_df, is.data.frame)]
 non_dataframe_cols_chr <- names(results_df)[list_cols_lgl & sapply(results_df, function(x) !is.data.frame(x))]
 
@@ -281,7 +286,7 @@ for (col_name_chr in non_dataframe_cols_chr) {
   }
 }
 
-# Add computed boolean fields
+# Add computed fields
 cat("  Adding computed fields...\n")
 
 # Reviewed status from entryType
@@ -304,46 +309,35 @@ results_df$organism_short <- sapply(results_df$organism_scientificName, function
   }
 })
 
-cat("    Added reviewed_lgl and organism_short\n")
+# Normalize gene names to uppercase for grouping
+results_df$gene_normalized <- toupper(results_df$gene_primary)
+
+cat("    Added reviewed_lgl, organism_short, gene_normalized\n")
 
 # Summary of enriched dataframe
 cat("\nEnriched dataframe dimensions:", nrow(results_df), "rows x", ncol(results_df), "columns\n")
-cat("Column names:\n")
-print(names(results_df))
 
-cat("\nField extraction complete\n\n")
+cat("\nDiagnostic flags complete\n\n")
 
+# PRIORITIZATION AND GROUPING =================================================
 
-# FILTERING AND PRIORITIZATION ================================================
+cat("=== Prioritizing Sequences ===\n")
 
-cat("=== Filtering and Prioritizing Sequences ===\n")
-
-# Group by organism and gene, select best sequence per combination
-# Priority: reviewed > exact gene match > longest sequence
-
-# Create exact gene match flag for each target gene
-results_df$gene_match_exact <- sapply(seq_len(nrow(results_df)), function(i) {
-  gene_primary <- results_df$gene_primary[i]
-  if (is.na(gene_primary)) return(FALSE)
-
-  # Check if gene_primary matches any of our target genes (case-insensitive)
-  any(tolower(gene_primary) == tolower(GENE_NAMES_chr))
-})
-
-cat("Exact gene matches:", sum(results_df$gene_match_exact, na.rm = TRUE), "/", nrow(results_df), "\n")
-
-# Split by (organism_taxonId, gene_primary) combination
-results_df$group_key <- paste0(results_df$organism_taxonId, "_", results_df$gene_primary)
+# Group by (organism_taxonId, gene_normalized) combination
+results_df$group_key <- paste0(results_df$organism_taxonId, "_", results_df$gene_normalized)
 grouped_list <- split(x = results_df, f = results_df$group_key)
 
 cat("Unique (organism, gene) combinations:", length(grouped_list), "\n")
 
-# Select best sequence from each group
+# Select best sequence from each group based on priority:
+# 1. Reviewed status (reviewed > unreviewed)
+# 2. Gene matches target (exact match > protein name match)
+# 3. Sequence length (longest > shortest)
 selected_results_list <- lapply(grouped_list, function(group_df) {
-  # Sort by priority: reviewed (desc), exact_match (desc), length (desc)
+  # Sort by priority
   sorted_indices <- order(
     -group_df$reviewed_lgl,
-    -group_df$gene_match_exact,
+    -group_df$gene_matches_target,
     -group_df$sequence_length
   )
 
@@ -355,108 +349,170 @@ selected_results_list <- lapply(grouped_list, function(group_df) {
 filtered_df <- do.call(rbind, selected_results_list)
 rownames(filtered_df) <- NULL
 
-# CRITICAL: Filter to only target genes
-cat("Filtering to target genes only...\n")
-cat("  Before filtering:", nrow(filtered_df), "sequences\n")
+cat("Sequences after prioritization:", nrow(filtered_df), "\n")
 
-filtered_df <- filtered_df[
-  !is.na(filtered_df$gene_primary) &
-  tolower(filtered_df$gene_primary) %in% tolower(GENE_NAMES_chr),
-]
-
-cat("  After filtering:", nrow(filtered_df), "sequences (target genes only)\n")
-
-# Sort by organism_short then gene_primary for readability
-filtered_df <- filtered_df[order(filtered_df$organism_short, tolower(filtered_df$gene_primary)), ]
+# Sort by organism, gene, reviewed status, length for manual review
+cat("Sorting for manual review (organism  gene  reviewed  length)...\n")
+filtered_df <- filtered_df[order(
+  filtered_df$organism_taxonId,
+  filtered_df$gene_normalized,
+  -filtered_df$reviewed_lgl,
+  -filtered_df$sequence_length
+), ]
 rownames(filtered_df) <- NULL
 
-cat("\n--- Coverage Analysis ---\n")
+cat("\nPrioritization complete\n\n")
 
-# Genes found (case-insensitive unique)
-genes_found_unique_chr <- unique(tolower(filtered_df$gene_primary))
-genes_found_count <- sum(tolower(GENE_NAMES_chr) %in% genes_found_unique_chr)
+# COVERAGE ANALYSIS ===========================================================
 
-cat("Target genes found:", genes_found_count, "/", length(GENE_NAMES_chr), "\n")
+cat("=== Coverage Analysis ===\n")
 
-# Show which target genes are present
-genes_present <- GENE_NAMES_chr[tolower(GENE_NAMES_chr) %in% genes_found_unique_chr]
-genes_missing <- GENE_NAMES_chr[!tolower(GENE_NAMES_chr) %in% genes_found_unique_chr]
+# Expected sequences per organism
+EXPECTED_GENES_PER_ORGANISM_int <- length(GENE_NAMES_chr)
 
-if (length(genes_present) > 0) {
-  cat("  Present:", paste(genes_present, collapse = ", "), "\n")
-}
-if (length(genes_missing) > 0) {
-  cat("  Missing:", paste(genes_missing, collapse = ", "), "\n")
-}
+# Count sequences by organism
+organism_counts <- table(filtered_df$organism_taxonId)
 
-# Organisms found
-organisms_found_int <- unique(filtered_df$organism_taxonId)
-cat("\nTarget organisms found:", length(organisms_found_int), "/", length(ORGANISM_TAXIDS_int), "\n")
+cat("Organisms represented:", length(organism_counts), "/", length(ORGANISM_TAXIDS_int), "\n\n")
 
-# S. cerevisiae verification (taxid 559292)
-scer_genes <- unique(tolower(filtered_df$gene_primary[filtered_df$organism_taxonId == 559292]))
-cat("\nS. cerevisiae (taxid 559292) coverage:", length(scer_genes), "/ 8 genes\n")
-if (length(scer_genes) > 0) {
-  scer_found <- GENE_NAMES_chr[tolower(GENE_NAMES_chr) %in% scer_genes]
-  scer_missing <- GENE_NAMES_chr[!tolower(GENE_NAMES_chr) %in% scer_genes]
-  cat("  Found:", paste(scer_found, collapse = ", "), "\n")
-  if (length(scer_missing) > 0) {
-    cat("  Missing:", paste(scer_missing, collapse = ", "), "\n")
+# Categorize organisms by sequence count
+organisms_complete <- names(organism_counts)[organism_counts == EXPECTED_GENES_PER_ORGANISM_int]
+organisms_incomplete <- names(organism_counts)[organism_counts < EXPECTED_GENES_PER_ORGANISM_int & organism_counts > 0]
+organisms_excess <- names(organism_counts)[organism_counts > EXPECTED_GENES_PER_ORGANISM_int]
+organisms_missing <- setdiff(as.character(ORGANISM_TAXIDS_int), names(organism_counts))
+
+# Report complete organisms
+if (length(organisms_complete) > 0) {
+  cat("COMPLETE organisms (", EXPECTED_GENES_PER_ORGANISM_int, "/", EXPECTED_GENES_PER_ORGANISM_int, " genes): ",
+      length(organisms_complete), "\n", sep = "")
+  for (taxid in organisms_complete) {
+    org_short <- unique(filtered_df$organism_short[filtered_df$organism_taxonId == as.numeric(taxid)])
+    cat(sprintf("  %s (taxid %s)\n", org_short, taxid))
   }
 }
 
-# Missing organisms
-missing_taxids_int <- setdiff(ORGANISM_TAXIDS_int, organisms_found_int)
-# Organisms with incomplete gene lists
-incomplete_orgs <- organisms_found_int[sapply(organisms_found_int, function(taxid) {
-  org_genes <- unique(tolower(filtered_df$gene_primary[filtered_df$organism_taxonId == taxid]))
-  length(org_genes) < length(GENE_NAMES_chr)
-})]
+# Report incomplete organisms
+if (length(organisms_incomplete) > 0) {
+  cat("\nINCOMPLETE organisms (<", EXPECTED_GENES_PER_ORGANISM_int, " genes): ",
+      length(organisms_incomplete), "\n", sep = "")
+  for (taxid in organisms_incomplete) {
+    org_short <- unique(filtered_df$organism_short[filtered_df$organism_taxonId == as.numeric(taxid)])
+    count <- organism_counts[taxid]
+    org_genes <- unique(filtered_df$gene_normalized[filtered_df$organism_taxonId == as.numeric(taxid)])
+    missing_genes <- setdiff(toupper(GENE_NAMES_chr), org_genes)
 
-# Reviewed status
-cat("\nReviewed status:\n")
-print(table(Reviewed = filtered_df$reviewed_lgl))
-
-# Gene x Organism coverage (target genes only, collapsed by case)
-cat("\n--- Gene x Organism Coverage (Target Genes) ---\n")
-
-# Normalize gene names to uppercase for display
-filtered_df$gene_normalized <- toupper(filtered_df$gene_primary)
-
-coverage_matrix <- table(
-  Gene = filtered_df$gene_normalized,
-  Organism = filtered_df$organism_short
-)
-print(coverage_matrix)
-
-# Per-organism gene lists
-cat("\n--- Genes Found Per Organism ---\n")
-org_gene_summary <- aggregate(
-  gene_normalized ~ organism_short + organism_taxonId,
-  data = filtered_df,
-  FUN = function(x) paste(sort(unique(x)), collapse = ", ")
-)
-org_gene_summary <- org_gene_summary[order(org_gene_summary$organism_short), ]
-
-for (i in 1:nrow(org_gene_summary)) {
-  cat(sprintf("  %-6s (taxid %6d): %s\n",
-              org_gene_summary$organism_short[i],
-              org_gene_summary$organism_taxonId[i],
-              org_gene_summary$gene_normalized[i]))
+    cat(sprintf("  %s (taxid %s): %d/%d genes\n",
+                org_short, taxid, count, EXPECTED_GENES_PER_ORGANISM_int))
+    cat("    Present:", paste(sort(org_genes), collapse = ", "), "\n")
+    if (length(missing_genes) > 0) {
+      cat("    Missing:", paste(missing_genes, collapse = ", "), "\n")
+    }
+  }
 }
 
-# Export accession table for manual review
-cat("\n--- Exporting Accession Table ---\n")
+# Report organisms with excess sequences
+if (length(organisms_excess) > 0) {
+  cat("\nEXCESS sequences (>", EXPECTED_GENES_PER_ORGANISM_int, " genes - possible isoforms/duplicates): ",
+      length(organisms_excess), "\n", sep = "")
+  for (taxid in organisms_excess) {
+    org_short <- unique(filtered_df$organism_short[filtered_df$organism_taxonId == as.numeric(taxid)])
+    count <- organism_counts[taxid]
+    cat(sprintf("  %s (taxid %s): %d sequences\n", org_short, taxid, count))
+  }
+}
 
-accession_table_df <- filtered_df[, c(
+# Report completely missing organisms
+if (length(organisms_missing) > 0) {
+  cat("\nMISSING organisms (0 sequences): ", length(organisms_missing), "\n", sep = "")
+  cat("  TaxIDs:", paste(organisms_missing, collapse = ", "), "\n")
+}
+
+# S. cerevisiae specific verification
+SCER_TAXID_int <- 559292
+cat("\n--- S. cerevisiae Verification (taxid ", SCER_TAXID_int, ") ---\n", sep = "")
+
+scer_sequences <- filtered_df[filtered_df$organism_taxonId == SCER_TAXID_int, ]
+scer_gene_count <- nrow(scer_sequences)
+
+cat("Sequences found:", scer_gene_count, "/", EXPECTED_GENES_PER_ORGANISM_int, "\n")
+
+if (scer_gene_count > 0) {
+  scer_genes <- unique(scer_sequences$gene_normalized)
+  missing_scer_genes <- setdiff(toupper(GENE_NAMES_chr), scer_genes)
+
+  cat("Genes found:", paste(sort(scer_genes), collapse = ", "), "\n")
+
+  if (length(missing_scer_genes) > 0) {
+    cat("MISSING genes:", paste(missing_scer_genes, collapse = ", "), "\n")
+  }
+
+  # Show accessions for cerevisiae
+  cat("\nS. cerevisiae accessions:\n")
+  scer_table <- scer_sequences[, c("gene_normalized", "primaryAccession", "sequence_length", "reviewed_lgl")]
+  print(scer_table, row.names = FALSE)
+} else {
+  cat("WARNING: No S. cerevisiae sequences found!\n")
+}
+
+# Reviewed status breakdown
+cat("\n--- Reviewed Status ---\n")
+print(table(Reviewed = filtered_df$reviewed_lgl))
+
+# Gene matches target breakdown
+cat("\n--- Gene Name Matches ---\n")
+print(table(MatchesTarget = filtered_df$gene_matches_target))
+
+# Protein family breakdown
+cat("\n--- Protein Family Assignment ---\n")
+print(table(Family = filtered_df$protein_family))
+
+cat("\nCoverage analysis complete\n\n")
+
+# EXPORT AND DIAGNOSTIC QUERIES ===============================================
+
+cat("=== Exporting Results and Generating Diagnostic Queries ===\n")
+
+# Export comprehensive results table
+export_columns_chr <- c(
   "gene_normalized",
+  "gene_primary",
   "organism_short",
   "organism_scientificName",
   "organism_taxonId",
   "primaryAccession",
   "uniProtkbId",
   "sequence_length",
-  "reviewed_lgl"
+  "reviewed_lgl",
+  "gene_matches_target",
+  "protein_family",
+  "query_match_source",
+  "potential_issue_flag",
+  "gene_synonyms"
+)
+
+comprehensive_table_df <- filtered_df[, export_columns_chr]
+comprehensive_table_path <- file.path(OUTPUT_DIR_chr, "comprehensive_results.tsv")
+
+write.table(
+  x = comprehensive_table_df,
+  file = comprehensive_table_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE,
+  na = ""
+)
+
+cat("Comprehensive table:", comprehensive_table_path, "\n")
+cat("  Sequences:", nrow(comprehensive_table_df), "\n")
+
+# Export accession-only table
+accession_table_df <- filtered_df[, c(
+  "organism_taxonId",
+  "organism_short",
+  "gene_normalized",
+  "primaryAccession",
+  "reviewed_lgl",
+  "sequence_length"
 )]
 
 accession_table_path <- file.path(OUTPUT_DIR_chr, "accession_table.tsv")
@@ -468,57 +524,59 @@ write.table(
   quote = FALSE
 )
 
-cat("Accession table saved:", accession_table_path, "\n")
-cat("  Total sequences:", nrow(accession_table_df), "\n")
-cat("  View with: cat", accession_table_path, "\n")
+cat("Accession table:", accession_table_path, "\n\n")
 
-# Generate diagnostic queries for manual verification
-cat("\n=== DIAGNOSTIC QUERIES FOR MANUAL VERIFICATION ===\n")
+# Generate diagnostic queries
+cat("--- Diagnostic Queries ---\n")
 
-# 1. Query for completely missing organisms
-if (length(missing_taxids_int) > 0) {
-  cat("\n1) MISSING ORGANISMS (", length(missing_taxids_int), " taxids):\n", sep = "")
-  cat("   TaxIDs:", paste(missing_taxids_int, collapse = ", "), "\n")
+# Query 1: Missing organisms
+if (length(organisms_missing) > 0) {
+  cat("1) Missing organisms query\n")
 
-  missing_org_clause <- paste0("organism_id:", missing_taxids_int, collapse = " OR ")
-  backup_query_chr <- paste0(
+  missing_org_clause <- paste0("organism_id:", organisms_missing, collapse = " OR ")
+  missing_org_query_chr <- paste0(
     "(", gene_clause_combined_chr, " OR ", protein_clause_combined_chr, ") AND (",
     missing_org_clause,
     ") AND (fragment:false)"
   )
 
-  cat("\n   Query to find sequences for missing organisms:\n")
-  cat("   ", backup_query_chr, "\n")
-} else {
-  cat("\n1) All organisms found - no missing organisms\n")
+  missing_org_query_path <- file.path(OUTPUT_DIR_chr, "query_missing_organisms.txt")
+  writeLines(text = missing_org_query_chr, con = missing_org_query_path)
+  cat("   Saved:", missing_org_query_path, "\n")
 }
 
-# 2. Query for organisms with incomplete gene lists
-if (length(incomplete_orgs) > 0) {
-  cat("\n2) INCOMPLETE ORGANISMS (", length(incomplete_orgs), " organisms with <8 genes):\n", sep = "")
+# Query 2: Incomplete organisms
+if (length(organisms_incomplete) > 0) {
+  cat("2) Incomplete organisms queries\n")
 
-  for (taxid in incomplete_orgs) {
-    org_short <- unique(filtered_df$organism_short[filtered_df$organism_taxonId == taxid])
-    org_genes <- unique(tolower(filtered_df$gene_primary[filtered_df$organism_taxonId == taxid]))
-    missing_genes <- GENE_NAMES_chr[!tolower(GENE_NAMES_chr) %in% org_genes]
+  incomplete_queries_chr <- character(0)
+  for (taxid in organisms_incomplete) {
+    org_short <- unique(filtered_df$organism_short[filtered_df$organism_taxonId == as.numeric(taxid)])
+    org_genes <- unique(filtered_df$gene_normalized[filtered_df$organism_taxonId == as.numeric(taxid)])
+    missing_genes <- setdiff(toupper(GENE_NAMES_chr), org_genes)
 
-    cat(sprintf("\n   %s (taxid %d): %d/8 genes\n", org_short, taxid, length(org_genes)))
-    cat("     Missing:", paste(missing_genes, collapse = ", "), "\n")
+    if (length(missing_genes) > 0) {
+      missing_gene_clauses <- paste0("gene:", missing_genes, collapse = " OR ")
+      incomplete_query_chr <- paste0(
+        "(", missing_gene_clauses, ") AND ",
+        "(organism_id:", taxid, ") AND (fragment:false)"
+      )
 
-    # Generate query for missing genes in this organism
-    missing_gene_clauses <- paste0("gene:", missing_genes)
-    incomplete_query_chr <- paste0(
-      "(", paste(missing_gene_clauses, collapse = " OR "), ") AND ",
-      "(organism_id:", taxid, ") AND (fragment:false)"
-    )
-    cat("     Query:", incomplete_query_chr, "\n")
+      query_entry <- paste0("# ", org_short, " (taxid ", taxid, ") - missing: ",
+                           paste(missing_genes, collapse = ", "), "\n",
+                           incomplete_query_chr, "\n")
+      incomplete_queries_chr <- c(incomplete_queries_chr, query_entry)
+    }
   }
-} else {
-  cat("\n2) All found organisms have complete gene sets (8/8)\n")
+
+  incomplete_queries_path <- file.path(OUTPUT_DIR_chr, "queries_incomplete_organisms.txt")
+  writeLines(text = incomplete_queries_chr, con = incomplete_queries_path)
+  cat("   Saved:", incomplete_queries_path, "\n")
 }
 
-# 3. Accession-based query for verification
-cat("\n3) ACCESSION-BASED QUERY (to verify current hits):\n")
+# Query 3: Accession-based verification
+cat("3) Accession-based query\n")
+
 accessions_chr <- filtered_df$primaryAccession
 accession_query_chr <- paste0(
   "(",
@@ -526,13 +584,105 @@ accession_query_chr <- paste0(
   ")"
 )
 
-# Save accession query to file
-accession_query_path <- file.path(OUTPUT_DIR_chr, "accession_query.txt")
+accession_query_path <- file.path(OUTPUT_DIR_chr, "query_accessions.txt")
 writeLines(text = accession_query_chr, con = accession_query_path)
+cat("   Saved:", accession_query_path, "\n")
+cat("   Accessions:", length(accessions_chr), "\n")
 
-cat("   Total accessions:", length(accessions_chr), "\n")
-cat("   Query saved to:", accession_query_path, "\n")
-cat("   First 200 chars:", substr(accession_query_chr, 1, 200), "...\n")
+cat("\n=== Script Complete ===\n")
+cat("Output files in:", OUTPUT_DIR_chr, "\n")
+cat("  - comprehensive_results.tsv\n")
+cat("  - accession_table.tsv\n")
+cat("  - query_*.txt files\n")
+cat("  - uniprot_response_cache.rds\n")
+cat("\nReady for manual curation\n")
 
-cat("\n=== END DIAGNOSTIC QUERIES ===\n")
-cat("\nFiltering complete\n\n")
+# DIAGNOSTIC FLAGS AND FILTERING ==============================================
+
+cat("=== Adding Diagnostic Flags ===\n")
+
+# Configuration for diagnostic flags
+PROTEIN_FAMILY_ORC_pattern_chr <- "origin recognition complex"
+PROTEIN_FAMILY_TFIIA_pattern_chr <- "transcription.*initiation.*factor.*IIA"
+FALSE_POSITIVE_PATTERNS_chr <- c("leucine.rich", "mitochondrial carrier")
+
+# Flag 1: Does gene_primary match target genes?
+results_df$gene_matches_target <- sapply(results_df$gene_primary, function(gene) {
+  if (is.na(gene)) return(FALSE)
+  tolower(gene) %in% tolower(GENE_NAMES_chr)
+})
+
+cat("  gene_matches_target:", sum(results_df$gene_matches_target, na.rm = TRUE), "/", nrow(results_df), "\n")
+
+# Flag 2: Which protein family does this belong to?
+# Need to check protein name - construct from uniProtkbId or use entryType description
+# For now, use a heuristic based on gene name and check if we need to extract protein description
+results_df$protein_family <- sapply(seq_len(nrow(results_df)), function(i) {
+  gene <- results_df$gene_primary[i]
+  # Use gene_normalized to check prefixes
+  gene_norm <- results_df$gene_normalized[i]
+
+  if (is.na(gene_norm)) {
+    return("unknown")
+  }
+
+  # Check gene name for ORC or TOA/TFIIA patterns
+  is_orc <- grepl(pattern = "^ORC[0-9]", x = gene_norm, ignore.case = TRUE)
+  is_tfiia <- grepl(pattern = "^TOA[0-9]|^TFIIA|^GTF2A", x = gene_norm, ignore.case = TRUE)
+
+  if (is_orc && is_tfiia) {
+    return("both")
+  } else if (is_orc) {
+    return("ORC")
+  } else if (is_tfiia) {
+    return("TFIIA")
+  } else {
+    return("unknown")
+  }
+})
+
+cat("  protein_family distribution:\n")
+print(table(results_df$protein_family))
+
+# Flag 3: Query match source
+results_df$query_match_source <- ifelse(
+  results_df$gene_matches_target,
+  "gene_name",
+  "protein_name_or_other"
+)
+
+cat("  query_match_source:\n")
+print(table(results_df$query_match_source))
+
+# Flag 4: Potential false positives
+results_df$potential_issue_flag <- sapply(results_df$uniProtkbId, function(id) {
+  if (is.na(id)) return(NA_character_)
+
+  # Check against false positive patterns
+  id_lower <- tolower(id)
+  issues <- character(0)
+
+  for (pattern in FALSE_POSITIVE_PATTERNS_chr) {
+    if (grepl(pattern = pattern, x = id_lower, ignore.case = TRUE)) {
+      issues <- c(issues, pattern)
+    }
+  }
+
+  if (length(issues) > 0) {
+    return(paste(issues, collapse = "; "))
+  } else {
+    return(NA_character_)
+  }
+})
+
+flagged_count <- sum(!is.na(results_df$potential_issue_flag))
+cat("  potential_issue_flag:", flagged_count, "sequences flagged\n")
+
+if (flagged_count > 0) {
+  cat("    Flagged sequences:\n")
+  flagged_rows <- results_df[!is.na(results_df$potential_issue_flag),
+                              c("gene_primary", "organism_short", "uniProtkbId", "potential_issue_flag")]
+  print(flagged_rows, row.names = FALSE)
+}
+
+cat("\nDiagnostic flags complete\n\n")
