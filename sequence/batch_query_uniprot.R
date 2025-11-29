@@ -312,3 +312,99 @@ cat("Column names:\n")
 print(names(results_df))
 
 cat("\nField extraction complete\n\n")
+
+
+# FILTERING AND PRIORITIZATION ================================================
+
+cat("=== Filtering and Prioritizing Sequences ===\n")
+
+# Group by organism and gene, select best sequence per combination
+# Priority: reviewed > exact gene match > longest sequence
+
+# Create exact gene match flag for each target gene
+results_df$gene_match_exact <- sapply(seq_len(nrow(results_df)), function(i) {
+  gene_primary <- results_df$gene_primary[i]
+  if (is.na(gene_primary)) return(FALSE)
+  
+  # Check if gene_primary matches any of our target genes (case-insensitive)
+  any(tolower(gene_primary) == tolower(GENE_NAMES_chr))
+})
+
+cat("Exact gene matches:", sum(results_df$gene_match_exact, na.rm = TRUE), "/", nrow(results_df), "\n")
+
+# Split by (organism_taxonId, gene_primary) combination
+results_df$group_key <- paste0(results_df$organism_taxonId, "_", results_df$gene_primary)
+grouped_list <- split(x = results_df, f = results_df$group_key)
+
+cat("Unique (organism, gene) combinations:", length(grouped_list), "\n")
+
+# Select best sequence from each group
+selected_results_list <- lapply(grouped_list, function(group_df) {
+  # Sort by priority: reviewed (desc), exact_match (desc), length (desc)
+  sorted_indices <- order(
+    -group_df$reviewed_lgl,
+    -group_df$gene_match_exact,
+    -group_df$sequence_length
+  )
+  
+  # Return top result
+  group_df[sorted_indices[1], , drop = FALSE]
+})
+
+# Combine selected results back into dataframe
+filtered_df <- do.call(rbind, selected_results_list)
+rownames(filtered_df) <- NULL
+
+cat("Sequences after prioritization:", nrow(filtered_df), "\n")
+
+cat("\n--- Coverage Analysis ---\n")
+
+# Genes found (show variations but count uniquely)
+genes_found_chr <- unique(filtered_df$gene_primary[!is.na(filtered_df$gene_primary)])
+genes_found_chr <- genes_found_chr[tolower(genes_found_chr) %in% tolower(GENE_NAMES_chr)]
+
+# Count unique genes (case-insensitive)
+genes_found_unique_chr <- unique(tolower(genes_found_chr))
+genes_found_count <- sum(tolower(GENE_NAMES_chr) %in% genes_found_unique_chr)
+
+cat("Target genes found:", genes_found_count, "/", length(GENE_NAMES_chr), "\n")
+cat("  Case variations:", paste(sort(genes_found_chr), collapse = ", "), "\n")
+
+# Organisms found
+organisms_found_int <- unique(filtered_df$organism_taxonId)
+cat("\nTarget organisms found:", length(organisms_found_int), "/", length(ORGANISM_TAXIDS_int), "\n")
+
+# Missing organisms
+missing_taxids_int <- setdiff(ORGANISM_TAXIDS_int, organisms_found_int)
+if (length(missing_taxids_int) > 0) {
+  cat("\nMissing organisms (taxids):", paste(missing_taxids_int, collapse = ", "), "\n")
+  
+  # Get organism names for missing taxids from original query results
+  missing_org_names <- unique(results_df$organism_scientificName[
+    results_df$organism_taxonId %in% missing_taxids_int
+  ])
+  if (length(missing_org_names) > 0) {
+    cat("  (Found in raw results but filtered out):", paste(missing_org_names, collapse = ", "), "\n")
+  } else {
+    cat("  (No sequences returned by UniProt for these organisms)\n")
+  }
+}
+
+# Breakdown by reviewed status
+cat("\nReviewed status breakdown:\n")
+print(table(Reviewed = filtered_df$reviewed_lgl))
+
+# Gene x Organism coverage matrix
+cat("\n--- Gene x Organism Coverage ---\n")
+coverage_matrix <- table(
+  Gene = filtered_df$gene_primary,
+  Organism = filtered_df$organism_short
+)
+print(coverage_matrix)
+
+# Sample of accessions for verification
+cat("\n--- Sample Accessions (first 10) ---\n")
+sample_df <- filtered_df[1:min(10, nrow(filtered_df)), c("gene_primary", "organism_short", "primaryAccession", "reviewed_lgl", "sequence_length")]
+print(sample_df, row.names = FALSE)
+
+cat("\nFiltering complete\n\n")
