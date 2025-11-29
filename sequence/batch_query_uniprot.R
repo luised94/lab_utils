@@ -202,3 +202,183 @@ if (any(list_cols_lgl)) {
 }
 
 cat("\nJSON parsing complete\n\n")
+
+# FIELD EXTRACTION AND DATA ENRICHMENT ========================================
+
+cat("=== Extracting and Flattening Fields ===\n")
+
+# Categorize list-columns by structure type
+simple_dataframe_cols_chr <- c("organism", "sequence", "extraAttributes")
+complex_nested_cols_chr <- c("genes")
+
+# Verify categorization matches actual list-columns
+list_col_names_chr <- names(results_df)[list_cols_lgl]
+cat("List-columns found:", paste(list_col_names_chr, collapse = ", "), "\n")
+
+# Process simple dataframe columns - merge with underscore prefix
+for (col_name_chr in simple_dataframe_cols_chr) {
+  if (col_name_chr %in% list_col_names_chr) {
+    cat("  Flattening:", col_name_chr, "\n")
+    
+    # Extract the nested dataframe
+    nested_df <- results_df[[col_name_chr]]
+    
+    # Prefix column names with parent column name
+    prefixed_names_chr <- paste0(col_name_chr, "_", names(nested_df))
+    names(nested_df) <- prefixed_names_chr
+    
+    # Merge into main dataframe
+    results_df <- cbind(results_df, nested_df)
+    
+    cat("    Added", ncol(nested_df), "columns\n")
+  }
+}
+
+# Process complex nested columns - custom extraction for genes
+cat("  Extracting gene information...\n")
+
+# Extract primary gene name
+results_df$gene_primary <- sapply(results_df$genes, function(gene_list) {
+  if (length(gene_list) > 0 && !is.null(gene_list$geneName)) {
+    gene_name_value <- gene_list$geneName$value[1]
+    if (!is.null(gene_name_value) && length(gene_name_value) > 0) {
+      return(gene_name_value)
+    }
+  }
+  return(NA_character_)
+})
+
+# Extract gene synonyms as comma-separated string
+results_df$gene_synonyms <- sapply(results_df$genes, function(gene_list) {
+  if (length(gene_list) > 0 && !is.null(gene_list$synonyms)) {
+    synonyms_df <- gene_list$synonyms[[1]]
+    if (!is.null(synonyms_df) && nrow(synonyms_df) > 0) {
+      synonym_values <- synonyms_df$value
+      return(paste(synonym_values, collapse = ", "))
+    }
+  }
+  return(NA_character_)
+})
+
+cat("    Extracted primary gene names and synonyms\n")
+
+# Add computed boolean fields
+cat("  Adding computed fields...\n")
+
+# Reviewed status from entryType
+results_df$reviewed_lgl <- grepl(pattern = "reviewed", x = results_df$entryType, ignore.case = TRUE)
+
+# Derive short organism names (Genus + species format: Hsap, Scer, etc.)
+results_df$organism_short <- sapply(results_df$organism_scientificName, function(sci_name) {
+  # Split on whitespace
+  parts_chr <- strsplit(x = sci_name, split = "\\s+")[[1]]
+  
+  if (length(parts_chr) >= 2) {
+    # First letter of genus + first 3 letters of species
+    genus_chr <- substr(x = parts_chr[1], start = 1, stop = 1)
+    species_chr <- substr(x = parts_chr[2], start = 1, stop = 3)
+    short_name <- paste0(toupper(genus_chr), tolower(species_chr))
+    return(short_name)
+  } else {
+    # Fallback for single-word names
+    return(substr(x = sci_name, start = 1, stop = 4))
+  }
+})
+
+cat("    Added reviewed_lgl and organism_short\n")
+
+# Summary of enriched dataframe
+cat("\nEnriched dataframe dimensions:", nrow(results_df), "rows x", ncol(results_df), "columns\n")
+cat("Column names:\n")
+print(names(results_df))
+
+cat("\nField extraction complete\n\n")# FIELD EXTRACTION AND DATA ENRICHMENT ========================================
+
+cat("=== Extracting and Flattening Fields ===\n")
+
+# Categorize list-columns by structure type
+simple_dataframe_cols_chr <- c("organism", "sequence", "extraAttributes")
+complex_nested_cols_chr <- c("genes")
+
+# Verify categorization matches actual list-columns
+list_col_names_chr <- names(results_df)[list_cols_lgl]
+cat("List-columns found:", paste(list_col_names_chr, collapse = ", "), "\n")
+
+# Process simple dataframe columns - merge with underscore prefix
+for (col_name_chr in simple_dataframe_cols_chr) {
+  if (col_name_chr %in% list_col_names_chr) {
+    cat("  Flattening:", col_name_chr, "\n")
+    
+    # Extract the nested dataframe
+    nested_df <- results_df[[col_name_chr]]
+    
+    # Prefix column names with parent column name
+    prefixed_names_chr <- paste0(col_name_chr, "_", names(nested_df))
+    names(nested_df) <- prefixed_names_chr
+    
+    # Merge into main dataframe
+    results_df <- cbind(results_df, nested_df)
+    
+    cat("    Added", ncol(nested_df), "columns\n")
+  }
+}
+
+# Process complex nested columns - custom extraction for genes
+cat("  Extracting gene information...\n")
+
+# Extract primary gene name
+results_df$gene_primary <- sapply(results_df$genes, function(gene_list) {
+  if (length(gene_list) > 0 && !is.null(gene_list$geneName)) {
+    gene_name_value <- gene_list$geneName$value[1]
+    if (!is.null(gene_name_value) && length(gene_name_value) > 0) {
+      return(gene_name_value)
+    }
+  }
+  return(NA_character_)
+})
+
+# Extract gene synonyms as comma-separated string
+results_df$gene_synonyms <- sapply(results_df$genes, function(gene_list) {
+  if (length(gene_list) > 0 && !is.null(gene_list$synonyms)) {
+    synonyms_df <- gene_list$synonyms[[1]]
+    if (!is.null(synonyms_df) && nrow(synonyms_df) > 0) {
+      synonym_values <- synonyms_df$value
+      return(paste(synonym_values, collapse = ", "))
+    }
+  }
+  return(NA_character_)
+})
+
+cat("    Extracted primary gene names and synonyms\n")
+
+# Add computed boolean fields
+cat("  Adding computed fields...\n")
+
+# Reviewed status from entryType
+results_df$reviewed_lgl <- grepl(pattern = "reviewed", x = results_df$entryType, ignore.case = TRUE)
+
+# Derive short organism names (Genus + species format: Hsap, Scer, etc.)
+results_df$organism_short <- sapply(results_df$organism_scientificName, function(sci_name) {
+  # Split on whitespace
+  parts_chr <- strsplit(x = sci_name, split = "\\s+")[[1]]
+  
+  if (length(parts_chr) >= 2) {
+    # First letter of genus + first 3 letters of species
+    genus_chr <- substr(x = parts_chr[1], start = 1, stop = 1)
+    species_chr <- substr(x = parts_chr[2], start = 1, stop = 3)
+    short_name <- paste0(toupper(genus_chr), tolower(species_chr))
+    return(short_name)
+  } else {
+    # Fallback for single-word names
+    return(substr(x = sci_name, start = 1, stop = 4))
+  }
+})
+
+cat("    Added reviewed_lgl and organism_short\n")
+
+# Summary of enriched dataframe
+cat("\nEnriched dataframe dimensions:", nrow(results_df), "rows x", ncol(results_df), "columns\n")
+cat("Column names:\n")
+print(names(results_df))
+
+cat("\nField extraction complete\n\n")
