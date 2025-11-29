@@ -2,9 +2,6 @@
 # Purpose: Download ORC and TFIIA sequences via single batched UniProt query
 # Strategy: One API call for all genes x all organisms, filter locally
 # ==============================================================================
-# Purpose: Download ORC and TFIIA sequences via single batched UniProt query
-# Strategy: One API call for all genes x all organisms, filter locally
-# ==============================================================================
 
 # CONFIGURATION BLOCK =========================================================
 
@@ -130,6 +127,7 @@ cat("Query constructed successfully\n\n")
 # API CALL EXECUTION ==========================================================
 
 cat("=== Executing API Request ===\n")
+
 # Define cache file location
 RESPONSE_CACHE_FILE_chr <- file.path(OUTPUT_DIR_chr, "uniprot_response_cache.rds")
 
@@ -196,6 +194,8 @@ if (is.null(results_df) || nrow(results_df) == 0) {
 
 cat("Results retrieved:", nrow(results_df), "sequences\n")
 cat("Columns in results:", ncol(results_df), "\n")
+
+# Display column names to understand structure
 cat("\nColumn names:\n")
 print(names(results_df))
 
@@ -314,8 +314,93 @@ results_df$gene_normalized <- toupper(results_df$gene_primary)
 
 cat("    Added reviewed_lgl, organism_short, gene_normalized\n")
 
-# Summary of enriched dataframe
-cat("\nEnriched dataframe dimensions:", nrow(results_df), "rows x", ncol(results_df), "columns\n")
+# DIAGNOSTIC FLAGS AND FILTERING ==============================================
+
+cat("=== Adding Diagnostic Flags ===\n")
+
+# Configuration for diagnostic flags
+PROTEIN_FAMILY_ORC_pattern_chr <- "origin recognition complex"
+PROTEIN_FAMILY_TFIIA_pattern_chr <- "transcription.*initiation.*factor.*IIA"
+FALSE_POSITIVE_PATTERNS_chr <- c("leucine.rich", "mitochondrial carrier")
+
+# Flag 1: Does gene_primary match target genes?
+results_df$gene_matches_target <- sapply(results_df$gene_primary, function(gene) {
+  if (is.na(gene)) return(FALSE)
+  tolower(gene) %in% tolower(GENE_NAMES_chr)
+})
+
+cat("  gene_matches_target:", sum(results_df$gene_matches_target, na.rm = TRUE), "/", nrow(results_df), "\n")
+
+# Flag 2: Which protein family does this belong to?
+# Need to check protein name - construct from uniProtkbId or use entryType description
+# For now, use a heuristic based on gene name and check if we need to extract protein description
+results_df$protein_family <- sapply(seq_len(nrow(results_df)), function(i) {
+  gene <- results_df$gene_primary[i]
+  # Use gene_normalized to check prefixes
+  gene_norm <- results_df$gene_normalized[i]
+
+  if (is.na(gene_norm)) {
+    return("unknown")
+  }
+
+  # Check gene name for ORC or TOA/TFIIA patterns
+  is_orc <- grepl(pattern = "^ORC[0-9]", x = gene_norm, ignore.case = TRUE)
+  is_tfiia <- grepl(pattern = "^TOA[0-9]|^TFIIA|^GTF2A", x = gene_norm, ignore.case = TRUE)
+
+  if (is_orc && is_tfiia) {
+    return("both")
+  } else if (is_orc) {
+    return("ORC")
+  } else if (is_tfiia) {
+    return("TFIIA")
+  } else {
+    return("unknown")
+  }
+})
+
+cat("  protein_family distribution:\n")
+print(table(results_df$protein_family))
+
+# Flag 3: Query match source
+results_df$query_match_source <- ifelse(
+  results_df$gene_matches_target,
+  "gene_name",
+  "protein_name_or_other"
+)
+
+cat("  query_match_source:\n")
+print(table(results_df$query_match_source))
+
+# Flag 4: Potential false positives
+results_df$potential_issue_flag <- sapply(results_df$uniProtkbId, function(id) {
+  if (is.na(id)) return(NA_character_)
+
+  # Check against false positive patterns
+  id_lower <- tolower(id)
+  issues <- character(0)
+
+  for (pattern in FALSE_POSITIVE_PATTERNS_chr) {
+    if (grepl(pattern = pattern, x = id_lower, ignore.case = TRUE)) {
+      issues <- c(issues, pattern)
+    }
+  }
+
+  if (length(issues) > 0) {
+    return(paste(issues, collapse = "; "))
+  } else {
+    return(NA_character_)
+  }
+})
+
+flagged_count <- sum(!is.na(results_df$potential_issue_flag))
+cat("  potential_issue_flag:", flagged_count, "sequences flagged\n")
+
+if (flagged_count > 0) {
+  cat("    Flagged sequences:\n")
+  flagged_rows <- results_df[!is.na(results_df$potential_issue_flag),
+                              c("gene_primary", "organism_short", "uniProtkbId", "potential_issue_flag")]
+  print(flagged_rows, row.names = FALSE)
+}
 
 cat("\nDiagnostic flags complete\n\n")
 
@@ -352,7 +437,7 @@ rownames(filtered_df) <- NULL
 cat("Sequences after prioritization:", nrow(filtered_df), "\n")
 
 # Sort by organism, gene, reviewed status, length for manual review
-cat("Sorting for manual review (organism  gene  reviewed  length)...\n")
+cat("Sorting for manual review (organism -> gene -> reviewed -> length)...\n")
 filtered_df <- filtered_df[order(
   filtered_df$organism_taxonId,
   filtered_df$gene_normalized,
@@ -596,93 +681,3 @@ cat("  - accession_table.tsv\n")
 cat("  - query_*.txt files\n")
 cat("  - uniprot_response_cache.rds\n")
 cat("\nReady for manual curation\n")
-
-# DIAGNOSTIC FLAGS AND FILTERING ==============================================
-
-cat("=== Adding Diagnostic Flags ===\n")
-
-# Configuration for diagnostic flags
-PROTEIN_FAMILY_ORC_pattern_chr <- "origin recognition complex"
-PROTEIN_FAMILY_TFIIA_pattern_chr <- "transcription.*initiation.*factor.*IIA"
-FALSE_POSITIVE_PATTERNS_chr <- c("leucine.rich", "mitochondrial carrier")
-
-# Flag 1: Does gene_primary match target genes?
-results_df$gene_matches_target <- sapply(results_df$gene_primary, function(gene) {
-  if (is.na(gene)) return(FALSE)
-  tolower(gene) %in% tolower(GENE_NAMES_chr)
-})
-
-cat("  gene_matches_target:", sum(results_df$gene_matches_target, na.rm = TRUE), "/", nrow(results_df), "\n")
-
-# Flag 2: Which protein family does this belong to?
-# Need to check protein name - construct from uniProtkbId or use entryType description
-# For now, use a heuristic based on gene name and check if we need to extract protein description
-results_df$protein_family <- sapply(seq_len(nrow(results_df)), function(i) {
-  gene <- results_df$gene_primary[i]
-  # Use gene_normalized to check prefixes
-  gene_norm <- results_df$gene_normalized[i]
-
-  if (is.na(gene_norm)) {
-    return("unknown")
-  }
-
-  # Check gene name for ORC or TOA/TFIIA patterns
-  is_orc <- grepl(pattern = "^ORC[0-9]", x = gene_norm, ignore.case = TRUE)
-  is_tfiia <- grepl(pattern = "^TOA[0-9]|^TFIIA|^GTF2A", x = gene_norm, ignore.case = TRUE)
-
-  if (is_orc && is_tfiia) {
-    return("both")
-  } else if (is_orc) {
-    return("ORC")
-  } else if (is_tfiia) {
-    return("TFIIA")
-  } else {
-    return("unknown")
-  }
-})
-
-cat("  protein_family distribution:\n")
-print(table(results_df$protein_family))
-
-# Flag 3: Query match source
-results_df$query_match_source <- ifelse(
-  results_df$gene_matches_target,
-  "gene_name",
-  "protein_name_or_other"
-)
-
-cat("  query_match_source:\n")
-print(table(results_df$query_match_source))
-
-# Flag 4: Potential false positives
-results_df$potential_issue_flag <- sapply(results_df$uniProtkbId, function(id) {
-  if (is.na(id)) return(NA_character_)
-
-  # Check against false positive patterns
-  id_lower <- tolower(id)
-  issues <- character(0)
-
-  for (pattern in FALSE_POSITIVE_PATTERNS_chr) {
-    if (grepl(pattern = pattern, x = id_lower, ignore.case = TRUE)) {
-      issues <- c(issues, pattern)
-    }
-  }
-
-  if (length(issues) > 0) {
-    return(paste(issues, collapse = "; "))
-  } else {
-    return(NA_character_)
-  }
-})
-
-flagged_count <- sum(!is.na(results_df$potential_issue_flag))
-cat("  potential_issue_flag:", flagged_count, "sequences flagged\n")
-
-if (flagged_count > 0) {
-  cat("    Flagged sequences:\n")
-  flagged_rows <- results_df[!is.na(results_df$potential_issue_flag),
-                              c("gene_primary", "organism_short", "uniProtkbId", "potential_issue_flag")]
-  print(flagged_rows, row.names = FALSE)
-}
-
-cat("\nDiagnostic flags complete\n\n")
