@@ -6,7 +6,7 @@
 # CONFIGURATION BLOCK =========================================================
 
 # Control flags
-DRY_RUN_lgl <- FALSE  # Set to FALSE to execute query
+DRY_RUN_lgl <- TRUE  # Set to FALSE to execute query
 
 # Load required packages
 library(httr2)      # For REST API requests
@@ -325,7 +325,7 @@ cat("=== Filtering and Prioritizing Sequences ===\n")
 results_df$gene_match_exact <- sapply(seq_len(nrow(results_df)), function(i) {
   gene_primary <- results_df$gene_primary[i]
   if (is.na(gene_primary)) return(FALSE)
-  
+
   # Check if gene_primary matches any of our target genes (case-insensitive)
   any(tolower(gene_primary) == tolower(GENE_NAMES_chr))
 })
@@ -346,7 +346,7 @@ selected_results_list <- lapply(grouped_list, function(group_df) {
     -group_df$gene_match_exact,
     -group_df$sequence_length
   )
-  
+
   # Return top result
   group_df[sorted_indices[1], , drop = FALSE]
 })
@@ -360,7 +360,7 @@ cat("Filtering to target genes only...\n")
 cat("  Before filtering:", nrow(filtered_df), "sequences\n")
 
 filtered_df <- filtered_df[
-  !is.na(filtered_df$gene_primary) & 
+  !is.na(filtered_df$gene_primary) &
   tolower(filtered_df$gene_primary) %in% tolower(GENE_NAMES_chr),
 ]
 
@@ -407,20 +407,11 @@ if (length(scer_genes) > 0) {
 
 # Missing organisms
 missing_taxids_int <- setdiff(ORGANISM_TAXIDS_int, organisms_found_int)
-if (length(missing_taxids_int) > 0) {
-  cat("\nMissing organisms:", length(missing_taxids_int), "taxids\n")
-  cat("  TaxIDs:", paste(missing_taxids_int, collapse = ", "), "\n")
-  
-  # Generate backup query for missing organisms
-  missing_org_clause <- paste0("organism_id:", missing_taxids_int, collapse = " OR ")
-  backup_query_chr <- paste0(
-    "(", gene_clause_combined_chr, " OR ", protein_clause_combined_chr, ") AND (",
-    missing_org_clause,
-    ") AND (fragment:false)"
-  )
-  cat("\n  Backup query for missing organisms:\n")
-  cat("  ", backup_query_chr, "\n")
-}
+# Organisms with incomplete gene lists
+incomplete_orgs <- organisms_found_int[sapply(organisms_found_int, function(taxid) {
+  org_genes <- unique(tolower(filtered_df$gene_primary[filtered_df$organism_taxonId == taxid]))
+  length(org_genes) < length(GENE_NAMES_chr)
+})]
 
 # Reviewed status
 cat("\nReviewed status:\n")
@@ -454,4 +445,94 @@ for (i in 1:nrow(org_gene_summary)) {
               org_gene_summary$gene_normalized[i]))
 }
 
+# Export accession table for manual review
+cat("\n--- Exporting Accession Table ---\n")
+
+accession_table_df <- filtered_df[, c(
+  "gene_normalized",
+  "organism_short",
+  "organism_scientificName",
+  "organism_taxonId",
+  "primaryAccession",
+  "uniProtkbId",
+  "sequence_length",
+  "reviewed_lgl"
+)]
+
+accession_table_path <- file.path(OUTPUT_DIR_chr, "accession_table.tsv")
+write.table(
+  x = accession_table_df,
+  file = accession_table_path,
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+
+cat("Accession table saved:", accession_table_path, "\n")
+cat("  Total sequences:", nrow(accession_table_df), "\n")
+cat("  View with: cat", accession_table_path, "\n")
+
+# Generate diagnostic queries for manual verification
+cat("\n=== DIAGNOSTIC QUERIES FOR MANUAL VERIFICATION ===\n")
+
+# 1. Query for completely missing organisms
+if (length(missing_taxids_int) > 0) {
+  cat("\n1) MISSING ORGANISMS (", length(missing_taxids_int), " taxids):\n", sep = "")
+  cat("   TaxIDs:", paste(missing_taxids_int, collapse = ", "), "\n")
+
+  missing_org_clause <- paste0("organism_id:", missing_taxids_int, collapse = " OR ")
+  backup_query_chr <- paste0(
+    "(", gene_clause_combined_chr, " OR ", protein_clause_combined_chr, ") AND (",
+    missing_org_clause,
+    ") AND (fragment:false)"
+  )
+
+  cat("\n   Query to find sequences for missing organisms:\n")
+  cat("   ", backup_query_chr, "\n")
+} else {
+  cat("\n1) All organisms found - no missing organisms\n")
+}
+
+# 2. Query for organisms with incomplete gene lists
+if (length(incomplete_orgs) > 0) {
+  cat("\n2) INCOMPLETE ORGANISMS (", length(incomplete_orgs), " organisms with <8 genes):\n", sep = "")
+
+  for (taxid in incomplete_orgs) {
+    org_short <- unique(filtered_df$organism_short[filtered_df$organism_taxonId == taxid])
+    org_genes <- unique(tolower(filtered_df$gene_primary[filtered_df$organism_taxonId == taxid]))
+    missing_genes <- GENE_NAMES_chr[!tolower(GENE_NAMES_chr) %in% org_genes]
+
+    cat(sprintf("\n   %s (taxid %d): %d/8 genes\n", org_short, taxid, length(org_genes)))
+    cat("     Missing:", paste(missing_genes, collapse = ", "), "\n")
+
+    # Generate query for missing genes in this organism
+    missing_gene_clauses <- paste0("gene:", missing_genes)
+    incomplete_query_chr <- paste0(
+      "(", paste(missing_gene_clauses, collapse = " OR "), ") AND ",
+      "(organism_id:", taxid, ") AND (fragment:false)"
+    )
+    cat("     Query:", incomplete_query_chr, "\n")
+  }
+} else {
+  cat("\n2) All found organisms have complete gene sets (8/8)\n")
+}
+
+# 3. Accession-based query for verification
+cat("\n3) ACCESSION-BASED QUERY (to verify current hits):\n")
+accessions_chr <- filtered_df$primaryAccession
+accession_query_chr <- paste0(
+  "(",
+  paste0("accession:", accessions_chr, collapse = " OR "),
+  ")"
+)
+
+# Save accession query to file
+accession_query_path <- file.path(OUTPUT_DIR_chr, "accession_query.txt")
+writeLines(text = accession_query_chr, con = accession_query_path)
+
+cat("   Total accessions:", length(accessions_chr), "\n")
+cat("   Query saved to:", accession_query_path, "\n")
+cat("   First 200 chars:", substr(accession_query_chr, 1, 200), "...\n")
+
+cat("\n=== END DIAGNOSTIC QUERIES ===\n")
 cat("\nFiltering complete\n\n")
