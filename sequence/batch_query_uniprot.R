@@ -63,6 +63,14 @@ METADATA_FILENAME_chr <- "curated_sequences_metadata.tsv"
 SUMMARY_FILENAME_chr <- "curated_sequences_summary.tsv"
 FASTA_SUFFIX_chr <- "_curated_organisms.fasta"
 
+# BLAST workflow configuration
+BLAST_QUERIES_FASTA_chr <- "blast_queries.fasta"
+BLAST_QUERY_ACCESSIONS_chr <- "blast_query_accessions.txt"
+BLAST_TARGET_ORGANISMS_chr <- "blast_target_organisms.tsv"
+UNIPROT_QUERY_FILE_chr <- "uniprot_query_full.txt"
+COVERAGE_SUMMARY_FILE_chr <- "coverage_summary.txt"
+SCER_TAXID_int <- 559292  # S. cerevisiae
+
 # Ensure output directory exists
 if (!dir.exists(paths = OUTPUT_DIR_chr)) {
   dir.create(path = OUTPUT_DIR_chr, recursive = TRUE)
@@ -123,6 +131,11 @@ if (DRY_RUN_lgl) {
 }
 
 cat("Query constructed successfully\n\n")
+
+# Save full query to file for documentation
+query_file_path <- file.path(OUTPUT_DIR_chr, UNIPROT_QUERY_FILE_chr)
+writeLines(text = query_chr, con = query_file_path)
+cat("Query saved to:", query_file_path, "\n")
 
 # API CALL EXECUTION ==========================================================
 
@@ -357,17 +370,23 @@ results_df$protein_family <- sapply(seq_len(nrow(results_df)), function(i) {
 cat("  protein_family distribution:\n")
 print(table(results_df$protein_family))
 
-# Flag 3: Query match source
+# Flag 3: Query match source (more specific)
 results_df$query_match_source <- ifelse(
   results_df$gene_matches_target,
   "gene_name",
-  "protein_name_or_other"
+  "protein_name"
 )
+
+# Flag 4: Needs verification (matched via protein name only)
+results_df$needs_verification_lgl <- !results_df$gene_matches_target
 
 cat("  query_match_source:\n")
 print(table(results_df$query_match_source))
+cat("  needs_verification:", sum(results_df$needs_verification_lgl), "sequences\n")
+cat("  query_match_source:\n")
+print(table(results_df$query_match_source))
 
-# Flag 4: Potential false positives
+# Flag 5: Potential false positives
 results_df$potential_issue_flag <- sapply(results_df$uniProtkbId, function(id) {
   if (is.na(id)) return(NA_character_)
 
@@ -541,6 +560,7 @@ export_columns_chr <- c(
   "gene_matches_target",
   "protein_family",
   "query_match_source",
+  "needs_verification_lgl",
   "potential_issue_flag",
   "gene_synonyms"
 )
@@ -643,11 +663,184 @@ accession_query_path <- file.path(OUTPUT_DIR_chr, "query_accessions.txt")
 writeLines(text = accession_query_chr, con = accession_query_path)
 cat("   Saved:", accession_query_path, "\n")
 cat("   Accessions:", length(accessions_chr), "\n")
+# BLAST WORKFLOW OUTPUTS ======================================================
+
+cat("\n=== Generating BLAST Workflow Files ===\n")
+
+# Extract S. cerevisiae sequences for BLAST queries
+scer_sequences <- results_df[results_df$organism_taxonId == SCER_TAXID_int, ]
+
+if (nrow(scer_sequences) > 0) {
+  cat("Extracting S. cerevisiae query sequences...\n")
+
+  # Create FASTA for BLAST queries
+  blast_query_fasta_chr <- character(0)
+  blast_query_accessions_chr <- character(0)
+
+  for (i in 1:nrow(scer_sequences)) {
+    gene <- scer_sequences$gene_normalized[i]
+    accession <- scer_sequences$primaryAccession[i]
+    sequence <- scer_sequences$sequence_value[i]
+
+    # FASTA format
+    fasta_entry <- paste0(">", gene, "|", accession, "|Scer\n", sequence)
+    blast_query_fasta_chr <- c(blast_query_fasta_chr, fasta_entry)
+
+    # Accession list
+    blast_query_accessions_chr <- c(blast_query_accessions_chr,
+                                    paste(gene, accession, sep = "\t"))
+  }
+
+  # Write BLAST query FASTA
+  blast_fasta_path <- file.path(OUTPUT_DIR_chr, BLAST_QUERIES_FASTA_chr)
+  writeLines(text = blast_query_fasta_chr, con = blast_fasta_path)
+  cat("  BLAST queries FASTA:", blast_fasta_path, "\n")
+  cat("    Sequences:", length(blast_query_fasta_chr), "\n")
+
+  # Write accession list
+  blast_acc_path <- file.path(OUTPUT_DIR_chr, BLAST_QUERY_ACCESSIONS_chr)
+  writeLines(text = c("gene\taccession", blast_query_accessions_chr),
+             con = blast_acc_path)
+  cat("  BLAST query accessions:", blast_acc_path, "\n")
+
+} else {
+  cat("WARNING: No S. cerevisiae sequences found - cannot generate BLAST queries\n")
+}
+
+# Identify organisms needing BLAST
+cat("\nIdentifying organisms for BLAST searches...\n")
+
+organisms_for_blast <- c(
+  as.numeric(organisms_incomplete),
+  as.numeric(organisms_missing)
+)
+
+if (length(organisms_for_blast) > 0) {
+
+  blast_target_df <- data.frame(
+    taxid = integer(0),
+    organism_name = character(0),
+    organism_short = character(0),
+    category = character(0),
+    found_count = integer(0),
+    missing_genes = character(0),
+    stringsAsFactors = FALSE
+  )
+
+  for (taxid in organisms_for_blast) {
+    org_sequences <- results_df[results_df$organism_taxonId == taxid, ]
+
+    if (nrow(org_sequences) > 0) {
+      # INCOMPLETE
+      org_short <- unique(org_sequences$organism_short)[1]
+      org_name <- unique(org_sequences$organism_scientificName)[1]
+      found_genes <- unique(org_sequences$gene_normalized)
+      missing_genes <- setdiff(toupper(GENE_NAMES_chr), found_genes)
+
+      blast_target_df <- rbind(blast_target_df, data.frame(
+        taxid = taxid,
+        organism_name = org_name,
+        organism_short = org_short,
+        category = "INCOMPLETE",
+        found_count = length(found_genes),
+        missing_genes = paste(missing_genes, collapse = ","),
+        stringsAsFactors = FALSE
+      ))
+    } else {
+      # MISSING - need to look up organism name from original taxid list
+      # For now, just use taxid
+      blast_target_df <- rbind(blast_target_df, data.frame(
+        taxid = taxid,
+        organism_name = NA_character_,
+        organism_short = NA_character_,
+        category = "MISSING",
+        found_count = 0,
+        missing_genes = paste(toupper(GENE_NAMES_chr), collapse = ","),
+        stringsAsFactors = FALSE
+      ))
+    }
+  }
+
+  # Write BLAST target organisms
+  blast_targets_path <- file.path(OUTPUT_DIR_chr, BLAST_TARGET_ORGANISMS_chr)
+  write.table(
+    x = blast_target_df,
+    file = blast_targets_path,
+    sep = "\t",
+    row.names = FALSE,
+    quote = FALSE,
+    na = ""
+  )
+
+  cat("  BLAST target organisms:", blast_targets_path, "\n")
+  cat("    Organisms:", nrow(blast_target_df), "\n")
+  cat("    INCOMPLETE:", sum(blast_target_df$category == "INCOMPLETE"), "\n")
+  cat("    MISSING:", sum(blast_target_df$category == "MISSING"), "\n")
+
+} else {
+  cat("  No organisms need BLAST searches (all complete)\n")
+}
+
+# Create coverage summary file
+cat("\nCreating coverage summary...\n")
+
+summary_lines <- c(
+  "=== UniProt Query Coverage Summary ===",
+  "",
+  paste("Query date:", Sys.Date()),
+  paste("Total sequences retrieved:", nrow(results_df)),
+  paste("Target genes:", length(GENE_NAMES_chr)),
+  paste("Target organisms:", length(ORGANISM_TAXIDS_int)),
+  "",
+  "=== Categories ===",
+  "",
+  paste("COMPLETE (8/8 genes):", length(organisms_complete)),
+  paste("INCOMPLETE (<8 genes):", length(organisms_incomplete)),
+  paste("MISSING (0 genes):", length(organisms_missing)),
+  paste("EXCESS (>8 genes):", length(organisms_excess)),
+  "",
+  "=== Match Quality ===",
+  "",
+  paste("Matched via gene name:", sum(results_df$gene_matches_target)),
+  paste("Matched via protein name:", sum(!results_df$gene_matches_target)),
+  paste("Needs verification:", sum(results_df$needs_verification_lgl)),
+  "",
+  "=== BLAST Workflow ===",
+  "",
+  paste("Organisms requiring BLAST:", length(organisms_for_blast)),
+  paste("S. cerevisiae queries available:", nrow(scer_sequences)),
+  ""
+)
+
+summary_path <- file.path(OUTPUT_DIR_chr, COVERAGE_SUMMARY_FILE_chr)
+writeLines(text = summary_lines, con = summary_path)
+cat("  Coverage summary:", summary_path, "\n")
+cat("\n=== BLAST workflow files generated ===\n")
 
 cat("\n=== Script Complete ===\n")
-cat("Output files in:", OUTPUT_DIR_chr, "\n")
-cat("  - comprehensive_results.tsv\n")
-cat("  - accession_table.tsv\n")
-cat("  - query_*.txt files\n")
-cat("  - uniprot_response_cache.rds\n")
-cat("\nReady for manual curation\n")
+cat("Output files in:", OUTPUT_DIR_chr, "\n\n")
+
+cat("Main results:\n")
+cat("  - comprehensive_results.tsv (all sequences with flags)\n")
+cat("  - accession_table.tsv (accessions only)\n")
+cat("  - coverage_summary.txt (human-readable summary)\n\n")
+
+cat("Query documentation:\n")
+cat("  - uniprot_query_full.txt (complete query used)\n")
+cat("  - uniprot_response_cache.rds (cached API response)\n\n")
+
+cat("BLAST workflow:\n")
+cat("  - blast_queries.fasta (S. cerevisiae sequences)\n")
+cat("  - blast_query_accessions.txt (query accessions)\n")
+cat("  - blast_target_organisms.tsv (organisms needing BLAST)\n\n")
+
+cat("Diagnostic queries:\n")
+cat("  - query_missing_organisms.txt (if applicable)\n")
+cat("  - queries_incomplete_organisms.txt (if applicable)\n")
+cat("  - query_accessions.txt (verify current hits)\n\n")
+
+cat("Next steps:\n")
+cat("  1. Review comprehensive_results.tsv\n")
+cat("  2. Submit BLAST queries for incomplete/missing organisms\n")
+cat("  3. Manual curation for ambiguous cases\n")
+cat("  4. Merge results into final accession list\n")
