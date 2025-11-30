@@ -68,7 +68,7 @@ BLAST_QUERIES_FASTA_chr <- "blast_queries.fasta"
 BLAST_QUERY_ACCESSIONS_chr <- "blast_query_accessions.txt"
 BLAST_TARGET_ORGANISMS_chr <- "blast_target_organisms.tsv"
 UNIPROT_QUERY_FILE_chr <- "uniprot_query_full.txt"
-COVERAGE_SUMMARY_FILE_chr <- "coverage_summary.txt"
+COVERAGE_SUMMARY_FILE_chr <- "uniprot_coverage_summary.txt"
 SCER_TAXID_int <- 559292  # S. cerevisiae
 
 # Ensure output directory exists
@@ -566,7 +566,7 @@ export_columns_chr <- c(
 )
 
 comprehensive_table_df <- results_df[, export_columns_chr]
-comprehensive_table_path <- file.path(OUTPUT_DIR_chr, "comprehensive_results.tsv")
+comprehensive_table_path <- file.path(OUTPUT_DIR_chr, "uniprot_comprehensive_results.tsv")
 
 write.table(
   x = comprehensive_table_df,
@@ -590,7 +590,7 @@ accession_table_df <- results_df[, c(
   "sequence_length"
 )]
 
-accession_table_path <- file.path(OUTPUT_DIR_chr, "accession_table.tsv")
+accession_table_path <- file.path(OUTPUT_DIR_chr, "uniprot_accession_table.tsv")
 write.table(
   x = accession_table_df,
   file = accession_table_path,
@@ -615,7 +615,7 @@ if (length(organisms_missing) > 0) {
     ") AND (fragment:false)"
   )
 
-  missing_org_query_path <- file.path(OUTPUT_DIR_chr, "query_missing_organisms.txt")
+  missing_org_query_path <- file.path(OUTPUT_DIR_chr, "uniprot_query_missing_organisms.txt")
   writeLines(text = missing_org_query_chr, con = missing_org_query_path)
   cat("   Saved:", missing_org_query_path, "\n")
 }
@@ -659,7 +659,7 @@ accession_query_chr <- paste0(
   ")"
 )
 
-accession_query_path <- file.path(OUTPUT_DIR_chr, "query_accessions.txt")
+accession_query_path <- file.path(OUTPUT_DIR_chr, "uniprot_query_accessions.txt")
 writeLines(text = accession_query_chr, con = accession_query_path)
 cat("   Saved:", accession_query_path, "\n")
 cat("   Accessions:", length(accessions_chr), "\n")
