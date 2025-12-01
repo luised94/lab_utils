@@ -35,7 +35,11 @@ REFERENCE_ORG <- "Scer"
 ORDERING_METHOD <- "identity"
 
 # Gene used to determine sequence order (applied to all genes)
-ORDERING_REFERENCE_GENE <- "ORC1"
+# Options: specific gene name (e.g., "ORC1") or "auto" (picks gene with most sequences)
+ORDERING_REFERENCE_GENE <- "auto"
+
+# Genes to exclude from auto-selection (e.g., highly conserved genes)
+ORDERING_EXCLUDE_GENES <- c("TOA2")
 
 # For hierarchical clustering
 HCLUST_METHOD <- "average"
@@ -81,15 +85,43 @@ if (!dir.exists(PLOT_OUTPUT_DIR)) {
 }
 
 cat("=== STABLE MSA VISUALIZATION ===\n")
-cat("Ordering method:", ORDERING_METHOD, "\n")
-cat("Ordering reference gene:", ORDERING_REFERENCE_GENE, "\n\n")
+cat("Ordering method:", ORDERING_METHOD, "\n\n")
 
 # ==============================================================================
 # DETERMINE SEQUENCE ORDER FROM REFERENCE GENE
 # ==============================================================================
 
-cat("Computing sequence order from", ORDERING_REFERENCE_GENE, "...\n")
+# Count sequences per gene
+cat("Sequence counts per gene:\n")
+gene_seq_counts <- integer(length(GENE_NAMES))
+names(gene_seq_counts) <- GENE_NAMES
 
+for (i in seq_along(GENE_NAMES)) {
+    gene_path <- file.path(ALIGNMENT_DIR, paste0(INPUT_PREFIX, GENE_NAMES[i], "_aligned.fasta"))
+    if (file.exists(gene_path)) {
+        gene_seq_counts[i] <- length(Biostrings::readAAStringSet(filepath = gene_path))
+    } else {
+        gene_seq_counts[i] <- 0
+    }
+    cat("  ", GENE_NAMES[i], ": ", gene_seq_counts[i], "\n", sep = "")
+}
+
+# Resolve reference gene
+if (ORDERING_REFERENCE_GENE == "auto") {
+    # Pick gene with most sequences, excluding specified genes
+    eligible_genes <- setdiff(GENE_NAMES, ORDERING_EXCLUDE_GENES)
+    eligible_counts <- gene_seq_counts[eligible_genes]
+    ORDERING_REFERENCE_GENE <- names(which.max(eligible_counts))
+    cat("\nAuto-selected reference gene:", ORDERING_REFERENCE_GENE,
+        "(", max(eligible_counts), "sequences )\n")
+    cat("Excluded from selection:", paste(ORDERING_EXCLUDE_GENES, collapse = ", "), "\n")
+} else {
+    cat("\nUsing specified reference gene:", ORDERING_REFERENCE_GENE, "\n")
+}
+
+cat("\n")
+
+# Load reference gene alignment
 ref_gene_path <- file.path(
     ALIGNMENT_DIR,
     paste0(INPUT_PREFIX, ORDERING_REFERENCE_GENE, "_aligned.fasta")
@@ -99,6 +131,7 @@ if (!file.exists(ref_gene_path)) {
     stop("Reference gene alignment not found: ", ref_gene_path)
 }
 
+cat("Computing sequence order from", ORDERING_REFERENCE_GENE, "...\n")
 ref_aligned <- Biostrings::readAAStringSet(filepath = ref_gene_path)
 ref_names <- names(ref_aligned)
 
