@@ -98,7 +98,6 @@ if (!file.exists(BLOSUM62_PATH)) {
 }
 BLOSUM62 <- readRDS(file = BLOSUM62_PATH)
 
-stop("Breakpoint")
 cat("=== STABLE MSA VISUALIZATION ===\n")
 cat("Ordering method:", ORDERING_METHOD, "\n\n")
 
@@ -134,9 +133,113 @@ if (ORDERING_REFERENCE_GENE == "auto") {
     cat("\nUsing specified reference gene:", ORDERING_REFERENCE_GENE, "\n")
 }
 
-cat("\n")
+# ==============================================================================
+# CALCULATE IDENTITY AND SIMILARITY TO REFERENCE
+# ==============================================================================
 
-# Load reference gene alignment
+cat("Calculating identity and similarity to", REFERENCE_ORG, "...\n\n")
+
+# Pre-allocate results list
+identity_similarity_results <- list()
+
+for (gene in GENE_NAMES) {
+
+    cat("  [", gene, "] ", sep = "")
+
+    # Load alignment
+    alignment_path <- file.path(ALIGNMENT_DIR, paste0(INPUT_PREFIX, gene, "_aligned.fasta"))
+
+    if (!file.exists(alignment_path)) {
+        cat("alignment not found: ", alignment_path, "\nskipping\n")
+        next
+    }
+
+    aligned <- Biostrings::readAAStringSet(filepath = alignment_path)
+    seq_names <- names(aligned)
+    organisms <- sub(pattern = "_.*$", replacement = "", x = seq_names)
+
+    # Find reference sequence
+    ref_idx <- grep(pattern = REFERENCE_PATTERN, x = seq_names)
+    if (length(ref_idx) == 0) {
+        cat("reference not found, skipping\n")
+        next
+    }
+    ref_idx <- ref_idx[1]
+
+    # Convert to character matrix
+    aln_matrix <- as.matrix(aligned)
+    ref_seq <- aln_matrix[ref_idx, ]
+
+    # Identify ungapped reference positions
+    ungapped_cols <- which(ref_seq != "-")
+    n_ref_positions <- length(ungapped_cols)
+
+    # Calculate for each non-reference sequence
+    for (i in seq_along(seq_names)) {
+        if (i == ref_idx) next
+
+        org <- organisms[i]
+        query_seq <- aln_matrix[i, ]
+
+        # Subset to ungapped reference positions
+        ref_residues <- ref_seq[ungapped_cols]
+        query_residues <- query_seq[ungapped_cols]
+
+        # Positions where query is also non-gap
+        both_present <- query_residues != "-"
+        n_compared <- sum(both_present)
+
+        if (n_compared == 0) {
+            pct_identity <- NA_real_
+            pct_similarity <- NA_real_
+        } else {
+            ref_at_pos <- ref_residues[both_present]
+            query_at_pos <- query_residues[both_present]
+
+            # Identity: exact match
+            n_identical <- sum(ref_at_pos == query_at_pos)
+            pct_identity <- (n_identical / n_compared) * 100
+
+            # Similarity: BLOSUM62 score > 0
+            n_similar <- 0
+            for (j in seq_len(n_compared)) {
+                aa_ref <- ref_at_pos[j]
+                aa_query <- query_at_pos[j]
+
+                # Check if both AAs are in BLOSUM62 matrix
+                if (aa_ref %in% rownames(BLOSUM62) && aa_query %in% colnames(BLOSUM62)) {
+                    if (BLOSUM62[aa_ref, aa_query] > 0) {
+                        n_similar <- n_similar + 1
+                    }
+                }
+            }
+            pct_similarity <- (n_similar / n_compared) * 100
+        }
+
+        # Store result
+        identity_similarity_results[[length(identity_similarity_results) + 1]] <- data.frame(
+            gene = gene,
+            organism = org,
+            n_ref_positions = n_ref_positions,
+            n_compared = n_compared,
+            pct_identity = round(pct_identity, 2),
+            pct_similarity = round(pct_similarity, 2),
+            stringsAsFactors = FALSE
+        )
+    }
+
+    cat(length(seq_names) - 1, "sequences processed\n")
+}
+
+# Combine into single data frame
+identity_similarity_df <- do.call(rbind, identity_similarity_results)
+
+cat("\nIdentity/similarity calculation complete.\n")
+cat("Total rows:", nrow(identity_similarity_df), "\n\n")
+cat("\n")
+stop("breakpoint...")
+
+# --- Load reference gene alignment ---
 ref_gene_path <- file.path(
     ALIGNMENT_DIR,
     paste0(INPUT_PREFIX, ORDERING_REFERENCE_GENE, "_aligned.fasta")

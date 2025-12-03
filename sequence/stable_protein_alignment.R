@@ -36,7 +36,8 @@ output_conservation <- file.path(OUTPUT_DIR, paste0(OUTPUT_PREFIX, GENE_NAMES, "
 # Check inputs exist
 missing_files <- input_files[!file.exists(input_files)]
 if (length(missing_files) > 0) {
-    stop("Missing input files:\n", paste(missing_files, collapse = "\n"))
+    message("Missing input files:\n", paste(missing_files, collapse = "\n"))
+    stop("Run stable_accession_query.R to download input files.")
 }
 
 # Pre-allocate summary table
