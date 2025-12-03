@@ -77,6 +77,13 @@ SAVE_PNG <- TRUE
 SAVE_SVG <- TRUE
 
 # ==============================================================================
+# IDENTITY/SIMILARITY OUTPUT SETTINGS
+# ==============================================================================
+
+IDENTITY_OUTPUT_FILE <- file.path(PLOT_OUTPUT_DIR, paste0(INPUT_PREFIX, "identity_similarity.tsv"))
+SESSION_INFO_FILE <- file.path(PLOT_OUTPUT_DIR, paste0(INPUT_PREFIX, "session_info.txt"))
+
+# ==============================================================================
 # SETUP
 # ==============================================================================
 
@@ -84,6 +91,14 @@ if (!dir.exists(PLOT_OUTPUT_DIR)) {
     dir.create(path = PLOT_OUTPUT_DIR, recursive = TRUE)
 }
 
+# Load BLOSUM62 substitution matrix (must run download_blosum62.R first)
+BLOSUM62_PATH <- file.path(path.expand("~/data/protein_files"), "BLOSUM62.rds")
+if (!file.exists(BLOSUM62_PATH)) {
+    stop("BLOSUM62 matrix not found. Run download_blosum62.R first.")
+}
+BLOSUM62 <- readRDS(file = BLOSUM62_PATH)
+
+stop("Breakpoint")
 cat("=== STABLE MSA VISUALIZATION ===\n")
 cat("Ordering method:", ORDERING_METHOD, "\n\n")
 
