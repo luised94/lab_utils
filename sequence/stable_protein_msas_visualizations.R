@@ -237,7 +237,21 @@ identity_similarity_df <- do.call(rbind, identity_similarity_results)
 cat("\nIdentity/similarity calculation complete.\n")
 cat("Total rows:", nrow(identity_similarity_df), "\n\n")
 cat("\n")
-stop("breakpoint...")
+
+# Sort by gene, then by similarity descending
+identity_similarity_df <- identity_similarity_df[
+    order(identity_similarity_df$gene, -identity_similarity_df$pct_similarity),
+]
+
+# Write identity/similarity table
+utils::write.table(
+    x = identity_similarity_df,
+    file = IDENTITY_OUTPUT_FILE,
+    sep = "\t",
+    row.names = FALSE,
+    quote = FALSE
+)
+cat("Identity/similarity:", IDENTITY_OUTPUT_FILE, "\n")
 
 # --- Load reference gene alignment ---
 ref_gene_path <- file.path(
@@ -520,3 +534,11 @@ cat("=== COMPLETE ===\n")
 cat("Plots generated:", sum(summary_df$status == "complete"), "/", nrow(summary_df), "\n")
 cat("Summary:", summary_path, "\n\n")
 print(summary_df)
+
+# ==============================================================================
+# SESSION INFO
+# ==============================================================================
+
+session_info <- utils::capture.output(utils::sessionInfo())
+writeLines(text = session_info, con = SESSION_INFO_FILE)
+cat("Session info:", SESSION_INFO_FILE, "\n")
