@@ -180,90 +180,55 @@ p_legend <- ggplot2::ggplot(
         panel.grid = ggplot2::element_blank()
     )
 
+
 # ==============================================================================
 # CREATE CLASSIFICATION FIGURE
 # ==============================================================================
 
 cat("Creating classification figure...\n")
 
-# Traditional biochemical groupings (C->Polar, M->Hydrophobic per ggmsa coloring)
-AA_CLASSIFICATION <- list(
-    "Hydrophobic" = c("G", "A", "V", "L", "I", "P", "M"),
-    "Aromatic" = c("F", "W", "Y"),
-    "Polar" = c("S", "T", "N", "Q", "C"),
-    "Acidic" = c("D", "E"),
-    "Basic" = c("K", "R", "H")
-)
-
-# Build classification data
-class_data <- data.frame(
-    aa = character(),
-    group = character(),
-    color = character(),
+# Map classification to representative color (from ggmsa extraction)
+class_colors <- data.frame(
+    group = c("Hydrophobic", "Aromatic", "Polar", "Acidic", "Basic"),
+    color = c(
+        color_map$color[color_map$aa == "A"],  # Hydrophobic
+        color_map$color[color_map$aa == "F"],  # Aromatic
+        color_map$color[color_map$aa == "S"],  # Polar
+        color_map$color[color_map$aa == "D"],  # Acidic
+        color_map$color[color_map$aa == "K"]   # Basic
+    ),
     stringsAsFactors = FALSE
 )
 
-for (group_name in names(AA_CLASSIFICATION)) {
-    aas <- AA_CLASSIFICATION[[group_name]]
-    for (aa in aas) {
-        color_val <- color_map$color[color_map$aa == aa]
-        if (length(color_val) == 1) {
-            class_data <- rbind(class_data, data.frame(
-                aa = aa,
-                group = group_name,
-                color = color_val,
-                stringsAsFactors = FALSE
-            ))
-        }
-    }
-}
-
-# Set factor levels for ordering
-class_data$group <- factor(
-    x = class_data$group,
-    levels = names(AA_CLASSIFICATION)
-)
-
-# Order within groups
-class_data <- class_data[order(class_data$group, class_data$aa), ]
-
-# Calculate grid positions
-class_data$aa_idx <- ave(
-    seq_len(nrow(class_data)),
-    class_data$group,
-    FUN = seq_along
+# Set factor for ordering
+class_colors$group <- factor(
+    x = class_colors$group,
+    levels = class_colors$group
 )
 
 p_classification <- ggplot2::ggplot(
-    data = class_data,
-    mapping = ggplot2::aes(x = group, y = aa_idx)
+    data = class_colors,
+    mapping = ggplot2::aes(x = 1, y = group)
 ) +
     ggplot2::geom_tile(
         mapping = ggplot2::aes(fill = color),
         color = "white",
         linewidth = 0.5,
-        width = 0.9,
+        width = 0.6,
         height = 0.9
     ) +
-    ggplot2::geom_text(
-        mapping = ggplot2::aes(label = aa),
-        size = 5,
-        fontface = "bold"
-    ) +
     ggplot2::scale_fill_identity() +
-    ggplot2::scale_y_reverse() +
+    ggplot2::scale_y_discrete(limits = rev(levels(class_colors$group))) +
     ggplot2::labs(
-        title = "Amino Acid Classification",
-        subtitle = "Traditional biochemical groupings with Chemistry_AA colors",
+        title = "Chemistry_AA Color Scheme",
         x = NULL,
         y = NULL
     ) +
     ggplot2::theme_minimal() +
     ggplot2::theme(
         plot.title = ggplot2::element_text(hjust = 0.5, size = 14, face = "bold"),
-        plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, color = "gray40"),
-        axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 10, face = "bold"),
-        axis.text.y = ggplot2::element_blank(),
+        axis.text.x = ggplot2::element_blank(),
+        axis.text.y = ggplot2::element_text(size = 11, face = "bold"),
         axis.ticks = ggplot2::element_blank(),
         panel.grid = ggplot2::element_blank()
     )
@@ -294,14 +259,15 @@ if (SAVE_SVG) {
     cat("Saved SVG:", svg_path, "\n")
 }
 
+
 # Save classification figure
 if (SAVE_PNG) {
     png_path <- file.path(OUTPUT_DIR, paste0(OUTPUT_BASE, "_classification.png"))
     ggplot2::ggsave(
         filename = png_path,
         plot = p_classification,
-        width = PLOT_WIDTH,
-        height = PLOT_HEIGHT,
+        width = 4,
+        height = 3,
         dpi = 300
     )
     cat("Saved PNG:", png_path, "\n")
@@ -312,8 +278,8 @@ if (SAVE_SVG) {
     ggplot2::ggsave(
         filename = svg_path,
         plot = p_classification,
-        width = PLOT_WIDTH,
-        height = PLOT_HEIGHT
+        width = 4,
+        height = 3
     )
     cat("Saved SVG:", svg_path, "\n")
 }
