@@ -132,6 +132,7 @@ image_specs = [
         'filename': '01_overall_view.png',
         'description': 'Full complex with ROI highlighted',
         'view': VIEW_OVERALL,
+        'rotation_angles': [0, 90, 180, 270],  # Special field for rotations
         'actions': [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
@@ -145,6 +146,7 @@ image_specs = [
         'filename': '02_hydrophobic_core_surface.png',
         'description': 'Hydrophobic core shown as surface',
         'view': VIEW_HYDROPHOBIC,
+        # No rotation field => single image.
         'actions': [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
@@ -163,8 +165,15 @@ print("\n" + "=" * 60)
 print("Rendering images")
 print("=" * 60)
 
+# ============================================================================
+# SECTION 7: RENDER ALL IMAGES
+# ============================================================================
+print("\n" + "=" * 60)
+print("Rendering images")
+print("=" * 60)
+
 for i, spec in enumerate(image_specs, 1):
-    print(f"\nImage {i}/{len(image_specs)}: {spec['filename']}")
+    print(f"\nImage spec {i}/{len(image_specs)}: {spec['filename']}")
     print(f"  Description: {spec['description']}")
 
     # Execute actions
@@ -174,16 +183,42 @@ for i, spec in enumerate(image_specs, 1):
     # Set view
     cmd.set_view(spec['view'])
 
-    # Save image
-    helper_functions.save_png(
-        filename=spec['filename'],
-        width=pymol_configuration.IMAGE_WIDTH,
-        height=pymol_configuration.IMAGE_HEIGHT,
-        dpi=pymol_configuration.IMAGE_DPI,
-        ray=pymol_configuration.RAY_TRACE,
-        overwrite=pymol_configuration.FLAG_OVERWRITE,
-        output_dir=pymol_configuration.OUTPUT_DIR
-    )
+    # Check if this should be a rotation series
+    if 'rotation_angles' in spec:
+        # Generate multiple images with rotation
+        angles = spec['rotation_angles']
+        base_filename = spec['filename'].replace('.png', '')
+
+        print(f"  Generating {len(angles)} rotation views...")
+        for angle in angles:
+            # Create angle-specific filename
+            angle_filename = f"{base_filename}_{angle:03d}.png"
+
+            print(f"    Angle {angle}...")
+            helper_functions.save_png(
+                filename=angle_filename,
+                width=pymol_configuration.IMAGE_WIDTH,
+                height=pymol_configuration.IMAGE_HEIGHT,
+                dpi=pymol_configuration.IMAGE_DPI,
+                ray=pymol_configuration.RAY_TRACE,
+                overwrite=pymol_configuration.FLAG_OVERWRITE,
+                output_dir=pymol_configuration.OUTPUT_DIR
+            )
+
+            # Rotate for next angle (except after last)
+            if angle != angles[-1]:
+                cmd.turn("y", angles[angles.index(angle) + 1] - angle)
+    else:
+        # Single image (no rotation)
+        helper_functions.save_png(
+            filename=spec['filename'],
+            width=pymol_configuration.IMAGE_WIDTH,
+            height=pymol_configuration.IMAGE_HEIGHT,
+            dpi=pymol_configuration.IMAGE_DPI,
+            ray=pymol_configuration.RAY_TRACE,
+            overwrite=pymol_configuration.FLAG_OVERWRITE,
+            output_dir=pymol_configuration.OUTPUT_DIR
+        )
 
 # ============================================================================
 # SECTION 8: SAVE SESSION AND METADATA
