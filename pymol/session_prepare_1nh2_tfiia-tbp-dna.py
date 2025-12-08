@@ -221,7 +221,49 @@ for i, spec in enumerate(image_specs, 1):
         )
 
 # ============================================================================
-# SECTION 8: SAVE SESSION AND METADATA
+# SECTION 8: CREATE CHAIN OBJECTS FOR APBS CALCULATIONS
+# ============================================================================
+print("\n" + "=" * 60)
+print("Creating individual chain objects for APBS")
+print("=" * 60)
+
+# Get the main object name (first loaded object)
+obj_name = cmd.get_object_list()[0]
+
+# Create separate object for each chain
+chain_objects = []
+for chain in CHAIN_COLORS.keys():
+    chain_obj_name = f"chain_{chain}"
+    selection = f"{obj_name} and chain {chain}"
+
+    if cmd.count_atoms(selection) > 0:
+        cmd.create(chain_obj_name, selection)
+        chain_objects.append(chain_obj_name)
+        print(f"  Created: {chain_obj_name}")
+
+# Hide chain objects (keep main structure visible)
+for chain_obj in chain_objects:
+    cmd.disable(chain_obj)
+
+print(f"\n Created {len(chain_objects)} chain objects (currently hidden)")
+
+print("\n" + "=" * 60)
+print("NEXT STEPS: Run APBS on each chain object")
+print("=" * 60)
+print("Instructions:")
+for i, chain_obj in enumerate(chain_objects, 1):
+    print(f"\n  Run {i}: {chain_obj}")
+    print(f"    1. Enable: {chain_obj}")
+    print(f"    2. Plugins > APBS Tools")
+    print(f"    3. Select '{chain_obj}' as molecule")
+    print(f"    4. Run PDB2PQR > Run APBS > Visualize")
+
+print("\n" + "=" * 60)
+print("After APBS: Run the next script to visualize electrostatics")
+print("=" * 60)
+
+# ============================================================================
+# SECTION 9: SAVE SESSION AND METADATA
 # ============================================================================
 
 print("\n" + "=" * 60)
@@ -238,7 +280,7 @@ except Exception as e:
     print(f"  ERROR saving session: {e}")
 
 # ============================================================================
-# SECTION 9: FINAL SUMMARY
+# SECTION 10: FINAL SUMMARY
 # ============================================================================
 
 print("\n" + "=" * 60)
