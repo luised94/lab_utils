@@ -46,3 +46,54 @@ def save_png(
         cmd.png(filepath, width=width, height=height, dpi=dpi, ray=ray)
         print(f"  SAVED: {filename}")
         return True
+
+def prepare_structure():
+    """
+    Standard structure preparation applied to all sessions.
+    Cleans structure, sets default display, handles ligands.
+    Call this after loading your structure with cmd.fetch() or cmd.load()
+    """
+    from pymol import cmd
+
+    print("\nPreparing structure...")
+
+    # Remove clutter
+    cmd.remove("hydrogen")
+    cmd.remove("solvent")
+    print("  Removed hydrogen and solvent")
+
+    # Create standard selections
+    try:
+        cmd.select("lig", "organic")
+        if cmd.count_atoms("lig") > 0:
+            print(f"  Found ligand: {cmd.count_atoms('lig')} atoms")
+    except:
+        pass
+
+    try:
+        cmd.select("bb", "backbone")
+    except:
+        pass
+
+    # Set default display
+    cmd.hide("everything")
+    cmd.show("cartoon", "polymer")
+    print("  Set cartoon representation")
+
+    # Show ligand if present
+    if cmd.count_atoms("lig") > 0:
+        cmd.show("sticks", "lig")
+        cmd.color("black", "lig")
+        print("  Showing ligand as sticks")
+
+    # Color carbons by heteroatom colors
+    cmd.util.cnc()
+    print("  Applied carbon coloring scheme")
+
+    # Orient around backbone
+    if cmd.count_atoms("bb") > 0:
+        cmd.orient("bb")
+        print("  Oriented around backbone")
+
+    cmd.deselect()
+    print("  Preparation complete")
