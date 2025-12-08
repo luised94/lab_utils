@@ -93,24 +93,34 @@ for chain, color in CHAIN_COLORS.items():
         cmd.color(color, selection)
         print(f"  Chain {chain}: {color}")
 
-## ============================================================================
-## SECTION 5: CREATE CUSTOM SELECTIONS
-## ============================================================================
-#
-#print("\nCreating custom selections...")
-#
-#cmd.select("roi", f"chain {TARGET_CHAIN} and resi {TARGET_RESI}")
-#roi_count = cmd.count_atoms("roi")
-#print(f"  ROI (chain {TARGET_CHAIN}, resi {TARGET_RESI}): {roi_count} atoms")
-#
-#if roi_count == 0:
-#    raise ValueError(f"ERROR: No atoms found for ROI!")
-#
-#cmd.select("nearby", f"byres (all within {DISTANCE_CUTOFF} of roi)")
-#print(f"  Nearby residues: {cmd.count_atoms('nearby')} atoms")
-#
-#cmd.select("hydrophobic_core", f"nearby and resn {HYDROPHOBIC_RESIDUES} and not roi")
-#print(f"  Hydrophobic core: {cmd.count_atoms('hydrophobic_core')} atoms")
+# ============================================================================
+# SECTION 5: CREATE CUSTOM SELECTIONS
+# ============================================================================
+
+print("\nCreating custom selections...")
+
+cmd.select("roi", f"chain {TARGET_CHAIN} and resi {TARGET_RESI}")
+roi_count = cmd.count_atoms("roi")
+print(f"  ROI (chain {TARGET_CHAIN}, resi {TARGET_RESI}): {roi_count} atoms")
+
+if roi_count == 0:
+    raise ValueError(f"ERROR: No atoms found for ROI!")
+
+cmd.select("nearby", f"byres (all within {DISTANCE_CUTOFF} of roi)")
+print(f"  Nearby residues: {cmd.count_atoms('nearby')} atoms")
+
+cmd.select("hydrophobic_core", f"nearby and resn {HYDROPHOBIC_RESIDUES} and not roi")
+print(f"  Hydrophobic core: {cmd.count_atoms('hydrophobic_core')} atoms")
+
+# Expand again but select around chain b (Toa1) and get union.
+cmd.select("nearby_chain_b", f"byres (chain B within {DISTANCE_CUTOFF} of hydrophobic_core)")
+cmd.select("hydrophobic_core", f"hydrophobic_core or (nearby_chain_b and resn {HYDROPHOBIC_SET})")
+
+# Color ROI red
+cmd.color("red", "roi")
+cmd.show("spheres", "roi")
+cmd.set("sphere_scale", 1.5, "roi")
+print("Colored ROI red")
 #
 ## ============================================================================
 ## SECTION 6: DEFINE IMAGE SPECIFICATIONS
