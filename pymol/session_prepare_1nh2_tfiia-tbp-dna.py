@@ -67,10 +67,17 @@ print(f"PyMOL Visualization Session: {PDB_CODE}")
 print("=" * 60)
 
 # Apply shared settings
+# Apply shared settings
 cmd.bg_color(pymol_configuration.BACKGROUND_COLOR)
 cmd.set("hash_max", pymol_configuration.HASH_MAX)
 cmd.set("antialias", pymol_configuration.ANTIALIAS)
 cmd.set("ray_shadows", pymol_configuration.RAY_SHADOWS)
+cmd.set("ray_shadow", pymol_configuration.RAY_SHADOW)
+cmd.set("ray_shadow_decay_factor", pymol_configuration.RAY_SHADOW_DECAY_FACTOR)
+cmd.set("ray_shadow_decay_range", pymol_configuration.RAY_SHADOW_DECAY_RANGE)
+cmd.set("ray_trace_fog", pymol_configuration.RAY_TRACE_FOG)
+cmd.set("depth_cue", pymol_configuration.DEPTH_CUE)
+cmd.set("fog", pymol_configuration.FOG)
 
 # Load structure
 print(f"\nLoading structure {PDB_CODE}...")
@@ -115,12 +122,6 @@ print(f"  Hydrophobic core: {cmd.count_atoms('hydrophobic_core')} atoms")
 # Expand again but select around chain b (Toa1) and get union.
 cmd.select("nearby_chain_b", f"byres (chain B within {DISTANCE_CUTOFF} of hydrophobic_core)")
 cmd.select("hydrophobic_core", f"hydrophobic_core or (nearby_chain_b and resn {HYDROPHOBIC_SET})")
-
-# Color ROI red
-cmd.color("red", "roi")
-cmd.show("spheres", "roi")
-cmd.set("sphere_scale", 1.5, "roi")
-print("Colored ROI red")
 
 # ============================================================================
 # SECTION 6: DEFINE IMAGE SPECIFICATIONS
