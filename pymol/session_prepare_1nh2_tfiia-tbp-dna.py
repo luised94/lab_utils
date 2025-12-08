@@ -24,8 +24,6 @@ cmd.reinitialize()
 
 # Structure information
 PDB_CODE = "1nh2"
-TARGET_CHAIN = "D"
-TARGET_RESI = 16
 
 # Chain colors (customize per structure)
 CHAIN_COLORS = {
@@ -38,6 +36,55 @@ CHAIN_COLORS = {
 # Selection parameters
 DISTANCE_CUTOFF = 4.0
 HYDROPHOBIC_RESIDUES = "ala+gly+val+ile+leu+phe+met+pro+trp"
+
+# ============================================================================
+# ROI (RESIDUE OF INTEREST) SPECIFICATIONS
+# ============================================================================
+# Define multiple ROIs - each gets its own set of selections created
+# ============================================================================
+# ROI (RESIDUE OF INTEREST) SPECIFICATIONS
+# ============================================================================
+# Define multiple ROIs with explicit selection actions
+# Each ROI creates: roi_NAME, nearby_NAME, hydrophobic_core_NAME selections
+ROI_SPECS = [
+    {
+        'name': 'g16',
+        'description': 'G16 hydrophobic core in TOA2 (chain D)',
+        'actions': [
+            # Create ROI selection
+            lambda: cmd.select("roi_g16", "chain D and resi 16"),
+
+            # Create nearby residues (within cutoff distance)
+            lambda: cmd.select("nearby_g16", f"byres (all within {DISTANCE_CUTOFF} of roi_g16)"),
+
+            # Create hydrophobic core (exclude ROI itself)
+            lambda: cmd.select("hydrophobic_core_g16", f"nearby_g16 and resn {HYDROPHOBIC_RESIDUES} and not roi_g16"),
+
+            # Special: Expand to include chain B (TOA1) contacts for G16
+            lambda: cmd.select("nearby_chain_b_g16", f"byres (chain B within {DISTANCE_CUTOFF} of hydrophobic_core_g16)"),
+            lambda: cmd.select("hydrophobic_core_g16", f"hydrophobic_core_g16 or (nearby_chain_b_g16 and resn {HYDROPHOBIC_RESIDUES})"),
+        ]
+    },
+
+    {
+        'name': 'v251',
+        'description': 'V251 in TOA1 (chain C)',
+        'actions': [
+            # Create ROI selection
+            lambda: cmd.select("roi_v251", "chain C and resi 251"),
+
+            # Create nearby residues (within cutoff distance)
+            lambda: cmd.select("nearby_v251", f"byres (all within {DISTANCE_CUTOFF} of roi_v251)"),
+
+            # Create hydrophobic core (exclude ROI itself)
+            lambda: cmd.select("hydrophobic_core_v251", f"nearby_v251 and resn {HYDROPHOBIC_RESIDUES} and not roi_v251"),
+
+            # Special: Expand to include chain B (TOA1) contacts for G16
+            lambda: cmd.select("nearby_chain_c_v251", f"byres (chain C within {DISTANCE_CUTOFF} of hydrophobic_core_v251)"),
+            lambda: cmd.select("hydrophobic_core_v251", f"hydrophobic_core_v251 or (nearby_chain_c_v251 and resn {HYDROPHOBIC_RESIDUES})"),
+        ]
+    },
+]
 
 # View matrices (capture these with get_view() in PyMOL GUI)
 VIEW_OVERALL = (
@@ -100,63 +147,71 @@ for chain, color in CHAIN_COLORS.items():
         cmd.color(color, selection)
         print(f"  Chain {chain}: {color}")
 
+
 # ============================================================================
-# SECTION 5: CREATE CUSTOM SELECTIONS
+# SECTION 5: CREATE CUSTOM SELECTIONS (FOR ALL ROIs)
 # ============================================================================
 
-print("\nCreating custom selections...")
+print("\n" + "=" * 60)
+print("Creating custom selections for all ROIs")
+print("=" * 60)
 
-cmd.select("roi", f"chain {TARGET_CHAIN} and resi {TARGET_RESI}")
-roi_count = cmd.count_atoms("roi")
-print(f"  ROI (chain {TARGET_CHAIN}, resi {TARGET_RESI}): {roi_count} atoms")
+for roi_spec in ROI_SPECS:
+    print(f"\n{roi_spec['description']}:")
 
-if roi_count == 0:
-    raise ValueError(f"ERROR: No atoms found for ROI!")
+    # Execute all selection actions for this ROI
+    for action in roi_spec['actions']:
+        action()
 
-cmd.select("nearby", f"byres (all within {DISTANCE_CUTOFF} of roi)")
-print(f"  Nearby residues: {cmd.count_atoms('nearby')} atoms")
+    # Verify the main selections were created successfully
+    roi_name = roi_spec['name']
+    roi_sel = f"roi_{roi_name}"
+    core_sel = f"hydrophobic_core_{roi_name}"
 
-cmd.select("hydrophobic_core", f"nearby and resn {HYDROPHOBIC_RESIDUES} and not roi")
-print(f"  Hydrophobic core: {cmd.count_atoms('hydrophobic_core')} atoms")
+    roi_count = cmd.count_atoms(roi_sel)
+    if roi_count == 0:
+        raise ValueError(f"ERROR: Selection {roi_sel} is empty! Check chain/residue in ROI_SPECS.")
 
-# Expand again but select around chain b (Toa1) and get union.
-cmd.select("nearby_chain_b", f"byres (chain B within {DISTANCE_CUTOFF} of hydrophobic_core)")
-cmd.select("hydrophobic_core", f"hydrophobic_core or (nearby_chain_b and resn {HYDROPHOBIC_SET})")
+    core_count = cmd.count_atoms(core_sel)
 
+    print(f"   {roi_sel}: {roi_count} atoms")
+    print(f"   {core_sel}: {core_count} atoms")
+
+print(f"\n Successfully created selections for {len(ROI_SPECS)} ROIs")
 # ============================================================================
 # SECTION 6: DEFINE IMAGE SPECIFICATIONS
 # ============================================================================
 
+
 image_specs = [
+    # --- G16 images ---
     {
-        'filename': '01_overall_view.png',
-        'description': 'Full complex with ROI highlighted',
+        'filename': '01_g16_overall_view.png',
+        'description': 'G16 full complex with ROI highlighted',
         'view': VIEW_OVERALL,
-        'rotation_angles': [0, 90, 180, 270],  # Special field for rotations
+        'rotation_angles': [0, 90, 180, 270],
         'actions': [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
-            lambda: cmd.show("spheres", "roi"),
-            lambda: cmd.color("red", "roi"),
-            lambda: cmd.set("sphere_scale", 1.5, "roi"),
+            lambda: cmd.show("spheres", "roi_g16"),  # Correct selection name
+            lambda: cmd.color("red", "roi_g16"),
+            lambda: cmd.set("sphere_scale", 1.5, "roi_g16"),
         ]
     },
 
     {
-        'filename': '02_hydrophobic_core_surface.png',
-        'description': 'Hydrophobic core shown as surface',
+        'filename': '02_g16_hydrophobic_core_surface.png',
+        'description': 'G16 hydrophobic core as surface',
         'view': VIEW_HYDROPHOBIC,
-        # No rotation field => single image.
         'actions': [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
-            lambda: cmd.show("spheres", "hydrophobic_core"),
-            lambda: cmd.color("orange", "hydrophobic_core"),
-            lambda: cmd.set("transparency", 0.8, "hydrophobic_core"),
+            lambda: cmd.show("sphere", "hydrophobic_core_g16"),  # Correct
+            lambda: cmd.color("orange", "hydrophobic_core_g16"),
+            lambda: cmd.set("transparency", 0.8, "hydrophobic_core_g16"),
         ]
-    },
+    }
 ]
-
 # ============================================================================
 # SECTION 7: RENDER ALL IMAGES
 # ============================================================================
