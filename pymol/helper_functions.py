@@ -12,6 +12,7 @@ import helper_functions # Without the file extesion.
 import os
 from pymol import cmd
 from typing import Optional
+
 def save_png(
     filename: str,
     width: int,
