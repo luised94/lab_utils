@@ -121,93 +121,93 @@ cmd.color("red", "roi")
 cmd.show("spheres", "roi")
 cmd.set("sphere_scale", 1.5, "roi")
 print("Colored ROI red")
-#
-## ============================================================================
-## SECTION 6: DEFINE IMAGE SPECIFICATIONS
-## ============================================================================
-#
-#image_specs = [
-#    {
-#        'filename': '01_overall_view.png',
-#        'description': 'Full complex with ROI highlighted',
-#        'view': VIEW_OVERALL,
-#        'actions': [
-#            lambda: cmd.hide("everything"),
-#            lambda: cmd.show("cartoon", "polymer"),
-#            lambda: cmd.show("spheres", "roi"),
-#            lambda: cmd.color("red", "roi"),
-#            lambda: cmd.set("sphere_scale", 1.5, "roi"),
-#        ]
-#    },
-#    
-#    {
-#        'filename': '02_hydrophobic_core_surface.png',
-#        'description': 'Hydrophobic core shown as surface',
-#        'view': VIEW_HYDROPHOBIC,
-#        'actions': [
-#            lambda: cmd.hide("everything"),
-#            lambda: cmd.show("cartoon", "polymer"),
-#            lambda: cmd.show("surface", "hydrophobic_core"),
-#            lambda: cmd.color("orange", "hydrophobic_core"),
-#            lambda: cmd.set("transparency", 0.3, "hydrophobic_core"),
-#        ]
-#    },
-#]
-#
-## ============================================================================
-## SECTION 7: RENDER ALL IMAGES
-## ============================================================================
-#
-#print("\n" + "=" * 60)
-#print("Rendering images")
-#print("=" * 60)
-#
-#for i, spec in enumerate(image_specs, 1):
-#    print(f"\nImage {i}/{len(image_specs)}: {spec['filename']}")
-#    print(f"  Description: {spec['description']}")
-#    
-#    # Execute actions
-#    for action in spec['actions']:
-#        action()
-#    
-#    # Set view
-#    cmd.set_view(spec['view'])
-#    
-#    # Save image
-#    helper_functions.save_png(
-#        filename=spec['filename'],
-#        width=pymol_configuration.IMAGE_WIDTH,
-#        height=pymol_configuration.IMAGE_HEIGHT,
-#        dpi=pymol_configuration.IMAGE_DPI,
-#        ray=pymol_configuration.RAY_TRACE,
-#        overwrite=pymol_configuration.FLAG_OVERWRITE,
-#        output_dir=pymol_configuration.OUTPUT_DIR
-#    )
-#
-## ============================================================================
-## SECTION 8: SAVE SESSION AND METADATA
-## ============================================================================
-#
-#print("\n" + "=" * 60)
-#print("Saving session files")
-#print("=" * 60)
-#
-## Save PyMOL session
-#import os
-#session_file = os.path.join(pymol_configuration.OUTPUT_DIR, f"{PDB_CODE}_session.pse")
-#try:
-#    cmd.save(session_file)
-#    print(f"  Saved PyMOL session: {session_file}")
-#except Exception as e:
-#    print(f"  ERROR saving session: {e}")
-#
-## ============================================================================
-## SECTION 9: FINAL SUMMARY
-## ============================================================================
-#
-#print("\n" + "=" * 60)
-#print("SESSION COMPLETE")
-#print("=" * 60)
-#print(f"Structure: {PDB_CODE}")
-#print(f"Generated {len(image_specs)} images in: {pymol_configuration.OUTPUT_DIR}")
-#print("=" * 60)
+
+# ============================================================================
+# SECTION 6: DEFINE IMAGE SPECIFICATIONS
+# ============================================================================
+
+image_specs = [
+    {
+        'filename': '01_overall_view.png',
+        'description': 'Full complex with ROI highlighted',
+        'view': VIEW_OVERALL,
+        'actions': [
+            lambda: cmd.hide("everything"),
+            lambda: cmd.show("cartoon", "polymer"),
+            lambda: cmd.show("spheres", "roi"),
+            lambda: cmd.color("red", "roi"),
+            lambda: cmd.set("sphere_scale", 1.5, "roi"),
+        ]
+    },
+
+    {
+        'filename': '02_hydrophobic_core_surface.png',
+        'description': 'Hydrophobic core shown as surface',
+        'view': VIEW_HYDROPHOBIC,
+        'actions': [
+            lambda: cmd.hide("everything"),
+            lambda: cmd.show("cartoon", "polymer"),
+            lambda: cmd.show("surface", "hydrophobic_core"),
+            lambda: cmd.color("orange", "hydrophobic_core"),
+            lambda: cmd.set("transparency", 0.3, "hydrophobic_core"),
+        ]
+    },
+]
+
+# ============================================================================
+# SECTION 7: RENDER ALL IMAGES
+# ============================================================================
+
+print("\n" + "=" * 60)
+print("Rendering images")
+print("=" * 60)
+
+for i, spec in enumerate(image_specs, 1):
+    print(f"\nImage {i}/{len(image_specs)}: {spec['filename']}")
+    print(f"  Description: {spec['description']}")
+
+    # Execute actions
+    for action in spec['actions']:
+        action()
+
+    # Set view
+    cmd.set_view(spec['view'])
+
+    # Save image
+    helper_functions.save_png(
+        filename=spec['filename'],
+        width=pymol_configuration.IMAGE_WIDTH,
+        height=pymol_configuration.IMAGE_HEIGHT,
+        dpi=pymol_configuration.IMAGE_DPI,
+        ray=pymol_configuration.RAY_TRACE,
+        overwrite=pymol_configuration.FLAG_OVERWRITE,
+        output_dir=pymol_configuration.OUTPUT_DIR
+    )
+
+# ============================================================================
+# SECTION 8: SAVE SESSION AND METADATA
+# ============================================================================
+
+print("\n" + "=" * 60)
+print("Saving session files")
+print("=" * 60)
+
+# Save PyMOL session
+import os
+session_file = os.path.join(pymol_configuration.OUTPUT_DIR, f"{PDB_CODE}_session.pse")
+try:
+    cmd.save(session_file)
+    print(f"  Saved PyMOL session: {session_file}")
+except Exception as e:
+    print(f"  ERROR saving session: {e}")
+
+# ============================================================================
+# SECTION 9: FINAL SUMMARY
+# ============================================================================
+
+print("\n" + "=" * 60)
+print("SESSION COMPLETE")
+print("=" * 60)
+print(f"Structure: {PDB_CODE}")
+print(f"Generated {len(image_specs)} images in: {pymol_configuration.OUTPUT_DIR}")
+print("=" * 60)
