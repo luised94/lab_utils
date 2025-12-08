@@ -40,10 +40,6 @@ HYDROPHOBIC_RESIDUES = "ala+gly+val+ile+leu+phe+met+pro+trp"
 # ============================================================================
 # ROI (RESIDUE OF INTEREST) SPECIFICATIONS
 # ============================================================================
-# Define multiple ROIs - each gets its own set of selections created
-# ============================================================================
-# ROI (RESIDUE OF INTEREST) SPECIFICATIONS
-# ============================================================================
 # Define multiple ROIs with explicit selection actions
 # Each ROI creates: roi_NAME, nearby_NAME, hydrophobic_core_NAME selections
 ROI_SPECS = [
@@ -103,6 +99,18 @@ VIEW_HYDROPHOBIC = (
      0.000000000,    0.000000000, -148.670715332,
     -1.743014336,  -25.174198151,  -14.948152542,
    117.213119507,  180.128311157,  -20.000000000
+)
+
+# --- V251 views ---
+VIEW_V251_OVERALL = VIEW_OVERALL  # Reuse same overall view as G16
+
+VIEW_V251_HYDROPHOBIC = (
+     0.369137824,    0.765394688,   -0.527172744,
+     0.796817005,    0.031308878,    0.603406489,
+     0.478349477,   -0.642804384,   -0.598319829,
+    -0.000008364,    0.000012737,  -81.610771179,
+     4.645626068,    0.182135344,   -0.962601185,
+   -24.776704788,  188.000106812,  -20.000000000
 )
 
 # ============================================================================
@@ -193,7 +201,7 @@ image_specs = [
         'actions': [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
-            lambda: cmd.show("spheres", "roi_g16"),  # Correct selection name
+            lambda: cmd.show("spheres", "roi_g16"),
             lambda: cmd.color("red", "roi_g16"),
             lambda: cmd.set("sphere_scale", 1.5, "roi_g16"),
         ]
@@ -206,11 +214,45 @@ image_specs = [
         'actions': [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
-            lambda: cmd.show("sphere", "hydrophobic_core_g16"),  # Correct
+            lambda: cmd.show("sphere", "hydrophobic_core_g16"),
             lambda: cmd.color("orange", "hydrophobic_core_g16"),
             lambda: cmd.set("transparency", 0.8, "hydrophobic_core_g16"),
         ]
-    }
+    },
+
+
+    # --- V251 images (NEW - add these) ---
+    {
+        'filename': '03_v251_overall_view.png',
+        'description': 'V251 supplemental - full complex with ROI highlighted',
+        'view': VIEW_V251_OVERALL,  # Reuses same overall view
+        'rotation_angles': [0, 90, 180, 270],
+        'actions': [
+            lambda: cmd.hide("everything"),
+            lambda: cmd.show("cartoon", "polymer"),
+            lambda: cmd.show("spheres", "roi_v251"),
+            lambda: cmd.color("magenta", "roi_v251"),  # V251 in magenta (distinct from G16)
+            lambda: cmd.show("spheres", "roi_g16"),
+            lambda: cmd.color("red", "roi_g16"),
+            lambda: cmd.set("sphere_scale", 1.5, "roi_v251"),
+        ]
+    },
+
+    {
+        'filename': '04_v251_hydrophobic_core_surface.png',
+        'description': 'V251 supplemental - hydrophobic core with TBP residues 94-106 hidden',
+        'view': VIEW_V251_HYDROPHOBIC,
+        'actions': [
+            lambda: cmd.hide("everything"),
+            lambda: cmd.show("cartoon", "polymer"),
+            lambda: cmd.show("spheres", "hydrophobic_core_v251"),
+            lambda: cmd.color("orange", "hydrophobic_core_v251"),
+            lambda: cmd.color("magenta", "roi_v251"),  # V251 in magenta (distinct from G16)
+            lambda: cmd.set("transparency", 0.3, "hydrophobic_core_v251"),
+            # Special: hide TBP residues 94-106 from chain A
+            lambda: cmd.hide("cartoon", "chain A and resi 94-106"),
+        ]
+    },
 ]
 # ============================================================================
 # SECTION 7: RENDER ALL IMAGES
