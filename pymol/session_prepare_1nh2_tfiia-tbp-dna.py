@@ -147,9 +147,9 @@ image_specs = [
         'actions': [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
-            lambda: cmd.show("surface", "hydrophobic_core"),
+            lambda: cmd.show("spheres", "hydrophobic_core"),
             lambda: cmd.color("orange", "hydrophobic_core"),
-            lambda: cmd.set("transparency", 0.3, "hydrophobic_core"),
+            lambda: cmd.set("transparency", 0.8, "hydrophobic_core"),
         ]
     },
 ]

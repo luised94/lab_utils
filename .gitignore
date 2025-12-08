@@ -1,5 +1,5 @@
 **/bmc_config.R
-pymol/configuration.py
+pymol/pymol_configuration.py
 **/renv/library/
 **/renv/profiles/
 **/renv/settings.dcf
