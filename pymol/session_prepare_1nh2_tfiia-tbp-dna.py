@@ -7,6 +7,8 @@ Date: 2025-12-08
 
 from pymol import cmd
 import pymol_configuration
+import importlib
+import sys
 import helper_functions
 
 # Force reload all custom modules
@@ -82,6 +84,7 @@ ROI_SPECS = [
     },
 ]
 
+# --- 1nh2/TFIIA-TBP-DNA complex views ---
 # View matrices (capture these with get_view() in PyMOL GUI)
 VIEW_OVERALL = (
      0.074909329,    0.990534842,   -0.115008026,
@@ -92,6 +95,8 @@ VIEW_OVERALL = (
    194.940582275,  299.009948730,  -20.000000000
 )
 
+# --- G16 views ---
+# Previous view. Changed angle of view from overall.
 VIEW_HYDROPHOBIC = (
     -0.275569350,    0.849549353,   -0.449802339,
      0.956983745,    0.198277250,   -0.211805791,
@@ -99,6 +104,16 @@ VIEW_HYDROPHOBIC = (
      0.000000000,    0.000000000, -148.670715332,
     -1.743014336,  -25.174198151,  -14.948152542,
    117.213119507,  180.128311157,  -20.000000000
+)
+
+# Same angle as view overall.
+VIEW_G16_HYDROPHOBIC = (
+     0.074909329,    0.990534842,   -0.115008026,
+     0.582228422,    0.050188679,    0.811473668,
+     0.809565485,   -0.127748311,   -0.572958469,
+     0.000082036,   -0.000030905, -122.774742126,
+    -3.036495209,  -19.484025955,  -28.640813828,
+    73.339439392,  173.608703613,  -20.000000000
 )
 
 # --- V251 views ---
@@ -210,10 +225,12 @@ image_specs = [
     {
         'filename': '02_g16_hydrophobic_core_surface.png',
         'description': 'G16 hydrophobic core as surface',
-        'view': VIEW_HYDROPHOBIC,
+        'view': VIEW_G16_HYDROPHOBIC,
         'actions': [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
+            lambda: cmd.set("depth_cue", 0),
+            lambda: cmd.set("fog", 0),
             lambda: cmd.show("sphere", "hydrophobic_core_g16"),
             lambda: cmd.color("orange", "hydrophobic_core_g16"),
             lambda: cmd.set("transparency", 0.8, "hydrophobic_core_g16"),
@@ -230,6 +247,8 @@ image_specs = [
         'actions': [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
+            lambda: cmd.color("marine", "obj 1nh2 and chain B"), # Reapply color to remove orange.
+            lambda: cmd.color("green", "obj 1nh2 and chain D"),
             lambda: cmd.show("spheres", "roi_v251"),
             lambda: cmd.color("magenta", "roi_v251"),  # V251 in magenta (distinct from G16)
             lambda: cmd.show("spheres", "roi_g16"),
