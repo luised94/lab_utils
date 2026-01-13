@@ -99,6 +99,7 @@ message("loading_df preparation complete...")
 
 loading_df <- loading_df %>%
   mutate(Label = case_when(
+    ORC == "None" & Suppressor == "None" ~ "None",
     ORC == "WT" & Suppressor == "None" ~ "WT",
     ORC == "RA" & Suppressor == "None" ~ "ORC4R",
     ORC == "RA" & Suppressor == "4PS" ~ "+4sofr",
@@ -126,7 +127,11 @@ loading_df <- loading_df %>%
   ungroup()
 
 df_summary <- loading_df %>%
-  filter(!(Label %in% c("+1sofr", "+3sofr"))) %>%
+  filter(
+    ORC != "None",                       # Exclude negative control from plots
+    !(Label %in% c("+1sofr", "+3sofr")), # Exclude other specific mutants
+    !is.na(Label)                        # Remove any remaining NA labels
+  ) %>%
   group_by(kGlut, Label) %>%
   summarise(
     across(
@@ -151,7 +156,7 @@ df_normalized <- df_summary %>%
   ungroup()
 
 intensity_vs_kglut_plot <- ggplot(df_summary, aes(x = kGlut, y = Rel_to_Input_mean, color = Label, fill = Label)) +
-  geom_line(linewitdth = 1.2, aes(group = Label)) +
+  geom_line(linewidth = 1.2, aes(group = Label)) +
   geom_point(size = 4, shape = 21, color = "black", stroke = 0.8) +
   geom_errorbar(aes(ymin = Rel_to_Input_mean - Rel_to_Input_sd, ymax = Rel_to_Input_mean + Rel_to_Input_sd), 
                 width = 0.15, linewidth = 0.6) +
