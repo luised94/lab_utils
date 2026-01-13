@@ -8,7 +8,7 @@ library(xlsx)
 library(tidyverse)
 
 OVERWRITE_PLOTS <- FALSE
-OVERWRITE_CSVS <- FALSE
+OVERWRITE_CSVS <- TRUE
 
 FILENAME <- "Analysis.xlsx"
 OUTPUT_DIRECTORY <- "~/data/loading_analysis"
@@ -124,10 +124,15 @@ for (col_name in names(factor_order)) {
 }
 
 loading_df <- loading_df %>%
+  # Step 1: Normalize to the WT of the SAME salt concentration
+  group_by(Experiment, kGlut) %>%
+  mutate(
+    Norm_to_WT_kGlut = Rel_to_Input / Rel_to_Input[ORC == "WT"][1]
+  ) %>%
+  
+  # Step 2: Normalize to the WT of the 250 mM concentration (Global Baseline)
   group_by(Experiment) %>%
   mutate(
-    # Normalize using the input-corrected values
-    Norm_to_WT_kGlut = Rel_to_Input / Rel_to_Input[ORC == "WT" & kGlut == kGlut][1],
     Norm_to_WT_250 = Rel_to_Input / Rel_to_Input[ORC == "WT" & kGlut == "250"][1]
   ) %>%
   ungroup()
