@@ -7,7 +7,7 @@
 library(xlsx)
 library(tidyverse)
 
-OVERWRITE_PLOTS <- FALSE
+OVERWRITE_PLOTS <- TRUE
 OVERWRITE_CSVS <- TRUE
 
 FILENAME <- "Analysis.xlsx"
@@ -30,9 +30,9 @@ REQUIRED_COLUMNS <- c(
 )
 # Define custom orderings
 factor_order <- list(
-  "Suppressor" = c("None", "1EK", "3PL", "4PS"),
+  "Suppressor" = c("None", "1EK", "3PL", "4PS", "5EK"),
   "kGlut" = c("250", "300", "350"),
-  "Label" = c("WT", "ORC4R",  "+1sofr",  "+3sofr", "+4sofr")
+  "Label" = c("WT", "ORC4R",  "+1sofr",  "+3sofr", "+4sofr", "+5sofr")
 )
 
 MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
@@ -110,7 +110,8 @@ loading_df <- loading_df %>%
     ORC == "RA" & Suppressor == "None" ~ "ORC4R",
     ORC == "RA" & Suppressor == "4PS" ~ "+4sofr",
     ORC == "RA" & Suppressor == "1EK" ~ "+1sofr",
-    ORC == "RA" & Suppressor == "3PL" ~ "+3sofr"
+    ORC == "RA" & Suppressor == "3PL" ~ "+3sofr",
+    ORC == "RA" & Suppressor == "5EK" ~ "+5sofr"
   ))
 
 message("Adjust loading_df to factor order...")
@@ -140,7 +141,7 @@ loading_df <- loading_df %>%
 df_summary <- loading_df %>%
   filter(
     ORC != "None",                       # Exclude negative control from plots
-    !(Label %in% c("+1sofr", "+3sofr")), # Exclude other specific mutants
+    !(Label %in% c("+1sofr", "+3sofr", "+5sofr")), # Exclude other specific mutants
     !is.na(Label)                        # Remove any remaining NA labels
   ) %>%
   group_by(kGlut, Label) %>%
@@ -183,7 +184,7 @@ intensity_vs_kglut_plot <- ggplot(df_summary, aes(x = kGlut, y = Rel_to_Input_me
   theme(
     legend.position = c(0.85, 0.85),
     legend.background = element_rect(fill = "white", color = "black"),
-    panel.grid.major.y = element_line(color = "gray90", size = 0.3)
+    panel.grid.major.y = element_line(color = "gray90", linewidth = 0.3)
   )
 
 all_samples_dodged_plot <- ggplot(df_summary, aes(x = Label, y = Rel_to_Input_mean, fill = Label, group = kGlut)) +
@@ -261,7 +262,7 @@ normalized_to_wt_plot <- ggplot(df_normalized, aes(x = kGlut, y = fold_change, c
   theme(
     legend.position = c(0.85, 0.85),
     legend.background = element_rect(fill = "white", color = "black"),
-    panel.grid.major.y = element_line(color = "gray90", size = 0.3)
+    panel.grid.major.y = element_line(color = "gray90", linewidth = 0.3)
   )
 
 faceted_by_label_plot <- ggplot(df_summary, aes(x = kGlut, y = Rel_to_Input_mean, fill = kGlut)) +
