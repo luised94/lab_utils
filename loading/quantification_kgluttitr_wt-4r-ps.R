@@ -8,9 +8,15 @@ library(xlsx)
 library(tidyverse)
 
 OVERWRITE_PLOTS <- FALSE
+OVERWRITE_CSVS <- FALSE
+
 FILENAME <- "Analysis.xlsx"
 OUTPUT_DIRECTORY <- "~/data/loading_analysis"
 EXPERIMENT_DIRECTORY <- "Lab/Experiments/Loading/2022_12_18 Loading Assays Repeats for publication"
+# Define CSV file paths
+summary_csv_path <- file.path(OUTPUT_DIRECTORY, "loading_summary_statistics.csv")
+full_data_csv_path <- file.path(OUTPUT_DIRECTORY, "loading_processed_full_data.csv")
+
 sheet_indices <- c(2, 3, 4)
 EXPECTED_NUMBER_OF_ROWS <- 14
 EXPECTED_NUMBER_OF_COLS <- 7
@@ -25,8 +31,8 @@ REQUIRED_COLUMNS <- c(
 # Define custom orderings
 factor_order <- list(
   "Suppressor" = c("None", "1EK", "3PL", "4PS"),
-  "kGlut" = c("250", "300", "350"), # In inverse order (as factor, alphabetical would be "250", ...)
-  "Label" = c("WT", "ORC4R",  "+1sofr",  "+3sofr", "+4sofr") # Adjust this as needed
+  "kGlut" = c("250", "300", "350"),
+  "Label" = c("WT", "ORC4R",  "+1sofr",  "+3sofr", "+4sofr")
 )
 
 MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
@@ -282,6 +288,7 @@ file_paths <- normalizePath(
 names(file_paths) <- plot_object_names
 
 # Save using names
+# Update the plot saving loop
 for (plot_name in names(file_paths)) {
   if (!file.exists(file_paths[plot_name]) || OVERWRITE_PLOTS) {
     current_plot <- get(plot_name, envir = .GlobalEnv)
@@ -291,9 +298,26 @@ for (plot_name in names(file_paths)) {
       width = 8,
       height = 5
     )
-    cat("Saved:", basename(file_paths[plot_name]), "\n")
+    cat("Saved plot:", basename(file_paths[plot_name]), "\n")
+  } else {
+    cat("Skipped plot (already exists):", basename(file_paths[plot_name]), "\n")
   }
 }
 
-message("Plots saved to OUTPUT_DIRECTORY...")
+# Save Summary CSV
+if (!file.exists(summary_csv_path) || OVERWRITE_CSVS) {
+  write.csv(df_summary, summary_csv_path, row.names = FALSE)
+  cat("Saved CSV:", basename(summary_csv_path), "\n")
+} else {
+  cat("Skipped CSV (already exists):", basename(summary_csv_path), "\n")
+}
+
+# Save Full Data CSV
+if (!file.exists(full_data_csv_path) || OVERWRITE_CSVS) {
+  write.csv(loading_df, full_data_csv_path, row.names = FALSE)
+  cat("Saved CSV:", basename(full_data_csv_path), "\n")
+} else {
+  cat("Skipped CSV (already exists):", basename(full_data_csv_path), "\n")
+}
+
 message("Script complete.")
