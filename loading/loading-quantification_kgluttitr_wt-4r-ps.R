@@ -1,6 +1,13 @@
+# Date updated: 2026-01-12
+# Data of the xlsx was produced by analyzing tiff files using imagej.
+# Usage: source("loading-quantification_kgluttitr_wt-4r-ps.R")
+# The output is the plot called faceted_by_kglut_plot.
+# All other plots kept for reference.
+
 library(xlsx)
 library(tidyverse)
 
+OVERWRITE_PLOTS <- FALSE
 FILENAME <- "Analysis.xlsx"
 OUTPUT_DIRECTORY <- "~/data/loading_analysis"
 EXPERIMENT_DIRECTORY <- "Lab/Experiments/Loading/2022_12_18 Loading Assays Repeats for publication"
@@ -22,11 +29,14 @@ factor_order <- list(
   "Label" = c("WT", "ORC4R",  "+1sofr",  "+3sofr", "+4sofr") # Adjust this as needed
 )
 
-DROPBOX_PATH <- Sys.getenv("DROPBOX_PATH")
-FILE_PATH <- file.path(DROPBOX_PATH, EXPERIMENT_DIRECTORY, FILENAME)
+MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
+FILE_PATH <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, FILENAME)
 
-if (nchar(DROPBOX_PATH) == 0) {
-  stop("DROPBOX_PATH not defined: ")
+if (nchar(MC_DROPBOX_PATH) == 0) {
+  stop(
+    "MC_DROPBOX_PATH not defined in bash environment.\n",
+    "Set manually via command line if necessary."
+  )
 
 }
 if (!dir.exists(OUTPUT_DIRECTORY)) {
@@ -106,6 +116,18 @@ for (col_name in names(factor_order)) {
 
 message("Adjust loading_df to factor order...")
 #sapply(loading_df, function(x) if(!is.numeric(x)) unique(x))
+loading_df <- loading_df %>%
+  group_by(Experiment) %>%
+  mutate(
+    # Column 1: Normalized to WT within each Experiment AND each kGlut
+    # This makes every WT sample equal to 1.0 for every salt concentration.
+    Norm_to_WT_kGlut = Intensity / Intensity[ORC == "WT" & kGlut == kGlut][1],
+
+    # Column 2: Normalized to WT at the 250 kGlut level within each Experiment
+    # This sets the baseline to the 250 level; higher kGlut WT samples will likely be < 1.0.
+    Norm_to_WT_250 = Intensity / Intensity[ORC == "WT" & kGlut == "250"][1]
+  ) %>%
+  ungroup()
 
 # Calculate mean and sd for each kGlut
 df_summary <- loading_df %>% 
@@ -136,7 +158,7 @@ intensity_vs_kglut_plot <- ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, color
 
 all_samples_dodged_plot <- ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill = Label, group = kGlut)) +
   geom_col(position = position_dodge(width = 0.8), width = 0.7, 
-           color = "black", size = 0.4) +
+           color = "black", linewidth = 0.4) +
   geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd),
                 position = position_dodge(width = 0.8), 
                 width = 0.25, size = 0.6) +
@@ -152,8 +174,9 @@ all_samples_dodged_plot <- ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill 
     axis.text.x = element_text(face = "bold")
   )
 
+# This is the correct plot. All other plots kept for reference.
 faceted_by_kglut_plot <- ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill = Label)) +
-  geom_col(width = 0.7, color = "black", size = 0.4) +
+  geom_col(width = 0.7, color = "black", linewidth = 0.4) +
   geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd), 
                 width = 0.25, size = 0.6) +
   facet_wrap(~kGlut, nrow = 1, labeller = label_both) +
@@ -174,7 +197,7 @@ faceted_by_kglut_plot <- ggplot(df_summary, aes(x = Label, y = pmol_MCM, fill = 
 df_summary_300 <- df_summary %>% filter(kGlut == "300")
 
 kglut_300_only_plot <- ggplot(df_summary_300, aes(x = Label, y = pmol_MCM, fill = Label)) +
-  geom_col(width = 0.7, color = "black", size = 0.4) +
+  geom_col(width = 0.7, color = "black", linewidth = 0.4) +
   geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd), 
                 width = 0.25, size = 0.6) +
   scale_fill_brewer(palette = "Set1") +
@@ -223,7 +246,7 @@ normalized_to_wt_plot <- ggplot(df_normalized, aes(x = kGlut, y = fold_change, c
   )
 
 faceted_by_label_plot <- ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, fill = kGlut)) +
-  geom_col(width = 0.7, color = "black", size = 0.4) +
+  geom_col(width = 0.7, color = "black", linewidth = 0.4) +
   geom_errorbar(aes(ymin = pmol_MCM - sd, ymax = pmol_MCM + sd), 
                 width = 0.25, size = 0.6) +
   facet_wrap(~Label, nrow = 1) +
@@ -242,7 +265,7 @@ faceted_by_label_plot <- ggplot(df_summary, aes(x = kGlut, y = pmol_MCM, fill = 
   )
 
 message("Plotting completed...")
-# Your pattern-based saving approach
+
 plot_object_names <- ls(pattern = "_plot$", envir = .GlobalEnv)
 file_paths <- normalizePath(
   file.path(OUTPUT_DIRECTORY, paste0(plot_object_names, ".pdf")),
@@ -252,9 +275,17 @@ names(file_paths) <- plot_object_names
 
 # Save using names
 for (plot_name in names(file_paths)) {
-  current_plot <- get(plot_name, envir = .GlobalEnv)
-  ggsave(file_paths[plot_name], current_plot, width = 8, height = 5)
-  cat("Saved:", basename(file_paths[plot_name]), "\n")
+  if (!file.exists(file_paths[plot_name]) || OVERWRITE_PLOTS) {
+    current_plot <- get(plot_name, envir = .GlobalEnv)
+    ggsave(
+      file_paths[plot_name],
+      current_plot,
+      width = 8,
+      height = 5
+    )
+    cat("Saved:", basename(file_paths[plot_name]), "\n")
+  }
 }
+
 message("Plots saved to OUTPUT_DIRECTORY...")
 message("Script complete.")
