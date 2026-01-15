@@ -115,58 +115,74 @@ fi
 # Everything after this mapfile command will be!
 mapfile -t initial_vars_declarations < <(compgen -A variable | sort)
 
-#==============================
-# Configuration
-#==============================
-echo "Setting configuration..."
-CPU_THREADS="$SLURM_CPUS_PER_TASK"
+# ---- Source config ---
+# Loads:
+# fastp, bowtie2, bamcoverage parameters
+# Reference files - genome and blacklist
+# fastq file pattern and manifest filename
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${SCRIPT_DIR}/configuration_chip_processing.sh"
 
-# --- Command configuration ---
-# Any settings not explictly defined can be assumed to be default.
-# fastp parameters
-MAXIMUM_N_BASE_COUNT=5
-MAXIMUM_UNQUALIFIED_BASE_PERCENT=50
-COMPLEXITY_WINDOW_SIZE=4
-OVERREPRESENTATION_SAMPLING=50
-MINIMUM_BASE_QUALITY=20
-MINIMUM_READ_LENGTH=25
-FASTP_OUT_PREFIX="fastpfiltered"
+[[ -f "$CONFIG_FILE" ]] || { echo "Error: config.sh not found." >&2; exit 1; }
+source "$CONFIG_FILE"
 
-# bowtie2 parameters
-ALIGNMENTS_TO_REPORT=1
-EXTENSIONS_TO_TRY=15
-SETS_OF_SEEDS=2
-MAX_PENALTY_MISMATCH=4
-NON_NUCLEOTIDE_PENALTY=1
-BAM_OUT_SUFFIX="S288C_sorted"
-BLFILTERED_OUT_SUFFIX="blFiltered"
+# Runtime values
+CPU_THREADS="${SLURM_CPUS_PER_TASK:-4}"
 
-# bamCoverage parameters
-BIN_SIZE=10
-EFFECTIVE_GENOME_SIZE=12157105
-MINIMUM_MAPPING_QUALITY=20
-VALID_NORM_METHODS=("RAW" "RPKM" "CPM" "BPM" "RPGC")
-NORM_METHOD="RAW"
-
-# Genome reference files (Saccharomyces cerevisiae S288C)
-GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
-GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
-#GENOME_DIR="$HOME/data/reference_genomes/"
-#GENOME_INDEX="$GENOME_DIR/Saccharomyces_cerevisiae_S288C_GCF0001460452_genome"
-BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
-FASTQ_FILEPATH_PATTERN="consolidated*.fastq"
-
-# Directory structure
+# Derived paths
 EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
 FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
 ALIGNMENT_DIR="${EXPERIMENT_DIR}/alignment"
 COVERAGE_DIR="${EXPERIMENT_DIR}/coverage"
 DOCUMENTATION_DIR="${EXPERIMENT_DIR}/documentation"
 QUALITY_CONTROL_DIR="${EXPERIMENT_DIR}/quality_control"
+MANIFEST_FILEPATH="${DOCUMENTATION_DIR}/${MANIFEST_FILENAME}"
 
-# Manifest output configuration
-MANIFEST_FILENAME="consolidated_reads_manifest.tsv"
-MANIFEST_FILEPATH="${DOCUMENTATION_DIR}/$MANIFEST_FILENAME"
+## --- Command configuration ---
+## fastp parameters
+#MAXIMUM_N_BASE_COUNT=5
+#MAXIMUM_UNQUALIFIED_BASE_PERCENT=50
+#COMPLEXITY_WINDOW_SIZE=4
+#OVERREPRESENTATION_SAMPLING=50
+#MINIMUM_BASE_QUALITY=20
+#MINIMUM_READ_LENGTH=25
+#FASTP_OUT_PREFIX="fastpfiltered"
+#
+## bowtie2 parameters
+#ALIGNMENTS_TO_REPORT=1
+#EXTENSIONS_TO_TRY=15
+#SETS_OF_SEEDS=2
+#MAX_PENALTY_MISMATCH=4
+#NON_NUCLEOTIDE_PENALTY=1
+#BAM_OUT_SUFFIX="S288C_sorted"
+#BLFILTERED_OUT_SUFFIX="blFiltered"
+#
+## bamCoverage parameters
+#BIN_SIZE=10
+#EFFECTIVE_GENOME_SIZE=12157105
+#MINIMUM_MAPPING_QUALITY=20
+#VALID_NORM_METHODS=("RAW" "RPKM" "CPM" "BPM" "RPGC")
+#NORM_METHOD="RAW"
+#
+## Genome reference files (Saccharomyces cerevisiae S288C)
+#GENOME_DIR="$HOME/data/REFGENS/SaccharomycescerevisiaeS288C"
+#GENOME_INDEX="$GENOME_DIR/SaccharomycescerevisiaeS288C_index"
+##GENOME_DIR="$HOME/data/reference_genomes/"
+##GENOME_INDEX="$GENOME_DIR/Saccharomyces_cerevisiae_S288C_GCF0001460452_genome"
+#BLACKLIST_BED_FILE="$HOME/data/feature_files/20250423_merged_saccharomyces_cerevisiae_s288c_blacklist.bed"
+#FASTQ_FILEPATH_PATTERN="consolidated*.fastq"
+#
+## Directory structure
+#EXPERIMENT_DIR="$HOME/data/${EXPERIMENT_ID}"
+#FASTQ_DIR="${EXPERIMENT_DIR}/fastq"
+#ALIGNMENT_DIR="${EXPERIMENT_DIR}/alignment"
+#COVERAGE_DIR="${EXPERIMENT_DIR}/coverage"
+#DOCUMENTATION_DIR="${EXPERIMENT_DIR}/documentation"
+#QUALITY_CONTROL_DIR="${EXPERIMENT_DIR}/quality_control"
+#
+## Manifest output configuration
+#MANIFEST_FILENAME="consolidated_reads_manifest.tsv"
+#MANIFEST_FILEPATH="${DOCUMENTATION_DIR}/$MANIFEST_FILENAME"
 
 #=======================
 # Setup logging
