@@ -8,6 +8,7 @@ Rplots.pdf
 configuration_experiment_bmc.R
 configuration_experiment_flow_cytometry.R
 configuration_script_bmc.R
+configuration_chip_processing.sh
 configuration_script_flow_cytometry.R
 context.txt
 dir_tree_output.txt
