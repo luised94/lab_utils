@@ -294,15 +294,11 @@ for i, spec in enumerate(image_specs, 1):
 
     # Check if this should be a rotation series
     if 'rotation_angles' in spec:
-        # Generate multiple images with rotation
         angles = spec['rotation_angles']
         base_filename = spec['filename'].replace('.png', '')
-
         print(f"  Generating {len(angles)} rotation views...")
-        for angle in angles:
-            # Create angle-specific filename
+        for angle_index, angle in enumerate(angles):
             angle_filename = f"{base_filename}_{angle:03d}.png"
-
             print(f"    Angle {angle}...")
             helper_functions.save_png(
                 filename=angle_filename,
@@ -313,10 +309,11 @@ for i, spec in enumerate(image_specs, 1):
                 overwrite=pymol_configuration.FLAG_OVERWRITE,
                 output_dir=pymol_configuration.OUTPUT_DIR
             )
-
-            # Rotate for next angle (except after last)
-            if angle != angles[-1]:
-                cmd.turn("y", angles[angles.index(angle) + 1] - angle)
+            is_last_angle = angle_index == len(angles) - 1
+            if not is_last_angle:
+                next_angle = angles[angle_index + 1]
+                rotation_delta = next_angle - angle
+                cmd.turn("y", rotation_delta)
     else:
         # Single image (no rotation)
         helper_functions.save_png(
