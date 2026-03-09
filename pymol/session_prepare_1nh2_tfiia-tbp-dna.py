@@ -281,13 +281,6 @@ print("\n" + "=" * 60)
 print("Rendering images")
 print("=" * 60)
 
-# ============================================================================
-# SECTION 7: RENDER ALL IMAGES
-# ============================================================================
-print("\n" + "=" * 60)
-print("Rendering images")
-print("=" * 60)
-
 for i, spec in enumerate(image_specs, 1):
     print(f"\nImage spec {i}/{len(image_specs)}: {spec['filename']}")
     print(f"  Description: {spec['description']}")
