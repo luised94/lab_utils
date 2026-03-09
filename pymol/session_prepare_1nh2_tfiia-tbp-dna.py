@@ -336,14 +336,19 @@ print("\n" + "=" * 60)
 print("Creating individual chain objects for APBS")
 print("=" * 60)
 
-# Get the main object name (first loaded object)
-obj_name = cmd.get_object_list()[0]
+# NOTE: The downstream APBS script (toa2_hydrophobic_core_pictures_after_apbs.py)
+# references IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_DPI, RAY_TRACE, OUTPUT_DIR, and
+# FLAG_OVERWRITE directly from this session's namespace. Both scripts must be
+# run in the same PyMOL session for those bindings to be available.
+
+# Use PDB_CODE directly as the object name - cmd.fetch() names the object after the PDB code
+structure_object_name = PDB_CODE
 
 # Create separate object for each chain
 chain_objects = []
 for chain in CHAIN_COLORS.keys():
     chain_obj_name = f"chain_{chain}"
-    selection = f"{obj_name} and chain {chain}"
+    selection = f"{structure_object_name} and chain {chain}"
 
     if cmd.count_atoms(selection) > 0:
         cmd.create(chain_obj_name, selection)
