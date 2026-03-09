@@ -155,3 +155,34 @@ def prepare_structure() -> bool:
 
     print("   Preparation complete")
     return True
+
+
+def reset_scene_to_base_cartoon(
+    chain_colors: dict[str, str],
+    cartoon_selection: str = "polymer"
+) -> None:
+    """
+    Reset PyMOL scene to a known base state before spec-specific rendering.
+
+    Hides all representations, restores chain colors from the provided mapping,
+    then shows cartoon for the given selection. Called at the start of each image
+    spec action list to prevent color or representation state from leaking between
+    render passes.
+
+    Args:
+        chain_colors (dict[str, str]): Mapping of chain identifier to PyMOL color
+            name (e.g., {"A": "yellow", "B": "marine"}). Applied to all chains.
+        cartoon_selection (str): PyMOL selection string for cartoon representation
+            (default: "polymer").
+
+    Returns:
+        None
+
+    Example:
+        reset_scene_to_base_cartoon(CHAIN_COLORS)
+        reset_scene_to_base_cartoon(CHAIN_COLORS, cartoon_selection="chain A")
+    """
+    cmd.hide("everything")
+    for chain, color in chain_colors.items():
+        cmd.color(color, f"chain {chain}")
+    cmd.show("cartoon", cartoon_selection)

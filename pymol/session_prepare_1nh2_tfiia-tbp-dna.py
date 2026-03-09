@@ -221,8 +221,7 @@ image_specs = [
         'view': VIEW_OVERALL,
         'rotation_angles': [0, 90, 180, 270],
         'actions': [
-            lambda: cmd.hide("everything"),
-            lambda: cmd.show("cartoon", "polymer"),
+            lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
             lambda: cmd.show("spheres", G16["roi_selection"]),
             lambda: cmd.color("red", G16["roi_selection"]),
             lambda: cmd.set("sphere_scale", 1.5, G16["roi_selection"]),
@@ -234,8 +233,7 @@ image_specs = [
         'description': 'G16 hydrophobic core as surface',
         'view': VIEW_G16_HYDROPHOBIC,
         'actions': [
-            lambda: cmd.hide("everything"),
-            lambda: cmd.show("cartoon", "polymer"),
+            lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
             lambda: cmd.set("depth_cue", 0),
             lambda: cmd.set("fog", 0),
             lambda: cmd.show("spheres", G16["core_selection"]),
@@ -254,8 +252,7 @@ image_specs = [
         'view': VIEW_V251_OVERALL,  # Reuses same overall view
         'rotation_angles': [0, 90, 180, 270],
         'actions': [
-            lambda: cmd.hide("everything"),
-            lambda: cmd.show("cartoon", "polymer"),
+            lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
             lambda: cmd.color("marine", "obj 1nh2 and chain B"), # Reapply color to remove orange.
             lambda: cmd.color("green", "obj 1nh2 and chain D"),
             lambda: cmd.show("spheres", V251["roi_selection"]),
@@ -272,8 +269,7 @@ image_specs = [
         'description': 'V251 supplemental - hydrophobic core with TBP residues 94-106 hidden',
         'view': VIEW_V251_HYDROPHOBIC,
         'actions': [
-            lambda: cmd.hide("everything"),
-            lambda: cmd.show("cartoon", "polymer"),
+            lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
             lambda: cmd.show("spheres", V251["core_selection"]),
             lambda: cmd.set("sphere_scale", 1.0, V251["core_selection"]),
             lambda: cmd.color("grey50", V251["core_selection"]),
