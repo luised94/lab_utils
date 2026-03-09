@@ -231,7 +231,8 @@ image_specs = [
             lambda: cmd.show("cartoon", "polymer"),
             lambda: cmd.set("depth_cue", 0),
             lambda: cmd.set("fog", 0),
-            lambda: cmd.show("sphere", "hydrophobic_core_g16"),
+            lambda: cmd.show("spheres", "hydrophobic_core_g16"),
+            lambda: cmd.set("sphere_scale", 1.0, "hydrophobic_core_g16"),
             lambda: cmd.color("grey50", "hydrophobic_core_g16"),
             lambda: cmd.set("transparency", 0.8, "hydrophobic_core_g16"),
         ]
@@ -253,6 +254,7 @@ image_specs = [
             lambda: cmd.color("magenta", "roi_v251"),  # V251 in magenta (distinct from G16)
             lambda: cmd.show("spheres", "roi_g16"),
             lambda: cmd.color("red", "roi_g16"),
+            lambda: cmd.set("sphere_scale", 1.5, "roi_g16"),
             lambda: cmd.set("sphere_scale", 1.5, "roi_v251"),
         ]
     },
@@ -265,6 +267,7 @@ image_specs = [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
             lambda: cmd.show("spheres", "hydrophobic_core_v251"),
+            lambda: cmd.set("sphere_scale", 1.0, "hydrophobic_core_v251"),
             lambda: cmd.color("grey50", "hydrophobic_core_v251"),
             lambda: cmd.color("magenta", "roi_v251"),  # V251 in magenta (distinct from G16)
             lambda: cmd.set("transparency", 0.3, "hydrophobic_core_v251"),
