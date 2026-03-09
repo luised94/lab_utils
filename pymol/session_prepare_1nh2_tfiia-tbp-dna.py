@@ -39,6 +39,28 @@ CHAIN_COLORS = {
 DISTANCE_CUTOFF = 4.0
 HYDROPHOBIC_RESIDUES = "ala+gly+val+ile+leu+phe+met+pro+trp"
 
+# ROI constants - one dict per residue of interest
+# All PyMOL selection strings for a given ROI are derived from these values
+G16 = {
+    "chain":                    "D",
+    "residue_number":           "16",
+    "roi_selection":            "roi_g16",
+    "nearby_selection":         "nearby_g16",
+    "core_selection":           "hydrophobic_core_g16",
+    "contact_chain":            "B",
+    "nearby_contact_selection": "nearby_chain_b_g16",
+}
+
+V251 = {
+    "chain":                    "C",
+    "residue_number":           "251",
+    "roi_selection":            "roi_v251",
+    "nearby_selection":         "nearby_v251",
+    "core_selection":           "hydrophobic_core_v251",
+    "contact_chain":            "C",
+    "nearby_contact_selection": "nearby_chain_c_v251",
+}
+
 # ============================================================================
 # ROI (RESIDUE OF INTEREST) SPECIFICATIONS
 # ============================================================================
@@ -46,40 +68,29 @@ HYDROPHOBIC_RESIDUES = "ala+gly+val+ile+leu+phe+met+pro+trp"
 # Each ROI creates: roi_NAME, nearby_NAME, hydrophobic_core_NAME selections
 ROI_SPECS = [
     {
-        'name': 'g16',
-        'description': 'G16 hydrophobic core in TOA2 (chain D)',
+        'name':           'g16',
+        'description':    'G16 hydrophobic core in TOA2',
+        'roi_selection':  G16["roi_selection"],
+        'core_selection': G16["core_selection"],
         'actions': [
-            # Create ROI selection
-            lambda: cmd.select("roi_g16", "chain D and resi 16"),
-
-            # Create nearby residues (within cutoff distance)
-            lambda: cmd.select("nearby_g16", f"byres (all within {DISTANCE_CUTOFF} of roi_g16)"),
-
-            # Create hydrophobic core (exclude ROI itself)
-            lambda: cmd.select("hydrophobic_core_g16", f"nearby_g16 and resn {HYDROPHOBIC_RESIDUES} and not roi_g16"),
-
-            # Special: Expand to include chain B (TOA1) contacts for G16
-            lambda: cmd.select("nearby_chain_b_g16", f"byres (chain B within {DISTANCE_CUTOFF} of hydrophobic_core_g16)"),
-            lambda: cmd.select("hydrophobic_core_g16", f"hydrophobic_core_g16 or (nearby_chain_b_g16 and resn {HYDROPHOBIC_RESIDUES})"),
+            lambda: cmd.select(G16["roi_selection"], f"chain {G16['chain']} and resi {G16['residue_number']}"),
+            lambda: cmd.select(G16["nearby_selection"], f"byres (all within {DISTANCE_CUTOFF} of {G16['roi_selection']})"),
+            lambda: cmd.select(G16["core_selection"], f"{G16['nearby_selection']} and resn {HYDROPHOBIC_RESIDUES} and not {G16['roi_selection']}"),
+            lambda: cmd.select(G16["nearby_contact_selection"], f"byres (chain {G16['contact_chain']} within {DISTANCE_CUTOFF} of {G16['core_selection']})"),
+            lambda: cmd.select(G16["core_selection"], f"{G16['core_selection']} or ({G16['nearby_contact_selection']} and resn {HYDROPHOBIC_RESIDUES})"),
         ]
     },
-
     {
-        'name': 'v251',
-        'description': 'V251 in TOA1 (chain C)',
+        'name':           'v251',
+        'description':    'V251 in TOA1',
+        'roi_selection':  V251["roi_selection"],
+        'core_selection': V251["core_selection"],
         'actions': [
-            # Create ROI selection
-            lambda: cmd.select("roi_v251", "chain C and resi 251"),
-
-            # Create nearby residues (within cutoff distance)
-            lambda: cmd.select("nearby_v251", f"byres (all within {DISTANCE_CUTOFF} of roi_v251)"),
-
-            # Create hydrophobic core (exclude ROI itself)
-            lambda: cmd.select("hydrophobic_core_v251", f"nearby_v251 and resn {HYDROPHOBIC_RESIDUES} and not roi_v251"),
-
-            # Special: Expand to include chain B (TOA1) contacts for G16
-            lambda: cmd.select("nearby_chain_c_v251", f"byres (chain C within {DISTANCE_CUTOFF} of hydrophobic_core_v251)"),
-            lambda: cmd.select("hydrophobic_core_v251", f"hydrophobic_core_v251 or (nearby_chain_c_v251 and resn {HYDROPHOBIC_RESIDUES})"),
+            lambda: cmd.select(V251["roi_selection"], f"chain {V251['chain']} and resi {V251['residue_number']}"),
+            lambda: cmd.select(V251["nearby_selection"], f"byres (all within {DISTANCE_CUTOFF} of {V251['roi_selection']})"),
+            lambda: cmd.select(V251["core_selection"], f"{V251['nearby_selection']} and resn {HYDROPHOBIC_RESIDUES} and not {V251['roi_selection']}"),
+            lambda: cmd.select(V251["nearby_contact_selection"], f"byres (chain {V251['contact_chain']} within {DISTANCE_CUTOFF} of {V251['core_selection']})"),
+            lambda: cmd.select(V251["core_selection"], f"{V251['core_selection']} or ({V251['nearby_contact_selection']} and resn {HYDROPHOBIC_RESIDUES})"),
         ]
     },
 ]
@@ -187,18 +198,14 @@ for roi_spec in ROI_SPECS:
         action()
 
     # Verify the main selections were created successfully
-    roi_name = roi_spec['name']
-    roi_sel = f"roi_{roi_name}"
-    core_sel = f"hydrophobic_core_{roi_name}"
-
-    roi_count = cmd.count_atoms(roi_sel)
-    if roi_count == 0:
-        raise ValueError(f"ERROR: Selection {roi_sel} is empty! Check chain/residue in ROI_SPECS.")
-
-    core_count = cmd.count_atoms(core_sel)
-
-    print(f"   {roi_sel}: {roi_count} atoms")
-    print(f"   {core_sel}: {core_count} atoms")
+    roi_selection_name = roi_spec['roi_selection']
+    core_selection_name = roi_spec['core_selection']
+    roi_atom_count = cmd.count_atoms(roi_selection_name)
+    if roi_atom_count == 0:
+        raise ValueError(f"ERROR: Selection {roi_selection_name} is empty! Check chain/residue in ROI_SPECS.")
+    core_atom_count = cmd.count_atoms(core_selection_name)
+    print(f"   {roi_selection_name}: {roi_atom_count} atoms")
+    print(f"   {core_selection_name}: {core_atom_count} atoms")
 
 print(f"\n Successfully created selections for {len(ROI_SPECS)} ROIs")
 # ============================================================================
@@ -216,9 +223,9 @@ image_specs = [
         'actions': [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
-            lambda: cmd.show("spheres", "roi_g16"),
-            lambda: cmd.color("red", "roi_g16"),
-            lambda: cmd.set("sphere_scale", 1.5, "roi_g16"),
+            lambda: cmd.show("spheres", G16["roi_selection"]),
+            lambda: cmd.color("red", G16["roi_selection"]),
+            lambda: cmd.set("sphere_scale", 1.5, G16["roi_selection"]),
         ]
     },
 
@@ -231,10 +238,11 @@ image_specs = [
             lambda: cmd.show("cartoon", "polymer"),
             lambda: cmd.set("depth_cue", 0),
             lambda: cmd.set("fog", 0),
-            lambda: cmd.show("spheres", "hydrophobic_core_g16"),
-            lambda: cmd.set("sphere_scale", 1.0, "hydrophobic_core_g16"),
-            lambda: cmd.color("grey50", "hydrophobic_core_g16"),
-            lambda: cmd.set("transparency", 0.8, "hydrophobic_core_g16"),
+            lambda: cmd.show("spheres", G16["core_selection"]),
+            lambda: cmd.set("sphere_scale", 1.0, G16["core_selection"]),
+            lambda: cmd.color("grey50", G16["core_selection"]),
+            lambda: cmd.set("transparency", 0.8, G16["core_selection"]),
+
         ]
     },
 
@@ -250,12 +258,12 @@ image_specs = [
             lambda: cmd.show("cartoon", "polymer"),
             lambda: cmd.color("marine", "obj 1nh2 and chain B"), # Reapply color to remove orange.
             lambda: cmd.color("green", "obj 1nh2 and chain D"),
-            lambda: cmd.show("spheres", "roi_v251"),
-            lambda: cmd.color("magenta", "roi_v251"),  # V251 in magenta (distinct from G16)
-            lambda: cmd.show("spheres", "roi_g16"),
-            lambda: cmd.color("red", "roi_g16"),
-            lambda: cmd.set("sphere_scale", 1.5, "roi_g16"),
-            lambda: cmd.set("sphere_scale", 1.5, "roi_v251"),
+            lambda: cmd.show("spheres", V251["roi_selection"]),
+            lambda: cmd.color("magenta", V251["roi_selection"]),
+            lambda: cmd.show("spheres", G16["roi_selection"]),
+            lambda: cmd.color("red", G16["roi_selection"]),
+            lambda: cmd.set("sphere_scale", 1.5, G16["roi_selection"]),
+            lambda: cmd.set("sphere_scale", 1.5, V251["roi_selection"]),
         ]
     },
 
@@ -266,13 +274,14 @@ image_specs = [
         'actions': [
             lambda: cmd.hide("everything"),
             lambda: cmd.show("cartoon", "polymer"),
-            lambda: cmd.show("spheres", "hydrophobic_core_v251"),
-            lambda: cmd.set("sphere_scale", 1.0, "hydrophobic_core_v251"),
-            lambda: cmd.color("grey50", "hydrophobic_core_v251"),
-            lambda: cmd.color("magenta", "roi_v251"),  # V251 in magenta (distinct from G16)
-            lambda: cmd.set("transparency", 0.3, "hydrophobic_core_v251"),
+            lambda: cmd.show("spheres", V251["core_selection"]),
+            lambda: cmd.set("sphere_scale", 1.0, V251["core_selection"]),
+            lambda: cmd.color("grey50", V251["core_selection"]),
+            lambda: cmd.color("magenta", V251["roi_selection"]),
+            lambda: cmd.set("transparency", 0.3, V251["core_selection"]),
             # Special: hide TBP residues 94-106 from chain A
             lambda: cmd.hide("cartoon", "chain A and resi 94-106"),
+
         ]
     },
 ]
