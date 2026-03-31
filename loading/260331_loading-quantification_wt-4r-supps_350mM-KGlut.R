@@ -46,7 +46,13 @@ stopifnot(
     "Number of columns does not match EXPECTED_NUMBER_OF_COLUMNS." =
         ncol(raw_loading_data) == EXPECTED_NUMBER_OF_COLUMNS,
     "Column names do not match REQUIRED_COLUMNS." =
-        identical(colnames(raw_loading_data), REQUIRED_COLUMNS)
+        identical(colnames(raw_loading_data), REQUIRED_COLUMNS),
+    "NA values found in Percent Wildtype column." =
+        !anyNA(raw_loading_data[["Percent Wildtype"]]),
+    "Negative values found in Percent Wildtype column." =
+        all(raw_loading_data[["Percent Wildtype"]] >= 0),
+    "WT rows are not exactly 100 in Percent Wildtype column." =
+        all(raw_loading_data[["Percent Wildtype"]][raw_loading_data[["orc4"]] == "WT"] == 100)
 )
 message("Data loaded and validated: ", nrow(raw_loading_data), " rows x ", ncol(raw_loading_data), " columns.")
 
@@ -123,6 +129,7 @@ message("Plot constructed.")
 # ==============================================================================
 plot_output_filepath <- file.path(OUTPUT_DIRECTORY, "260331_loading-bar-chart_wt-4r-supps_350mM-KGlut.pdf")
 summary_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "260331_loading-summary_wt-4r-supps_350mM-KGlut.csv")
+full_data_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "260331_loading-full-data_wt-4r-supps_350mM-KGlut.csv")
 
 if (!file.exists(plot_output_filepath) || OVERWRITE_PLOTS) {
     ggsave(plot_output_filepath, loading_bar_chart, width = 8, height = 5)
@@ -131,11 +138,22 @@ if (!file.exists(plot_output_filepath) || OVERWRITE_PLOTS) {
     message("Skipped plot (already exists): ", basename(plot_output_filepath))
 }
 
+
 if (!file.exists(summary_csv_output_filepath) || OVERWRITE_CSVS) {
     write.csv(summary_loading_data, summary_csv_output_filepath, row.names = FALSE)
     message("Saved CSV: ", basename(summary_csv_output_filepath))
 } else {
     message("Skipped CSV (already exists): ", basename(summary_csv_output_filepath))
 }
+
+if (!file.exists(full_data_csv_output_filepath) || OVERWRITE_CSVS) {
+    write.csv(loading_data, full_data_csv_output_filepath, row.names = FALSE)
+    message("Saved CSV: ", basename(full_data_csv_output_filepath))
+} else {
+    message("Skipped CSV (already exists): ", basename(full_data_csv_output_filepath))
+}
+
+message("Summary statistics:")
+print(as.data.frame(summary_loading_data))
 
 message("Script complete.")
