@@ -97,7 +97,12 @@ message("Summary statistics computed.")
 # ==============================================================================
 loading_bar_chart <- ggplot(summary_loading_data, aes(x = label, y = mean_percent_wildtype, fill = label)) +
     geom_col(width = 0.7, color = "black", linewidth = 0.4) +
-    scale_fill_brewer(palette = "Set1") +
+    scale_fill_manual(values = c(
+        "WT" = "#E41A1C", "ORC4R" = "#377EB8",
+        "+1sofa" = "#FF7F00", "+3sofa" = "#984EA3",
+        "+4sofa" = "#4DAF4A", "+5sofa" = "#FFFF33",
+        "+6sofa" = "#A65628"
+    )) +
     geom_errorbar(
         aes(
             ymin = pmax(0, mean_percent_wildtype - sd_percent_wildtype),
