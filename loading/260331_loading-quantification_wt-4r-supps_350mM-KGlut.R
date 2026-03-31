@@ -97,20 +97,25 @@ message("Summary statistics computed.")
 # ==============================================================================
 loading_bar_chart <- ggplot(summary_loading_data, aes(x = label, y = mean_percent_wildtype, fill = label)) +
     geom_col(width = 0.7, color = "black", linewidth = 0.4) +
+    scale_fill_brewer(palette = "Set1") +
     geom_errorbar(
         aes(
-            ymin = mean_percent_wildtype - sd_percent_wildtype,
+            ymin = pmax(0, mean_percent_wildtype - sd_percent_wildtype),
             ymax = mean_percent_wildtype + sd_percent_wildtype
         ),
         width = 0.25, linewidth = 0.6
     ) +
     geom_jitter(
         data = loading_data,
-        aes(x = label, y = `Percent Wildtype`),
-        width = 0.15, size = 2, shape = 21, fill = "grey30", color = "black", stroke = 0.5,
+        aes(x = label, y = `Percent Wildtype`, shape = factor(`repeat`)),
+        width = 0.15, size = 2, fill = "grey30", color = "black", stroke = 0.5,
         inherit.aes = FALSE
     ) +
-    scale_fill_brewer(palette = "Set1") +
+    scale_shape_manual(
+        values = c("1" = 21, "2" = 24, "3" = 22),
+        labels = c("1" = "Replicate 1", "2" = "Replicate 2", "3" = "Replicate 3"),
+        name = "Replicate"
+    ) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
     labs(
         x = "Sample",
@@ -119,7 +124,7 @@ loading_bar_chart <- ggplot(summary_loading_data, aes(x = label, y = mean_percen
     ) +
     theme_classic(base_size = 13) +
     theme(
-        legend.position = "none",
+        legend.position = "right",
         axis.text.x = element_text(face = "bold")
     )
 message("Plot constructed.")
