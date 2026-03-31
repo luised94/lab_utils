@@ -49,3 +49,39 @@ stopifnot(
         identical(colnames(raw_loading_data), REQUIRED_COLUMNS)
 )
 message("Data loaded and validated: ", nrow(raw_loading_data), " rows x ", ncol(raw_loading_data), " columns.")
+
+# ==============================================================================
+# Preprocessing
+# ==============================================================================
+LABEL_FACTOR_ORDER <- c("WT", "ORC4R", "+1sofa", "+3sofa", "+4sofa", "+5sofa", "+6sofa")
+
+loading_data <- raw_loading_data %>%
+    mutate(label = case_when(
+        orc4 == "WT" & sofa == "none" ~ "WT",
+        orc4 == "RA" & sofa == "none" ~ "ORC4R",
+        orc4 == "RA" & sofa == "orc1" ~ "+1sofa",
+        orc4 == "RA" & sofa == "orc3" ~ "+3sofa",
+        orc4 == "RA" & sofa == "orc4" ~ "+4sofa",
+        orc4 == "RA" & sofa == "orc5" ~ "+5sofa",
+        orc4 == "RA" & sofa == "orc6" ~ "+6sofa"
+    )) %>%
+    mutate(label = factor(label, levels = LABEL_FACTOR_ORDER, ordered = TRUE))
+
+stopifnot(
+    "NA labels found after case_when mapping." =
+        sum(is.na(loading_data$label)) == 0
+)
+message("Labels mapped and factor order applied.")
+
+# ==============================================================================
+# Summary statistics
+# ==============================================================================
+summary_loading_data <- loading_data %>%
+    group_by(label) %>%
+    summarise(
+        mean_percent_wildtype = mean(`Percent Wildtype`, na.rm = TRUE),
+        sd_percent_wildtype = sd(`Percent Wildtype`, na.rm = TRUE),
+        replicate_count = n(),
+        .groups = "drop"
+    )
+message("Summary statistics computed.")
