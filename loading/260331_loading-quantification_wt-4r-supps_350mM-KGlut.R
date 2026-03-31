@@ -85,3 +85,57 @@ summary_loading_data <- loading_data %>%
         .groups = "drop"
     )
 message("Summary statistics computed.")
+
+# ==============================================================================
+# Plot
+# ==============================================================================
+loading_bar_chart <- ggplot(summary_loading_data, aes(x = label, y = mean_percent_wildtype, fill = label)) +
+    geom_col(width = 0.7, color = "black", linewidth = 0.4) +
+    geom_errorbar(
+        aes(
+            ymin = mean_percent_wildtype - sd_percent_wildtype,
+            ymax = mean_percent_wildtype + sd_percent_wildtype
+        ),
+        width = 0.25, linewidth = 0.6
+    ) +
+    geom_jitter(
+        data = loading_data,
+        aes(x = label, y = `Percent Wildtype`),
+        width = 0.15, size = 2, shape = 21, fill = "grey30", color = "black", stroke = 0.5,
+        inherit.aes = FALSE
+    ) +
+    scale_fill_brewer(palette = "Set1") +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    labs(
+        x = "Sample",
+        y = "MCM Loading (% WT)",
+        title = "MCM Loading at 350 mM KGlut"
+    ) +
+    theme_classic(base_size = 13) +
+    theme(
+        legend.position = "none",
+        axis.text.x = element_text(face = "bold")
+    )
+message("Plot constructed.")
+
+# ==============================================================================
+# Output
+# ==============================================================================
+plot_output_filepath <- file.path(OUTPUT_DIRECTORY, "260331_loading-bar-chart_wt-4r-supps_350mM-KGlut.pdf")
+summary_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "260331_loading-summary_wt-4r-supps_350mM-KGlut.csv")
+
+if (!file.exists(plot_output_filepath) || OVERWRITE_PLOTS) {
+    ggsave(plot_output_filepath, loading_bar_chart, width = 8, height = 5)
+    message("Saved plot: ", basename(plot_output_filepath))
+} else {
+    message("Skipped plot (already exists): ", basename(plot_output_filepath))
+}
+
+if (!file.exists(summary_csv_output_filepath) || OVERWRITE_CSVS) {
+    write.csv(summary_loading_data, summary_csv_output_filepath, row.names = FALSE)
+    message("Saved CSV: ", basename(summary_csv_output_filepath))
+} else {
+    message("Skipped CSV (already exists): ", basename(summary_csv_output_filepath))
+}
+
+message("Script complete.")
