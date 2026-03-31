@@ -4,6 +4,21 @@
 # Usage: source("260331_loading-quantification_wt-4r-supps_350mM-KGlut.R")
 # Output: Bar chart of MCM loading (% WT) for WT, ORC4R, and sofa suppressors
 # at 350 mM KGlut, saved as PDF.
+#
+# Experiment context:
+#   Loading assay measures how much MCM helicase is loaded onto chromatin.
+#   ORC4R = ORC4 subunit with an R-to-A mutation that impairs loading.
+#   sofa = "suppressor of four R/A" - second-site mutations in other ORC
+#   subunits (orc1, orc3, orc4, orc5, orc6) that partially rescue ORC4R.
+#   This dataset is the 350 mM KGlut salt condition only. A separate script
+#   (quantification_kgluttitr_wt-4r-ps.R) handles the multi-salt titration.
+#
+# Data layout (Sheet1, 21 rows = 7 conditions x 3 biological replicates):
+#   orc4: WT or RA (the ORC4R mutant)
+#   sofa: none, orc1, orc3, orc4, orc5, orc6
+#   repeat: biological replicate number (1, 2, 3)
+#   Percent Wildtype: already normalized to WT = 100 per replicate in Excel
+#   Sheet2 contains source image filenames only - not used here.
 
 # ==============================================================================
 # Configuration
@@ -23,6 +38,20 @@ SHEET_NAME <- "Sheet1"
 EXPECTED_NUMBER_OF_ROWS <- 21
 EXPECTED_NUMBER_OF_COLUMNS <- 4
 REQUIRED_COLUMNS <- c("orc4", "sofa", "repeat", "Percent Wildtype")
+
+# Color mapping per condition label.
+# Uses scale_fill_manual instead of scale_fill_brewer(palette = "Set1") because
+# +4sofa appears alone in a companion figure and receives the first Set1 color
+# there. To keep +4sofa visually consistent across figures, the colors for
+# +1sofa (position 3, green) and +4sofa (position 5, orange) are swapped here.
+# To revert to default Set1 ordering, replace scale_fill_manual(...) with
+# scale_fill_brewer(palette = "Set1") in the plot section below.
+FILL_COLORS_BY_LABEL <- c(
+    "WT" = "#E41A1C", "ORC4R" = "#377EB8",
+    "+1sofa" = "#FF7F00", "+3sofa" = "#984EA3",
+    "+4sofa" = "#4DAF4A", "+5sofa" = "#FFFF33",
+    "+6sofa" = "#A65628"
+)
 
 # ==============================================================================
 # File validation
@@ -61,6 +90,9 @@ message("Data loaded and validated: ", nrow(raw_loading_data), " rows x ", ncol(
 # ==============================================================================
 LABEL_FACTOR_ORDER <- c("WT", "ORC4R", "+1sofa", "+3sofa", "+4sofa", "+5sofa", "+6sofa")
 
+# Map orc4/sofa column pairs to display labels.
+# WT + none = wildtype control. RA + none = ORC4R mutant alone.
+# RA + orc<N> = ORC4R rescued by suppressor in subunit N.
 loading_data <- raw_loading_data %>%
     mutate(label = case_when(
         orc4 == "WT" & sofa == "none" ~ "WT",
@@ -73,6 +105,7 @@ loading_data <- raw_loading_data %>%
     )) %>%
     mutate(label = factor(label, levels = LABEL_FACTOR_ORDER, ordered = TRUE))
 
+# If any row fails to match a case_when branch, it gets NA - catch that here.
 stopifnot(
     "NA labels found after case_when mapping." =
         sum(is.na(loading_data$label)) == 0
@@ -97,12 +130,8 @@ message("Summary statistics computed.")
 # ==============================================================================
 loading_bar_chart <- ggplot(summary_loading_data, aes(x = label, y = mean_percent_wildtype, fill = label)) +
     geom_col(width = 0.7, color = "black", linewidth = 0.4) +
-    scale_fill_manual(values = c(
-        "WT" = "#E41A1C", "ORC4R" = "#377EB8",
-        "+1sofa" = "#FF7F00", "+3sofa" = "#984EA3",
-        "+4sofa" = "#4DAF4A", "+5sofa" = "#FFFF33",
-        "+6sofa" = "#A65628"
-    )) +
+    # Lower error bar clamped at 0: negative loading percentages are
+    # biologically meaningless and would be a visual artifact of the SD.
     geom_errorbar(
         aes(
             ymin = pmax(0, mean_percent_wildtype - sd_percent_wildtype),
@@ -110,12 +139,16 @@ loading_bar_chart <- ggplot(summary_loading_data, aes(x = label, y = mean_percen
         ),
         width = 0.25, linewidth = 0.6
     ) +
+    # Overlay individual biological replicates on top of summary bars.
+    # Shape distinguishes replicates; inherit.aes = FALSE avoids pulling
+    # the fill aesthetic from the summary data frame.
     geom_jitter(
         data = loading_data,
         aes(x = label, y = `Percent Wildtype`, shape = factor(`repeat`)),
         width = 0.15, size = 2, fill = "grey30", color = "black", stroke = 0.5,
         inherit.aes = FALSE
     ) +
+    scale_fill_manual(values = FILL_COLORS_BY_LABEL) +
     scale_shape_manual(
         values = c("1" = 21, "2" = 24, "3" = 22),
         labels = c("1" = "Replicate 1", "2" = "Replicate 2", "3" = "Replicate 3"),
@@ -147,7 +180,6 @@ if (!file.exists(plot_output_filepath) || OVERWRITE_PLOTS) {
 } else {
     message("Skipped plot (already exists): ", basename(plot_output_filepath))
 }
-
 
 if (!file.exists(summary_csv_output_filepath) || OVERWRITE_CSVS) {
     write.csv(summary_loading_data, summary_csv_output_filepath, row.names = FALSE)
