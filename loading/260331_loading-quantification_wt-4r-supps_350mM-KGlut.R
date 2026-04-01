@@ -111,6 +111,22 @@ stopifnot(
         sum(is.na(loading_data$label)) == 0
 )
 message("Labels mapped and factor order applied.")
+message("Labels mapped and factor order applied.")
+
+# Percent difference: |A - B| / ((A + B) / 2) * 100
+# Computed per-replicate so we can derive mean +/- SD downstream.
+# Paired within replicate: each condition compared to the WT and ORC4R
+# values from the same experiment.
+loading_data <- loading_data %>%
+    group_by(`repeat`) %>%
+    mutate(
+        percent_difference_from_wildtype = abs(`Percent Wildtype` - `Percent Wildtype`[label == "WT"]) /
+            ((`Percent Wildtype` + `Percent Wildtype`[label == "WT"]) / 2) * 100,
+        percent_difference_from_orc4r = abs(`Percent Wildtype` - `Percent Wildtype`[label == "ORC4R"]) /
+            ((`Percent Wildtype` + `Percent Wildtype`[label == "ORC4R"]) / 2) * 100
+    ) %>%
+    ungroup()
+message("Percent difference columns computed.")
 
 # ==============================================================================
 # Summary statistics
@@ -120,6 +136,10 @@ summary_loading_data <- loading_data %>%
     summarise(
         mean_percent_wildtype = mean(`Percent Wildtype`, na.rm = TRUE),
         sd_percent_wildtype = sd(`Percent Wildtype`, na.rm = TRUE),
+        mean_percent_difference_from_wildtype = mean(percent_difference_from_wildtype, na.rm = TRUE),
+        sd_percent_difference_from_wildtype = sd(percent_difference_from_wildtype, na.rm = TRUE),
+        mean_percent_difference_from_orc4r = mean(percent_difference_from_orc4r, na.rm = TRUE),
+        sd_percent_difference_from_orc4r = sd(percent_difference_from_orc4r, na.rm = TRUE),
         replicate_count = n(),
         .groups = "drop"
     )
