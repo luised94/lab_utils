@@ -131,10 +131,13 @@ loading_data <- loading_data %>%
         percent_change_from_wildtype = (`Percent Wildtype` - `Percent Wildtype`[label == "WT"]) /
             `Percent Wildtype`[label == "WT"] * 100,
         percent_change_from_orc4r = (`Percent Wildtype` - `Percent Wildtype`[label == "ORC4R"]) /
-            `Percent Wildtype`[label == "ORC4R"] * 100
+            `Percent Wildtype`[label == "ORC4R"] * 100,
+        # Fold change: condition / ORC4R. Values > 1 indicate rescue.
+        # More interpretable than percent change when ORC4R is near zero.
+        fold_change_from_orc4r = `Percent Wildtype` / `Percent Wildtype`[label == "ORC4R"]
     ) %>%
     ungroup()
-message("Percent difference and percent change columns computed.")
+message("Percent difference, percent change, and fold change columns computed.")
 # ==============================================================================
 # Summary statistics
 # ==============================================================================
@@ -151,6 +154,8 @@ summary_loading_data <- loading_data %>%
         sd_percent_change_from_wildtype = sd(percent_change_from_wildtype, na.rm = TRUE),
         mean_percent_change_from_orc4r = mean(percent_change_from_orc4r, na.rm = TRUE),
         sd_percent_change_from_orc4r = sd(percent_change_from_orc4r, na.rm = TRUE),
+        mean_fold_change_from_orc4r = mean(fold_change_from_orc4r, na.rm = TRUE),
+        sd_fold_change_from_orc4r = sd(fold_change_from_orc4r, na.rm = TRUE),
         replicate_count = n(),
         .groups = "drop"
     )
