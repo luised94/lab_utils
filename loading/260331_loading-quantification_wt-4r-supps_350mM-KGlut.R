@@ -123,11 +123,18 @@ loading_data <- loading_data %>%
         percent_difference_from_wildtype = abs(`Percent Wildtype` - `Percent Wildtype`[label == "WT"]) /
             ((`Percent Wildtype` + `Percent Wildtype`[label == "WT"]) / 2) * 100,
         percent_difference_from_orc4r = abs(`Percent Wildtype` - `Percent Wildtype`[label == "ORC4R"]) /
-            ((`Percent Wildtype` + `Percent Wildtype`[label == "ORC4R"]) / 2) * 100
+            ((`Percent Wildtype` + `Percent Wildtype`[label == "ORC4R"]) / 2) * 100,
+        # Percent change: (A - reference) / reference * 100
+        # Directional: negative means condition loads less than reference.
+        # Percent change from ORC4R produces large values because ORC4R
+        # is a small denominator (mean ~5.8% of WT).
+        percent_change_from_wildtype = (`Percent Wildtype` - `Percent Wildtype`[label == "WT"]) /
+            `Percent Wildtype`[label == "WT"] * 100,
+        percent_change_from_orc4r = (`Percent Wildtype` - `Percent Wildtype`[label == "ORC4R"]) /
+            `Percent Wildtype`[label == "ORC4R"] * 100
     ) %>%
     ungroup()
-message("Percent difference columns computed.")
-
+message("Percent difference and percent change columns computed.")
 # ==============================================================================
 # Summary statistics
 # ==============================================================================
@@ -140,6 +147,10 @@ summary_loading_data <- loading_data %>%
         sd_percent_difference_from_wildtype = sd(percent_difference_from_wildtype, na.rm = TRUE),
         mean_percent_difference_from_orc4r = mean(percent_difference_from_orc4r, na.rm = TRUE),
         sd_percent_difference_from_orc4r = sd(percent_difference_from_orc4r, na.rm = TRUE),
+        mean_percent_change_from_wildtype = mean(percent_change_from_wildtype, na.rm = TRUE),
+        sd_percent_change_from_wildtype = sd(percent_change_from_wildtype, na.rm = TRUE),
+        mean_percent_change_from_orc4r = mean(percent_change_from_orc4r, na.rm = TRUE),
+        sd_percent_change_from_orc4r = sd(percent_change_from_orc4r, na.rm = TRUE),
         replicate_count = n(),
         .groups = "drop"
     )
