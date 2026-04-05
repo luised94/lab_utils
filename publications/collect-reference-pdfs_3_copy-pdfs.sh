@@ -9,8 +9,31 @@
 #   3. Copy each PDF to the target directory
 #   4. Validate each copy exists at destination
 #
+# WHY POWERSHELL INSTEAD OF CP:
+#   Dropbox smart-sync stores files as cloud-only placeholders on disk.
+#   These appear as normal files to `ls` but contain no actual data.
+#   PowerShell file operations (Copy-Item, Get-Content) trigger Dropbox
+#   to download ("hydrate") the real content automatically. WSL's `cp`
+#   does not trigger this hydration and would copy empty stubs.
+#
+# WHY A SINGLE .PS1 SCRIPT:
+#   Each `powershell.exe` invocation from WSL takes ~1-2 seconds of startup
+#   overhead. For 100 files, that's 2-3 minutes of pure overhead. Generating
+#   a .ps1 and executing it once eliminates this.
+#
+# WHY -LiteralPath:
+#   PowerShell's default -Path parameter interprets wildcards and special
+#   characters (brackets, backticks, dollar signs). -LiteralPath treats the
+#   path as a literal string. Academic filenames frequently contain Unicode
+#   (”, ú, -, ?) and special characters that would break -Path.
+#
+# HYDRATION CHECK (0x00400000):
+#   The Windows file attribute RECALL_ON_DATA_ACCESS (0x00400000) indicates
+#   a Dropbox cloud-only placeholder. The script checks this attribute before
+#   copying, hydrates if needed, and validates the attribute is cleared.
+#   Pattern taken from Backup-ZoteroStorage.ps1.
+#
 # Uses -LiteralPath throughout and escapes filenames for PowerShell safety.
-# Modeled after Backup-ZoteroStorage.ps1 hydration and validation patterns.
 #
 # Usage:
 #   bash collect-reference-pdfs_3_copy-pdfs.sh <paths_tsv> <target_directory> [--dry-run]

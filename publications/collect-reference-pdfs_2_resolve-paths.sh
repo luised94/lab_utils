@@ -27,13 +27,24 @@ set -euo pipefail
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
+# MACHINE-SPECIFIC: These paths are specific to this workstation.
+# Update them if Zotero's data directory, Dropbox location, or Windows
+# username changes. See README.md for details.
 
 ZOTERO_SQLITE_PATH="/mnt/c/Users/Luised94/Zotero/zotero.sqlite"
 ZOTERO_PREFS_GLOB="/mnt/c/Users/Luised94/AppData/Roaming/Zotero/Zotero/Profiles/*/prefs.js"
 ATTACHMENTS_PREFIX="attachments:"
 
-# Fallback if prefs.js cannot be read or does not contain baseAttachmentPath
+# Fallback if prefs.js cannot be read or does not contain baseAttachmentPath.
+# This is the directory containing author-name subdirectories with PDFs.
 FALLBACK_BASE_ATTACHMENT_PATH="/mnt/c/Users/Luised94/MIT Dropbox/Luis Martinez/zotero-storage"
+
+# WHY linkMode=2: Zotero attachment link modes:
+#   0 = imported file (copied into Zotero's own storage)
+#   1 = imported URL
+#   2 = linked file (points to original file on disk - used by Attanger/ZotFile)
+#   3 = linked URL
+# Attanger manages attachments as linked files (mode 2), so that's what we query.
 
 # =============================================================================
 # INPUT VALIDATION
@@ -114,10 +125,7 @@ if [ -n "$prefs_file" ] && [ -f "$prefs_file" ]; then
 
     # prefs.js stores the path as:
     #   user_pref("extensions.zotero.baseAttachmentPath", "C:\\Users\\...");
-    # Line format: user_pref("extensions.zotero.baseAttachmentPath", "C:\\Users\\...");
-    # Extract the second quoted string (the value) from the matching line
-    raw_pref_value=$(grep 'extensions\.zotero\.baseAttachmentPath' "$prefs_file" 2>/dev/null \
-        | sed 's/.*", "//;s/".*//' || true)
+    raw_pref_value=$(grep -oP 'extensions\.zotero\.baseAttachmentPath.*?"\K[^"]+' "$prefs_file" 2>/dev/null || true)
 
     if [ -n "$raw_pref_value" ]; then
         # Convert Windows path (with escaped backslashes) to WSL path
@@ -151,6 +159,10 @@ echo "" >&2
 # =============================================================================
 # COPY SQLITE TO TEMP (AVOID WAL/LOCK ISSUES)
 # =============================================================================
+# WHY: SQLite uses Write-Ahead Logging (WAL). Even with Zotero closed, the
+# WAL and SHM files may contain uncommitted data. Copying all three files
+# to /tmp gives us a consistent snapshot to query without risking locks
+# or reading partial state from the live database.
 
 temporary_db=$(mktemp /tmp/zotero_resolve_XXXXXX.sqlite)
 cp "$ZOTERO_SQLITE_PATH" "$temporary_db"

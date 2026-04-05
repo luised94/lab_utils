@@ -33,8 +33,12 @@ import re
 WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 DOCUMENT_XML_PATH = "word/document.xml"
 ZOTERO_FIELD_MARKER = "ZOTERO"
+# As of Zotero 8, item keys are 8 alphanumeric characters.
+# If this changes in a future version, the regex still captures them but
+# the assertion below will warn about unexpected key lengths.
 ITEM_KEY_PATTERN = re.compile(r"/items/([A-Za-z0-9]+)$")
 CITATION_JSON_PATTERN = re.compile(r"\{.*\}", re.DOTALL)
+EXPECTED_KEY_LENGTH = 8
 
 # =============================================================================
 # INPUT VALIDATION
@@ -117,9 +121,16 @@ print(f"Found {len(ordered_elements)} field_char + instr_text elements", file=sy
 # =============================================================================
 # RECONSTRUCT FRAGMENTED FIELD CODES
 # =============================================================================
-# Word splits long field codes across multiple w:instrText elements within
-# fldChar begin/end pairs. We concatenate all instrText between a begin and
-# its matching end, then keep only those containing ZOTERO.
+# WHY: Word splits long strings across multiple <w:instrText> elements within
+# a single field code run (delimited by fldChar begin/end). A Zotero citation
+# JSON can be 500+ characters, so it's almost always fragmented. If we parsed
+# individual instrText elements, we'd get broken JSON. Instead, we concatenate
+# all instrText between each begin/end pair, then keep only those containing
+# the ZOTERO marker.
+#
+# FRAGILITY: If Zotero moves away from field codes (e.g., to content controls
+# or custom XML parts), this section will find 0 field codes. The assertion
+# below catches this explicitly.
 
 zotero_field_codes = []
 current_buffer = None
@@ -169,6 +180,28 @@ for uri in all_uris:
         unique_keys.add(key_match.group(1))
 
 sorted_keys = sorted(unique_keys)
+
+# =============================================================================
+# ASSERTIONS
+# =============================================================================
+
+if len(zotero_field_codes) == 0:
+    print("ERROR: No Zotero field codes found in document.xml.", file=sys.stderr)
+    print("  The Zotero Word plugin may have changed its storage format.", file=sys.stderr)
+    print("  Run probe_01_docx.sh to inspect the .docx structure.", file=sys.stderr)
+    sys.exit(1)
+
+if len(sorted_keys) == 0:
+    print("ERROR: Field codes found but no item keys extracted.", file=sys.stderr)
+    print("  The URI format may have changed. Check citation JSON manually.", file=sys.stderr)
+    sys.exit(1)
+
+unexpected_key_lengths = {k: len(k) for k in sorted_keys if len(k) != EXPECTED_KEY_LENGTH}
+if unexpected_key_lengths:
+    print(f"WARNING: {len(unexpected_key_lengths)} keys have unexpected length (expected {EXPECTED_KEY_LENGTH}):", file=sys.stderr)
+    for key, length in list(unexpected_key_lengths.items())[:5]:
+        print(f"  {key} (length {length})", file=sys.stderr)
+    print("  Proceeding anyway - keys may still be valid.", file=sys.stderr)
 
 # =============================================================================
 # WRITE OUTPUT
