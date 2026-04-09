@@ -21,6 +21,8 @@ of the SGD gene coordinate reference (see reference/ directory).
 Usage:
     uv run orc4r-screen_02_analyze-bam.py
     uv run orc4r-screen_02_analyze-bam.py --help
+    uv run orc4r-screen_02_analyze-bam.py --experiments 1,2,3
+    uv run orc4r-screen_02_analyze-bam.py --clean
 
 Prerequisites:
     uv run orc4r-screen_01_prepare-reference.py   (one-time setup for gene annotations)
@@ -29,8 +31,8 @@ Expected directory structure:
     orc4r-screen_01_prepare-reference.py
     orc4r-screen_02_analyze-bam.py
     reference/
-        gene_coordinates.tsv       (from prepare_reference.py)
-        gene_coordinates.meta.json (from prepare_reference.py)
+        gene_coordinates.tsv       (from orc4r-screen_01_prepare-reference.py)
+        gene_coordinates.meta.json (from orc4r-screen_01_prepare-reference.py)
     data/
         Exp_1_hit_sorted.bam       (+ .bai index, auto-generated if missing)
         Exp_1_ctrl_sorted.bam
@@ -45,7 +47,9 @@ import collections
 import hashlib
 import json
 import pathlib
+import shutil
 import sys
+import time
 
 import numpy
 import pandas
@@ -66,7 +70,7 @@ REFERENCE_DIRECTORY = SCRIPT_DIRECTORY / "reference"
 GENE_COORDINATES_FILE = REFERENCE_DIRECTORY / "gene_coordinates.tsv"
 GENE_COORDINATES_METADATA_FILE = REFERENCE_DIRECTORY / "gene_coordinates.meta.json"
 
-EXPERIMENT_NUMBERS = list(range(1, 10))  # experiments 1 through 9
+DEFAULT_EXPERIMENT_NUMBERS = list(range(1, 10))  # experiments 1 through 9
 
 HIT_BAM_TEMPLATE = "Exp_{experiment_number}_hit_sorted.bam"
 CTRL_BAM_TEMPLATE = "Exp_{experiment_number}_ctrl_sorted.bam"
@@ -131,14 +135,34 @@ OUTPUT_CSV_FILENAME = "candidate_mutations_with_genes.csv"
 
 
 # =============================================================================
-# Argument parsing (--help only, no arguments required)
+# Argument parsing
 # =============================================================================
 
 argument_parser = argparse.ArgumentParser(
     description=__doc__,
     formatter_class=argparse.RawDescriptionHelpFormatter,
 )
-argument_parser.parse_args()
+argument_parser.add_argument(
+    "--experiments",
+    type=str,
+    default=None,
+    help="Comma-separated experiment numbers to process (default: 1-9). Example: --experiments 1,2,3",
+)
+argument_parser.add_argument(
+    "--clean",
+    action="store_true",
+    help="Delete cached pickle files before running, forcing re-extraction from BAM files.",
+)
+arguments = argument_parser.parse_args()
+
+# Resolve experiment list
+if arguments.experiments is not None:
+    experiment_numbers = [int(x.strip()) for x in arguments.experiments.split(",")]
+    print(f"  Running experiments: {experiment_numbers}")
+else:
+    experiment_numbers = DEFAULT_EXPERIMENT_NUMBERS
+
+start_time = time.perf_counter()
 
 
 # =============================================================================
@@ -148,6 +172,11 @@ argument_parser.parse_args()
 print("=" * 60)
 print("PREFLIGHT CHECKS")
 print("=" * 60)
+
+# -- Handle --clean flag --
+if arguments.clean and PICKLE_DIRECTORY.exists():
+    shutil.rmtree(PICKLE_DIRECTORY)
+    print(f"  [CLEAN] Deleted cached pickles: {PICKLE_DIRECTORY}")
 
 # -- Check data directory exists --
 if not DATA_DIRECTORY.is_dir():
@@ -159,7 +188,7 @@ print(f"  [OK] Data directory: {DATA_DIRECTORY}")
 
 # -- Check all BAM files exist --
 missing_bam_files = []
-for experiment_number in EXPERIMENT_NUMBERS:
+for experiment_number in experiment_numbers:
     for template in [HIT_BAM_TEMPLATE, CTRL_BAM_TEMPLATE]:
         bam_path = DATA_DIRECTORY / template.format(experiment_number=experiment_number)
         if not bam_path.exists():
@@ -170,11 +199,52 @@ if len(missing_bam_files) > 0:
         f"[ERROR] Missing BAM files in {DATA_DIRECTORY}:\n"
         + "\n".join(f"  - {filename}" for filename in missing_bam_files)
     )
-print(f"  [OK] All {len(EXPERIMENT_NUMBERS) * 2} BAM files found")
+print(f"  [OK] All {len(experiment_numbers) * 2} BAM files found")
+
+# -- Validate BAM sort order (pysam pileup requires coordinate-sorted input) --
+sample_bam_path = DATA_DIRECTORY / HIT_BAM_TEMPLATE.format(
+    experiment_number=experiment_numbers[0]
+)
+sample_bam_file = pysam.AlignmentFile(str(sample_bam_path), mode="rb")
+bam_header = sample_bam_file.header.to_dict()
+
+sort_order = bam_header.get("HD", {}).get("SO", "unknown")
+if sort_order != "coordinate":
+    print(
+        f"  [WARNING] BAM sort order is '{sort_order}', expected 'coordinate'.\n"
+        f"    Pileup may fail or produce incorrect results.\n"
+        f"    Sort with: samtools sort -o sorted.bam input.bam"
+    )
+else:
+    print(f"  [OK] BAM sort order: coordinate")
+
+# -- Validate hit and ctrl use the same reference genome --
+ctrl_bam_path = DATA_DIRECTORY / CTRL_BAM_TEMPLATE.format(
+    experiment_number=experiment_numbers[0]
+)
+ctrl_bam_file = pysam.AlignmentFile(str(ctrl_bam_path), mode="rb")
+
+hit_references = list(sample_bam_file.references)
+hit_lengths = list(sample_bam_file.lengths)
+ctrl_references = list(ctrl_bam_file.references)
+ctrl_lengths = list(ctrl_bam_file.lengths)
+ctrl_bam_file.close()
+
+if hit_references != ctrl_references or hit_lengths != ctrl_lengths:
+    print(
+        f"  [WARNING] Hit and ctrl BAM files have different reference genomes.\n"
+        f"    Hit contigs:  {len(hit_references)} ({hit_references[:3]}...)\n"
+        f"    Ctrl contigs: {len(ctrl_references)} ({ctrl_references[:3]}...)\n"
+        f"    Results may be unreliable."
+    )
+else:
+    print(
+        f"  [OK] Hit and ctrl reference genomes match ({len(hit_references)} contigs)"
+    )
 
 # -- Index BAM files if .bai is missing (pysam requires indexes for pileup) --
 newly_indexed_count = 0
-for experiment_number in EXPERIMENT_NUMBERS:
+for experiment_number in experiment_numbers:
     for template in [HIT_BAM_TEMPLATE, CTRL_BAM_TEMPLATE]:
         bam_path = DATA_DIRECTORY / template.format(experiment_number=experiment_number)
         bai_path = pathlib.Path(str(bam_path) + ".bai")
@@ -190,23 +260,15 @@ else:
     print(f"  [OK] All BAM index files (.bai) present")
 
 # -- Detect BAM chromosome naming convention --
-# Open one BAM header and compare its contig names against our expected format.
-# BAM files commonly use chrI, 1, I, or chr1 for yeast chromosomes.
-sample_bam_path = DATA_DIRECTORY / HIT_BAM_TEMPLATE.format(
-    experiment_number=EXPERIMENT_NUMBERS[0]
-)
-sample_bam_file = pysam.AlignmentFile(str(sample_bam_path), mode="rb")
 bam_contig_names = set(sample_bam_file.references)
 sample_bam_file.close()
 
 if set(REFERENCE_CHROMOSOMES).issubset(bam_contig_names):
-    # BAM already uses chrI-chrXVI - identity mapping
     bam_to_reference_chromosome_map = {
         chromosome: chromosome for chromosome in REFERENCE_CHROMOSOMES
     }
     print(f"  [OK] BAM chromosome names match reference format (chrI-chrXVI)")
 else:
-    # Try each known alternative convention
     bam_to_reference_chromosome_map = None
     matched_convention_name = None
 
@@ -217,7 +279,6 @@ else:
             break
 
     if bam_to_reference_chromosome_map is None:
-        # Show what we found to help the user diagnose
         sample_contigs = sorted(bam_contig_names)[:20]
         sys.exit(
             f"[ERROR] Unrecognized chromosome names in BAM files.\n"
@@ -235,7 +296,6 @@ else:
         f"- auto-mapped to chrI-chrXVI"
     )
 
-# Build the reverse mapping: reference name  BAM contig name (for pileup calls)
 reference_to_bam_chromosome_map = {
     reference_name: bam_name
     for bam_name, reference_name in bam_to_reference_chromosome_map.items()
@@ -262,7 +322,7 @@ if actual_sha256 != expected_sha256:
         f"[ERROR] Gene coordinate file integrity check failed.\n"
         f"  Expected SHA256: {expected_sha256}\n"
         f"  Actual SHA256:   {actual_sha256}\n"
-        f"  The file may have been modified. Run 'uv run prepare_reference.py' to regenerate."
+        f"  The file may have been modified. Run 'uv run orc4r-screen_01_prepare-reference.py' to regenerate."
     )
 print(
     f"  [OK] Gene coordinates verified (source: {reference_metadata['source_url']}, "
@@ -314,119 +374,136 @@ print("=" * 60)
 print("STEP 1: EXTRACT SEQUENCING DATA FROM BAM FILES")
 print("=" * 60)
 
-for experiment_number in EXPERIMENT_NUMBERS:
-    pickle_path = PICKLE_DIRECTORY / f"df_merged_exp{experiment_number}.pickle"
+try:
+    for experiment_number in experiment_numbers:
+        pickle_path = PICKLE_DIRECTORY / f"df_merged_exp{experiment_number}.pickle"
 
-    if pickle_path.exists():
-        print(f"  [SKIP] Experiment {experiment_number}: cached pickle exists")
-        continue
+        if pickle_path.exists():
+            print(f"  [SKIP] Experiment {experiment_number}: cached pickle exists")
+            continue
 
-    print(f"  [PROCESSING] Experiment {experiment_number}")
+        print(f"  [PROCESSING] Experiment {experiment_number}")
 
-    # One dataframe per sample (hit, ctrl), then merge.
-    sample_dataframes = {}
+        # One dataframe per sample (hit, ctrl), then merge.
+        sample_dataframes = {}
 
-    for suffix, bam_template in [
-        ("hit", HIT_BAM_TEMPLATE),
-        ("ctrl", CTRL_BAM_TEMPLATE),
-    ]:
-        bam_path = DATA_DIRECTORY / bam_template.format(
-            experiment_number=experiment_number
-        )
+        for suffix, bam_template in [
+            ("hit", HIT_BAM_TEMPLATE),
+            ("ctrl", CTRL_BAM_TEMPLATE),
+        ]:
+            bam_path = DATA_DIRECTORY / bam_template.format(
+                experiment_number=experiment_number
+            )
 
-        # Accumulator lists - one entry per genomic position
-        chromosome_names = []
-        base_positions = []
-        read_coverages = []
-        consensus_bases = []
-        consensus_confidences = []
+            # Accumulator lists - one entry per genomic position
+            chromosome_names = []
+            base_positions = []
+            read_coverages = []
+            consensus_bases = []
+            consensus_confidences = []
 
-        bam_file = pysam.AlignmentFile(str(bam_path), mode="rb")
+            bam_file = pysam.AlignmentFile(str(bam_path), mode="rb")
 
-        for reference_chromosome in REFERENCE_CHROMOSOMES:
-            bam_chromosome = reference_to_bam_chromosome_map[reference_chromosome]
-            print(f"    {suffix:<4} | {reference_chromosome} (BAM: {bam_chromosome})")
+            for reference_chromosome in REFERENCE_CHROMOSOMES:
+                bam_chromosome = reference_to_bam_chromosome_map[reference_chromosome]
 
-            for pileup_column in bam_file.pileup(contig=bam_chromosome, truncate=True):
-                # Gather the base call from every read overlapping this position.
-                # query_position is None when the read has a deletion here.
-                base_calls_at_position = []
-                for pileup_read in pileup_column.pileups:
-                    if pileup_read.query_position is not None:
-                        base_calls_at_position.append(
-                            pileup_read.alignment.query_sequence[
-                                pileup_read.query_position
-                            ]
+                if reference_chromosome == bam_chromosome:
+                    print(f"    {suffix:<4} | {reference_chromosome}")
+                else:
+                    print(
+                        f"    {suffix:<4} | {reference_chromosome} (BAM: {bam_chromosome})"
+                    )
+
+                for pileup_column in bam_file.pileup(
+                    contig=bam_chromosome, truncate=True
+                ):
+                    # Gather the base call from every read overlapping this position.
+                    # query_position is None when the read has a deletion here.
+                    base_calls_at_position = []
+                    for pileup_read in pileup_column.pileups:
+                        if pileup_read.query_position is not None:
+                            base_calls_at_position.append(
+                                pileup_read.alignment.query_sequence[
+                                    pileup_read.query_position
+                                ]
+                            )
+                        else:
+                            base_calls_at_position.append("N")
+
+                    # Consensus: most frequent base call and its proportion
+                    if len(base_calls_at_position) > 0:
+                        base_counter = collections.Counter(base_calls_at_position)
+                        most_common_base, most_common_count = base_counter.most_common(
+                            1
+                        )[0]
+                        confidence_percent = round(
+                            (most_common_count / len(base_calls_at_position)) * 100, 2
                         )
                     else:
-                        base_calls_at_position.append("N")
+                        most_common_base = "N"
+                        confidence_percent = numpy.nan
 
-                # Consensus: most frequent base call and its proportion
-                if len(base_calls_at_position) > 0:
-                    base_counter = collections.Counter(base_calls_at_position)
-                    most_common_base, most_common_count = base_counter.most_common(1)[0]
-                    confidence_percent = round(
-                        (most_common_count / len(base_calls_at_position)) * 100, 2
-                    )
-                else:
-                    most_common_base = "N"
-                    confidence_percent = numpy.nan
+                    # Always store the reference-format chromosome name
+                    chromosome_names.append(reference_chromosome)
+                    base_positions.append(pileup_column.pos)
+                    read_coverages.append(pileup_column.n)
+                    consensus_bases.append(most_common_base)
+                    consensus_confidences.append(confidence_percent)
 
-                # Always store the reference-format chromosome name
-                chromosome_names.append(reference_chromosome)
-                base_positions.append(pileup_column.pos)
-                read_coverages.append(pileup_column.n)
-                consensus_bases.append(most_common_base)
-                consensus_confidences.append(confidence_percent)
+            bam_file.close()
 
-        bam_file.close()
+            sample_dataframe = pandas.DataFrame(
+                {
+                    "chromosome": chromosome_names,
+                    "base_position": base_positions,
+                    f"base_value_{suffix}": consensus_bases,
+                    f"coverage_{suffix}": read_coverages,
+                    f"confidence_{suffix}": consensus_confidences,
+                }
+            )
 
-        sample_dataframe = pandas.DataFrame(
-            {
-                "chromosome": chromosome_names,
-                "base_position": base_positions,
-                f"base_value_{suffix}": consensus_bases,
-                f"coverage_{suffix}": read_coverages,
-                f"confidence_{suffix}": consensus_confidences,
-            }
+            assert len(sample_dataframe) > 0, (
+                f"No data extracted from {bam_path.name}. "
+                f"Verify the BAM file is sorted by coordinate and properly indexed."
+            )
+            print(f"    {suffix:<4} | {len(sample_dataframe):,} positions extracted")
+
+            sample_dataframes[suffix] = sample_dataframe
+
+        # -- Merge hit and ctrl on shared genomic positions --
+        # Inner join: only positions sequenced in BOTH samples are useful for comparison.
+        hit_position_count = len(sample_dataframes["hit"])
+        ctrl_position_count = len(sample_dataframes["ctrl"])
+
+        merged_dataframe = pandas.merge(
+            left=sample_dataframes["hit"],
+            right=sample_dataframes["ctrl"],
+            on=["chromosome", "base_position"],
+            how="inner",
         )
 
-        assert len(sample_dataframe) > 0, (
-            f"No data extracted from {bam_path.name}. "
-            f"Verify the BAM file is sorted by coordinate and properly indexed."
-        )
-        print(f"    {suffix:<4} | {len(sample_dataframe):,} positions extracted")
-
-        sample_dataframes[suffix] = sample_dataframe
-
-    # -- Merge hit and ctrl on shared genomic positions --
-    # Inner join: only positions sequenced in BOTH samples are useful for comparison.
-    hit_position_count = len(sample_dataframes["hit"])
-    ctrl_position_count = len(sample_dataframes["ctrl"])
-
-    merged_dataframe = pandas.merge(
-        left=sample_dataframes["hit"],
-        right=sample_dataframes["ctrl"],
-        on=["chromosome", "base_position"],
-        how="inner",
-    )
-
-    merged_position_count = len(merged_dataframe)
-    print(
-        f"    Merged: {hit_position_count:,} (hit) + {ctrl_position_count:,} (ctrl) "
-        f" {merged_position_count:,} shared positions"
-    )
-
-    # Sanity check: large drop suggests misaligned references or truncated files
-    larger_input_count = max(hit_position_count, ctrl_position_count)
-    if merged_position_count < larger_input_count * 0.9:
+        merged_position_count = len(merged_dataframe)
         print(
-            f"    [WARNING] Merge retained <90% of positions. "
-            f"Verify both BAM files are aligned to the same reference genome."
+            f"    Merged: {hit_position_count:,} (hit) + {ctrl_position_count:,} (ctrl) "
+            f"-> {merged_position_count:,} shared positions"
         )
 
-    merged_dataframe.to_pickle(str(pickle_path))
-    print(f"    Cached: {pickle_path.name}")
+        # Sanity check: large drop suggests misaligned references or truncated files
+        larger_input_count = max(hit_position_count, ctrl_position_count)
+        if merged_position_count < larger_input_count * 0.9:
+            print(
+                f"    [WARNING] Merge retained <90% of positions. "
+                f"Verify both BAM files are aligned to the same reference genome."
+            )
+
+        merged_dataframe.to_pickle(str(pickle_path))
+        print(f"    Cached: {pickle_path.name}")
+
+except KeyboardInterrupt:
+    print("\n  [INTERRUPTED] Received Ctrl+C during BAM extraction.")
+    print("  Any fully processed experiments are cached in pickles/.")
+    print("  Re-run to resume from where you left off.")
+    sys.exit(1)
 
 print()
 
@@ -451,7 +528,7 @@ print(
 
 all_candidate_dataframes = []
 
-for experiment_number in EXPERIMENT_NUMBERS:
+for experiment_number in experiment_numbers:
     pickle_path = PICKLE_DIRECTORY / f"df_merged_exp{experiment_number}.pickle"
     merged_dataframe = pandas.read_pickle(str(pickle_path))
 
@@ -478,8 +555,10 @@ for experiment_number in EXPERIMENT_NUMBERS:
     candidate_dataframe = merged_dataframe[is_candidate_mutation].copy()
     candidate_dataframe["experiment"] = f"Exp_{experiment_number}"
 
+    candidate_count = len(candidate_dataframe)
+    position_word = "position" if candidate_count == 1 else "positions"
     print(
-        f"  Experiment {experiment_number}: {len(candidate_dataframe):,} candidate positions"
+        f"  Experiment {experiment_number}: {candidate_count:,} candidate {position_word}"
     )
     all_candidate_dataframes.append(candidate_dataframe)
 
@@ -487,15 +566,17 @@ all_candidates = pandas.concat(all_candidate_dataframes, ignore_index=True)
 total_candidate_count = len(all_candidates)
 print(f"  Total candidates across all experiments: {total_candidate_count:,}")
 
-# Summarize each mutation as "ctrl_basehit_base" (wild-type  suppressor)
+# Summarize each mutation as "ctrl_base->hit_base" (wild-type -> suppressor)
 all_candidates["mutation"] = (
-    all_candidates["base_value_ctrl"] + "" + all_candidates["base_value_hit"]
+    all_candidates["base_value_ctrl"] + "->" + all_candidates["base_value_hit"]
 )
 
 if total_candidate_count == 0:
     print("  [NOTE] No candidates found. Adjust thresholds or check data quality.")
     print("  Writing empty output file.")
     all_candidates.to_csv(str(OUTPUT_DIRECTORY / OUTPUT_CSV_FILENAME), index=False)
+    elapsed_seconds = time.perf_counter() - start_time
+    print(f"\nTotal runtime: {elapsed_seconds:.1f} seconds")
     sys.exit(0)
 
 print()
@@ -540,7 +621,7 @@ for candidate_index in range(total_candidate_count):
     )
 
     if len(chromosome_genes) == 0:
-        print(f"  [WARNING] no genes loaded for {chromosome}")
+        print(f" -> [WARNING] no genes loaded for {chromosome}")
         intergenic_count += 1
         continue
 
@@ -550,7 +631,7 @@ for candidate_index in range(total_candidate_count):
     ]
 
     if len(overlapping_genes) == 0:
-        print("  (intergenic)")
+        print(" -> (intergenic)")
         intergenic_count += 1
         continue
 
@@ -578,10 +659,10 @@ for candidate_index in range(total_candidate_count):
         or first_gene.get("gene_alias")
         or "unnamed"
     )
-    print(f"  {display_name}")
+    print(f" -> {display_name}")
 
 if intergenic_count > 0:
-    print(f"  [NOTE] {intergenic_count} positions in intergenic regions")
+    print(f"  [NOTE] {intergenic_count} position(s) in intergenic regions")
 
 print()
 
@@ -590,7 +671,7 @@ print()
 # Step 4: Save results
 #
 # Sort by chromosome and position for readability.
-# Column order: experiment context  genomic location  sequencing data  annotation.
+# Column order: experiment context -> genomic location -> sequencing data -> annotation.
 # =============================================================================
 
 print("=" * 60)
@@ -673,4 +754,6 @@ else:
             )
 
 print()
+elapsed_seconds = time.perf_counter() - start_time
+print(f"Total runtime: {elapsed_seconds:.1f} seconds")
 print("Done.")
