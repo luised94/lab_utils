@@ -55,15 +55,15 @@ SGD_COLUMN_NAMES = [
     "sgdid",
     "feature_type",
     "feature_qualifier",
-    "feature_name",        # systematic name, e.g. YAL001C
-    "standard_name",       # common gene name, e.g. TFC3
-    "alias",               # pipe-separated aliases
+    "feature_name",  # systematic name, e.g. YAL001C
+    "standard_name",  # common gene name, e.g. TFC3
+    "alias",  # pipe-separated aliases
     "parent_feature_name",
     "secondary_sgdid",
-    "chromosome",          # 1-16, Mito, or 2-micron
+    "chromosome",  # 1-16, Mito, or 2-micron
     "start",
     "stop",
-    "strand",              # W (Watson/+) or C (Crick/-)
+    "strand",  # W (Watson/+) or C (Crick/-)
     "genetic_position",
     "coordinate_version",
     "sequence_version",
@@ -72,10 +72,22 @@ SGD_COLUMN_NAMES = [
 
 # Map SGD numeric chromosome identifiers to BAM-style roman numeral names
 CHROMOSOME_NUMBER_TO_NAME = {
-    "1":  "chrI",    "2":  "chrII",   "3":  "chrIII",  "4":  "chrIV",
-    "5":  "chrV",    "6":  "chrVI",   "7":  "chrVII",  "8":  "chrVIII",
-    "9":  "chrIX",   "10": "chrX",    "11": "chrXI",   "12": "chrXII",
-    "13": "chrXIII", "14": "chrXIV",  "15": "chrXV",   "16": "chrXVI",
+    "1": "chrI",
+    "2": "chrII",
+    "3": "chrIII",
+    "4": "chrIV",
+    "5": "chrV",
+    "6": "chrVI",
+    "7": "chrVII",
+    "8": "chrVIII",
+    "9": "chrIX",
+    "10": "chrX",
+    "11": "chrXI",
+    "12": "chrXII",
+    "13": "chrXIII",
+    "14": "chrXIV",
+    "15": "chrXV",
+    "16": "chrXVI",
 }
 
 # Feature types that represent genes or gene-like genomic elements.
@@ -125,7 +137,11 @@ arguments = argument_parser.parse_args()
 # Check if reference files already exist
 # =============================================================================
 
-if not arguments.force and GENE_COORDINATES_FILE.exists() and GENE_COORDINATES_METADATA_FILE.exists():
+if (
+    not arguments.force
+    and GENE_COORDINATES_FILE.exists()
+    and GENE_COORDINATES_METADATA_FILE.exists()
+):
     print(f"Reference files already exist:")
     print(f"  {GENE_COORDINATES_FILE}")
     print(f"  {GENE_COORDINATES_METADATA_FILE}")
@@ -168,6 +184,7 @@ print("=" * 60)
 # Parse the headerless tab-separated file
 # StringIO avoids writing a temp file to disk
 import io
+
 all_features = pandas.read_csv(
     io.StringIO(raw_text),
     sep="\t",
@@ -195,7 +212,9 @@ feature_type_counts = gene_features["feature_type"].value_counts()
 for feature_type, count in feature_type_counts.items():
     print(f"    {feature_type:<30} {count:>5}")
 
-assert len(gene_features) > 0, "No gene features found after filtering. Check SGD file format."
+assert len(gene_features) > 0, (
+    "No gene features found after filtering. Check SGD file format."
+)
 print()
 
 
@@ -210,7 +229,9 @@ print("=" * 60)
 # Map chromosome numbers to chrI-chrXVI names
 gene_features["chromosome"] = gene_features["chromosome"].map(CHROMOSOME_NUMBER_TO_NAME)
 unmapped_chromosomes = gene_features["chromosome"].isna().sum()
-assert unmapped_chromosomes == 0, f"{unmapped_chromosomes} rows have unmapped chromosome values"
+assert unmapped_chromosomes == 0, (
+    f"{unmapped_chromosomes} rows have unmapped chromosome values"
+)
 print(f"  [OK] Chromosome identifiers mapped to chrI-chrXVI format")
 
 # Convert coordinates to integers
@@ -222,24 +243,28 @@ gene_features["stop"] = gene_features["stop"].astype(int)
 needs_swap = gene_features["start"] > gene_features["stop"]
 swap_count = needs_swap.sum()
 if swap_count > 0:
-    gene_features.loc[needs_swap, ["start", "stop"]] = (
-        gene_features.loc[needs_swap, ["stop", "start"]].values
-    )
+    gene_features.loc[needs_swap, ["start", "stop"]] = gene_features.loc[
+        needs_swap, ["stop", "start"]
+    ].values
     print(f"  [OK] Swapped start/stop for {swap_count:,} Crick-strand features")
 
 # Rename columns to match what analyze_mutations.py expects
-gene_features = gene_features.rename(columns={
-    "stop": "end",
-    "standard_name": "gene_symbol",
-    "feature_name": "gene_name",
-    "alias": "gene_alias",
-})
+gene_features = gene_features.rename(
+    columns={
+        "stop": "end",
+        "standard_name": "gene_symbol",
+        "feature_name": "gene_name",
+        "alias": "gene_alias",
+    }
+)
 
 # Select and order output columns
 gene_coordinates = gene_features[OUTPUT_COLUMNS].copy()
 
 # Sort by chromosome (in biological order) then by start position
-chromosome_sort_order = {name: index for index, name in enumerate(CHROMOSOME_NUMBER_TO_NAME.values())}
+chromosome_sort_order = {
+    name: index for index, name in enumerate(CHROMOSOME_NUMBER_TO_NAME.values())
+}
 gene_coordinates = gene_coordinates.sort_values(
     by=["chromosome", "start"],
     key=lambda column: (
@@ -288,9 +313,7 @@ metadata = {
     ),
 }
 
-GENE_COORDINATES_METADATA_FILE.write_text(
-    json.dumps(metadata, indent=2) + "\n"
-)
+GENE_COORDINATES_METADATA_FILE.write_text(json.dumps(metadata, indent=2) + "\n")
 print(f"  Saved: {GENE_COORDINATES_METADATA_FILE}")
 print(f"  SHA256: {file_sha256}")
 print()
