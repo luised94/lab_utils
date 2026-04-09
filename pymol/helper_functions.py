@@ -1,4 +1,3 @@
-
 """
 PyMOL Helper Functions
 User-defined utilities for molecular visualization and image export.
@@ -14,6 +13,7 @@ import os
 from pymol import cmd
 from typing import Optional
 
+
 def save_png(
     filename: str,
     width: int,
@@ -21,7 +21,7 @@ def save_png(
     dpi: int = 300,
     ray: bool = True,
     overwrite: bool = False,
-    output_dir: str = "pymol_outputs"
+    output_dir: str = "pymol_outputs",
 ) -> bool:
     """
     Save PyMOL image with overwrite protection and automatic directory creation.
@@ -61,6 +61,7 @@ def save_png(
     except Exception as e:
         print(f"  ERROR saving {filename}: {e}")
         return False
+
 
 def prepare_structure() -> bool:
     """
@@ -158,8 +159,7 @@ def prepare_structure() -> bool:
 
 
 def reset_scene_to_base_cartoon(
-    chain_colors: dict[str, str],
-    cartoon_selection: str = "polymer"
+    chain_colors: dict[str, str], cartoon_selection: str = "polymer"
 ) -> None:
     """
     Reset PyMOL scene to a known base state before spec-specific rendering.

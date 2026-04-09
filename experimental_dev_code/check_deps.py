@@ -8,13 +8,15 @@
 
 try:
     import pandas as pd
+
     print(f" pandas {pd.__version__}")
-    
+
     import crispr_cas9_designer
+
     print(f" crispr-cas9-designer loaded")
-    
+
     print("\nAll dependencies available and importable")
-    
+
 except ImportError as e:
     print(f"Dependency issue: {e}")
     exit(1)

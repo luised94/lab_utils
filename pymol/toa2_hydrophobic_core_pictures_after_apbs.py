@@ -1,4 +1,3 @@
-
 # Take hydrophobic core pictures of TFIIA after preparation.
 # Show surface of hydrophobic core.
 # Usage:
@@ -26,7 +25,7 @@ print("=" * 60)
 
 # Define expected chains (must match APBS run order)
 # Order matters! First APBS run = chain D, second = chain B
-EXPECTED_CHAINS = ["B", "D"] # B is toa1, fragment 1 and D is toa2.
+EXPECTED_CHAINS = ["B", "D"]  # B is toa1, fragment 1 and D is toa2.
 
 # ============================================================================
 # Debug: See what PyMOL has
@@ -78,7 +77,9 @@ prepared_objects.sort()  # prepared01, prepared02, etc.
 print(f"\nFound {len(prepared_objects)} prepared objects: {prepared_objects}")
 
 if len(prepared_objects) < len(EXPECTED_CHAINS):
-    print(f"ERROR: Expected {len(EXPECTED_CHAINS)} APBS runs, found {len(prepared_objects)}")
+    print(
+        f"ERROR: Expected {len(EXPECTED_CHAINS)} APBS runs, found {len(prepared_objects)}"
+    )
     print("\nFAILURE: Complete APBS calculations for all chains")
     print("\nExpected order:")
     for i, chain in enumerate(EXPECTED_CHAINS, start=1):
@@ -109,9 +110,9 @@ for i, chain in enumerate(EXPECTED_CHAINS, start=1):
         continue
 
     apbs_mapping[chain] = {
-        'prepared': prepared_obj,
-        'map': map_obj,
-        'ramp': ramp_obj if ramp_obj in all_names else None
+        "prepared": prepared_obj,
+        "map": map_obj,
+        "ramp": ramp_obj if ramp_obj in all_names else None,
     }
 
     print(f"  Chain {chain}: {prepared_obj}, {map_obj}, {ramp_obj}")
@@ -126,13 +127,28 @@ print(f" All APBS maps found for chains: {list(apbs_mapping.keys())}")
 print("\n All prerequisites satisfied")
 print("=" * 60)
 
-cmd.set_view((
-    -0.275569350,    0.849549353,   -0.449802339,
-     0.956983745,    0.198277250,   -0.211805791,
-    -0.090754412,   -0.488821685,   -0.867647946,
-     0.000177816,   -0.000032090, -148.673400879,
-     2.425498962,  -25.367309570,   -6.927139282,
-   117.213119507,  180.128311157,  -20.000000000))
+cmd.set_view(
+    (
+        -0.275569350,
+        0.849549353,
+        -0.449802339,
+        0.956983745,
+        0.198277250,
+        -0.211805791,
+        -0.090754412,
+        -0.488821685,
+        -0.867647946,
+        0.000177816,
+        -0.000032090,
+        -148.673400879,
+        2.425498962,
+        -25.367309570,
+        -6.927139282,
+        117.213119507,
+        180.128311157,
+        -20.000000000,
+    )
+)
 
 
 # ============================================================================
@@ -145,11 +161,11 @@ print("=" * 60)
 
 # Enable all necessary objects first
 # Enable all objects programmatically
-#print("\nEnabling all objects...")
-#all_objects = cmd.get_object_list()
-#for obj in all_objects:
+# print("\nEnabling all objects...")
+# all_objects = cmd.get_object_list()
+# for obj in all_objects:
 #    cmd.enable(obj)
-#print(f"Enabled {len(all_objects)} objects")
+# print(f"Enabled {len(all_objects)} objects")
 print("\nEnabling all objects...")
 cmd.enable("1nh2")  # Original structure with hydrophobic_core selection
 cmd.enable("chain_B")
@@ -167,14 +183,29 @@ img_counter = 1
 print("\nView 1: Chain D interface (90 degrees)")
 
 # Turn 90 degrees
-#cmd.turn("y", 90)
-cmd.set_view((
-    -0.450920254,    0.852479875,    0.264468431,
-    -0.212777704,    0.185093418,   -0.959405780,
-    -0.866829515,   -0.488889456,    0.097926863,
-    -0.000032587,   -0.000011193, -154.020599365,
-    -2.366145849,  -16.602687836,   -7.165100098,
-   105.576972961,  197.627319336,  -20.000000000 ))
+# cmd.turn("y", 90)
+cmd.set_view(
+    (
+        -0.450920254,
+        0.852479875,
+        0.264468431,
+        -0.212777704,
+        0.185093418,
+        -0.959405780,
+        -0.866829515,
+        -0.488889456,
+        0.097926863,
+        -0.000032587,
+        -0.000011193,
+        -154.020599365,
+        -2.366145849,
+        -16.602687836,
+        -7.165100098,
+        105.576972961,
+        197.627319336,
+        -20.000000000,
+    )
+)
 
 # Hide everything
 cmd.hide("everything")
@@ -188,7 +219,7 @@ helper_functions.save_png(
     dpi=300,
     ray=RAY_TRACE,
     overwrite=FLAG_OVERWRITE,
-    output_dir=OUTPUT_DIR
+    output_dir=OUTPUT_DIR,
 )
 img_counter += 1
 
@@ -201,7 +232,7 @@ helper_functions.save_png(
     dpi=300,
     ray=RAY_TRACE,
     overwrite=FLAG_OVERWRITE,
-    output_dir=OUTPUT_DIR
+    output_dir=OUTPUT_DIR,
 )
 img_counter += 1
 
@@ -214,7 +245,7 @@ helper_functions.save_png(
     dpi=300,
     ray=RAY_TRACE,
     overwrite=FLAG_OVERWRITE,
-    output_dir=OUTPUT_DIR
+    output_dir=OUTPUT_DIR,
 )
 img_counter += 1
 
@@ -230,7 +261,7 @@ helper_functions.save_png(
     dpi=300,
     ray=RAY_TRACE,
     overwrite=FLAG_OVERWRITE,
-    output_dir=OUTPUT_DIR
+    output_dir=OUTPUT_DIR,
 )
 img_counter += 1
 
@@ -241,14 +272,29 @@ img_counter += 1
 print("\nView 2: Chain B interface (270 degrees)")
 
 # Turn -180 degrees
-#cmd.turn("y", -180)
-cmd.set_view((
-     0.527584910,    0.820460081,    0.220202491,
-     0.216749787,   -0.380644381,    0.898955524,
-     0.821382821,   -0.426547915,   -0.378658950,
-     0.000019502,   -0.000110969, -119.689163208,
-    -2.949608326,  -20.330551147,  -17.304233551,
-    75.965362549,  163.015731812,  -20.000000000 ))
+# cmd.turn("y", -180)
+cmd.set_view(
+    (
+        0.527584910,
+        0.820460081,
+        0.220202491,
+        0.216749787,
+        -0.380644381,
+        0.898955524,
+        0.821382821,
+        -0.426547915,
+        -0.378658950,
+        0.000019502,
+        -0.000110969,
+        -119.689163208,
+        -2.949608326,
+        -20.330551147,
+        -17.304233551,
+        75.965362549,
+        163.015731812,
+        -20.000000000,
+    )
+)
 
 # Hide everything
 cmd.hide("everything")
@@ -262,7 +308,7 @@ helper_functions.save_png(
     dpi=300,
     ray=RAY_TRACE,
     overwrite=FLAG_OVERWRITE,
-    output_dir=OUTPUT_DIR
+    output_dir=OUTPUT_DIR,
 )
 img_counter += 1
 
@@ -275,7 +321,7 @@ helper_functions.save_png(
     dpi=300,
     ray=RAY_TRACE,
     overwrite=FLAG_OVERWRITE,
-    output_dir=OUTPUT_DIR
+    output_dir=OUTPUT_DIR,
 )
 img_counter += 1
 
@@ -288,7 +334,7 @@ helper_functions.save_png(
     dpi=300,
     ray=RAY_TRACE,
     overwrite=FLAG_OVERWRITE,
-    output_dir=OUTPUT_DIR
+    output_dir=OUTPUT_DIR,
 )
 img_counter += 1
 
@@ -304,7 +350,7 @@ helper_functions.save_png(
     dpi=300,
     ray=RAY_TRACE,
     overwrite=FLAG_OVERWRITE,
-    output_dir=OUTPUT_DIR
+    output_dir=OUTPUT_DIR,
 )
 img_counter += 1
 

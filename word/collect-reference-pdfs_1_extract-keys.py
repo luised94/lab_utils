@@ -45,7 +45,10 @@ EXPECTED_KEY_LENGTH = 8
 # =============================================================================
 
 if len(sys.argv) < 2:
-    print("Usage: python3 collect-reference-pdfs_1_extract-keys.py <docx_path> [output_directory]", file=sys.stderr)
+    print(
+        "Usage: python3 collect-reference-pdfs_1_extract-keys.py <docx_path> [output_directory]",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 docx_path = sys.argv[1]
@@ -116,7 +119,9 @@ for element in root.iter():
     elif tag_local == instr_text_tag_suffix:
         ordered_elements.append(("instr_text", element.text or ""))
 
-print(f"Found {len(ordered_elements)} field_char + instr_text elements", file=sys.stderr)
+print(
+    f"Found {len(ordered_elements)} field_char + instr_text elements", file=sys.stderr
+)
 
 # =============================================================================
 # RECONSTRUCT FRAGMENTED FIELD CODES
@@ -187,18 +192,28 @@ sorted_keys = sorted(unique_keys)
 
 if len(zotero_field_codes) == 0:
     print("ERROR: No Zotero field codes found in document.xml.", file=sys.stderr)
-    print("  The Zotero Word plugin may have changed its storage format.", file=sys.stderr)
+    print(
+        "  The Zotero Word plugin may have changed its storage format.", file=sys.stderr
+    )
     print("  Run probe_01_docx.sh to inspect the .docx structure.", file=sys.stderr)
     sys.exit(1)
 
 if len(sorted_keys) == 0:
     print("ERROR: Field codes found but no item keys extracted.", file=sys.stderr)
-    print("  The URI format may have changed. Check citation JSON manually.", file=sys.stderr)
+    print(
+        "  The URI format may have changed. Check citation JSON manually.",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
-unexpected_key_lengths = {k: len(k) for k in sorted_keys if len(k) != EXPECTED_KEY_LENGTH}
+unexpected_key_lengths = {
+    k: len(k) for k in sorted_keys if len(k) != EXPECTED_KEY_LENGTH
+}
 if unexpected_key_lengths:
-    print(f"WARNING: {len(unexpected_key_lengths)} keys have unexpected length (expected {EXPECTED_KEY_LENGTH}):", file=sys.stderr)
+    print(
+        f"WARNING: {len(unexpected_key_lengths)} keys have unexpected length (expected {EXPECTED_KEY_LENGTH}):",
+        file=sys.stderr,
+    )
     for key, length in list(unexpected_key_lengths.items())[:5]:
         print(f"  {key} (length {length})", file=sys.stderr)
     print("  Proceeding anyway - keys may still be valid.", file=sys.stderr)

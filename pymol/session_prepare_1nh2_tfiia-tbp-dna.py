@@ -29,10 +29,10 @@ PDB_CODE = "1nh2"
 
 # Chain colors (customize per structure)
 CHAIN_COLORS = {
-    "A": "yellow",    # TBP
-    "B": "marine",    # TOA1
-    "C": "marine",    # TOA1 second chain
-    "D": "green",     # TOA2
+    "A": "yellow",  # TBP
+    "B": "marine",  # TOA1
+    "C": "marine",  # TOA1 second chain
+    "D": "green",  # TOA2
 }
 
 # Selection parameters
@@ -42,22 +42,22 @@ HYDROPHOBIC_RESIDUES = "ala+gly+val+ile+leu+phe+met+pro+trp"
 # ROI constants - one dict per residue of interest
 # All PyMOL selection strings for a given ROI are derived from these values
 G16 = {
-    "chain":                    "D",
-    "residue_number":           "16",
-    "roi_selection":            "roi_g16",
-    "nearby_selection":         "nearby_g16",
-    "core_selection":           "hydrophobic_core_g16",
-    "contact_chain":            "B",
+    "chain": "D",
+    "residue_number": "16",
+    "roi_selection": "roi_g16",
+    "nearby_selection": "nearby_g16",
+    "core_selection": "hydrophobic_core_g16",
+    "contact_chain": "B",
     "nearby_contact_selection": "nearby_chain_b_g16",
 }
 
 V251 = {
-    "chain":                    "C",
-    "residue_number":           "251",
-    "roi_selection":            "roi_v251",
-    "nearby_selection":         "nearby_v251",
-    "core_selection":           "hydrophobic_core_v251",
-    "contact_chain":            "C",
+    "chain": "C",
+    "residue_number": "251",
+    "roi_selection": "roi_v251",
+    "nearby_selection": "nearby_v251",
+    "core_selection": "hydrophobic_core_v251",
+    "contact_chain": "C",
     "nearby_contact_selection": "nearby_chain_c_v251",
 }
 
@@ -68,75 +68,153 @@ V251 = {
 # Each ROI creates: roi_NAME, nearby_NAME, hydrophobic_core_NAME selections
 ROI_SPECS = [
     {
-        'name':           'g16',
-        'description':    'G16 hydrophobic core in TOA2',
-        'roi_selection':  G16["roi_selection"],
-        'core_selection': G16["core_selection"],
-        'actions': [
-            lambda: cmd.select(G16["roi_selection"], f"chain {G16['chain']} and resi {G16['residue_number']}"),
-            lambda: cmd.select(G16["nearby_selection"], f"byres (all within {DISTANCE_CUTOFF} of {G16['roi_selection']})"),
-            lambda: cmd.select(G16["core_selection"], f"{G16['nearby_selection']} and resn {HYDROPHOBIC_RESIDUES} and not {G16['roi_selection']}"),
-            lambda: cmd.select(G16["nearby_contact_selection"], f"byres (chain {G16['contact_chain']} within {DISTANCE_CUTOFF} of {G16['core_selection']})"),
-            lambda: cmd.select(G16["core_selection"], f"{G16['core_selection']} or ({G16['nearby_contact_selection']} and resn {HYDROPHOBIC_RESIDUES})"),
-        ]
+        "name": "g16",
+        "description": "G16 hydrophobic core in TOA2",
+        "roi_selection": G16["roi_selection"],
+        "core_selection": G16["core_selection"],
+        "actions": [
+            lambda: cmd.select(
+                G16["roi_selection"],
+                f"chain {G16['chain']} and resi {G16['residue_number']}",
+            ),
+            lambda: cmd.select(
+                G16["nearby_selection"],
+                f"byres (all within {DISTANCE_CUTOFF} of {G16['roi_selection']})",
+            ),
+            lambda: cmd.select(
+                G16["core_selection"],
+                f"{G16['nearby_selection']} and resn {HYDROPHOBIC_RESIDUES} and not {G16['roi_selection']}",
+            ),
+            lambda: cmd.select(
+                G16["nearby_contact_selection"],
+                f"byres (chain {G16['contact_chain']} within {DISTANCE_CUTOFF} of {G16['core_selection']})",
+            ),
+            lambda: cmd.select(
+                G16["core_selection"],
+                f"{G16['core_selection']} or ({G16['nearby_contact_selection']} and resn {HYDROPHOBIC_RESIDUES})",
+            ),
+        ],
     },
     {
-        'name':           'v251',
-        'description':    'V251 in TOA1',
-        'roi_selection':  V251["roi_selection"],
-        'core_selection': V251["core_selection"],
-        'actions': [
-            lambda: cmd.select(V251["roi_selection"], f"chain {V251['chain']} and resi {V251['residue_number']}"),
-            lambda: cmd.select(V251["nearby_selection"], f"byres (all within {DISTANCE_CUTOFF} of {V251['roi_selection']})"),
-            lambda: cmd.select(V251["core_selection"], f"{V251['nearby_selection']} and resn {HYDROPHOBIC_RESIDUES} and not {V251['roi_selection']}"),
-            lambda: cmd.select(V251["nearby_contact_selection"], f"byres (chain {V251['contact_chain']} within {DISTANCE_CUTOFF} of {V251['core_selection']})"),
-            lambda: cmd.select(V251["core_selection"], f"{V251['core_selection']} or ({V251['nearby_contact_selection']} and resn {HYDROPHOBIC_RESIDUES})"),
-        ]
+        "name": "v251",
+        "description": "V251 in TOA1",
+        "roi_selection": V251["roi_selection"],
+        "core_selection": V251["core_selection"],
+        "actions": [
+            lambda: cmd.select(
+                V251["roi_selection"],
+                f"chain {V251['chain']} and resi {V251['residue_number']}",
+            ),
+            lambda: cmd.select(
+                V251["nearby_selection"],
+                f"byres (all within {DISTANCE_CUTOFF} of {V251['roi_selection']})",
+            ),
+            lambda: cmd.select(
+                V251["core_selection"],
+                f"{V251['nearby_selection']} and resn {HYDROPHOBIC_RESIDUES} and not {V251['roi_selection']}",
+            ),
+            lambda: cmd.select(
+                V251["nearby_contact_selection"],
+                f"byres (chain {V251['contact_chain']} within {DISTANCE_CUTOFF} of {V251['core_selection']})",
+            ),
+            lambda: cmd.select(
+                V251["core_selection"],
+                f"{V251['core_selection']} or ({V251['nearby_contact_selection']} and resn {HYDROPHOBIC_RESIDUES})",
+            ),
+        ],
     },
 ]
 
 # --- 1nh2/TFIIA-TBP-DNA complex views ---
 # View matrices (capture these with get_view() in PyMOL GUI)
 VIEW_OVERALL = (
-     0.074909329,    0.990534842,   -0.115008026,
-     0.582228422,    0.050188679,    0.811473668,
-     0.809565485,   -0.127748311,   -0.572958469,
-     0.000000000,    0.000000000, -246.975219727,
-     5.988648415,    2.612197876,    0.841152191,
-   194.940582275,  299.009948730,  -20.000000000
+    0.074909329,
+    0.990534842,
+    -0.115008026,
+    0.582228422,
+    0.050188679,
+    0.811473668,
+    0.809565485,
+    -0.127748311,
+    -0.572958469,
+    0.000000000,
+    0.000000000,
+    -246.975219727,
+    5.988648415,
+    2.612197876,
+    0.841152191,
+    194.940582275,
+    299.009948730,
+    -20.000000000,
 )
 
 # --- G16 views ---
 # Previous view. Changed angle of view from overall.
 VIEW_HYDROPHOBIC = (
-    -0.275569350,    0.849549353,   -0.449802339,
-     0.956983745,    0.198277250,   -0.211805791,
-    -0.090754412,   -0.488821685,   -0.867647946,
-     0.000000000,    0.000000000, -148.670715332,
-    -1.743014336,  -25.174198151,  -14.948152542,
-   117.213119507,  180.128311157,  -20.000000000
+    -0.275569350,
+    0.849549353,
+    -0.449802339,
+    0.956983745,
+    0.198277250,
+    -0.211805791,
+    -0.090754412,
+    -0.488821685,
+    -0.867647946,
+    0.000000000,
+    0.000000000,
+    -148.670715332,
+    -1.743014336,
+    -25.174198151,
+    -14.948152542,
+    117.213119507,
+    180.128311157,
+    -20.000000000,
 )
 
 # Same angle as view overall.
 VIEW_G16_HYDROPHOBIC = (
-     0.074909329,    0.990534842,   -0.115008026,
-     0.582228422,    0.050188679,    0.811473668,
-     0.809565485,   -0.127748311,   -0.572958469,
-     0.000082036,   -0.000030905, -122.774742126,
-    -3.036495209,  -19.484025955,  -28.640813828,
-    73.339439392,  173.608703613,  -20.000000000
+    0.074909329,
+    0.990534842,
+    -0.115008026,
+    0.582228422,
+    0.050188679,
+    0.811473668,
+    0.809565485,
+    -0.127748311,
+    -0.572958469,
+    0.000082036,
+    -0.000030905,
+    -122.774742126,
+    -3.036495209,
+    -19.484025955,
+    -28.640813828,
+    73.339439392,
+    173.608703613,
+    -20.000000000,
 )
 
 # --- V251 views ---
 VIEW_V251_OVERALL = VIEW_OVERALL  # Reuse same overall view as G16
 
 VIEW_V251_HYDROPHOBIC = (
-     0.369137824,    0.765394688,   -0.527172744,
-     0.796817005,    0.031308878,    0.603406489,
-     0.478349477,   -0.642804384,   -0.598319829,
-    -0.000008364,    0.000012737,  -81.610771179,
-     4.645626068,    0.182135344,   -0.962601185,
-   -24.776704788,  188.000106812,  -20.000000000
+    0.369137824,
+    0.765394688,
+    -0.527172744,
+    0.796817005,
+    0.031308878,
+    0.603406489,
+    0.478349477,
+    -0.642804384,
+    -0.598319829,
+    -0.000008364,
+    0.000012737,
+    -81.610771179,
+    4.645626068,
+    0.182135344,
+    -0.962601185,
+    -24.776704788,
+    188.000106812,
+    -20.000000000,
 )
 
 # ============================================================================
@@ -162,7 +240,7 @@ cmd.set("fog", pymol_configuration.FOG)
 
 # Load structure
 print(f"\nLoading structure {PDB_CODE}...")
-cmd.fetch(PDB_CODE, type = 'pdb')
+cmd.fetch(PDB_CODE, type="pdb")
 
 # ============================================================================
 # SECTION 3: STRUCTURE PREPARATION
@@ -194,15 +272,17 @@ for roi_spec in ROI_SPECS:
     print(f"\n{roi_spec['description']}:")
 
     # Execute all selection actions for this ROI
-    for action in roi_spec['actions']:
+    for action in roi_spec["actions"]:
         action()
 
     # Verify the main selections were created successfully
-    roi_selection_name = roi_spec['roi_selection']
-    core_selection_name = roi_spec['core_selection']
+    roi_selection_name = roi_spec["roi_selection"]
+    core_selection_name = roi_spec["core_selection"]
     roi_atom_count = cmd.count_atoms(roi_selection_name)
     if roi_atom_count == 0:
-        raise ValueError(f"ERROR: Selection {roi_selection_name} is empty! Check chain/residue in ROI_SPECS.")
+        raise ValueError(
+            f"ERROR: Selection {roi_selection_name} is empty! Check chain/residue in ROI_SPECS."
+        )
     core_atom_count = cmd.count_atoms(core_selection_name)
     print(f"   {roi_selection_name}: {roi_atom_count} atoms")
     print(f"   {core_selection_name}: {core_atom_count} atoms")
@@ -216,23 +296,22 @@ print(f"\n Successfully created selections for {len(ROI_SPECS)} ROIs")
 image_specs = [
     # --- G16 images ---
     {
-        'filename': '01_g16_overall_view.png',
-        'description': 'G16 full complex with ROI highlighted',
-        'view': VIEW_OVERALL,
-        'rotation_angles': [0, 90, 180, 270],
-        'actions': [
+        "filename": "01_g16_overall_view.png",
+        "description": "G16 full complex with ROI highlighted",
+        "view": VIEW_OVERALL,
+        "rotation_angles": [0, 90, 180, 270],
+        "actions": [
             lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
             lambda: cmd.show("spheres", G16["roi_selection"]),
             lambda: cmd.color("red", G16["roi_selection"]),
             lambda: cmd.set("sphere_scale", 1.5, G16["roi_selection"]),
-        ]
+        ],
     },
-
     {
-        'filename': '02_g16_hydrophobic_core_surface.png',
-        'description': 'G16 hydrophobic core as surface',
-        'view': VIEW_G16_HYDROPHOBIC,
-        'actions': [
+        "filename": "02_g16_hydrophobic_core_surface.png",
+        "description": "G16 hydrophobic core as surface",
+        "view": VIEW_G16_HYDROPHOBIC,
+        "actions": [
             lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
             lambda: cmd.set("depth_cue", 0),
             lambda: cmd.set("fog", 0),
@@ -240,20 +319,19 @@ image_specs = [
             lambda: cmd.set("sphere_scale", 1.0, G16["core_selection"]),
             lambda: cmd.color("grey50", G16["core_selection"]),
             lambda: cmd.set("transparency", 0.8, G16["core_selection"]),
-
-        ]
+        ],
     },
-
-
     # --- V251 images (NEW - add these) ---
     {
-        'filename': '03_v251_overall_view.png',
-        'description': 'V251 supplemental - full complex with ROI highlighted',
-        'view': VIEW_V251_OVERALL,  # Reuses same overall view
-        'rotation_angles': [0, 90, 180, 270],
-        'actions': [
+        "filename": "03_v251_overall_view.png",
+        "description": "V251 supplemental - full complex with ROI highlighted",
+        "view": VIEW_V251_OVERALL,  # Reuses same overall view
+        "rotation_angles": [0, 90, 180, 270],
+        "actions": [
             lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
-            lambda: cmd.color("marine", "obj 1nh2 and chain B"), # Reapply color to remove orange.
+            lambda: cmd.color(
+                "marine", "obj 1nh2 and chain B"
+            ),  # Reapply color to remove orange.
             lambda: cmd.color("green", "obj 1nh2 and chain D"),
             lambda: cmd.show("spheres", V251["roi_selection"]),
             lambda: cmd.color("magenta", V251["roi_selection"]),
@@ -261,14 +339,13 @@ image_specs = [
             lambda: cmd.color("red", G16["roi_selection"]),
             lambda: cmd.set("sphere_scale", 1.5, G16["roi_selection"]),
             lambda: cmd.set("sphere_scale", 1.5, V251["roi_selection"]),
-        ]
+        ],
     },
-
     {
-        'filename': '04_v251_hydrophobic_core_surface.png',
-        'description': 'V251 supplemental - hydrophobic core with TBP residues 94-106 hidden',
-        'view': VIEW_V251_HYDROPHOBIC,
-        'actions': [
+        "filename": "04_v251_hydrophobic_core_surface.png",
+        "description": "V251 supplemental - hydrophobic core with TBP residues 94-106 hidden",
+        "view": VIEW_V251_HYDROPHOBIC,
+        "actions": [
             lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
             lambda: cmd.show("spheres", V251["core_selection"]),
             lambda: cmd.set("sphere_scale", 1.0, V251["core_selection"]),
@@ -277,8 +354,7 @@ image_specs = [
             lambda: cmd.set("transparency", 0.3, V251["core_selection"]),
             # Special: hide TBP residues 94-106 from chain A
             lambda: cmd.hide("cartoon", "chain A and resi 94-106"),
-
-        ]
+        ],
     },
 ]
 # ============================================================================
@@ -294,16 +370,16 @@ for i, spec in enumerate(image_specs, 1):
     print(f"  Description: {spec['description']}")
 
     # Execute actions
-    for action in spec['actions']:
+    for action in spec["actions"]:
         action()
 
     # Set view
-    cmd.set_view(spec['view'])
+    cmd.set_view(spec["view"])
 
     # Check if this should be a rotation series
-    if 'rotation_angles' in spec:
-        angles = spec['rotation_angles']
-        base_filename = spec['filename'].replace('.png', '')
+    if "rotation_angles" in spec:
+        angles = spec["rotation_angles"]
+        base_filename = spec["filename"].replace(".png", "")
         print(f"  Generating {len(angles)} rotation views...")
         for angle_index, angle in enumerate(angles):
             angle_filename = f"{base_filename}_{angle:03d}.png"
@@ -315,7 +391,7 @@ for i, spec in enumerate(image_specs, 1):
                 dpi=pymol_configuration.IMAGE_DPI,
                 ray=pymol_configuration.RAY_TRACE,
                 overwrite=pymol_configuration.FLAG_OVERWRITE,
-                output_dir=pymol_configuration.OUTPUT_DIR
+                output_dir=pymol_configuration.OUTPUT_DIR,
             )
             is_last_angle = angle_index == len(angles) - 1
             if not is_last_angle:
@@ -325,13 +401,13 @@ for i, spec in enumerate(image_specs, 1):
     else:
         # Single image (no rotation)
         helper_functions.save_png(
-            filename=spec['filename'],
+            filename=spec["filename"],
             width=pymol_configuration.IMAGE_WIDTH,
             height=pymol_configuration.IMAGE_HEIGHT,
             dpi=pymol_configuration.IMAGE_DPI,
             ray=pymol_configuration.RAY_TRACE,
             overwrite=pymol_configuration.FLAG_OVERWRITE,
-            output_dir=pymol_configuration.OUTPUT_DIR
+            output_dir=pymol_configuration.OUTPUT_DIR,
         )
 
 # ============================================================================
@@ -391,6 +467,7 @@ print("=" * 60)
 
 # Save PyMOL session
 import os
+
 session_file = os.path.join(pymol_configuration.OUTPUT_DIR, f"{PDB_CODE}_session.pse")
 try:
     cmd.save(session_file)
