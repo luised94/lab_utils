@@ -19,15 +19,15 @@ Candidate positions are then annotated with gene names using a local copy
 of the SGD gene coordinate reference (see reference/ directory).
 
 Usage:
-    uv run analyze_mutations.py
-    uv run analyze_mutations.py --help
+    uv run orc4r-screen_02_analyze-bam.py
+    uv run orc4r-screen_02_analyze-bam.py --help
 
 Prerequisites:
-    uv run prepare_reference.py   (one-time setup for gene annotations)
+    uv run orc4r-screen_01_prepare-reference.py   (one-time setup for gene annotations)
 
 Expected directory structure:
-    analyze_mutations.py
-    prepare_reference.py
+    orc4r-screen_01_prepare-reference.py
+    orc4r-screen_02_analyze-bam.py
     reference/
         gene_coordinates.tsv       (from prepare_reference.py)
         gene_coordinates.meta.json (from prepare_reference.py)
@@ -245,12 +245,12 @@ reference_to_bam_chromosome_map = {
 if not GENE_COORDINATES_FILE.exists():
     sys.exit(
         f"[ERROR] Gene coordinate reference not found: {GENE_COORDINATES_FILE}\n"
-        f"  Run 'uv run prepare_reference.py' first to download from SGD."
+        f"  Run 'uv run orc4r-screen_01_prepare-reference.py' first to download from SGD."
     )
 if not GENE_COORDINATES_METADATA_FILE.exists():
     sys.exit(
         f"[ERROR] Reference metadata not found: {GENE_COORDINATES_METADATA_FILE}\n"
-        f"  Run 'uv run prepare_reference.py' to regenerate."
+        f"  Run 'uv run orc4r-screen_01_prepare-reference.py' to regenerate."
     )
 
 reference_metadata = json.loads(GENE_COORDINATES_METADATA_FILE.read_text())
@@ -487,6 +487,11 @@ all_candidates = pandas.concat(all_candidate_dataframes, ignore_index=True)
 total_candidate_count = len(all_candidates)
 print(f"  Total candidates across all experiments: {total_candidate_count:,}")
 
+# Summarize each mutation as "ctrl_basehit_base" (wild-type  suppressor)
+all_candidates["mutation"] = (
+    all_candidates["base_value_ctrl"] + "" + all_candidates["base_value_hit"]
+)
+
 if total_candidate_count == 0:
     print("  [NOTE] No candidates found. Adjust thresholds or check data quality.")
     print("  Writing empty output file.")
@@ -596,6 +601,7 @@ output_column_order = [
     "experiment",
     "chromosome",
     "base_position",
+    "mutation",
     "base_value_hit",
     "base_value_ctrl",
     "coverage_hit",
