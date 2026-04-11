@@ -194,7 +194,8 @@ VIEW_G16_HYDROPHOBIC = (
 )
 
 # --- V251 views ---
-VIEW_V251_OVERALL = VIEW_OVERALL  # Reuse same overall view as G16
+# Intentional alias - both ROIs are presented from the same full-complex angle
+VIEW_V251_OVERALL = VIEW_OVERALL
 
 VIEW_V251_HYDROPHOBIC = (
     0.369137824,
