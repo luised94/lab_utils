@@ -148,7 +148,8 @@ SUPPRESSOR_RESIDUES: list[dict] = [
     },
 ]
 
-# Adjacent Orc1 residue shown alongside suppressor sticks in close-up views.
+# ORC1 chain and adjacent residue shown alongside suppressor sticks in close-up views.
+ORC1_CHAIN            = "A"
 ORC1_ADJACENT_RESIDUE = "485"
 
 # --- "In-the-way" residue ranges ---
@@ -359,3 +360,100 @@ cmd.set("dash_radius", DISTANCE_DASH_RADIUS)
 cmd.hide("labels")
 print(f"\n  dash_gap={DISTANCE_DASH_GAP}, dash_radius={DISTANCE_DASH_RADIUS}, labels hidden")
 print(f"\nû Successfully created {len(DISTANCE_SPECS)} distance objects")
+
+# ============================================================================
+# SECTION 6: DEFINE IMAGE SPECIFICATIONS
+# ============================================================================
+print("\n" + "=" * 60)
+print("Defining image specifications")
+print("=" * 60)
+
+image_specs: list[dict] = []
+
+# --- AAA+ fold domain overview ---
+# reset_scene_to_base_cartoon shows cartoon for all polymer; the subsequent
+# hide("everything") narrows display to only aaafolds and dnainchannel.
+image_specs.append({
+    "filename":    "7mca_aaafolds_overview.png",
+    "description": "AAA+ fold domains with DNA in channel",
+    "view":        VIEW_AAAFOLDS_OVERVIEW,
+    "actions": [
+        lambda: cmd.util.cbc(),
+        lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
+        lambda: cmd.hide("everything"),
+        lambda: cmd.show("cartoon", AAAFOLDS_SELECTION),
+        lambda: cmd.show("cartoon", DNAINCHANNEL_SELECTION),
+        lambda: cmd.show("sticks", "lig"),
+    ],
+})
+
+# --- Per-suppressor close-up views (generated from SUPPRESSOR_RESIDUES) ---
+# Action list is identical for all five suppressors; view and filename vary per entry.
+for suppressor in SUPPRESSOR_RESIDUES:
+    image_specs.append({
+        "filename":    f"7mca_suppressors_{suppressor['label']}.png",
+        "description": f"Suppressor close-up: {suppressor['label']}",
+        "view":        suppressor["view"],
+        "actions": [
+            lambda: cmd.util.cbc(),
+            lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
+            lambda: cmd.show("dashes"),
+            lambda: cmd.set("stick_radius", STICK_RADIUS),
+            lambda: cmd.show("sticks", f"{SUPPRESSORS_SELECTION} or (chain {ORC1_CHAIN} and resi {ORC1_ADJACENT_RESIDUE})"),
+            lambda: cmd.hide("everything", INTHEWAY_SELECTION),
+        ],
+    })
+
+# --- Suppressor overall rotation - plain ---
+image_specs.append({
+    "filename":        "7mca_suppressors_overall.png",
+    "description":     "Full ORC-Cdc6 structure with suppressor sites as red spheres (rotation series)",
+    "view":            VIEW_SUPPRESSORS_OVERALL,
+    "rotation_angles": [0, 90, 180, 270],
+    "actions": [
+        lambda: cmd.util.cbc(),
+        lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
+        lambda: cmd.set("sphere_scale", SUPPRESSOR_SPHERE_SCALE),
+        lambda: cmd.show("spheres", SUPPRESSORS_SELECTION),
+        lambda: cmd.color("red", SUPPRESSORS_SELECTION),
+    ],
+})
+
+# --- Suppressor overall rotation - 40% cartoon transparency ---
+# Filename format: 7mca_suppressors_overall_trans40_{angle:03d}.png
+# The render loop appends the angle to the base filename (everything before .png),
+# yielding e.g. 7mca_suppressors_overall_trans40_000.png. This differs from the
+# decisions document spec (angle before _trans40); Commit 4 can add an optional
+# filename suffix key to the spec if the original ordering is required.
+image_specs.append({
+    "filename":        "7mca_suppressors_overall_trans40.png",
+    "description":     "Full ORC-Cdc6 structure with suppressor sites as red spheres, transparent cartoon (rotation series)",
+    "view":            VIEW_SUPPRESSORS_OVERALL,
+    "rotation_angles": [0, 90, 180, 270],
+    "actions": [
+        lambda: cmd.util.cbc(),
+        lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
+        lambda: cmd.set("sphere_scale", SUPPRESSOR_SPHERE_SCALE),
+        lambda: cmd.show("spheres", SUPPRESSORS_SELECTION),
+        lambda: cmd.color("red", SUPPRESSORS_SELECTION),
+        lambda: cmd.set("cartoon_transparency", OVERALL_ROTATION_TRANSPARENCY),
+    ],
+})
+
+# --- CDC6-ORC1 AAA+ interface ---
+# cartoon_transparency is reset to 0 globally before the selective 0.3 is applied,
+# to clear any residual transparency from the preceding overall_trans40 spec.
+image_specs.append({
+    "filename":    "7mca_cdc6orc1_interface.png",
+    "description": "CDC6-ORC1 AAA+ interface residues as sticks with transparent cartoon context",
+    "view":        VIEW_CDC6_ORC1_INTERFACE,
+    "actions": [
+        lambda: cmd.util.cbc(),
+        lambda: helper_functions.reset_scene_to_base_cartoon(CHAIN_COLORS),
+        lambda: cmd.set("cartoon_transparency", 0),
+        lambda: cmd.show("sticks", C6O1["selection_name"]),
+        lambda: cmd.set("cartoon_transparency", C6O1["transparency"], PDB_CODE),
+    ],
+})
+
+print(f"  Defined {len(image_specs)} image specifications")
