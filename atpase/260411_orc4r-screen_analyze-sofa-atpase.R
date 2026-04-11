@@ -291,3 +291,112 @@ message(
     "All ", length(raw_data_list), " sheets loaded and validated."
 )
 message("=== DATA LOADING COMPLETE ===")
+
+# ==============================================================================
+# DATA RESHAPING - PAIR ADP/ATP AND ASSIGN METADATA
+# ==============================================================================
+message("=== DATA RESHAPING ===")
+
+reshaped_data_list <- vector(mode = "list", length = length(EXPERIMENT_REGISTRY))
+
+for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
+    current_experiment <- EXPERIMENT_REGISTRY[[registry_index]]
+    current_label <- current_experiment$label
+    current_layout <- current_experiment$layout
+    current_sample_names <- current_experiment$sample_names
+    current_raw_data <- raw_data_list[[current_label]]
+
+    message("  Reshaping ", current_label, " (layout ", current_layout, ")...")
+
+    # -- Pair ADP and ATP intensities based on layout --
+    if (current_layout %in% c("A", "B")) {
+        # Odd-indexed rows are ADP, the following even-indexed row is ATP.
+        odd_row_positions <- seq(1, nrow(current_raw_data), by = 2)
+        paired_data <- data.frame(
+            adp_intensity = current_raw_data$intensity[odd_row_positions],
+            atp_intensity = current_raw_data$intensity[odd_row_positions + 1]
+        )
+    } else if (current_layout == "C") {
+        # Even-indexed rows are ADP, the preceding odd-indexed row is ATP.
+        even_row_positions <- seq(2, nrow(current_raw_data), by = 2)
+        paired_data <- data.frame(
+            adp_intensity = current_raw_data$intensity[even_row_positions],
+            atp_intensity = current_raw_data$intensity[even_row_positions - 1]
+        )
+    } else {
+        stop("Unknown layout '", current_layout, "' for ", current_label)
+    }
+
+    # -- Assign timepoints --
+    if (current_layout == "A") {
+        # All samples have all 4 timepoints. No standalone No_ORC row.
+        paired_data$timepoint <- rep(TIMEPOINTS, times = length(current_sample_names))
+    } else if (current_layout == "B") {
+        # 4 samples with all timepoints, then single No_ORC at t=90.
+        paired_data$timepoint <- c(
+            rep(TIMEPOINTS, times = length(current_sample_names)), 90
+        )
+    } else if (current_layout == "C") {
+        # Single No_ORC at t=90 first, then 3 samples with all timepoints.
+        paired_data$timepoint <- c(
+            90, rep(TIMEPOINTS, times = length(current_sample_names))
+        )
+    }
+
+    # -- Assign sample names --
+    if (current_layout == "A") {
+        # Each sample occupies 4 consecutive rows.
+        paired_data$sample <- rep(current_sample_names, each = 4)
+    } else if (current_layout == "B") {
+        # 4 samples with 4 rows each, then one No_ORC row.
+        paired_data$sample <- c(
+            rep(current_sample_names, each = 4), "No_ORC"
+        )
+    } else if (current_layout == "C") {
+        # One No_ORC row, then 3 samples with 4 rows each.
+        paired_data$sample <- c(
+            "No_ORC", rep(current_sample_names, each = 4)
+        )
+    }
+
+    paired_data$experiment_label <- current_label
+
+    # -- Validate paired data dimensions --
+    if (current_layout == "A") {
+        expected_paired_rows <- length(current_sample_names) * 4
+    } else if (current_layout == "B") {
+        expected_paired_rows <- length(current_sample_names) * 4 + 1
+    } else if (current_layout == "C") {
+        expected_paired_rows <- length(current_sample_names) * 4 + 1
+    }
+
+    if (nrow(paired_data) != expected_paired_rows) {
+        stop(
+            "Paired row count mismatch for ", current_label, ": ",
+            "expected ", expected_paired_rows, ", got ", nrow(paired_data)
+        )
+    }
+
+    reshaped_data_list[[registry_index]] <- paired_data
+}
+
+combined_raw_data <- do.call(rbind, reshaped_data_list)
+rownames(combined_raw_data) <- NULL
+
+message("Combined raw data: ", nrow(combined_raw_data), " rows x ",
+    ncol(combined_raw_data), " columns.")
+
+# -- Per-experiment row counts --
+message("Row counts per experiment:")
+print(table(combined_raw_data$experiment_label))
+
+# -- Write to CSV --
+combined_raw_csv_path <- file.path(OUTPUT_DIRECTORY, "combined_raw_data.csv")
+if (!file.exists(combined_raw_csv_path) || OVERWRITE_CSVS) {
+    write.csv(combined_raw_data, combined_raw_csv_path, row.names = FALSE)
+    message("Saved CSV: ", basename(combined_raw_csv_path))
+} else {
+    message("Skipped CSV (already exists): ", basename(combined_raw_csv_path))
+}
+
+message("=== DATA RESHAPING COMPLETE ===")
