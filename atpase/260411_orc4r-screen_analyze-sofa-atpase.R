@@ -400,3 +400,145 @@ if (!file.exists(combined_raw_csv_path) || OVERWRITE_CSVS) {
 }
 
 message("=== DATA RESHAPING COMPLETE ===")
+
+# ==============================================================================
+# PROCESSING - PERCENT HYDROLYSIS AND BACKGROUND SUBTRACTION
+# ==============================================================================
+message("=== PROCESSING ===")
+
+processed_data <- combined_raw_data
+processed_data$percent_adp <- processed_data$adp_intensity /
+    (processed_data$adp_intensity + processed_data$atp_intensity)
+
+# Background subtraction: subtract the No_ORC percent_adp at t=90 from all
+# rows within the same experiment.
+processed_data$percent_adp_corrected <- NA
+
+for (current_label in unique(processed_data$experiment_label)) {
+    current_rows <- processed_data$experiment_label == current_label
+    background_row <- current_rows &
+        processed_data$sample == "No_ORC" &
+        processed_data$timepoint == 90
+
+    background_count <- sum(background_row)
+    if (background_count != 1) {
+        stop(
+            "Expected exactly 1 No_ORC t=90 row for ", current_label,
+            ", found ", background_count
+        )
+    }
+
+    background_value <- processed_data$percent_adp[background_row]
+    processed_data$percent_adp_corrected[current_rows] <-
+        processed_data$percent_adp[current_rows] - background_value
+}
+
+if (anyNA(processed_data$percent_adp_corrected)) {
+    stop("NA values found in percent_adp_corrected after background subtraction.")
+}
+
+message("Processing complete. ", nrow(processed_data), " rows.")
+
+# -- Write processed data CSV --
+processed_data_csv_path <- file.path(OUTPUT_DIRECTORY, "processed_data.csv")
+if (!file.exists(processed_data_csv_path) || OVERWRITE_CSVS) {
+    write.csv(processed_data, processed_data_csv_path, row.names = FALSE)
+    message("Saved CSV: ", basename(processed_data_csv_path))
+} else {
+    message("Skipped CSV (already exists): ", basename(processed_data_csv_path))
+}
+
+# ==============================================================================
+# SUMMARY STATISTICS
+# ==============================================================================
+message("=== SUMMARY STATISTICS ===")
+
+# Filter out control samples before summarizing.
+samples_to_exclude <- c("No_ORC", "WT_DNA")
+plotting_data <- processed_data[
+    !(processed_data$sample %in% samples_to_exclude),
+]
+
+message(
+    "Excluded samples: ", paste(samples_to_exclude, collapse = ", "),
+    ". Rows remaining: ", nrow(plotting_data)
+)
+
+summary_data <- plotting_data %>%
+    group_by(timepoint, sample) %>%
+    summarise(
+        mean_percent_adp_corrected = mean(percent_adp_corrected, na.rm = TRUE),
+        sd_percent_adp_corrected = sd(percent_adp_corrected, na.rm = TRUE),
+        replicate_count = n(),
+        .groups = "drop"
+    )
+
+message("Summary computed: ", nrow(summary_data), " rows.")
+message("Replicate counts per sample:")
+print(
+    summary_data[summary_data$timepoint == 0,
+        c("sample", "replicate_count")]
+)
+
+# -- Write summary CSV --
+summary_csv_path <- file.path(OUTPUT_DIRECTORY, "summary_data.csv")
+if (!file.exists(summary_csv_path) || OVERWRITE_CSVS) {
+    write.csv(summary_data, summary_csv_path, row.names = FALSE)
+    message("Saved CSV: ", basename(summary_csv_path))
+} else {
+    message("Skipped CSV (already exists): ", basename(summary_csv_path))
+}
+
+# ==============================================================================
+# PLOTTING
+# ==============================================================================
+message("=== PLOTTING ===")
+
+atpase_timecourse_plot <- ggplot(
+    summary_data,
+    aes(
+        x = timepoint,
+        y = mean_percent_adp_corrected,
+        color = sample
+    )
+) +
+    geom_line() +
+    geom_point(size = 2) +
+    geom_errorbar(
+        aes(
+            ymin = mean_percent_adp_corrected - sd_percent_adp_corrected,
+            ymax = mean_percent_adp_corrected + sd_percent_adp_corrected
+        ),
+        width = 3,
+        linewidth = 0.5
+    ) +
+    scale_color_brewer(palette = "Dark2") +
+    labs(
+        title = "ORC ATPase Timecourse",
+        x = "Time (min)",
+        y = "Percent hydrolysis (background-corrected)",
+        color = "Sample"
+    ) +
+    theme_classic(base_size = 13) +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "right"
+    )
+
+plot_pdf_path <- file.path(OUTPUT_DIRECTORY, "atpase_timecourse_plot.pdf")
+if (!file.exists(plot_pdf_path) || OVERWRITE_PLOTS) {
+    ggsave(plot_pdf_path, atpase_timecourse_plot, width = 8, height = 5)
+    message("Saved plot: ", basename(plot_pdf_path))
+} else {
+    message("Skipped plot (already exists): ", basename(plot_pdf_path))
+}
+
+# ==============================================================================
+# COMPLETE
+# ==============================================================================
+message("=== SCRIPT COMPLETE ===")
+message("Output directory: ", OUTPUT_DIRECTORY)
+message("Files written:")
+for (output_file in list.files(OUTPUT_DIRECTORY)) {
+    message("  ", output_file)
+}
