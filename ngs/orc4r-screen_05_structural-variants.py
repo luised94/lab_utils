@@ -22,6 +22,11 @@ Detection strategies:
   3) Positional gap detection: unexplained gaps in the merged position data
      where one sample may be missing reads entirely.
 
+After detection, a cross-experiment filter removes regions that also appear in
+experiments with known SNV hits (background experiments). Regions shared across
+many experiments are artifacts (repetitive regions, GC-biased coverage dips).
+Only regions unique to the target experiments are reported.
+
 Usage:
     uv run orc4r-screen_05_structural-variants.py
     uv run orc4r-screen_05_structural-variants.py --experiments 1,7,9
@@ -74,7 +79,7 @@ COVERAGE_IMBALANCE_RATIO = 0.25
 # Minimum contiguous region length (bp) to report as a coverage drop
 MINIMUM_REGION_LENGTH_BP = 50
 
-# Maximum gap between positions to consider them part of the same region/cluster
+# Maximum gap between positions to consider them part of the same region
 MAX_REGION_GAP_BP = 10
 
 # Mismatch clustering: low-confidence differing positions
@@ -85,6 +90,13 @@ MIN_CLUSTER_SIZE = 3             # minimum positions in a reportable cluster
 # Positional gap detection: flag unexplained gaps in merged position data
 MIN_SUSPICIOUS_GAP_BP = 200      # gaps larger than this are reported
 MIN_FLANKING_COVERAGE = 15       # positions flanking the gap must be well-covered
+
+# Cross-experiment filtering
+# Experiments with known SNV hits serve as negative controls. Any region also
+# found in these experiments is a shared artifact, not a suppressor-specific variant.
+BACKGROUND_EXPERIMENT_NUMBERS = [2, 3, 4, 5, 6, 8]
+TARGET_EXPERIMENT_NUMBERS = [1, 7, 9]
+REGION_PROXIMITY_BP = 1000  # regions within this distance on same chromosome are considered shared
 
 OUTPUT_CSV_FILENAME = "candidate_structural_variants.csv"
 
@@ -101,7 +113,10 @@ argument_parser.add_argument(
     "--experiments",
     type=str,
     default=None,
-    help="Comma-separated experiment numbers to analyze (default: 1-9).",
+    help=(
+        "Comma-separated experiment numbers to analyze (default: all 1-9). "
+        "For effective background filtering, include both target and background experiments."
+    ),
 )
 arguments = argument_parser.parse_args()
 
@@ -109,6 +124,10 @@ if arguments.experiments is not None:
     experiment_numbers = [int(x.strip()) for x in arguments.experiments.split(",")]
 else:
     experiment_numbers = DEFAULT_EXPERIMENT_NUMBERS
+
+# Determine which of the requested experiments are targets vs background
+active_target_experiments = [n for n in experiment_numbers if n in TARGET_EXPERIMENT_NUMBERS]
+active_background_experiments = [n for n in experiment_numbers if n in BACKGROUND_EXPERIMENT_NUMBERS]
 
 start_time = time.perf_counter()
 
@@ -140,6 +159,15 @@ if len(missing_pickles) > 0:
         + f"\n  Run 'uv run orc4r-screen_02_analyze-bam.py' first."
     )
 print(f"  [OK] All {len(experiment_numbers)} SNV pickle files found")
+
+if len(active_background_experiments) == 0:
+    print(
+        f"  [WARNING] No background experiments included. Cross-experiment filtering\n"
+        f"    will be skipped. For best results, run all 9 experiments."
+    )
+else:
+    print(f"  [OK] Background experiments (known SNVs): {active_background_experiments}")
+    print(f"  [OK] Target experiments (no SNVs): {active_target_experiments}")
 
 # -- Verify gene coordinates --
 if not GENE_COORDINATES_FILE.exists() or not GENE_COORDINATES_METADATA_FILE.exists():
@@ -235,6 +263,25 @@ def cluster_positions(positions, max_gap):
 
 
 # =============================================================================
+# Helper: check if a region overlaps any region in a background set
+# =============================================================================
+
+def overlaps_any_background_region(chromosome, region_start, region_end, background_regions, proximity):
+    """
+    Check if a region on a given chromosome overlaps (within proximity) any
+    region in the background set. Returns True if shared, False if unique.
+    """
+    same_chromosome = background_regions[background_regions["chromosome"] == chromosome]
+    for _, background_row in same_chromosome.iterrows():
+        # Two regions overlap within proximity if:
+        # region_start - proximity <= bg_end AND bg_start - proximity <= region_end
+        if (region_start - proximity <= background_row["region_end"]
+                and background_row["region_start"] - proximity <= region_end):
+            return True
+    return False
+
+
+# =============================================================================
 # Main analysis loop - process each experiment
 # =============================================================================
 
@@ -243,6 +290,8 @@ all_candidate_regions = []
 for experiment_number in experiment_numbers:
     print("=" * 60)
     print(f"EXPERIMENT {experiment_number}")
+    experiment_label = "TARGET" if experiment_number in TARGET_EXPERIMENT_NUMBERS else "BACKGROUND"
+    print(f"  ({experiment_label})")
     print("=" * 60)
 
     pickle_path = PICKLE_DIRECTORY / f"df_merged_exp{experiment_number}.pickle"
@@ -259,20 +308,15 @@ for experiment_number in experiment_numbers:
 
     # =================================================================
     # Section 1: Coverage imbalance
-    #
-    # Find positions where one sample has <25% of the other's coverage,
-    # then cluster consecutive positions into regions.
     # =================================================================
 
     print(f"  --- Coverage Imbalance (ratio < {COVERAGE_IMBALANCE_RATIO}) ---")
 
-    # Drop in hit (possible deletion/insertion in suppressor)
     drop_in_hit = (
         (merged_dataframe["coverage_ctrl"] > MINIMUM_READ_COVERAGE)
         & (merged_dataframe["coverage_hit"] < merged_dataframe["coverage_ctrl"] * COVERAGE_IMBALANCE_RATIO)
     )
 
-    # Drop in ctrl (possible deletion/insertion in wild-type - less expected)
     drop_in_ctrl = (
         (merged_dataframe["coverage_hit"] > MINIMUM_READ_COVERAGE)
         & (merged_dataframe["coverage_ctrl"] < merged_dataframe["coverage_hit"] * COVERAGE_IMBALANCE_RATIO)
@@ -303,7 +347,6 @@ for experiment_number in experiment_numbers:
                 if region_length < MINIMUM_REGION_LENGTH_BP:
                     continue
 
-                # Get coverage stats for this region
                 region_data = merged_dataframe[
                     (merged_dataframe["chromosome"] == chromosome)
                     & (merged_dataframe["base_position"] >= region_start)
@@ -314,13 +357,6 @@ for experiment_number in experiment_numbers:
 
                 genes = find_overlapping_genes(chromosome, region_start, region_end)
                 gene_display = ", ".join(genes) if genes else "(intergenic)"
-
-                print(
-                    f"      {chromosome}:{region_start}-{region_end} "
-                    f"({region_length:,} bp, {position_count} pos) "
-                    f"cov: hit={mean_cov_hit:.0f}, ctrl={mean_cov_ctrl:.0f} "
-                    f"-> {gene_display}"
-                )
 
                 all_candidate_regions.append({
                     "experiment": f"Exp_{experiment_number}",
@@ -341,10 +377,6 @@ for experiment_number in experiment_numbers:
 
     # =================================================================
     # Section 2: Low-confidence mismatch clustering
-    #
-    # Find positions where bases differ between hit and ctrl but
-    # confidence is low (reads split ~50/50). Cluster spatially close
-    # positions - clusters indicate breakpoint regions.
     # =================================================================
 
     print(f"  --- Low-Confidence Mismatch Clusters (conf < {MAXIMUM_CLUSTER_CONFIDENCE}%) ---")
@@ -383,7 +415,6 @@ for experiment_number in experiment_numbers:
 
                 cluster_span = cluster_end - cluster_start + 1
 
-                # Get confidence stats for this cluster
                 cluster_data = chrom_mismatches[
                     (chrom_mismatches["base_position"] >= cluster_start)
                     & (chrom_mismatches["base_position"] <= cluster_end)
@@ -395,13 +426,6 @@ for experiment_number in experiment_numbers:
 
                 genes = find_overlapping_genes(chromosome, cluster_start, cluster_end)
                 gene_display = ", ".join(genes) if genes else "(intergenic)"
-
-                print(
-                    f"      {chromosome}:{cluster_start}-{cluster_end} "
-                    f"({cluster_span:,} bp span, {cluster_count} mismatches) "
-                    f"conf: hit={mean_conf_hit:.0f}%, ctrl={mean_conf_ctrl:.0f}% "
-                    f"-> {gene_display}"
-                )
 
                 all_candidate_regions.append({
                     "experiment": f"Exp_{experiment_number}",
@@ -422,14 +446,6 @@ for experiment_number in experiment_numbers:
 
     # =================================================================
     # Section 3: Positional gap detection
-    #
-    # The SNV pipeline uses an inner merge, so positions present in one
-    # sample but not the other are dropped. Large gaps in the merged
-    # data that have well-covered flanking positions suggest a region
-    # deleted (or unmappable) in one sample.
-    #
-    # Note: we cannot determine WHICH sample is missing reads in the
-    # gap. The flanking coverage provides hints.
     # =================================================================
 
     print(f"  --- Positional Gaps (> {MIN_SUSPICIOUS_GAP_BP} bp) ---")
@@ -454,13 +470,11 @@ for experiment_number in experiment_numbers:
             if gap_size <= MIN_SUSPICIOUS_GAP_BP:
                 continue
 
-            # Check flanking coverage: positions just before and after the gap
             flank_before_cov_hit = coverages_hit[i - 1]
             flank_before_cov_ctrl = coverages_ctrl[i - 1]
             flank_after_cov_hit = coverages_hit[i]
             flank_after_cov_ctrl = coverages_ctrl[i]
 
-            # Only report if flanking positions are well-covered in at least one sample
             before_well_covered = (
                 flank_before_cov_hit > MIN_FLANKING_COVERAGE
                 or flank_before_cov_ctrl > MIN_FLANKING_COVERAGE
@@ -479,8 +493,6 @@ for experiment_number in experiment_numbers:
             genes = find_overlapping_genes(chromosome, gap_start, gap_end)
             gene_display = ", ".join(genes) if genes else "(intergenic)"
 
-            # Determine which sample likely has the gap
-            # If flanking hit coverage is lower, the gap is probably in hit
             avg_flank_hit = (flank_before_cov_hit + flank_after_cov_hit) / 2
             avg_flank_ctrl = (flank_before_cov_ctrl + flank_after_cov_ctrl) / 2
 
@@ -490,14 +502,6 @@ for experiment_number in experiment_numbers:
                 likely_sample = "ctrl"
             else:
                 likely_sample = "unclear"
-
-            print(
-                f"      {chromosome}:{gap_start}-{gap_end} "
-                f"({gap_size:,} bp gap) "
-                f"flank cov: hit={avg_flank_hit:.0f}, ctrl={avg_flank_ctrl:.0f} "
-                f"likely in: {likely_sample} "
-                f"-> {gene_display}"
-            )
 
             gap_count += 1
 
@@ -522,6 +526,77 @@ for experiment_number in experiment_numbers:
 
 
 # =============================================================================
+# Cross-experiment filtering
+#
+# Regions found in background experiments (those with known SNV hits) are
+# shared genomic artifacts - repetitive regions, GC-biased coverage dips,
+# reference assembly gaps, etc. These are NOT suppressor-specific variants.
+#
+# For each candidate region in a target experiment, check whether a similar
+# region (same chromosome, overlapping within REGION_PROXIMITY_BP) exists in
+# ANY background experiment. If so, discard it.
+# =============================================================================
+
+print("=" * 60)
+print("CROSS-EXPERIMENT FILTERING")
+print("=" * 60)
+
+results_dataframe = pandas.DataFrame(all_candidate_regions)
+
+if len(results_dataframe) == 0:
+    print("  No candidate regions to filter.")
+    elapsed_seconds = time.perf_counter() - start_time
+    print(f"\nTotal runtime: {elapsed_seconds:.1f} seconds")
+    sys.exit(0)
+
+target_labels = [f"Exp_{n}" for n in active_target_experiments]
+background_labels = [f"Exp_{n}" for n in active_background_experiments]
+
+target_regions = results_dataframe[results_dataframe["experiment"].isin(target_labels)].copy()
+background_regions = results_dataframe[results_dataframe["experiment"].isin(background_labels)].copy()
+
+total_raw_target = len(target_regions)
+print(f"  Target experiments: {active_target_experiments}")
+print(f"  Background experiments: {active_background_experiments}")
+print(f"  Raw candidate regions in target experiments: {total_raw_target:,}")
+print(f"  Regions in background experiments: {len(background_regions):,}")
+print(f"  Proximity threshold: {REGION_PROXIMITY_BP:,} bp")
+
+if len(active_background_experiments) == 0 or len(background_regions) == 0:
+    print("  [SKIP] No background regions available for filtering.")
+    filtered_regions = target_regions.copy()
+else:
+    is_shared = []
+    for _, target_row in target_regions.iterrows():
+        shared = overlaps_any_background_region(
+            chromosome=target_row["chromosome"],
+            region_start=target_row["region_start"],
+            region_end=target_row["region_end"],
+            background_regions=background_regions,
+            proximity=REGION_PROXIMITY_BP,
+        )
+        is_shared.append(shared)
+
+    shared_count = sum(is_shared)
+    unique_count = total_raw_target - shared_count
+
+    print(f"\n  Shared with background (removed): {shared_count:,}")
+    print(f"  Unique to target experiments: {unique_count:,}")
+
+    filtered_regions = target_regions[~pandas.Series(is_shared, index=target_regions.index)].copy()
+
+# Per-method breakdown of what survived
+if len(filtered_regions) > 0:
+    print("\n  Surviving regions by detection method:")
+    for method in ["coverage_imbalance", "mismatch_cluster", "positional_gap"]:
+        method_count = (filtered_regions["detection_method"] == method).sum()
+        if method_count > 0:
+            print(f"    {method.replace('_', ' ').title()}: {method_count}")
+
+print()
+
+
+# =============================================================================
 # Save results
 # =============================================================================
 
@@ -529,16 +604,20 @@ print("=" * 60)
 print("SAVE RESULTS")
 print("=" * 60)
 
-if len(all_candidate_regions) == 0:
-    print("  No structural variant candidates found across any experiment.")
+if len(filtered_regions) == 0:
+    print("  No unique structural variant candidates after filtering.")
+    output_csv_path = OUTPUT_DIRECTORY / OUTPUT_CSV_FILENAME
+    pandas.DataFrame(columns=results_dataframe.columns).to_csv(
+        str(output_csv_path), index=False
+    )
+    print(f"  Saved empty results to: {output_csv_path}")
     elapsed_seconds = time.perf_counter() - start_time
     print(f"\nTotal runtime: {elapsed_seconds:.1f} seconds")
     sys.exit(0)
 
-results_dataframe = pandas.DataFrame(all_candidate_regions)
-
 chromosome_sort_order = {c: i for i, c in enumerate(REFERENCE_CHROMOSOMES)}
-results_dataframe = results_dataframe.sort_values(
+
+filtered_regions_sorted = filtered_regions.sort_values(
     by=["experiment", "chromosome", "region_start"],
     key=lambda column: (
         column.map(chromosome_sort_order) if column.name == "chromosome" else column
@@ -547,8 +626,8 @@ results_dataframe = results_dataframe.sort_values(
 )
 
 output_csv_path = OUTPUT_DIRECTORY / OUTPUT_CSV_FILENAME
-results_dataframe.to_csv(str(output_csv_path), index=False)
-print(f"  Saved {len(results_dataframe)} candidate regions to: {output_csv_path}")
+filtered_regions_sorted.to_csv(str(output_csv_path), index=False)
+print(f"  Saved {len(filtered_regions_sorted)} unique candidate regions to: {output_csv_path}")
 print()
 
 
@@ -557,29 +636,38 @@ print()
 # =============================================================================
 
 print("=" * 60)
-print("SUMMARY")
+print("SUMMARY: UNIQUE STRUCTURAL VARIANT CANDIDATES")
 print("=" * 60)
 
-for method in ["coverage_imbalance", "mismatch_cluster", "positional_gap"]:
-    method_results = results_dataframe[results_dataframe["detection_method"] == method]
-    if len(method_results) > 0:
-        print(f"\n  {method.replace('_', ' ').title()}: {len(method_results)} region(s)")
-        for _, row in method_results.iterrows():
-            print(
-                f"    {row['experiment']} | {row['chromosome']}:{row['region_start']}-{row['region_end']} "
-                f"({row['region_length_bp']:,} bp) "
-                f"in {row['affected_sample']} -> {row['genes']}"
-            )
+for experiment_number in active_target_experiments:
+    exp_label = f"Exp_{experiment_number}"
+    exp_regions = filtered_regions_sorted[filtered_regions_sorted["experiment"] == exp_label]
 
-# Cross-reference: genes appearing across multiple experiments or detection methods
-all_genes_mentioned = set()
-for genes_str in results_dataframe["genes"]:
+    if len(exp_regions) == 0:
+        print(f"\n  Experiment {experiment_number}: no unique candidates")
+        continue
+
+    print(f"\n  Experiment {experiment_number}: {len(exp_regions)} unique candidate(s)")
+
+    for _, row in exp_regions.iterrows():
+        print(
+            f"    [{row['detection_method'].replace('_', ' ')}] "
+            f"{row['chromosome']}:{row['region_start']}-{row['region_end']} "
+            f"({row['region_length_bp']:,} bp) "
+            f"in {row['affected_sample']} "
+            f"cov: hit={row['mean_coverage_hit']:.0f}, ctrl={row['mean_coverage_ctrl']:.0f} "
+            f"-> {row['genes']}"
+        )
+
+# List unique genes
+all_genes = set()
+for genes_str in filtered_regions_sorted["genes"]:
     if genes_str != "(intergenic)":
         for gene in genes_str.split(", "):
-            all_genes_mentioned.add(gene)
+            all_genes.add(gene)
 
-if len(all_genes_mentioned) > 0:
-    print(f"\n  Genes in candidate regions: {', '.join(sorted(all_genes_mentioned))}")
+if len(all_genes) > 0:
+    print(f"\n  Genes in unique candidate regions: {', '.join(sorted(all_genes))}")
 
 print()
 elapsed_seconds = time.perf_counter() - start_time
