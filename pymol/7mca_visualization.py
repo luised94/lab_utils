@@ -43,6 +43,14 @@ CHAIN_COLORS: dict[str, str] = {
     "I": "orange",    # Cdc6
 }
 
+# --- Selection names ---
+# Defined here so Section 6 lambdas reference names, not string literals.
+AAAFOLDS_SELECTION     = "aaafolds"
+DNAINCHANNEL_SELECTION = "dnainchannel"
+SUPPRESSORS_SELECTION  = "suppressors"
+NEAR_SELECTION         = "near"
+INTHEWAY_SELECTION     = "intheway"
+
 # --- AAA+ fold domain residue ranges ---
 # Keys are chain letters; values are PyMOL residue range strings.
 # Iterated in Section 5 to build the 'aaafolds' selection.
@@ -260,3 +268,94 @@ for chain, color in CHAIN_COLORS.items():
     if cmd.count_atoms(selection) > 0:
         cmd.color(color, selection)
         print(f"  Chain {chain}: {color}")
+
+# ============================================================================
+# SECTION 5: CREATE SELECTIONS AND DISTANCE OBJECTS
+# ============================================================================
+print("\n" + "=" * 60)
+print("Creating selections")
+print("=" * 60)
+
+# --- AAA+ fold domains ---
+print("\nBuilding 'aaafolds' selection...")
+aaafolds_parts: list[str] = []
+for chain, residue_range in AAAFOLDS_CHAIN_RANGES.items():
+    aaafolds_parts.append(f"(chain {chain} and resi {residue_range})")
+aaafolds_selection_string = " or ".join(aaafolds_parts)
+cmd.select(AAAFOLDS_SELECTION, aaafolds_selection_string)
+aaafolds_atom_count = cmd.count_atoms(AAAFOLDS_SELECTION)
+if aaafolds_atom_count == 0:
+    raise ValueError(f"ERROR: Selection '{AAAFOLDS_SELECTION}' is empty! Check AAAFOLDS_CHAIN_RANGES.")
+print(f"  {AAAFOLDS_SELECTION}: {aaafolds_atom_count} atoms ({len(AAAFOLDS_CHAIN_RANGES)} chains)")
+
+# --- DNA in channel ---
+print("\nBuilding 'dnainchannel' selection...")
+dnainchannel_parts: list[str] = []
+for chain, residue_range in DNAINCHANNEL_CHAIN_RANGES.items():
+    dnainchannel_parts.append(f"(chain {chain} and resi {residue_range})")
+dnainchannel_selection_string = " or ".join(dnainchannel_parts)
+cmd.select(DNAINCHANNEL_SELECTION, dnainchannel_selection_string)
+dnainchannel_atom_count = cmd.count_atoms(DNAINCHANNEL_SELECTION)
+if dnainchannel_atom_count == 0:
+    raise ValueError(f"ERROR: Selection '{DNAINCHANNEL_SELECTION}' is empty! Check DNAINCHANNEL_CHAIN_RANGES.")
+print(f"  {DNAINCHANNEL_SELECTION}: {dnainchannel_atom_count} atoms")
+
+# --- Suppressor mutations ---
+print("\nBuilding 'suppressors' selection...")
+suppressors_parts: list[str] = []
+for suppressor in SUPPRESSOR_RESIDUES:
+    suppressors_parts.append(f"(chain {suppressor['chain']} and resi {suppressor['residue_number']})")
+suppressors_selection_string = " or ".join(suppressors_parts)
+cmd.select(SUPPRESSORS_SELECTION, suppressors_selection_string)
+suppressors_atom_count = cmd.count_atoms(SUPPRESSORS_SELECTION)
+if suppressors_atom_count == 0:
+    raise ValueError(f"ERROR: Selection '{SUPPRESSORS_SELECTION}' is empty! Check SUPPRESSOR_RESIDUES.")
+print(f"  {SUPPRESSORS_SELECTION}: {suppressors_atom_count} atoms ({len(SUPPRESSOR_RESIDUES)} residues)")
+
+# --- Residues near suppressors ---
+print("\nBuilding 'near' selection...")
+cmd.select(NEAR_SELECTION, f"{SUPPRESSORS_SELECTION} expand 8")
+near_atom_count = cmd.count_atoms(NEAR_SELECTION)
+print(f"  {NEAR_SELECTION}: {near_atom_count} atoms")
+
+# --- In-the-way residues (hidden in suppressor close-up views) ---
+print("\nBuilding 'intheway' selection...")
+intheway_parts: list[str] = []
+for chain, residue_range in INTHEWAY_RANGES:
+    intheway_parts.append(f"(chain {chain} and resi {residue_range})")
+intheway_selection_string = " or ".join(intheway_parts)
+cmd.select(INTHEWAY_SELECTION, intheway_selection_string)
+intheway_atom_count = cmd.count_atoms(INTHEWAY_SELECTION)
+print(f"  {INTHEWAY_SELECTION}: {intheway_atom_count} atoms")
+
+# --- CDC6-ORC1 AAA+ interface ---
+print("\nBuilding 'c6o1' selection...")
+cdc6_residue_parts: list[str] = [f"resi {residue}" for residue in C6O1["cdc6_residues"]]
+cdc6_residue_expression = " or ".join(cdc6_residue_parts)
+c6o1_selection_string = (
+    f"(chain {C6O1['orc1_chain']} and resi {C6O1['orc1_residue']}) or "
+    f"(chain {C6O1['cdc6_chain']} and ({cdc6_residue_expression})) or "
+    f"(lig and chain {C6O1['cdc6_chain']})"
+)
+cmd.select(C6O1["selection_name"], c6o1_selection_string)
+c6o1_atom_count = cmd.count_atoms(C6O1["selection_name"])
+if c6o1_atom_count == 0:
+    raise ValueError(f"ERROR: Selection '{C6O1['selection_name']}' is empty! Check C6O1 constants.")
+print(f"  {C6O1['selection_name']}: {c6o1_atom_count} atoms")
+
+print(f"\nû Successfully created all selections")
+
+# --- Distance objects ---
+print("\n" + "=" * 60)
+print("Creating distance objects")
+print("=" * 60)
+for distance_spec in DISTANCE_SPECS:
+    cmd.distance(distance_spec["name"], distance_spec["atom1"], distance_spec["atom2"])
+    print(f"  {distance_spec['name']}: {distance_spec['atom1']}  {distance_spec['atom2']}")
+
+# Apply distance display settings and suppress labels
+cmd.set("dash_gap", DISTANCE_DASH_GAP)
+cmd.set("dash_radius", DISTANCE_DASH_RADIUS)
+cmd.hide("labels")
+print(f"\n  dash_gap={DISTANCE_DASH_GAP}, dash_radius={DISTANCE_DASH_RADIUS}, labels hidden")
+print(f"\nû Successfully created {len(DISTANCE_SPECS)} distance objects")
