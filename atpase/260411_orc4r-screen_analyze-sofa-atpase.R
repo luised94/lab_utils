@@ -226,3 +226,68 @@ message("All ", length(unique_relative_paths), " input files found.")
 message("Experiment registry contains ", length(EXPERIMENT_REGISTRY), " experiments.")
 message("Output directory: ", OUTPUT_DIRECTORY)
 message("=== CONFIGURATION COMPLETE ===")
+
+# ==============================================================================
+# DATA LOADING - READ AND VALIDATE RAW SHEETS
+# ==============================================================================
+message("=== DATA LOADING ===")
+
+EXPECTED_NUMBER_OF_COLUMNS <- 2
+RAW_COLUMN_NAMES <- c("imagej_index", "intensity")
+
+raw_data_list <- vector(mode = "list", length = length(EXPERIMENT_REGISTRY))
+names(raw_data_list) <- vapply(
+    EXPERIMENT_REGISTRY, function(entry) entry$label, character(1)
+)
+
+for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
+    current_experiment <- EXPERIMENT_REGISTRY[[registry_index]]
+    current_label <- current_experiment$label
+    current_full_path <- file.path(
+        BASE_EXPERIMENT_DIRECTORY, current_experiment$relative_file_path
+    )
+
+    message(
+        "  Reading ", current_label,
+        " (sheet ", current_experiment$sheet_index, ")..."
+    )
+
+    current_raw_data <- read.xlsx(
+        current_full_path,
+        header = FALSE,
+        sheetIndex = current_experiment$sheet_index
+    )
+    current_raw_data <- as.data.frame(current_raw_data)
+    colnames(current_raw_data) <- RAW_COLUMN_NAMES
+
+    # -- Validate dimensions --
+    if (nrow(current_raw_data) != current_experiment$expected_raw_row_count) {
+        stop(
+            "Row count mismatch for ", current_label, ": ",
+            "expected ", current_experiment$expected_raw_row_count,
+            ", got ", nrow(current_raw_data)
+        )
+    }
+    if (ncol(current_raw_data) != EXPECTED_NUMBER_OF_COLUMNS) {
+        stop(
+            "Column count mismatch for ", current_label, ": ",
+            "expected ", EXPECTED_NUMBER_OF_COLUMNS,
+            ", got ", ncol(current_raw_data)
+        )
+    }
+
+    # -- Validate content --
+    if (anyNA(current_raw_data$intensity)) {
+        stop("NA values found in intensity column for ", current_label)
+    }
+    if (any(current_raw_data$intensity < 0)) {
+        stop("Negative intensity values found for ", current_label)
+    }
+
+    raw_data_list[[current_label]] <- current_raw_data
+}
+
+message(
+    "All ", length(raw_data_list), " sheets loaded and validated."
+)
+message("=== DATA LOADING COMPLETE ===")
