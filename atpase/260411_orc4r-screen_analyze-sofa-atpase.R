@@ -109,9 +109,27 @@ FILE_ORC5_ORC6_EK <- file.path(
 # ------------------------------------------------------------------------------
 # Experiment registry
 # ------------------------------------------------------------------------------
+# --- Physical context ---
+# Each ATPase experiment resolves radiolabeled ATP and ADP on a TLC
+# (thin-layer chromatography) plate. ADP migrates further from the
+# origin than ATP. The plate is exposed to a phosphor screen, scanned,
+# and quantified in ImageJ by selecting each band with the wand tool.
+#
+# ImageJ records one row per band selection. Bands alternate between
+# ADP and ATP for each lane (one lane = one reaction timepoint). The
+# order in which ADP vs ATP was selected with the wand varied between
+# experiment batches, producing two conventions:
+#
+#   Layouts A/B (2020 experiments): odd ImageJ index = ADP, even = ATP
+#   Layout C   (2021 experiments): even ImageJ index = ADP, odd = ATP
+#
+# The No_ORC control (no enzyme, measures spontaneous hydrolysis) was
+# recorded differently across batches:
+#
 # Layout A: 16 raw rows. No_ORC occupies rows 1-4 (all timepoints).
 #           Odd ImageJ index = ADP, next row = ATP.
 #           Background = No_ORC at t=90 (processed row 4).
+#           Used only for 2020_07_13 (first experiment).
 #
 # Layout B: 17 raw rows. Four samples in rows 1-16 (4 timepoints each).
 #           Single No_ORC at row 17 (t=90 only).
@@ -234,6 +252,15 @@ EXPERIMENT_REGISTRY <- list(
 # Validate file paths
 # ------------------------------------------------------------------------------
 message("Validating file paths...")
+all_experiment_labels <- vapply(
+    EXPERIMENT_REGISTRY, function(entry) entry$label, character(1)
+)
+if (anyDuplicated(all_experiment_labels)) {
+    stop(
+        "Duplicate experiment labels in registry: ",
+        paste(all_experiment_labels[duplicated(all_experiment_labels)], collapse = ", ")
+    )
+}
 
 unique_relative_paths <- unique(vapply(
     EXPERIMENT_REGISTRY, function(entry) entry$relative_file_path, character(1)
@@ -325,6 +352,25 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
         stop("Negative intensity values found for ", current_label)
     }
 
+    # ImageJ indices should be sequential 1:N. A gap or reordering
+    # indicates the Excel sheet was modified or rows were deleted.
+    expected_indices <- seq_len(nrow(current_raw_data))
+    if (!identical(as.integer(current_raw_data$imagej_index), expected_indices)) {
+        stop(
+            "Non-sequential imagej_index for ", current_label,
+            ". Expected 1:", nrow(current_raw_data),
+            ". Check Excel sheet for missing or reordered rows."
+        )
+    }
+
+    # Raw row count must be even: every ADP band has a paired ATP band.
+    if (nrow(current_raw_data) %% 2 != 0) {
+        stop(
+            "Odd number of rows (", nrow(current_raw_data), ") for ",
+            current_label, ". ADP/ATP bands must come in pairs."
+        )
+    }
+
     raw_data_list[[current_label]] <- current_raw_data
 }
 
@@ -350,6 +396,8 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
     message("  Reshaping ", current_label, " (layout ", current_layout, ")...")
 
     # -- Pair ADP and ATP intensities based on layout --
+    # The wand selection order in ImageJ determines which raw rows are
+    # ADP vs ATP. See layout documentation in the configuration section.
     if (current_layout %in% c("A", "B")) {
         # Odd-indexed rows are ADP, the following even-indexed row is ATP.
         odd_row_positions <- seq(1, nrow(current_raw_data), by = 2)
@@ -418,6 +466,32 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
         )
     }
 
+    # -- Validate ADP/ATP assignment --
+    # If ADP and ATP columns were swapped, percent would be near 1.0
+    # for No_ORC (almost all signal in the "ADP" slot). Correct assignment
+    # gives No_ORC percent near 0.05-0.20 (low spontaneous hydrolysis).
+    quick_percent_check <- paired_data$adp_intensity /
+        (paired_data$adp_intensity + paired_data$atp_intensity)
+    if (any(quick_percent_check < 0 | quick_percent_check > 1, na.rm = TRUE)) {
+        stop(
+            "percent_adp outside [0, 1] for ", current_label,
+            ". ADP/ATP intensities may be swapped or negative."
+        )
+    }
+
+    # Each experiment must have exactly one No_ORC measurement at t=90
+    # for background subtraction downstream.
+    no_orc_t90_count <- sum(
+        paired_data$sample == "No_ORC" & paired_data$timepoint == 90
+    )
+    if (no_orc_t90_count != 1) {
+        stop(
+            "Expected 1 No_ORC at t=90 for ", current_label,
+            ", found ", no_orc_t90_count,
+            ". Check sample_names and layout in the registry."
+        )
+    }
+
     reshaped_data_list[[registry_index]] <- paired_data
 }
 
@@ -451,6 +525,19 @@ processed_data <- combined_raw_data
 processed_data$percent_adp <- processed_data$adp_intensity /
     (processed_data$adp_intensity + processed_data$atp_intensity)
 
+# Percent ADP must be in [0, 1]. Values outside this range indicate
+# a problem in the ADP/ATP pairing or negative intensities.
+if (any(processed_data$percent_adp < 0 | processed_data$percent_adp > 1)) {
+    bad_rows <- which(
+        processed_data$percent_adp < 0 | processed_data$percent_adp > 1
+    )
+    stop(
+        "percent_adp outside [0, 1] at rows: ",
+        paste(head(bad_rows, 5), collapse = ", "),
+        ". Check ADP/ATP pairing for these experiments."
+    )
+}
+
 # Background subtraction: subtract the No_ORC percent_adp at t=90 from all
 # rows within the same experiment.
 processed_data$percent_adp_corrected <- NA
@@ -477,6 +564,30 @@ for (current_label in unique(processed_data$experiment_label)) {
 if (anyNA(processed_data$percent_adp_corrected)) {
     stop("NA values found in percent_adp_corrected after background subtraction.")
 }
+
+# Sanity check: WT at t=0 should be near zero after background subtraction.
+# A large value (above 0.15) suggests the wrong row was used as background
+# or the ADP/ATP assignment is incorrect for that experiment.
+wt_t0_corrected <- processed_data$percent_adp_corrected[
+    processed_data$sample == "WT" & processed_data$timepoint == 0
+]
+wt_t0_max_absolute <- max(abs(wt_t0_corrected))
+if (wt_t0_max_absolute > 0.15) {
+    warning(
+        "Largest |WT t=0 corrected| is ", round(wt_t0_max_absolute, 4),
+        " (threshold: 0.15). Inspect background subtraction."
+    )
+} else {
+    message(
+        "WT t=0 sanity check passed (max |corrected| = ",
+        round(wt_t0_max_absolute, 4), ")."
+    )
+}
+
+# Note: negative corrected values are possible when a sample has less
+# apparent ADP than the No_ORC background. These are biologically
+# meaningless but are retained for transparency. They typically occur
+# at t=0 and are small in magnitude.
 
 message("Processing complete. ", nrow(processed_data), " rows.")
 
@@ -522,10 +633,41 @@ summary_data <- plotting_data %>%
 
 message("Summary computed: ", nrow(summary_data), " rows.")
 message("Replicate counts per sample:")
-print(
-    summary_data[summary_data$timepoint == 0,
-        c("sample", "replicate_count")]
-)
+replicate_counts_at_t0 <- summary_data[
+    summary_data$timepoint == 0, c("sample", "replicate_count")
+]
+print(replicate_counts_at_t0)
+
+# Replicate counts should be consistent across timepoints for each sample.
+# If they differ, rows were lost during processing.
+replicate_count_check <- plotting_data %>%
+    group_by(sample) %>%
+    summarise(
+        timepoints_observed = n_distinct(timepoint),
+        .groups = "drop"
+    )
+samples_missing_timepoints <- replicate_count_check$sample[
+    replicate_count_check$timepoints_observed != length(TIMEPOINTS)
+]
+if (length(samples_missing_timepoints) > 0) {
+    warning(
+        "Samples with fewer than ", length(TIMEPOINTS), " timepoints: ",
+        paste(samples_missing_timepoints, collapse = ", "),
+        ". Rows may have been lost during processing."
+    )
+}
+
+# WT and 4R should have more replicates than individual mutants since
+# they were measured in nearly every experiment.
+wt_replicate_count <- replicate_counts_at_t0$replicate_count[
+    replicate_counts_at_t0$sample == "WT"
+]
+if (wt_replicate_count < 5) {
+    warning(
+        "WT replicate count is ", wt_replicate_count,
+        ", expected at least 5. Data may be incomplete."
+    )
+}
 
 # -- Write summary CSV --
 summary_csv_path <- file.path(OUTPUT_DIRECTORY, "summary_data.csv")
