@@ -457,3 +457,76 @@ image_specs.append({
 })
 
 print(f"  Defined {len(image_specs)} image specifications")
+
+# ============================================================================
+# SECTION 7: RENDER ALL IMAGES
+# ============================================================================
+print("\n" + "=" * 60)
+print("Rendering images")
+print("=" * 60)
+
+for i, spec in enumerate(image_specs, 1):
+    print(f"\nImage spec {i}/{len(image_specs)}: {spec['filename']}")
+    print(f"  Description: {spec['description']}")
+
+    # Execute all scene-setup actions for this spec
+    for action in spec['actions']:
+        action()
+
+    # Set the view for this spec
+    cmd.set_view(spec['view'])
+
+    # Rotation series or single image
+    if 'rotation_angles' in spec:
+        rotation_angles = spec['rotation_angles']
+        base_filename = spec['filename'].replace('.png', '')
+        print(f"  Generating {len(rotation_angles)} rotation views...")
+        for angle_index, angle in enumerate(rotation_angles):
+            angle_filename = f"{base_filename}_{angle:03d}.png"
+            print(f"    Angle {angle}ø...")
+            helper_functions.save_png(
+                filename=angle_filename,
+                width=pymol_configuration.IMAGE_WIDTH,
+                height=pymol_configuration.IMAGE_HEIGHT,
+                dpi=pymol_configuration.IMAGE_DPI,
+                ray=pymol_configuration.RAY_TRACE,
+                overwrite=pymol_configuration.FLAG_OVERWRITE,
+                output_dir=pymol_configuration.OUTPUT_DIR,
+            )
+            is_last_angle = angle_index == len(rotation_angles) - 1
+            if not is_last_angle:
+                next_angle = rotation_angles[angle_index + 1]
+                rotation_delta = next_angle - angle
+                cmd.turn("y", rotation_delta)
+    else:
+        helper_functions.save_png(
+            filename=spec['filename'],
+            width=pymol_configuration.IMAGE_WIDTH,
+            height=pymol_configuration.IMAGE_HEIGHT,
+            dpi=pymol_configuration.IMAGE_DPI,
+            ray=pymol_configuration.RAY_TRACE,
+            overwrite=pymol_configuration.FLAG_OVERWRITE,
+            output_dir=pymol_configuration.OUTPUT_DIR,
+        )
+
+# ============================================================================
+# SECTION 8: SAVE SESSION AND FINAL SUMMARY
+# ============================================================================
+print("\n" + "=" * 60)
+print("Saving session files")
+print("=" * 60)
+
+import os
+session_file = os.path.join(pymol_configuration.OUTPUT_DIR, f"{PDB_CODE}_session.pse")
+try:
+    cmd.save(session_file)
+    print(f"  Saved PyMOL session: {session_file}")
+except Exception as e:
+    print(f"  ERROR saving session: {e}")
+
+print("\n" + "=" * 60)
+print("SESSION COMPLETE")
+print("=" * 60)
+print(f"Structure: {PDB_CODE}")
+print(f"Generated {len(image_specs)} image specs in: {pymol_configuration.OUTPUT_DIR}")
+print("=" * 60)
