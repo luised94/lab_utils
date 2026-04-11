@@ -50,6 +50,30 @@ if (!dir.exists(OUTPUT_DIRECTORY)) {
     message("Created output directory: ", OUTPUT_DIRECTORY)
 }
 
+# ------------------------------------------------------------------------------
+# Sample ordering and colors
+# ------------------------------------------------------------------------------
+# Factor order determines legend and axis ordering in all outputs.
+# Biological logic: WT control first, then 4R mutant, then suppressors
+# ordered by ORC subunit number.
+SAMPLE_DISPLAY_ORDER <- c(
+    "WT", "4R",
+    "Orc1_E495K_4R", "Orc3_P481L_4R", "Orc4_P225S_4R",
+    "Orc5_E104K_4R", "Orc6_E304K_4R"
+)
+
+# Hex values taken from RColorBrewer::brewer.pal(7, "Dark2"), assigned
+# in SAMPLE_DISPLAY_ORDER so each sample keeps its color across figures.
+SAMPLE_COLORS <- c(
+    "WT"            = "#1B9E77",
+    "4R"            = "#D95F02",
+    "Orc1_E495K_4R" = "#7570B3",
+    "Orc3_P481L_4R" = "#E7298A",
+    "Orc4_P225S_4R" = "#66A61E",
+    "Orc5_E104K_4R" = "#E6AB02",
+    "Orc6_E304K_4R" = "#A6761D"
+)
+
 # Relative paths from BASE_EXPERIMENT_DIRECTORY to each Excel file.
 # Some files contain multiple experiments on different sheets.
 FILE_ORC3_PL_1 <- file.path(
@@ -224,6 +248,23 @@ for (relative_path in unique_relative_paths) {
 
 message("All ", length(unique_relative_paths), " input files found.")
 message("Experiment registry contains ", length(EXPERIMENT_REGISTRY), " experiments.")
+# Validate that every sample name in the registry is a recognized sample.
+# Catches typos when adding new experiments.
+all_registry_sample_names <- unique(unlist(
+    lapply(EXPERIMENT_REGISTRY, function(entry) entry$sample_names)
+))
+unknown_samples <- setdiff(
+    all_registry_sample_names,
+    c(SAMPLE_DISPLAY_ORDER, "No_ORC", "WT_DNA")
+)
+if (length(unknown_samples) > 0) {
+    stop(
+        "Unknown sample names in registry: ",
+        paste(unknown_samples, collapse = ", "),
+        "\nAdd to SAMPLE_DISPLAY_ORDER or to the exclusion list."
+    )
+}
+message("All registry sample names are recognized.")
 message("Output directory: ", OUTPUT_DIRECTORY)
 message("=== CONFIGURATION COMPLETE ===")
 
@@ -459,6 +500,12 @@ plotting_data <- processed_data[
     !(processed_data$sample %in% samples_to_exclude),
 ]
 
+plotting_data$sample <- factor(
+    plotting_data$sample,
+    levels = SAMPLE_DISPLAY_ORDER,
+    ordered = TRUE
+)
+
 message(
     "Excluded samples: ", paste(samples_to_exclude, collapse = ", "),
     ". Rows remaining: ", nrow(plotting_data)
@@ -512,7 +559,7 @@ atpase_timecourse_plot <- ggplot(
         width = 3,
         linewidth = 0.5
     ) +
-    scale_color_brewer(palette = "Dark2") +
+    scale_color_manual(values = SAMPLE_COLORS) +
     labs(
         title = "ORC ATPase Timecourse",
         x = "Time (min)",
