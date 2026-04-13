@@ -6,8 +6,9 @@
 # CONFIGURATION
 # ==============================================================================
 
-ROOT_DIRECTORY <- system("git rev-parse --show-toplevel", intern = TRUE)
-INPUT_PATH <- file.path(ROOT_DIRECTORY, "sequence")
+# Set to directory containing this script and the input TSV
+# Adjust if running from a different working directory
+INPUT_PATH <- "."
 
 UNIPROT_BASE_URL <- "https://rest.uniprot.org/uniprotkb"
 NCBI_EFETCH_URL <- "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
