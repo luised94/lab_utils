@@ -8,7 +8,6 @@
 # Requires devtools-mediated installation of ggtree then ggmsa.
 
 library(Biostrings)
-library(DECIPHER)
 library(ggmsa)
 library(ggplot2)
 
@@ -319,6 +318,11 @@ if (ORDERING_METHOD == "identity") {
     }
 
 } else if (ORDERING_METHOD == "hierarchical") {
+
+    if (!requireNamespace("DECIPHER", quietly = TRUE)) {
+        stop("DECIPHER package required for hierarchical ordering. Install from Bioconductor.")
+    }
+    library(DECIPHER)
 
     cat("  Computing distance matrix and clustering...\n")
 
