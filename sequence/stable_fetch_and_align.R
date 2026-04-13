@@ -238,3 +238,153 @@ for (g in genes) {
 }
 
 cat("\nDone.\n")
+
+# ==============================================================================
+# PHASE 2: ALIGNMENT AND CONSERVATION
+# ==============================================================================
+# Adapted from stable_msa_conservation.R
+# Aligns fetched sequences and calculates conservation relative to S. cerevisiae
+
+library(Biostrings)
+library(DECIPHER)
+
+# --- Phase 2 Configuration (will deduplicate in next commit) ---
+ALIGN_INPUT_DIR <- "~/data/protein_files"
+ALIGN_OUTPUT_DIR <- "~/data/protein_files/alignments"
+ALIGN_GENE_NAMES <- c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", "TOA2")
+ALIGN_INPUT_PREFIX <- "stable_"
+ALIGN_OUTPUT_PREFIX <- "stable_"
+ALIGN_REFERENCE_PATTERN <- "^Scer_"
+
+if (!dir.exists(ALIGN_OUTPUT_DIR)) {
+    dir.create(path = ALIGN_OUTPUT_DIR, recursive = TRUE)
+}
+
+# Build file paths
+align_input_files <- file.path(ALIGN_INPUT_DIR, paste0(ALIGN_INPUT_PREFIX, ALIGN_GENE_NAMES, ".fasta"))
+align_output_aligned <- file.path(ALIGN_OUTPUT_DIR, paste0(ALIGN_OUTPUT_PREFIX, ALIGN_GENE_NAMES, "_aligned.fasta"))
+align_output_conservation <- file.path(ALIGN_OUTPUT_DIR, paste0(ALIGN_OUTPUT_PREFIX, ALIGN_GENE_NAMES, "_conservation.tsv"))
+
+# Check inputs exist
+align_missing <- align_input_files[!file.exists(align_input_files)]
+if (length(align_missing) > 0) {
+    message("Missing input files:\n", paste(align_missing, collapse = "\n"))
+    stop("Fetch phase did not produce expected FASTA files.")
+}
+
+# Pre-allocate summary table
+align_summary_df <- data.frame(
+    gene = ALIGN_GENE_NAMES,
+    n_sequences = integer(length(ALIGN_GENE_NAMES)),
+    alignment_length = integer(length(ALIGN_GENE_NAMES)),
+    scer_length = integer(length(ALIGN_GENE_NAMES)),
+    mean_conservation = numeric(length(ALIGN_GENE_NAMES)),
+    stringsAsFactors = FALSE
+)
+
+cat("\n=== PHASE 2: ALIGNMENT & CONSERVATION ===\n")
+cat("Genes:", length(ALIGN_GENE_NAMES), "\n")
+cat("Input:", ALIGN_INPUT_DIR, "\n")
+cat("Output:", ALIGN_OUTPUT_DIR, "\n\n")
+
+for (i in seq_along(ALIGN_GENE_NAMES)) {
+
+    gene <- ALIGN_GENE_NAMES[i]
+    cat("[", i, "/", length(ALIGN_GENE_NAMES), "] ", gene, "\n", sep = "")
+
+    # --- Load sequences ---
+    seqs <- Biostrings::readAAStringSet(filepath = align_input_files[i])
+    n_seqs <- length(seqs)
+    cat("  Loaded:", n_seqs, "sequences\n")
+
+    # --- Align ---
+    cat("  Aligning...")
+    aligned <- DECIPHER::AlignSeqs(myXStringSet = seqs, verbose = FALSE)
+    cat(" done\n")
+
+    Biostrings::writeXStringSet(x = aligned, filepath = align_output_aligned[i])
+
+    aln_length <- unique(Biostrings::width(aligned))
+    cat("  Alignment:", n_seqs, "x", aln_length, "\n")
+
+    # --- Find reference sequence ---
+    seq_names <- names(aligned)
+    ref_idx <- grep(pattern = ALIGN_REFERENCE_PATTERN, x = seq_names)
+
+    if (length(ref_idx) == 0) {
+        cat("  WARNING: Reference not found, skipping conservation\n\n")
+        align_summary_df$n_sequences[i] <- n_seqs
+        align_summary_df$alignment_length[i] <- aln_length
+        align_summary_df$scer_length[i] <- NA
+        align_summary_df$mean_conservation[i] <- NA
+        next
+    }
+
+    if (length(ref_idx) > 1) {
+        cat("  WARNING: Multiple references, using first\n")
+        ref_idx <- ref_idx[1]
+    }
+
+    # --- Conservation calculation ---
+    aln_matrix <- as.matrix(aligned)
+    ref_seq <- aln_matrix[ref_idx, ]
+
+    ungapped_cols <- which(ref_seq != "-")
+    scer_length <- length(ungapped_cols)
+
+    conservation_df <- data.frame(
+        position = seq_len(scer_length),
+        residue = ref_seq[ungapped_cols],
+        conservation_pct = numeric(scer_length),
+        stringsAsFactors = FALSE
+    )
+
+    other_rows <- seq_len(n_seqs)[-ref_idx]
+    other_matrix <- aln_matrix[other_rows, , drop = FALSE]
+
+    for (j in seq_along(ungapped_cols)) {
+        col_idx <- ungapped_cols[j]
+        ref_residue <- ref_seq[col_idx]
+        col_values <- other_matrix[, col_idx]
+
+        non_gap <- col_values != "-"
+        n_non_gap <- sum(non_gap)
+
+        if (n_non_gap > 0) {
+            n_identical <- sum(col_values[non_gap] == ref_residue)
+            conservation_df$conservation_pct[j] <- (n_identical / n_non_gap) * 100
+        } else {
+            conservation_df$conservation_pct[j] <- NA
+        }
+    }
+
+    utils::write.table(
+        x = conservation_df,
+        file = align_output_conservation[i],
+        sep = "\t",
+        row.names = FALSE,
+        quote = FALSE
+    )
+
+    mean_cons <- mean(conservation_df$conservation_pct, na.rm = TRUE)
+    cat("  Conservation: mean =", round(mean_cons, 1), "% across", scer_length, "positions\n\n")
+
+    align_summary_df$n_sequences[i] <- n_seqs
+    align_summary_df$alignment_length[i] <- aln_length
+    align_summary_df$scer_length[i] <- scer_length
+    align_summary_df$mean_conservation[i] <- mean_cons
+}
+
+# --- Phase 2 Summary ---
+align_summary_path <- file.path(ALIGN_OUTPUT_DIR, paste0(ALIGN_OUTPUT_PREFIX, "summary.tsv"))
+utils::write.table(
+    x = align_summary_df,
+    file = align_summary_path,
+    sep = "\t",
+    row.names = FALSE,
+    quote = FALSE
+)
+
+cat("=== PHASE 2 COMPLETE ===\n")
+cat("Summary saved to:", align_summary_path, "\n\n")
+print(align_summary_df)
