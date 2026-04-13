@@ -1,6 +1,21 @@
 #!/usr/bin/env Rscript
-# stable_accession_query.R
-# Build and execute queries to fetch protein sequences from UniProt/NCBI
+# stable_fetch_and_align.R
+# Fetch protein sequences, align with DECIPHER, and calculate conservation
+#
+# Pipeline:
+#   Phase 1 - Fetch sequences from UniProt/NCBI using accession table
+#   Phase 2 - Align per-gene FASTAs and compute per-position conservation
+#
+# Input:  stable_protein_accessions.tsv (accession table in working directory)
+# Output: ~/data/protein_files/stable_<GENE>.fasta (raw sequences)
+#         ~/data/protein_files/alignments/stable_<GENE>_aligned.fasta
+#         ~/data/protein_files/alignments/stable_<GENE>_conservation.tsv
+#         ~/data/protein_files/alignments/stable_summary.tsv
+#
+# Dependencies: Biostrings, DECIPHER (Bioconductor); httr2 (CRAN)
+#
+# Usage: Set working directory to script location, then source or Rscript.
+# Downstream: stable_protein_msas_visualizations.R reads aligned FASTAs.
 
 # ==============================================================================
 # DEPENDENCIES

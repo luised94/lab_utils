@@ -1,7 +1,17 @@
 #!/usr/bin/env Rscript
-# stable_msa_visualization.R
+# stable_protein_msas_visualizations.R
 # Generate zoomed MSA visualizations at specified S. cerevisiae positions
 #
+# Input:  Aligned FASTAs from stable_fetch_and_align.R
+#         BLOSUM62.rds matrix (run download_blosum62.R first)
+# Output: Zoomed alignment plots (PNG/SVG) at positions of interest
+#         Identity/similarity table and session info
+#
+# Dependencies: Biostrings (Bioconductor); ggmsa, ggplot2 (CRAN)
+#               DECIPHER (Bioconductor) only if ORDERING_METHOD = "hierarchical"
+#
+# Usage: Run stable_fetch_and_align.R first to produce aligned FASTAs.
+
 # NOTE: ggmsa produces deprecation warnings about aes_() and "No shared levels"
 # warnings related to fill scales. These are internal to ggmsa and can be ignored.
 # See: https://github.com/YuLab-SMU/ggmsa/issues
