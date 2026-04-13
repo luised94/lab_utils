@@ -15,6 +15,14 @@
 # Dependencies: Biostrings, DECIPHER (Bioconductor); httr2 (CRAN)
 #
 # Usage: Set working directory to script location, then source or Rscript.
+# Installation:
+#   install.packages("httr2")
+#   BiocManager::install(c("Biostrings", "DECIPHER"))
+#   OR
+#   renv::install(c("httr2", "Biostrings", "DECIPHER"))
+#
+# Note: Update CONTACT_EMAIL below before running. NCBI requires a valid
+#       contact email for programmatic access.
 # Downstream: stable_protein_msas_visualizations.R reads aligned FASTAs.
 
 # ==============================================================================

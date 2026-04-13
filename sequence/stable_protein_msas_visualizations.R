@@ -7,15 +7,25 @@
 # Output: Zoomed alignment plots (PNG/SVG) at positions of interest
 #         Identity/similarity table and session info
 #
-# Dependencies: Biostrings (Bioconductor); ggmsa, ggplot2 (CRAN)
+#
+# Dependencies: Biostrings (Bioconductor); ggplot2 (CRAN)
+#               ggmsa, ggtree (YuLab-SMU GitHub, NOT standard CRAN/Bioconductor)
 #               DECIPHER (Bioconductor) only if ORDERING_METHOD = "hierarchical"
 #
+# Installation:
+#   install.packages(c("ggplot2", "devtools"))
+#   BiocManager::install("Biostrings")
+#   devtools::install_github("YuLab-SMU/ggtree")
+#   devtools::install_github("YuLab-SMU/ggmsa")
+#   # Requires vctrs >= 0.7.1 - update if ggmsa fails to load:
+#   install.packages("vctrs")
+#
+# Prerequisite data:
+#   1. Run stable_fetch_and_align.R to produce aligned FASTAs
+#   2. BLOSUM62.rds is provided in the data repository
+#      (see download_blosum62.R for provenance and re-download instructions)
 # Usage: Run stable_fetch_and_align.R first to produce aligned FASTAs.
 
-# NOTE: ggmsa produces deprecation warnings about aes_() and "No shared levels"
-# warnings related to fill scales. These are internal to ggmsa and can be ignored.
-# See: https://github.com/YuLab-SMU/ggmsa/issues
-# Requires devtools-mediated installation of ggtree then ggmsa.
 
 library(Biostrings)
 library(ggmsa)
