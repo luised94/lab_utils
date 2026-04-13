@@ -390,3 +390,12 @@ utils::write.table(
 cat("=== PHASE 2 COMPLETE ===\n")
 cat("Summary saved to:", align_summary_path, "\n\n")
 print(align_summary_df)
+
+# ==============================================================================
+# SESSION INFO
+# ==============================================================================
+
+session_info_path <- file.path(ALIGNMENT_OUTPUT_DIR, paste0(INPUT_PREFIX, "fetch_align_session_info.txt"))
+session_info <- utils::capture.output(utils::sessionInfo())
+writeLines(text = session_info, con = session_info_path)
+cat("Session info:", session_info_path, "\n")
