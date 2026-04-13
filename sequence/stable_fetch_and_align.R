@@ -3,6 +3,12 @@
 # Build and execute queries to fetch protein sequences from UniProt/NCBI
 
 # ==============================================================================
+# DEPENDENCIES
+# ==============================================================================
+library(Biostrings)
+library(DECIPHER)
+
+# ==============================================================================
 # CONFIGURATION
 # ==============================================================================
 
@@ -13,8 +19,14 @@ INPUT_PATH <- "."
 UNIPROT_BASE_URL <- "https://rest.uniprot.org/uniprotkb"
 NCBI_EFETCH_URL <- "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 
+GENE_NAMES <- c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", "TOA2")
+INPUT_PREFIX <- "stable_"
+REFERENCE_PATTERN <- "^Scer_"
+FASTA_OUTPUT_DIR <- "~/data/protein_files"
+ALIGNMENT_OUTPUT_DIR <- "~/data/protein_files/alignments"
+
 INPUT_TSV <- file.path(INPUT_PATH, "stable_protein_accessions.tsv")
-OUTPUT_DIR <- "~/data/protein_files/"
+OUTPUT_DIR <- FASTA_OUTPUT_DIR
 QUERIES_OUTPUT <- file.path(INPUT_PATH, "stable_fetch_queries.tsv")
 
 # Rate limit settings (conservative for unkeyed access)
@@ -213,7 +225,7 @@ if (!dir.exists(OUTPUT_DIR)) {
     dir.create(path = OUTPUT_DIR, recursive = TRUE)
 }
 
-genes <- unique(accessions$gene)
+genes <- GENE_NAMES
 
 cat("\n=== WRITING FASTA FILES ===\n")
 
@@ -225,7 +237,7 @@ for (g in genes) {
         next
     }
 
-    output_file <- file.path(OUTPUT_DIR, paste0("stable_", g, ".fasta"))
+    output_file <- file.path(OUTPUT_DIR, paste0(INPUT_PREFIX, g, ".fasta"))
 
     fasta_content <- character(length(gene_seqs) * 2)
     for (j in seq_along(gene_seqs)) {
@@ -245,25 +257,15 @@ cat("\nDone.\n")
 # Adapted from stable_msa_conservation.R
 # Aligns fetched sequences and calculates conservation relative to S. cerevisiae
 
-library(Biostrings)
-library(DECIPHER)
 
-# --- Phase 2 Configuration (will deduplicate in next commit) ---
-ALIGN_INPUT_DIR <- "~/data/protein_files"
-ALIGN_OUTPUT_DIR <- "~/data/protein_files/alignments"
-ALIGN_GENE_NAMES <- c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", "TOA2")
-ALIGN_INPUT_PREFIX <- "stable_"
-ALIGN_OUTPUT_PREFIX <- "stable_"
-ALIGN_REFERENCE_PATTERN <- "^Scer_"
-
-if (!dir.exists(ALIGN_OUTPUT_DIR)) {
-    dir.create(path = ALIGN_OUTPUT_DIR, recursive = TRUE)
+# --- Phase 2 file paths (uses shared config from top) ---
+if (!dir.exists(ALIGNMENT_OUTPUT_DIR)) {
+    dir.create(path = ALIGNMENT_OUTPUT_DIR, recursive = TRUE)
 }
 
-# Build file paths
-align_input_files <- file.path(ALIGN_INPUT_DIR, paste0(ALIGN_INPUT_PREFIX, ALIGN_GENE_NAMES, ".fasta"))
-align_output_aligned <- file.path(ALIGN_OUTPUT_DIR, paste0(ALIGN_OUTPUT_PREFIX, ALIGN_GENE_NAMES, "_aligned.fasta"))
-align_output_conservation <- file.path(ALIGN_OUTPUT_DIR, paste0(ALIGN_OUTPUT_PREFIX, ALIGN_GENE_NAMES, "_conservation.tsv"))
+align_input_files <- file.path(FASTA_OUTPUT_DIR, paste0(INPUT_PREFIX, GENE_NAMES, ".fasta"))
+align_output_aligned <- file.path(ALIGNMENT_OUTPUT_DIR, paste0(INPUT_PREFIX, GENE_NAMES, "_aligned.fasta"))
+align_output_conservation <- file.path(ALIGNMENT_OUTPUT_DIR, paste0(INPUT_PREFIX, GENE_NAMES, "_conservation.tsv"))
 
 # Check inputs exist
 align_missing <- align_input_files[!file.exists(align_input_files)]
@@ -274,23 +276,23 @@ if (length(align_missing) > 0) {
 
 # Pre-allocate summary table
 align_summary_df <- data.frame(
-    gene = ALIGN_GENE_NAMES,
-    n_sequences = integer(length(ALIGN_GENE_NAMES)),
-    alignment_length = integer(length(ALIGN_GENE_NAMES)),
-    scer_length = integer(length(ALIGN_GENE_NAMES)),
-    mean_conservation = numeric(length(ALIGN_GENE_NAMES)),
+    gene = GENE_NAMES,
+    n_sequences = integer(length(GENE_NAMES)),
+    alignment_length = integer(length(GENE_NAMES)),
+    scer_length = integer(length(GENE_NAMES)),
+    mean_conservation = numeric(length(GENE_NAMES)),
     stringsAsFactors = FALSE
 )
 
 cat("\n=== PHASE 2: ALIGNMENT & CONSERVATION ===\n")
-cat("Genes:", length(ALIGN_GENE_NAMES), "\n")
-cat("Input:", ALIGN_INPUT_DIR, "\n")
-cat("Output:", ALIGN_OUTPUT_DIR, "\n\n")
+cat("Genes:", length(GENE_NAMES), "\n")
+cat("Input:", FASTA_OUTPUT_DIR, "\n")
+cat("Output:", ALIGNMENT_OUTPUT_DIR, "\n\n")
 
-for (i in seq_along(ALIGN_GENE_NAMES)) {
+for (i in seq_along(GENE_NAMES)) {
 
-    gene <- ALIGN_GENE_NAMES[i]
-    cat("[", i, "/", length(ALIGN_GENE_NAMES), "] ", gene, "\n", sep = "")
+    gene <- GENE_NAMES[i]
+    cat("[", i, "/", length(GENE_NAMES), "] ", gene, "\n", sep = "")
 
     # --- Load sequences ---
     seqs <- Biostrings::readAAStringSet(filepath = align_input_files[i])
@@ -309,7 +311,7 @@ for (i in seq_along(ALIGN_GENE_NAMES)) {
 
     # --- Find reference sequence ---
     seq_names <- names(aligned)
-    ref_idx <- grep(pattern = ALIGN_REFERENCE_PATTERN, x = seq_names)
+    ref_idx <- grep(pattern = REFERENCE_PATTERN, x = seq_names)
 
     if (length(ref_idx) == 0) {
         cat("  WARNING: Reference not found, skipping conservation\n\n")
@@ -376,7 +378,7 @@ for (i in seq_along(ALIGN_GENE_NAMES)) {
 }
 
 # --- Phase 2 Summary ---
-align_summary_path <- file.path(ALIGN_OUTPUT_DIR, paste0(ALIGN_OUTPUT_PREFIX, "summary.tsv"))
+align_summary_path <- file.path(ALIGNMENT_OUTPUT_DIR, paste0(INPUT_PREFIX, "summary.tsv"))
 utils::write.table(
     x = align_summary_df,
     file = align_summary_path,
