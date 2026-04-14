@@ -40,6 +40,9 @@ library(ggplot2)
 ALIGNMENT_DIR <- "~/data/protein_files/alignments"
 PLOT_OUTPUT_DIR <- "~/data/protein_files/alignments/plots"
 
+# "stable_" refers to the curated ortholog set used for data filenames
+# (e.g., stable_ORC1.fasta). This is distinct from the "orc4r-screen_"
+# prefix used for script filenames, which refers to the screen-level analysis.
 INPUT_PREFIX <- "stable_"
 
 GENE_NAMES <- c("ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6", "TOA2")
