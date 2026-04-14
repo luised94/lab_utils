@@ -25,6 +25,11 @@
 # Note: Update CONTACT_EMAIL below before running. NCBI requires a valid
 #       contact email for programmatic access.
 # Downstream: orc4r-screen_04_msa_visualization.R reads aligned FASTAs.
+# Tested with:
+#   R 4.4.3
+#   Biostrings 2.74.1
+#   DECIPHER 3.2.0
+#   httr2 1.2.2
 
 # ==============================================================================
 # DEPENDENCIES

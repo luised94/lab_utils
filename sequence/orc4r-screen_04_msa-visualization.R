@@ -27,6 +27,13 @@
 #   2. BLOSUM62.rds is provided in the data repository
 #      (see orc4r-screen_02_download-blosum62.R for provenance and re-download instructions)
 # Usage: Run orc4r-screen_03_fetch-and-align.R first to produce aligned FASTAs.
+# Tested with:
+#   R 4.4.3
+#   Biostrings 2.74.1
+#   ggmsa 1.17.0
+#   ggplot2 4.0.2
+#   ggtree 4.1.2
+#   vctrs 0.7.1 (required by ggmsa)
 
 
 library(Biostrings)

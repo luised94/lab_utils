@@ -5,6 +5,9 @@
 # Usage: Rscript download_blosum62.R [--force]
 #   --force: Re-download even if cached file exists
 
+# Tested with:
+#   R 4.4.3
+
 # ==============================================================================
 # CONFIGURATION
 # ==============================================================================
