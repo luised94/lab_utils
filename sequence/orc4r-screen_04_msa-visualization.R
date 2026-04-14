@@ -1,12 +1,11 @@
 #!/usr/bin/env Rscript
-#!/usr/bin/env Rscript
 # orc4r-screen_04_msa_visualization.R
 # Generate zoomed MSA visualizations at specified S. cerevisiae positions
 #
 # Publication: Martinez-Rodriguez L. et al 2026
 #
 # Input:  Aligned FASTAs from orc4r-screen_03_fetch_and_align.R
-#         BLOSUM62.rds matrix (run download_blosum62.R first)
+#         BLOSUM62.rds matrix (run orc4r-screen_02_download-blosum62.R first)
 # Output: Zoomed alignment plots (PNG/SVG) at positions of interest
 #         Identity/similarity table and session info
 #
@@ -26,8 +25,8 @@
 # Prerequisite data:
 #   1. Run orc4r-screen_03_fetch_and_align.R to produce aligned FASTAs
 #   2. BLOSUM62.rds is provided in the data repository
-#      (see download_blosum62.R for provenance and re-download instructions)
-# Usage: Run stable_fetch_and_align.R first to produce aligned FASTAs.
+#      (see orc4r-screen_02_download-blosum62.R for provenance and re-download instructions)
+# Usage: Run orc4r-screen_03_fetch-and-align.R first to produce aligned FASTAs.
 
 
 library(Biostrings)
@@ -116,7 +115,7 @@ if (!dir.exists(PLOT_OUTPUT_DIR)) {
 # Load BLOSUM62 substitution matrix (must run download_blosum62.R first)
 BLOSUM62_PATH <- file.path(path.expand("~/data/protein_files"), "BLOSUM62.rds")
 if (!file.exists(BLOSUM62_PATH)) {
-    stop("BLOSUM62 matrix not found. Run download_blosum62.R first.")
+    stop("BLOSUM62 matrix not found. Run orc4r-screen_02_download-blosum62.R first.")
 }
 BLOSUM62 <- readRDS(file = BLOSUM62_PATH)
 # Validate matrix structure
