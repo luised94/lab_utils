@@ -63,6 +63,10 @@ RETRY_BACKOFF_SEC <- 2
 USER_AGENT <- "ProteinFetchScript/1.0"
 CONTACT_EMAIL <- "luised94@mit.edu"
 
+if (CONTACT_EMAIL == "luised94@mit.edu") {
+    message("NOTE: Update CONTACT_EMAIL to your own address before distributing this script.")
+}
+
 # ==============================================================================
 # REQUIRED INPUTS
 # ==============================================================================
@@ -77,6 +81,14 @@ accessions <- utils::read.delim(
     sep = "\t",
     stringsAsFactors = FALSE
 )
+
+# --- Validate input columns ---
+required_cols <- c("organism", "gene", "accession", "database")
+missing_cols <- setdiff(required_cols, colnames(accessions))
+if (length(missing_cols) > 0) {
+    stop("Accession TSV missing required columns: ", paste(missing_cols, collapse = ", "),
+         "\nExpected: ", paste(required_cols, collapse = ", "))
+}
 
 cat("Loaded", nrow(accessions), "accessions from", INPUT_TSV, "\n")
 cat("Organisms:", length(unique(accessions$organism)), "\n")
@@ -329,7 +341,13 @@ for (i in seq_along(GENE_NAMES)) {
 
     Biostrings::writeXStringSet(x = aligned, filepath = align_output_aligned[i])
 
-    aln_length <- unique(Biostrings::width(aligned))
+
+    aln_widths <- unique(Biostrings::width(aligned))
+    if (length(aln_widths) != 1) {
+        stop("Alignment for ", gene, " has inconsistent sequence widths: ",
+             paste(aln_widths, collapse = ", "))
+    }
+    aln_length <- aln_widths
     cat("  Alignment:", n_seqs, "x", aln_length, "\n")
 
     # --- Find reference sequence ---

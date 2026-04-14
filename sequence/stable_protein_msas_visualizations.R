@@ -116,6 +116,12 @@ if (!file.exists(BLOSUM62_PATH)) {
     stop("BLOSUM62 matrix not found. Run download_blosum62.R first.")
 }
 BLOSUM62 <- readRDS(file = BLOSUM62_PATH)
+# Validate matrix structure
+stopifnot(
+    "BLOSUM62 must be a matrix" = is.matrix(BLOSUM62),
+    "BLOSUM62 must have matching row/column names" = identical(rownames(BLOSUM62), colnames(BLOSUM62)),
+    "BLOSUM62 must contain standard amino acids" = all(c("A", "G", "L", "W") %in% rownames(BLOSUM62))
+)
 
 cat("=== STABLE MSA VISUALIZATION ===\n")
 cat("Ordering method:", ORDERING_METHOD, "\n\n")
@@ -143,7 +149,13 @@ for (i in seq_along(GENE_NAMES)) {
 if (ORDERING_REFERENCE_GENE == "auto") {
     # Pick gene with most sequences, excluding specified genes
     eligible_genes <- setdiff(GENE_NAMES, ORDERING_EXCLUDE_GENES)
+    if (length(eligible_genes) == 0) {
+        stop("ORDERING_EXCLUDE_GENES excludes all genes. No eligible gene for ordering.")
+    }
     eligible_counts <- gene_seq_counts[eligible_genes]
+    if (all(eligible_counts == 0)) {
+        stop("No alignment files found for any eligible gene.")
+    }
     ORDERING_REFERENCE_GENE <- names(which.max(eligible_counts))
     cat("\nAuto-selected reference gene:", ORDERING_REFERENCE_GENE,
         "(", max(eligible_counts), "sequences )\n")
