@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript
-# stable_fetch_and_align.R
+# orc4r-screen_03_fetch_and_align.R
 # Fetch protein sequences, align with DECIPHER, and calculate conservation
+# Publication: Martinez-Rodriguez L. et al 2026
 #
 # Pipeline:
 #   Phase 1 - Fetch sequences from UniProt/NCBI using accession table
@@ -23,7 +24,7 @@
 #
 # Note: Update CONTACT_EMAIL below before running. NCBI requires a valid
 #       contact email for programmatic access.
-# Downstream: stable_protein_msas_visualizations.R reads aligned FASTAs.
+# Downstream: orc4r-screen_04_msa_visualization.R reads aligned FASTAs.
 
 # ==============================================================================
 # DEPENDENCIES

@@ -1,8 +1,11 @@
 #!/usr/bin/env Rscript
-# stable_protein_msas_visualizations.R
+#!/usr/bin/env Rscript
+# orc4r-screen_04_msa_visualization.R
 # Generate zoomed MSA visualizations at specified S. cerevisiae positions
 #
-# Input:  Aligned FASTAs from stable_fetch_and_align.R
+# Publication: Martinez-Rodriguez L. et al 2026
+#
+# Input:  Aligned FASTAs from orc4r-screen_03_fetch_and_align.R
 #         BLOSUM62.rds matrix (run download_blosum62.R first)
 # Output: Zoomed alignment plots (PNG/SVG) at positions of interest
 #         Identity/similarity table and session info
@@ -21,7 +24,7 @@
 #   install.packages("vctrs")
 #
 # Prerequisite data:
-#   1. Run stable_fetch_and_align.R to produce aligned FASTAs
+#   1. Run orc4r-screen_03_fetch_and_align.R to produce aligned FASTAs
 #   2. BLOSUM62.rds is provided in the data repository
 #      (see download_blosum62.R for provenance and re-download instructions)
 # Usage: Run stable_fetch_and_align.R first to produce aligned FASTAs.
