@@ -387,7 +387,7 @@ if (ORDERING_METHOD == "identity") {
 
 # Final order: reference first, then ordered others
 ORGANISM_ORDER <- c(REFERENCE_ORG, ordered_organisms)
-cat("\nFinal sequence order:", paste(ORGANISM_ORDER, collapse = "  "), "\n\n")
+cat("\nFinal sequence order:", paste(ORGANISM_ORDER, collapse = " > "), "\n\n")
 
 # ==============================================================================
 # PROCESSING

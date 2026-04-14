@@ -49,7 +49,7 @@ REFERENCE_PATTERN <- "^Scer_"
 FASTA_OUTPUT_DIR <- "~/data/protein_files"
 ALIGNMENT_OUTPUT_DIR <- "~/data/protein_files/alignments"
 
-INPUT_TSV <- file.path(INPUT_PATH, "stable_protein_accessions.tsv")
+INPUT_TSV <- file.path(INPUT_PATH, "orc4r-screen_01_protein-accessions.tsv")
 OUTPUT_DIR <- FASTA_OUTPUT_DIR
 QUERIES_OUTPUT <- file.path(INPUT_PATH, "stable_fetch_queries.tsv")
 
