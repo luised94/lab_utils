@@ -191,7 +191,7 @@ loading_bar_chart <- ggplot(summary_loading_data, aes(x = label, y = mean_percen
     # the fill aesthetic from the summary data frame.
     geom_jitter(
         data = loading_data,
-        aes(x = label, y = percent_wildtype, shape = factor(`repeat`)),
+        aes(x = label, y = percent_wildtype, shape = factor(.data$replicate)),
         width = 0.15, size = 2, fill = "grey30", color = "black", stroke = 0.5,
         inherit.aes = FALSE
     ) +
