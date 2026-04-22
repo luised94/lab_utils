@@ -41,6 +41,33 @@ factor_order <- list(
   "label" = c("WT", "ORC4R", "+1sofa", "+3sofa", "+4sofa", "+5sofa")
 )
 
+# Centralized plot configuration. Consumed by ggplot calls in the plot section.
+# Any parameter set to NULL means "use ggplot default."
+# fill_colors covers all conditions across both scripts for cross-figure
+# consistency. +1sofa and +4sofa colors are swapped relative to default Set1
+# so +4sofa keeps its color in the companion single-panel figure.
+PLOT_CONFIG <- list(
+    fill_colors = c(
+        "WT" = "#E41A1C", "ORC4R" = "#377EB8",
+        "+1sofa" = "#FF7F00", "+3sofa" = "#984EA3",
+        "+4sofa" = "#4DAF4A", "+5sofa" = "#FFFF33",
+        "+6sofa" = "#A65628"
+    ),
+    bar = list(width = 0.7, color = "black", linewidth = 0.4),
+    errorbar = list(width = 0.25, linewidth = 0.6),
+    point = list(
+        size = 2, fill = "grey30", color = "black", stroke = 0.5,
+        jitter_width = 0.15, jitter_seed = 42
+    ),
+    replicate_shapes = c("1" = 21, "2" = 24, "3" = 22),
+    theme = list(base_family = "Arial", base_size = 12, legend_position = "bottom"),
+    output = list(
+        device = cairo_pdf,
+        width = 7.5,
+        height = 4.5
+    )
+)
+
 MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
 FILE_PATH <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, FILENAME)
 
@@ -120,10 +147,16 @@ loading_df <- loading_df[, names(loading_df) != COLUMN_TO_REMOVE]
 
 message("loading_df preparation complete...")
 
+# Remove negative control rows (orc == "None") before label assignment.
+# These rows have no meaningful label and would cause indexing errors in
+# downstream paired calculations that subset by label.
+loading_df <- loading_df %>%
+    filter(orc != "None")
+message("Negative control rows removed (orc == 'None').")
+
 
 loading_df <- loading_df %>%
   mutate(label = case_when(
-    orc == "None" & suppressor == "None" ~ "None",
     orc == "WT" & suppressor == "None" ~ "WT",
     orc == "RA" & suppressor == "None" ~ "ORC4R",
     orc == "RA" & suppressor == "4PS" ~ "+4sofa",
@@ -154,14 +187,6 @@ loading_df <- loading_df %>%
     normalized_to_wildtype_250mm = relative_to_input / relative_to_input[orc == "WT" & kglut == "250"][1]
   ) %>%
   ungroup()
-
-# Remove negative control rows (orc == "None") before derived calculations.
-# These rows have NA labels after factoring and cause indexing errors in
-# label-based subsetting. Full cleanup of the case_when branch in commit 4.
-loading_df <- loading_df %>%
-    filter(!is.na(label))
-
-message("Negative control rows removed: ", "orc == 'None' (NA labels after factoring).")
 
 # Convert per-kglut normalization to percentage scale (WT = 100 within each kglut).
 # This is the plotting value and the basis for all derived calculations.
@@ -196,11 +221,7 @@ message("Percent difference, percent change, and fold change columns computed.")
 
 
 df_summary <- loading_df %>%
-  filter(
-    orc != "None",                       # Exclude negative control from plots
-    !(label %in% c("+1sofa", "+3sofa", "+5sofa")), # Exclude other specific mutants
-    !is.na(label)                        # Remove any remaining NA labels
-  ) %>%
+  filter(!(label %in% c("+1sofa", "+3sofa", "+5sofa"))) %>%
   group_by(kglut, label) %>%
   summarise(
     mean_percent_wildtype = mean(percent_wildtype, na.rm = TRUE),

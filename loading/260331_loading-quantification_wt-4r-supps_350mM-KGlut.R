@@ -55,6 +55,33 @@ FILL_COLORS_BY_LABEL <- c(
     "+6sofa" = "#A65628"
 )
 
+# Centralized plot configuration. Consumed by ggplot calls in the plot section.
+# Any parameter set to NULL means "use ggplot default."
+# fill_colors uses the same values as FILL_COLORS_BY_LABEL above. The
+# duplication is temporary: commit 6 will wire the plot to PLOT_CONFIG and
+# remove FILL_COLORS_BY_LABEL.
+PLOT_CONFIG <- list(
+    fill_colors = c(
+        "WT" = "#E41A1C", "ORC4R" = "#377EB8",
+        "+1sofa" = "#FF7F00", "+3sofa" = "#984EA3",
+        "+4sofa" = "#4DAF4A", "+5sofa" = "#FFFF33",
+        "+6sofa" = "#A65628"
+    ),
+    bar = list(width = 0.7, color = "black", linewidth = 0.4),
+    errorbar = list(width = 0.25, linewidth = 0.6),
+    point = list(
+        size = 2, fill = "grey30", color = "black", stroke = 0.5,
+        jitter_width = 0.15, jitter_seed = 42
+    ),
+    replicate_shapes = c("1" = 21, "2" = 24, "3" = 22),
+    theme = list(base_family = "Arial", base_size = 12, legend_position = "bottom"),
+    output = list(
+        device = cairo_pdf,
+        width = 5.2,
+        height = 4.5
+    )
+)
+
 # ==============================================================================
 # File validation
 # ==============================================================================
