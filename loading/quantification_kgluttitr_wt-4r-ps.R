@@ -155,6 +155,46 @@ loading_df <- loading_df %>%
   ) %>%
   ungroup()
 
+# Remove negative control rows (orc == "None") before derived calculations.
+# These rows have NA labels after factoring and cause indexing errors in
+# label-based subsetting. Full cleanup of the case_when branch in commit 4.
+loading_df <- loading_df %>%
+    filter(!is.na(label))
+
+message("Negative control rows removed: ", "orc == 'None' (NA labels after factoring).")
+
+# Convert per-kglut normalization to percentage scale (WT = 100 within each kglut).
+# This is the plotting value and the basis for all derived calculations.
+loading_df <- loading_df %>%
+    mutate(percent_wildtype = normalized_to_wildtype_per_kglut * 100)
+
+message("Percent wildtype column computed.")
+
+# Derived calculations: paired within replicate and kglut so each condition
+# is compared to the WT and ORC4R values from the same experiment and salt
+# concentration. Formulas match Script 1 for cross-script comparability.
+loading_df <- loading_df %>%
+    group_by(replicate, kglut) %>%
+    mutate(
+        # Percent difference: |A - B| / ((A + B) / 2) * 100
+        percent_difference_from_wildtype = abs(percent_wildtype - percent_wildtype[label == "WT"]) /
+            ((percent_wildtype + percent_wildtype[label == "WT"]) / 2) * 100,
+        percent_difference_from_orc4r = abs(percent_wildtype - percent_wildtype[label == "ORC4R"]) /
+            ((percent_wildtype + percent_wildtype[label == "ORC4R"]) / 2) * 100,
+        # Percent change: (A - reference) / reference * 100
+        # Directional: negative means condition loads less than reference.
+        percent_change_from_wildtype = (percent_wildtype - percent_wildtype[label == "WT"]) /
+            percent_wildtype[label == "WT"] * 100,
+        percent_change_from_orc4r = (percent_wildtype - percent_wildtype[label == "ORC4R"]) /
+            percent_wildtype[label == "ORC4R"] * 100,
+        # Fold change: condition / ORC4R. Values > 1 indicate rescue.
+        fold_change_from_orc4r = percent_wildtype / percent_wildtype[label == "ORC4R"]
+    ) %>%
+    ungroup()
+
+message("Percent difference, percent change, and fold change columns computed.")
+
+
 df_summary <- loading_df %>%
   filter(
     orc != "None",                       # Exclude negative control from plots
@@ -163,26 +203,41 @@ df_summary <- loading_df %>%
   ) %>%
   group_by(kglut, label) %>%
   summarise(
-    across(
-      c(relative_to_input, normalized_to_wildtype_per_kglut, normalized_to_wildtype_250mm),
-      list(mean = ~mean(.x, na.rm = TRUE), sd = ~sd(.x, na.rm = TRUE)),
-      .names = "{.col}_{.fn}"
-    ),
+    mean_percent_wildtype = mean(percent_wildtype, na.rm = TRUE),
+    sd_percent_wildtype = sd(percent_wildtype, na.rm = TRUE),
+    mean_percent_difference_from_wildtype = mean(percent_difference_from_wildtype, na.rm = TRUE),
+    sd_percent_difference_from_wildtype = sd(percent_difference_from_wildtype, na.rm = TRUE),
+    mean_percent_difference_from_orc4r = mean(percent_difference_from_orc4r, na.rm = TRUE),
+    sd_percent_difference_from_orc4r = sd(percent_difference_from_orc4r, na.rm = TRUE),
+    mean_percent_change_from_wildtype = mean(percent_change_from_wildtype, na.rm = TRUE),
+    sd_percent_change_from_wildtype = sd(percent_change_from_wildtype, na.rm = TRUE),
+    mean_percent_change_from_orc4r = mean(percent_change_from_orc4r, na.rm = TRUE),
+    sd_percent_change_from_orc4r = sd(percent_change_from_orc4r, na.rm = TRUE),
+    mean_fold_change_from_orc4r = mean(fold_change_from_orc4r, na.rm = TRUE),
+    sd_fold_change_from_orc4r = sd(fold_change_from_orc4r, na.rm = TRUE),
+    # Retain raw and global baseline summaries for reference
+    mean_relative_to_input = mean(relative_to_input, na.rm = TRUE),
+    sd_relative_to_input = sd(relative_to_input, na.rm = TRUE),
+    mean_normalized_to_wildtype_250mm = mean(normalized_to_wildtype_250mm, na.rm = TRUE),
+    sd_normalized_to_wildtype_250mm = sd(normalized_to_wildtype_250mm, na.rm = TRUE),
+    replicate_count = n(),
     .groups = "drop"
   )
 
+message("Summary statistics computed.")
+
 # Primary plot. Exploratory plots are in
 # quantification_kgluttitr_wt-4r-ps_exploratory-plots.R
-faceted_by_kglut_plot <- ggplot(df_summary, aes(x = label, y = relative_to_input_mean, fill = label)) +
+faceted_by_kglut_plot <- ggplot(df_summary, aes(x = label, y = mean_percent_wildtype, fill = label)) +
   geom_col(width = 0.7, color = "black", linewidth = 0.4) +
-  geom_errorbar(aes(ymin = relative_to_input_mean - relative_to_input_sd, ymax = relative_to_input_mean + relative_to_input_sd), 
+  geom_errorbar(aes(ymin = mean_percent_wildtype - sd_percent_wildtype, ymax = mean_percent_wildtype + sd_percent_wildtype), 
                 width = 0.25, linewidth = 0.6) +
   facet_wrap(~kglut, nrow = 1, labeller = label_both) +
   scale_fill_brewer(palette = "Set1") +
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
-  labs(x = "Sample Type", 
-       y = "MCM (pmol)", 
-       title = "Label Effects Across kGlut Concentrations",
+  labs(x = "Sample",
+       y = "MCM Loading (% WT)",
+       title = "MCM Loading Across KGlut Concentrations",
        fill = "Sample") +
   theme_classic(base_size = 13) +
   theme(
