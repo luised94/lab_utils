@@ -36,9 +36,9 @@ REQUIRED_COLUMNS <- c(
 
 # Define custom orderings
 factor_order <- list(
-  "Suppressor" = c("None", "1EK", "3PL", "4PS", "5EK"),
-  "kGlut" = c("250", "300", "350"),
-  "Label" = c("WT", "ORC4R",  "+1sofa",  "+3sofa", "+4sofa", "+5sofa")
+  "suppressor" = c("None", "1EK", "3PL", "4PS", "5EK"),
+  "kglut" = c("250", "300", "350"),
+  "label" = c("WT", "ORC4R", "+1sofa", "+3sofa", "+4sofa", "+5sofa")
 )
 
 MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
@@ -91,17 +91,27 @@ for (sheet_idx in sheet_indices){
   )
 
 
-temp_df <- temp_df %>%
-  mutate(
-    # Subtract background (Row 2) from all rows
-    Net_Intensity = Intensity - Intensity[2],
-    Experiment = paste0("Exp_", df_count)
-  ) %>%
-  # Correct for input volume (0.5 factor) using the Net_Intensity
-  mutate(Rel_to_Input = (Net_Intensity / Net_Intensity[Input == "yes"]) * 0.5) %>%
-  filter(Input == "no")
-  df_lst[[df_count]] <- temp_df
 
+  temp_df <- dplyr::rename(
+      temp_df,
+      intensity = Intensity,
+      lane = Lane,
+      orc = ORC,
+      suppressor = Suppressor,
+      kglut = kGlut,
+      input = Input
+  )
+
+  temp_df <- temp_df %>%
+    mutate(
+      # Subtract background (Row 2) from all rows
+      net_intensity = intensity - intensity[2],
+      replicate = df_count
+    ) %>%
+    # Correct for input volume (0.5 factor) using the net_intensity
+    mutate(relative_to_input = (net_intensity / net_intensity[input == "yes"]) * 0.5) %>%
+    filter(input == "no")
+  df_lst[[df_count]] <- temp_df
 
 } # end read-data for loop
 
@@ -110,15 +120,16 @@ loading_df <- loading_df[, names(loading_df) != COLUMN_TO_REMOVE]
 
 message("loading_df preparation complete...")
 
+
 loading_df <- loading_df %>%
-  mutate(Label = case_when(
-    ORC == "None" & Suppressor == "None" ~ "None",
-    ORC == "WT" & Suppressor == "None" ~ "WT",
-    ORC == "RA" & Suppressor == "None" ~ "ORC4R",
-    ORC == "RA" & Suppressor == "4PS" ~ "+4sofa",
-    ORC == "RA" & Suppressor == "1EK" ~ "+1sofa",
-    ORC == "RA" & Suppressor == "3PL" ~ "+3sofa",
-    ORC == "RA" & Suppressor == "5EK" ~ "+5sofa"
+  mutate(label = case_when(
+    orc == "None" & suppressor == "None" ~ "None",
+    orc == "WT" & suppressor == "None" ~ "WT",
+    orc == "RA" & suppressor == "None" ~ "ORC4R",
+    orc == "RA" & suppressor == "4PS" ~ "+4sofa",
+    orc == "RA" & suppressor == "1EK" ~ "+1sofa",
+    orc == "RA" & suppressor == "3PL" ~ "+3sofa",
+    orc == "RA" & suppressor == "5EK" ~ "+5sofa"
   ))
 
 message("Adjust loading_df to factor order...")
@@ -133,28 +144,27 @@ for (col_name in names(factor_order)) {
 
 loading_df <- loading_df %>%
   # Step 1: Normalize to the WT of the SAME salt concentration
-  group_by(Experiment, kGlut) %>%
+  group_by(replicate, kglut) %>%
   mutate(
-    Norm_to_WT_kGlut = Rel_to_Input / Rel_to_Input[ORC == "WT"][1]
+    normalized_to_wildtype_per_kglut = relative_to_input / relative_to_input[orc == "WT"][1]
   ) %>%
-  
   # Step 2: Normalize to the WT of the 250 mM concentration (Global Baseline)
-  group_by(Experiment) %>%
+  group_by(replicate) %>%
   mutate(
-    Norm_to_WT_250 = Rel_to_Input / Rel_to_Input[ORC == "WT" & kGlut == "250"][1]
+    normalized_to_wildtype_250mm = relative_to_input / relative_to_input[orc == "WT" & kglut == "250"][1]
   ) %>%
   ungroup()
 
 df_summary <- loading_df %>%
   filter(
-    ORC != "None",                       # Exclude negative control from plots
-    !(Label %in% c("+1sofr", "+3sofr", "+5sofr")), # Exclude other specific mutants
-    !is.na(Label)                        # Remove any remaining NA labels
+    orc != "None",                       # Exclude negative control from plots
+    !(label %in% c("+1sofa", "+3sofa", "+5sofa")), # Exclude other specific mutants
+    !is.na(label)                        # Remove any remaining NA labels
   ) %>%
-  group_by(kGlut, Label) %>%
+  group_by(kglut, label) %>%
   summarise(
     across(
-      c(Rel_to_Input, Norm_to_WT_kGlut, Norm_to_WT_250),
+      c(relative_to_input, normalized_to_wildtype_per_kglut, normalized_to_wildtype_250mm),
       list(mean = ~mean(.x, na.rm = TRUE), sd = ~sd(.x, na.rm = TRUE)),
       .names = "{.col}_{.fn}"
     ),
@@ -163,11 +173,11 @@ df_summary <- loading_df %>%
 
 # Primary plot. Exploratory plots are in
 # quantification_kgluttitr_wt-4r-ps_exploratory-plots.R
-faceted_by_kglut_plot <- ggplot(df_summary, aes(x = Label, y = Rel_to_Input_mean, fill = Label)) +
+faceted_by_kglut_plot <- ggplot(df_summary, aes(x = label, y = relative_to_input_mean, fill = label)) +
   geom_col(width = 0.7, color = "black", linewidth = 0.4) +
-  geom_errorbar(aes(ymin = Rel_to_Input_mean - Rel_to_Input_sd, ymax = Rel_to_Input_mean + Rel_to_Input_sd), 
+  geom_errorbar(aes(ymin = relative_to_input_mean - relative_to_input_sd, ymax = relative_to_input_mean + relative_to_input_sd), 
                 width = 0.25, linewidth = 0.6) +
-  facet_wrap(~kGlut, nrow = 1, labeller = label_both) +
+  facet_wrap(~kglut, nrow = 1, labeller = label_both) +
   scale_fill_brewer(palette = "Set1") +
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(x = "Sample Type", 
@@ -187,25 +197,25 @@ message("Plotting completed...")
 plot_filepath <- file.path(OUTPUT_DIRECTORY, "faceted_by_kglut_plot.pdf")
 if (!file.exists(plot_filepath) || OVERWRITE_PLOTS) {
   ggsave(plot_filepath, faceted_by_kglut_plot, width = 8, height = 5)
-  cat("Saved plot:", basename(plot_filepath), "\n")
+  message("Saved plot: ", basename(plot_filepath))
 } else {
-  cat("Skipped plot (already exists):", basename(plot_filepath), "\n")
+  message("Skipped plot (already exists): ", basename(plot_filepath))
 }
 
 # Save Summary CSV
 if (!file.exists(summary_csv_path) || OVERWRITE_CSVS) {
   write.csv(df_summary, summary_csv_path, row.names = FALSE)
-  cat("Saved CSV:", basename(summary_csv_path), "\n")
+  message("Saved CSV: ", basename(summary_csv_path))
 } else {
-  cat("Skipped CSV (already exists):", basename(summary_csv_path), "\n")
+  message("Skipped CSV (already exists): ", basename(summary_csv_path))
 }
 
 # Save Full Data CSV
 if (!file.exists(full_data_csv_path) || OVERWRITE_CSVS) {
   write.csv(loading_df, full_data_csv_path, row.names = FALSE)
-  cat("Saved CSV:", basename(full_data_csv_path), "\n")
+  message("Saved CSV: ", basename(full_data_csv_path))
 } else {
-  cat("Skipped CSV (already exists):", basename(full_data_csv_path), "\n")
+  message("Skipped CSV (already exists): ", basename(full_data_csv_path))
 }
 
 message("Script complete.")
