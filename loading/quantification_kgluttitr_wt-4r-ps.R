@@ -6,7 +6,7 @@
 # The output is the plot called faceted_by_kglut_plot.
 # All other plots kept for reference.
 
-library(xlsx)
+library(readxl)
 library(tidyverse)
 
 OVERWRITE_PLOTS <- TRUE
@@ -22,14 +22,18 @@ full_data_csv_path <- file.path(OUTPUT_DIRECTORY, "loading_processed_full_data.c
 sheet_indices <- c(2, 3, 4)
 EXPECTED_NUMBER_OF_ROWS <- 14
 EXPECTED_NUMBER_OF_COLS <- 7
-COLUMN_TO_REMOVE <- "NA." # Column has row numbers from imagej export/copy-paste
-# @NOTE: An additional space in the excel sheet cell with cause column name to have dot at the end.
-#   > "ORC " would be read in as "ORC."
+COLUMN_TO_REMOVE <- "...1" # Column has row numbers from imagej export/copy-paste
+
+# @NOTE: readxl trims trailing whitespace from column names by default.
+# If a column name has a trailing space in the Excel cell (e.g., "ORC "),
+# readxl reads it as "ORC" (without the dot suffix that xlsx produced).
+# Unnamed columns are read as "...1", "...2", etc.
 REQUIRED_COLUMNS <- c(
-  "NA.", "Intensity", "Lane",
+  "...1", "Intensity", "Lane",
   "ORC", "Suppressor",
   "kGlut", "Input"
 )
+
 # Define custom orderings
 factor_order <- list(
   "Suppressor" = c("None", "1EK", "3PL", "4PS", "5EK"),
@@ -74,7 +78,8 @@ message("Reading in loading assay sheets...")
 df_count <- 0
 for (sheet_idx in sheet_indices){
   df_count <- df_count + 1
-  temp_df <- read.xlsx(FILE_PATH, header = TRUE, sheetIndex = sheet_idx)
+
+  temp_df <- readxl::read_excel(FILE_PATH, sheet = sheet_idx)
 
   stopifnot(
     "Number of rows in temp_df does not match EXPECTED_NUMBER_OF_ROWS." =
