@@ -32,7 +32,7 @@ REQUIRED_COLUMNS <- c(
 factor_order <- list(
   "Suppressor" = c("None", "1EK", "3PL", "4PS", "5EK"),
   "kGlut" = c("250", "300", "350"),
-  "Label" = c("WT", "ORC4R",  "+1sofr",  "+3sofr", "+4sofr", "+5sofr")
+  "Label" = c("WT", "ORC4R",  "+1sofa",  "+3sofa", "+4sofa", "+5sofa")
 )
 
 MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
@@ -108,10 +108,10 @@ loading_df <- loading_df %>%
     ORC == "None" & Suppressor == "None" ~ "None",
     ORC == "WT" & Suppressor == "None" ~ "WT",
     ORC == "RA" & Suppressor == "None" ~ "ORC4R",
-    ORC == "RA" & Suppressor == "4PS" ~ "+4sofr",
-    ORC == "RA" & Suppressor == "1EK" ~ "+1sofr",
-    ORC == "RA" & Suppressor == "3PL" ~ "+3sofr",
-    ORC == "RA" & Suppressor == "5EK" ~ "+5sofr"
+    ORC == "RA" & Suppressor == "4PS" ~ "+4sofa",
+    ORC == "RA" & Suppressor == "1EK" ~ "+1sofa",
+    ORC == "RA" & Suppressor == "3PL" ~ "+3sofa",
+    ORC == "RA" & Suppressor == "5EK" ~ "+5sofa"
   ))
 
 message("Adjust loading_df to factor order...")
