@@ -1,4 +1,6 @@
-# Date updated: 2026-01-12
+# Namespace convention: tidyverse verbs used unqualified via library(tidyverse).
+# All other packages namespaced (e.g., readxl::read_excel).
+# Date updated: 2026-04-22
 # Data of the xlsx was produced by analyzing tiff files using imagej.
 # Usage: source("loading-quantification_kgluttitr_wt-4r-ps.R")
 # The output is the plot called faceted_by_kglut_plot.

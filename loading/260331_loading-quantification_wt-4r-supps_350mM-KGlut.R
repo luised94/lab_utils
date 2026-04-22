@@ -1,3 +1,5 @@
+# Namespace convention: tidyverse verbs used unqualified via library(tidyverse).
+# All other packages namespaced (e.g., readxl::read_excel).
 # Date created: 2026-03-31
 # Data produced by analyzing tiff files using ImageJ. Manual gel processing
 # due to noisy gels. Results are consistent across replicates.
@@ -69,20 +71,34 @@ message("Input and output paths validated.")
 # ==============================================================================
 raw_loading_data <- read_excel(INPUT_FILEPATH, sheet = SHEET_NAME)
 
+# Structural validation against original Excel column names.
 stopifnot(
     "Number of rows does not match EXPECTED_NUMBER_OF_ROWS." =
         nrow(raw_loading_data) == EXPECTED_NUMBER_OF_ROWS,
     "Number of columns does not match EXPECTED_NUMBER_OF_COLUMNS." =
         ncol(raw_loading_data) == EXPECTED_NUMBER_OF_COLUMNS,
     "Column names do not match REQUIRED_COLUMNS." =
-        identical(colnames(raw_loading_data), REQUIRED_COLUMNS),
-    "NA values found in Percent Wildtype column." =
-        !anyNA(raw_loading_data[["Percent Wildtype"]]),
-    "Negative values found in Percent Wildtype column." =
-        all(raw_loading_data[["Percent Wildtype"]] >= 0),
-    "WT rows are not exactly 100 in Percent Wildtype column." =
-        all(raw_loading_data[["Percent Wildtype"]][raw_loading_data[["orc4"]] == "WT"] == 100)
+        identical(colnames(raw_loading_data), REQUIRED_COLUMNS)
 )
+
+# Rename to snake_case immediately after structural validation.
+# `repeat` is an R reserved word; `Percent Wildtype` contains a space.
+raw_loading_data <- dplyr::rename(
+    raw_loading_data,
+    replicate = `repeat`,
+    percent_wildtype = `Percent Wildtype`
+)
+
+# Value validation using renamed columns.
+stopifnot(
+    "NA values found in percent_wildtype column." =
+        !anyNA(raw_loading_data[["percent_wildtype"]]),
+    "Negative values found in percent_wildtype column." =
+        all(raw_loading_data[["percent_wildtype"]] >= 0),
+    "WT rows are not exactly 100 in percent_wildtype column." =
+        all(raw_loading_data[["percent_wildtype"]][raw_loading_data[["orc4"]] == "WT"] == 100)
+)
+
 message("Data loaded and validated: ", nrow(raw_loading_data), " rows x ", ncol(raw_loading_data), " columns.")
 
 # ==============================================================================
@@ -111,41 +127,36 @@ stopifnot(
         sum(is.na(loading_data$label)) == 0
 )
 message("Labels mapped and factor order applied.")
-message("Labels mapped and factor order applied.")
+
 
 # Percent difference: |A - B| / ((A + B) / 2) * 100
 # Computed per-replicate so we can derive mean +/- SD downstream.
 # Paired within replicate: each condition compared to the WT and ORC4R
 # values from the same experiment.
+message("Percent difference, percent change, and fold change columns computed.")
 loading_data <- loading_data %>%
-    group_by(`repeat`) %>%
+    group_by(replicate) %>%
     mutate(
-        percent_difference_from_wildtype = abs(`Percent Wildtype` - `Percent Wildtype`[label == "WT"]) /
-            ((`Percent Wildtype` + `Percent Wildtype`[label == "WT"]) / 2) * 100,
-        percent_difference_from_orc4r = abs(`Percent Wildtype` - `Percent Wildtype`[label == "ORC4R"]) /
-            ((`Percent Wildtype` + `Percent Wildtype`[label == "ORC4R"]) / 2) * 100,
-        # Percent change: (A - reference) / reference * 100
-        # Directional: negative means condition loads less than reference.
-        # Percent change from ORC4R produces large values because ORC4R
-        # is a small denominator (mean ~5.8% of WT).
-        percent_change_from_wildtype = (`Percent Wildtype` - `Percent Wildtype`[label == "WT"]) /
-            `Percent Wildtype`[label == "WT"] * 100,
-        percent_change_from_orc4r = (`Percent Wildtype` - `Percent Wildtype`[label == "ORC4R"]) /
-            `Percent Wildtype`[label == "ORC4R"] * 100,
-        # Fold change: condition / ORC4R. Values > 1 indicate rescue.
-        # More interpretable than percent change when ORC4R is near zero.
-        fold_change_from_orc4r = `Percent Wildtype` / `Percent Wildtype`[label == "ORC4R"]
+        percent_difference_from_wildtype = abs(percent_wildtype - percent_wildtype[label == "WT"]) /
+            ((percent_wildtype + percent_wildtype[label == "WT"]) / 2) * 100,
+        percent_difference_from_orc4r = abs(percent_wildtype - percent_wildtype[label == "ORC4R"]) /
+            ((percent_wildtype + percent_wildtype[label == "ORC4R"]) / 2) * 100,
+        percent_change_from_wildtype = (percent_wildtype - percent_wildtype[label == "WT"]) /
+            percent_wildtype[label == "WT"] * 100,
+        percent_change_from_orc4r = (percent_wildtype - percent_wildtype[label == "ORC4R"]) /
+            percent_wildtype[label == "ORC4R"] * 100,
+        fold_change_from_orc4r = percent_wildtype / percent_wildtype[label == "ORC4R"]
     ) %>%
     ungroup()
-message("Percent difference, percent change, and fold change columns computed.")
+
 # ==============================================================================
 # Summary statistics
 # ==============================================================================
 summary_loading_data <- loading_data %>%
     group_by(label) %>%
     summarise(
-        mean_percent_wildtype = mean(`Percent Wildtype`, na.rm = TRUE),
-        sd_percent_wildtype = sd(`Percent Wildtype`, na.rm = TRUE),
+        mean_percent_wildtype = mean(percent_wildtype, na.rm = TRUE),
+        sd_percent_wildtype = sd(percent_wildtype, na.rm = TRUE),
         mean_percent_difference_from_wildtype = mean(percent_difference_from_wildtype, na.rm = TRUE),
         sd_percent_difference_from_wildtype = sd(percent_difference_from_wildtype, na.rm = TRUE),
         mean_percent_difference_from_orc4r = mean(percent_difference_from_orc4r, na.rm = TRUE),
@@ -180,7 +191,7 @@ loading_bar_chart <- ggplot(summary_loading_data, aes(x = label, y = mean_percen
     # the fill aesthetic from the summary data frame.
     geom_jitter(
         data = loading_data,
-        aes(x = label, y = `Percent Wildtype`, shape = factor(`repeat`)),
+        aes(x = label, y = percent_wildtype, shape = factor(`repeat`)),
         width = 0.15, size = 2, fill = "grey30", color = "black", stroke = 0.5,
         inherit.aes = FALSE
     ) +
