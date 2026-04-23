@@ -175,7 +175,7 @@ for (col_name in names(factor_order)) {
   loading_data[[col_name]] <- factor(
     loading_data[[col_name]],
     levels = factor_order[[col_name]],
-    ordered = TRUE
+    ordered = FALSE
   )
 }
 
