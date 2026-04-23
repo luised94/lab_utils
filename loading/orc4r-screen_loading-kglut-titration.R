@@ -9,9 +9,19 @@
 #   1. Environment variable MC_DROPBOX_PATH must be set in shell profile.
 #      Points to the root of the shared Dropbox folder.
 #   2. Font setup (one-time per machine):
-#        renv::install(c("extrafont", "ragg"))
-#        library(extrafont); font_import(prompt = FALSE)
-#      Per-session: extrafont::loadfonts(device = "pdf")
+#      a. Install system fonts (WSL/Ubuntu/Debian):
+#           sudo apt update
+#           sudo apt install ttf-mscorefonts-installer
+#           sudo fc-cache -fv
+#         Verify: fc-list | grep -i arial
+#         (ttf-mscorefonts-installer provides Arial and other Microsoft fonts.
+#          fc-cache rebuilds the fontconfig cache so they become visible.)
+#      b. Import fonts into R extrafont database:
+#           renv::install(c("extrafont", "ragg"))
+#           library(extrafont); font_import(prompt = FALSE)
+#         Verify: any(grepl("Arial", extrafont::fonts()))
+#      c. Per-session (handled automatically by runtime check below):
+#           extrafont::loadfonts(device = "pdf")
 #   3. renv lockfile: renv_loading-analysis.lock
 #      Restore: renv::restore(lockfile = "renv_loading-analysis.lock")
 #   4. R must be compiled with Cairo support: capabilities("cairo") == TRUE
@@ -50,13 +60,18 @@ stopifnot(
         capabilities("cairo")
 )
 extrafont::loadfonts(device = "pdf", quiet = TRUE)
+
 if (!("Arial" %in% extrafont::fonts())) {
     stop(
         "Arial font not found in extrafont database.\n",
-        "Run once: library(extrafont); font_import(prompt = FALSE)\n",
-        "Then restart R and re-source this script."
+        "See Prerequisites section at top of this script for full setup:\n",
+        "  1. Install system fonts: sudo apt install ttf-mscorefonts-installer\n",
+        "  2. Rebuild font cache: sudo fc-cache -fv\n",
+        "  3. Import into R: library(extrafont); font_import(prompt = FALSE)\n",
+        "  4. Restart R and re-source this script."
     )
 }
+
 message("Font and Cairo checks passed.")
 
 OVERWRITE_PLOTS <- TRUE
