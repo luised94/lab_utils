@@ -88,6 +88,14 @@ if (!file.exists(INPUT_FILEPATH)) {
 sheet_indices <- c(2, 3, 4)
 EXPECTED_NUMBER_OF_ROWS <- 14
 EXPECTED_NUMBER_OF_COLUMNS <- 7
+
+# Row index of the no-ORC negative control lane in each sheet.
+# Used for background intensity subtraction. This assumption breaks if
+# rows are reordered in the Excel source.
+# TODO: long-term fix - add a named marker column (e.g., "background") to
+# the Excel data and use programmatic lookup instead of row index.
+BACKGROUND_ROW_INDEX <- 2
+
 COLUMN_TO_REMOVE <- "...1" # Column has row numbers from imagej export/copy-paste
 
 # @NOTE: readxl trims trailing whitespace from column names by default.
@@ -184,7 +192,7 @@ for (sheet_idx in sheet_indices){
   temp_df <- temp_df %>%
     mutate(
       # Subtract background (Row 2) from all rows
-      net_intensity = intensity - intensity[2],
+      net_intensity = intensity - intensity[BACKGROUND_ROW_INDEX],
       replicate = df_count
     ) %>%
     # Correct for input volume (0.5 factor) using the net_intensity
