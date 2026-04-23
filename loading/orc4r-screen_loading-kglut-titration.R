@@ -2,7 +2,7 @@
 # All other packages namespaced (e.g., readxl::read_excel).
 # Date updated: 2026-04-22
 # Data of the xlsx was produced by analyzing tiff files using imagej.
-# Usage: source("loading-quantification_kgluttitr_wt-4r-ps.R")
+# Usage: source("orc4r-screen_loading-kglut-titration.R")
 # The output is the plot called faceted_by_kglut_plot.
 # All other plots kept for reference.
 

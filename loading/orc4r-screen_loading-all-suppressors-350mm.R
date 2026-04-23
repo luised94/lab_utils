@@ -3,7 +3,7 @@
 # Date created: 2026-03-31
 # Data produced by analyzing tiff files using ImageJ. Manual gel processing
 # due to noisy gels. Results are consistent across replicates.
-# Usage: source("260331_loading-quantification_wt-4r-supps_350mM-KGlut.R")
+# Usage: source("orc4r-screen_loading-all-suppressors-350mm.R")
 # Output: Bar chart of MCM loading (% WT) for WT, ORC4R, and sofa suppressors
 # at 350 mM KGlut, saved as PDF.
 #
