@@ -239,6 +239,31 @@ for (col_name in names(factor_order)) {
   )
 }
 
+# Row-count assertion: each label appears exactly once per replicate x kglut.
+label_counts <- loading_data %>% count(replicate, kglut, label)
+bad_labels <- label_counts %>% filter(n != 1)
+if (nrow(bad_labels) > 0) {
+    stop("Expected exactly 1 row per replicate x kglut x label. Offending groups:\n",
+         paste(capture.output(print(as.data.frame(bad_labels))), collapse = "\n"))
+}
+
+# WT uniqueness: exactly one WT per replicate x kglut.
+wt_counts <- loading_data %>% filter(label == "WT") %>% count(replicate, kglut)
+bad_wt <- wt_counts %>% filter(n != 1)
+if (nrow(bad_wt) > 0) {
+    stop("Expected exactly 1 WT per replicate x kglut. Offending groups:\n",
+         paste(capture.output(print(as.data.frame(bad_wt))), collapse = "\n"))
+}
+
+# ORC4R uniqueness: exactly one ORC4R per replicate x kglut.
+orc4r_counts <- loading_data %>% filter(label == "ORC4R") %>% count(replicate, kglut)
+bad_orc4r <- orc4r_counts %>% filter(n != 1)
+if (nrow(bad_orc4r) > 0) {
+    stop("Expected exactly 1 ORC4R per replicate x kglut. Offending groups:\n",
+         paste(capture.output(print(as.data.frame(bad_orc4r))), collapse = "\n"))
+}
+message("Row-count and uniqueness assertions passed.")
+
 loading_data <- loading_data %>%
   # Step 1: Normalize to the WT of the SAME salt concentration
   group_by(replicate, kglut) %>%

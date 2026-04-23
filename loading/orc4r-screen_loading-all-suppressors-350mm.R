@@ -194,6 +194,33 @@ for (col_name in names(factor_order)) {
 }
 
 message("Factor ordering applied.")
+
+# Row-count assertion: each label should appear exactly 3 times (one per replicate).
+label_counts <- loading_data %>% count(label)
+bad_labels <- label_counts %>% filter(n != 3)
+if (nrow(bad_labels) > 0) {
+    stop("Unexpected row counts per label:\n",
+         paste(capture.output(print(as.data.frame(bad_labels))), collapse = "\n"))
+}
+
+# WT uniqueness assertion: exactly one WT per replicate.
+wt_counts <- loading_data %>% filter(label == "WT") %>% count(replicate)
+bad_wt <- wt_counts %>% filter(n != 1)
+if (nrow(bad_wt) > 0) {
+    stop("Expected exactly 1 WT per replicate. Offending replicates:\n",
+         paste(capture.output(print(as.data.frame(bad_wt))), collapse = "\n"))
+}
+
+# ORC4R uniqueness assertion: exactly one ORC4R per replicate.
+orc4r_counts <- loading_data %>% filter(label == "ORC4R") %>% count(replicate)
+bad_orc4r <- orc4r_counts %>% filter(n != 1)
+if (nrow(bad_orc4r) > 0) {
+    stop("Expected exactly 1 ORC4R per replicate. Offending replicates:\n",
+         paste(capture.output(print(as.data.frame(bad_orc4r))), collapse = "\n"))
+}
+
+message("Row-count and uniqueness assertions passed.")
+
 message("Labels mapped and factor order applied.")
 
 
