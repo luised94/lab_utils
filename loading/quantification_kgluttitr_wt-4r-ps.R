@@ -22,27 +22,28 @@ library(tidyverse)
 OVERWRITE_PLOTS <- TRUE
 OVERWRITE_CSVS <- TRUE
 
-FILENAME <- "Analysis.xlsx"
+INPUT_FILENAME <- "Analysis.xlsx"
 OUTPUT_DIRECTORY <- "~/data/loading_analysis"
 EXPERIMENT_DIRECTORY <- "Lab/Experiments/Loading/2022_12_18 Loading Assays Repeats for publication"
 
 # Define CSV file paths
-summary_csv_path <- file.path(OUTPUT_DIRECTORY, "loading_summary_statistics.csv")
-full_data_csv_path <- file.path(OUTPUT_DIRECTORY, "loading_processed_full_data.csv")
-FILE_PATH <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, FILENAME)
+summary_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "loading_kglut-titration_per-kglut-summary.csv")
+full_data_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "loading_kglut-titration_full-data.csv")
+INPUT_FILEPATH <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, INPUT_FILENAME)
 
 if (!dir.exists(OUTPUT_DIRECTORY)) {
   dir.create(OUTPUT_DIRECTORY, showWarnings = FALSE, recursive = TRUE)
 
 }
-if (!file.exists(FILE_PATH)) {
-  stop("FILE_PATH does not exist: ", FILE_PATH)
+
+if (!file.exists(INPUT_FILEPATH)) {
+  stop("INPUT_FILEPATH does not exist: ", INPUT_FILEPATH)
 
 }
 
 sheet_indices <- c(2, 3, 4)
 EXPECTED_NUMBER_OF_ROWS <- 14
-EXPECTED_NUMBER_OF_COLS <- 7
+EXPECTED_NUMBER_OF_COLUMNS <- 7
 COLUMN_TO_REMOVE <- "...1" # Column has row numbers from imagej export/copy-paste
 
 # @NOTE: readxl trims trailing whitespace from column names by default.
@@ -95,12 +96,12 @@ df_lst <- vector(mode = "list", length = length(sheet_indices))
 temp_df <- data.frame(matrix(
   NA,
   nrow = EXPECTED_NUMBER_OF_ROWS,
-  ncol = EXPECTED_NUMBER_OF_COLS
+  ncol = EXPECTED_NUMBER_OF_COLUMNS
 ))
-loading_df <- data.frame(matrix(
+loading_data <- data.frame(matrix(
   NA,
   nrow = EXPECTED_NUMBER_OF_ROWS * length(sheet_indices),
-  ncol = EXPECTED_NUMBER_OF_COLS
+  ncol = EXPECTED_NUMBER_OF_COLUMNS
 ))
 
 message("Reading in loading assay sheets...")
@@ -109,13 +110,13 @@ df_count <- 0
 for (sheet_idx in sheet_indices){
   df_count <- df_count + 1
 
-  temp_df <- readxl::read_excel(FILE_PATH, sheet = sheet_idx)
+  temp_df <- readxl::read_excel(INPUT_FILEPATH, sheet = sheet_idx)
 
   stopifnot(
     "Number of rows in temp_df does not match EXPECTED_NUMBER_OF_ROWS." =
       nrow(temp_df) == EXPECTED_NUMBER_OF_ROWS,
     "Number of columns in temp_df does not match EXPECTED_NUMBER_OF_ROWS." =
-      ncol(temp_df) == EXPECTED_NUMBER_OF_COLS,
+      ncol(temp_df) == EXPECTED_NUMBER_OF_COLUMNS,
     "df_lst[[df_count]] colnames not identical to REQUIRED_COLUMNS." =
       identical(REQUIRED_COLUMNS, colnames(temp_df))
   )
@@ -145,20 +146,20 @@ for (sheet_idx in sheet_indices){
 
 } # end read-data for loop
 
-loading_df <- do.call(rbind, df_lst)
-loading_df <- loading_df[, names(loading_df) != COLUMN_TO_REMOVE]
+loading_data <- do.call(rbind, df_lst)
+loading_data <- loading_data[, names(loading_data) != COLUMN_TO_REMOVE]
 
-message("loading_df preparation complete...")
+message("loading_data preparation complete...")
 
 # Remove negative control rows (orc == "None") before label assignment.
 # These rows have no meaningful label and would cause indexing errors in
 # downstream paired calculations that subset by label.
-loading_df <- loading_df %>%
+loading_data <- loading_data %>%
     filter(orc != "None")
 message("Negative control rows removed (orc == 'None').")
 
 
-loading_df <- loading_df %>%
+loading_data <- loading_data %>%
   mutate(label = case_when(
     orc == "WT" & suppressor == "None" ~ "WT",
     orc == "RA" & suppressor == "None" ~ "ORC4R",
@@ -168,17 +169,17 @@ loading_df <- loading_df %>%
     orc == "RA" & suppressor == "5EK" ~ "+5sofa"
   ))
 
-message("Adjust loading_df to factor order...")
+message("Adjust loading_data to factor order...")
 for (col_name in names(factor_order)) {
 
-  loading_df[[col_name]] <- factor(
-    loading_df[[col_name]],
+  loading_data[[col_name]] <- factor(
+    loading_data[[col_name]],
     levels = factor_order[[col_name]],
     ordered = TRUE
   )
 }
 
-loading_df <- loading_df %>%
+loading_data <- loading_data %>%
   # Step 1: Normalize to the WT of the SAME salt concentration
   group_by(replicate, kglut) %>%
   mutate(
@@ -193,15 +194,22 @@ loading_df <- loading_df %>%
 
 # Convert per-kglut normalization to percentage scale (WT = 100 within each kglut).
 # This is the plotting value and the basis for all derived calculations.
-loading_df <- loading_df %>%
+loading_data <- loading_data %>%
     mutate(percent_wildtype = normalized_to_wildtype_per_kglut * 100)
 
 message("Percent wildtype column computed.")
 
+# Global baseline: all values as percentage of WT at 250 mM (within same replicate).
+# Unlike per-kglut normalization, WT is NOT 100% at 300/350 mM - this shows
+# how WT loading itself declines with increasing salt.
+loading_data <- loading_data %>%
+    mutate(percent_wildtype_global = normalized_to_wildtype_250mm * 100)
+message("Percent wildtype global baseline column computed.")
+
 # Derived calculations: paired within replicate and kglut so each condition
 # is compared to the WT and ORC4R values from the same experiment and salt
 # concentration. Formulas match Script 1 for cross-script comparability.
-loading_df <- loading_df %>%
+loading_data <- loading_data %>%
     group_by(replicate, kglut) %>%
     mutate(
         # Percent difference: |A - B| / ((A + B) / 2) * 100
@@ -222,8 +230,30 @@ loading_df <- loading_df %>%
 
 message("Percent difference, percent change, and fold change columns computed.")
 
+# Derived calculations on global baseline: same formulas as per-kglut versions
+# but operating on percent_wildtype_global. Paired within replicate and kglut.
+loading_data <- loading_data %>%
+    group_by(replicate, kglut) %>%
+    mutate(
+        # Percent difference: |A - B| / ((A + B) / 2) * 100
+        percent_difference_from_wildtype_global = abs(percent_wildtype_global - percent_wildtype_global[label == "WT"]) /
+            ((percent_wildtype_global + percent_wildtype_global[label == "WT"]) / 2) * 100,
+        percent_difference_from_orc4r_global = abs(percent_wildtype_global - percent_wildtype_global[label == "ORC4R"]) /
+            ((percent_wildtype_global + percent_wildtype_global[label == "ORC4R"]) / 2) * 100,
+        # Percent change: (A - reference) / reference * 100
+        # Directional: negative means condition loads less than reference.
+        percent_change_from_wildtype_global = (percent_wildtype_global - percent_wildtype_global[label == "WT"]) /
+            percent_wildtype_global[label == "WT"] * 100,
+        percent_change_from_orc4r_global = (percent_wildtype_global - percent_wildtype_global[label == "ORC4R"]) /
+            percent_wildtype_global[label == "ORC4R"] * 100,
+        # Fold change: condition / ORC4R. Values > 1 indicate rescue.
+        fold_change_from_orc4r_global = percent_wildtype_global / percent_wildtype_global[label == "ORC4R"]
+    ) %>%
+    ungroup()
+message("Global baseline derived calculations computed.")
 
-df_summary <- loading_df %>%
+
+summary_loading_data <- loading_data %>%
   filter(!(label %in% c("+1sofa", "+3sofa", "+5sofa"))) %>%
   droplevels() %>%
   group_by(kglut, label) %>%
@@ -253,7 +283,7 @@ message("Summary statistics computed.")
 
 # Primary plot. Exploratory plots are in
 # quantification_kgluttitr_wt-4r-ps_exploratory-plots.R
-faceted_by_kglut_plot <- ggplot(df_summary, aes(x = label, y = mean_percent_wildtype, fill = label)) +
+faceted_by_kglut_plot <- ggplot(summary_loading_data, aes(x = label, y = mean_percent_wildtype, fill = label)) +
     geom_col(
         width = PLOT_CONFIG$bar$width,
         color = PLOT_CONFIG$bar$color,
@@ -268,7 +298,7 @@ faceted_by_kglut_plot <- ggplot(df_summary, aes(x = label, y = mean_percent_wild
         linewidth = PLOT_CONFIG$errorbar$linewidth
     ) +
     geom_point(
-        data = loading_df %>%
+        data = loading_data %>%
             filter(label %in% c("WT", "ORC4R", "+4sofa")) %>%
             droplevels(),
         aes(x = label, y = percent_wildtype, shape = factor(.data$replicate)),
@@ -308,34 +338,34 @@ faceted_by_kglut_plot <- ggplot(df_summary, aes(x = label, y = mean_percent_wild
     )
 message("Plotting completed...")
 
-plot_filepath <- file.path(OUTPUT_DIRECTORY, "faceted_by_kglut_plot.pdf")
-if (!file.exists(plot_filepath) || OVERWRITE_PLOTS) {
+plot_output_filepath <- file.path(OUTPUT_DIRECTORY, "loading_kglut-titration_per-kglut-plot.pdf")
+if (!file.exists(plot_output_filepath) || OVERWRITE_PLOTS) {
   ggsave(
-       plot_filepath,
+       plot_output_filepath,
        faceted_by_kglut_plot,
        device = PLOT_CONFIG$output$device,
        width = PLOT_CONFIG$output$width,
        height = PLOT_CONFIG$output$height
    )
-  message("Saved plot: ", basename(plot_filepath))
+  message("Saved plot: ", basename(plot_output_filepath))
 } else {
-  message("Skipped plot (already exists): ", basename(plot_filepath))
+  message("Skipped plot (already exists): ", basename(plot_output_filepath))
 }
 
 # Save Summary CSV
-if (!file.exists(summary_csv_path) || OVERWRITE_CSVS) {
-  write.csv(df_summary, summary_csv_path, row.names = FALSE)
-  message("Saved CSV: ", basename(summary_csv_path))
+if (!file.exists(summary_csv_output_filepath) || OVERWRITE_CSVS) {
+  write.csv(summary_loading_data, summary_csv_output_filepath, row.names = FALSE)
+  message("Saved CSV: ", basename(summary_csv_output_filepath))
 } else {
-  message("Skipped CSV (already exists): ", basename(summary_csv_path))
+  message("Skipped CSV (already exists): ", basename(summary_csv_output_filepath))
 }
 
 # Save Full Data CSV
-if (!file.exists(full_data_csv_path) || OVERWRITE_CSVS) {
-  write.csv(loading_df, full_data_csv_path, row.names = FALSE)
-  message("Saved CSV: ", basename(full_data_csv_path))
+if (!file.exists(full_data_csv_output_filepath) || OVERWRITE_CSVS) {
+  write.csv(loading_data, full_data_csv_output_filepath, row.names = FALSE)
+  message("Saved CSV: ", basename(full_data_csv_output_filepath))
 } else {
-  message("Skipped CSV (already exists): ", basename(full_data_csv_path))
+  message("Skipped CSV (already exists): ", basename(full_data_csv_output_filepath))
 }
 
 message("Script complete.")
