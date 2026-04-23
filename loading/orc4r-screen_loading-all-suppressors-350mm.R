@@ -51,6 +51,21 @@ if (nchar(MC_DROPBOX_PATH) == 0) {
 library(readxl)
 library(tidyverse)
 
+# Runtime checks: fail fast with actionable diagnostics.
+stopifnot(
+    "Cairo graphics not available. Install libcairo2-dev and rebuild R." =
+        capabilities("cairo")
+)
+extrafont::loadfonts(device = "pdf", quiet = TRUE)
+if (!("Arial" %in% extrafont::fonts())) {
+    stop(
+        "Arial font not found in extrafont database.\n",
+        "Run once: library(extrafont); font_import(prompt = FALSE)\n",
+        "Then restart R and re-source this script."
+    )
+}
+message("Font and Cairo checks passed.")
+
 OVERWRITE_PLOTS <- TRUE
 OVERWRITE_CSVS <- TRUE
 
