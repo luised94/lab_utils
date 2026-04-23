@@ -43,8 +43,7 @@ OVERWRITE_CSVS <- TRUE
 EXPERIMENT_DIRECTORY <- "Lab/Experiments/Loading/2022_12_18 Loading Assays Repeats for publication/analysis"
 INPUT_FILENAME <- "260331_aggregate-analysis_load_wt-4r-supps_350mM-KGlut.xlsx"
 INPUT_FILEPATH <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, INPUT_FILENAME)
-OUTPUT_DIRECTORY <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY)
-
+OUTPUT_DIRECTORY <- "~/data/loading_analysis"
 SHEET_NAME <- "Sheet1"
 EXPECTED_NUMBER_OF_ROWS <- 21
 EXPECTED_NUMBER_OF_COLUMNS <- 4
@@ -268,9 +267,9 @@ message("Plot constructed.")
 # ==============================================================================
 # Output
 # ==============================================================================
-plot_output_filepath <- file.path(OUTPUT_DIRECTORY, "260331_loading-bar-chart_wt-4r-supps_350mM-KGlut.pdf")
-summary_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "260331_loading-summary_wt-4r-supps_350mM-KGlut.csv")
-full_data_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "260331_loading-full-data_wt-4r-supps_350mM-KGlut.csv")
+plot_output_filepath <- file.path(OUTPUT_DIRECTORY, "loading_350mm-all-suppressors_bar-chart.pdf")
+summary_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "loading_350mm-all-suppressors_summary.csv")
+full_data_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "loading_350mm-all-suppressors_full-data.csv")
 
 if (!file.exists(plot_output_filepath) || OVERWRITE_PLOTS) {
     ggsave(
