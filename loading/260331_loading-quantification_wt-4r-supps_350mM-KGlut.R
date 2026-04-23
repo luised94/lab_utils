@@ -22,6 +22,15 @@
 #   Percent Wildtype: already normalized to WT = 100 per replicate in Excel
 #   Sheet2 contains source image filenames only - not used here.
 
+MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
+if (nchar(MC_DROPBOX_PATH) == 0) {
+  stop(
+    "MC_DROPBOX_PATH not defined in bash environment.\n",
+    "Set manually via command line if necessary."
+  )
+
+}
+
 # ==============================================================================
 # Configuration
 # ==============================================================================
@@ -31,35 +40,21 @@ library(tidyverse)
 OVERWRITE_PLOTS <- TRUE
 OVERWRITE_CSVS <- TRUE
 
-EXPERIMENT_DIRECTORY <- "/mnt/c/Users/Luised94/MIT Dropbox/Luis Martinez/Lab/Experiments/Loading/2022_12_18 Loading Assays Repeats for publication"
+FILE_PATH <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, FILENAME)
+EXPERIMENT_DIRECTORY <- "Lab/Experiments/Loading/2022_12_18 Loading Assays Repeats for publication/analysis"
 INPUT_FILENAME <- "260331_aggregate-analysis_load_wt-4r-supps_350mM-KGlut.xlsx"
-INPUT_FILEPATH <- file.path(EXPERIMENT_DIRECTORY, "analysis", INPUT_FILENAME)
-OUTPUT_DIRECTORY <- file.path(EXPERIMENT_DIRECTORY, "analysis")
+INPUT_FILEPATH <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, INPUT_FILENAME)
+OUTPUT_DIRECTORY <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY)
 
 SHEET_NAME <- "Sheet1"
 EXPECTED_NUMBER_OF_ROWS <- 21
 EXPECTED_NUMBER_OF_COLUMNS <- 4
 REQUIRED_COLUMNS <- c("orc4", "sofa", "repeat", "Percent Wildtype")
 
-# Color mapping per condition label.
-# Uses scale_fill_manual instead of scale_fill_brewer(palette = "Set1") because
-# +4sofa appears alone in a companion figure and receives the first Set1 color
-# there. To keep +4sofa visually consistent across figures, the colors for
-# +1sofa (position 3, green) and +4sofa (position 5, orange) are swapped here.
-# To revert to default Set1 ordering, replace scale_fill_manual(...) with
-# scale_fill_brewer(palette = "Set1") in the plot section below.
-FILL_COLORS_BY_LABEL <- c(
-    "WT" = "#E41A1C", "ORC4R" = "#377EB8",
-    "+1sofa" = "#FF7F00", "+3sofa" = "#984EA3",
-    "+4sofa" = "#4DAF4A", "+5sofa" = "#FFFF33",
-    "+6sofa" = "#A65628"
-)
-
 # Centralized plot configuration. Consumed by ggplot calls in the plot section.
 # Any parameter set to NULL means "use ggplot default."
-# fill_colors uses the same values as FILL_COLORS_BY_LABEL above. The
-# duplication is temporary: commit 6 will wire the plot to PLOT_CONFIG and
-# remove FILL_COLORS_BY_LABEL.
+# fill_colors: +1sofa and +4sofa colors are swapped relative to default Set1
+# so +4sofa keeps its color in the companion faceted figure.
 PLOT_CONFIG <- list(
     fill_colors = c(
         "WT" = "#E41A1C", "ORC4R" = "#377EB8",
@@ -202,29 +197,37 @@ message("Summary statistics computed.")
 # ==============================================================================
 # Plot
 # ==============================================================================
+
 loading_bar_chart <- ggplot(summary_loading_data, aes(x = label, y = mean_percent_wildtype, fill = label)) +
-    geom_col(width = 0.7, color = "black", linewidth = 0.4) +
-    # Lower error bar clamped at 0: negative loading percentages are
-    # biologically meaningless and would be a visual artifact of the SD.
+    geom_col(
+        width = PLOT_CONFIG$bar$width,
+        color = PLOT_CONFIG$bar$color,
+        linewidth = PLOT_CONFIG$bar$linewidth
+    ) +
     geom_errorbar(
         aes(
             ymin = pmax(0, mean_percent_wildtype - sd_percent_wildtype),
             ymax = mean_percent_wildtype + sd_percent_wildtype
         ),
-        width = 0.25, linewidth = 0.6
+        width = PLOT_CONFIG$errorbar$width,
+        linewidth = PLOT_CONFIG$errorbar$linewidth
     ) +
-    # Overlay individual biological replicates on top of summary bars.
-    # Shape distinguishes replicates; inherit.aes = FALSE avoids pulling
-    # the fill aesthetic from the summary data frame.
-    geom_jitter(
+    geom_point(
         data = loading_data,
         aes(x = label, y = percent_wildtype, shape = factor(.data$replicate)),
-        width = 0.15, size = 2, fill = "grey30", color = "black", stroke = 0.5,
+        position = position_jitter(
+            width = PLOT_CONFIG$point$jitter_width,
+            seed = PLOT_CONFIG$point$jitter_seed
+        ),
+        size = PLOT_CONFIG$point$size,
+        fill = PLOT_CONFIG$point$fill,
+        color = PLOT_CONFIG$point$color,
+        stroke = PLOT_CONFIG$point$stroke,
         inherit.aes = FALSE
     ) +
-    scale_fill_manual(values = FILL_COLORS_BY_LABEL) +
+    scale_fill_manual(values = PLOT_CONFIG$fill_colors) +
     scale_shape_manual(
-        values = c("1" = 21, "2" = 24, "3" = 22),
+        values = PLOT_CONFIG$replicate_shapes,
         labels = c("1" = "Replicate 1", "2" = "Replicate 2", "3" = "Replicate 3"),
         name = "Replicate"
     ) +
@@ -234,9 +237,12 @@ loading_bar_chart <- ggplot(summary_loading_data, aes(x = label, y = mean_percen
         y = "MCM Loading (% WT)",
         title = "MCM Loading at 350 mM KGlut"
     ) +
-    theme_classic(base_size = 13) +
+    theme_classic(
+        base_size = PLOT_CONFIG$theme$base_size,
+        base_family = PLOT_CONFIG$theme$base_family
+    ) +
     theme(
-        legend.position = "right",
+        legend.position = PLOT_CONFIG$theme$legend_position,
         axis.text.x = element_text(face = "bold")
     )
 message("Plot constructed.")

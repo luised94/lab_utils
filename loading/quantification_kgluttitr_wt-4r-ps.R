@@ -6,6 +6,16 @@
 # The output is the plot called faceted_by_kglut_plot.
 # All other plots kept for reference.
 
+MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
+
+if (nchar(MC_DROPBOX_PATH) == 0) {
+  stop(
+    "MC_DROPBOX_PATH not defined in bash environment.\n",
+    "Set manually via command line if necessary."
+  )
+
+}
+
 library(readxl)
 library(tidyverse)
 
@@ -15,9 +25,20 @@ OVERWRITE_CSVS <- TRUE
 FILENAME <- "Analysis.xlsx"
 OUTPUT_DIRECTORY <- "~/data/loading_analysis"
 EXPERIMENT_DIRECTORY <- "Lab/Experiments/Loading/2022_12_18 Loading Assays Repeats for publication"
+
 # Define CSV file paths
 summary_csv_path <- file.path(OUTPUT_DIRECTORY, "loading_summary_statistics.csv")
 full_data_csv_path <- file.path(OUTPUT_DIRECTORY, "loading_processed_full_data.csv")
+FILE_PATH <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, FILENAME)
+
+if (!dir.exists(OUTPUT_DIRECTORY)) {
+  dir.create(OUTPUT_DIRECTORY, showWarnings = FALSE, recursive = TRUE)
+
+}
+if (!file.exists(FILE_PATH)) {
+  stop("FILE_PATH does not exist: ", FILE_PATH)
+
+}
 
 sheet_indices <- c(2, 3, 4)
 EXPECTED_NUMBER_OF_ROWS <- 14
@@ -68,24 +89,6 @@ PLOT_CONFIG <- list(
     )
 )
 
-MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
-FILE_PATH <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, FILENAME)
-
-if (nchar(MC_DROPBOX_PATH) == 0) {
-  stop(
-    "MC_DROPBOX_PATH not defined in bash environment.\n",
-    "Set manually via command line if necessary."
-  )
-
-}
-if (!dir.exists(OUTPUT_DIRECTORY)) {
-  dir.create(OUTPUT_DIRECTORY, showWarnings = FALSE, recursive = TRUE)
-
-}
-if (!file.exists(FILE_PATH)) {
-  stop("FILE_PATH does not exist: ", FILE_PATH)
-
-}
 
 message("Paths for input and output set...")
 df_lst <- vector(mode = "list", length = length(sheet_indices))
@@ -222,6 +225,7 @@ message("Percent difference, percent change, and fold change columns computed.")
 
 df_summary <- loading_df %>%
   filter(!(label %in% c("+1sofa", "+3sofa", "+5sofa"))) %>%
+  droplevels() %>%
   group_by(kglut, label) %>%
   summarise(
     mean_percent_wildtype = mean(percent_wildtype, na.rm = TRUE),
@@ -250,24 +254,58 @@ message("Summary statistics computed.")
 # Primary plot. Exploratory plots are in
 # quantification_kgluttitr_wt-4r-ps_exploratory-plots.R
 faceted_by_kglut_plot <- ggplot(df_summary, aes(x = label, y = mean_percent_wildtype, fill = label)) +
-  geom_col(width = 0.7, color = "black", linewidth = 0.4) +
-  geom_errorbar(aes(ymin = mean_percent_wildtype - sd_percent_wildtype, ymax = mean_percent_wildtype + sd_percent_wildtype), 
-                width = 0.25, linewidth = 0.6) +
-  facet_wrap(~kglut, nrow = 1, labeller = label_both) +
-  scale_fill_brewer(palette = "Set1") +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
-  labs(x = "Sample",
-       y = "MCM Loading (% WT)",
-       title = "MCM Loading Across KGlut Concentrations",
-       fill = "Sample") +
-  theme_classic(base_size = 13) +
-  theme(
-    strip.background = element_rect(fill = "gray90", color = "black"),
-    strip.text = element_text(face = "bold", size = 12),
-    legend.position = "bottom",
-    panel.spacing = unit(1, "lines")
-  )
-
+    geom_col(
+        width = PLOT_CONFIG$bar$width,
+        color = PLOT_CONFIG$bar$color,
+        linewidth = PLOT_CONFIG$bar$linewidth
+    ) +
+    geom_errorbar(
+        aes(
+            ymin = pmax(0, mean_percent_wildtype - sd_percent_wildtype),
+            ymax = mean_percent_wildtype + sd_percent_wildtype
+        ),
+        width = PLOT_CONFIG$errorbar$width,
+        linewidth = PLOT_CONFIG$errorbar$linewidth
+    ) +
+    geom_point(
+        data = loading_df %>%
+            filter(label %in% c("WT", "ORC4R", "+4sofa")) %>%
+            droplevels(),
+        aes(x = label, y = percent_wildtype, shape = factor(.data$replicate)),
+        position = position_jitter(
+            width = PLOT_CONFIG$point$jitter_width,
+            seed = PLOT_CONFIG$point$jitter_seed
+        ),
+        size = PLOT_CONFIG$point$size,
+        fill = PLOT_CONFIG$point$fill,
+        color = PLOT_CONFIG$point$color,
+        stroke = PLOT_CONFIG$point$stroke,
+        inherit.aes = FALSE
+    ) +
+    facet_wrap(~kglut, nrow = 1, labeller = label_both) +
+    scale_fill_manual(values = PLOT_CONFIG$fill_colors) +
+    scale_shape_manual(
+        values = PLOT_CONFIG$replicate_shapes,
+        labels = c("1" = "Replicate 1", "2" = "Replicate 2", "3" = "Replicate 3"),
+        name = "Replicate"
+    ) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    labs(
+        x = "Sample",
+        y = "MCM Loading (% WT)",
+        title = "MCM Loading Across KGlut Concentrations",
+        fill = "Sample"
+    ) +
+    theme_classic(
+        base_size = PLOT_CONFIG$theme$base_size,
+        base_family = PLOT_CONFIG$theme$base_family
+    ) +
+    theme(
+        strip.background = element_rect(fill = "gray90", color = "black"),
+        strip.text = element_text(face = "bold", size = 12),
+        legend.position = PLOT_CONFIG$theme$legend_position,
+        panel.spacing = unit(1, "lines")
+    )
 message("Plotting completed...")
 
 plot_filepath <- file.path(OUTPUT_DIRECTORY, "faceted_by_kglut_plot.pdf")
