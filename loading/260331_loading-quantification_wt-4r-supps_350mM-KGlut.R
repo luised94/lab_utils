@@ -255,7 +255,13 @@ summary_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "260331_loading-summa
 full_data_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "260331_loading-full-data_wt-4r-supps_350mM-KGlut.csv")
 
 if (!file.exists(plot_output_filepath) || OVERWRITE_PLOTS) {
-    ggsave(plot_output_filepath, loading_bar_chart, width = 8, height = 5)
+    ggsave(
+        plot_output_filepath,
+        loading_bar_chart,
+        device = PLOT_CONFIG$output$device,
+        width = PLOT_CONFIG$output$width,
+        height = PLOT_CONFIG$output$height
+    )
     message("Saved plot: ", basename(plot_output_filepath))
 } else {
     message("Skipped plot (already exists): ", basename(plot_output_filepath))

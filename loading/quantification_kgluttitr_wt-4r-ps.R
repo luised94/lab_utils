@@ -310,7 +310,13 @@ message("Plotting completed...")
 
 plot_filepath <- file.path(OUTPUT_DIRECTORY, "faceted_by_kglut_plot.pdf")
 if (!file.exists(plot_filepath) || OVERWRITE_PLOTS) {
-  ggsave(plot_filepath, faceted_by_kglut_plot, width = 8, height = 5)
+  ggsave(
+       plot_filepath,
+       faceted_by_kglut_plot,
+       device = PLOT_CONFIG$output$device,
+       width = PLOT_CONFIG$output$width,
+       height = PLOT_CONFIG$output$height
+   )
   message("Saved plot: ", basename(plot_filepath))
 } else {
   message("Skipped plot (already exists): ", basename(plot_filepath))
