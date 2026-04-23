@@ -125,7 +125,14 @@ message("Data loaded and validated: ", nrow(raw_loading_data), " rows x ", ncol(
 # ==============================================================================
 # Preprocessing
 # ==============================================================================
-LABEL_FACTOR_ORDER <- c("WT", "ORC4R", "+1sofa", "+3sofa", "+4sofa", "+5sofa", "+6sofa")
+# Define custom orderings. Named list pattern shared with Script 2.
+# suppressor and kglut keys are no-ops in Script 1 (columns don't exist)
+# but are included for cross-script consistency.
+factor_order <- list(
+    "suppressor" = c("None", "1EK", "3PL", "4PS", "5EK"),
+    "kglut" = c("250", "300", "350"),
+    "label" = c("WT", "ORC4R", "+1sofa", "+3sofa", "+4sofa", "+5sofa", "+6sofa")
+)
 
 # Map orc4/sofa column pairs to display labels.
 # WT + none = wildtype control. RA + none = ORC4R mutant alone.
@@ -139,14 +146,26 @@ loading_data <- raw_loading_data %>%
         orc4 == "RA" & sofa == "orc4" ~ "+4sofa",
         orc4 == "RA" & sofa == "orc5" ~ "+5sofa",
         orc4 == "RA" & sofa == "orc6" ~ "+6sofa"
-    )) %>%
-    mutate(label = factor(label, levels = LABEL_FACTOR_ORDER, ordered = TRUE))
-
+    ))
 # If any row fails to match a case_when branch, it gets NA - catch that here.
 stopifnot(
     "NA labels found after case_when mapping." =
         sum(is.na(loading_data$label)) == 0
 )
+
+# Apply factor ordering. Column-existence guard skips keys not in data
+# (suppressor, kglut are no-ops in Script 1).
+for (col_name in names(factor_order)) {
+    if (col_name %in% names(loading_data)) {
+        loading_data[[col_name]] <- factor(
+            loading_data[[col_name]],
+            levels = factor_order[[col_name]],
+            ordered = FALSE
+        )
+    }
+}
+
+message("Factor ordering applied.")
 message("Labels mapped and factor order applied.")
 
 
