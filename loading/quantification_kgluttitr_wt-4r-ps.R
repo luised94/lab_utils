@@ -6,6 +6,10 @@
 # The output is the plot called faceted_by_kglut_plot.
 # All other plots kept for reference.
 
+# ==============================================================================
+# Configuration
+# ==============================================================================
+
 MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
 
 if (nchar(MC_DROPBOX_PATH) == 0) {
@@ -30,6 +34,10 @@ EXPERIMENT_DIRECTORY <- "Lab/Experiments/Loading/2022_12_18 Loading Assays Repea
 summary_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "loading_kglut-titration_per-kglut-summary.csv")
 full_data_csv_output_filepath <- file.path(OUTPUT_DIRECTORY, "loading_kglut-titration_full-data.csv")
 INPUT_FILEPATH <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, INPUT_FILENAME)
+
+# ==============================================================================
+# File Validation
+# ==============================================================================
 
 if (!dir.exists(OUTPUT_DIRECTORY)) {
   dir.create(OUTPUT_DIRECTORY, showWarnings = FALSE, recursive = TRUE)
@@ -92,6 +100,10 @@ PLOT_CONFIG <- list(
 
 
 message("Paths for input and output set...")
+
+# ==============================================================================
+# Data Loading
+# ==============================================================================
 df_lst <- vector(mode = "list", length = length(sheet_indices))
 temp_df <- data.frame(matrix(
   NA,
@@ -150,6 +162,10 @@ loading_data <- do.call(rbind, df_lst)
 loading_data <- loading_data[, names(loading_data) != COLUMN_TO_REMOVE]
 
 message("loading_data preparation complete...")
+
+# ==============================================================================
+# Preprocessing
+# ==============================================================================
 
 # Remove negative control rows (orc == "None") before label assignment.
 # These rows have no meaningful label and would cause indexing errors in
@@ -253,6 +269,10 @@ loading_data <- loading_data %>%
 message("Global baseline derived calculations computed.")
 
 
+# ==============================================================================
+# Summary Statistics
+# ==============================================================================
+
 summary_loading_data <- loading_data %>%
   filter(!(label %in% c("+1sofa", "+3sofa", "+5sofa"))) %>%
   droplevels() %>%
@@ -305,6 +325,10 @@ summary_loading_data_global <- loading_data %>%
         .groups = "drop"
     )
 message("Global baseline summary statistics computed.")
+
+# ==============================================================================
+# Plots
+# ==============================================================================
 
 # Primary plot. Exploratory plots are in
 # quantification_kgluttitr_wt-4r-ps_exploratory-plots.R
@@ -426,6 +450,10 @@ global_baseline_plot <- ggplot(summary_loading_data_global,
         panel.spacing = unit(1, "lines")
     )
 message("Global baseline plot constructed.")
+
+# ==============================================================================
+# Output
+# ==============================================================================
 
 plot_output_filepath <- file.path(OUTPUT_DIRECTORY, "loading_kglut-titration_per-kglut-plot.pdf")
 if (!file.exists(plot_output_filepath) || OVERWRITE_PLOTS) {
