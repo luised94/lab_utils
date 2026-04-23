@@ -315,6 +315,17 @@ loading_data <- loading_data %>%
 
 message("Percent difference, percent change, and fold change columns computed.")
 
+# Guard against division by zero in derived calculations.
+derived_cols <- c("fold_change_from_orc4r", "percent_change_from_wildtype",
+                  "percent_change_from_orc4r")
+for (col in derived_cols) {
+    stopifnot(
+        !any(is.infinite(loading_data[[col]])),
+        !any(is.nan(loading_data[[col]]))
+    )
+}
+message("Inf/NaN guard passed on derived calculations.")
+
 # Derived calculations on global baseline: same formulas as per-kglut versions
 # but operating on percent_wildtype_global. Paired within replicate and kglut.
 loading_data <- loading_data %>%
@@ -336,6 +347,18 @@ loading_data <- loading_data %>%
     ) %>%
     ungroup()
 message("Global baseline derived calculations computed.")
+
+# Guard against division by zero in global baseline derived calculations.
+derived_cols_global <- c("fold_change_from_orc4r_global",
+                         "percent_change_from_wildtype_global",
+                         "percent_change_from_orc4r_global")
+for (col in derived_cols_global) {
+    stopifnot(
+        !any(is.infinite(loading_data[[col]])),
+        !any(is.nan(loading_data[[col]]))
+    )
+}
+message("Inf/NaN guard passed on global baseline derived calculations.")
 
 
 # ==============================================================================
@@ -370,6 +393,11 @@ summary_loading_data <- loading_data %>%
 
 message("Summary statistics computed.")
 
+stopifnot(
+    "Not all summary groups have 3 replicates." =
+        all(summary_loading_data$replicate_count == 3)
+)
+
 # Global baseline summary: same pipeline as summary_loading_data but
 # summarizing percent_wildtype_global and its derived calculations.
 # Normalization reference is WT at 250 mM across all panels.
@@ -394,6 +422,11 @@ summary_loading_data_global <- loading_data %>%
         .groups = "drop"
     )
 message("Global baseline summary statistics computed.")
+
+stopifnot(
+    "Not all global summary groups have 3 replicates." =
+        all(summary_loading_data_global$replicate_count == 3)
+)
 
 # ==============================================================================
 # Plots

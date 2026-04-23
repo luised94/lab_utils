@@ -229,6 +229,18 @@ message("Labels mapped and factor order applied.")
 # Paired within replicate: each condition compared to the WT and ORC4R
 # values from the same experiment.
 message("Percent difference, percent change, and fold change columns computed.")
+
+# Guard against division by zero in derived calculations.
+derived_cols <- c("fold_change_from_orc4r", "percent_change_from_wildtype",
+                  "percent_change_from_orc4r")
+for (col in derived_cols) {
+    stopifnot(
+        !any(is.infinite(loading_data[[col]])),
+        !any(is.nan(loading_data[[col]]))
+    )
+}
+message("Inf/NaN guard passed on derived calculations.")
+
 loading_data <- loading_data %>%
     group_by(replicate) %>%
     mutate(
@@ -266,6 +278,11 @@ summary_loading_data <- loading_data %>%
         .groups = "drop"
     )
 message("Summary statistics computed.")
+
+stopifnot(
+    "Not all summary groups have 3 replicates." =
+        all(summary_loading_data$replicate_count == 3)
+)
 
 # ==============================================================================
 # Plot
