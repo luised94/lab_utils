@@ -5,6 +5,27 @@
 # Usage: source("orc4r-screen_loading-kglut-titration.R")
 # The output is the plot called faceted_by_kglut_plot.
 # All other plots kept for reference.
+# Prerequisites:
+#   1. Environment variable MC_DROPBOX_PATH must be set in shell profile.
+#      Points to the root of the shared Dropbox folder.
+#   2. Font setup (one-time per machine):
+#        renv::install(c("extrafont", "ragg"))
+#        library(extrafont); font_import(prompt = FALSE)
+#      Per-session: extrafont::loadfonts(device = "pdf")
+#   3. renv lockfile: renv_loading-analysis.lock
+#      Restore: renv::restore(lockfile = "renv_loading-analysis.lock")
+#   4. R must be compiled with Cairo support: capabilities("cairo") == TRUE
+#      If FALSE, install libcairo2-dev (Debian/Ubuntu) and rebuild R.
+#   5. Input: single Excel file, sheets 2/3/4 (sheet 1 = metadata).
+#      14 rows per sheet:
+#        Row 1:    input lane (filtered by input == "no")
+#        Row 2:    no-ORC negative control (filtered by orc != "None")
+#                  Also used as background for intensity subtraction.
+#        Rows 3-14: 4 conditions x 3 kglut concentrations
+#      Three sheets = 3 biological replicates.
+#      WT/ORC4R/+4sofa: n=3 across all sheets.
+#      Rotating suppressor (+1/+3/+5sofa): n=1 per sheet.
+#      14 rows -> filter input=="no" -> 13 -> filter orc!="None" -> 12 per sheet.
 
 # ==============================================================================
 # Configuration

@@ -4,6 +4,20 @@
 # Data produced by analyzing tiff files using ImageJ. Manual gel processing
 # due to noisy gels. Results are consistent across replicates.
 # Usage: source("orc4r-screen_loading-all-suppressors-350mm.R")
+# Prerequisites:
+#   1. Environment variable MC_DROPBOX_PATH must be set in shell profile.
+#      Points to the root of the shared Dropbox folder.
+#   2. Font setup (one-time per machine):
+#        renv::install(c("extrafont", "ragg"))
+#        library(extrafont); font_import(prompt = FALSE)
+#      Per-session: extrafont::loadfonts(device = "pdf")
+#   3. renv lockfile: renv_loading-analysis.lock
+#      Restore: renv::restore(lockfile = "renv_loading-analysis.lock")
+#   4. R must be compiled with Cairo support: capabilities("cairo") == TRUE
+#      If FALSE, install libcairo2-dev (Debian/Ubuntu) and rebuild R.
+#   5. Input: single Excel file, Sheet1, 21 rows = 7 conditions x 3 replicates.
+#      Columns: orc4, sofa, repeat, Percent Wildtype.
+#      Data is pre-normalized (WT = 100 per replicate in Excel).
 # Output: Bar chart of MCM loading (% WT) for WT, ORC4R, and sofa suppressors
 # at 350 mM KGlut, saved as PDF.
 #
