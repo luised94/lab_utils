@@ -228,6 +228,10 @@ loading_data <- loading_data %>%
     orc == "RA" & suppressor == "3PL" ~ "+3sofa",
     orc == "RA" & suppressor == "5EK" ~ "+5sofa"
   ))
+stopifnot(
+    "NA labels found after case_when mapping. Check for unmatched orc/suppressor combinations." =
+        sum(is.na(loading_data$label)) == 0
+)
 
 message("Adjust loading_data to factor order...")
 for (col_name in names(factor_order)) {
@@ -442,6 +446,8 @@ faceted_by_kglut_plot <- ggplot(summary_loading_data, aes(x = label, y = mean_pe
     ) +
     geom_errorbar(
         aes(
+            # pmax(0, ...): negative MCM loading is biologically meaningless.
+            # Clamps lower error bar at 0 to prevent SD overshoot visual artifacts.
             ymin = pmax(0, mean_percent_wildtype - sd_percent_wildtype),
             ymax = mean_percent_wildtype + sd_percent_wildtype
         ),
@@ -455,6 +461,7 @@ faceted_by_kglut_plot <- ggplot(summary_loading_data, aes(x = label, y = mean_pe
         aes(x = label, y = percent_wildtype, shape = factor(.data$replicate)),
         position = position_jitter(
             width = PLOT_CONFIG$point$jitter_width,
+            # seed = 42: deterministic jitter for reproducible figures across runs.
             seed = PLOT_CONFIG$point$jitter_seed
         ),
         size = PLOT_CONFIG$point$size,
