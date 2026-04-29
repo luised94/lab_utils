@@ -5,13 +5,18 @@
 *.pdf
 *.png
 Rplots.pdf
+configuration_chip_processing.sh
 configuration_experiment_bmc.R
 configuration_experiment_flow_cytometry.R
 configuration_script_bmc.R
 configuration_script_flow_cytometry.R
+context.txt
 dir_tree_output.txt
 fonts.dir
 interactive_script_configuration.R
+manuscript_orc4r_bypass_v16_keys.txt
+manuscript_orc4r_bypass_v16_keys_paths.tsv
+manuscript_orc4r_bypass_v16_keys_unresolved.tsv
 memerun.log
 override_configuration.R
 reference_code/pipeline_completion/test_configuration.R
@@ -20,3 +25,4 @@ slurm-*.out
 template_sample_grid.csv
 test.log
 treestructure*.txt
+verification.R
