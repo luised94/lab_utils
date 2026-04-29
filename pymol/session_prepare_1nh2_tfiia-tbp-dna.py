@@ -68,7 +68,6 @@ V251 = {
 # Each ROI creates: roi_NAME, nearby_NAME, hydrophobic_core_NAME selections
 ROI_SPECS = [
     {
-<<<<<<< HEAD
         "name": "g16",
         "description": "G16 hydrophobic core in TOA2",
         "roi_selection": G16["roi_selection"],

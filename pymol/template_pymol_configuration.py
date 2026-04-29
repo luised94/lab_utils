@@ -22,7 +22,6 @@ ANTIALIAS = 2
 RAY_SHADOWS = 1
 
 # Ray shadow fine-tuning
-<<<<<<< HEAD
 RAY_SHADOW = 0.2  # Shadow darkness (0.5=default, lower=lighter)
 RAY_SHADOW_DECAY_FACTOR = 0.1  # How fast shadow fades
 RAY_SHADOW_DECAY_RANGE = 2  # Shadow fade range
