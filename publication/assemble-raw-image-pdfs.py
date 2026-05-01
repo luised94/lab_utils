@@ -41,9 +41,9 @@ DATASET_DIRECTORY = pathlib.Path(
     "/mnt/c/Users/Luised94/MIT Dropbox/Luis Martinez/Lab"
     "/publications-and-presentations/lemr_publication_bypass_orc4r/dataset"
 )
-INPUT_DIRECTORY = DATASET_DIRECTORY / "raw_image_pdf_export"
+INPUT_DIRECTORY = DATASET_DIRECTORY / "raw-image_pdf-export"
 OUTPUT_FILENAME = DATASET_DIRECTORY / "S1_raw_images.pdf"
-EXPECTED_COUNT = 33
+EXPECTED_COUNT = 13
 FILENAME_PATTERN = re.compile(r"^(Fig\d+|S\d+)_src-panel_raw-image_\d{2}\.pdf$")
 EXPECTED_FIGURE_IDS = {"Fig1", "Fig3", "Fig4", "Fig5", "Fig6", "S1", "S4", "S5", "S6"}
 SIZE_WARNING_MEGABYTES = 20
