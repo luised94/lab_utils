@@ -26,6 +26,7 @@ Date: April 30, 2026
 Project: LEMR Publication Bypass ORC4R Dataset
 """
 
+import hashlib
 import pathlib
 import re
 import sys
@@ -42,6 +43,7 @@ EXPECTED_COUNT = 33
 FILENAME_PATTERN = re.compile(r"^(Fig\d+|S\d+)_src-panel_raw-image_\d{2}\.pdf$")
 EXPECTED_FIGURE_IDS = {"Fig1", "Fig3", "Fig4", "Fig5", "Fig6", "S1", "S4", "S5", "S6"}
 SIZE_WARNING_MEGABYTES = 20
+MANIFEST_FILENAME = pathlib.Path("S1_raw_images_manifest.txt")
 DRY_RUN = False
 
 # ===========================================================================
@@ -233,6 +235,46 @@ if output_file_size_megabytes > SIZE_WARNING_MEGABYTES:
     print()
     print(f"WARNING: Output file exceeds {SIZE_WARNING_MEGABYTES} MB.")
     print("Upload to Zenodo and reference DOI in PLOS ONE Data Availability Statement.")
+
+# ===========================================================================
+# Phase 8: Generate manifest with SHA-256 hashes
+# ===========================================================================
+
+if not DRY_RUN:
+    print()
+    print("=" * 60)
+    print("Phase 8: Generating manifest with SHA-256 hashes")
+    print("=" * 60)
+
+    manifest_lines = []
+    manifest_lines.append("# S1_raw_images.pdf - Page-to-source manifest")
+    manifest_lines.append(f"# Generated: {OUTPUT_FILENAME}")
+    manifest_lines.append(f"# Total pages: {total_pages_merged}")
+    manifest_lines.append("#")
+    manifest_lines.append("# Page | Source Filename | SHA-256")
+    manifest_lines.append("#" + "-" * 59)
+
+    for page_index, pdf_file_path in enumerate(sorted_pdf_file_paths):
+        page_number = page_index + 1
+
+        sha256_hash = hashlib.sha256()
+        with open(pdf_file_path, "rb") as hash_input_file:
+            while True:
+                chunk = hash_input_file.read(8192)
+                if len(chunk) == 0:
+                    break
+                sha256_hash.update(chunk)
+        hex_digest = sha256_hash.hexdigest()
+
+        manifest_lines.append(f"{page_number:2d} | {pdf_file_path.name} | {hex_digest}")
+
+    manifest_text = "\n".join(manifest_lines) + "\n"
+
+    with open(MANIFEST_FILENAME, "w") as manifest_output_file:
+        manifest_output_file.write(manifest_text)
+
+    print(f"Manifest written to '{MANIFEST_FILENAME}'.")
+    print(f"Contains {total_pages_merged} entries with SHA-256 hashes.")
 
 print()
 print("Done.")
