@@ -18,7 +18,7 @@ Usage:
     uv run assemble_raw_images.py
 
 Requirements:
-    - Input: pdf_export/ directory with PDFs matching pattern {FigureID}_raw_image_{NN}.pdf
+    - Input: pdf_export/ directory with PDFs matching pattern {FigureID}_src-panel_raw-image_{NN}.pdf
     - Output: S1_raw_images.pdf in current working directory
 
 Author: Luis Martinez
@@ -39,7 +39,7 @@ import pypdf
 INPUT_DIRECTORY = pathlib.Path("pdf_export")
 OUTPUT_FILENAME = pathlib.Path("S1_raw_images.pdf")
 EXPECTED_COUNT = 33
-FILENAME_PATTERN = re.compile(r"^(Fig\d+|S\d+)_raw_image_\d{2}\.pdf$")
+FILENAME_PATTERN = re.compile(r"^(Fig\d+|S\d+)_src-panel_raw-image_\d{2}\.pdf$")
 EXPECTED_FIGURE_IDS = {"Fig1", "Fig3", "Fig4", "Fig5", "Fig6", "S1", "S4", "S5", "S6"}
 SIZE_WARNING_MEGABYTES = 20
 DRY_RUN = False
@@ -91,14 +91,26 @@ for pdf_file_path in pdf_file_paths:
         figure_id = match_result.group(1)
         found_figure_ids.add(figure_id)
 
+
 if len(non_matching_filenames) > 0:
-    print("ERROR: The following files do not match the expected naming pattern:")
-    print(f"  Pattern: {{FigureID}}_raw_image_{{NN}}.pdf")
-    for bad_filename in non_matching_filenames:
-        print(f"  - {bad_filename}")
+    print(f"NOTE: {len(non_matching_filenames)} file(s) do not match the expected pattern and will be skipped:")
+    print(f"  Pattern: {{FigureID}}_src-panel_raw-image_{{NN}}.pdf")
+    for skipped_filename in non_matching_filenames:
+        print(f"  - {skipped_filename}")
+
+# Keep only the files that matched the pattern
+pdf_file_paths = [
+    pdf_file_path
+    for pdf_file_path in pdf_file_paths
+    if FILENAME_PATTERN.match(pdf_file_path.name) is not None
+]
+pdf_file_count = len(pdf_file_paths)
+
+if pdf_file_count == 0:
+    print("ERROR: No files matched the expected naming pattern.")
     sys.exit(1)
 
-print("All filenames match expected pattern.")
+print(f"{pdf_file_count} file(s) match the expected pattern.")
 
 # Check for missing figure IDs (warn, do not halt)
 missing_figure_ids = EXPECTED_FIGURE_IDS - found_figure_ids
