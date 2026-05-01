@@ -18,8 +18,8 @@ Usage:
     uv run assemble_raw_images.py
 
 Requirements:
-    - Input: pdf_export/ directory with PDFs matching pattern {FigureID}_src-panel_raw-image_{NN}.pdf
-    - Output: S1_raw_images.pdf in current working directory
+    - Input: raw_image_pdf_export/ in dataset Dropbox folder, PDFs matching {FigureID}_src-panel_raw-image_{NN}.pdf
+    - Output: S1_raw_images.pdf in dataset Dropbox folder root
 
 Author: Luis Martinez
 Date: April 30, 2026
@@ -37,13 +37,17 @@ import pypdf
 # Configuration
 # ===========================================================================
 
-INPUT_DIRECTORY = pathlib.Path("pdf_export")
-OUTPUT_FILENAME = pathlib.Path("S1_raw_images.pdf")
+DATASET_DIRECTORY = pathlib.Path(
+    "/mnt/c/Users/Luised94/MIT Dropbox/Luis Martinez/Lab"
+    "/publications-and-presentations/lemr_publication_bypass_orc4r/dataset"
+)
+INPUT_DIRECTORY = DATASET_DIRECTORY / "raw_image_pdf_export"
+OUTPUT_FILENAME = DATASET_DIRECTORY / "S1_raw_images.pdf"
 EXPECTED_COUNT = 33
 FILENAME_PATTERN = re.compile(r"^(Fig\d+|S\d+)_src-panel_raw-image_\d{2}\.pdf$")
 EXPECTED_FIGURE_IDS = {"Fig1", "Fig3", "Fig4", "Fig5", "Fig6", "S1", "S4", "S5", "S6"}
 SIZE_WARNING_MEGABYTES = 20
-MANIFEST_FILENAME = pathlib.Path("S1_raw_images_manifest.txt")
+MANIFEST_FILENAME = DATASET_DIRECTORY / "S1_raw_images_manifest.txt"
 DRY_RUN = False
 
 # ===========================================================================
