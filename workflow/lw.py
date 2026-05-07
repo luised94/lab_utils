@@ -18,7 +18,7 @@ if _lab_root_env:
 else:
     _win_user = os.environ.get("MC_WINDOWS_USER")
     if _win_user:
-        LAB_ROOT = f"/mnt/c/Users/{_win_user}/Desktop/lab_v2"
+        LAB_ROOT = f"/mnt/c/Users/{_win_user}/Desktop/lab"
     else:
         print("Error: Set LAB_ROOT or MC_WINDOWS_USER environment variable.")
         sys.exit(1)
