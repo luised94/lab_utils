@@ -640,6 +640,44 @@ elif command == "strain":
         print("  show <id>             Show strain details and experiments")
         sys.exit(0)
 
+    # --- lw strain update <id> <field> <value> ---
+    if subcommand == "update":
+        if len(pos_args) < 3:
+            print("Usage: python lw.py strain update <id> <field> <value>")
+            sys.exit(1)
+
+        strain_id, field, value = pos_args[0], pos_args[1], pos_args[2]
+
+        # verify strain exists
+        cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
+        if not cursor.fetchone():
+            print(f"No strain found with ID {strain_id}")
+            sys.exit(1)
+
+        # validate field
+        cursor.execute("PRAGMA table_info(strains)")
+        valid_fields = [r[1] for r in cursor.fetchall() if r[1] != "id"]
+        if field not in valid_fields:
+            print(f"Unknown field: '{field}'")
+            print(f"Valid fields: {', '.join(valid_fields)}")
+            sys.exit(1)
+
+        # get old value and update
+        cursor.execute(f"SELECT {field} FROM strains WHERE id = ?", (strain_id,))
+        old_val = cursor.fetchone()[0]
+
+        # notes appends with timestamp; everything else overwrites
+        if field == "notes" and old_val:
+            today = datetime.date.today().strftime("%Y-%m-%d")
+            value = old_val + f"\n[{today}] " + value
+
+        cursor.execute(f"UPDATE strains SET {field} = ? WHERE id = ?", (value, strain_id))
+        print(f"Updated {strain_id}")
+        if field == "notes":
+            print(f"  {field}: appended entry")
+        else:
+            print(f"  {field}: {old_val if old_val else '-'}  {value}")
+
     # --- lw strain add <id> <genotype> ---
     if subcommand == "add":
         if len(pos_args) < 2:
