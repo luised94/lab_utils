@@ -147,6 +147,8 @@ if not args:
     print("  init              Bootstrap lab directory and database")
     print("  exp init <type> <shortname>   Create new experiment")
     print("  exp show <id>                 Show experiment details")
+    print("  strain add <id> <genotype>    Register a new strain")
+    print("  strain show <id>              Show strain details")
     sys.exit(0)
 
 command = args[0]
@@ -377,6 +379,88 @@ elif command == "exp":
     else:
         print(f"Unknown subcommand: exp {subcommand}")
         print("Run 'python lw.py exp' for usage.")
+        sys.exit(1)
+
+# --- lw strain ---
+elif command == "strain":
+    if not subcommand:
+        print("Usage: python lw.py strain <subcommand>")
+        print("  add <id> <genotype>   Register a new strain")
+        print("  show <id>             Show strain details and experiments")
+        sys.exit(0)
+
+    # --- lw strain add <id> <genotype> ---
+    if subcommand == "add":
+        if len(pos_args) < 2:
+            print("Usage: python lw.py strain add <id> <genotype>")
+            print('  Example: python lw.py strain add LY456 "MATa orc4-R267A::KanMX ura3 leu2 trp1 his3"')
+            sys.exit(1)
+
+        strain_id = pos_args[0]
+        genotype = pos_args[1]
+
+        # check for duplicate
+        cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
+        if cursor.fetchone():
+            print(f"Strain {strain_id} already exists.")
+            print(f"Use 'python lw.py strain show {strain_id}' to view it.")
+            sys.exit(1)
+
+        cursor.execute(
+            "INSERT INTO strains (id, genotype) VALUES (?, ?)",
+            (strain_id, genotype),
+        )
+        print(f"Registered: {strain_id}")
+        print(f"Genotype:   {genotype}")
+
+    # --- lw strain show <id> ---
+    elif subcommand == "show":
+        if len(pos_args) != 1:
+            print("Usage: python lw.py strain show <id>")
+            sys.exit(1)
+
+        strain_id = pos_args[0]
+
+        cursor.execute("SELECT * FROM strains WHERE id = ?", (strain_id,))
+        row = cursor.fetchone()
+        if not row:
+            print(f"No strain found with ID {strain_id}")
+            sys.exit(1)
+
+        col_names = [d[0] for d in cursor.description]
+        strain = dict(zip(col_names, row))
+
+        fields = [
+            ("ID", strain["id"]),
+            ("Genotype", strain["genotype"]),
+            ("Parent", strain["parent"]),
+            ("Construction", strain["construction"]),
+            ("Marker", strain["selection_marker"]),
+            ("Verification", strain["verification"]),
+            ("Storage", strain["storage_location"]),
+            ("Notes", strain["notes"]),
+        ]
+
+        label_width = max(len(f[0]) for f in fields)
+        for label, val in fields:
+            print(f"  {label + ':':<{label_width + 2}} {val if val else '-'}")
+
+        # experiments using this strain
+        cursor.execute(
+            "SELECT e.id, e.type, e.shortname, es.role FROM experiment_strains es JOIN experiments e ON es.experiment_id = e.id WHERE es.strain_id = ?",
+            (strain_id,),
+        )
+        exps = cursor.fetchall()
+        if exps:
+            print()
+            print("  Experiments:")
+            for eid, etype, sname, role in exps:
+                role_str = f" ({role})" if role else ""
+                print(f"    {eid}  {etype:<14} {sname}{role_str}")
+
+    else:
+        print(f"Unknown subcommand: strain {subcommand}")
+        print("Run 'python lw.py strain' for usage.")
         sys.exit(1)
 
 # --- unknown command ---
