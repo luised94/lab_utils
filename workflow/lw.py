@@ -156,6 +156,7 @@ if not args:
     print("  exp link <from> <to> <rel>    Link two experiments")
     print("  exp addstrain <exp> <strain>  Associate strain with experiment")
     print("  exp delete <id>               Dry-run delete (--confirm to execute)")
+    print("  exp find [query] [--type T] [--status S] [--strain S]  Search experiments")
     print("  stage list                    Show files in staging")
     print("  stage assign <f> <exp> <desc> Rename, move, and register file")
     sys.exit(0)
@@ -764,6 +765,84 @@ elif command == "exp":
 
         print()
         print(f"Deleted: {exp_id}")
+
+    # --- lw exp find [query] [--type T] [--status S] [--strain S] ---
+    elif subcommand == "find":
+        # parse flags and free-text query
+        query = None
+        f_type = None
+        f_status = None
+        f_strain = None
+        i = 0
+        while i < len(pos_args):
+            if pos_args[i] == "--type" and i + 1 < len(pos_args):
+                f_type = pos_args[i + 1]
+                i += 2
+            elif pos_args[i] == "--status" and i + 1 < len(pos_args):
+                f_status = pos_args[i + 1]
+                i += 2
+            elif pos_args[i] == "--strain" and i + 1 < len(pos_args):
+                f_strain = pos_args[i + 1]
+                i += 2
+            elif not pos_args[i].startswith("--"):
+                query = pos_args[i]
+                i += 1
+            else:
+                print(f"Unknown flag: {pos_args[i]}")
+                sys.exit(1)
+
+        # validate type if given
+        if f_type and f_type not in VALID_TYPES:
+            print(f"Unknown type: '{f_type}'")
+            print(f"Valid types: {', '.join(VALID_TYPES)}")
+            sys.exit(1)
+
+        # build query
+        sql = "SELECT DISTINCT e.id, e.type, e.shortname, e.status, e.date_started FROM experiments e"
+        conditions = []
+        params = []
+
+        if f_strain:
+            sql += " JOIN experiment_strains es ON e.id = es.experiment_id"
+            conditions.append("es.strain_id = ?")
+            params.append(f_strain)
+
+        if query:
+            like = f"%{query}%"
+            conditions.append(
+                "(e.id LIKE ? OR e.shortname LIKE ? OR e.title LIKE ? OR e.notes LIKE ?)"
+            )
+            params.extend([like, like, like, like])
+
+        if f_type:
+            conditions.append("e.type = ?")
+            params.append(f_type)
+
+        if f_status:
+            conditions.append("e.status = ?")
+            params.append(f_status)
+
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+
+        sql += " ORDER BY e.date_started DESC, e.id DESC"
+
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+
+        if not rows:
+            print("No experiments found.")
+            sys.exit(0)
+
+        # display
+        print(f"{'ID':<10} {'Type':<14} {'Shortname':<24} {'Status':<10} {'Started'}")
+        print("-" * 72)
+        for eid, etype, sname, status, started in rows:
+            print(f"{eid:<10} {etype:<14} {sname:<24} {status:<10} {started}")
+
+        print()
+        print(f"{len(rows)} experiment{'s' if len(rows) != 1 else ''}")
+
     else:
         print(f"Unknown subcommand: exp {subcommand}")
         print("Run 'python lw.py exp' for usage.")
