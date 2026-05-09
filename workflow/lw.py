@@ -145,9 +145,13 @@ if not args:
     print()
     print("Commands:")
     print("  init              Bootstrap lab directory and database")
+    print("  exp init <type> <shortname>   Create new experiment")
+    print("  exp show <id>                 Show experiment details")
     sys.exit(0)
 
 command = args[0]
+subcommand = args[1] if len(args) > 1 else None
+pos_args = args[2:]
 
 # ============================================================
 # SECTION 3: DATABASE CONNECTION
@@ -208,6 +212,172 @@ if command == "init":
 
     print()
     print("Lab initialized. Ready for experiments.")
+
+# --- lw exp ---
+elif command == "exp":
+    if not subcommand:
+        print("Usage: python lw.py exp <subcommand>")
+        print("  init <type> <shortname>   Create new experiment")
+        print("  show <id>                 Show experiment details")
+        sys.exit(0)
+
+    # --- lw exp init <type> <shortname> ---
+    if subcommand == "init":
+        if len(pos_args) != 2:
+            print("Usage: python lw.py exp init <type> <shortname>")
+            print(f"Types: {', '.join(VALID_TYPES)}")
+            sys.exit(1)
+
+        exp_type, shortname = pos_args[0], pos_args[1]
+
+        # validate type
+        if exp_type not in VALID_TYPES:
+            print(f"Unknown experiment type: '{exp_type}'")
+            print(f"Valid types: {', '.join(VALID_TYPES)}")
+            sys.exit(1)
+
+        # validate shortname: lowercase alphanumeric and hyphens only
+        if not all(c.isalnum() or c == "-" for c in shortname) or not shortname[0].isalnum():
+            print("Invalid shortname. Use lowercase letters, digits, and hyphens only.")
+            print("Must start with a letter or digit.")
+            sys.exit(1)
+        shortname = shortname.lower()
+
+        # read and increment counter
+        with open(COUNTER_FILE, "r") as f:
+            counter = int(f.read().strip())
+        exp_id = f"LM-{counter:04d}"
+
+        # build folder name
+        today_compact = datetime.date.today().strftime("%Y%m%d")
+        today_sql = datetime.date.today().strftime("%Y-%m-%d")
+        cat_code = CATEGORY_CODES[exp_type]
+        folder_name = f"{today_compact}_{exp_id}_{cat_code}_{shortname}"
+        folder_path = os.path.join(EXPERIMENTS_DIR, folder_name)
+
+        # guard: folder shouldn't exist
+        if os.path.exists(folder_path):
+            print(f"Error: Folder already exists: {folder_path}")
+            print("Counter may be out of sync. Check counter.txt.")
+            sys.exit(1)
+
+        # create folder
+        os.makedirs(folder_path)
+
+        # insert record
+        cursor.execute(
+            "INSERT INTO experiments (id, type, title, shortname, date_started, status, folder_name) VALUES (?, ?, ?, ?, ?, 'active', ?)",
+            (exp_id, exp_type, shortname, shortname, today_sql, folder_name),
+        )
+
+        # increment counter
+        with open(COUNTER_FILE, "w") as f:
+            f.write(str(counter + 1))
+
+        print(f"Created: {exp_id}")
+        print(f"Folder:  {folder_name}/")
+        print(f"Type:    {exp_type}")
+
+    # --- lw exp show <id> ---
+    elif subcommand == "show":
+        if len(pos_args) != 1:
+            print("Usage: python lw.py exp show <id>")
+            print("  Accepts 'LM-0001' or just '1'")
+            sys.exit(1)
+
+        raw_id = pos_args[0]
+
+        # normalize: accept "1", "0001", "LM-0001"
+        if raw_id.upper().startswith("LM-"):
+            exp_id = raw_id.upper()
+        else:
+            try:
+                exp_id = f"LM-{int(raw_id):04d}"
+            except ValueError:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                sys.exit(1)
+
+        # query experiment
+        cursor.execute("SELECT * FROM experiments WHERE id = ?", (exp_id,))
+        row = cursor.fetchone()
+        if not row:
+            print(f"No experiment found with ID {exp_id}")
+            sys.exit(1)
+
+        col_names = [d[0] for d in cursor.description]
+        exp = dict(zip(col_names, row))
+
+        # display
+        fields = [
+            ("ID", exp["id"]),
+            ("Type", exp["type"]),
+            ("Title", exp["title"]),
+            ("Shortname", exp["shortname"]),
+            ("Date started", exp["date_started"]),
+            ("Date completed", exp["date_completed"]),
+            ("Status", exp["status"]),
+            ("Folder", exp["folder_name"] + "/"),
+            ("Protocol", exp["protocol_id"]),
+            ("Notes", exp["notes"]),
+        ]
+
+        label_width = max(len(f[0]) for f in fields)
+        for label, val in fields:
+            print(f"  {label + ':':<{label_width + 2}} {val if val else '-'}")
+
+        # linked strains
+        cursor.execute(
+            "SELECT strain_id, role FROM experiment_strains WHERE experiment_id = ?",
+            (exp_id,),
+        )
+        strains = cursor.fetchall()
+        if strains:
+            print()
+            print("  Strains:")
+            for sid, role in strains:
+                role_str = f" ({role})" if role else ""
+                print(f"    {sid}{role_str}")
+
+        # linked experiments
+        cursor.execute(
+            "SELECT to_experiment, relationship FROM experiment_links WHERE from_experiment = ?",
+            (exp_id,),
+        )
+        links_out = cursor.fetchall()
+        cursor.execute(
+            "SELECT from_experiment, relationship FROM experiment_links WHERE to_experiment = ?",
+            (exp_id,),
+        )
+        links_in = cursor.fetchall()
+        if links_out or links_in:
+            print()
+            print("  Links:")
+            for target, rel in links_out:
+                print(f"     {target} ({rel})")
+            for source, rel in links_in:
+                print(f"     {source} ({rel})")
+
+        # files
+        cursor.execute(
+            "SELECT filename, file_type, description FROM files WHERE experiment_id = ?",
+            (exp_id,),
+        )
+        exp_files = cursor.fetchall()
+        if exp_files:
+            print()
+            print("  Files:")
+            for fname, ftype, desc in exp_files:
+                parts = [fname]
+                if ftype:
+                    parts.append(f"[{ftype}]")
+                if desc:
+                    parts.append(desc)
+                print(f"    {' '.join(parts)}")
+
+    else:
+        print(f"Unknown subcommand: exp {subcommand}")
+        print("Run 'python lw.py exp' for usage.")
+        sys.exit(1)
 
 # --- unknown command ---
 else:
