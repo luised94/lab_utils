@@ -5,6 +5,7 @@ import sqlite3
 import sys
 import os
 import datetime
+import shutil
 
 # ============================================================
 # SECTION 1: CONFIGURATION
@@ -154,6 +155,8 @@ if not args:
     print("  exp complete <id>             Mark experiment done")
     print("  exp link <from> <to> <rel>    Link two experiments")
     print("  exp addstrain <exp> <strain>  Associate strain with experiment")
+    print("  stage list                    Show files in staging")
+    print("  stage assign <f> <exp> <desc> Rename, move, and register file")
     sys.exit(0)
 
 command = args[0]
@@ -709,6 +712,118 @@ elif command == "strain":
     else:
         print(f"Unknown subcommand: strain {subcommand}")
         print("Run 'python lw.py strain' for usage.")
+        sys.exit(1)
+
+# --- lw stage ---
+elif command == "stage":
+    if not subcommand:
+        print("Usage: python lw.py stage <subcommand>")
+        print("  list                          Show files in staging/")
+        print("  assign <file> <exp_id> <desc> Rename, move, and register")
+        sys.exit(0)
+
+    # --- lw stage list ---
+    if subcommand == "list":
+        if not os.path.exists(STAGING_DIR):
+            print("Staging directory does not exist.")
+            sys.exit(1)
+
+        files = [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
+        if not files:
+            print("Staging is empty.")
+            sys.exit(0)
+
+        # load known experiment IDs for matching
+        cursor.execute("SELECT id, folder_name FROM experiments")
+        experiments = cursor.fetchall()
+
+        print(f"Staging ({len(files)} files):")
+        print()
+        for fname in sorted(files):
+            size = os.path.getsize(os.path.join(STAGING_DIR, fname))
+            if size > 1024 * 1024:
+                size_str = f"{size / (1024 * 1024):.1f} MB"
+            elif size > 1024:
+                size_str = f"{size / 1024:.1f} KB"
+            else:
+                size_str = f"{size} B"
+
+            # check if filename contains any known experiment ID
+            matches = [eid for eid, _ in experiments if eid in fname]
+            match_str = f"   {', '.join(matches)}" if matches else ""
+
+            print(f"  {fname:<40} {size_str:>10}{match_str}")
+
+    # --- lw stage assign <filename> <exp_id> <descriptor> ---
+    elif subcommand == "assign":
+        if len(pos_args) < 3:
+            print("Usage: python lw.py stage assign <filename> <exp_id> <descriptor>")
+            print("  Example: python lw.py stage assign Image_001.tiff LM-0001 gel-01")
+            sys.exit(1)
+
+        src_name, raw_id, descriptor = pos_args[0], pos_args[1], pos_args[2]
+
+        # validate source file exists
+        src_path = os.path.join(STAGING_DIR, src_name)
+        if not os.path.exists(src_path):
+            print(f"File not found in staging: {src_name}")
+            # list what's there
+            files = [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
+            if files:
+                print("Available files:")
+                for f in sorted(files):
+                    print(f"  {f}")
+            sys.exit(1)
+
+        # normalize experiment ID
+        if raw_id.upper().startswith("LM-"):
+            exp_id = raw_id.upper()
+        else:
+            try:
+                exp_id = f"LM-{int(raw_id):04d}"
+            except ValueError:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                sys.exit(1)
+
+        # validate experiment exists and get folder
+        cursor.execute("SELECT folder_name FROM experiments WHERE id = ?", (exp_id,))
+        row = cursor.fetchone()
+        if not row:
+            print(f"No experiment found with ID {exp_id}")
+            sys.exit(1)
+        folder_name = row[0]
+
+        # build new filename
+        today_compact = datetime.date.today().strftime("%Y%m%d")
+        _, ext = os.path.splitext(src_name)
+        ext = ext.lower()
+        new_name = f"{today_compact}_{exp_id}_{descriptor}{ext}"
+
+        # build destination path
+        dest_dir = os.path.join(EXPERIMENTS_DIR, folder_name)
+        dest_path = os.path.join(dest_dir, new_name)
+
+        if os.path.exists(dest_path):
+            print(f"Destination already exists: {new_name}")
+            print("Use a different descriptor.")
+            sys.exit(1)
+
+        # move file
+        shutil.move(src_path, dest_path)
+
+        # register in files table (path relative to LAB_ROOT)
+        rel_path = os.path.join("experiments", folder_name, new_name)
+        cursor.execute(
+            "INSERT INTO files (experiment_id, filename, file_type) VALUES (?, ?, ?)",
+            (exp_id, rel_path, None),
+        )
+
+        print(f"Filed: {src_name}")
+        print(f"     {rel_path}")
+
+    else:
+        print(f"Unknown subcommand: stage {subcommand}")
+        print("Run 'python lw.py stage' for usage.")
         sys.exit(1)
 
 # --- unknown command ---
