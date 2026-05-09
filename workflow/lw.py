@@ -368,10 +368,13 @@ elif command == "exp":
             old_row = cursor.fetchone()
             old_val = old_row[0] if old_row else None
 
-            # notes fields append with timestamp; everything else overwrites
-            if field == "notes" and old_val:
+            # notes fields: always prefix with timestamp, append if existing
+            if field == "notes":
                 today = datetime.date.today().strftime("%Y-%m-%d")
-                value = old_val + f"\n[{today}] " + value
+                if old_val:
+                    value = old_val + f"\n[{today}] " + value
+                else:
+                    value = f"[{today}] " + value
 
             cursor.execute(
                 f"UPDATE {target_table} SET {field} = ? WHERE {id_col} = ?",
@@ -629,6 +632,38 @@ elif command == "exp":
                     parts.append(desc)
                 print(f"    {' '.join(parts)}")
 
+        # purification details
+        cursor.execute(
+            "SELECT * FROM purification_details WHERE experiment_id = ?",
+            (exp_id,),
+        )
+        pur_row = cursor.fetchone()
+        if pur_row:
+            pur_cols = [d[0] for d in cursor.description]
+            pur = dict(zip(pur_cols, pur_row))
+            print()
+            print("  Purification details:")
+            for k, v in pur.items():
+                if k == "experiment_id" or v is None:
+                    continue
+                print(f"    {k}: {v}")
+
+        # assay details
+        cursor.execute(
+            "SELECT * FROM assay_details WHERE experiment_id = ?",
+            (exp_id,),
+        )
+        assay_row = cursor.fetchone()
+        if assay_row:
+            assay_cols = [d[0] for d in cursor.description]
+            assay = dict(zip(assay_cols, assay_row))
+            print()
+            print("  Assay details:")
+            for k, v in assay.items():
+                if k == "experiment_id" or v is None:
+                    continue
+                print(f"    {k}: {v}")
+
     # --- lw exp delete <id> [--confirm] [--keep-folder] ---
     elif subcommand == "delete":
         if len(pos_args) < 1:
@@ -882,10 +917,13 @@ elif command == "strain":
         cursor.execute(f"SELECT {field} FROM strains WHERE id = ?", (strain_id,))
         old_val = cursor.fetchone()[0]
 
-        # notes appends with timestamp; everything else overwrites
-        if field == "notes" and old_val:
+        # notes: always prefix with timestamp, append if existing
+        if field == "notes":
             today = datetime.date.today().strftime("%Y-%m-%d")
-            value = old_val + f"\n[{today}] " + value
+            if old_val:
+                value = old_val + f"\n[{today}] " + value
+            else:
+                value = f"[{today}] " + value
 
         cursor.execute(f"UPDATE strains SET {field} = ? WHERE id = ?", (value, strain_id))
         print(f"Updated {strain_id}")
