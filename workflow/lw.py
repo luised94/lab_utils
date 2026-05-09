@@ -155,6 +155,7 @@ if not args:
     print("  exp complete <id>             Mark experiment done")
     print("  exp link <from> <to> <rel>    Link two experiments")
     print("  exp addstrain <exp> <strain>  Associate strain with experiment")
+    print("  exp delete <id>               Dry-run delete (--confirm to execute)")
     print("  stage list                    Show files in staging")
     print("  stage assign <f> <exp> <desc> Rename, move, and register file")
     sys.exit(0)
@@ -627,6 +628,142 @@ elif command == "exp":
                     parts.append(desc)
                 print(f"    {' '.join(parts)}")
 
+    # --- lw exp delete <id> [--confirm] [--keep-folder] ---
+    elif subcommand == "delete":
+        if len(pos_args) < 1:
+            print("Usage: python lw.py exp delete <id> [--confirm] [--keep-folder]")
+            print("  Without --confirm: dry run (shows what would be deleted)")
+            sys.exit(1)
+
+        raw_id = pos_args[0]
+        confirm = "--confirm" in pos_args
+        keep_folder = "--keep-folder" in pos_args
+
+        # normalize ID
+        if raw_id.upper().startswith("LM-"):
+            exp_id = raw_id.upper()
+        else:
+            try:
+                exp_id = f"LM-{int(raw_id):04d}"
+            except ValueError:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                sys.exit(1)
+
+        # verify experiment exists
+        cursor.execute("SELECT * FROM experiments WHERE id = ?", (exp_id,))
+        row = cursor.fetchone()
+        if not row:
+            print(f"No experiment found with ID {exp_id}")
+            sys.exit(1)
+
+        col_names = [d[0] for d in cursor.description]
+        exp = dict(zip(col_names, row))
+
+        # gather cascade targets
+        cascade = []
+
+        cursor.execute(
+            "SELECT strain_id, role FROM experiment_strains WHERE experiment_id = ?",
+            (exp_id,),
+        )
+        es_rows = cursor.fetchall()
+        if es_rows:
+            cascade.append(("experiment_strains", len(es_rows),
+                [f"  {sid}" + (f" ({role})" if role else "") for sid, role in es_rows]))
+
+        cursor.execute(
+            "SELECT from_experiment, to_experiment, relationship FROM experiment_links "
+            "WHERE from_experiment = ? OR to_experiment = ?",
+            (exp_id, exp_id),
+        )
+        el_rows = cursor.fetchall()
+        if el_rows:
+            cascade.append(("experiment_links", len(el_rows),
+                [f"  {fr} -> {to} ({rel})" for fr, to, rel in el_rows]))
+
+        cursor.execute(
+            "SELECT filename FROM files WHERE experiment_id = ?",
+            (exp_id,),
+        )
+        f_rows = cursor.fetchall()
+        if f_rows:
+            cascade.append(("files", len(f_rows),
+                [f"  {fn}" for (fn,) in f_rows]))
+
+        cursor.execute(
+            "SELECT experiment_id FROM purification_details WHERE experiment_id = ?",
+            (exp_id,),
+        )
+        if cursor.fetchone():
+            cascade.append(("purification_details", 1, []))
+
+        cursor.execute(
+            "SELECT experiment_id FROM assay_details WHERE experiment_id = ?",
+            (exp_id,),
+        )
+        if cursor.fetchone():
+            cascade.append(("assay_details", 1, []))
+
+        cursor.execute(
+            "SELECT id, figure, panel FROM figure_panels WHERE experiment_id = ?",
+            (exp_id,),
+        )
+        fp_rows = cursor.fetchall()
+        if fp_rows:
+            cascade.append(("figure_panels", len(fp_rows),
+                [f"  {fig} panel {pan}" for _, fig, pan in fp_rows]))
+
+        # folder
+        folder_path = os.path.join(EXPERIMENTS_DIR, exp["folder_name"])
+        folder_exists = os.path.exists(folder_path)
+        folder_contents = os.listdir(folder_path) if folder_exists else []
+
+        # print summary
+        mode = "DELETE" if confirm else "DRY RUN"
+        print(f"[{mode}] {exp_id}: {exp['type']} / {exp['shortname']} ({exp['status']})")
+        print(f"  Folder: {exp['folder_name']}/ ({'exists' if folder_exists else 'missing'}"
+              + (f", {len(folder_contents)} files" if folder_contents else "") + ")")
+
+        if cascade:
+            print()
+            print("  Related records:")
+            for table, count, details in cascade:
+                print(f"    {table}: {count} row{'s' if count != 1 else ''}")
+                for d in details:
+                    print(f"      {d}")
+
+        if not confirm:
+            print()
+            print(f"  This is a dry run. To delete, run:")
+            print(f"    python lw.py exp delete {exp_id} --confirm")
+            if folder_exists:
+                print(f"    python lw.py exp delete {exp_id} --confirm --keep-folder  (keep files)")
+            sys.exit(0)
+
+        # --- actual deletion ---
+        cursor.execute("DELETE FROM figure_panels WHERE experiment_id = ?", (exp_id,))
+        cursor.execute("DELETE FROM files WHERE experiment_id = ?", (exp_id,))
+        cursor.execute("DELETE FROM assay_details WHERE experiment_id = ?", (exp_id,))
+        cursor.execute("DELETE FROM purification_details WHERE experiment_id = ?", (exp_id,))
+        cursor.execute("DELETE FROM experiment_strains WHERE experiment_id = ?", (exp_id,))
+        cursor.execute(
+            "DELETE FROM experiment_links WHERE from_experiment = ? OR to_experiment = ?",
+            (exp_id, exp_id),
+        )
+        cursor.execute("DELETE FROM experiments WHERE id = ?", (exp_id,))
+
+        total_rows = sum(c for _, c, _ in cascade) + 1  # +1 for experiments row
+        print()
+        print(f"  Deleted {total_rows} database row{'s' if total_rows != 1 else ''}")
+
+        if folder_exists and not keep_folder:
+            shutil.rmtree(folder_path)
+            print(f"  Removed folder: {exp['folder_name']}/")
+        elif folder_exists and keep_folder:
+            print(f"  Folder kept: {exp['folder_name']}/")
+
+        print()
+        print(f"Deleted: {exp_id}")
     else:
         print(f"Unknown subcommand: exp {subcommand}")
         print("Run 'python lw.py exp' for usage.")
