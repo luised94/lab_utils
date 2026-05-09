@@ -60,7 +60,9 @@ print("=" * 60)
 
 if not INPUT_DIRECTORY.exists():
     print(f"ERROR: Input directory '{INPUT_DIRECTORY}' does not exist.")
-    print("Create the directory and export PDFs from Illustrator before running this script.")
+    print(
+        "Create the directory and export PDFs from Illustrator before running this script."
+    )
     sys.exit(1)
 
 if not INPUT_DIRECTORY.is_dir():
@@ -99,7 +101,9 @@ for pdf_file_path in pdf_file_paths:
 
 
 if len(non_matching_filenames) > 0:
-    print(f"NOTE: {len(non_matching_filenames)} file(s) do not match the expected pattern and will be skipped:")
+    print(
+        f"NOTE: {len(non_matching_filenames)} file(s) do not match the expected pattern and will be skipped:"
+    )
     print(f"  Pattern: {{FigureID}}_src-panel_raw-image_{{NN}}.pdf")
     for skipped_filename in non_matching_filenames:
         print(f"  - {skipped_filename}")
@@ -170,7 +174,9 @@ for pdf_file_path in pdf_file_paths:
 
     if page_count != 1:
         print(f"ERROR: '{pdf_file_path.name}' has {page_count} pages (expected 1).")
-        print("Each Illustrator file should have a single artboard exported as a single-page PDF.")
+        print(
+            "Each Illustrator file should have a single artboard exported as a single-page PDF."
+        )
         sys.exit(1)
 
 print("All PDFs are readable and contain exactly 1 page each.")
@@ -210,7 +216,9 @@ for page_index, pdf_file_path in enumerate(sorted_pdf_file_paths):
     page = reader.pages[0]
     writer.add_page(page)
     current_page_number = page_index + 1
-    if current_page_number % 10 == 0 or current_page_number == len(sorted_pdf_file_paths):
+    if current_page_number % 10 == 0 or current_page_number == len(
+        sorted_pdf_file_paths
+    ):
         print(f"  Merged {current_page_number}/{len(sorted_pdf_file_paths)} pages...")
 
 with open(OUTPUT_FILENAME, "wb") as output_file:

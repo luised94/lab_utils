@@ -10,6 +10,7 @@ import shutil
 import itertools
 import csv
 import json
+
 # ============================================================
 # SECTION 1: CONFIGURATION
 # ============================================================
@@ -198,7 +199,9 @@ if command == "init":
     conn.close()
     conn = None
     print(f"Created database at {DB_PATH}")
-    print(f"Tables: {', '.join(['experiments', 'strains', 'experiment_strains', 'experiment_links', 'files', 'purification_details', 'assay_details', 'figure_panels', 'samples'])}")
+    print(
+        f"Tables: {', '.join(['experiments', 'strains', 'experiment_strains', 'experiment_links', 'files', 'purification_details', 'assay_details', 'figure_panels', 'samples'])}"
+    )
     # seed counter
     if not os.path.exists(COUNTER_FILE):
         with open(COUNTER_FILE, "w") as f:
@@ -236,7 +239,10 @@ elif command == "exp":
             print(f"Valid types: {', '.join(VALID_TYPES)}")
             sys.exit(1)
         # validate shortname: lowercase alphanumeric and hyphens only
-        if not all(c.isalnum() or c == "-" for c in shortname) or not shortname[0].isalnum():
+        if (
+            not all(c.isalnum() or c == "-" for c in shortname)
+            or not shortname[0].isalnum()
+        ):
             print("Invalid shortname. Use lowercase letters, digits, and hyphens only.")
             print("Must start with a letter or digit.")
             sys.exit(1)
@@ -304,13 +310,20 @@ elif command == "exp":
             all_fields = []
             for table in ["experiments", "purification_details", "assay_details"]:
                 cursor.execute(f"PRAGMA table_info({table})")
-                all_fields.extend(r[1] for r in cursor.fetchall() if r[1] not in ("id", "experiment_id", "created_at"))
+                all_fields.extend(
+                    r[1]
+                    for r in cursor.fetchall()
+                    if r[1] not in ("id", "experiment_id", "created_at")
+                )
             print(f"Unknown field: '{field}'")
             print(f"Valid fields: {', '.join(sorted(set(all_fields)))}")
             sys.exit(1)
         # for type-specific tables, ensure row exists
         if target_table in ("purification_details", "assay_details"):
-            cursor.execute(f"SELECT experiment_id FROM {target_table} WHERE experiment_id = ?", (exp_id,))
+            cursor.execute(
+                f"SELECT experiment_id FROM {target_table} WHERE experiment_id = ?",
+                (exp_id,),
+            )
             if not cursor.fetchone():
                 # insert skeleton row
                 if target_table == "purification_details":
@@ -323,7 +336,9 @@ elif command == "exp":
                         print(f"  protein: -  {value}")
                     else:
                         print(f"No purification record for {exp_id}.")
-                        print(f"Set 'protein' first: python lw.py exp update {exp_id} protein <name>")
+                        print(
+                            f"Set 'protein' first: python lw.py exp update {exp_id} protein <name>"
+                        )
                         sys.exit(1)
                     # already inserted, skip the UPDATE below
                     target_table = None
@@ -336,7 +351,9 @@ elif command == "exp":
         if target_table:
             # get old value
             id_col = "id" if target_table == "experiments" else "experiment_id"
-            cursor.execute(f"SELECT {field} FROM {target_table} WHERE {id_col} = ?", (exp_id,))
+            cursor.execute(
+                f"SELECT {field} FROM {target_table} WHERE {id_col} = ?", (exp_id,)
+            )
             old_row = cursor.fetchone()
             old_val = old_row[0] if old_row else None
             # notes fields: always prefix with timestamp, append if existing
@@ -402,8 +419,16 @@ elif command == "exp":
                 except ValueError:
                     print(f"Invalid {label} experiment ID: '{raw}'")
                     sys.exit(1)
-        from_id = raw_from.upper() if raw_from.upper().startswith("LM-") else f"LM-{int(raw_from):04d}"
-        to_id = raw_to.upper() if raw_to.upper().startswith("LM-") else f"LM-{int(raw_to):04d}"
+        from_id = (
+            raw_from.upper()
+            if raw_from.upper().startswith("LM-")
+            else f"LM-{int(raw_from):04d}"
+        )
+        to_id = (
+            raw_to.upper()
+            if raw_to.upper().startswith("LM-")
+            else f"LM-{int(raw_to):04d}"
+        )
         # validate both experiments exist
         for eid in (from_id, to_id):
             cursor.execute("SELECT id FROM experiments WHERE id = ?", (eid,))
@@ -413,7 +438,9 @@ elif command == "exp":
         # warn on unknown relationship (don't block)
         known_rels = ["uses_prep_from", "replicate_of", "follow_up_to"]
         if relationship not in known_rels:
-            print(f"  Note: '{relationship}' is not a standard relationship ({', '.join(known_rels)})")
+            print(
+                f"  Note: '{relationship}' is not a standard relationship ({', '.join(known_rels)})"
+            )
         # check for duplicate
         cursor.execute(
             "SELECT 1 FROM experiment_links WHERE from_experiment = ? AND to_experiment = ?",
@@ -649,8 +676,16 @@ elif command == "exp":
         )
         es_rows = cursor.fetchall()
         if es_rows:
-            cascade.append(("experiment_strains", len(es_rows),
-                [f"  {sid}" + (f" ({role})" if role else "") for sid, role in es_rows]))
+            cascade.append(
+                (
+                    "experiment_strains",
+                    len(es_rows),
+                    [
+                        f"  {sid}" + (f" ({role})" if role else "")
+                        for sid, role in es_rows
+                    ],
+                )
+            )
         cursor.execute(
             "SELECT from_experiment, to_experiment, relationship FROM experiment_links "
             "WHERE from_experiment = ? OR to_experiment = ?",
@@ -658,16 +693,20 @@ elif command == "exp":
         )
         el_rows = cursor.fetchall()
         if el_rows:
-            cascade.append(("experiment_links", len(el_rows),
-                [f"  {fr} -> {to} ({rel})" for fr, to, rel in el_rows]))
+            cascade.append(
+                (
+                    "experiment_links",
+                    len(el_rows),
+                    [f"  {fr} -> {to} ({rel})" for fr, to, rel in el_rows],
+                )
+            )
         cursor.execute(
             "SELECT filename FROM files WHERE experiment_id = ?",
             (exp_id,),
         )
         f_rows = cursor.fetchall()
         if f_rows:
-            cascade.append(("files", len(f_rows),
-                [f"  {fn}" for (fn,) in f_rows]))
+            cascade.append(("files", len(f_rows), [f"  {fn}" for (fn,) in f_rows]))
         cursor.execute(
             "SELECT experiment_id FROM purification_details WHERE experiment_id = ?",
             (exp_id,),
@@ -686,8 +725,13 @@ elif command == "exp":
         )
         fp_rows = cursor.fetchall()
         if fp_rows:
-            cascade.append(("figure_panels", len(fp_rows),
-                [f"  {fig} panel {pan}" for _, fig, pan in fp_rows]))
+            cascade.append(
+                (
+                    "figure_panels",
+                    len(fp_rows),
+                    [f"  {fig} panel {pan}" for _, fig, pan in fp_rows],
+                )
+            )
         cursor.execute(
             "SELECT COUNT(*) FROM samples WHERE experiment_id = ?",
             (exp_id,),
@@ -701,9 +745,14 @@ elif command == "exp":
         folder_contents = os.listdir(folder_path) if folder_exists else []
         # print summary
         mode = "DELETE" if confirm else "DRY RUN"
-        print(f"[{mode}] {exp_id}: {exp['type']} / {exp['shortname']} ({exp['status']})")
-        print(f"  Folder: {exp['folder_name']}/ ({'exists' if folder_exists else 'missing'}"
-              + (f", {len(folder_contents)} files" if folder_contents else "") + ")")
+        print(
+            f"[{mode}] {exp_id}: {exp['type']} / {exp['shortname']} ({exp['status']})"
+        )
+        print(
+            f"  Folder: {exp['folder_name']}/ ({'exists' if folder_exists else 'missing'}"
+            + (f", {len(folder_contents)} files" if folder_contents else "")
+            + ")"
+        )
         if cascade:
             print()
             print("  Related records:")
@@ -716,15 +765,21 @@ elif command == "exp":
             print(f"  This is a dry run. To delete, run:")
             print(f"    python lw.py exp delete {exp_id} --confirm")
             if folder_exists:
-                print(f"    python lw.py exp delete {exp_id} --confirm --keep-folder  (keep files)")
+                print(
+                    f"    python lw.py exp delete {exp_id} --confirm --keep-folder  (keep files)"
+                )
             sys.exit(0)
         # --- actual deletion ---
         cursor.execute("DELETE FROM samples WHERE experiment_id = ?", (exp_id,))
         cursor.execute("DELETE FROM figure_panels WHERE experiment_id = ?", (exp_id,))
         cursor.execute("DELETE FROM files WHERE experiment_id = ?", (exp_id,))
         cursor.execute("DELETE FROM assay_details WHERE experiment_id = ?", (exp_id,))
-        cursor.execute("DELETE FROM purification_details WHERE experiment_id = ?", (exp_id,))
-        cursor.execute("DELETE FROM experiment_strains WHERE experiment_id = ?", (exp_id,))
+        cursor.execute(
+            "DELETE FROM purification_details WHERE experiment_id = ?", (exp_id,)
+        )
+        cursor.execute(
+            "DELETE FROM experiment_strains WHERE experiment_id = ?", (exp_id,)
+        )
         cursor.execute(
             "DELETE FROM experiment_links WHERE from_experiment = ? OR to_experiment = ?",
             (exp_id, exp_id),
@@ -849,7 +904,9 @@ elif command == "exp":
                 print(f"Error: DESIGN missing required key '{key}'")
                 sys.exit(1)
         if design["experiment_id"] != exp_id:
-            print(f"Error: DESIGN experiment_id '{design['experiment_id']}' does not match {exp_id}")
+            print(
+                f"Error: DESIGN experiment_id '{design['experiment_id']}' does not match {exp_id}"
+            )
             sys.exit(1)
         # validate sort_order matches category keys
         cat_keys = set(design["categories"].keys())
@@ -860,10 +917,14 @@ elif command == "exp":
             if missing:
                 print(f"Error: sort_order missing categories: {', '.join(missing)}")
             if extra:
-                print(f"Error: sort_order references unknown categories: {', '.join(extra)}")
+                print(
+                    f"Error: sort_order references unknown categories: {', '.join(extra)}"
+                )
             sys.exit(1)
         # check for existing samples
-        cursor.execute("SELECT COUNT(*) FROM samples WHERE experiment_id = ?", (exp_id,))
+        cursor.execute(
+            "SELECT COUNT(*) FROM samples WHERE experiment_id = ?", (exp_id,)
+        )
         existing = cursor.fetchone()[0]
         if existing > 0:
             if not force:
@@ -909,14 +970,16 @@ elif command == "exp":
             if not lbl and sid:
                 lbl = strain_labels.get(sid, sid)
             conditions = dict(extra)  # copy all fields into conditions
-            samples.append({
-                "position": pos,
-                "sample_type": "extra",
-                "strain_id": sid,
-                "dna": extra.get("dna"),
-                "label": lbl,
-                "conditions": conditions,
-            })
+            samples.append(
+                {
+                    "position": pos,
+                    "sample_type": "extra",
+                    "strain_id": sid,
+                    "dna": extra.get("dna"),
+                    "label": lbl,
+                    "conditions": conditions,
+                }
+            )
             pos += 1
         n_extras = len(samples)
         # --- generate factorial cross ---
@@ -933,6 +996,7 @@ elif command == "exp":
                     break
             if not excluded:
                 factorial_rows.append(row)
+
         # sort by sort_order using category-level ordering
         def sort_key(row):
             keys = []
@@ -944,6 +1008,7 @@ elif command == "exp":
                 except ValueError:
                     keys.append(len(vals))
             return tuple(keys)
+
         factorial_rows.sort(key=sort_key)
         # build sample records
         for row in factorial_rows:
@@ -954,14 +1019,16 @@ elif command == "exp":
             else:
                 db_strain_id = sid
                 lbl = strain_labels.get(sid, sid)
-            samples.append({
-                "position": pos,
-                "sample_type": "factorial",
-                "strain_id": db_strain_id,
-                "dna": row.get("dna"),
-                "label": lbl,
-                "conditions": row,
-            })
+            samples.append(
+                {
+                    "position": pos,
+                    "sample_type": "factorial",
+                    "strain_id": db_strain_id,
+                    "dna": row.get("dna"),
+                    "label": lbl,
+                    "conditions": row,
+                }
+            )
             pos += 1
         n_factorial = len(samples) - n_extras
         n_total = len(samples)
@@ -978,14 +1045,23 @@ elif command == "exp":
             print()
             print("Check your categories, excludes, and expected_samples.")
             sys.exit(1)
-        print(f"Generated {n_extras} extras + {n_factorial} factorial = {n_total} samples (expected {expected})")
+        print(
+            f"Generated {n_extras} extras + {n_factorial} factorial = {n_total} samples (expected {expected})"
+        )
         # --- insert into database ---
         for s in samples:
             cursor.execute(
                 "INSERT INTO samples (experiment_id, position, sample_type, strain_id, dna, label, conditions) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (exp_id, s["position"], s["sample_type"], s["strain_id"],
-                 s["dna"], s["label"], json.dumps(s["conditions"])),
+                (
+                    exp_id,
+                    s["position"],
+                    s["sample_type"],
+                    s["strain_id"],
+                    s["dna"],
+                    s["label"],
+                    json.dumps(s["conditions"]),
+                ),
             )
         # --- determine display columns ---
         # categories except "strain" (shown as strain_id column already)
@@ -1017,7 +1093,9 @@ elif command == "exp":
             print(line)
         # --- write manifest.csv ---
         csv_path = os.path.join(folder_path, "manifest.csv")
-        csv_columns = ["position", "sample_type", "strain_id", "label"] + cat_display + extra_keys
+        csv_columns = (
+            ["position", "sample_type", "strain_id", "label"] + cat_display + extra_keys
+        )
         with open(csv_path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(csv_columns)
@@ -1078,7 +1156,9 @@ elif command == "strain":
                 value = old_val + f"\n[{today}] " + value
             else:
                 value = f"[{today}] " + value
-        cursor.execute(f"UPDATE strains SET {field} = ? WHERE id = ?", (value, strain_id))
+        cursor.execute(
+            f"UPDATE strains SET {field} = ? WHERE id = ?", (value, strain_id)
+        )
         print(f"Updated {strain_id}")
         if field == "notes":
             print(f"  {field}: appended entry")
@@ -1088,7 +1168,9 @@ elif command == "strain":
     if subcommand == "add":
         if len(pos_args) < 2:
             print("Usage: python lw.py strain add <id> <genotype>")
-            print('  Example: python lw.py strain add LY456 "MATa orc4-R267A::KanMX ura3 leu2 trp1 his3"')
+            print(
+                '  Example: python lw.py strain add LY456 "MATa orc4-R267A::KanMX ura3 leu2 trp1 his3"'
+            )
             sys.exit(1)
         strain_id = pos_args[0]
         genotype = pos_args[1]

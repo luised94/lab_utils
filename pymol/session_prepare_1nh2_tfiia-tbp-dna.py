@@ -29,10 +29,10 @@ PDB_CODE = "1nh2"
 
 # Chain colors (customize per structure)
 CHAIN_COLORS = {
-    "A": "yellow",    # TBP
-    "B": "marine",    # TOA1
-    "C": "marine",    # TOA1 second chain
-    "D": "green",     # TOA2
+    "A": "yellow",  # TBP
+    "B": "marine",  # TOA1
+    "C": "marine",  # TOA1 second chain
+    "D": "green",  # TOA2
 }
 
 # Selection parameters

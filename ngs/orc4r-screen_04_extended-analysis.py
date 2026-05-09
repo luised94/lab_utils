@@ -72,29 +72,50 @@ HIT_BAM_TEMPLATE = "Exp_{experiment_number}_hit_sorted.bam"
 CTRL_BAM_TEMPLATE = "Exp_{experiment_number}_ctrl_sorted.bam"
 
 REFERENCE_CHROMOSOMES = [
-    "chrI",    "chrII",   "chrIII",  "chrIV",
-    "chrV",    "chrVI",   "chrVII",  "chrVIII",
-    "chrIX",   "chrX",    "chrXI",   "chrXII",
-    "chrXIII", "chrXIV",  "chrXV",   "chrXVI",
+    "chrI",
+    "chrII",
+    "chrIII",
+    "chrIV",
+    "chrV",
+    "chrVI",
+    "chrVII",
+    "chrVIII",
+    "chrIX",
+    "chrX",
+    "chrXI",
+    "chrXII",
+    "chrXIII",
+    "chrXIV",
+    "chrXV",
+    "chrXVI",
 ]
 
 ROMAN_NUMERALS = [
-    "I", "II", "III", "IV", "V", "VI", "VII", "VIII",
-    "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI",
+    "I",
+    "II",
+    "III",
+    "IV",
+    "V",
+    "VI",
+    "VII",
+    "VIII",
+    "IX",
+    "X",
+    "XI",
+    "XII",
+    "XIII",
+    "XIV",
+    "XV",
+    "XVI",
 ]
 
 KNOWN_CHROMOSOME_CONVENTIONS = {
     "numeric": {
-        str(i): f"chr{roman}"
-        for i, roman in enumerate(ROMAN_NUMERALS, start=1)
+        str(i): f"chr{roman}" for i, roman in enumerate(ROMAN_NUMERALS, start=1)
     },
-    "roman_no_prefix": {
-        roman: f"chr{roman}"
-        for roman in ROMAN_NUMERALS
-    },
+    "roman_no_prefix": {roman: f"chr{roman}" for roman in ROMAN_NUMERALS},
     "chr_numeric": {
-        f"chr{i}": f"chr{roman}"
-        for i, roman in enumerate(ROMAN_NUMERALS, start=1)
+        f"chr{i}": f"chr{roman}" for i, roman in enumerate(ROMAN_NUMERALS, start=1)
     },
 }
 
@@ -184,7 +205,9 @@ if run_indels:
     missing_bam_files = []
     for experiment_number in experiment_numbers:
         for template in [HIT_BAM_TEMPLATE, CTRL_BAM_TEMPLATE]:
-            bam_path = DATA_DIRECTORY / template.format(experiment_number=experiment_number)
+            bam_path = DATA_DIRECTORY / template.format(
+                experiment_number=experiment_number
+            )
             if not bam_path.exists():
                 missing_bam_files.append(bam_path.name)
 
@@ -199,7 +222,9 @@ if run_indels:
     newly_indexed = 0
     for experiment_number in experiment_numbers:
         for template in [HIT_BAM_TEMPLATE, CTRL_BAM_TEMPLATE]:
-            bam_path = DATA_DIRECTORY / template.format(experiment_number=experiment_number)
+            bam_path = DATA_DIRECTORY / template.format(
+                experiment_number=experiment_number
+            )
             bai_path = pathlib.Path(str(bam_path) + ".bai")
             if not bai_path.exists():
                 print(f"  [INDEXING] {bam_path.name} ...")
@@ -231,7 +256,9 @@ if run_indels:
                 print(f"  [OK] BAM uses '{conv_name}' names - auto-mapped")
                 break
         if bam_to_reference_map is None:
-            sys.exit(f"[ERROR] Unrecognized BAM chromosome names: {sorted(bam_contig_names)[:10]}")
+            sys.exit(
+                f"[ERROR] Unrecognized BAM chromosome names: {sorted(bam_contig_names)[:10]}"
+            )
 
     reference_to_bam_chromosome_map = {v: k for k, v in bam_to_reference_map.items()}
 
@@ -296,18 +323,20 @@ print()
 # Shared helpers
 # =============================================================================
 
+
 def find_overlapping_genes(chromosome, region_start, region_end):
     """Return list of gene symbols overlapping a genomic region."""
     chrom_genes = gene_coordinates_by_chromosome.get(chromosome, pandas.DataFrame())
     if len(chrom_genes) == 0:
         return []
     overlapping = chrom_genes[
-        (chrom_genes["start"] < region_end)
-        & (chrom_genes["end"] > region_start)
+        (chrom_genes["start"] < region_end) & (chrom_genes["end"] > region_start)
     ]
     symbols = []
     for _, gene in overlapping.iterrows():
-        name = gene.get("gene_symbol") or gene.get("gene_name") or gene.get("gene_alias")
+        name = (
+            gene.get("gene_symbol") or gene.get("gene_name") or gene.get("gene_alias")
+        )
         if pandas.notna(name):
             symbols.append(name)
     return symbols
@@ -324,7 +353,12 @@ def find_gene_at_position(chromosome, position):
     if len(overlapping) == 0:
         return None
     first = overlapping.iloc[0]
-    return first.get("gene_symbol") or first.get("gene_name") or first.get("gene_alias") or None
+    return (
+        first.get("gene_symbol")
+        or first.get("gene_name")
+        or first.get("gene_alias")
+        or None
+    )
 
 
 def cluster_positions(positions, max_gap):
@@ -370,7 +404,9 @@ if run_indels:
 
     try:
         for experiment_number in experiment_numbers:
-            pickle_path = INDEL_PICKLE_DIRECTORY / f"df_indel_exp{experiment_number}.pickle"
+            pickle_path = (
+                INDEL_PICKLE_DIRECTORY / f"df_indel_exp{experiment_number}.pickle"
+            )
 
             if pickle_path.exists():
                 print(f"  [SKIP] Experiment {experiment_number}: cached pickle exists")
@@ -379,8 +415,13 @@ if run_indels:
             print(f"  [PROCESSING] Experiment {experiment_number}")
             sample_dataframes = {}
 
-            for suffix, bam_template in [("hit", HIT_BAM_TEMPLATE), ("ctrl", CTRL_BAM_TEMPLATE)]:
-                bam_path = DATA_DIRECTORY / bam_template.format(experiment_number=experiment_number)
+            for suffix, bam_template in [
+                ("hit", HIT_BAM_TEMPLATE),
+                ("ctrl", CTRL_BAM_TEMPLATE),
+            ]:
+                bam_path = DATA_DIRECTORY / bam_template.format(
+                    experiment_number=experiment_number
+                )
 
                 chromosome_names = []
                 base_positions = []
@@ -399,7 +440,9 @@ if run_indels:
                     else:
                         print(f"    {suffix:<4} | {ref_chrom} (BAM: {bam_chrom})")
 
-                    for pileup_column in bam_file.pileup(contig=bam_chrom, truncate=True):
+                    for pileup_column in bam_file.pileup(
+                        contig=bam_chrom, truncate=True
+                    ):
                         ins_count = 0
                         del_count = 0
                         indel_sizes = []
@@ -428,14 +471,16 @@ if run_indels:
 
                 bam_file.close()
 
-                sample_df = pandas.DataFrame({
-                    "chromosome": chromosome_names,
-                    "base_position": base_positions,
-                    f"coverage_{suffix}": read_coverages,
-                    f"insertion_count_{suffix}": insertion_counts,
-                    f"deletion_count_{suffix}": deletion_counts,
-                    f"dominant_indel_size_{suffix}": dominant_indel_sizes,
-                })
+                sample_df = pandas.DataFrame(
+                    {
+                        "chromosome": chromosome_names,
+                        "base_position": base_positions,
+                        f"coverage_{suffix}": read_coverages,
+                        f"insertion_count_{suffix}": insertion_counts,
+                        f"deletion_count_{suffix}": deletion_counts,
+                        f"dominant_indel_size_{suffix}": dominant_indel_sizes,
+                    }
+                )
 
                 assert len(sample_df) > 0, f"No data from {bam_path.name}."
                 print(f"    {suffix:<4} | {len(sample_df):,} positions extracted")
@@ -478,18 +523,19 @@ if run_indels:
 
         merged["indel_fraction_hit"] = numpy.where(
             merged["coverage_hit"] > 0,
-            (merged["insertion_count_hit"] + merged["deletion_count_hit"]) / merged["coverage_hit"],
+            (merged["insertion_count_hit"] + merged["deletion_count_hit"])
+            / merged["coverage_hit"],
             0.0,
         )
         merged["indel_fraction_ctrl"] = numpy.where(
             merged["coverage_ctrl"] > 0,
-            (merged["insertion_count_ctrl"] + merged["deletion_count_ctrl"]) / merged["coverage_ctrl"],
+            (merged["insertion_count_ctrl"] + merged["deletion_count_ctrl"])
+            / merged["coverage_ctrl"],
             0.0,
         )
 
-        passes_cov = (
-            (merged["coverage_hit"] > MINIMUM_READ_COVERAGE)
-            & (merged["coverage_ctrl"] > MINIMUM_READ_COVERAGE)
+        passes_cov = (merged["coverage_hit"] > MINIMUM_READ_COVERAGE) & (
+            merged["coverage_ctrl"] > MINIMUM_READ_COVERAGE
         )
 
         indel_in_hit = (
@@ -556,12 +602,22 @@ if run_indels:
             all_indel_df.at[idx, "gene_symbol"] = gene or pandas.NA
 
         indel_output_cols = [
-            "experiment", "chromosome", "base_position", "indel_type", "indel_size",
-            "indel_sample", "indel_fraction_hit", "indel_fraction_ctrl",
-            "coverage_hit", "coverage_ctrl", "gene_symbol",
+            "experiment",
+            "chromosome",
+            "base_position",
+            "indel_type",
+            "indel_size",
+            "indel_sample",
+            "indel_fraction_hit",
+            "indel_fraction_ctrl",
+            "coverage_hit",
+            "coverage_ctrl",
+            "gene_symbol",
         ]
         all_indel_df["indel_fraction_hit"] = all_indel_df["indel_fraction_hit"].round(3)
-        all_indel_df["indel_fraction_ctrl"] = all_indel_df["indel_fraction_ctrl"].round(3)
+        all_indel_df["indel_fraction_ctrl"] = all_indel_df["indel_fraction_ctrl"].round(
+            3
+        )
         indel_csv_path = OUTPUT_DIRECTORY / INDEL_CSV_FILENAME
         all_indel_df[indel_output_cols].to_csv(str(indel_csv_path), index=False)
         print(f"  Saved {total_indels} candidates to: {indel_csv_path}")
@@ -587,7 +643,9 @@ if run_structural:
     print()
 
     active_targets = [n for n in experiment_numbers if n in TARGET_EXPERIMENT_NUMBERS]
-    active_background = [n for n in experiment_numbers if n in BACKGROUND_EXPERIMENT_NUMBERS]
+    active_background = [
+        n for n in experiment_numbers if n in BACKGROUND_EXPERIMENT_NUMBERS
+    ]
 
     if len(active_background) == 0:
         print(
@@ -612,7 +670,9 @@ if run_structural:
 
     for experiment_number in experiment_numbers:
         print(f"\n  --- Experiment {experiment_number} ---")
-        exp_label = "TARGET" if experiment_number in TARGET_EXPERIMENT_NUMBERS else "BACKGROUND"
+        exp_label = (
+            "TARGET" if experiment_number in TARGET_EXPERIMENT_NUMBERS else "BACKGROUND"
+        )
         print(f"  ({exp_label})")
 
         merged = pandas.read_pickle(
@@ -620,22 +680,26 @@ if run_structural:
         )
 
         # -- Coverage imbalance --
-        drop_in_hit = (
-            (merged["coverage_ctrl"] > MINIMUM_READ_COVERAGE)
-            & (merged["coverage_hit"] < merged["coverage_ctrl"] * COVERAGE_IMBALANCE_RATIO)
+        drop_in_hit = (merged["coverage_ctrl"] > MINIMUM_READ_COVERAGE) & (
+            merged["coverage_hit"] < merged["coverage_ctrl"] * COVERAGE_IMBALANCE_RATIO
         )
-        drop_in_ctrl = (
-            (merged["coverage_hit"] > MINIMUM_READ_COVERAGE)
-            & (merged["coverage_ctrl"] < merged["coverage_hit"] * COVERAGE_IMBALANCE_RATIO)
+        drop_in_ctrl = (merged["coverage_hit"] > MINIMUM_READ_COVERAGE) & (
+            merged["coverage_ctrl"] < merged["coverage_hit"] * COVERAGE_IMBALANCE_RATIO
         )
 
         for direction, mask in [("hit", drop_in_hit), ("ctrl", drop_in_ctrl)]:
             flagged = merged[mask]
             for chromosome in REFERENCE_CHROMOSOMES:
-                positions = flagged[flagged["chromosome"] == chromosome]["base_position"].sort_values().tolist()
+                positions = (
+                    flagged[flagged["chromosome"] == chromosome]["base_position"]
+                    .sort_values()
+                    .tolist()
+                )
                 if len(positions) == 0:
                     continue
-                for reg_start, reg_end, pos_count in cluster_positions(positions, MAX_REGION_GAP_BP):
+                for reg_start, reg_end, pos_count in cluster_positions(
+                    positions, MAX_REGION_GAP_BP
+                ):
                     reg_length = reg_end - reg_start + 1
                     if reg_length < MINIMUM_REGION_LENGTH_BP:
                         continue
@@ -645,38 +709,46 @@ if run_structural:
                         & (merged["base_position"] <= reg_end)
                     ]
                     genes = find_overlapping_genes(chromosome, reg_start, reg_end)
-                    all_candidate_regions.append({
-                        "experiment": f"Exp_{experiment_number}",
-                        "chromosome": chromosome,
-                        "region_start": reg_start,
-                        "region_end": reg_end,
-                        "region_length_bp": reg_length,
-                        "position_count": pos_count,
-                        "detection_method": "coverage_imbalance",
-                        "affected_sample": direction,
-                        "mean_coverage_hit": round(region_data["coverage_hit"].mean(), 1),
-                        "mean_coverage_ctrl": round(region_data["coverage_ctrl"].mean(), 1),
-                        "genes": ", ".join(genes) if genes else "(intergenic)",
-                    })
+                    all_candidate_regions.append(
+                        {
+                            "experiment": f"Exp_{experiment_number}",
+                            "chromosome": chromosome,
+                            "region_start": reg_start,
+                            "region_end": reg_end,
+                            "region_length_bp": reg_length,
+                            "position_count": pos_count,
+                            "detection_method": "coverage_imbalance",
+                            "affected_sample": direction,
+                            "mean_coverage_hit": round(
+                                region_data["coverage_hit"].mean(), 1
+                            ),
+                            "mean_coverage_ctrl": round(
+                                region_data["coverage_ctrl"].mean(), 1
+                            ),
+                            "genes": ", ".join(genes) if genes else "(intergenic)",
+                        }
+                    )
 
         # -- Mismatch clustering --
         bases_differ = merged["base_value_hit"] != merged["base_value_ctrl"]
-        low_conf = (
-            (merged["confidence_hit"] < MAXIMUM_CLUSTER_CONFIDENCE)
-            | (merged["confidence_ctrl"] < MAXIMUM_CLUSTER_CONFIDENCE)
+        low_conf = (merged["confidence_hit"] < MAXIMUM_CLUSTER_CONFIDENCE) | (
+            merged["confidence_ctrl"] < MAXIMUM_CLUSTER_CONFIDENCE
         )
-        has_cov = (
-            (merged["coverage_hit"] > MINIMUM_READ_COVERAGE)
-            & (merged["coverage_ctrl"] > MINIMUM_READ_COVERAGE)
+        has_cov = (merged["coverage_hit"] > MINIMUM_READ_COVERAGE) & (
+            merged["coverage_ctrl"] > MINIMUM_READ_COVERAGE
         )
         mismatches = merged[bases_differ & low_conf & has_cov]
 
         for chromosome in REFERENCE_CHROMOSOMES:
-            chrom_mm = mismatches[mismatches["chromosome"] == chromosome].sort_values("base_position")
+            chrom_mm = mismatches[mismatches["chromosome"] == chromosome].sort_values(
+                "base_position"
+            )
             if len(chrom_mm) == 0:
                 continue
             positions = chrom_mm["base_position"].tolist()
-            for cl_start, cl_end, cl_count in cluster_positions(positions, MAX_CLUSTER_GAP_BP):
+            for cl_start, cl_end, cl_count in cluster_positions(
+                positions, MAX_CLUSTER_GAP_BP
+            ):
                 if cl_count < MIN_CLUSTER_SIZE:
                     continue
                 cluster_data = chrom_mm[
@@ -684,23 +756,31 @@ if run_structural:
                     & (chrom_mm["base_position"] <= cl_end)
                 ]
                 genes = find_overlapping_genes(chromosome, cl_start, cl_end)
-                all_candidate_regions.append({
-                    "experiment": f"Exp_{experiment_number}",
-                    "chromosome": chromosome,
-                    "region_start": cl_start,
-                    "region_end": cl_end,
-                    "region_length_bp": cl_end - cl_start + 1,
-                    "position_count": cl_count,
-                    "detection_method": "mismatch_cluster",
-                    "affected_sample": "hit",
-                    "mean_coverage_hit": round(cluster_data["coverage_hit"].mean(), 1),
-                    "mean_coverage_ctrl": round(cluster_data["coverage_ctrl"].mean(), 1),
-                    "genes": ", ".join(genes) if genes else "(intergenic)",
-                })
+                all_candidate_regions.append(
+                    {
+                        "experiment": f"Exp_{experiment_number}",
+                        "chromosome": chromosome,
+                        "region_start": cl_start,
+                        "region_end": cl_end,
+                        "region_length_bp": cl_end - cl_start + 1,
+                        "position_count": cl_count,
+                        "detection_method": "mismatch_cluster",
+                        "affected_sample": "hit",
+                        "mean_coverage_hit": round(
+                            cluster_data["coverage_hit"].mean(), 1
+                        ),
+                        "mean_coverage_ctrl": round(
+                            cluster_data["coverage_ctrl"].mean(), 1
+                        ),
+                        "genes": ", ".join(genes) if genes else "(intergenic)",
+                    }
+                )
 
         # -- Positional gaps --
         for chromosome in REFERENCE_CHROMOSOMES:
-            chrom_data = merged[merged["chromosome"] == chromosome].sort_values("base_position")
+            chrom_data = merged[merged["chromosome"] == chromosome].sort_values(
+                "base_position"
+            )
             if len(chrom_data) < 2:
                 continue
             positions = chrom_data["base_position"].values
@@ -711,13 +791,19 @@ if run_structural:
                 gap = positions[i] - positions[i - 1]
                 if gap <= MIN_SUSPICIOUS_GAP_BP:
                     continue
-                before_ok = cov_hit[i-1] > MIN_FLANKING_COVERAGE or cov_ctrl[i-1] > MIN_FLANKING_COVERAGE
-                after_ok = cov_hit[i] > MIN_FLANKING_COVERAGE or cov_ctrl[i] > MIN_FLANKING_COVERAGE
+                before_ok = (
+                    cov_hit[i - 1] > MIN_FLANKING_COVERAGE
+                    or cov_ctrl[i - 1] > MIN_FLANKING_COVERAGE
+                )
+                after_ok = (
+                    cov_hit[i] > MIN_FLANKING_COVERAGE
+                    or cov_ctrl[i] > MIN_FLANKING_COVERAGE
+                )
                 if not (before_ok and after_ok):
                     continue
 
-                avg_hit = (cov_hit[i-1] + cov_hit[i]) / 2
-                avg_ctrl = (cov_ctrl[i-1] + cov_ctrl[i]) / 2
+                avg_hit = (cov_hit[i - 1] + cov_hit[i]) / 2
+                avg_ctrl = (cov_ctrl[i - 1] + cov_ctrl[i]) / 2
                 if avg_hit < avg_ctrl * 0.5:
                     likely = "hit"
                 elif avg_ctrl < avg_hit * 0.5:
@@ -725,20 +811,24 @@ if run_structural:
                 else:
                     likely = "unclear"
 
-                genes = find_overlapping_genes(chromosome, int(positions[i-1]), int(positions[i]))
-                all_candidate_regions.append({
-                    "experiment": f"Exp_{experiment_number}",
-                    "chromosome": chromosome,
-                    "region_start": int(positions[i-1]),
-                    "region_end": int(positions[i]),
-                    "region_length_bp": gap,
-                    "position_count": 0,
-                    "detection_method": "positional_gap",
-                    "affected_sample": likely,
-                    "mean_coverage_hit": round(avg_hit, 1),
-                    "mean_coverage_ctrl": round(avg_ctrl, 1),
-                    "genes": ", ".join(genes) if genes else "(intergenic)",
-                })
+                genes = find_overlapping_genes(
+                    chromosome, int(positions[i - 1]), int(positions[i])
+                )
+                all_candidate_regions.append(
+                    {
+                        "experiment": f"Exp_{experiment_number}",
+                        "chromosome": chromosome,
+                        "region_start": int(positions[i - 1]),
+                        "region_end": int(positions[i]),
+                        "region_length_bp": gap,
+                        "position_count": 0,
+                        "detection_method": "positional_gap",
+                        "affected_sample": likely,
+                        "mean_coverage_hit": round(avg_hit, 1),
+                        "mean_coverage_ctrl": round(avg_ctrl, 1),
+                        "genes": ", ".join(genes) if genes else "(intergenic)",
+                    }
+                )
 
     print()
 
@@ -760,7 +850,9 @@ if run_structural:
         background_labels = [f"Exp_{n}" for n in active_background]
 
         target_df = results_df[results_df["experiment"].isin(target_labels)].copy()
-        background_df = results_df[results_df["experiment"].isin(background_labels)].copy()
+        background_df = results_df[
+            results_df["experiment"].isin(background_labels)
+        ].copy()
 
         total_raw = len(target_df)
         print(f"  Raw candidate regions in target experiments: {total_raw:,}")
@@ -772,11 +864,16 @@ if run_structural:
         else:
             is_shared = []
             for _, row in target_df.iterrows():
-                same_chrom = background_df[background_df["chromosome"] == row["chromosome"]]
+                same_chrom = background_df[
+                    background_df["chromosome"] == row["chromosome"]
+                ]
                 shared = False
                 for _, bg in same_chrom.iterrows():
-                    if (row["region_start"] - REGION_PROXIMITY_BP <= bg["region_end"]
-                            and bg["region_start"] - REGION_PROXIMITY_BP <= row["region_end"]):
+                    if (
+                        row["region_start"] - REGION_PROXIMITY_BP <= bg["region_end"]
+                        and bg["region_start"] - REGION_PROXIMITY_BP
+                        <= row["region_end"]
+                    ):
                         shared = True
                         break
                 is_shared.append(shared)
@@ -822,7 +919,9 @@ if run_structural:
             if len(exp_regions) == 0:
                 print(f"  Experiment {exp_number}: no unique candidates")
             else:
-                print(f"  Experiment {exp_number}: {len(exp_regions)} unique candidate(s)")
+                print(
+                    f"  Experiment {exp_number}: {len(exp_regions)} unique candidate(s)"
+                )
                 for _, row in exp_regions.iterrows():
                     print(
                         f"    [{row['detection_method'].replace('_', ' ')}] "

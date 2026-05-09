@@ -62,6 +62,7 @@ def save_png(
         print(f"  ERROR saving {filename}: {e}")
         return False
 
+
 def prepare_structure() -> bool:
     """
     Standard structure preparation applied to all visualization sessions.
@@ -155,6 +156,7 @@ def prepare_structure() -> bool:
 
     print("   Preparation complete")
     return True
+
 
 def reset_scene_to_base_cartoon(
     chain_colors: dict[str, str], cartoon_selection: str = "polymer"

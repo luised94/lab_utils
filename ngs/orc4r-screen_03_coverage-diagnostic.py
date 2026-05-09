@@ -55,10 +55,22 @@ GENE_COORDINATES_METADATA_FILE = REFERENCE_DIRECTORY / "gene_coordinates.meta.js
 DEFAULT_EXPERIMENT_NUMBERS = list(range(1, 10))
 
 REFERENCE_CHROMOSOMES = [
-    "chrI",    "chrII",   "chrIII",  "chrIV",
-    "chrV",    "chrVI",   "chrVII",  "chrVIII",
-    "chrIX",   "chrX",    "chrXI",   "chrXII",
-    "chrXIII", "chrXIV",  "chrXV",   "chrXVI",
+    "chrI",
+    "chrII",
+    "chrIII",
+    "chrIV",
+    "chrV",
+    "chrVI",
+    "chrVII",
+    "chrVIII",
+    "chrIX",
+    "chrX",
+    "chrXI",
+    "chrXII",
+    "chrXIII",
+    "chrXIV",
+    "chrXV",
+    "chrXVI",
 ]
 
 # Must match thresholds in orc4r-screen_02_analyze-bam.py
@@ -73,16 +85,40 @@ ANEUPLOIDY_LOSS_THRESHOLD = 0.67
 
 # Replication-related search terms for gene description filtering
 REPLICATION_SEARCH_TERMS = [
-    "orc ", "origin recognition", "replication", "mcm",
-    "cdc6", "helicase", "licensing", "prereplicat", "minichromosome",
+    "orc ",
+    "origin recognition",
+    "replication",
+    "mcm",
+    "cdc6",
+    "helicase",
+    "licensing",
+    "prereplicat",
+    "minichromosome",
 ]
 
 # Specific genes of interest for the ORC4 suppressor screen
 GENES_OF_INTEREST = [
-    "ORC1", "ORC2", "ORC3", "ORC4", "ORC5", "ORC6",
-    "CDC6", "CDT1", "TAH11",
-    "MCM2", "MCM3", "MCM4", "MCM5", "MCM6", "MCM7",
-    "DPB11", "PSF2", "POL31", "POL32", "RFC2", "RFA3",
+    "ORC1",
+    "ORC2",
+    "ORC3",
+    "ORC4",
+    "ORC5",
+    "ORC6",
+    "CDC6",
+    "CDT1",
+    "TAH11",
+    "MCM2",
+    "MCM3",
+    "MCM4",
+    "MCM5",
+    "MCM6",
+    "MCM7",
+    "DPB11",
+    "PSF2",
+    "POL31",
+    "POL32",
+    "RFC2",
+    "RFA3",
 ]
 
 OUTPUT_CSV_FILENAME = "coverage_diagnostic.csv"
@@ -160,7 +196,9 @@ if GENE_COORDINATES_FILE.exists() and GENE_COORDINATES_METADATA_FILE.exists():
         has_reference = True
         out(f"  [OK] Gene coordinates verified")
     else:
-        out(f"  [WARNING] Gene coordinate file integrity check failed. Gene catalog will be skipped.")
+        out(
+            f"  [WARNING] Gene coordinate file integrity check failed. Gene catalog will be skipped."
+        )
 else:
     out(f"  [NOTE] Gene coordinates not found. Gene catalog will be skipped.")
     out(f"    Run 'uv run orc4r-screen_01_prepare-reference.py' to enable.")
@@ -193,27 +231,39 @@ for experiment_number in experiment_numbers:
         "mean_coverage_ctrl": round(merged_dataframe["coverage_ctrl"].mean(), 1),
         "pct_above_cov_hit": round(
             (merged_dataframe["coverage_hit"] > MINIMUM_READ_COVERAGE).sum()
-            / total_positions * 100, 1
+            / total_positions
+            * 100,
+            1,
         ),
         "pct_above_cov_ctrl": round(
             (merged_dataframe["coverage_ctrl"] > MINIMUM_READ_COVERAGE).sum()
-            / total_positions * 100, 1
+            / total_positions
+            * 100,
+            1,
         ),
         "pct_above_conf_hit": round(
             (merged_dataframe["confidence_hit"] > MINIMUM_CONFIDENCE_PERCENT).sum()
-            / total_positions * 100, 1
+            / total_positions
+            * 100,
+            1,
         ),
         "pct_above_conf_ctrl": round(
             (merged_dataframe["confidence_ctrl"] > MINIMUM_CONFIDENCE_PERCENT).sum()
-            / total_positions * 100, 1
+            / total_positions
+            * 100,
+            1,
         ),
     }
     experiment_summaries.append(summary)
 
-out(f"\n  {'Exp':<5} {'Positions':>12} {'Med Cov Hit':>12} {'Med Cov Ctrl':>13} "
-    f"{'%>Cov Hit':>10} {'%>Cov Ctrl':>11} {'%>Conf Hit':>11} {'%>Conf Ctrl':>12}")
-out(f"  {'---':<5} {'-'*10:>12} {'-'*10:>12} {'-'*10:>13} "
-    f"{'-'*8:>10} {'-'*8:>11} {'-'*8:>11} {'-'*8:>12}")
+out(
+    f"\n  {'Exp':<5} {'Positions':>12} {'Med Cov Hit':>12} {'Med Cov Ctrl':>13} "
+    f"{'%>Cov Hit':>10} {'%>Cov Ctrl':>11} {'%>Conf Hit':>11} {'%>Conf Ctrl':>12}"
+)
+out(
+    f"  {'---':<5} {'-' * 10:>12} {'-' * 10:>12} {'-' * 10:>13} "
+    f"{'-' * 8:>10} {'-' * 8:>11} {'-' * 8:>11} {'-' * 8:>12}"
+)
 
 for summary in experiment_summaries:
     out(
@@ -254,9 +304,8 @@ for experiment_number in experiment_numbers:
     total_positions = len(merged_dataframe)
 
     passes_coverage_both = (
-        (merged_dataframe["coverage_hit"] > MINIMUM_READ_COVERAGE)
-        & (merged_dataframe["coverage_ctrl"] > MINIMUM_READ_COVERAGE)
-    )
+        merged_dataframe["coverage_hit"] > MINIMUM_READ_COVERAGE
+    ) & (merged_dataframe["coverage_ctrl"] > MINIMUM_READ_COVERAGE)
     after_coverage = passes_coverage_both.sum()
 
     passes_confidence_both = (
@@ -266,19 +315,25 @@ for experiment_number in experiment_numbers:
     )
     after_confidence = passes_confidence_both.sum()
 
-    bases_differ = merged_dataframe["base_value_hit"] != merged_dataframe["base_value_ctrl"]
+    bases_differ = (
+        merged_dataframe["base_value_hit"] != merged_dataframe["base_value_ctrl"]
+    )
     after_differ = (passes_confidence_both & bases_differ).sum()
 
-    funnel_rows.append({
-        "experiment": experiment_number,
-        "total_positions": total_positions,
-        "pass_coverage": after_coverage,
-        "pass_confidence": after_confidence,
-        "pass_differ": after_differ,
-    })
+    funnel_rows.append(
+        {
+            "experiment": experiment_number,
+            "total_positions": total_positions,
+            "pass_coverage": after_coverage,
+            "pass_confidence": after_confidence,
+            "pass_differ": after_differ,
+        }
+    )
 
-out(f"\n  {'Exp':<5} {'Total':>12} {'Pass Cov':>12} {'Pass Conf':>12} {'Bases Differ':>13}")
-out(f"  {'---':<5} {'-'*10:>12} {'-'*10:>12} {'-'*10:>12} {'-'*10:>13}")
+out(
+    f"\n  {'Exp':<5} {'Total':>12} {'Pass Cov':>12} {'Pass Conf':>12} {'Bases Differ':>13}"
+)
+out(f"  {'---':<5} {'-' * 10:>12} {'-' * 10:>12} {'-' * 10:>12} {'-' * 10:>13}")
 
 for row in funnel_rows:
     marker = " <--" if row["pass_differ"] == 0 else ""
@@ -291,8 +346,12 @@ for row in funnel_rows:
         f"{marker}"
     )
 
-zero_hit_experiments = [row["experiment"] for row in funnel_rows if row["pass_differ"] == 0]
-has_hit_experiments = [row["experiment"] for row in funnel_rows if row["pass_differ"] > 0]
+zero_hit_experiments = [
+    row["experiment"] for row in funnel_rows if row["pass_differ"] == 0
+]
+has_hit_experiments = [
+    row["experiment"] for row in funnel_rows if row["pass_differ"] > 0
+]
 
 out()
 if len(zero_hit_experiments) > 0:
@@ -322,35 +381,42 @@ if len(zero_hit_experiments) > 0:
         pickle_path = PICKLE_DIRECTORY / f"df_merged_exp{experiment_number}.pickle"
         merged_dataframe = pandas.read_pickle(str(pickle_path))
 
-        bases_differ = merged_dataframe["base_value_hit"] != merged_dataframe["base_value_ctrl"]
+        bases_differ = (
+            merged_dataframe["base_value_hit"] != merged_dataframe["base_value_ctrl"]
+        )
         differing_positions = merged_dataframe[bases_differ].copy()
         total_differing = len(differing_positions)
 
-        out(f"\n  Experiment {experiment_number}: {total_differing:,} positions with different bases (before quality filters)")
+        out(
+            f"\n  Experiment {experiment_number}: {total_differing:,} positions with different bases (before quality filters)"
+        )
 
         if total_differing == 0:
             out("    No base differences at any quality level.")
             continue
 
-        has_cov_both = (
-            (differing_positions["coverage_hit"] > MINIMUM_READ_COVERAGE)
-            & (differing_positions["coverage_ctrl"] > MINIMUM_READ_COVERAGE)
+        has_cov_both = (differing_positions["coverage_hit"] > MINIMUM_READ_COVERAGE) & (
+            differing_positions["coverage_ctrl"] > MINIMUM_READ_COVERAGE
         )
         covered_diffs = has_cov_both.sum()
 
-        has_conf_hit = (
-            has_cov_both
-            & (differing_positions["confidence_hit"] > MINIMUM_CONFIDENCE_PERCENT)
+        has_conf_hit = has_cov_both & (
+            differing_positions["confidence_hit"] > MINIMUM_CONFIDENCE_PERCENT
         )
-        has_conf_both = (
-            has_conf_hit
-            & (differing_positions["confidence_ctrl"] > MINIMUM_CONFIDENCE_PERCENT)
+        has_conf_both = has_conf_hit & (
+            differing_positions["confidence_ctrl"] > MINIMUM_CONFIDENCE_PERCENT
         )
 
         out(f"    Differing positions:                  {total_differing:>8,}")
-        out(f"    With coverage > {MINIMUM_READ_COVERAGE} (both):             {covered_diffs:>8,}")
-        out(f"    + confidence > {MINIMUM_CONFIDENCE_PERCENT}% (hit):            {has_conf_hit.sum():>8,}")
-        out(f"    + confidence > {MINIMUM_CONFIDENCE_PERCENT}% (both):           {has_conf_both.sum():>8,}")
+        out(
+            f"    With coverage > {MINIMUM_READ_COVERAGE} (both):             {covered_diffs:>8,}"
+        )
+        out(
+            f"    + confidence > {MINIMUM_CONFIDENCE_PERCENT}% (hit):            {has_conf_hit.sum():>8,}"
+        )
+        out(
+            f"    + confidence > {MINIMUM_CONFIDENCE_PERCENT}% (both):           {has_conf_both.sum():>8,}"
+        )
 
         if has_conf_both.sum() == 0 and covered_diffs > 0:
             low_conf_diffs = differing_positions[has_cov_both]
@@ -366,9 +432,7 @@ if len(zero_hit_experiments) > 0:
             out(
                 f"    This pattern is consistent with structural variants causing read misalignment,"
             )
-            out(
-                f"    or aneuploidy affecting coverage ratios genome-wide."
-            )
+            out(f"    or aneuploidy affecting coverage ratios genome-wide.")
 
     out()
 
@@ -402,9 +466,15 @@ for experiment_number in experiment_numbers:
     global_med_ctrl = merged_dataframe["coverage_ctrl"].median()
     global_ratio = global_med_hit / max(global_med_ctrl, 1)
 
-    out(f"  --- Experiment {experiment_number} (genome-wide hit/ctrl ratio: {global_ratio:.2f}) ---")
-    out(f"    {'Chromosome':<12} {'Med Hit':>8} {'Med Ctrl':>9} {'Ratio':>6} {'Norm':>6} {'Flag':>8}")
-    out(f"    {'-'*11:<12} {'-'*7:>8} {'-'*8:>9} {'-'*5:>6} {'-'*5:>6} {'-'*7:>8}")
+    out(
+        f"  --- Experiment {experiment_number} (genome-wide hit/ctrl ratio: {global_ratio:.2f}) ---"
+    )
+    out(
+        f"    {'Chromosome':<12} {'Med Hit':>8} {'Med Ctrl':>9} {'Ratio':>6} {'Norm':>6} {'Flag':>8}"
+    )
+    out(
+        f"    {'-' * 11:<12} {'-' * 7:>8} {'-' * 8:>9} {'-' * 5:>6} {'-' * 5:>6} {'-' * 7:>8}"
+    )
 
     exp_ratios = {}
     for chromosome in REFERENCE_CHROMOSOMES:
@@ -421,7 +491,9 @@ for experiment_number in experiment_numbers:
             flag = "LOSS?"
 
         exp_ratios[chromosome] = normalized
-        out(f"    {chromosome:<12} {med_hit:>8.0f} {med_ctrl:>9.0f} {chrom_ratio:>6.2f} {normalized:>6.2f} {flag:>8}")
+        out(
+            f"    {chromosome:<12} {med_hit:>8.0f} {med_ctrl:>9.0f} {chrom_ratio:>6.2f} {normalized:>6.2f} {flag:>8}"
+        )
 
     all_normalized_ratios[experiment_number] = exp_ratios
     out()
@@ -508,7 +580,9 @@ if has_reference and len(zero_hit_flagged_chromosomes) > 0:
         out(f"  --- {chromosome}: {flag_summary} ---")
         out()
 
-        chrom_genes = gene_coordinates[gene_coordinates["chromosome"] == chromosome].copy()
+        chrom_genes = gene_coordinates[
+            gene_coordinates["chromosome"] == chromosome
+        ].copy()
         chrom_genes["start"] = chrom_genes["start"].astype(int)
         chrom_genes = chrom_genes.sort_values("start")
 
@@ -518,7 +592,7 @@ if has_reference and len(zero_hit_flagged_chromosomes) > 0:
         # 5a: Replication-related genes on this chromosome
         out(f"    Replication-related genes on {chromosome}:")
         out(f"    {'Symbol':<12} {'Name':<12} {'Start':>8} {'End':>8}  Description")
-        out(f"    {'-'*11:<12} {'-'*11:<12} {'-'*7:>8} {'-'*7:>8}  -----------")
+        out(f"    {'-' * 11:<12} {'-' * 11:<12} {'-' * 7:>8} {'-' * 7:>8}  -----------")
 
         replication_gene_count = 0
         for _, gene in chrom_genes.iterrows():
@@ -527,14 +601,22 @@ if has_reference and len(zero_hit_flagged_chromosomes) > 0:
             name = str(gene.get("gene_name", "") or "").lower()
             searchable = f"{desc} {symbol} {name}"
 
-            is_replication = any(term in searchable for term in REPLICATION_SEARCH_TERMS)
+            is_replication = any(
+                term in searchable for term in REPLICATION_SEARCH_TERMS
+            )
             if is_replication:
                 replication_gene_count += 1
                 sym_display = gene.get("gene_symbol", "") or ""
                 name_display = gene.get("gene_name", "") or ""
                 desc_display = str(gene.get("description", "") or "")
-                desc_short = desc_display[:65] + "..." if len(desc_display) > 65 else desc_display
-                out(f"    {sym_display:<12} {name_display:<12} {gene['start']:>8} {gene['end']:>8}  {desc_short}")
+                desc_short = (
+                    desc_display[:65] + "..."
+                    if len(desc_display) > 65
+                    else desc_display
+                )
+                out(
+                    f"    {sym_display:<12} {name_display:<12} {gene['start']:>8} {gene['end']:>8}  {desc_short}"
+                )
 
         if replication_gene_count == 0:
             out(f"    (none found)")
@@ -544,7 +626,7 @@ if has_reference and len(zero_hit_flagged_chromosomes) > 0:
         # 5b: Specific genes of interest on this chromosome
         out(f"    Genes of interest on {chromosome}:")
         out(f"    {'Gene':<12} {'Location':>20}  Description")
-        out(f"    {'-'*11:<12} {'-'*19:>20}  -----------")
+        out(f"    {'-' * 11:<12} {'-' * 19:>20}  -----------")
 
         found_any = False
         for target in GENES_OF_INTEREST:
@@ -556,8 +638,14 @@ if has_reference and len(zero_hit_flagged_chromosomes) > 0:
                 found_any = True
                 sym_display = gene.get("gene_symbol", "") or gene.get("gene_name", "")
                 desc_display = str(gene.get("description", "") or "")
-                desc_short = desc_display[:60] + "..." if len(desc_display) > 60 else desc_display
-                out(f"    {sym_display:<12} {gene['start']:>8}-{gene['end']:<8}  {desc_short}")
+                desc_short = (
+                    desc_display[:60] + "..."
+                    if len(desc_display) > 60
+                    else desc_display
+                )
+                out(
+                    f"    {sym_display:<12} {gene['start']:>8}-{gene['end']:<8}  {desc_short}"
+                )
 
         if not found_any:
             out(f"    (none found)")
@@ -566,8 +654,10 @@ if has_reference and len(zero_hit_flagged_chromosomes) > 0:
 
     # 5c: All genes of interest across all chromosomes (for reference)
     out("  --- All genes of interest: chromosomal locations ---")
-    out(f"    {'Gene':<12} {'Chrom':<8} {'Start':>8} {'End':>8}  {'On flagged chrom?':>18}")
-    out(f"    {'-'*11:<12} {'-'*7:<8} {'-'*7:>8} {'-'*7:>8}  {'-'*17:>18}")
+    out(
+        f"    {'Gene':<12} {'Chrom':<8} {'Start':>8} {'End':>8}  {'On flagged chrom?':>18}"
+    )
+    out(f"    {'-' * 11:<12} {'-' * 7:<8} {'-' * 7:>8} {'-' * 7:>8}  {'-' * 17:>18}")
 
     for target in GENES_OF_INTEREST:
         matches = gene_coordinates[
@@ -579,7 +669,9 @@ if has_reference and len(zero_hit_flagged_chromosomes) > 0:
                 sym_display = gene.get("gene_symbol", "") or gene.get("gene_name", "")
                 chrom = gene.get("chromosome", "")
                 on_flagged = "<<<" if chrom in zero_hit_flagged_chromosomes else ""
-                out(f"    {sym_display:<12} {chrom:<8} {gene['start']:>8} {gene['end']:>8}  {on_flagged:>18}")
+                out(
+                    f"    {sym_display:<12} {chrom:<8} {gene['start']:>8} {gene['end']:>8}  {on_flagged:>18}"
+                )
         else:
             out(f"    {target:<12} NOT FOUND")
 
