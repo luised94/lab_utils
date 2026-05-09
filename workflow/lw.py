@@ -152,6 +152,8 @@ if not args:
     print("  strain update <id> <f> <v>    Update a strain field")
     print("  exp update <id> <f> <v>       Update an experiment field")
     print("  exp complete <id>             Mark experiment done")
+    print("  exp link <from> <to> <rel>    Link two experiments")
+    print("  exp addstrain <exp> <strain>  Associate strain with experiment")
     sys.exit(0)
 
 command = args[0]
@@ -361,12 +363,20 @@ elif command == "exp":
             old_row = cursor.fetchone()
             old_val = old_row[0] if old_row else None
 
+            # notes fields append with timestamp; everything else overwrites
+            if field == "notes" and old_val:
+                today = datetime.date.today().strftime("%Y-%m-%d")
+                value = old_val + f"\n[{today}] " + value
+
             cursor.execute(
                 f"UPDATE {target_table} SET {field} = ? WHERE {id_col} = ?",
                 (value, exp_id),
             )
             print(f"Updated {exp_id}")
-            print(f"  {field}: {old_val if old_val else '-'}  {value}")
+            if field == "notes":
+                print(f"  {field}: appended entry")
+            else:
+                print(f"  {field}: {old_val if old_val else '-'}  {value}")
 
     # --- lw exp complete <id> ---
     elif subcommand == "complete":
@@ -402,6 +412,121 @@ elif command == "exp":
         )
         print(f"Completed: {exp_id}")
         print(f"  Date: {today}")
+
+    # --- lw exp link <from_id> <to_id> <relationship> ---
+    elif subcommand == "link":
+        if len(pos_args) < 3:
+            print("Usage: python lw.py exp link <from_id> <to_id> <relationship>")
+            print("  Relationships: uses_prep_from, replicate_of, follow_up_to")
+            sys.exit(1)
+
+        raw_from, raw_to, relationship = pos_args[0], pos_args[1], pos_args[2]
+
+        # normalize IDs
+        for label, raw in [("from", raw_from), ("to", raw_to)]:
+            if raw.upper().startswith("LM-"):
+                pass
+            else:
+                try:
+                    int(raw)
+                except ValueError:
+                    print(f"Invalid {label} experiment ID: '{raw}'")
+                    sys.exit(1)
+        from_id = raw_from.upper() if raw_from.upper().startswith("LM-") else f"LM-{int(raw_from):04d}"
+        to_id = raw_to.upper() if raw_to.upper().startswith("LM-") else f"LM-{int(raw_to):04d}"
+
+        # validate both experiments exist
+        for eid in (from_id, to_id):
+            cursor.execute("SELECT id FROM experiments WHERE id = ?", (eid,))
+            if not cursor.fetchone():
+                print(f"No experiment found with ID {eid}")
+                sys.exit(1)
+
+        # warn on unknown relationship (don't block)
+        known_rels = ["uses_prep_from", "replicate_of", "follow_up_to"]
+        if relationship not in known_rels:
+            print(f"  Note: '{relationship}' is not a standard relationship ({', '.join(known_rels)})")
+
+        # check for duplicate
+        cursor.execute(
+            "SELECT 1 FROM experiment_links WHERE from_experiment = ? AND to_experiment = ?",
+            (from_id, to_id),
+        )
+        if cursor.fetchone():
+            print(f"Link already exists: {from_id}  {to_id}")
+            sys.exit(1)
+
+        cursor.execute(
+            "INSERT INTO experiment_links (from_experiment, to_experiment, relationship) VALUES (?, ?, ?)",
+            (from_id, to_id, relationship),
+        )
+
+        # auto-populate assay_details.protein_prep if linking to a purification
+        if relationship == "uses_prep_from":
+            cursor.execute(
+                "SELECT experiment_id FROM assay_details WHERE experiment_id = ?",
+                (from_id,),
+            )
+            if cursor.fetchone():
+                cursor.execute(
+                    "UPDATE assay_details SET protein_prep = ? WHERE experiment_id = ? AND protein_prep IS NULL",
+                    (to_id, from_id),
+                )
+            else:
+                cursor.execute(
+                    "INSERT INTO assay_details (experiment_id, protein_prep) VALUES (?, ?)",
+                    (from_id, to_id),
+                )
+
+        print(f"Linked: {from_id}  {to_id} ({relationship})")
+
+    # --- lw exp addstrain <exp_id> <strain_id> [role] ---
+    elif subcommand == "addstrain":
+        if len(pos_args) < 2:
+            print("Usage: python lw.py exp addstrain <exp_id> <strain_id> [role]")
+            sys.exit(1)
+
+        raw_id, strain_id = pos_args[0], pos_args[1]
+        role = pos_args[2] if len(pos_args) > 2 else None
+
+        # normalize experiment ID
+        if raw_id.upper().startswith("LM-"):
+            exp_id = raw_id.upper()
+        else:
+            try:
+                exp_id = f"LM-{int(raw_id):04d}"
+            except ValueError:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                sys.exit(1)
+
+        # validate experiment exists
+        cursor.execute("SELECT id FROM experiments WHERE id = ?", (exp_id,))
+        if not cursor.fetchone():
+            print(f"No experiment found with ID {exp_id}")
+            sys.exit(1)
+
+        # validate strain exists
+        cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
+        if not cursor.fetchone():
+            print(f"No strain found with ID {strain_id}")
+            print("Register it first: python lw.py strain add <id> <genotype>")
+            sys.exit(1)
+
+        # check for duplicate
+        cursor.execute(
+            "SELECT 1 FROM experiment_strains WHERE experiment_id = ? AND strain_id = ?",
+            (exp_id, strain_id),
+        )
+        if cursor.fetchone():
+            print(f"Strain {strain_id} already linked to {exp_id}")
+            sys.exit(1)
+
+        cursor.execute(
+            "INSERT INTO experiment_strains (experiment_id, strain_id, role) VALUES (?, ?, ?)",
+            (exp_id, strain_id, role),
+        )
+        role_str = f" as {role}" if role else ""
+        print(f"Added: {strain_id}  {exp_id}{role_str}")
 
     # --- lw exp show <id> ---
     elif subcommand == "show":
