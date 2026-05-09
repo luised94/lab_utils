@@ -149,6 +149,9 @@ if not args:
     print("  exp show <id>                 Show experiment details")
     print("  strain add <id> <genotype>    Register a new strain")
     print("  strain show <id>              Show strain details")
+    print("  strain update <id> <f> <v>    Update a strain field")
+    print("  exp update <id> <f> <v>       Update an experiment field")
+    print("  exp complete <id>             Mark experiment done")
     sys.exit(0)
 
 command = args[0]
@@ -279,6 +282,126 @@ elif command == "exp":
         print(f"Created: {exp_id}")
         print(f"Folder:  {folder_name}/")
         print(f"Type:    {exp_type}")
+
+    # --- lw exp update <id> <field> <value> ---
+    elif subcommand == "update":
+        if len(pos_args) < 3:
+            print("Usage: python lw.py exp update <id> <field> <value>")
+            sys.exit(1)
+
+        raw_id, field, value = pos_args[0], pos_args[1], pos_args[2]
+
+        # normalize ID
+        if raw_id.upper().startswith("LM-"):
+            exp_id = raw_id.upper()
+        else:
+            try:
+                exp_id = f"LM-{int(raw_id):04d}"
+            except ValueError:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                sys.exit(1)
+
+        # verify experiment exists
+        cursor.execute("SELECT id, type FROM experiments WHERE id = ?", (exp_id,))
+        row = cursor.fetchone()
+        if not row:
+            print(f"No experiment found with ID {exp_id}")
+            sys.exit(1)
+        exp_type = row[1]
+
+        # find which table owns this field
+        target_table = None
+        for table in ["experiments", "purification_details", "assay_details"]:
+            cursor.execute(f"PRAGMA table_info({table})")
+            columns = [r[1] for r in cursor.fetchall()]
+            if field in columns:
+                target_table = table
+                break
+
+        if not target_table:
+            # collect all valid fields across tables
+            all_fields = []
+            for table in ["experiments", "purification_details", "assay_details"]:
+                cursor.execute(f"PRAGMA table_info({table})")
+                all_fields.extend(r[1] for r in cursor.fetchall() if r[1] not in ("id", "experiment_id", "created_at"))
+            print(f"Unknown field: '{field}'")
+            print(f"Valid fields: {', '.join(sorted(set(all_fields)))}")
+            sys.exit(1)
+
+        # for type-specific tables, ensure row exists
+        if target_table in ("purification_details", "assay_details"):
+            cursor.execute(f"SELECT experiment_id FROM {target_table} WHERE experiment_id = ?", (exp_id,))
+            if not cursor.fetchone():
+                # insert skeleton row
+                if target_table == "purification_details":
+                    if field == "protein":
+                        cursor.execute(
+                            "INSERT INTO purification_details (experiment_id, protein) VALUES (?, ?)",
+                            (exp_id, value),
+                        )
+                        print(f"Created purification record for {exp_id}")
+                        print(f"  protein: -  {value}")
+                    else:
+                        print(f"No purification record for {exp_id}.")
+                        print(f"Set 'protein' first: python lw.py exp update {exp_id} protein <name>")
+                        sys.exit(1)
+                    # already inserted, skip the UPDATE below
+                    target_table = None
+                elif target_table == "assay_details":
+                    cursor.execute(
+                        "INSERT INTO assay_details (experiment_id) VALUES (?)",
+                        (exp_id,),
+                    )
+                    print(f"Created assay record for {exp_id}")
+
+        if target_table:
+            # get old value
+            id_col = "id" if target_table == "experiments" else "experiment_id"
+            cursor.execute(f"SELECT {field} FROM {target_table} WHERE {id_col} = ?", (exp_id,))
+            old_row = cursor.fetchone()
+            old_val = old_row[0] if old_row else None
+
+            cursor.execute(
+                f"UPDATE {target_table} SET {field} = ? WHERE {id_col} = ?",
+                (value, exp_id),
+            )
+            print(f"Updated {exp_id}")
+            print(f"  {field}: {old_val if old_val else '-'}  {value}")
+
+    # --- lw exp complete <id> ---
+    elif subcommand == "complete":
+        if len(pos_args) != 1:
+            print("Usage: python lw.py exp complete <id>")
+            sys.exit(1)
+
+        raw_id = pos_args[0]
+
+        # normalize ID
+        if raw_id.upper().startswith("LM-"):
+            exp_id = raw_id.upper()
+        else:
+            try:
+                exp_id = f"LM-{int(raw_id):04d}"
+            except ValueError:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                sys.exit(1)
+
+        cursor.execute("SELECT status FROM experiments WHERE id = ?", (exp_id,))
+        row = cursor.fetchone()
+        if not row:
+            print(f"No experiment found with ID {exp_id}")
+            sys.exit(1)
+        if row[0] == "complete":
+            print(f"{exp_id} is already marked complete.")
+            sys.exit(0)
+
+        today = datetime.date.today().strftime("%Y-%m-%d")
+        cursor.execute(
+            "UPDATE experiments SET status = 'complete', date_completed = ? WHERE id = ?",
+            (today, exp_id),
+        )
+        print(f"Completed: {exp_id}")
+        print(f"  Date: {today}")
 
     # --- lw exp show <id> ---
     elif subcommand == "show":
