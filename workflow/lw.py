@@ -148,6 +148,7 @@ if not args:
     print()
     print("Commands:")
     print("  init              Bootstrap lab directory and database")
+    print("  status                        Show system dashboard")
     print("  exp init <type> <shortname>   Create new experiment")
     print("  exp show <id>                 Show experiment details")
     print("  exp update <id> <f> <v>       Update an experiment field")
@@ -156,12 +157,15 @@ if not args:
     print("  exp addstrain <exp> <strain>  Associate strain with experiment")
     print("  exp delete <id>               Dry-run delete (--confirm to execute)")
     print("  exp find [query] [--type T] [--status S] [--strain S]  Search experiments")
+    print("  exp list [--type T]           List experiments with type summaries")
     print("  exp manifest <id>             Generate sample manifest from design.py")
     print("  strain add <id> <genotype>    Register a new strain")
     print("  strain show <id>              Show strain details")
     print("  strain update <id> <f> <v>    Update a strain field")
+    print("  strain list                   List all strains with labels")
     print("  stage list                    Show files in staging")
     print("  stage assign <f> <exp> <desc> Rename, move, and register file")
+    print("  stage auto                    Auto-assign staged files (pending)")
     sys.exit(0)
 command = args[0]
 subcommand = args[1] if len(args) > 1 else None
@@ -859,6 +863,23 @@ elif command == "exp":
             print(f"{eid:<10} {etype:<14} {sname:<24} {status:<10} {started}")
         print()
         print(f"{len(rows)} experiment{'s' if len(rows) != 1 else ''}")
+    # --- lw exp list [--type T] ---
+    elif subcommand == "list":
+        # SCAFFOLD: exp list - Thread: command-implementation
+        #
+        # List experiments grouped by type with type-specific summary columns.
+        # Type-specific summaries:
+        #   purification: protein, yield_mg
+        #   loading/gelshift/atpase: sample count (from samples table), protein_prep
+        #   genetics/cloning/sequencing/computational: status only
+        # Optional --type flag to filter to one type.
+        # Sort: by date_started descending within each type group.
+        # Footer: count per type, total.
+        #
+        # Difference from exp find: find is search/filter, list is browse/overview.
+        # find returns a flat table; list groups by type with richer summaries.
+        print("exp list: not yet implemented")
+        sys.exit(0)
     # --- lw exp manifest <id> [--force] ---
     elif subcommand == "manifest":
         if len(pos_args) < 1:
@@ -1127,6 +1148,8 @@ elif command == "strain":
         print("Usage: python lw.py strain <subcommand>")
         print("  add <id> <genotype>   Register a new strain")
         print("  show <id>             Show strain details and experiments")
+        print("  list                  List all strains")
+        print("  update <id> <f> <v>   Update a strain field")
         sys.exit(0)
     # --- lw strain update <id> <field> <value> ---
     if subcommand == "update":
@@ -1165,7 +1188,7 @@ elif command == "strain":
         else:
             print(f"  {field}: {old_val if old_val else '-'}  {value}")
     # --- lw strain add <id> <genotype> ---
-    if subcommand == "add":
+    elif subcommand == "add":
         if len(pos_args) < 2:
             print("Usage: python lw.py strain add <id> <genotype>")
             print(
@@ -1225,6 +1248,18 @@ elif command == "strain":
             for eid, etype, sname, role in exps:
                 role_str = f" ({role})" if role else ""
                 print(f"    {eid}  {etype:<14} {sname}{role_str}")
+    # --- lw strain list ---
+    elif subcommand == "list":
+        # SCAFFOLD: strain list - Thread: command-implementation
+        #
+        # List all strains in a compact table:
+        #   id, label (or "NO LABEL" warning), genotype (truncated to ~40 chars),
+        #   experiment count (from experiment_strains join)
+        # Sort: alphabetical by id.
+        # Footer: total strains, count missing labels.
+        # Purpose: quick reference when writing design.py or running exp addstrain.
+        print("strain list: not yet implemented")
+        sys.exit(0)
     else:
         print(f"Unknown subcommand: strain {subcommand}")
         print("Run 'python lw.py strain' for usage.")
@@ -1235,6 +1270,7 @@ elif command == "stage":
         print("Usage: python lw.py stage <subcommand>")
         print("  list                          Show files in staging/")
         print("  assign <file> <exp_id> <desc> Rename, move, and register")
+        print("  auto                          Auto-assign staged files (pending)")
         sys.exit(0)
     # --- lw stage list ---
     if subcommand == "list":
@@ -1318,10 +1354,45 @@ elif command == "stage":
         )
         print(f"Filed: {src_name}")
         print(f"     {rel_path}")
+    # --- lw stage auto ---
+    elif subcommand == "auto":
+        # SCAFFOLD: staging automation - Thread: staging-design then command-implementation
+        #
+        # Auto-assign files in staging/ based on instrument filename patterns.
+        # Design questions (to be resolved in staging design thread):
+        #   - What filename patterns do each instrument produce?
+        #     (Amersham Imager 680, Amersham Typhoon, Mac-connected scanner)
+        #   - Can instrument software be configured to include experiment IDs?
+        #   - Pattern-to-experiment-type mapping rules
+        #   - Batch mode (all files at once) vs individual file processing
+        #   - Handling unmatched files (skip with warning vs interactive)
+        #   - Whether experiment ID can be inferred from filename or must be provided
+        #   - Dry-run default (like exp delete) vs direct execution
+        # Likely interface: lw stage auto [--exp ID] [--dry-run]
+        print("stage auto: not yet implemented (design pending)")
+        print("See staging design thread for specification.")
+        sys.exit(0)
     else:
         print(f"Unknown subcommand: stage {subcommand}")
         print("Run 'python lw.py stage' for usage.")
         sys.exit(1)
+# --- lw status ---
+elif command == "status":
+    # SCAFFOLD: system dashboard - Thread: command-implementation
+    #
+    # Show at-a-glance system state (no arguments, instant orientation):
+    #   - Active experiments: count and brief list (id, type, shortname, days active)
+    #   - Completed experiments: count
+    #   - Staging: file count and total size (0 = clean, >0 = action needed)
+    #   - Strains: total count, count missing labels (warning if any)
+    #   - Samples: total across all experiments
+    #   - Last activity: most recent date_started or date_completed
+    #   - Incomplete records: experiments without notes, strains without labels
+    #
+    # Purpose: first command after returning from time away.
+    # "What's the state of my lab system right now?"
+    print("status: not yet implemented")
+    sys.exit(0)
 # --- unknown command ---
 else:
     print(f"Unknown command: {command}")
