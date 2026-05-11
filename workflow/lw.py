@@ -10,6 +10,7 @@ import shutil
 import itertools
 import csv
 import json
+import re
 
 # ============================================================
 # SECTION 1: CONFIGURATION
@@ -138,7 +139,41 @@ CREATE TABLE IF NOT EXISTS samples (
     created_at TEXT DEFAULT (datetime('now')),
     UNIQUE(experiment_id, position)
 );
+CREATE TABLE IF NOT EXISTS stage_expectations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    experiment_id TEXT NOT NULL REFERENCES experiments(id),
+    slot INTEGER NOT NULL,
+    descriptor TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT (datetime('now')),
+    filed_at TEXT,
+    UNIQUE(experiment_id, slot)
+);
 """
+
+
+# --- staging filename parser ---
+def parse_staging_name(filename):
+    """Extract experiment ID and slot from staging filename.
+
+    Parses filenames following the instrument convention:
+        lemr LM-NNNN sN [instrument suffix].ext
+
+    Returns (exp_id, slot) or (exp_id, None) or (None, None).
+    exp_id is normalized to uppercase, slot is an integer.
+    """
+    stem = os.path.splitext(filename)[0]
+    tokens = stem.split()
+    exp_id = None
+    slot = None
+    for token in tokens:
+        if re.match(r"^LM-\d{4}$", token, re.IGNORECASE):
+            exp_id = token.upper()
+        elif re.match(r"^s(\d+)$", token, re.IGNORECASE):
+            slot = int(re.match(r"^s(\d+)$", token, re.IGNORECASE).group(1))
+    return exp_id, slot
+
+
 # ============================================================
 # SECTION 2: ARGUMENT PARSING
 # ============================================================
@@ -165,7 +200,10 @@ if not args:
     print("  strain list                   List all strains with labels")
     print("  stage list                    Show files in staging")
     print("  stage assign <f> <exp> <desc> Rename, move, and register file")
-    print("  stage auto                    Auto-assign staged files (pending)")
+    print("  stage expect <exp> <desc...>  Pre-register expected files")
+    print("  stage expect --list [exp]     Show pending expectations")
+    print("  stage expect --cancel <exp>   Cancel pending expectations")
+    print("  stage auto                    Auto-assign staged files from expectations")
     sys.exit(0)
 command = args[0]
 subcommand = args[1] if len(args) > 1 else None
@@ -204,7 +242,7 @@ if command == "init":
     conn = None
     print(f"Created database at {DB_PATH}")
     print(
-        f"Tables: {', '.join(['experiments', 'strains', 'experiment_strains', 'experiment_links', 'files', 'purification_details', 'assay_details', 'figure_panels', 'samples'])}"
+        f"Tables: {', '.join(['experiments', 'strains', 'experiment_strains', 'experiment_links', 'files', 'purification_details', 'assay_details', 'figure_panels', 'samples', 'stage_expectations'])}"
     )
     # seed counter
     if not os.path.exists(COUNTER_FILE):
@@ -337,7 +375,7 @@ elif command == "exp":
                             (exp_id, value),
                         )
                         print(f"Created purification record for {exp_id}")
-                        print(f"  protein: -  {value}")
+                        print(f"  protein: - -> {value}")
                     else:
                         print(f"No purification record for {exp_id}.")
                         print(
@@ -375,7 +413,7 @@ elif command == "exp":
             if field == "notes":
                 print(f"  {field}: appended entry")
             else:
-                print(f"  {field}: {old_val if old_val else '-'}  {value}")
+                print(f"  {field}: {old_val if old_val else '-'} -> {value}")
     # --- lw exp complete <id> ---
     elif subcommand == "complete":
         if len(pos_args) != 1:
@@ -451,7 +489,7 @@ elif command == "exp":
             (from_id, to_id),
         )
         if cursor.fetchone():
-            print(f"Link already exists: {from_id}  {to_id}")
+            print(f"Link already exists: {from_id} -> {to_id}")
             sys.exit(1)
         cursor.execute(
             "INSERT INTO experiment_links (from_experiment, to_experiment, relationship) VALUES (?, ?, ?)",
@@ -473,7 +511,7 @@ elif command == "exp":
                     "INSERT INTO assay_details (experiment_id, protein_prep) VALUES (?, ?)",
                     (from_id, to_id),
                 )
-        print(f"Linked: {from_id}  {to_id} ({relationship})")
+        print(f"Linked: {from_id} -> {to_id} ({relationship})")
     # --- lw exp addstrain <exp_id> <strain_id> [role] ---
     elif subcommand == "addstrain":
         if len(pos_args) < 2:
@@ -514,7 +552,7 @@ elif command == "exp":
             (exp_id, strain_id, role),
         )
         role_str = f" as {role}" if role else ""
-        print(f"Added: {strain_id}  {exp_id}{role_str}")
+        print(f"Added: {strain_id} -> {exp_id}{role_str}")
     # --- lw exp show <id> ---
     elif subcommand == "show":
         if len(pos_args) != 1:
@@ -582,9 +620,9 @@ elif command == "exp":
             print()
             print("  Links:")
             for target, rel in links_out:
-                print(f"     {target} ({rel})")
+                print(f"    -> {target} ({rel})")
             for source, rel in links_in:
-                print(f"     {source} ({rel})")
+                print(f"    <- {source} ({rel})")
         # files
         cursor.execute(
             "SELECT filename, file_type, description FROM files WHERE experiment_id = ?",
@@ -743,6 +781,13 @@ elif command == "exp":
         s_count = cursor.fetchone()[0]
         if s_count:
             cascade.append(("samples", s_count, []))
+        cursor.execute(
+            "SELECT COUNT(*) FROM stage_expectations WHERE experiment_id = ?",
+            (exp_id,),
+        )
+        se_count = cursor.fetchone()[0]
+        if se_count:
+            cascade.append(("stage_expectations", se_count, []))
         # folder
         folder_path = os.path.join(EXPERIMENTS_DIR, exp["folder_name"])
         folder_exists = os.path.exists(folder_path)
@@ -774,6 +819,9 @@ elif command == "exp":
                 )
             sys.exit(0)
         # --- actual deletion ---
+        cursor.execute(
+            "DELETE FROM stage_expectations WHERE experiment_id = ?", (exp_id,)
+        )
         cursor.execute("DELETE FROM samples WHERE experiment_id = ?", (exp_id,))
         cursor.execute("DELETE FROM figure_panels WHERE experiment_id = ?", (exp_id,))
         cursor.execute("DELETE FROM files WHERE experiment_id = ?", (exp_id,))
@@ -979,7 +1027,7 @@ elif command == "exp":
                 sys.exit(1)
             lbl = row[1] if row[1] else sid  # fall back to ID if no label
             strain_labels[sid] = lbl
-            resolve_parts.append(f"{sid}\u2192{lbl}")
+            resolve_parts.append(f"{sid} -> {lbl}")
         if resolve_parts:
             print(f"Resolving strains: {', '.join(resolve_parts)}")
         # --- generate extras ---
@@ -1186,7 +1234,7 @@ elif command == "strain":
         if field == "notes":
             print(f"  {field}: appended entry")
         else:
-            print(f"  {field}: {old_val if old_val else '-'}  {value}")
+            print(f"  {field}: {old_val if old_val else '-'} -> {value}")
     # --- lw strain add <id> <genotype> ---
     elif subcommand == "add":
         if len(pos_args) < 2:
@@ -1270,7 +1318,10 @@ elif command == "stage":
         print("Usage: python lw.py stage <subcommand>")
         print("  list                          Show files in staging/")
         print("  assign <file> <exp_id> <desc> Rename, move, and register")
-        print("  auto                          Auto-assign staged files (pending)")
+        print("  expect <exp_id> <desc...>     Pre-register expected files")
+        print("  expect --list [exp_id]        Show pending expectations")
+        print("  expect --cancel <exp_id> [sN] Cancel pending expectations")
+        print("  auto [--confirm]              Auto-assign from expectations")
         sys.exit(0)
     # --- lw stage list ---
     if subcommand == "list":
@@ -1280,6 +1331,11 @@ elif command == "stage":
         files = [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
         if not files:
             print("Staging is empty.")
+            # SCAFFOLD: show pending expectations even when staging is empty (spec 3.5)
+            #
+            # After "Staging is empty.", query stage_expectations for pending rows.
+            # If any exist, print summary: "N expectations still pending." with
+            # experiment IDs and slots. Helps user notice they still need to image.
             sys.exit(0)
         # load known experiment IDs for matching
         cursor.execute("SELECT id, folder_name FROM experiments")
@@ -1296,8 +1352,17 @@ elif command == "stage":
                 size_str = f"{size} B"
             # check if filename contains any known experiment ID
             matches = [eid for eid, _ in experiments if eid in fname]
-            match_str = f"   {', '.join(matches)}" if matches else ""
+            match_str = f"  -> {', '.join(matches)}" if matches else ""
             print(f"  {fname:<40} {size_str:>10}{match_str}")
+        # SCAFFOLD: pending expectations section (spec 3.5)
+        #
+        # After file listing, query stage_expectations for all pending rows.
+        # For each, check whether a matching file exists in staging (using
+        # parse_staging_name). Display:
+        #   Pending expectations:
+        #     LM-0005 s1  gel-coomassie   [matched] or (no file)
+        #     LM-0005 s2  gel-silver      [matched] or (no file)
+        # Footer: N pending, M matched.
     # --- lw stage assign <filename> <exp_id> <descriptor> ---
     elif subcommand == "assign":
         if len(pos_args) < 3:
@@ -1353,24 +1418,112 @@ elif command == "stage":
             (exp_id, rel_path, None),
         )
         print(f"Filed: {src_name}")
-        print(f"     {rel_path}")
-    # --- lw stage auto ---
+        print(f"    -> {rel_path}")
+    # --- lw stage expect ---
+    elif subcommand == "expect":
+        # dispatch on flags: --list, --cancel, or register (default)
+        if "--list" in pos_args:
+            # --- lw stage expect --list [exp_id] ---
+            # SCAFFOLD: stage expect --list (spec 3.2)
+            #
+            # Show pending (and optionally filed/cancelled) expectations.
+            # Optional experiment ID filter: pos_args may contain exp_id besides --list.
+            # Query stage_expectations, group by experiment_id.
+            # Display per row: slot, descriptor, status, created_at date.
+            # Footer: N pending, M filed.
+            # If filtered to one experiment, show only that experiment's expectations.
+            # If no expectations exist, print "No expectations registered."
+            print("stage expect --list: not yet implemented")
+            sys.exit(0)
+        elif "--cancel" in pos_args:
+            # --- lw stage expect --cancel <exp_id> [sN] ---
+            # SCAFFOLD: stage expect --cancel (spec 3.3)
+            #
+            # Cancel pending expectations.
+            # Required: experiment ID (pos_args, excluding --cancel flag).
+            # Optional: slot specifier like "s1" or "s2".
+            # With slot: cancel that specific pending expectation.
+            # Without slot: cancel ALL pending expectations for that experiment.
+            # Only affects status='pending' rows; filed/cancelled are untouched.
+            # Sets status='cancelled'. Does not delete the row (preserves history).
+            # Normalize experiment ID. Validate experiment exists.
+            # Parse slot from "sN" format if provided, extract integer.
+            # Error if slot specified but not found or not pending.
+            # Print what was cancelled.
+            print("stage expect --cancel: not yet implemented")
+            sys.exit(0)
+        else:
+            # --- lw stage expect <exp_id> <descriptor> [descriptor2...] ---
+            # SCAFFOLD: stage expect - register expectations (spec 3.1)
+            #
+            # Register one or more expected files for an experiment.
+            # pos_args[0] = experiment ID, pos_args[1:] = one or more descriptors.
+            # For each descriptor:
+            #   1. Query max slot: SELECT COALESCE(MAX(slot), 0) FROM stage_expectations
+            #      WHERE experiment_id = ?
+            #   2. Next slot = max + 1
+            #   3. Validate descriptor (same rules as shortname: lowercase alphanumeric + hyphens)
+            #   4. Insert row (experiment_id, slot, descriptor, 'pending')
+            # Normalize experiment ID. Validate experiment exists.
+            # Require at least one descriptor.
+            # Print slot assignments and instrument names:
+            #   s1 -> gel-coomassie
+            #   s2 -> gel-silver
+            #   At instrument:
+            #     lemr LM-0005 s1
+            #     lemr LM-0005 s2
+            # Slots never reuse numbers (always increment from max, including
+            # cancelled and filed slots).
+            if len(pos_args) < 2:
+                print(
+                    "Usage: python lw.py stage expect <exp_id> <descriptor> [descriptor2...]"
+                )
+                print(
+                    "  Example: python lw.py stage expect LM-0005 gel-coomassie gel-silver"
+                )
+                sys.exit(1)
+            print("stage expect: not yet implemented")
+            sys.exit(0)
+    # --- lw stage auto [--confirm] ---
     elif subcommand == "auto":
-        # SCAFFOLD: staging automation - Thread: staging-design then command-implementation
+        # SCAFFOLD: stage auto - pre-registration matching (spec 3.4)
         #
-        # Auto-assign files in staging/ based on instrument filename patterns.
-        # Design questions (to be resolved in staging design thread):
-        #   - What filename patterns do each instrument produce?
-        #     (Amersham Imager 680, Amersham Typhoon, Mac-connected scanner)
-        #   - Can instrument software be configured to include experiment IDs?
-        #   - Pattern-to-experiment-type mapping rules
-        #   - Batch mode (all files at once) vs individual file processing
-        #   - Handling unmatched files (skip with warning vs interactive)
-        #   - Whether experiment ID can be inferred from filename or must be provided
-        #   - Dry-run default (like exp delete) vs direct execution
-        # Likely interface: lw stage auto [--exp ID] [--dry-run]
-        print("stage auto: not yet implemented (design pending)")
-        print("See staging design thread for specification.")
+        # Scan staging/, match files against pending expectations, rename/move/register.
+        # Dry-run by default, --confirm to execute.
+        #
+        # Algorithm (spec 3.4):
+        #   1. List all files in staging/ (excluding dotfiles)
+        #   2. For each file, call parse_staging_name(filename):
+        #      a. If (exp_id, slot) returned: look up stage_expectations for
+        #         (experiment_id=exp_id, slot=slot, status='pending')
+        #      b. If (exp_id, None) returned: check if exactly one pending
+        #         expectation exists for that experiment; if so, match it
+        #      c. If (None, None): unmatched
+        #   3. Group matched files by (experiment_id, slot) to handle multi-file
+        #      slots (e.g., Imager 680 TIF+JPG pair sharing same slot)
+        #   4. For each match, build destination:
+        #      - Filename: YYYYMMDD_LM-NNNN_descriptor.ext (filing date)
+        #      - Folder: experiment's folder in experiments/
+        #      - Validate destination doesn't already exist
+        #
+        # Dry-run output: show all matches and unmatched files, print count,
+        #   suggest --confirm.
+        # Confirmed execution per matched file:
+        #   1. shutil.move from staging/ to experiment folder
+        #   2. INSERT into files table (same as stage assign)
+        #   3. UPDATE stage_expectations SET status='filed', filed_at=datetime('now')
+        #      (once per slot, after all files for that slot are processed)
+        #   4. Print result
+        #
+        # Error conditions (spec 6):
+        #   - No pending expectations: suggest stage assign
+        #   - Slot ambiguous (exp_id found, no slot, multiple pending): skip with message
+        #   - Destination exists: skip with warning
+        #   - Staging empty: "Staging is empty."
+        #
+        # Filing logic should be extracted into a shared helper with stage assign
+        # to avoid duplication (deferred to implementation).
+        print("stage auto: not yet implemented")
         sys.exit(0)
     else:
         print(f"Unknown subcommand: stage {subcommand}")
@@ -1384,6 +1537,7 @@ elif command == "status":
     #   - Active experiments: count and brief list (id, type, shortname, days active)
     #   - Completed experiments: count
     #   - Staging: file count and total size (0 = clean, >0 = action needed)
+    #   - Pending expectations: count (from stage_expectations where status='pending')
     #   - Strains: total count, count missing labels (warning if any)
     #   - Samples: total across all experiments
     #   - Last activity: most recent date_started or date_completed
