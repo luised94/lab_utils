@@ -1460,38 +1460,48 @@ elif command == "stage":
         files = [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
         if not files:
             print("Staging is empty.")
-            # SCAFFOLD: show pending expectations even when staging is empty (spec 3.5)
-            #
-            # After "Staging is empty.", query stage_expectations for pending rows.
-            # If any exist, print summary: "N expectations still pending." with
-            # experiment IDs and slots. Helps user notice they still need to image.
-            sys.exit(0)
-        # load known experiment IDs for matching
-        cursor.execute("SELECT id, folder_name FROM experiments")
-        experiments = cursor.fetchall()
-        print(f"Staging ({len(files)} files):")
-        print()
-        for fname in sorted(files):
-            size = os.path.getsize(os.path.join(STAGING_DIR, fname))
-            if size > 1024 * 1024:
-                size_str = f"{size / (1024 * 1024):.1f} MB"
-            elif size > 1024:
-                size_str = f"{size / 1024:.1f} KB"
-            else:
-                size_str = f"{size} B"
-            # check if filename contains any known experiment ID
-            matches = [eid for eid, _ in experiments if eid in fname]
-            match_str = f"  -> {', '.join(matches)}" if matches else ""
-            print(f"  {fname:<40} {size_str:>10}{match_str}")
-        # SCAFFOLD: pending expectations section (spec 3.5)
-        #
-        # After file listing, query stage_expectations for all pending rows.
-        # For each, check whether a matching file exists in staging (using
-        # parse_staging_name). Display:
-        #   Pending expectations:
-        #     LM-0005 s1  gel-coomassie   [matched] or (no file)
-        #     LM-0005 s2  gel-silver      [matched] or (no file)
-        # Footer: N pending, M matched.
+        else:
+            # load known experiment IDs for matching
+            cursor.execute("SELECT id, folder_name FROM experiments")
+            experiments = cursor.fetchall()
+            print(f"Staging ({len(files)} files):")
+            print()
+            for fname in sorted(files):
+                size = os.path.getsize(os.path.join(STAGING_DIR, fname))
+                if size > 1024 * 1024:
+                    size_str = f"{size / (1024 * 1024):.1f} MB"
+                elif size > 1024:
+                    size_str = f"{size / 1024:.1f} KB"
+                else:
+                    size_str = f"{size} B"
+                # check if filename contains any known experiment ID
+                matches = [eid for eid, _ in experiments if eid in fname]
+                match_str = f"  -> {', '.join(matches)}" if matches else ""
+                print(f"  {fname:<40} {size_str:>10}{match_str}")
+        # pending expectations section
+        cursor.execute(
+            "SELECT experiment_id, slot, descriptor "
+            "FROM stage_expectations WHERE status = 'pending' "
+            "ORDER BY experiment_id, slot"
+        )
+        pending_rows = cursor.fetchall()
+        if pending_rows:
+            # check which expectations have matching files in staging
+            staging_matches = set()
+            for fname in files:
+                parsed_eid, parsed_slot = parse_staging_name(fname)
+                if parsed_eid is not None and parsed_slot is not None:
+                    staging_matches.add((parsed_eid, parsed_slot))
+            print()
+            print("Pending expectations:")
+            n_matched = 0
+            for eid, slot, desc in pending_rows:
+                if (eid, slot) in staging_matches:
+                    print(f"  {eid} s{slot}  {desc:<20} (matched)")
+                    n_matched += 1
+                else:
+                    print(f"  {eid} s{slot}  {desc:<20} (no file)")
+            print(f"{len(pending_rows)} pending, {n_matched} matched")
     # --- lw stage assign <filename> <exp_id> <descriptor> ---
     elif subcommand == "assign":
         if len(pos_args) < 3:
@@ -1768,45 +1778,219 @@ elif command == "stage":
                     print(f"    lemr {exp_id} s{s}")
     # --- lw stage auto [--confirm] ---
     elif subcommand == "auto":
-        # SCAFFOLD: stage auto - pre-registration matching (spec 3.4)
-        #
-        # Scan staging/, match files against pending expectations, rename/move/register.
-        # Dry-run by default, --confirm to execute.
-        #
-        # Algorithm (spec 3.4):
-        #   1. List all files in staging/ (excluding dotfiles)
-        #   2. For each file, call parse_staging_name(filename):
-        #      a. If (exp_id, slot) returned: look up stage_expectations for
-        #         (experiment_id=exp_id, slot=slot, status='pending')
-        #      b. If (exp_id, None) returned: check if exactly one pending
-        #         expectation exists for that experiment; if so, match it
-        #      c. If (None, None): unmatched
-        #   3. Group matched files by (experiment_id, slot) to handle multi-file
-        #      slots (e.g., Imager 680 TIF+JPG pair sharing same slot)
-        #   4. For each match, build destination:
-        #      - Filename: YYYYMMDD_LM-NNNN_descriptor.ext (filing date)
-        #      - Folder: experiment's folder in experiments/
-        #      - Validate destination doesn't already exist
-        #
-        # Dry-run output: show all matches and unmatched files, print count,
-        #   suggest --confirm.
-        # Confirmed execution per matched file:
-        #   1. shutil.move from staging/ to experiment folder
-        #   2. INSERT into files table (same as stage assign)
-        #   3. UPDATE stage_expectations SET status='filed', filed_at=datetime('now')
-        #      (once per slot, after all files for that slot are processed)
-        #   4. Print result
-        #
-        # Error conditions (spec 6):
-        #   - No pending expectations: suggest stage assign
-        #   - Slot ambiguous (exp_id found, no slot, multiple pending): skip with message
-        #   - Destination exists: skip with warning
-        #   - Staging empty: "Staging is empty."
-        #
-        # Filing logic should be extracted into a shared helper with stage assign
-        # to avoid duplication (deferred to implementation).
-        print("stage auto: not yet implemented")
-        sys.exit(0)
+        confirm = "--confirm" in pos_args
+        # list staging files
+        if not os.path.exists(STAGING_DIR):
+            print("Staging directory does not exist.")
+            sys.exit(1)
+        staging_files = [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
+        if not staging_files:
+            cursor.execute(
+                "SELECT COUNT(*) FROM stage_expectations WHERE status = 'pending'"
+            )
+            n_pend = cursor.fetchone()[0]
+            if n_pend > 0:
+                print(
+                    f"Staging is empty. {n_pend} expectation"
+                    f"{'s' if n_pend != 1 else ''} still pending."
+                )
+            else:
+                print("Staging is empty.")
+            sys.exit(0)
+        # query all pending expectations
+        cursor.execute(
+            "SELECT experiment_id, slot, descriptor "
+            "FROM stage_expectations WHERE status = 'pending'"
+        )
+        pending = cursor.fetchall()
+        if not pending:
+            print("No pending expectations. Use 'stage assign' for ad hoc files.")
+            print()
+            print(f"Unmatched ({len(staging_files)}):")
+            for fname in sorted(staging_files):
+                print(f"  {fname}")
+            sys.exit(0)
+        # build lookup structures
+        pending_by_key = {}  # (exp_id, slot) -> descriptor
+        pending_by_exp = {}  # exp_id -> [(slot, descriptor), ...]
+        for eid, slot, desc in pending:
+            pending_by_key[(eid, slot)] = desc
+            pending_by_exp.setdefault(eid, []).append((slot, desc))
+        # match each file against expectations
+        # matched_groups: (exp_id, slot) -> {"descriptor": str, "files": [(fname, src_path)]}
+        matched_groups = {}
+        unmatched = []
+        skipped = []  # (fname, reason)
+        for fname in sorted(staging_files):
+            src_path = os.path.join(STAGING_DIR, fname)
+            parsed_eid, parsed_slot = parse_staging_name(fname)
+            if parsed_eid is not None and parsed_slot is not None:
+                key = (parsed_eid, parsed_slot)
+                if key in pending_by_key:
+                    if key not in matched_groups:
+                        matched_groups[key] = {
+                            "descriptor": pending_by_key[key],
+                            "files": [],
+                        }
+                    matched_groups[key]["files"].append((fname, src_path))
+                else:
+                    unmatched.append(fname)
+            elif parsed_eid is not None:
+                exp_pending = pending_by_exp.get(parsed_eid, [])
+                if len(exp_pending) == 1:
+                    s, d = exp_pending[0]
+                    key = (parsed_eid, s)
+                    if key not in matched_groups:
+                        matched_groups[key] = {
+                            "descriptor": d,
+                            "files": [],
+                        }
+                    matched_groups[key]["files"].append((fname, src_path))
+                elif len(exp_pending) > 1:
+                    skipped.append(
+                        (
+                            fname,
+                            f"{parsed_eid} found but slot ambiguous "
+                            f"({len(exp_pending)} pending). "
+                            f"Use 'stage assign' or rename with slot number.",
+                        )
+                    )
+                else:
+                    unmatched.append(fname)
+            else:
+                unmatched.append(fname)
+        # resolve folder_names for matched experiments
+        folder_cache = {}
+        valid_groups = {}
+        for key, group in matched_groups.items():
+            exp_id = key[0]
+            if exp_id not in folder_cache:
+                cursor.execute(
+                    "SELECT folder_name FROM experiments WHERE id = ?",
+                    (exp_id,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    for fname, _ in group["files"]:
+                        skipped.append(
+                            (fname, f"Experiment {exp_id} not found in database.")
+                        )
+                    continue
+                folder_cache[exp_id] = row[0]
+            group["folder_name"] = folder_cache[exp_id]
+            valid_groups[key] = group
+        matched_groups = valid_groups
+        # validate destinations and build matched file list
+        today_compact = datetime.date.today().strftime("%Y%m%d")
+        matched_files = []
+        for key, group in matched_groups.items():
+            exp_id, slot = key
+            desc = group["descriptor"]
+            folder_name = group["folder_name"]
+            for fname, src_path in group["files"]:
+                ext = os.path.splitext(fname)[1].lower()
+                dest_name = f"{today_compact}_{exp_id}_{desc}{ext}"
+                rel_path = os.path.join("experiments", folder_name, dest_name)
+                dest_path = os.path.join(EXPERIMENTS_DIR, folder_name, dest_name)
+                if os.path.exists(dest_path):
+                    skipped.append(
+                        (
+                            fname,
+                            f"Destination exists: {dest_name}. "
+                            "Use a different descriptor or remove existing file.",
+                        )
+                    )
+                else:
+                    matched_files.append(
+                        (
+                            fname,
+                            src_path,
+                            exp_id,
+                            slot,
+                            desc,
+                            folder_name,
+                            dest_name,
+                            rel_path,
+                        )
+                    )
+        if not confirm:
+            # --- dry run ---
+            print("[DRY RUN]")
+            if matched_files:
+                print(f"Matched ({len(matched_files)}):")
+                for fname, _, _, _, _, _, _, rel_path in matched_files:
+                    print(f"  {fname}")
+                    print(f"     -> {rel_path}")
+            if skipped:
+                print(f"Skipped ({len(skipped)}):")
+                for fname, reason in skipped:
+                    print(f"  {fname}")
+                    print(f"     {reason}")
+            if unmatched:
+                print(f"Unmatched ({len(unmatched)}):")
+                for fname in unmatched:
+                    print(f"  {fname}")
+            print()
+            if matched_files:
+                print(
+                    f"{len(matched_files)} file"
+                    f"{'s' if len(matched_files) != 1 else ''}"
+                    " ready to assign. Run with --confirm to execute."
+                )
+            else:
+                print("No files matched any pending expectations.")
+                if unmatched or skipped:
+                    print("Use 'stage assign' for ad hoc files.")
+        else:
+            # --- confirmed execution ---
+            filed_count = 0
+            filed_display = []
+            skip_display = list(skipped)
+            filed_slots = set()
+            error_slots = set()
+            for (
+                fname,
+                src_path,
+                exp_id,
+                slot,
+                desc,
+                folder_name,
+                dest_name,
+                rel_path,
+            ) in matched_files:
+                key = (exp_id, slot)
+                try:
+                    new_name, _ = file_staged(src_path, exp_id, folder_name, desc)
+                    filed_count += 1
+                    filed_display.append((fname, new_name))
+                    filed_slots.add(key)
+                except ValueError as e:
+                    skip_display.append((fname, str(e)))
+                    error_slots.add(key)
+            # mark expectations as filed (only fully successful slots)
+            for key in filed_slots - error_slots:
+                eid, sl = key
+                cursor.execute(
+                    "UPDATE stage_expectations "
+                    "SET status = 'filed', filed_at = datetime('now') "
+                    "WHERE experiment_id = ? AND slot = ?",
+                    (eid, sl),
+                )
+            # combine skipped and unmatched for display
+            for fname in unmatched:
+                skip_display.append((fname, "no match"))
+            # display results
+            if filed_display:
+                print(f"Filed ({len(filed_display)}):")
+                for fname, new_name in filed_display:
+                    print(f"  {fname}")
+                    print(f"     -> {new_name}")
+            if skip_display:
+                print(f"Skipped ({len(skip_display)}):")
+                for fname, reason in skip_display:
+                    print(f"  {fname} ({reason})")
+            print()
+            print(f"{filed_count} filed, {len(skip_display)} skipped.")
     else:
         print(f"Unknown subcommand: stage {subcommand}")
         print("Run 'python lw.py stage' for usage.")
