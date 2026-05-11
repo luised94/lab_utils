@@ -197,7 +197,7 @@ if not args:
     print("  strain add <id> <genotype>    Register a new strain")
     print("  strain show <id>              Show strain details")
     print("  strain update <id> <f> <v>    Update a strain field")
-    print("  strain list                   List all strains with labels")
+    print("  strain list [--no-label]      List all strains with labels")
     print("  stage list                    Show files in staging")
     print("  stage assign <f> <exp> <desc> Rename, move, and register file")
     print("  stage expect <exp> <desc...>  Pre-register expected files")
@@ -913,21 +913,101 @@ elif command == "exp":
         print(f"{len(rows)} experiment{'s' if len(rows) != 1 else ''}")
     # --- lw exp list [--type T] ---
     elif subcommand == "list":
-        # SCAFFOLD: exp list - Thread: command-implementation
-        #
-        # List experiments grouped by type with type-specific summary columns.
-        # Type-specific summaries:
-        #   purification: protein, yield_mg
-        #   loading/gelshift/atpase: sample count (from samples table), protein_prep
-        #   genetics/cloning/sequencing/computational: status only
-        # Optional --type flag to filter to one type.
-        # Sort: by date_started descending within each type group.
-        # Footer: count per type, total.
-        #
-        # Difference from exp find: find is search/filter, list is browse/overview.
-        # find returns a flat table; list groups by type with richer summaries.
-        print("exp list: not yet implemented")
-        sys.exit(0)
+        f_type = None
+        i = 0
+        while i < len(pos_args):
+            if pos_args[i] == "--type" and i + 1 < len(pos_args):
+                f_type = pos_args[i + 1]
+                i += 2
+            else:
+                print(f"Unknown argument: {pos_args[i]}")
+                sys.exit(1)
+        if f_type and f_type not in VALID_TYPES:
+            print(f"Unknown type: '{f_type}'")
+            print(f"Valid types: {', '.join(VALID_TYPES)}")
+            sys.exit(1)
+        if f_type:
+            cursor.execute(
+                "SELECT id, type, shortname, status, date_started "
+                "FROM experiments WHERE type = ? ORDER BY date_started DESC, id DESC",
+                (f_type,),
+            )
+        else:
+            cursor.execute(
+                "SELECT id, type, shortname, status, date_started "
+                "FROM experiments ORDER BY date_started DESC, id DESC"
+            )
+        rows = cursor.fetchall()
+        if not rows:
+            if f_type:
+                print(f"No {f_type} experiments found.")
+            else:
+                print("No experiments registered.")
+            sys.exit(0)
+        groups = {}
+        for eid, etype, sname, estatus, started in rows:
+            groups.setdefault(etype, []).append((eid, sname, estatus, started))
+        type_order = [t for t in VALID_TYPES if t in groups]
+        total = 0
+        type_counts = []
+        for etype in type_order:
+            exps = groups[etype]
+            print(f"{etype} ({len(exps)})")
+            for eid, sname, estatus, started in exps:
+                detail = ""
+                if etype == "purification":
+                    cursor.execute(
+                        "SELECT protein, yield_mg FROM purification_details "
+                        "WHERE experiment_id = ?",
+                        (eid,),
+                    )
+                    prow = cursor.fetchone()
+                    if prow and prow[0]:
+                        detail = prow[0]
+                        if prow[1] is not None:
+                            detail += f" / {prow[1]} mg"
+                    else:
+                        detail = "-"
+                elif etype in ("loading", "gelshift", "atpase"):
+                    cursor.execute(
+                        "SELECT COUNT(*) FROM samples WHERE experiment_id = ?",
+                        (eid,),
+                    )
+                    s_count = cursor.fetchone()[0]
+                    cursor.execute(
+                        "SELECT a.protein_prep, p.protein "
+                        "FROM assay_details a "
+                        "LEFT JOIN purification_details p "
+                        "ON a.protein_prep = p.experiment_id "
+                        "WHERE a.experiment_id = ?",
+                        (eid,),
+                    )
+                    arow = cursor.fetchone()
+                    parts = [f"{s_count} samples"]
+                    if arow and arow[0]:
+                        prep_id = arow[0]
+                        protein = arow[1]
+                        if protein:
+                            parts.append(f"prep={prep_id} ({protein})")
+                        else:
+                            parts.append(f"prep={prep_id}")
+                    detail = "  ".join(parts)
+                if detail:
+                    print(
+                        f"    {eid:<10} {sname:<20} {estatus:<10} {started}  {detail}"
+                    )
+                else:
+                    print(f"    {eid:<10} {sname:<20} {estatus:<10} {started}")
+            total += len(exps)
+            type_counts.append(f"{etype}: {len(exps)}")
+            print()
+        if f_type:
+            print(f"{total} experiment{'s' if total != 1 else ''}")
+        else:
+            print(
+                f"{total} experiment{'s' if total != 1 else ''} "
+                f"({', '.join(type_counts)})"
+            )
     # --- lw exp manifest <id> [--force] ---
     elif subcommand == "manifest":
         if len(pos_args) < 1:
@@ -1196,7 +1276,7 @@ elif command == "strain":
         print("Usage: python lw.py strain <subcommand>")
         print("  add <id> <genotype>   Register a new strain")
         print("  show <id>             Show strain details and experiments")
-        print("  list                  List all strains")
+        print("  list [--no-label]     List all strains (--no-label: missing only)")
         print("  update <id> <f> <v>   Update a strain field")
         sys.exit(0)
     # --- lw strain update <id> <field> <value> ---
@@ -1298,16 +1378,41 @@ elif command == "strain":
                 print(f"    {eid}  {etype:<14} {sname}{role_str}")
     # --- lw strain list ---
     elif subcommand == "list":
-        # SCAFFOLD: strain list - Thread: command-implementation
-        #
-        # List all strains in a compact table:
-        #   id, label (or "NO LABEL" warning), genotype (truncated to ~40 chars),
-        #   experiment count (from experiment_strains join)
-        # Sort: alphabetical by id.
-        # Footer: total strains, count missing labels.
-        # Purpose: quick reference when writing design.py or running exp addstrain.
-        print("strain list: not yet implemented")
-        sys.exit(0)
+        no_label_only = "--no-label" in pos_args
+        sql = (
+            "SELECT s.id, s.label, s.genotype, COUNT(es.experiment_id) "
+            "FROM strains s LEFT JOIN experiment_strains es ON s.id = es.strain_id "
+        )
+        if no_label_only:
+            sql += "WHERE s.label IS NULL "
+        sql += "GROUP BY s.id ORDER BY s.id"
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        if not rows:
+            if no_label_only:
+                print("All strains have labels.")
+            else:
+                print("No strains registered.")
+            sys.exit(0)
+        print(f"  {'ID':<12} {'Label':<16} {'Genotype':<43} {'Exps':>4}")
+        print("  " + "-" * 77)
+        n_missing = 0
+        for sid, label, genotype, exp_count in rows:
+            if label:
+                lbl_str = label
+            else:
+                lbl_str = "*NO LABEL*"
+                n_missing += 1
+            geno_str = (genotype[:40] + "...") if len(genotype) > 40 else genotype
+            print(f"  {sid:<12} {lbl_str:<16} {geno_str:<43} {exp_count:>4}")
+        print()
+        if no_label_only:
+            print(f"  {len(rows)} strain{'s' if len(rows) != 1 else ''} without labels")
+        else:
+            msg = f"  {len(rows)} strain{'s' if len(rows) != 1 else ''}"
+            if n_missing > 0:
+                msg += f", {n_missing} missing label{'s' if n_missing != 1 else ''}"
+            print(msg)
     else:
         print(f"Unknown subcommand: strain {subcommand}")
         print("Run 'python lw.py strain' for usage.")
@@ -1531,22 +1636,134 @@ elif command == "stage":
         sys.exit(1)
 # --- lw status ---
 elif command == "status":
-    # SCAFFOLD: system dashboard - Thread: command-implementation
-    #
-    # Show at-a-glance system state (no arguments, instant orientation):
-    #   - Active experiments: count and brief list (id, type, shortname, days active)
-    #   - Completed experiments: count
-    #   - Staging: file count and total size (0 = clean, >0 = action needed)
-    #   - Pending expectations: count (from stage_expectations where status='pending')
-    #   - Strains: total count, count missing labels (warning if any)
-    #   - Samples: total across all experiments
-    #   - Last activity: most recent date_started or date_completed
-    #   - Incomplete records: experiments without notes, strains without labels
-    #
-    # Purpose: first command after returning from time away.
-    # "What's the state of my lab system right now?"
-    print("status: not yet implemented")
-    sys.exit(0)
+    # --- experiments ---
+    cursor.execute("SELECT COUNT(*) FROM experiments")
+    n_total_exp = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM experiments WHERE status = 'active'")
+    n_active = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM experiments WHERE status = 'complete'")
+    n_complete = cursor.fetchone()[0]
+    print("Experiments:")
+    print(f"  {n_total_exp} total ({n_active} active, {n_complete} complete)")
+    if n_active > 0:
+        cursor.execute(
+            "SELECT id, type, shortname, date_started FROM experiments "
+            "WHERE status = 'active' ORDER BY date_started DESC LIMIT 11"
+        )
+        active_rows = cursor.fetchall()
+        today = datetime.date.today()
+        print()
+        for eid, etype, sname, started in active_rows[:10]:
+            days = (today - datetime.date.fromisoformat(started)).days
+            print(f"    {eid:<10} {etype:<14} {sname:<20} ({days}d)")
+        if len(active_rows) > 10:
+            print(f"    ... and {n_active - 10} more")
+    # --- staging ---
+    print()
+    print("Staging:")
+    staging_files = (
+        [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
+        if os.path.exists(STAGING_DIR)
+        else []
+    )
+    if staging_files:
+        total_size = sum(
+            os.path.getsize(os.path.join(STAGING_DIR, f)) for f in staging_files
+        )
+        if total_size > 1024 * 1024:
+            size_str = f"{total_size / (1024 * 1024):.1f} MB"
+        elif total_size > 1024:
+            size_str = f"{total_size / 1024:.1f} KB"
+        else:
+            size_str = f"{total_size} B"
+        print(
+            f"  {len(staging_files)} file{'s' if len(staging_files) != 1 else ''}"
+            f" ({size_str})"
+        )
+    else:
+        print("  clean")
+    # --- pending expectations ---
+    cursor.execute("SELECT COUNT(*) FROM stage_expectations WHERE status = 'pending'")
+    n_pending = cursor.fetchone()[0]
+    if n_pending > 0:
+        print(f"  {n_pending} pending expectation{'s' if n_pending != 1 else ''}")
+    # --- strains ---
+    print()
+    cursor.execute("SELECT COUNT(*) FROM strains")
+    n_strains = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM strains WHERE label IS NULL")
+    n_no_label = cursor.fetchone()[0]
+    print("Strains:")
+    strain_msg = f"  {n_strains} registered"
+    if n_no_label > 0:
+        strain_msg += f", {n_no_label} missing label{'s' if n_no_label != 1 else ''}"
+    print(strain_msg)
+    # --- samples ---
+    print()
+    cursor.execute("SELECT COUNT(*) FROM samples")
+    n_samples = cursor.fetchone()[0]
+    print("Samples:")
+    print(f"  {n_samples} total")
+    # --- recent activity ---
+    print()
+    print("Recent activity:")
+    cursor.execute("SELECT MAX(date_started) FROM experiments")
+    last_started = cursor.fetchone()[0]
+    cursor.execute("SELECT MAX(date_completed) FROM experiments")
+    last_completed = cursor.fetchone()[0]
+    if last_started:
+        print(f"  Last experiment created: {last_started}")
+    if last_completed:
+        print(f"  Last experiment completed: {last_completed}")
+    if os.path.exists(LAB_NOTES):
+        mtime = os.path.getmtime(LAB_NOTES)
+        notes_date = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
+        print(f"  Lab notes last modified: {notes_date}")
+    if not last_started and not last_completed:
+        print("  No experiments yet.")
+    # --- attention needed ---
+    warnings = []
+    if n_no_label > 0:
+        warnings.append(
+            f"{n_no_label} strain{'s' if n_no_label != 1 else ''} without labels"
+        )
+    if staging_files:
+        warnings.append(
+            f"{len(staging_files)} file{'s' if len(staging_files) != 1 else ''}"
+            " in staging"
+        )
+    if n_pending > 0:
+        warnings.append(
+            f"{n_pending} pending expectation{'s' if n_pending != 1 else ''}"
+        )
+    cursor.execute(
+        "SELECT COUNT(*) FROM experiments e WHERE e.status = 'active' "
+        "AND NOT EXISTS "
+        "(SELECT 1 FROM experiment_strains es WHERE es.experiment_id = e.id)"
+    )
+    n_no_strains = cursor.fetchone()[0]
+    if n_no_strains > 0:
+        warnings.append(
+            f"{n_no_strains} active experiment"
+            f"{'s' if n_no_strains != 1 else ''}"
+            " with no strains linked"
+        )
+    cursor.execute(
+        "SELECT COUNT(*) FROM experiments WHERE status = 'active' AND notes IS NULL"
+    )
+    n_no_notes = cursor.fetchone()[0]
+    if n_no_notes > 0:
+        warnings.append(
+            f"{n_no_notes} active experiment"
+            f"{'s' if n_no_notes != 1 else ''}"
+            " with no notes"
+        )
+    if warnings:
+        print()
+        print("Attention needed:")
+        for w in warnings:
+            print(f"  - {w}")
+
 # --- unknown command ---
 else:
     print(f"Unknown command: {command}")
