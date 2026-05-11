@@ -174,6 +174,30 @@ def parse_staging_name(filename):
     return exp_id, slot
 
 
+def file_staged(src_path, exp_id, folder_name, descriptor):
+    """Move a file from staging to an experiment folder and register it.
+
+    Uses module-level cursor for database insertion.
+    Returns (new_name, rel_path).
+    Raises ValueError if destination already exists.
+    """
+    today_compact = datetime.date.today().strftime("%Y%m%d")
+    _, ext = os.path.splitext(src_path)
+    ext = ext.lower()
+    new_name = f"{today_compact}_{exp_id}_{descriptor}{ext}"
+    dest_dir = os.path.join(EXPERIMENTS_DIR, folder_name)
+    dest_path = os.path.join(dest_dir, new_name)
+    if os.path.exists(dest_path):
+        raise ValueError(f"Destination already exists: {new_name}")
+    shutil.move(src_path, dest_path)
+    rel_path = os.path.join("experiments", folder_name, new_name)
+    cursor.execute(
+        "INSERT INTO files (experiment_id, filename, file_type) VALUES (?, ?, ?)",
+        (exp_id, rel_path, None),
+    )
+    return (new_name, rel_path)
+
+
 # ============================================================
 # SECTION 2: ARGUMENT PARSING
 # ============================================================
@@ -1514,14 +1538,13 @@ elif command == "stage":
             print(f"Destination already exists: {new_name}")
             print("Use a different descriptor.")
             sys.exit(1)
-        # move file
-        shutil.move(src_path, dest_path)
-        # register in files table (path relative to LAB_ROOT)
-        rel_path = os.path.join("experiments", folder_name, new_name)
-        cursor.execute(
-            "INSERT INTO files (experiment_id, filename, file_type) VALUES (?, ?, ?)",
-            (exp_id, rel_path, None),
-        )
+        # move file and register
+        try:
+            new_name, rel_path = file_staged(src_path, exp_id, folder_name, descriptor)
+        except ValueError as e:
+            print(str(e))
+            print("Use a different descriptor.")
+            sys.exit(1)
         print(f"Filed: {src_name}")
         print(f"    -> {rel_path}")
     # --- lw stage expect ---
@@ -1529,56 +1552,159 @@ elif command == "stage":
         # dispatch on flags: --list, --cancel, or register (default)
         if "--list" in pos_args:
             # --- lw stage expect --list [exp_id] ---
-            # SCAFFOLD: stage expect --list (spec 3.2)
-            #
-            # Show pending (and optionally filed/cancelled) expectations.
-            # Optional experiment ID filter: pos_args may contain exp_id besides --list.
-            # Query stage_expectations, group by experiment_id.
-            # Display per row: slot, descriptor, status, created_at date.
-            # Footer: N pending, M filed.
-            # If filtered to one experiment, show only that experiment's expectations.
-            # If no expectations exist, print "No expectations registered."
-            print("stage expect --list: not yet implemented")
+            filter_args = [a for a in pos_args if a != "--list"]
+            filter_exp_id = None
+            if filter_args:
+                raw_id = filter_args[0]
+                if raw_id.upper().startswith("LM-"):
+                    filter_exp_id = raw_id.upper()
+                else:
+                    try:
+                        filter_exp_id = f"LM-{int(raw_id):04d}"
+                    except ValueError:
+                        print(f"Invalid experiment ID: '{raw_id}'")
+                        sys.exit(1)
+                # validate experiment exists
+                cursor.execute(
+                    "SELECT id FROM experiments WHERE id = ?", (filter_exp_id,)
+                )
+                if not cursor.fetchone():
+                    print(f"No experiment found with ID {filter_exp_id}")
+                    sys.exit(1)
+            # query expectations
+            if filter_exp_id:
+                cursor.execute(
+                    "SELECT experiment_id, slot, descriptor, status, created_at, filed_at "
+                    "FROM stage_expectations WHERE experiment_id = ? ORDER BY slot",
+                    (filter_exp_id,),
+                )
+            else:
+                cursor.execute(
+                    "SELECT experiment_id, slot, descriptor, status, created_at, filed_at "
+                    "FROM stage_expectations ORDER BY experiment_id, slot"
+                )
+            rows = cursor.fetchall()
+            if not rows:
+                if filter_exp_id:
+                    print(f"No expectations for {filter_exp_id}.")
+                else:
+                    print("No expectations registered.")
+                sys.exit(0)
+            n_pending = 0
+            n_filed = 0
+            if filter_exp_id:
+                # flat display, no grouping header
+                for eid, slot, desc, status, created_at, filed_at in rows:
+                    if status == "pending":
+                        created_date = created_at[:10] if created_at else "unknown"
+                        print(
+                            f"  s{slot}  {desc:<20} (pending, registered {created_date})"
+                        )
+                        n_pending += 1
+                    elif status == "filed":
+                        filed_date = filed_at[:10] if filed_at else "unknown"
+                        print(f"  s{slot}  {desc:<20} (filed {filed_date})")
+                        n_filed += 1
+                    elif status == "cancelled":
+                        print(f"  s{slot}  {desc:<20} (cancelled)")
+            else:
+                # group by experiment_id
+                current_eid = None
+                for eid, slot, desc, status, created_at, filed_at in rows:
+                    if eid != current_eid:
+                        current_eid = eid
+                        print(f"{eid}:")
+                    if status == "pending":
+                        created_date = created_at[:10] if created_at else "unknown"
+                        print(
+                            f"  s{slot}  {desc:<20} (pending, registered {created_date})"
+                        )
+                        n_pending += 1
+                    elif status == "filed":
+                        filed_date = filed_at[:10] if filed_at else "unknown"
+                        print(f"  s{slot}  {desc:<20} (filed {filed_date})")
+                        n_filed += 1
+                    elif status == "cancelled":
+                        print(f"  s{slot}  {desc:<20} (cancelled)")
+            print(f"{n_pending} pending, {n_filed} filed")
             sys.exit(0)
         elif "--cancel" in pos_args:
             # --- lw stage expect --cancel <exp_id> [sN] ---
-            # SCAFFOLD: stage expect --cancel (spec 3.3)
-            #
-            # Cancel pending expectations.
-            # Required: experiment ID (pos_args, excluding --cancel flag).
-            # Optional: slot specifier like "s1" or "s2".
-            # With slot: cancel that specific pending expectation.
-            # Without slot: cancel ALL pending expectations for that experiment.
-            # Only affects status='pending' rows; filed/cancelled are untouched.
-            # Sets status='cancelled'. Does not delete the row (preserves history).
-            # Normalize experiment ID. Validate experiment exists.
-            # Parse slot from "sN" format if provided, extract integer.
-            # Error if slot specified but not found or not pending.
-            # Print what was cancelled.
-            print("stage expect --cancel: not yet implemented")
+            cancel_args = [a for a in pos_args if a != "--cancel"]
+            if not cancel_args:
+                print("Usage: python lw.py stage expect --cancel <exp_id> [sN]")
+                sys.exit(1)
+            raw_id = cancel_args[0]
+            slot_arg = cancel_args[1] if len(cancel_args) > 1 else None
+            # normalize experiment ID
+            if raw_id.upper().startswith("LM-"):
+                exp_id = raw_id.upper()
+            else:
+                try:
+                    exp_id = f"LM-{int(raw_id):04d}"
+                except ValueError:
+                    print(f"Invalid experiment ID: '{raw_id}'")
+                    sys.exit(1)
+            # validate experiment exists
+            cursor.execute("SELECT id FROM experiments WHERE id = ?", (exp_id,))
+            if not cursor.fetchone():
+                print(f"No experiment found with ID {exp_id}")
+                sys.exit(1)
+            if slot_arg:
+                # parse slot: accept s1, S1, or bare 1
+                m = re.match(r"^s?(\d+)$", slot_arg, re.IGNORECASE)
+                if not m:
+                    print(f"Invalid slot: '{slot_arg}'. Use s1, s2, etc.")
+                    sys.exit(1)
+                slot = int(m.group(1))
+                # check if slot exists and its status
+                cursor.execute(
+                    "SELECT status, descriptor FROM stage_expectations "
+                    "WHERE experiment_id = ? AND slot = ?",
+                    (exp_id, slot),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    print(f"Slot s{slot} not found for {exp_id}")
+                    sys.exit(1)
+                if row[0] != "pending":
+                    print(f"Slot s{slot} is already {row[0]}.")
+                    sys.exit(1)
+                cursor.execute(
+                    "UPDATE stage_expectations SET status = 'cancelled' "
+                    "WHERE experiment_id = ? AND slot = ?",
+                    (exp_id, slot),
+                )
+                print(f"Cancelled: {exp_id} s{slot} ({row[1]})")
+            else:
+                # cancel all pending for this experiment
+                cursor.execute(
+                    "SELECT slot, descriptor FROM stage_expectations "
+                    "WHERE experiment_id = ? AND status = 'pending' ORDER BY slot",
+                    (exp_id,),
+                )
+                pending = cursor.fetchall()
+                if not pending:
+                    print(f"No pending expectations for {exp_id}")
+                    sys.exit(1)
+                cursor.execute(
+                    "UPDATE stage_expectations SET status = 'cancelled' "
+                    "WHERE experiment_id = ? AND status = 'pending'",
+                    (exp_id,),
+                )
+                if len(pending) == 1:
+                    s, d = pending[0]
+                    print(f"Cancelled 1 pending expectation for {exp_id}:")
+                    print(f"  s{s}  {d}")
+                else:
+                    print(
+                        f"Cancelled {len(pending)} pending expectations for {exp_id}:"
+                    )
+                    for s, d in pending:
+                        print(f"  s{s}  {d}")
             sys.exit(0)
         else:
             # --- lw stage expect <exp_id> <descriptor> [descriptor2...] ---
-            # SCAFFOLD: stage expect - register expectations (spec 3.1)
-            #
-            # Register one or more expected files for an experiment.
-            # pos_args[0] = experiment ID, pos_args[1:] = one or more descriptors.
-            # For each descriptor:
-            #   1. Query max slot: SELECT COALESCE(MAX(slot), 0) FROM stage_expectations
-            #      WHERE experiment_id = ?
-            #   2. Next slot = max + 1
-            #   3. Validate descriptor (same rules as shortname: lowercase alphanumeric + hyphens)
-            #   4. Insert row (experiment_id, slot, descriptor, 'pending')
-            # Normalize experiment ID. Validate experiment exists.
-            # Require at least one descriptor.
-            # Print slot assignments and instrument names:
-            #   s1 -> gel-coomassie
-            #   s2 -> gel-silver
-            #   At instrument:
-            #     lemr LM-0005 s1
-            #     lemr LM-0005 s2
-            # Slots never reuse numbers (always increment from max, including
-            # cancelled and filed slots).
             if len(pos_args) < 2:
                 print(
                     "Usage: python lw.py stage expect <exp_id> <descriptor> [descriptor2...]"
@@ -1587,8 +1713,59 @@ elif command == "stage":
                     "  Example: python lw.py stage expect LM-0005 gel-coomassie gel-silver"
                 )
                 sys.exit(1)
-            print("stage expect: not yet implemented")
-            sys.exit(0)
+            raw_id = pos_args[0]
+            descriptors = pos_args[1:]
+            # normalize experiment ID
+            if raw_id.upper().startswith("LM-"):
+                exp_id = raw_id.upper()
+            else:
+                try:
+                    exp_id = f"LM-{int(raw_id):04d}"
+                except ValueError:
+                    print(f"Invalid experiment ID: '{raw_id}'")
+                    sys.exit(1)
+            # validate experiment exists
+            cursor.execute("SELECT id FROM experiments WHERE id = ?", (exp_id,))
+            if not cursor.fetchone():
+                print(f"No experiment found with ID {exp_id}")
+                sys.exit(1)
+            # validate descriptors
+            for desc in descriptors:
+                if (
+                    not all(c.isalnum() or c == "-" for c in desc)
+                    or not desc[0].isalnum()
+                ):
+                    print(
+                        f"Invalid descriptor: '{desc}'. Use lowercase letters, digits, "
+                        "and hyphens. Must start with a letter or digit."
+                    )
+                    sys.exit(1)
+            descriptors = [d.lower() for d in descriptors]
+            # get max slot once before loop
+            cursor.execute(
+                "SELECT COALESCE(MAX(slot), 0) FROM stage_expectations WHERE experiment_id = ?",
+                (exp_id,),
+            )
+            max_slot = cursor.fetchone()[0]
+            # insert expectations
+            slots = []
+            for i, desc in enumerate(descriptors, 1):
+                slot = max_slot + i
+                cursor.execute(
+                    "INSERT INTO stage_expectations (experiment_id, slot, descriptor, status) "
+                    "VALUES (?, ?, ?, 'pending')",
+                    (exp_id, slot, desc),
+                )
+                slots.append((slot, desc))
+                print(f"  s{slot}  {desc}")
+            # print instrument names
+            if len(slots) == 1:
+                s, d = slots[0]
+                print(f"  At instrument: lemr {exp_id} s{s}")
+            else:
+                print("  At instrument:")
+                for s, d in slots:
+                    print(f"    lemr {exp_id} s{s}")
     # --- lw stage auto [--confirm] ---
     elif subcommand == "auto":
         # SCAFFOLD: stage auto - pre-registration matching (spec 3.4)
