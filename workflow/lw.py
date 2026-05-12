@@ -26,7 +26,7 @@ else:
         LAB_ROOT = f"/mnt/c/Users/{_win_user}/Desktop/lab"
     else:
         print("Error: Set LAB_ROOT or MC_WINDOWS_USER environment variable.")
-        sys.exit(1)
+        bail()
 DB_PATH = os.path.join(LAB_ROOT, "lab.db")
 EXPERIMENTS_DIR = os.path.join(LAB_ROOT, "experiments")
 STAGING_DIR = os.path.join(LAB_ROOT, "staging")
@@ -217,7 +217,7 @@ def normalize_exp_id(raw_id):
         return f"LM-{int(raw_id):04d}"
     except ValueError:
         print(f"Invalid experiment ID: '{raw_id}'")
-        sys.exit(1)
+        bail()
 
 
 def require_experiment(exp_id):
@@ -226,7 +226,7 @@ def require_experiment(exp_id):
     row = cursor.fetchone()
     if not row:
         print(f"No experiment found with ID {exp_id}")
-        sys.exit(1)
+        bail()
     col_names = [d[0] for d in cursor.description]
     return dict(zip(col_names, row))
 
@@ -237,12 +237,24 @@ def validate_name(value, label="name"):
     """
     if not value:
         print(f"Invalid {label}: cannot be empty.")
-        sys.exit(1)
+        bail()
     if not all(c.isalnum() or c == "-" for c in value) or not value[0].isalnum():
         print(f"Invalid {label}: '{value}'. Use lowercase letters, digits, and hyphens.")
         print("Must start with a letter or digit.")
-        sys.exit(1)
+        bail()
 
+
+def bail(code=1):
+    """Log command failure and exit. Safe to call even before LAB_ROOT exists."""
+    try:
+        _log_path = os.path.join(LAB_ROOT, "command_log.txt")
+        with open(_log_path, "a") as _f:
+            _ts = datetime.datetime.now().isoformat(timespec="seconds")
+            _cmd = " ".join(sys.argv[1:])
+            _f.write(f"{_ts}\t{_cmd}\tfail\n")
+    except Exception:
+        pass
+    sys.exit(code)
 
 # ============================================================
 # SECTION 2: ARGUMENT PARSING
@@ -287,7 +299,7 @@ if command != "init":
     if not os.path.exists(DB_PATH):
         print(f"Error: Database not found at {DB_PATH}")
         print("Run 'python lw.py init' first.")
-        sys.exit(1)
+        bail()
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA foreign_keys = ON")
     cursor = conn.cursor()
@@ -307,7 +319,7 @@ if command == "init":
     if os.path.exists(DB_PATH):
         print(f"Database already exists at {DB_PATH}")
         print("Init aborted to protect existing data.")
-        sys.exit(1)
+        bail()
     # create directories
     for d in DIRECTORIES:
         os.makedirs(os.path.join(LAB_ROOT, d), exist_ok=True)
@@ -358,7 +370,7 @@ elif command == "exp":
                     title = " ".join(pos_args[i + 1:])
                 else:
                     print("--title requires a value.")
-                    sys.exit(1)
+                    bail()
                 break
             else:
                 filtered_args.append(pos_args[i])
@@ -366,7 +378,7 @@ elif command == "exp":
         if len(filtered_args) != 2:
             print("Usage: python lw.py exp init <type> <shortname> [--title <title>]")
             print(f"Types: {', '.join(VALID_TYPES)}")
-            sys.exit(1)
+            bail()
         exp_type, shortname = filtered_args[0], filtered_args[1]
         if title is None:
             title = shortname
@@ -374,7 +386,7 @@ elif command == "exp":
         if exp_type not in VALID_TYPES:
             print(f"Unknown experiment type: '{exp_type}'")
             print(f"Valid types: {', '.join(VALID_TYPES)}")
-            sys.exit(1)
+            bail()
         validate_name(shortname, "shortname")
         shortname = shortname.lower()
         # read and increment counter
@@ -385,11 +397,11 @@ elif command == "exp":
         except FileNotFoundError:
             print(f"Counter file not found: {COUNTER_FILE}")
             print("Run 'python lw.py init' to initialize.")
-            sys.exit(1)
+            bail()
         except ValueError:
             print(f"Counter file contains invalid value: '{raw}'")
             print(f"Expected an integer in {COUNTER_FILE}")
-            sys.exit(1)
+            bail()
 
         exp_id = f"LM-{counter:04d}"
         # build folder name
@@ -402,7 +414,7 @@ elif command == "exp":
         if os.path.exists(folder_path):
             print(f"Error: Folder already exists: {folder_path}")
             print("Counter may be out of sync. Check counter.txt.")
-            sys.exit(1)
+            bail()
         # insert record first (uncommitted - rolls back if later ops fail)
         cursor.execute(
             "INSERT INTO experiments (id, type, title, shortname, date_started, status, folder_name) VALUES (?, ?, ?, ?, ?, 'active', ?)",
@@ -429,7 +441,7 @@ elif command == "exp":
     elif subcommand == "update":
         if len(pos_args) < 3:
             print("Usage: python lw.py exp update <id> <field> <value>")
-            sys.exit(1)
+            bail()
         raw_id, field = pos_args[0], pos_args[1]
         value = " ".join(pos_args[2:])
         exp_id = normalize_exp_id(raw_id)
@@ -439,7 +451,7 @@ elif command == "exp":
             print(f"Field '{field}' cannot be modified directly.")
             if field == "status":
                 print(f"Use: python lw.py exp complete {exp_id}")
-            sys.exit(1)
+            bail()
         # find which table owns this field
         # Discovery is dynamic via PRAGMA table_info. Updateable fields:
         #   experiments: type, title, shortname, protocol_id, notes
@@ -466,7 +478,7 @@ elif command == "exp":
                 )
             print(f"Unknown field: '{field}'")
             print(f"Valid fields: {', '.join(sorted(set(all_fields)))}")
-            sys.exit(1)
+            bail()
         # for type-specific tables, ensure row exists
         if target_table in ("purification_details", "assay_details"):
             cursor.execute(
@@ -488,7 +500,7 @@ elif command == "exp":
                         print(
                             f"Set 'protein' first: python lw.py exp update {exp_id} protein <name>"
                         )
-                        sys.exit(1)
+                        bail()
                     # already inserted, skip the UPDATE below
                     target_table = None
                 elif target_table == "assay_details":
@@ -527,7 +539,7 @@ elif command == "exp":
     elif subcommand == "complete":
         if len(pos_args) != 1:
             print("Usage: python lw.py exp complete <id>")
-            sys.exit(1)
+            bail()
         raw_id = pos_args[0]
         exp_id = normalize_exp_id(raw_id)
         exp = require_experiment(exp_id)
@@ -549,7 +561,7 @@ elif command == "exp":
         if len(pos_args) < 3:
             print("Usage: python lw.py exp link <from_id> <to_id> <relationship>")
             print("  Relationships: uses_prep_from, replicate_of, follow_up_to")
-            sys.exit(1)
+            bail()
         raw_from, raw_to, relationship = pos_args[0], pos_args[1], pos_args[2]
         from_id = normalize_exp_id(raw_from)
         to_id = normalize_exp_id(raw_to)
@@ -568,7 +580,7 @@ elif command == "exp":
         )
         if cursor.fetchone():
             print(f"Link already exists: {from_id} -> {to_id}")
-            sys.exit(1)
+            bail()
 
         if relationship == "uses_prep_from" and to_exp["type"] != "purification":
             print(f"  Note: {to_id} is type '{to_exp['type']}', not purification.")
@@ -598,7 +610,7 @@ elif command == "exp":
     elif subcommand == "addstrain":
         if len(pos_args) < 2:
             print("Usage: python lw.py exp addstrain <exp_id> <strain_id> [role]")
-            sys.exit(1)
+            bail()
         strain_id, field = pos_args[0], pos_args[1]
         value = " ".join(pos_args[2:])
         role = pos_args[2] if len(pos_args) > 2 else None
@@ -610,7 +622,7 @@ elif command == "exp":
         if not cursor.fetchone():
             print(f"No strain found with ID {strain_id}")
             print("Register it first: python lw.py strain add <id> <genotype>")
-            sys.exit(1)
+            bail()
         # check for duplicate
         cursor.execute(
             "SELECT 1 FROM experiment_strains WHERE experiment_id = ? AND strain_id = ?",
@@ -618,7 +630,7 @@ elif command == "exp":
         )
         if cursor.fetchone():
             print(f"Strain {strain_id} already linked to {exp_id}")
-            sys.exit(1)
+            bail()
         cursor.execute(
             "INSERT INTO experiment_strains (experiment_id, strain_id, role) VALUES (?, ?, ?)",
             (exp_id, strain_id, role),
@@ -630,7 +642,7 @@ elif command == "exp":
         if len(pos_args) != 1:
             print("Usage: python lw.py exp show <id>")
             print("  Accepts 'LM-0001' or just '1'")
-            sys.exit(1)
+            bail()
         raw_id = pos_args[0]
         exp_id = normalize_exp_id(raw_id)
         exp = require_experiment(exp_id)
@@ -758,7 +770,7 @@ elif command == "exp":
         if len(pos_args) < 1:
             print("Usage: python lw.py exp delete <id> [--confirm] [--keep-folder]")
             print("  Without --confirm: dry run (shows what would be deleted)")
-            sys.exit(1)
+            bail()
         raw_id = pos_args[0]
         confirm = "--confirm" in pos_args
         keep_folder = "--keep-folder" in pos_args
@@ -945,13 +957,13 @@ elif command == "exp":
                 i += 1
             else:
                 print(f"Unknown flag: {pos_args[i]}")
-                sys.exit(1)
+                bail()
         query = " ".join(query_parts) if query_parts else None
         # validate type if given
         if f_type and f_type not in VALID_TYPES:
             print(f"Unknown type: '{f_type}'")
             print(f"Valid types: {', '.join(VALID_TYPES)}")
-            sys.exit(1)
+            bail()
         # build query
         sql = "SELECT DISTINCT e.id, e.type, e.shortname, e.status, e.date_started FROM experiments e"
         conditions = []
@@ -984,7 +996,7 @@ elif command == "exp":
                 )
                 if not cursor.fetchone():
                     print(f"Strain '{f_strain}' not found in database.")
-                    sys.exit(1)
+                    bail()
             print("No experiments found.")
             sys.exit(0)
 
@@ -1005,11 +1017,11 @@ elif command == "exp":
                 i += 2
             else:
                 print(f"Unknown argument: {pos_args[i]}")
-                sys.exit(1)
+                bail()
         if f_type and f_type not in VALID_TYPES:
             print(f"Unknown type: '{f_type}'")
             print(f"Valid types: {', '.join(VALID_TYPES)}")
-            sys.exit(1)
+            bail()
         if f_type:
             cursor.execute(
                 "SELECT id, type, shortname, title, status, date_started "
@@ -1097,7 +1109,7 @@ elif command == "exp":
     elif subcommand == "manifest":
         if len(pos_args) < 1:
             print("Usage: python lw.py exp manifest <id> [--force]")
-            sys.exit(1)
+            bail()
 
         raw_id = pos_args[0]
         force = "--force" in pos_args
@@ -1110,7 +1122,7 @@ elif command == "exp":
         if not os.path.exists(design_path):
             print(f"No design.py found in {folder_name}/")
             print(f"Create {design_path} with a DESIGN dict.")
-            sys.exit(1)
+            bail()
         print(f"Loading design from experiments/{folder_name}/design.py")
         # load config via exec
         design_ns = {}
@@ -1118,18 +1130,18 @@ elif command == "exp":
             exec(f.read(), design_ns)
         if "DESIGN" not in design_ns:
             print("Error: design.py must define a DESIGN dict.")
-            sys.exit(1)
+            bail()
         design = design_ns["DESIGN"]
         # validate required keys
         for key in ("experiment_id", "expected_samples", "categories", "sort_order"):
             if key not in design:
                 print(f"Error: DESIGN missing required key '{key}'")
-                sys.exit(1)
+                bail()
         if design["experiment_id"] != exp_id:
             print(
                 f"Error: DESIGN experiment_id '{design['experiment_id']}' does not match {exp_id}"
             )
-            sys.exit(1)
+            bail()
         # validate sort_order matches category keys
         cat_keys = set(design["categories"].keys())
         sort_keys = set(design["sort_order"])
@@ -1142,7 +1154,7 @@ elif command == "exp":
                 print(
                     f"Error: sort_order references unknown categories: {', '.join(extra)}"
                 )
-            sys.exit(1)
+            bail()
         # check for existing samples
         cursor.execute(
             "SELECT COUNT(*) FROM samples WHERE experiment_id = ?", (exp_id,)
@@ -1153,7 +1165,7 @@ elif command == "exp":
                 print(f"Error: {existing} samples already exist for {exp_id}")
                 print(f"Use --force to delete and regenerate:")
                 print(f"  python lw.py exp manifest {exp_id} --force")
-                sys.exit(1)
+                bail()
             cursor.execute("DELETE FROM samples WHERE experiment_id = ?", (exp_id,))
             print(f"Cleared {existing} existing samples.")
         # --- resolve strain labels ---
@@ -1177,7 +1189,7 @@ elif command == "exp":
             if not row:
                 print(f"Error: strain '{sid}' not found in database.")
                 print(f"Register it first: python lw.py strain add {sid} <genotype>")
-                sys.exit(1)
+                bail()
             lbl = row[1] if row[1] else sid  # fall back to ID if no label
             strain_labels[sid] = lbl
             resolve_parts.append(f"{sid} -> {lbl}")
@@ -1220,7 +1232,7 @@ elif command == "exp":
                 except Exception as e:
                     print(f"Error in design.py exclude function {exc_i}: {e}")
                     print(f"  Row: {row}")
-                    sys.exit(1)
+                    bail()
             if not excluded:
                 factorial_rows.append(row)
 
@@ -1271,7 +1283,7 @@ elif command == "exp":
                 print(f"  {i}: {row}")
             print()
             print("Check your categories, excludes, and expected_samples.")
-            sys.exit(1)
+            bail()
         print(
             f"Generated {n_extras} extras + {n_factorial} factorial = {n_total} samples (expected {expected})"
         )
@@ -1347,7 +1359,7 @@ elif command == "exp":
     else:
         print(f"Unknown subcommand: exp {subcommand}")
         print("Run 'python lw.py exp' for usage.")
-        sys.exit(1)
+        bail()
 # --- lw strain ---
 elif command == "strain":
     if not subcommand:
@@ -1361,20 +1373,20 @@ elif command == "strain":
     if subcommand == "update":
         if len(pos_args) < 3:
             print("Usage: python lw.py strain update <id> <field> <value>")
-            sys.exit(1)
+            bail()
         strain_id, field, value = pos_args[0], pos_args[1], pos_args[2]
         # verify strain exists
         cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
         if not cursor.fetchone():
             print(f"No strain found with ID {strain_id}")
-            sys.exit(1)
+            bail()
         # validate field
         cursor.execute("PRAGMA table_info(strains)")
         valid_fields = [r[1] for r in cursor.fetchall() if r[1] != "id"]
         if field not in valid_fields:
             print(f"Unknown field: '{field}'")
             print(f"Valid fields: {', '.join(valid_fields)}")
-            sys.exit(1)
+            bail()
         # get old value and update
         cursor.execute(f"SELECT {field} FROM strains WHERE id = ?", (strain_id,))
         old_val = cursor.fetchone()[0]
@@ -1400,7 +1412,7 @@ elif command == "strain":
             print(
                 '  Example: python lw.py strain add LY456 "MATa orc4-R267A::KanMX ura3 leu2 trp1 his3"'
             )
-            sys.exit(1)
+            bail()
         strain_id = pos_args[0]
         genotype = pos_args[1]
         validate_name(strain_id, "strain ID")
@@ -1409,7 +1421,7 @@ elif command == "strain":
         if cursor.fetchone():
             print(f"Strain {strain_id} already exists.")
             print(f"Use 'python lw.py strain show {strain_id}' to view it.")
-            sys.exit(1)
+            bail()
         cursor.execute(
             "INSERT INTO strains (id, genotype) VALUES (?, ?)",
             (strain_id, genotype),
@@ -1423,13 +1435,13 @@ elif command == "strain":
     elif subcommand == "show":
         if len(pos_args) != 1:
             print("Usage: python lw.py strain show <id>")
-            sys.exit(1)
+            bail()
         strain_id = pos_args[0]
         cursor.execute("SELECT * FROM strains WHERE id = ?", (strain_id,))
         row = cursor.fetchone()
         if not row:
             print(f"No strain found with ID {strain_id}")
-            sys.exit(1)
+            bail()
         col_names = [d[0] for d in cursor.description]
         strain = dict(zip(col_names, row))
         fields = [
@@ -1498,7 +1510,7 @@ elif command == "strain":
     else:
         print(f"Unknown subcommand: strain {subcommand}")
         print("Run 'python lw.py strain' for usage.")
-        sys.exit(1)
+        bail()
 # --- lw stage ---
 elif command == "stage":
     if not subcommand:
@@ -1514,7 +1526,7 @@ elif command == "stage":
     if subcommand == "list":
         if not os.path.exists(STAGING_DIR):
             print("Staging directory does not exist.")
-            sys.exit(1)
+            bail()
         files = [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
         if not files:
             print("Staging is empty.")
@@ -1565,7 +1577,7 @@ elif command == "stage":
         if len(pos_args) < 3:
             print("Usage: python lw.py stage assign <filename> <exp_id> <descriptor>")
             print("  Example: python lw.py stage assign Image_001.tiff LM-0001 gel-01")
-            sys.exit(1)
+            bail()
         src_name, raw_id, descriptor = pos_args[0], pos_args[1], pos_args[2]
         validate_name(descriptor, "descriptor")
         descriptor = descriptor.lower()
@@ -1579,7 +1591,7 @@ elif command == "stage":
                 print("Available files:")
                 for f in sorted(files):
                     print(f"  {f}")
-            sys.exit(1)
+            bail()
         exp_id = normalize_exp_id(raw_id)
         exp = require_experiment(exp_id)
         folder_name = exp["folder_name"]
@@ -1589,7 +1601,7 @@ elif command == "stage":
         except ValueError as e:
             print(str(e))
             print("Use a different descriptor.")
-            sys.exit(1)
+            bail()
         print(f"Experiment: {exp_id} ({exp['shortname']}, {exp['type']})")
         print(f"Filed: {src_name}")
         print(f"    -> {rel_path}")
@@ -1665,7 +1677,7 @@ elif command == "stage":
             cancel_args = [a for a in pos_args if a != "--cancel"]
             if not cancel_args:
                 print("Usage: python lw.py stage expect --cancel <exp_id> [sN]")
-                sys.exit(1)
+                bail()
             slot_arg = cancel_args[1] if len(cancel_args) > 1 else None
             exp_id = normalize_exp_id(cancel_args[0])
             require_experiment(exp_id)
@@ -1674,7 +1686,7 @@ elif command == "stage":
                 m = re.match(r"^s?(\d+)$", slot_arg, re.IGNORECASE)
                 if not m:
                     print(f"Invalid slot: '{slot_arg}'. Use s1, s2, etc.")
-                    sys.exit(1)
+                    bail()
                 slot = int(m.group(1))
                 # check if slot exists and its status
                 cursor.execute(
@@ -1685,10 +1697,10 @@ elif command == "stage":
                 row = cursor.fetchone()
                 if not row:
                     print(f"Slot s{slot} not found for {exp_id}")
-                    sys.exit(1)
+                    bail()
                 if row[0] != "pending":
                     print(f"Slot s{slot} is already {row[0]}.")
-                    sys.exit(1)
+                    bail()
                 cursor.execute(
                     "UPDATE stage_expectations SET status = 'cancelled' "
                     "WHERE experiment_id = ? AND slot = ?",
@@ -1705,7 +1717,7 @@ elif command == "stage":
                 pending = cursor.fetchall()
                 if not pending:
                     print(f"No pending expectations for {exp_id}")
-                    sys.exit(1)
+                    bail()
                 cursor.execute(
                     "UPDATE stage_expectations SET status = 'cancelled' "
                     "WHERE experiment_id = ? AND status = 'pending'",
@@ -1731,7 +1743,7 @@ elif command == "stage":
                 print(
                     "  Example: python lw.py stage expect LM-0005 gel-coomassie gel-silver"
                 )
-                sys.exit(1)
+                bail()
             raw_id = pos_args[0]
             descriptors = pos_args[1:]
             exp_id = normalize_exp_id(raw_id)
@@ -1744,7 +1756,7 @@ elif command == "stage":
             for desc in descriptors:
                 if desc in seen:
                     print(f"Duplicate descriptor in arguments: '{desc}'")
-                    sys.exit(1)
+                    bail()
                 seen.add(desc)
             # check against existing pending expectations
             cursor.execute(
@@ -1757,7 +1769,7 @@ elif command == "stage":
                 if desc in existing_descs:
                     print(f"Descriptor '{desc}' already pending for {exp_id}.")
                     print("Cancel it first or use a different descriptor.")
-                    sys.exit(1)
+                    bail()
             # get max slot once before loop
             cursor.execute(
                 "SELECT COALESCE(MAX(slot), 0) FROM stage_expectations WHERE experiment_id = ?",
@@ -1796,7 +1808,7 @@ elif command == "stage":
         # list staging files
         if not os.path.exists(STAGING_DIR):
             print("Staging directory does not exist.")
-            sys.exit(1)
+            bail()
         staging_files = [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
         if not staging_files:
             cursor.execute(
@@ -2011,7 +2023,7 @@ elif command == "stage":
     else:
         print(f"Unknown subcommand: stage {subcommand}")
         print("Run 'python lw.py stage' for usage.")
-        sys.exit(1)
+        bail()
 # --- lw status ---
 elif command == "status":
     # --- experiments ---
@@ -2146,7 +2158,7 @@ elif command == "status":
 else:
     print(f"Unknown command: {command}")
     print("Run 'python lw.py' for usage.")
-    sys.exit(1)
+    bail()
 # ============================================================
 # SECTION 5: CLEANUP
 # ============================================================
