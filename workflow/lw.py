@@ -50,11 +50,13 @@ CATEGORY_CODES = {
     "cloning": "clon",
     "sequencing": "seq",
 }
+# VALID_TYPES derived from CATEGORY_CODES - add new types to CATEGORY_CODES only
 VALID_TYPES = list(CATEGORY_CODES.keys())
 PROTECTED_FIELDS = {
     "id", "experiment_id", "created_at",
     "folder_name", "date_started", "date_completed", "status",
 }
+KNOWN_RELATIONSHIPS = ["uses_prep_from", "replicate_of", "follow_up_to"]
 # --- schema ---
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS experiments (
@@ -159,12 +161,12 @@ CREATE TABLE IF NOT EXISTS stage_expectations (
 # --- staging filename parser ---
 def parse_staging_name(filename):
     """Extract experiment ID and slot from staging filename.
-
     Parses filenames following the instrument convention:
         lemr LM-NNNN sN [instrument suffix].ext
-
     Returns (exp_id, slot) or (exp_id, None) or (None, None).
     exp_id is normalized to uppercase, slot is an integer.
+    First-match-wins: scans all tokens, returns the first matching
+    experiment ID and the first matching slot found.
     """
     stem = os.path.splitext(filename)[0]
     tokens = stem.split()
@@ -181,9 +183,13 @@ def parse_staging_name(filename):
 def file_staged(src_path, exp_id, folder_name, descriptor):
     """Move a file from staging to an experiment folder and register it.
 
-    Uses module-level cursor for database insertion.
+    Side effects:
+      - Filesystem: moves file immediately (non-reversible)
+      - Database: inserts into files table (pending until commit)
+      - Uses module-level cursor; caller is responsible for commit
+
     Returns (new_name, rel_path).
-    Raises ValueError if destination already exists.
+    Raises ValueError if experiment folder is missing or destination exists.
     """
     today_compact = datetime.date.today().strftime("%Y%m%d")
     _, ext = os.path.splitext(src_path)
@@ -435,8 +441,13 @@ elif command == "exp":
                 print(f"Use: python lw.py exp complete {exp_id}")
             sys.exit(1)
         # find which table owns this field
+        # Discovery is dynamic via PRAGMA table_info. Updateable fields:
+        #   experiments: type, title, shortname, protocol_id, notes
+        #   purification_details: protein, induction_od, galactose_hours,
+        #     columns, v5_depletion, fractions_pooled, yield_mg, storage
+        #   assay_details: protein_prep, dna_template, dna_prep_method, conditions
+        # Protected fields blocked by PROTECTED_FIELDS above.
         target_table = None
-
         for table in ["experiments", "purification_details", "assay_details"]:
             cursor.execute(f"PRAGMA table_info({table})")
             columns = [r[1] for r in cursor.fetchall()]
@@ -546,10 +557,9 @@ elif command == "exp":
         to_exp = require_experiment(to_id)
 
         # warn on unknown relationship (don't block)
-        known_rels = ["uses_prep_from", "replicate_of", "follow_up_to"]
-        if relationship not in known_rels:
+        if relationship not in KNOWN_RELATIONSHIPS:
             print(
-                f"  Note: '{relationship}' is not a standard relationship ({', '.join(known_rels)})"
+                f"  Note: '{relationship}' is not a standard relationship ({', '.join(KNOWN_RELATIONSHIPS)})"
             )
         # check for duplicate
         cursor.execute(
@@ -1202,10 +1212,15 @@ elif command == "exp":
         for combo in itertools.product(*cat_values):
             row = dict(zip(cat_names, combo))
             excluded = False
-            for exc in design.get("exclude", []):
-                if exc(row):
-                    excluded = True
-                    break
+            for exc_i, exc in enumerate(design.get("exclude", [])):
+                try:
+                    if exc(row):
+                        excluded = True
+                        break
+                except Exception as e:
+                    print(f"Error in design.py exclude function {exc_i}: {e}")
+                    print(f"  Row: {row}")
+                    sys.exit(1)
             if not excluded:
                 factorial_rows.append(row)
 
@@ -2138,3 +2153,12 @@ else:
 if conn:
     conn.commit()
     conn.close()
+# log successful command
+try:
+    _log_path = os.path.join(LAB_ROOT, "command_log.txt")
+    with open(_log_path, "a") as _log_f:
+        _ts = datetime.datetime.now().isoformat(timespec="seconds")
+        _cmd = " ".join(sys.argv[1:])
+        _log_f.write(f"{_ts}\t{_cmd}\tok\n")
+except Exception:
+    pass
