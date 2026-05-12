@@ -619,10 +619,8 @@ elif command == "exp":
         if len(pos_args) < 2:
             print("Usage: python lw.py exp addstrain <exp_id> <strain_id> [role]")
             bail()
-        strain_id, field = pos_args[0], pos_args[1]
-        value = " ".join(pos_args[2:])
+        raw_id, strain_id = pos_args[0], pos_args[1]
         role = pos_args[2] if len(pos_args) > 2 else None
-
         exp_id = normalize_exp_id(raw_id)
         require_experiment(exp_id)
         # validate strain exists
@@ -1380,7 +1378,8 @@ elif command == "strain":
         if len(pos_args) < 3:
             print("Usage: python lw.py strain update <id> <field> <value>")
             bail()
-        strain_id, field, value = pos_args[0], pos_args[1], pos_args[2]
+        strain_id, field = pos_args[0], pos_args[1]
+        value = " ".join(pos_args[2:])
         # verify strain exists
         cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
         if not cursor.fetchone():
@@ -1420,7 +1419,7 @@ elif command == "strain":
             )
             bail()
         strain_id = pos_args[0]
-        genotype = pos_args[1]
+        genotype = " ".join(pos_args[1:])
         validate_name(strain_id, "strain ID")
         # check for duplicate
         cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
