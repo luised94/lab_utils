@@ -12,6 +12,20 @@ import csv
 import json
 import re
 
+
+def bail(code=1):
+    """Log command failure and exit. Safe to call even before LAB_ROOT exists."""
+    try:
+        _log_path = os.path.join(LAB_ROOT, "command_log.txt")
+        with open(_log_path, "a") as _f:
+            _ts = datetime.datetime.now().isoformat(timespec="seconds")
+            _cmd = " ".join(sys.argv[1:])
+            _f.write(f"{_ts}\t{_cmd}\tfail\n")
+    except Exception:
+        pass
+    sys.exit(code)
+
+
 # ============================================================
 # SECTION 1: CONFIGURATION
 # ============================================================
@@ -53,8 +67,13 @@ CATEGORY_CODES = {
 # VALID_TYPES derived from CATEGORY_CODES - add new types to CATEGORY_CODES only
 VALID_TYPES = list(CATEGORY_CODES.keys())
 PROTECTED_FIELDS = {
-    "id", "experiment_id", "created_at",
-    "folder_name", "date_started", "date_completed", "status",
+    "id",
+    "experiment_id",
+    "created_at",
+    "folder_name",
+    "date_started",
+    "date_completed",
+    "status",
 }
 KNOWN_RELATIONSHIPS = ["uses_prep_from", "replicate_of", "follow_up_to"]
 # --- schema ---
@@ -209,6 +228,7 @@ def file_staged(src_path, exp_id, folder_name, descriptor):
     )
     return (new_name, rel_path)
 
+
 def normalize_exp_id(raw_id):
     """Normalize experiment ID to LM-NNNN format. Exits on invalid input."""
     if raw_id.upper().startswith("LM-"):
@@ -232,29 +252,17 @@ def require_experiment(exp_id):
 
 
 def validate_name(value, label="name"):
-    """Validate a name/descriptor: lowercase alphanumeric + hyphens, starts alphanumeric.
+    """Validate a name/descriptor: alphanumeric + hyphens, starts alphanumeric.
     Exits on invalid input. Does not normalize (caller lowercases if needed).
     """
     if not value:
         print(f"Invalid {label}: cannot be empty.")
         bail()
     if not all(c.isalnum() or c == "-" for c in value) or not value[0].isalnum():
-        print(f"Invalid {label}: '{value}'. Use lowercase letters, digits, and hyphens.")
+        print(f"Invalid {label}: '{value}'. Use letters, digits, and hyphens.")
         print("Must start with a letter or digit.")
         bail()
 
-
-def bail(code=1):
-    """Log command failure and exit. Safe to call even before LAB_ROOT exists."""
-    try:
-        _log_path = os.path.join(LAB_ROOT, "command_log.txt")
-        with open(_log_path, "a") as _f:
-            _ts = datetime.datetime.now().isoformat(timespec="seconds")
-            _cmd = " ".join(sys.argv[1:])
-            _f.write(f"{_ts}\t{_cmd}\tfail\n")
-    except Exception:
-        pass
-    sys.exit(code)
 
 # ============================================================
 # SECTION 2: ARGUMENT PARSING
@@ -367,7 +375,7 @@ elif command == "exp":
         while i < len(pos_args):
             if pos_args[i] == "--title":
                 if i + 1 < len(pos_args):
-                    title = " ".join(pos_args[i + 1:])
+                    title = " ".join(pos_args[i + 1 :])
                 else:
                     print("--title requires a value.")
                     bail()
@@ -965,7 +973,7 @@ elif command == "exp":
             print(f"Valid types: {', '.join(VALID_TYPES)}")
             bail()
         # build query
-        sql = "SELECT DISTINCT e.id, e.type, e.shortname, e.status, e.date_started FROM experiments e"
+        sql = "SELECT DISTINCT e.id, e.type, e.shortname, e.title, e.status, e.date_started FROM experiments e"
         conditions = []
         params = []
         if f_strain:
@@ -991,20 +999,18 @@ elif command == "exp":
         rows = cursor.fetchall()
         if not rows:
             if f_strain:
-                cursor.execute(
-                    "SELECT id FROM strains WHERE id = ?", (f_strain,)
-                )
+                cursor.execute("SELECT id FROM strains WHERE id = ?", (f_strain,))
                 if not cursor.fetchone():
                     print(f"Strain '{f_strain}' not found in database.")
                     bail()
             print("No experiments found.")
             sys.exit(0)
-
         # display
-        print(f"{'ID':<10} {'Type':<14} {'Shortname':<24} {'Status':<10} {'Started'}")
+        print(f"{'ID':<10} {'Type':<14} {'Name':<24} {'Status':<10} {'Started'}")
         print("-" * 72)
-        for eid, etype, sname, status, started in rows:
-            print(f"{eid:<10} {etype:<14} {sname:<24} {status:<10} {started}")
+        for eid, etype, sname, title, status, started in rows:
+            display_name = title if title != sname else sname
+            print(f"{eid:<10} {etype:<14} {display_name:<24} {status:<10} {started}")
         print()
         print(f"{len(rows)} experiment{'s' if len(rows) != 1 else ''}")
     # --- lw exp list [--type T] ---
@@ -1428,8 +1434,10 @@ elif command == "strain":
         )
         print(f"Registered: {strain_id}")
         print(f"Genotype:   {genotype}")
-        if not re.match(r'^[A-Za-z]+\d+$', strain_id):
-            print(f"Note: '{strain_id}' doesn't follow typical strain ID format (letters + digits, e.g., LY456)")
+        if not re.match(r"^[A-Za-z]+\d+$", strain_id):
+            print(
+                f"Note: '{strain_id}' doesn't follow typical strain ID format (letters + digits, e.g., LY456)"
+            )
         print(f"Set a label: lw strain update {strain_id} label <short-name>")
     # --- lw strain show <id> ---
     elif subcommand == "show":
@@ -2165,6 +2173,7 @@ else:
 if conn:
     conn.commit()
     conn.close()
+
 # log successful command
 try:
     _log_path = os.path.join(LAB_ROOT, "command_log.txt")
