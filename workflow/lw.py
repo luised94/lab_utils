@@ -197,6 +197,37 @@ def file_staged(src_path, exp_id, folder_name, descriptor):
     )
     return (new_name, rel_path)
 
+def normalize_exp_id(raw_id):
+    """Normalize experiment ID to LM-NNNN format. Exits on invalid input."""
+    if raw_id.upper().startswith("LM-"):
+        return raw_id.upper()
+    try:
+        return f"LM-{int(raw_id):04d}"
+    except ValueError:
+        print(f"Invalid experiment ID: '{raw_id}'")
+        sys.exit(1)
+
+
+def require_experiment(exp_id):
+    """Verify experiment exists. Returns row as dict. Exits if not found."""
+    cursor.execute("SELECT * FROM experiments WHERE id = ?", (exp_id,))
+    row = cursor.fetchone()
+    if not row:
+        print(f"No experiment found with ID {exp_id}")
+        sys.exit(1)
+    col_names = [d[0] for d in cursor.description]
+    return dict(zip(col_names, row))
+
+
+def validate_name(value, label="name"):
+    """Validate a name/descriptor: lowercase alphanumeric + hyphens, starts alphanumeric.
+    Exits on invalid input. Does not normalize (caller lowercases if needed).
+    """
+    if not all(c.isalnum() or c == "-" for c in value) or not value[0].isalnum():
+        print(f"Invalid {label}: '{value}'. Use lowercase letters, digits, and hyphens.")
+        print("Must start with a letter or digit.")
+        sys.exit(1)
+
 
 # ============================================================
 # SECTION 2: ARGUMENT PARSING
@@ -304,14 +335,7 @@ elif command == "exp":
             print(f"Unknown experiment type: '{exp_type}'")
             print(f"Valid types: {', '.join(VALID_TYPES)}")
             sys.exit(1)
-        # validate shortname: lowercase alphanumeric and hyphens only
-        if (
-            not all(c.isalnum() or c == "-" for c in shortname)
-            or not shortname[0].isalnum()
-        ):
-            print("Invalid shortname. Use lowercase letters, digits, and hyphens only.")
-            print("Must start with a letter or digit.")
-            sys.exit(1)
+        validate_name(shortname, "shortname")
         shortname = shortname.lower()
         # read and increment counter
         with open(COUNTER_FILE, "r") as f:
@@ -347,22 +371,9 @@ elif command == "exp":
             print("Usage: python lw.py exp update <id> <field> <value>")
             sys.exit(1)
         raw_id, field, value = pos_args[0], pos_args[1], pos_args[2]
-        # normalize ID
-        if raw_id.upper().startswith("LM-"):
-            exp_id = raw_id.upper()
-        else:
-            try:
-                exp_id = f"LM-{int(raw_id):04d}"
-            except ValueError:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                sys.exit(1)
-        # verify experiment exists
-        cursor.execute("SELECT id, type FROM experiments WHERE id = ?", (exp_id,))
-        row = cursor.fetchone()
-        if not row:
-            print(f"No experiment found with ID {exp_id}")
-            sys.exit(1)
-        exp_type = row[1]
+        exp_id = normalize_exp_id(raw_id)
+        require_experiment(exp_id)
+
         # find which table owns this field
         target_table = None
         for table in ["experiments", "purification_details", "assay_details"]:
@@ -444,21 +455,9 @@ elif command == "exp":
             print("Usage: python lw.py exp complete <id>")
             sys.exit(1)
         raw_id = pos_args[0]
-        # normalize ID
-        if raw_id.upper().startswith("LM-"):
-            exp_id = raw_id.upper()
-        else:
-            try:
-                exp_id = f"LM-{int(raw_id):04d}"
-            except ValueError:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                sys.exit(1)
-        cursor.execute("SELECT status FROM experiments WHERE id = ?", (exp_id,))
-        row = cursor.fetchone()
-        if not row:
-            print(f"No experiment found with ID {exp_id}")
-            sys.exit(1)
-        if row[0] == "complete":
+        exp_id = normalize_exp_id(raw_id)
+        exp = require_experiment(exp_id)
+        if exp["status"] == "complete":
             print(f"{exp_id} is already marked complete.")
             sys.exit(0)
         today = datetime.date.today().strftime("%Y-%m-%d")
@@ -475,32 +474,11 @@ elif command == "exp":
             print("  Relationships: uses_prep_from, replicate_of, follow_up_to")
             sys.exit(1)
         raw_from, raw_to, relationship = pos_args[0], pos_args[1], pos_args[2]
-        # normalize IDs
-        for label, raw in [("from", raw_from), ("to", raw_to)]:
-            if raw.upper().startswith("LM-"):
-                pass
-            else:
-                try:
-                    int(raw)
-                except ValueError:
-                    print(f"Invalid {label} experiment ID: '{raw}'")
-                    sys.exit(1)
-        from_id = (
-            raw_from.upper()
-            if raw_from.upper().startswith("LM-")
-            else f"LM-{int(raw_from):04d}"
-        )
-        to_id = (
-            raw_to.upper()
-            if raw_to.upper().startswith("LM-")
-            else f"LM-{int(raw_to):04d}"
-        )
-        # validate both experiments exist
-        for eid in (from_id, to_id):
-            cursor.execute("SELECT id FROM experiments WHERE id = ?", (eid,))
-            if not cursor.fetchone():
-                print(f"No experiment found with ID {eid}")
-                sys.exit(1)
+        from_id = normalize_exp_id(raw_from)
+        to_id = normalize_exp_id(raw_to)
+        require_experiment(from_id)
+        require_experiment(to_id)
+
         # warn on unknown relationship (don't block)
         known_rels = ["uses_prep_from", "replicate_of", "follow_up_to"]
         if relationship not in known_rels:
@@ -543,20 +521,9 @@ elif command == "exp":
             sys.exit(1)
         raw_id, strain_id = pos_args[0], pos_args[1]
         role = pos_args[2] if len(pos_args) > 2 else None
-        # normalize experiment ID
-        if raw_id.upper().startswith("LM-"):
-            exp_id = raw_id.upper()
-        else:
-            try:
-                exp_id = f"LM-{int(raw_id):04d}"
-            except ValueError:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                sys.exit(1)
-        # validate experiment exists
-        cursor.execute("SELECT id FROM experiments WHERE id = ?", (exp_id,))
-        if not cursor.fetchone():
-            print(f"No experiment found with ID {exp_id}")
-            sys.exit(1)
+
+        exp_id = normalize_exp_id(raw_id)
+        require_experiment(exp_id)
         # validate strain exists
         cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
         if not cursor.fetchone():
@@ -584,23 +551,8 @@ elif command == "exp":
             print("  Accepts 'LM-0001' or just '1'")
             sys.exit(1)
         raw_id = pos_args[0]
-        # normalize: accept "1", "0001", "LM-0001"
-        if raw_id.upper().startswith("LM-"):
-            exp_id = raw_id.upper()
-        else:
-            try:
-                exp_id = f"LM-{int(raw_id):04d}"
-            except ValueError:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                sys.exit(1)
-        # query experiment
-        cursor.execute("SELECT * FROM experiments WHERE id = ?", (exp_id,))
-        row = cursor.fetchone()
-        if not row:
-            print(f"No experiment found with ID {exp_id}")
-            sys.exit(1)
-        col_names = [d[0] for d in cursor.description]
-        exp = dict(zip(col_names, row))
+        exp_id = normalize_exp_id(raw_id)
+        exp = require_experiment(exp_id)
         # display
         fields = [
             ("ID", exp["id"]),
@@ -717,23 +669,8 @@ elif command == "exp":
         raw_id = pos_args[0]
         confirm = "--confirm" in pos_args
         keep_folder = "--keep-folder" in pos_args
-        # normalize ID
-        if raw_id.upper().startswith("LM-"):
-            exp_id = raw_id.upper()
-        else:
-            try:
-                exp_id = f"LM-{int(raw_id):04d}"
-            except ValueError:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                sys.exit(1)
-        # verify experiment exists
-        cursor.execute("SELECT * FROM experiments WHERE id = ?", (exp_id,))
-        row = cursor.fetchone()
-        if not row:
-            print(f"No experiment found with ID {exp_id}")
-            sys.exit(1)
-        col_names = [d[0] for d in cursor.description]
-        exp = dict(zip(col_names, row))
+        exp_id = normalize_exp_id(raw_id)
+        exp = require_experiment(exp_id)
         # gather cascade targets
         cascade = []
         cursor.execute(
@@ -1037,24 +974,12 @@ elif command == "exp":
         if len(pos_args) < 1:
             print("Usage: python lw.py exp manifest <id> [--force]")
             sys.exit(1)
+
         raw_id = pos_args[0]
         force = "--force" in pos_args
-        # normalize ID
-        if raw_id.upper().startswith("LM-"):
-            exp_id = raw_id.upper()
-        else:
-            try:
-                exp_id = f"LM-{int(raw_id):04d}"
-            except ValueError:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                sys.exit(1)
-        # verify experiment exists
-        cursor.execute("SELECT folder_name FROM experiments WHERE id = ?", (exp_id,))
-        row = cursor.fetchone()
-        if not row:
-            print(f"No experiment found with ID {exp_id}")
-            sys.exit(1)
-        folder_name = row[0]
+        exp_id = normalize_exp_id(raw_id)
+        exp = require_experiment(exp_id)
+        folder_name = exp["folder_name"]
         folder_path = os.path.join(EXPERIMENTS_DIR, folder_name)
         # locate design.py
         design_path = os.path.join(folder_path, "design.py")
@@ -1520,34 +1445,9 @@ elif command == "stage":
                 for f in sorted(files):
                     print(f"  {f}")
             sys.exit(1)
-        # normalize experiment ID
-        if raw_id.upper().startswith("LM-"):
-            exp_id = raw_id.upper()
-        else:
-            try:
-                exp_id = f"LM-{int(raw_id):04d}"
-            except ValueError:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                sys.exit(1)
-        # validate experiment exists and get folder
-        cursor.execute("SELECT folder_name FROM experiments WHERE id = ?", (exp_id,))
-        row = cursor.fetchone()
-        if not row:
-            print(f"No experiment found with ID {exp_id}")
-            sys.exit(1)
-        folder_name = row[0]
-        # build new filename
-        today_compact = datetime.date.today().strftime("%Y%m%d")
-        _, ext = os.path.splitext(src_name)
-        ext = ext.lower()
-        new_name = f"{today_compact}_{exp_id}_{descriptor}{ext}"
-        # build destination path
-        dest_dir = os.path.join(EXPERIMENTS_DIR, folder_name)
-        dest_path = os.path.join(dest_dir, new_name)
-        if os.path.exists(dest_path):
-            print(f"Destination already exists: {new_name}")
-            print("Use a different descriptor.")
-            sys.exit(1)
+        exp_id = normalize_exp_id(raw_id)
+        exp = require_experiment(exp_id)
+        folder_name = exp["folder_name"]
         # move file and register
         try:
             new_name, rel_path = file_staged(src_path, exp_id, folder_name, descriptor)
@@ -1565,22 +1465,8 @@ elif command == "stage":
             filter_args = [a for a in pos_args if a != "--list"]
             filter_exp_id = None
             if filter_args:
-                raw_id = filter_args[0]
-                if raw_id.upper().startswith("LM-"):
-                    filter_exp_id = raw_id.upper()
-                else:
-                    try:
-                        filter_exp_id = f"LM-{int(raw_id):04d}"
-                    except ValueError:
-                        print(f"Invalid experiment ID: '{raw_id}'")
-                        sys.exit(1)
-                # validate experiment exists
-                cursor.execute(
-                    "SELECT id FROM experiments WHERE id = ?", (filter_exp_id,)
-                )
-                if not cursor.fetchone():
-                    print(f"No experiment found with ID {filter_exp_id}")
-                    sys.exit(1)
+                filter_exp_id = normalize_exp_id(filter_args[0])
+                require_experiment(filter_exp_id)
             # query expectations
             if filter_exp_id:
                 cursor.execute(
@@ -1644,22 +1530,9 @@ elif command == "stage":
             if not cancel_args:
                 print("Usage: python lw.py stage expect --cancel <exp_id> [sN]")
                 sys.exit(1)
-            raw_id = cancel_args[0]
             slot_arg = cancel_args[1] if len(cancel_args) > 1 else None
-            # normalize experiment ID
-            if raw_id.upper().startswith("LM-"):
-                exp_id = raw_id.upper()
-            else:
-                try:
-                    exp_id = f"LM-{int(raw_id):04d}"
-                except ValueError:
-                    print(f"Invalid experiment ID: '{raw_id}'")
-                    sys.exit(1)
-            # validate experiment exists
-            cursor.execute("SELECT id FROM experiments WHERE id = ?", (exp_id,))
-            if not cursor.fetchone():
-                print(f"No experiment found with ID {exp_id}")
-                sys.exit(1)
+            exp_id = normalize_exp_id(cancel_args[0])
+            require_experiment(exp_id)
             if slot_arg:
                 # parse slot: accept s1, S1, or bare 1
                 m = re.match(r"^s?(\d+)$", slot_arg, re.IGNORECASE)
@@ -1725,31 +1598,10 @@ elif command == "stage":
                 sys.exit(1)
             raw_id = pos_args[0]
             descriptors = pos_args[1:]
-            # normalize experiment ID
-            if raw_id.upper().startswith("LM-"):
-                exp_id = raw_id.upper()
-            else:
-                try:
-                    exp_id = f"LM-{int(raw_id):04d}"
-                except ValueError:
-                    print(f"Invalid experiment ID: '{raw_id}'")
-                    sys.exit(1)
-            # validate experiment exists
-            cursor.execute("SELECT id FROM experiments WHERE id = ?", (exp_id,))
-            if not cursor.fetchone():
-                print(f"No experiment found with ID {exp_id}")
-                sys.exit(1)
-            # validate descriptors
+            exp_id = normalize_exp_id(raw_id)
+            require_experiment(exp_id)
             for desc in descriptors:
-                if (
-                    not all(c.isalnum() or c == "-" for c in desc)
-                    or not desc[0].isalnum()
-                ):
-                    print(
-                        f"Invalid descriptor: '{desc}'. Use lowercase letters, digits, "
-                        "and hyphens. Must start with a letter or digit."
-                    )
-                    sys.exit(1)
+                validate_name(desc, "descriptor")
             descriptors = [d.lower() for d in descriptors]
             # get max slot once before loop
             cursor.execute(
