@@ -242,7 +242,7 @@ def validate_name(value, label="name"):
 # SECTION 2: ARGUMENT PARSING
 # ============================================================
 args = sys.argv[1:]
-if not args:
+if not args or args[0] in ("--help", "-h"):
     print("Usage: python lw.py <command> [subcommand] [args]")
     print()
     print("Commands:")
@@ -342,11 +342,28 @@ elif command == "exp":
         sys.exit(0)
     # --- lw exp init <type> <shortname> ---
     if subcommand == "init":
-        if len(pos_args) != 2:
-            print("Usage: python lw.py exp init <type> <shortname>")
+        # parse --title flag (consumes all args after --title as title text)
+        title = None
+        filtered_args = []
+        i = 0
+        while i < len(pos_args):
+            if pos_args[i] == "--title":
+                if i + 1 < len(pos_args):
+                    title = " ".join(pos_args[i + 1:])
+                else:
+                    print("--title requires a value.")
+                    sys.exit(1)
+                break
+            else:
+                filtered_args.append(pos_args[i])
+                i += 1
+        if len(filtered_args) != 2:
+            print("Usage: python lw.py exp init <type> <shortname> [--title <title>]")
             print(f"Types: {', '.join(VALID_TYPES)}")
             sys.exit(1)
-        exp_type, shortname = pos_args[0], pos_args[1]
+        exp_type, shortname = filtered_args[0], filtered_args[1]
+        if title is None:
+            title = shortname
         # validate type
         if exp_type not in VALID_TYPES:
             print(f"Unknown experiment type: '{exp_type}'")
@@ -383,7 +400,7 @@ elif command == "exp":
         # insert record first (uncommitted - rolls back if later ops fail)
         cursor.execute(
             "INSERT INTO experiments (id, type, title, shortname, date_started, status, folder_name) VALUES (?, ?, ?, ?, ?, 'active', ?)",
-            (exp_id, exp_type, shortname, shortname, today_sql, folder_name),
+            (exp_id, exp_type, title, shortname, today_sql, folder_name),
         )
         # increment counter
         with open(COUNTER_FILE, "w") as f:
@@ -394,12 +411,21 @@ elif command == "exp":
         print(f"Created: {exp_id}")
         print(f"Folder:  {folder_name}/")
         print(f"Type:    {exp_type}")
+        if title != shortname:
+            print(f"Title:   {title}")
+        if exp_type == "purification":
+            print(f"Next: lw exp update {exp_id} protein <name>")
+        elif exp_type in ("loading", "gelshift", "atpase"):
+            print(f"Next: lw exp addstrain {exp_id} <strain_id>")
+        else:
+            print(f"Next: lw exp update {exp_id} notes <text>")
     # --- lw exp update <id> <field> <value> ---
     elif subcommand == "update":
         if len(pos_args) < 3:
             print("Usage: python lw.py exp update <id> <field> <value>")
             sys.exit(1)
-        raw_id, field, value = pos_args[0], pos_args[1], pos_args[2]
+        raw_id, field = pos_args[0], pos_args[1]
+        value = " ".join(pos_args[2:])
         exp_id = normalize_exp_id(raw_id)
         require_experiment(exp_id)
         # reject protected fields
@@ -468,6 +494,8 @@ elif command == "exp":
             )
             old_row = cursor.fetchone()
             old_val = old_row[0] if old_row else None
+
+            original_value = value
             # notes fields: always prefix with timestamp, append if existing
             if field == "notes":
                 today = datetime.date.today().strftime("%Y-%m-%d")
@@ -481,7 +509,7 @@ elif command == "exp":
             )
             print(f"Updated {exp_id}")
             if field == "notes":
-                print(f"  {field}: appended entry")
+                print(f"  {field}: appended [{today}] {original_value}")
             else:
                 print(f"  {field}: {old_val if old_val else '-'} -> {value}")
     # --- lw exp complete <id> ---
@@ -500,8 +528,11 @@ elif command == "exp":
             "UPDATE experiments SET status = 'complete', date_completed = ? WHERE id = ?",
             (today, exp_id),
         )
+        started = datetime.date.fromisoformat(exp["date_started"])
+        duration = (datetime.date.today() - started).days
         print(f"Completed: {exp_id}")
         print(f"  Date: {today}")
+        print(f"  Duration: {duration}d (started {exp['date_started']})")
     # --- lw exp link <from_id> <to_id> <relationship> ---
     elif subcommand == "link":
         if len(pos_args) < 3:
@@ -558,7 +589,8 @@ elif command == "exp":
         if len(pos_args) < 2:
             print("Usage: python lw.py exp addstrain <exp_id> <strain_id> [role]")
             sys.exit(1)
-        raw_id, strain_id = pos_args[0], pos_args[1]
+        strain_id, field = pos_args[0], pos_args[1]
+        value = " ".join(pos_args[2:])
         role = pos_args[2] if len(pos_args) > 2 else None
 
         exp_id = normalize_exp_id(raw_id)
@@ -592,6 +624,18 @@ elif command == "exp":
         raw_id = pos_args[0]
         exp_id = normalize_exp_id(raw_id)
         exp = require_experiment(exp_id)
+        # compute status display with age/duration
+        if exp["status"] == "active":
+            started = datetime.date.fromisoformat(exp["date_started"])
+            age = (datetime.date.today() - started).days
+            status_str = f"active ({age}d)"
+        elif exp["status"] == "complete" and exp["date_completed"]:
+            started = datetime.date.fromisoformat(exp["date_started"])
+            completed = datetime.date.fromisoformat(exp["date_completed"])
+            duration = (completed - started).days
+            status_str = f"complete ({duration}d)"
+        else:
+            status_str = exp["status"]
         # display
         fields = [
             ("ID", exp["id"]),
@@ -600,7 +644,7 @@ elif command == "exp":
             ("Shortname", exp["shortname"]),
             ("Date started", exp["date_started"]),
             ("Date completed", exp["date_completed"]),
-            ("Status", exp["status"]),
+            ("Status", status_str),
             ("Folder", exp["folder_name"] + "/"),
             ("Protocol", exp["protocol_id"]),
             ("Notes", exp["notes"]),
@@ -871,7 +915,7 @@ elif command == "exp":
     # --- lw exp find [query] [--type T] [--status S] [--strain S] ---
     elif subcommand == "find":
         # parse flags and free-text query
-        query = None
+        query_parts = []
         f_type = None
         f_status = None
         f_strain = None
@@ -887,11 +931,12 @@ elif command == "exp":
                 f_strain = pos_args[i + 1]
                 i += 2
             elif not pos_args[i].startswith("--"):
-                query = pos_args[i]
+                query_parts.append(pos_args[i])
                 i += 1
             else:
                 print(f"Unknown flag: {pos_args[i]}")
                 sys.exit(1)
+        query = " ".join(query_parts) if query_parts else None
         # validate type if given
         if f_type and f_type not in VALID_TYPES:
             print(f"Unknown type: '{f_type}'")
@@ -923,8 +968,16 @@ elif command == "exp":
         cursor.execute(sql, params)
         rows = cursor.fetchall()
         if not rows:
+            if f_strain:
+                cursor.execute(
+                    "SELECT id FROM strains WHERE id = ?", (f_strain,)
+                )
+                if not cursor.fetchone():
+                    print(f"Strain '{f_strain}' not found in database.")
+                    sys.exit(1)
             print("No experiments found.")
             sys.exit(0)
+
         # display
         print(f"{'ID':<10} {'Type':<14} {'Shortname':<24} {'Status':<10} {'Started'}")
         print("-" * 72)
@@ -949,13 +1002,13 @@ elif command == "exp":
             sys.exit(1)
         if f_type:
             cursor.execute(
-                "SELECT id, type, shortname, status, date_started "
+                "SELECT id, type, shortname, title, status, date_started "
                 "FROM experiments WHERE type = ? ORDER BY date_started DESC, id DESC",
                 (f_type,),
             )
         else:
             cursor.execute(
-                "SELECT id, type, shortname, status, date_started "
+                "SELECT id, type, shortname, title, status, date_started "
                 "FROM experiments ORDER BY date_started DESC, id DESC"
             )
         rows = cursor.fetchall()
@@ -966,8 +1019,9 @@ elif command == "exp":
                 print("No experiments registered.")
             sys.exit(0)
         groups = {}
-        for eid, etype, sname, estatus, started in rows:
-            groups.setdefault(etype, []).append((eid, sname, estatus, started))
+        for eid, etype, sname, etitle, estatus, started in rows:
+            display_name = etitle if etitle != sname else sname
+            groups.setdefault(etype, []).append((eid, display_name, estatus, started))
         type_order = [t for t in VALID_TYPES if t in groups]
         total = 0
         type_counts = []
@@ -1349,6 +1403,7 @@ elif command == "strain":
         print(f"Genotype:   {genotype}")
         if not re.match(r'^[A-Za-z]+\d+$', strain_id):
             print(f"Note: '{strain_id}' doesn't follow typical strain ID format (letters + digits, e.g., LY456)")
+        print(f"Set a label: lw strain update {strain_id} label <short-name>")
     # --- lw strain show <id> ---
     elif subcommand == "show":
         if len(pos_args) != 1:
@@ -1520,6 +1575,7 @@ elif command == "stage":
             print(str(e))
             print("Use a different descriptor.")
             sys.exit(1)
+        print(f"Experiment: {exp_id} ({exp['shortname']}, {exp['type']})")
         print(f"Filed: {src_name}")
         print(f"    -> {rel_path}")
     # --- lw stage expect ---
@@ -1712,6 +1768,13 @@ elif command == "stage":
                 print("  At instrument:")
                 for s, d in slots:
                     print(f"    lemr {exp_id} s{s}")
+            cursor.execute(
+                "SELECT COUNT(*) FROM stage_expectations "
+                "WHERE experiment_id = ? AND status = 'pending'",
+                (exp_id,),
+            )
+            total_pending = cursor.fetchone()[0]
+            print(f"  {total_pending} total pending for {exp_id}")
     # --- lw stage auto [--confirm] ---
     elif subcommand == "auto":
         confirm = "--confirm" in pos_args
