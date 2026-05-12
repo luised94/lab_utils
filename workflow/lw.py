@@ -190,6 +190,8 @@ def file_staged(src_path, exp_id, folder_name, descriptor):
     ext = ext.lower()
     new_name = f"{today_compact}_{exp_id}_{descriptor}{ext}"
     dest_dir = os.path.join(EXPERIMENTS_DIR, folder_name)
+    if not os.path.isdir(dest_dir):
+        raise ValueError(f"Experiment folder missing: {folder_name}/")
     dest_path = os.path.join(dest_dir, new_name)
     if os.path.exists(dest_path):
         raise ValueError(f"Destination already exists: {new_name}")
@@ -510,7 +512,7 @@ elif command == "exp":
         from_id = normalize_exp_id(raw_from)
         to_id = normalize_exp_id(raw_to)
         require_experiment(from_id)
-        require_experiment(to_id)
+        to_exp = require_experiment(to_id)
 
         # warn on unknown relationship (don't block)
         known_rels = ["uses_prep_from", "replicate_of", "follow_up_to"]
@@ -526,10 +528,14 @@ elif command == "exp":
         if cursor.fetchone():
             print(f"Link already exists: {from_id} -> {to_id}")
             sys.exit(1)
+
+        if relationship == "uses_prep_from" and to_exp["type"] != "purification":
+            print(f"  Note: {to_id} is type '{to_exp['type']}', not purification.")
         cursor.execute(
             "INSERT INTO experiment_links (from_experiment, to_experiment, relationship) VALUES (?, ?, ?)",
             (from_id, to_id, relationship),
         )
+
         # auto-populate assay_details.protein_prep if linking to a purification
         if relationship == "uses_prep_from":
             cursor.execute(
@@ -1328,6 +1334,7 @@ elif command == "strain":
             sys.exit(1)
         strain_id = pos_args[0]
         genotype = pos_args[1]
+        validate_name(strain_id, "strain ID")
         # check for duplicate
         cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
         if cursor.fetchone():
@@ -1340,6 +1347,8 @@ elif command == "strain":
         )
         print(f"Registered: {strain_id}")
         print(f"Genotype:   {genotype}")
+        if not re.match(r'^[A-Za-z]+\d+$', strain_id):
+            print(f"Note: '{strain_id}' doesn't follow typical strain ID format (letters + digits, e.g., LY456)")
     # --- lw strain show <id> ---
     elif subcommand == "show":
         if len(pos_args) != 1:
@@ -1440,9 +1449,6 @@ elif command == "stage":
         if not files:
             print("Staging is empty.")
         else:
-            # load known experiment IDs for matching
-            cursor.execute("SELECT id, folder_name FROM experiments")
-            experiments = cursor.fetchall()
             print(f"Staging ({len(files)} files):")
             print()
             for fname in sorted(files):
@@ -1453,9 +1459,12 @@ elif command == "stage":
                     size_str = f"{size / 1024:.1f} KB"
                 else:
                     size_str = f"{size} B"
-                # check if filename contains any known experiment ID
-                matches = [eid for eid, _ in experiments if eid in fname]
-                match_str = f"  -> {', '.join(matches)}" if matches else ""
+                parsed_eid, parsed_slot = parse_staging_name(fname)
+                if parsed_eid:
+                    slot_str = f" s{parsed_slot}" if parsed_slot else ""
+                    match_str = f"  -> {parsed_eid}{slot_str}"
+                else:
+                    match_str = ""
                 print(f"  {fname:<40} {size_str:>10}{match_str}")
         # pending expectations section
         cursor.execute(
@@ -1488,6 +1497,8 @@ elif command == "stage":
             print("  Example: python lw.py stage assign Image_001.tiff LM-0001 gel-01")
             sys.exit(1)
         src_name, raw_id, descriptor = pos_args[0], pos_args[1], pos_args[2]
+        validate_name(descriptor, "descriptor")
+        descriptor = descriptor.lower()
         # validate source file exists
         src_path = os.path.join(STAGING_DIR, src_name)
         if not os.path.exists(src_path):
@@ -1657,6 +1668,25 @@ elif command == "stage":
             for desc in descriptors:
                 validate_name(desc, "descriptor")
             descriptors = [d.lower() for d in descriptors]
+            # check for duplicate descriptors within arguments
+            seen = set()
+            for desc in descriptors:
+                if desc in seen:
+                    print(f"Duplicate descriptor in arguments: '{desc}'")
+                    sys.exit(1)
+                seen.add(desc)
+            # check against existing pending expectations
+            cursor.execute(
+                "SELECT descriptor FROM stage_expectations "
+                "WHERE experiment_id = ? AND status = 'pending'",
+                (exp_id,),
+            )
+            existing_descs = {row[0] for row in cursor.fetchall()}
+            for desc in descriptors:
+                if desc in existing_descs:
+                    print(f"Descriptor '{desc}' already pending for {exp_id}.")
+                    print("Cancel it first or use a different descriptor.")
+                    sys.exit(1)
             # get max slot once before loop
             cursor.execute(
                 "SELECT COALESCE(MAX(slot), 0) FROM stage_expectations WHERE experiment_id = ?",
@@ -1727,6 +1757,7 @@ elif command == "stage":
         matched_groups = {}
         unmatched = []
         skipped = []  # (fname, reason)
+        inferred_files = set()  # filenames matched by single-pending inference
         for fname in sorted(staging_files):
             src_path = os.path.join(STAGING_DIR, fname)
             parsed_eid, parsed_slot = parse_staging_name(fname)
@@ -1752,6 +1783,7 @@ elif command == "stage":
                             "files": [],
                         }
                     matched_groups[key]["files"].append((fname, src_path))
+                    inferred_files.add(fname)
                 elif len(exp_pending) > 1:
                     skipped.append(
                         (
@@ -1825,7 +1857,8 @@ elif command == "stage":
             if matched_files:
                 print(f"Matched ({len(matched_files)}):")
                 for fname, _, _, _, _, _, _, rel_path in matched_files:
-                    print(f"  {fname}")
+                    tag = " (slot inferred)" if fname in inferred_files else ""
+                    print(f"  {fname}{tag}")
                     print(f"     -> {rel_path}")
             if skipped:
                 print(f"Skipped ({len(skipped)}):")
