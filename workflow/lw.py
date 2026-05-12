@@ -51,6 +51,10 @@ CATEGORY_CODES = {
     "sequencing": "seq",
 }
 VALID_TYPES = list(CATEGORY_CODES.keys())
+PROTECTED_FIELDS = {
+    "id", "experiment_id", "created_at",
+    "folder_name", "date_started", "date_completed", "status",
+}
 # --- schema ---
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS experiments (
@@ -223,6 +227,9 @@ def validate_name(value, label="name"):
     """Validate a name/descriptor: lowercase alphanumeric + hyphens, starts alphanumeric.
     Exits on invalid input. Does not normalize (caller lowercases if needed).
     """
+    if not value:
+        print(f"Invalid {label}: cannot be empty.")
+        sys.exit(1)
     if not all(c.isalnum() or c == "-" for c in value) or not value[0].isalnum():
         print(f"Invalid {label}: '{value}'. Use lowercase letters, digits, and hyphens.")
         print("Must start with a letter or digit.")
@@ -276,9 +283,17 @@ if command != "init":
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA foreign_keys = ON")
     cursor = conn.cursor()
+
 # ============================================================
 # SECTION 4: COMMAND DISPATCH
 # ============================================================
+# Transaction model: all DB changes accumulate in a single
+# transaction and commit once at script end (Section 5).
+# Filesystem operations (makedirs, shutil.move, shutil.rmtree)
+# are immediate and non-reversible. If the process crashes after
+# a filesystem change but before commit, the DB rolls back but
+# the filesystem does not. Commands are ordered to minimize
+# unrecoverable states: prefer DB-then-filesystem where possible.
 # --- lw init ---
 if command == "init":
     if os.path.exists(DB_PATH):
@@ -338,8 +353,19 @@ elif command == "exp":
         validate_name(shortname, "shortname")
         shortname = shortname.lower()
         # read and increment counter
-        with open(COUNTER_FILE, "r") as f:
-            counter = int(f.read().strip())
+        try:
+            with open(COUNTER_FILE, "r") as f:
+                raw = f.read().strip()
+            counter = int(raw)
+        except FileNotFoundError:
+            print(f"Counter file not found: {COUNTER_FILE}")
+            print("Run 'python lw.py init' to initialize.")
+            sys.exit(1)
+        except ValueError:
+            print(f"Counter file contains invalid value: '{raw}'")
+            print(f"Expected an integer in {COUNTER_FILE}")
+            sys.exit(1)
+
         exp_id = f"LM-{counter:04d}"
         # build folder name
         today_compact = datetime.date.today().strftime("%Y%m%d")
@@ -352,9 +378,7 @@ elif command == "exp":
             print(f"Error: Folder already exists: {folder_path}")
             print("Counter may be out of sync. Check counter.txt.")
             sys.exit(1)
-        # create folder
-        os.makedirs(folder_path)
-        # insert record
+        # insert record first (uncommitted - rolls back if later ops fail)
         cursor.execute(
             "INSERT INTO experiments (id, type, title, shortname, date_started, status, folder_name) VALUES (?, ?, ?, ?, ?, 'active', ?)",
             (exp_id, exp_type, shortname, shortname, today_sql, folder_name),
@@ -362,6 +386,9 @@ elif command == "exp":
         # increment counter
         with open(COUNTER_FILE, "w") as f:
             f.write(str(counter + 1))
+        # create folder last (DB + counter already staged)
+        os.makedirs(folder_path)
+
         print(f"Created: {exp_id}")
         print(f"Folder:  {folder_name}/")
         print(f"Type:    {exp_type}")
@@ -373,9 +400,15 @@ elif command == "exp":
         raw_id, field, value = pos_args[0], pos_args[1], pos_args[2]
         exp_id = normalize_exp_id(raw_id)
         require_experiment(exp_id)
-
+        # reject protected fields
+        if field in PROTECTED_FIELDS:
+            print(f"Field '{field}' cannot be modified directly.")
+            if field == "status":
+                print(f"Use: python lw.py exp complete {exp_id}")
+            sys.exit(1)
         # find which table owns this field
         target_table = None
+
         for table in ["experiments", "purification_details", "assay_details"]:
             cursor.execute(f"PRAGMA table_info({table})")
             columns = [r[1] for r in cursor.fetchall()]
@@ -749,6 +782,12 @@ elif command == "exp":
         se_count = cursor.fetchone()[0]
         if se_count:
             cascade.append(("stage_expectations", se_count, []))
+        # downstream protein_prep references from other experiments
+        cursor.execute(
+            "SELECT experiment_id FROM assay_details WHERE protein_prep = ?",
+            (exp_id,),
+        )
+        prep_ref_rows = cursor.fetchall()
         # folder
         folder_path = os.path.join(EXPERIMENTS_DIR, exp["folder_name"])
         folder_exists = os.path.exists(folder_path)
@@ -770,6 +809,11 @@ elif command == "exp":
                 print(f"    {table}: {count} row{'s' if count != 1 else ''}")
                 for d in details:
                     print(f"      {d}")
+        if prep_ref_rows:
+            print()
+            print("  Downstream references (protein_prep will be cleared):")
+            for (ref_eid,) in prep_ref_rows:
+                print(f"    {ref_eid} assay_details.protein_prep -> {exp_id}")
         if not confirm:
             print()
             print(f"  This is a dry run. To delete, run:")
@@ -780,6 +824,16 @@ elif command == "exp":
                 )
             sys.exit(0)
         # --- actual deletion ---
+        # clear downstream protein_prep references
+        if prep_ref_rows:
+            cursor.execute(
+                "UPDATE assay_details SET protein_prep = NULL WHERE protein_prep = ?",
+                (exp_id,),
+            )
+            print(
+                f"  Cleared {len(prep_ref_rows)} protein_prep"
+                f" reference{'s' if len(prep_ref_rows) != 1 else ''}"
+            )
         cursor.execute(
             "DELETE FROM stage_expectations WHERE experiment_id = ?", (exp_id,)
         )
