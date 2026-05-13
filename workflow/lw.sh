@@ -1,0 +1,113 @@
+# ============================================================
+# lw.bash -- lab workflow environment configuration
+# ============================================================
+# Source this file from bashrc or symlink into your sourced
+# directory. All variables use the LW_ prefix.
+#
+# Derives LW_WINDOWS_USER from MC_WINDOWS_USER if set.
+# Override any variable by exporting it before sourcing.
+# ============================================================
+
+# --- user configuration ---
+
+LW_WINDOWS_USER="${LW_WINDOWS_USER:-${MC_WINDOWS_USER:-}}"
+
+if [ -z "${LW_WINDOWS_USER}" ]; then
+    echo "lw: error: Set MC_WINDOWS_USER or LW_WINDOWS_USER before sourcing lw.bash"
+    return 1 2>/dev/null || true
+fi
+
+# --- editor (EDITOR -> nvim -> vim -> vi) ---
+
+if [ -n "${EDITOR:-}" ] && command -v "${EDITOR}" >/dev/null 2>&1; then
+    LW_EDITOR="${EDITOR}"
+elif command -v nvim >/dev/null 2>&1; then
+    LW_EDITOR="nvim"
+elif command -v vim >/dev/null 2>&1; then
+    LW_EDITOR="vim"
+elif command -v vi >/dev/null 2>&1; then
+    LW_EDITOR="vi"
+else
+    echo "lw: warning: No editor found (tried EDITOR, nvim, vim, vi). lwnotes will not work."
+    LW_EDITOR=""
+fi
+
+# --- paths ---
+
+LW_LAB_ROOT="/mnt/c/Users/${LW_WINDOWS_USER}/Desktop/lab"
+LW_SCRIPT="/home/${USER}/personal_repos/lab_utils/workflow/lw.py"
+LW_NOTES="${LW_LAB_ROOT}/lab_notes.md"
+LW_DB="${LW_LAB_ROOT}/lab.db"
+
+export LW_WINDOWS_USER
+export LW_LAB_ROOT
+export LW_SCRIPT
+export LW_NOTES
+export LW_DB
+export LW_EDITOR
+
+# --- dependency checks ---
+
+if [ ! -f "${LW_SCRIPT}" ]; then
+    echo "lw: warning: Script not found: ${LW_SCRIPT}"
+fi
+
+if ! command -v uv >/dev/null 2>&1; then
+    echo "lw: warning: uv not found. lw alias will not work."
+fi
+
+if [ ! -d "${LW_LAB_ROOT}" ]; then
+    echo "lw: warning: Lab root does not exist: ${LW_LAB_ROOT}"
+fi
+
+# --- aliases ---
+
+alias lw='uv run "${LW_SCRIPT}"'
+
+if [ -n "${LW_EDITOR}" ]; then
+    alias lwnotes='${LW_EDITOR} "${LW_NOTES}"'
+fi
+
+# open the database for ad hoc queries
+alias lwdb='sqlite3 "${LW_DB}"'
+
+# cd into lab root, or into an experiment folder by ID
+lwcd() {
+    if [ -z "$1" ]; then
+        cd "${LW_LAB_ROOT}" || return 1
+        return 0
+    fi
+    local match
+    match=$(find "${LW_LAB_ROOT}/experiments" -maxdepth 1 -type d -name "*$1*" | head -1)
+    if [ -n "${match}" ]; then
+        cd "${match}" || return 1
+    else
+        echo "No experiment folder matching '$1'"
+        return 1
+    fi
+}
+
+# --- tab completion ---
+
+_lw_completions() {
+    local cur prev commands exp_subs strain_subs stage_subs
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    commands="init status exp strain stage"
+    exp_subs="init show update complete link addstrain delete find list manifest"
+    strain_subs="add show update list"
+    stage_subs="list assign expect auto"
+
+    if [ "${COMP_CWORD}" -eq 1 ]; then
+        COMPREPLY=($(compgen -W "${commands}" -- "${cur}"))
+    elif [ "${COMP_CWORD}" -eq 2 ]; then
+        case "${prev}" in
+            exp)    COMPREPLY=($(compgen -W "${exp_subs}" -- "${cur}")) ;;
+            strain) COMPREPLY=($(compgen -W "${strain_subs}" -- "${cur}")) ;;
+            stage)  COMPREPLY=($(compgen -W "${stage_subs}" -- "${cur}")) ;;
+        esac
+    fi
+}
+
+complete -F _lw_completions lw

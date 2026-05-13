@@ -30,17 +30,17 @@ def bail(code=1):
 # SECTION 1: CONFIGURATION
 # ============================================================
 # --- paths ---
-# LAB_ROOT from env var, otherwise construct from MC_WINDOWS_USER
-_lab_root_env = os.environ.get("LAB_ROOT")
+_lab_root_env = os.environ.get("LW_LAB_ROOT") or os.environ.get("LAB_ROOT")
 if _lab_root_env:
     LAB_ROOT = _lab_root_env
 else:
-    _win_user = os.environ.get("MC_WINDOWS_USER")
+    _win_user = os.environ.get("LW_WINDOWS_USER") or os.environ.get("MC_WINDOWS_USER")
     if _win_user:
         LAB_ROOT = f"/mnt/c/Users/{_win_user}/Desktop/lab"
     else:
-        print("Error: Set LAB_ROOT or MC_WINDOWS_USER environment variable.")
+        print("Error: Set LW_LAB_ROOT or LW_WINDOWS_USER environment variable.")
         bail()
+
 DB_PATH = os.path.join(LAB_ROOT, "lab.db")
 EXPERIMENTS_DIR = os.path.join(LAB_ROOT, "experiments")
 STAGING_DIR = os.path.join(LAB_ROOT, "staging")

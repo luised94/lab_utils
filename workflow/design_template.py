@@ -14,7 +14,6 @@ DESIGN = {
     # The manifest command checks this and aborts on mismatch.
     # ----------------------------------------------------------------
     "experiment_id": "LM-0050",
-
     # ----------------------------------------------------------------
     # expected_samples (required)
     # Total number of samples: len(extras) + factorial_after_excludes.
@@ -24,7 +23,6 @@ DESIGN = {
     # Example: 2 extras + (5 strains x 2 DNAs x 3 salt - 4 excluded) = 28
     # ----------------------------------------------------------------
     "expected_samples": 28,
-
     # ----------------------------------------------------------------
     # extras (optional)
     # Non-factorial samples positioned first (positions 1, 2, ...).
@@ -45,7 +43,6 @@ DESIGN = {
         {"label": "input", "strain": "LY100", "amount": "5% total"},
         {"label": "input", "strain": "LY456", "amount": "5% total"},
     ],
-
     # ----------------------------------------------------------------
     # categories (required)
     # Dict of category_name -> list of levels.
@@ -70,7 +67,6 @@ DESIGN = {
         "dna": ["ARS1", "A-B2-"],
         "kglut": ["250", "300", "350"],
     },
-
     # ----------------------------------------------------------------
     # sort_order (required)
     # List of category names defining sort priority for factorial rows.
@@ -83,7 +79,6 @@ DESIGN = {
     # the first strain come first, then within that by dna order, etc.
     # ----------------------------------------------------------------
     "sort_order": ["strain", "dna", "kglut"],
-
     # ----------------------------------------------------------------
     # exclude (optional)
     # List of lambda functions. Each receives a dict of
