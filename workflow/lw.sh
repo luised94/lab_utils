@@ -1,5 +1,5 @@
 # ============================================================
-# lw.bash -- lab workflow environment configuration
+# lw.sh -- lab workflow environment configuration
 # ============================================================
 # Source this file from bashrc or symlink into your sourced
 # directory. All variables use the LW_ prefix.
@@ -9,16 +9,13 @@
 # ============================================================
 
 # --- user configuration ---
-
 LW_WINDOWS_USER="${LW_WINDOWS_USER:-${MC_WINDOWS_USER:-}}"
-
 if [ -z "${LW_WINDOWS_USER}" ]; then
     echo "lw: error: Set MC_WINDOWS_USER or LW_WINDOWS_USER before sourcing lw.bash"
     return 1 2>/dev/null || true
 fi
 
 # --- editor (EDITOR -> nvim -> vim -> vi) ---
-
 if [ -n "${EDITOR:-}" ] && command -v "${EDITOR}" >/dev/null 2>&1; then
     LW_EDITOR="${EDITOR}"
 elif command -v nvim >/dev/null 2>&1; then
@@ -33,11 +30,21 @@ else
 fi
 
 # --- paths ---
-
 LW_LAB_ROOT="/mnt/c/Users/${LW_WINDOWS_USER}/Desktop/lab"
 LW_SCRIPT="/home/${USER}/personal_repos/lab_utils/workflow/lw.py"
 LW_NOTES="${LW_LAB_ROOT}/lab_notes.md"
 LW_DB="${LW_LAB_ROOT}/lab.db"
+
+# --- backup paths ---
+LW_DROPBOX_PATH="${LW_DROPBOX_PATH:-${MC_DROPBOX_PATH:-}}"
+if [ -n "${LW_DROPBOX_PATH}" ]; then
+    LW_BACKUP_DIR="${LW_DROPBOX_PATH}/lab"
+    LW_BACKUP_SCRIPT="/home/${USER}/personal_repos/lab_utils/workflow/lw_backup.sh"
+else
+    LW_BACKUP_DIR=""
+    LW_BACKUP_SCRIPT=""
+    echo "lw: warning: No Dropbox path set (MC_DROPBOX_PATH or LW_DROPBOX_PATH). lwbackup will not work."
+fi
 
 export LW_WINDOWS_USER
 export LW_LAB_ROOT
@@ -45,9 +52,11 @@ export LW_SCRIPT
 export LW_NOTES
 export LW_DB
 export LW_EDITOR
+export LW_DROPBOX_PATH
+export LW_BACKUP_DIR
+export LW_BACKUP_SCRIPT
 
 # --- dependency checks ---
-
 if [ ! -f "${LW_SCRIPT}" ]; then
     echo "lw: warning: Script not found: ${LW_SCRIPT}"
 fi
@@ -60,8 +69,11 @@ if [ ! -d "${LW_LAB_ROOT}" ]; then
     echo "lw: warning: Lab root does not exist: ${LW_LAB_ROOT}"
 fi
 
-# --- aliases ---
+if ! command -v sqlite3 >/dev/null 2>&1; then
+    echo "lw: warning: sqlite3 not found. lwcheck and lwbackup will not work."
+fi
 
+# --- aliases ---
 alias lw='uv run "${LW_SCRIPT}"'
 
 if [ -n "${LW_EDITOR}" ]; then
@@ -70,6 +82,14 @@ fi
 
 # open the database for ad hoc queries
 alias lwdb='sqlite3 "${LW_DB}"'
+
+# database integrity check
+alias lwcheck='sqlite3 "${LW_DB}" "PRAGMA integrity_check; PRAGMA foreign_key_check;"'
+
+# backup to dropbox
+if [ -n "${LW_BACKUP_SCRIPT}" ] && [ -f "${LW_BACKUP_SCRIPT}" ]; then
+    alias lwbackup='bash "${LW_BACKUP_SCRIPT}"'
+fi
 
 # cd into lab root, or into an experiment folder by ID
 lwcd() {
@@ -88,7 +108,6 @@ lwcd() {
 }
 
 # --- tab completion ---
-
 _lw_completions() {
     local cur prev commands exp_subs strain_subs stage_subs
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -109,5 +128,4 @@ _lw_completions() {
         esac
     fi
 }
-
 complete -F _lw_completions lw
