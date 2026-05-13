@@ -65,5 +65,30 @@ else
     echo "lw_backup: would copy database snapshot to ${LW_BACKUP_DIR}/lab.db"
 fi
 
+# --- weekly database snapshot ---
+# Keeps dated copies of lab.db in a snapshots/ directory.
+# One snapshot per calendar week (YYYY-WNN). Older than 12 weeks
+# are pruned automatically. Runs every backup but only writes
+# one file per week.
+SNAPSHOT_DIR="${LW_BACKUP_DIR}/snapshots"
+WEEK_TAG=$(date +%Y-W%V)
+SNAPSHOT_FILE="${SNAPSHOT_DIR}/lab_${WEEK_TAG}.db"
+
+if [ -z "${DRY_RUN}" ]; then
+    mkdir -p "${SNAPSHOT_DIR}"
+    if [ ! -f "${SNAPSHOT_FILE}" ]; then
+        cp "${LW_BACKUP_DIR}/lab.db" "${SNAPSHOT_FILE}"
+        echo "lw_backup: weekly snapshot -> lab_${WEEK_TAG}.db"
+    fi
+    # prune snapshots older than 12 weeks
+    find "${SNAPSHOT_DIR}" -name 'lab_*.db' -mtime +84 -delete 2>/dev/null || true
+else
+    if [ ! -f "${SNAPSHOT_FILE}" ]; then
+        echo "lw_backup: would create weekly snapshot lab_${WEEK_TAG}.db"
+    else
+        echo "lw_backup: weekly snapshot already exists for ${WEEK_TAG}"
+    fi
+fi
+
 # --- summary ---
 echo "lw_backup: complete -> ${LW_BACKUP_DIR}"

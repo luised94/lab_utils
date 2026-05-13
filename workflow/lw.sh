@@ -38,7 +38,7 @@ LW_DB="${LW_LAB_ROOT}/lab.db"
 # --- backup paths ---
 LW_DROPBOX_PATH="${LW_DROPBOX_PATH:-${MC_DROPBOX_PATH:-}}"
 if [ -n "${LW_DROPBOX_PATH}" ]; then
-    LW_BACKUP_DIR="${LW_DROPBOX_PATH}/lab"
+    LW_BACKUP_DIR="${LW_DROPBOX_PATH}/lab-backup"
     LW_BACKUP_SCRIPT="/home/${USER}/personal_repos/lab_utils/workflow/lw_backup.sh"
 else
     LW_BACKUP_DIR=""
