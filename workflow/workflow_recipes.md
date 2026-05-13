@@ -1,366 +1,482 @@
 # Workflow Recipes
 
-Step-by-step guides for common workflows. Each recipe lists the goal,
-prerequisites, commands, and expected output.
 
-All examples use realistic experiment IDs and strain names from ORC/MCM
-biochemistry. Substitute your own values.
+## Recipe 1: Purification Experiment End-to-End
 
+Goal: Set up, execute, and close a protein purification from culture
+to frozen aliquots.
 
-## Recipe 1: Set Up a Purification Experiment
+### Register strains (if not already done)
 
-Goal: Create a purification experiment, register strains, and record
-initial metadata.
+  lw strain add LY101 "MATa ura3 leu2 trp1 his3"
+  lw strain update LY101 label wild-type
+  lw strain add LY456 "MATa ORC1-TEV-3xFLAG::URA3 orc4-R267A::KanMX"
+  lw strain update LY456 label orc4-R267A
 
-Prerequisites: System initialized (`lw init` has been run).
+Check existing strains:
 
-### Steps
+  lw strain list
 
-1. Create the experiment:
+### Create the experiment
 
-        lw exp init purification orc4-r267a-prep --title "Orc4-R267A ORC purification"
+  lw exp init purification orc-r267a --title "Orc4-R267A ORC purification"
 
-   Output:
+Output:
+  Created: LM-0005
+  Folder:  20260513_LM-0005_pur_orc-r267a/
+  Type:    purification
+  Title:   Orc4-R267A ORC purification
+  Next: lw exp update LM-0005 protein <name>
 
-        Created: LM-0001
-        Folder:  20260513_LM-0001_pur_orc4-r267a-prep/
-        Type:    purification
-        Title:   Orc4-R267A ORC purification
-        Next: lw exp update LM-0001 protein <name>
+### Add metadata
 
-2. Set the protein name (required for purification records):
+  lw exp update LM-0005 protein ORC-R267A
+  lw exp addstrain LM-0005 LY456 expression-strain
+  lw exp update LM-0005 notes Started 6L culture in YPR at OD 0.4
 
-        lw exp update LM-0001 protein ORC-R267A
+Later, as the purification progresses:
 
-3. Register the strain if it does not exist yet:
+  lw exp update LM-0005 induction_od 1.2
+  lw exp update LM-0005 galactose_hours 4.5
+  lw exp update LM-0005 columns anti-FLAG -> HiTrap Heparin
+  lw exp update LM-0005 notes Induced at OD 1.2, 2% galactose
+  lw exp update LM-0005 notes Lysed in buffer H-150, 3 passes French press
 
-        lw strain add LY456 "MATa orc4-R267A::KanMX ura3 leu2 trp1 his3"
-        lw strain update LY456 label "Orc4-R267A"
+### Pre-register expected images
 
-4. Link the strain to the experiment:
+Before going to the instrument:
 
-        lw exp addstrain LM-0001 LY456
+  lw stage expect LM-0005 gel-coomassie gel-silver
 
-5. Add notes as you go:
+Output:
+  s1  gel-coomassie
+  s2  gel-silver
+  At instrument:
+    lemr LM-0005 s1
+    lemr LM-0005 s2
+  2 total pending for LM-0005
 
-        lw exp update LM-0001 notes 1L culture, induced at OD 1.2
+### Image at instrument
 
-   Notes always append with a date stamp. Add more entries anytime:
+At the Imager 680 or Typhoon, name each acquisition using the
+convention printed by stage expect:
 
-        lw exp update LM-0001 notes calmodulin elution looks clean
+  lemr LM-0005 s1     (the coomassie gel)
+  lemr LM-0005 s2     (the silver stain)
 
-6. Record purification-specific details:
+The instrument appends its own suffix (timestamp, channel).
 
-        lw exp update LM-0001 columns "calmodulin, MonoQ"
-        lw exp update LM-0001 yield_mg 0.45
-        lw exp update LM-0001 storage "-80C box 3 slot 12"
+### Transfer and file images
 
-7. When finished:
+Copy files from instrument to staging/ (drag-and-drop or USB).
+For Imager 680 ZIPs, unzip first.
 
-        lw exp complete LM-0001
-        # Completed: LM-0001
-        # Duration: 3d (started 2026-05-13)
+Check what's in staging:
 
+  lw stage list
 
-## Recipe 2: Set Up a Loading Assay with Manifest
+Dry-run the auto-assignment:
 
-Goal: Create a loading assay, define a factorial design, generate a
-sample manifest, and link to an upstream purification.
+  lw stage auto
 
-Prerequisites: Upstream purification exists (e.g., LM-0001). Strains
-registered and labeled.
+Review the output. If correct:
 
-### Steps
+  lw stage auto --confirm
 
-1. Create the experiment:
+### Record results and close
 
-        lw exp init loading mcm-loading-ars1 --title "MCM loading with ARS1, testing R267A"
+  lw exp update LM-0005 fractions_pooled 12-18
+  lw exp update LM-0005 yield_mg 2.4
+  lw exp update LM-0005 storage -80C box 3 positions A1-A6
+  lw exp update LM-0005 notes Good yield, clean gel, minor contaminant at 45 kDa
+  lw exp complete LM-0005
 
-2. Link to the upstream purification:
+Output:
+  Completed: LM-0005
+    Date: 2026-05-15
+    Duration: 2d (started 2026-05-13)
 
-        lw exp link LM-0002 LM-0001 uses_prep_from
+### Review
 
-   This auto-populates assay_details.protein_prep.
+  lw exp show LM-0005
 
-3. Verify strains are registered and labeled:
+Nvim shortcut: <leader>lx while editing a file in the experiment
+folder to telescope through all files in that experiment.
 
-        lw strain list --no-label
 
-   If any strains lack labels, set them now. Labels appear in the
-   manifest and are required for readability:
+## Recipe 2: Loading Assay with Manifest
 
-        lw strain update LY100 label "WT ORC"
+Goal: Set up a factorial loading assay using a design.py file to
+generate a sample manifest.
 
-4. Create the design file. In the experiment folder, create design.py:
+### Prerequisites
 
-        experiments/20260513_LM-0002_load_mcm-loading-ars1/design.py
+- Upstream purification exists (e.g. LM-0005 ORC-R267A, LM-0003 ORC-WT)
+- All strains registered with labels (check: lw strain list --no-label)
 
-   Contents (see docs/design_template.py for a full annotated template):
+### Create the experiment
 
-        DESIGN = {
-            "experiment_id": "LM-0002",
-            "expected_samples": 14,
-            "extras": [
-                {"label": "input", "strain": "LY100", "amount": "5% total"},
-                {"label": "input", "strain": "LY456", "amount": "5% total"},
-            ],
-            "categories": {
-                "strain": ["LY100", "LY456", None],
-                "dna": ["ARS1", "A-B2-"],
-            },
-            "sort_order": ["strain", "dna"],
-            "exclude": [
-                lambda r: r["strain"] is None and r["dna"] == "A-B2-",
-            ],
-        }
+  lw exp init loading mcm-load-orc-comparison --title "MCM loading: WT vs R267A ORC"
 
-   Expected count: 2 extras + (3 strains x 2 DNAs - 1 excluded) = 2 + 5 = 7.
-   Wait -- that does not add up. Let me recalculate:
-   3 strains x 2 DNAs = 6. Minus 1 excluded (None + A-B2-) = 5. Plus
-   2 extras = 7. But expected_samples says 14. Adjust your categories
-   and expected count to match your actual design.
+### Link to upstream purification
 
-5. Generate the manifest:
+  lw exp link LM-0008 LM-0005 uses_prep_from
+  lw exp link LM-0008 LM-0003 uses_prep_from
 
-        lw exp manifest LM-0002
+This auto-populates assay_details.protein_prep for the first link.
 
-   Output shows strain label resolution, sample table, and writes
-   manifest.csv to the experiment folder.
+### Write design.py
 
-   If you need to regenerate after fixing the design:
+Copy the template:
 
-        lw exp manifest LM-0002 --force
+  cp docs/design_template.py experiments/20260515_LM-0008_load_mcm-load-orc-comparison/design.py
 
-6. Add strains to the experiment:
+Edit the design file (see docs/design_template.py for full annotation):
 
-        lw exp addstrain LM-0002 LY100
-        lw exp addstrain LM-0002 LY456
+  DESIGN = {
+      "experiment_id": "LM-0008",
+      "expected_samples": 14,
+      "categories": {
+          "strain": ["LY101", "LY456", None],
+          "dna": ["pARS1", "pARS1-B2mut"],
+          "salt": ["100mM", "300mM"],
+      },
+      "exclude": [
+          lambda row: row["strain"] is None and row["salt"] == "300mM",
+      ],
+      "extras": [
+          {"strain": "LY101", "label": "input", "dna": "pARS1"},
+      ],
+      "sort_order": ["strain", "dna", "salt"],
+  }
 
-7. Verify everything:
+### Generate the manifest
 
-        lw exp show LM-0002
+  lw exp manifest LM-0008
 
+Output shows: strain resolution, sample count verification, summary
+table, and confirms manifest.csv was written.
 
-## Recipe 3: Process Instrument Files Through Staging
+If you need to regenerate after editing design.py:
 
-Goal: Get files from an instrument into the correct experiment folder
-with proper names, using the pre-registration workflow.
+  lw exp manifest LM-0008 --force
 
-Prerequisites: Experiment exists.
+### Add strains to experiment
 
-### Steps
+  lw exp addstrain LM-0008 LY101
+  lw exp addstrain LM-0008 LY456
 
-1. Before going to the instrument, register what you plan to image:
+### Proceed with staging
 
-        lw stage expect LM-0002 gel-coomassie gel-silver membrane-anti-mcm
+Pre-register expected images as in Recipe 1:
 
-   Output:
+  lw stage expect LM-0008 gel-load gel-input
 
-        s1  gel-coomassie
-        s2  gel-silver
-        s3  membrane-anti-mcm
-        At instrument:
-          lemr LM-0002 s1
-          lemr LM-0002 s2
-          lemr LM-0002 s3
-        3 total pending for LM-0002
+Image, transfer, and file using the same staging workflow.
 
-2. At the instrument, name each acquisition using the printed names.
-   For the Imager 680, type `lemr LM-0002 s1` as the file prefix --
-   the instrument appends its own timestamp and channel suffix.
+### Nvim shortcuts during setup
 
-3. Transfer files to your computer. For the Imager 680, unzip the
-   downloaded archive first.
+  <leader>le    Insert an experiment ID while writing notes
+  <leader>ls    Insert a strain ID while writing design.py
+  <leader>lp    Find a protocol file for reference
 
-4. Copy (or move) all files into the staging/ directory.
 
-5. Preview what will happen:
+## Recipe 3: Staging -- Pre-Registered Workflow
 
-        lw stage auto
+Goal: Use the three-phase staging model (plan, image, file) for
+systematic file management.
 
-   Output shows matched files, their destinations, any skipped or
-   unmatched files. Files matched by inference (experiment ID found
-   but no slot number, with only one pending expectation) are annotated
-   with "(slot inferred)".
+### Phase 1: Plan
 
-6. Execute:
+Before going to the instrument, register what you expect to image:
 
-        lw stage auto --confirm
+  lw stage expect LM-0005 gel-coomassie gel-silver bradford-raw
 
-   Output:
+Output:
+  s1  gel-coomassie
+  s2  gel-silver
+  s3  bradford-raw
+  At instrument:
+    lemr LM-0005 s1
+    lemr LM-0005 s2
+    lemr LM-0005 s3
+  3 total pending for LM-0005
 
-        Filed (3):
-          lemr LM-0002 s1 2026.05.13_14.30.00_Cy5.tif
-             -> 20260513_LM-0002_gel-coomassie.tif
-          lemr LM-0002 s2 2026.05.13_14.35.00_Cy5.tif
-             -> 20260513_LM-0002_gel-silver.tif
-          lemr LM-0002 s3 2026.05.13_14.40.00_Cy5.tif
-             -> 20260513_LM-0002_membrane-anti-mcm.tif
+Check all pending expectations:
 
-### Manual assignment (ad hoc files)
+  lw stage expect --list
+  lw stage expect --list LM-0005
 
-If you have a file that was not pre-registered:
+### Phase 2: Image
 
-    lw stage assign "some_scan.tif" LM-0002 supplemental-scan
+At every instrument, use the same convention:
 
-The system confirms the experiment identity before filing:
+  lemr LM-0005 s1
 
-    Experiment: LM-0002 (mcm-loading-ars1, loading)
-    Filed: some_scan.tif
-        -> experiments/20260513_LM-0002_load_mcm-loading-ars1/20260513_LM-0002_supplemental-scan.tif
+The instrument appends its own metadata. The important part is that
+LM-0005 and s1 appear as tokens in the filename.
 
-### Managing expectations
+### Phase 3: File
 
-Check pending expectations:
+Copy all files to staging/. Then:
 
-    lw stage expect --list
-    lw stage expect --list LM-0002
+  lw stage list          # verify files are detected and parsed
+  lw stage auto          # dry run -- review matches
+  lw stage auto --confirm
 
-Cancel expectations you no longer need:
+If a file has the experiment ID but no slot, and that experiment has
+only one pending expectation, the slot is inferred (shown as
+"slot inferred" in dry-run output).
 
-    lw stage expect --cancel LM-0002 s3    # cancel one slot
-    lw stage expect --cancel LM-0002       # cancel all pending
+### Canceling expectations
 
+Changed plans and won't image something:
 
-## Recipe 4: Link a Downstream Assay to an Upstream Purification
+  lw stage expect --cancel LM-0005 s3     # cancel one slot
+  lw stage expect --cancel LM-0005        # cancel all pending
 
-Goal: Connect an assay experiment to the purification that produced
-the protein it uses.
+### Retakes
 
-Prerequisites: Both experiments exist.
+Not system-enforced. Append -v2 to descriptor:
 
-### Steps
+  lw stage expect LM-0005 gel-coomassie-v2
 
-1. Link them:
+Both versions are kept in the experiment folder.
 
-        lw exp link LM-0005 LM-0001 uses_prep_from
 
-   This does two things:
-   - Creates a record in experiment_links
-   - Auto-populates assay_details.protein_prep for LM-0005
+## Recipe 4: Staging -- Manual (Ad Hoc)
 
-   If LM-0001 is not a purification experiment, the system warns but
-   creates the link anyway.
+Goal: File a one-off image without pre-registration.
 
-2. Verify:
+For files that weren't planned ahead of time (a quick gel photo,
+a screenshot, exported data):
 
-        lw exp show LM-0005
+  lw stage assign random_photo.tif LM-0005 gel-quick-check
 
-   Under "Links:" you will see:
+Output:
+  Experiment: LM-0005 (orc-r267a, purification)
+  Filed: random_photo.tif
+      -> experiments/20260513_LM-0005_pur_orc-r267a/20260515_LM-0005_gel-quick-check.tif
 
-        -> LM-0001 (uses_prep_from)
+The file is renamed with today's date, moved to the experiment folder,
+and registered in the files table.
 
-   Under "Assay details:" you will see:
+Manual assign coexists fully with the pre-registration workflow. Use
+whichever fits.
 
-        protein_prep: LM-0001
 
-3. Other relationship types:
+## Recipe 5: Linking Experiments
 
-        lw exp link LM-0006 LM-0005 replicate_of
-        lw exp link LM-0007 LM-0005 follow_up_to
+Goal: Connect related experiments to build a provenance chain.
 
-   Non-standard relationships are allowed with a warning.
+### Purification -> Downstream assay
 
+  lw exp link LM-0008 LM-0005 uses_prep_from
 
-## Recipe 5: Track Figure Provenance (Manual Workflow)
+This means: LM-0008 (loading assay) uses protein from LM-0005
+(purification). The assay_details.protein_prep field is auto-populated.
 
-Goal: Record which experiment data appears in which publication figure.
-The fig link and fig trace commands are not yet implemented, so this
-uses manual tracking in lab_notes.md and SQL.
+### Replicates
 
-Prerequisites: Experiments with processed images. Publication folder
-exists.
+  lw exp link LM-0010 LM-0008 replicate_of
 
-### Steps
+### Follow-ups
 
-1. In lab_notes.md, record figure panel sources:
+  lw exp link LM-0012 LM-0008 follow_up_to
 
-        ## 2026-05-13
+### Viewing links
 
-        Figure 3A: LM-0001, gel-coomassie (Coomassie stain of purified ORC)
-        Figure 3B: LM-0002, membrane-anti-mcm (MCM loading Western)
-        Figure 3C: LM-0005, plot-quantification (loading quantification)
+  lw exp show LM-0008
 
-2. For formal tracking, insert directly into the database:
+Links section shows:
+  -> LM-0005 (uses_prep_from)
+  <- LM-0010 (replicate_of)
+  <- LM-0012 (follow_up_to)
 
-        sqlite3 lab.db "INSERT INTO figure_panels
-            (publication, figure, panel, description, experiment_id, source_file)
-            VALUES (
-                'orc4-r267a-paper',
-                'Figure 3',
-                'A',
-                'Coomassie stain of purified ORC',
-                'LM-0001',
-                'experiments/20260513_LM-0001_pur_orc4-r267a-prep/20260513_LM-0001_gel-coomassie.tif'
-            );"
+### Custom relationships
 
-3. Query provenance:
+Non-standard relationships are accepted with a note:
 
-        sqlite3 lab.db "SELECT figure, panel, experiment_id, source_file
-            FROM figure_panels
-            WHERE publication = 'orc4-r267a-paper'
-            ORDER BY figure, panel;"
+  lw exp link LM-0015 LM-0005 troubleshoots
 
-When fig link and fig trace commands are implemented, they will replace
-this manual workflow.
+Output includes:
+  Note: 'troubleshoots' is not a standard relationship
+        (uses_prep_from, replicate_of, follow_up_to)
 
 
-## Recipe 6: Common Queries
+## Recipe 6: Figure Provenance (Manual)
 
-### Find all experiments using a specific strain
+Goal: Track which experiments contribute to which publication figures
+until fig commands are implemented.
 
-    lw exp find --strain LY456
+The figure_panels table exists in the schema but has no CLI commands
+yet. Track provenance manually in lab_notes.md:
 
-### Find all active purification experiments
+  ## 2026-05-20
 
-    lw exp find --type purification --status active
+  Figure 3A: LM-0005 gel-coomassie (Coomassie stain of purification)
+  Figure 3B: LM-0005 gel-silver (Silver stain, same gel)
+  Figure 4A: LM-0008 gel-load (MCM loading, WT vs R267A)
+  Source AI file: publications/plos-one-2026/figures/figure-3.ai
 
-### Free-text search across experiments
+Or insert directly via SQL if you want the database record now:
 
-    lw exp find orc4
+  lwdb
+  INSERT INTO figure_panels (publication, figure, panel, experiment_id,
+    source_file, ai_file)
+  VALUES ('plos-one-2026', 'Figure 3', 'A', 'LM-0005',
+    'experiments/20260513_LM-0005_pur_orc-r267a/20260515_LM-0005_gel-coomassie.tif',
+    'publications/plos-one-2026/figures/figure-3.ai');
 
-Searches ID, shortname, title, and notes.
+Query provenance:
 
-### List all purifications with yields
+  lwdb "SELECT figure, panel, experiment_id, source_file
+        FROM figure_panels
+        WHERE publication = 'plos-one-2026'
+        ORDER BY figure, panel"
 
-    lw exp list --type purification
 
-Shows protein name and yield for each purification.
+## Recipe 7: Common Queries
 
-### SQL: Find all samples using a specific DNA template
+### CLI queries
 
-    sqlite3 lab.db "SELECT s.experiment_id, s.position, s.label, s.dna
-        FROM samples s
-        JOIN experiments e ON s.experiment_id = e.id
-        WHERE s.dna = 'ARS1'
-        ORDER BY e.date_started, s.position;"
+Find all purification experiments:
 
-### SQL: Count samples per experiment
+  lw exp find --type purification
 
-    sqlite3 lab.db "SELECT experiment_id, COUNT(*) as n
+Find active experiments using a specific strain:
+
+  lw exp find --strain LY456 --status active
+
+Search by keyword (searches id, shortname, title, notes):
+
+  lw exp find mcm loading
+
+List all experiments grouped by type:
+
+  lw exp list
+
+List only loading experiments:
+
+  lw exp list --type loading
+
+Strains without labels (pre-manifest QC):
+
+  lw strain list --no-label
+
+### Raw SQL queries (via lwdb)
+
+Files registered to an experiment:
+
+  lwdb "SELECT filename FROM files WHERE experiment_id = 'LM-0005'"
+
+All experiments linked to a purification:
+
+  lwdb "SELECT from_experiment, relationship
+        FROM experiment_links
+        WHERE to_experiment = 'LM-0005'"
+
+Experiments with no files:
+
+  lwdb "SELECT id, shortname FROM experiments
+        WHERE status = 'active'
+        AND id NOT IN (SELECT DISTINCT experiment_id FROM files)"
+
+Purification yields:
+
+  lwdb "SELECT e.id, p.protein, p.yield_mg
+        FROM experiments e
+        JOIN purification_details p ON e.id = p.experiment_id
+        ORDER BY e.date_started DESC"
+
+Sample manifest for an experiment:
+
+  lwdb "SELECT position, strain_id, label, dna, conditions
         FROM samples
-        GROUP BY experiment_id
-        ORDER BY n DESC;"
+        WHERE experiment_id = 'LM-0008'
+        ORDER BY position"
 
-### SQL: Find experiments by a condition stored in JSON
+Strain usage across all experiments:
 
-    sqlite3 lab.db "SELECT experiment_id, position, label
-        FROM samples
-        WHERE json_extract(conditions, '$.kglut') = '300';"
+  lwdb "SELECT s.id, s.label, COUNT(es.experiment_id) as n_exps
+        FROM strains s
+        LEFT JOIN experiment_strains es ON s.id = es.strain_id
+        GROUP BY s.id
+        ORDER BY n_exps DESC"
 
-### SQL: Trace a figure panel back to its experiment
 
-    sqlite3 lab.db "SELECT fp.figure, fp.panel, fp.description,
-            e.type, e.shortname, e.date_started
-        FROM figure_panels fp
-        JOIN experiments e ON fp.experiment_id = e.id
-        WHERE fp.publication = 'orc4-r267a-paper'
-        ORDER BY fp.figure, fp.panel;"
+## Recipe 8: Daily Workflow (Neovim + CLI)
 
-### Check the command log
+Goal: Typical daily pattern combining nvim keymaps and CLI.
 
-    tail -20 lab/command_log.txt
+### Morning: review and plan
 
-Or filter for a specific experiment:
+  lw status                    # check what needs attention
+  lwnotes                     # open notes, review yesterday
+  <leader>lh                  # add today's date header
 
-    grep LM-0005 lab/command_log.txt
+Write today's plan in lab_notes.md. Reference experiments inline
+using <leader>le to insert IDs directly from the database.
+
+### During experiments
+
+While editing lab_notes.md or any file:
+
+  <leader>le     Insert experiment ID (pick from sorted list)
+  <leader>ls     Insert strain ID
+  <leader>lp     Find and open a protocol
+
+While working in an experiment folder:
+
+  <leader>lx     Telescope through files in this experiment
+
+### After imaging
+
+  lw stage list              # see what landed in staging
+  lw stage auto              # dry run
+  lw stage auto --confirm    # file everything
+
+### End of day
+
+  lw exp update LM-0005 notes Completed column chromatography, fractions on ice
+  <leader>lt                  # review TODOs in lab_notes.md
+  lwbackup                    # back up everything
+
+
+## Recipe 9: Backup
+
+Goal: Maintain consistent, recoverable backups of the lab directory.
+
+### Regular backup
+
+  lwbackup
+
+This runs lw_backup.sh which:
+  1. Snapshots lab.db safely (sqlite3 .backup, not raw file copy)
+  2. Syncs all files via rsync (additive, never deletes from backup)
+  3. Creates weekly DB snapshots (lab_YYYY-WNN.db) automatically
+  4. Prunes weekly snapshots older than 84 days
+
+### Dry-run (see what would happen)
+
+  lwbackup --dry-run
+
+### What gets backed up
+
+Everything in lab/ except lab.db itself (replaced by consistent
+snapshot). The rsync is additive: files deleted from lab/ are
+preserved in the backup.
+
+### Recovery
+
+To restore from backup:
+  1. Copy the backup directory contents to a new lab/ location
+  2. lab.db in the backup is a consistent snapshot, ready to use
+  3. For point-in-time recovery, weekly snapshots are in
+     snapshots/lab_YYYY-WNN.db
+
+### When to back up
+
+After any session that creates or modifies data. The lwbackup alias
+makes it a one-command habit. Consider adding it to your end-of-day
+routine (see Recipe 8).

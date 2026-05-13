@@ -1,546 +1,430 @@
-# Lab Workflow System
+# lw -- Lab Workflow
 
-A personal laboratory information management system (LIMS) built on SQLite,
-plain text, and a single CLI tool. Tracks experiments, strains, instrument
-files, and sample manifests for biochemistry research.
+A personal laboratory information management system built from SQLite,
+plain text, and CLI tools. Tracks experiments, strains, files, and
+figure provenance for a single-user wet-lab workflow.
 
 Built for one person. Designed to be portable across labs.
 
 
-## What It Does
-
-Given any figure, trace back to raw data, experiment, strain, and
-verification. Given any strain, find all experiments that used it. Given any
-experiment, find all downstream outputs. Navigation is by CLI query, not
-folder browsing.
+## What This Is
 
 Three systems, each doing what it does best:
 
-    SQLite (lab.db)     Structured metadata, cross-references, queries
-    Filesystem          Binary data (TIFFs, gels), scripts, plots
-    Markdown files      Notes, protocols, observations
+  SQLite (lab.db)    Structured metadata, cross-references, queries.
+  Filesystem         Binary data (TIFFs, gels), scripts, plots.
+  Markdown files     Notes, protocols, observations.
+
+Given any figure, trace back to raw data, experiment, strain, and
+verification. Given any strain, find all experiments that used it.
+Given any experiment, find all downstream outputs. Navigation is by
+CLI query, not folder browsing.
+
+
+## Environment Setup
+
+### Prerequisites
+
+- WSL on Windows (or native Linux/macOS)
+- Python 3.8+ managed with uv
+- SQLite3
+- Neovim >= 0.7 with telescope.nvim (for editor integration)
+- rsync (for backup)
+
+### Shell Configuration (lw.sh)
+
+Source lw.sh from your shell rc file. It requires one environment
+variable:
+
+  export MC_WINDOWS_USER="yourname"        # or LW_WINDOWS_USER
+
+lw.sh derives all paths and provides these aliases:
+
+  lw             Run lw.py via uv (main entry point for all commands)
+  lwnotes        Open lab_notes.md in $EDITOR
+  lwdb           Open lab.db in sqlite3 shell
+  lwcheck        Run database integrity check
+  lwbackup       Run backup script (see Backup section)
+  lwcd [id]      CD to lab root, or to experiment folder matching *id*
+
+Tab completion is configured for all lw subcommands and nested
+subcommands (exp init, stage auto, etc.).
+
+Examples:
+
+  lw status
+  lwcd 0005                   # cd to experiments/*LM-0005*/
+  lwdb "SELECT * FROM strains"
+  lwnotes                     # quick note in nvim
+
+### Neovim Integration (lw.lua)
+
+Requires env vars LW_LAB_ROOT, LW_DB, LW_NOTES (set by lw.sh).
+All keymaps use <leader>l prefix.
+
+  <leader>ln     Open lab_notes.md
+  <leader>lh     Prepend today's date header (## YYYY-MM-DD) if missing
+  <leader>le     Pick experiment from DB, insert ID into buffer
+  <leader>ls     Pick strain from DB, insert ID into buffer
+  <leader>lf     Telescope file finder scoped to lab root
+                 (excludes .git, __pycache__, .venv, staging)
+  <leader>lp     Telescope file finder scoped to protocols/
+  <leader>lx     Find files in current experiment folder
+                 (auto-detects from buffer path, or prompts to pick)
+  <leader>lt     Scan lab_notes.md for TODO lines, populate quickfix
+
+Commands (callable from command mode):
+  :LwPickExperiment    Same as <leader>le
+  :LwPickStrain        Same as <leader>ls
+  :LwTodos             Same as <leader>lt
 
 
 ## Quick Start
 
-### First-time setup
+Initialize the lab directory:
 
-    python lw.py init
+  lw init
 
-This creates the directory structure, SQLite database, counter file, and
-lab notes file. Run it once.
+This creates the directory structure, database (10 tables), counter
+file (starting at 1), and lab_notes.md.
 
-### Create your first experiment
+Register strains:
 
-    python lw.py exp init purification orc4-wt-prep
-    # Created: LM-0001
-    # Folder:  20260513_LM-0001_pur_orc4-wt-prep/
-    # Type:    purification
-    # Next: lw exp update LM-0001 protein <name>
+  lw strain add LY101 "MATa ura3 leu2 trp1 his3"
+  lw strain update LY101 label wild-type
 
-    python lw.py exp update LM-0001 protein ORC-WT
+Create an experiment:
+
+  lw exp init purification orc-wt --title "Wild-type ORC purification"
 
-### Register a strain
+This prints the experiment ID (LM-0001), creates the folder, and
+shows a next-step hint.
 
-    python lw.py strain add LY100 "MATa ura3 leu2 trp1 his3"
-    # Registered: LY100
-    # Set a label: lw strain update LY100 label <short-name>
+Add metadata:
 
-    python lw.py strain update LY100 label "wild-type"
+  lw exp update LM-0001 protein ORC
+  lw exp addstrain LM-0001 LY101 expression-strain
+  lw exp update LM-0001 notes Started 6L culture at OD 0.8
 
-### Link a strain to an experiment
+Check system state:
 
-    python lw.py exp addstrain LM-0001 LY100
+  lw status
 
-### Check system state
+
+## Command Reference
 
-    python lw.py status
+### System Commands
+
+  lw init
+    Bootstrap lab directory and database. Refuses to run if lab.db
+    already exists.
 
+  lw status
+    System dashboard: experiment counts, staging contents, pending
+    expectations, strain summary, recent activity, attention warnings.
+    Warnings appear unconditionally and go away only when addressed.
 
-## Commands
+  lw --help
+    Show usage summary for all commands.
+
+### Experiment Commands
 
-All commands go through a single entry point: `python lw.py <command>`.
-For brevity, examples below use `lw` as an alias.
+  lw exp init <type> <shortname> [--title "Human-readable name"]
+    Create a new experiment. Assigns next LM-NNNN ID, creates folder.
+    Title defaults to shortname if not specified.
+    Types: purification, loading, gelshift, atpase, genetics,
+           computational, cloning, sequencing
+    Prints type-sensitive next-step hint.
+
+  lw exp show <id>
+    Full detail view. Accepts "LM-0001" or bare "1".
+    Shows age (active experiments) or duration (complete).
+    Includes strains, links, files, type-specific details, samples.
 
-### General
-
-    lw --help                   Show usage and all commands
-    lw init                     Bootstrap lab directory and database (run once)
-    lw status                   System dashboard: counts, staging, warnings
-
-### Experiments
-
-    lw exp init <type> <shortname> [--title "Human-readable name"]
-
-Create a new experiment. Assigns the next sequential ID (LM-0001, LM-0002,
-...), creates a folder, and inserts a database record. The shortname becomes
-part of the folder name and must be lowercase alphanumeric with hyphens.
-The title defaults to the shortname if not specified.
-
-Valid types: purification, loading, gelshift, atpase, genetics,
-computational, cloning, sequencing.
-
-After creation, the system prints a context-aware next step:
-- purification: set the protein name
-- loading/gelshift/atpase: add a strain
-- other types: add notes
-
-    lw exp show <id>
-
-Display full experiment details including type-specific fields, linked
-strains, linked experiments, registered files, and samples. Active
-experiments show age in days; completed experiments show duration.
-
-Accepts full ID (LM-0001) or bare number (1).
-
-    lw exp update <id> <field> <value>
-
-Update a single field. The system automatically finds which table owns
-the field (experiments, purification_details, or assay_details). If a
-purification or assay record does not exist yet, it creates one.
-
-Multi-word values do not need quoting:
-
-    lw exp update LM-0001 notes gel looks clean today
-
-Some fields cannot be changed this way. See "Protected Fields" below.
-
-    lw exp complete <id>
-
-Mark an experiment as done. Sets the completion date and prints the
-duration. An already-complete experiment is left unchanged.
-
-    lw exp link <from_id> <to_id> <relationship>
-
-Connect two experiments. Standard relationships:
-- uses_prep_from: downstream assay uses protein from a purification
-- replicate_of: same experiment repeated
-- follow_up_to: continuation of earlier work
-
-When linking with uses_prep_from, the system auto-populates the
-protein_prep field in assay_details and warns if the target is not
-a purification experiment.
-
-    lw exp addstrain <exp_id> <strain_id> [role]
-
-Associate a registered strain with an experiment. The strain must already
-exist in the database (register it first with `strain add`).
-
-    lw exp delete <id> [--confirm] [--keep-folder]
-
-Delete an experiment and all related records. By default this is a dry
-run -- it shows what would be deleted without doing anything. Pass
---confirm to execute. Pass --keep-folder to delete the database records
-but preserve the experiment directory and its files.
-
-The dry run shows:
-- Related records in all tables (strains, links, files, samples, etc.)
-- Downstream protein_prep references that would be cleared
-- Folder contents
-
-    lw exp find [query] [--type T] [--status S] [--strain S]
-
-Search experiments. The query matches against ID, shortname, title, and
-notes. Filters can be combined. Multi-word queries do not need quoting.
-Results are flat, sorted by date (newest first). Shows title when it
-differs from shortname.
-
-If --strain returns no results, the system checks whether the strain
-exists in the database and reports if it does not.
-
-    lw exp list [--type T]
-
-Browse experiments grouped by type. Each group shows type-specific
-summaries:
-- purification: protein name and yield
-- loading/gelshift/atpase: sample count and linked protein prep
-- other types: basic info only
-
-    lw exp manifest <id> [--force]
-
-Generate a sample manifest from a design.py file in the experiment
-folder. See "Sample Manifests" below for the design.py format.
-
-If samples already exist for this experiment, the command aborts unless
---force is passed, which deletes existing samples first.
-
-### Strains
-
-    lw strain add <id> <genotype>
-
-Register a new strain. The ID must be alphanumeric with optional hyphens
-(e.g., LY100, LY456, orc4-R267A-1). The system warns if the ID does
-not follow the typical format of letters followed by digits (e.g., LY456)
-but registers it anyway.
-
-After registration, the system prompts you to set a label.
-
-    lw strain show <id>
-
-Display strain details and all experiments using this strain.
-
-    lw strain update <id> <field> <value>
-
-Update a strain field. Multi-word values do not need quoting.
-Valid fields: genotype, label, parent, construction, selection_marker,
-verification, storage_location, notes.
-
-    lw strain list [--no-label]
-
-List all strains with labels, genotypes, and experiment counts. Pass
---no-label to show only strains missing labels (useful before generating
-manifests).
-
-### Staging
-
-The staging system handles instrument file management. Files from
-instruments go into the staging/ directory, then get renamed and moved
-to the correct experiment folder.
-
-Two workflows: manual assignment and pre-registered expectations.
-
-#### Manual assignment
-
-    lw stage list
-
-Show files in staging/ with sizes. Also shows pending expectations and
-which files match them.
-
-    lw stage assign <filename> <exp_id> <descriptor>
-
-Rename a file from staging/ and move it to the experiment folder. The
-descriptor becomes part of the new filename. Before filing, the system
-confirms the experiment identity (ID, shortname, type).
-
-The descriptor must be alphanumeric with hyphens (e.g., gel-coomassie,
-scan-01, blot-anti-orc4).
-
-Example:
-
-    lw stage assign "lemr LM-0005 s1.tif" LM-0005 gel-coomassie
-    # Experiment: LM-0005 (orc4-loading, loading)
-    # Filed: lemr LM-0005 s1.tif
-    #     -> experiments/20260513_LM-0005_load_orc4-loading/20260513_LM-0005_gel-coomassie.tif
-
-#### Pre-registered expectations
-
-Register what you plan to image before going to the instrument.
-
-    lw stage expect <exp_id> <descriptor> [descriptor2 ...]
-
-Pre-register one or more expected files. Each gets a slot number (s1, s2,
-...). The system prints the name to use at the instrument.
-
-    lw stage expect LM-0005 gel-coomassie gel-silver
-    #   s1  gel-coomassie
-    #   s2  gel-silver
-    #   At instrument:
-    #     lemr LM-0005 s1
-    #     lemr LM-0005 s2
-    #   2 total pending for LM-0005
-
-At the instrument, name each file using the printed convention:
-`lemr LM-NNNN sN` (no underscores -- some instruments forbid them).
-
-After imaging, copy files to staging/ and run:
-
-    lw stage auto
-
-Dry run: shows which files match which expectations. Then:
-
-    lw stage auto --confirm
-
-Executes the moves. Files without a slot number but with only one pending
-expectation for that experiment are matched automatically (annotated as
-"slot inferred" in the dry run).
-
-    lw stage expect --list [exp_id]
-
-Show all expectations (pending and filed). Filter by experiment if given.
-
-    lw stage expect --cancel <exp_id> [sN]
-
-Cancel pending expectations. Cancel a single slot or all pending for
-an experiment.
+  lw exp update <id> <field> <value...>
+    Update a field. Multi-word values accepted without quoting.
+    Scans experiments, purification_details, and assay_details tables.
+    Notes field: always appends with [YYYY-MM-DD] timestamp prefix.
+    All other fields: overwrite.
+    Protected fields that cannot be modified:
+      id, experiment_id, created_at, folder_name,
+      date_started, date_completed, status
+    For status changes, use "lw exp complete".
+    For purification records, set "protein" first (creates the row).
+
+  lw exp complete <id>
+    Mark experiment done. Sets date_completed, shows duration.
+    Already-complete experiments are skipped.
+
+  lw exp link <from> <to> <relationship>
+    Connect two experiments.
+    Standard relationships: uses_prep_from, replicate_of, follow_up_to
+    Non-standard relationships accepted with a warning.
+    uses_prep_from auto-populates assay_details.protein_prep.
+    Warns if target of uses_prep_from is not a purification.
+
+  lw exp addstrain <exp_id> <strain_id> [role]
+    Associate a registered strain with an experiment.
+    Strain must exist in database (register first with strain add).
+
+  lw exp delete <id> [--confirm] [--keep-folder]
+    Dry-run by default: shows what would be deleted.
+    --confirm executes the deletion.
+    --keep-folder preserves the experiment directory.
+    Cleans downstream protein_prep references before cascade.
+    Cascade covers: experiment_strains, experiment_links, files,
+    purification_details, assay_details, figure_panels, samples,
+    stage_expectations.
+
+  lw exp find [query...] [--type T] [--status S] [--strain S]
+    Search experiments by text (matches id, shortname, title, notes),
+    type, status, and/or strain. Multi-word queries accepted.
+    Displays title when it differs from shortname.
+    If --strain filter finds nothing, checks whether strain exists.
+
+  lw exp list [--type T]
+    Type-grouped listing with type-specific summaries.
+    Purification: protein name + yield.
+    Assays: sample count + protein_prep with protein name lookup.
+
+  lw exp manifest <id> [--force]
+    Generate sample manifest from design.py in experiment folder.
+    Creates rows in samples table and writes manifest.csv.
+    All strains referenced must be registered in database first.
+    --force required to regenerate (deletes existing samples first).
+    Extras are positioned first (positions 1..N), factorial samples follow.
+    See docs/design_template.py for design.py format.
+
+### Strain Commands
+
+  lw strain add <id> <genotype>
+    Register a new strain. Validates ID format (alphanumeric + hyphens).
+    Warns on non-standard patterns (typical: letters + digits, e.g. LY456).
+    Prompts to set a label afterward.
+
+  lw strain show <id>
+    Show all strain fields and linked experiments.
+
+  lw strain update <id> <field> <value...>
+    Update a strain field. Multi-word values accepted.
+    Notes field: appends with timestamp (same as exp update).
+    Fields: genotype, label, parent, construction, selection_marker,
+            verification, storage_location, notes.
+
+  lw strain list [--no-label]
+    List all strains with labels, genotypes, and experiment counts.
+    --no-label: show only strains missing labels (pre-manifest QC).
+
+### Staging Commands
+
+  lw stage list
+    Show files in staging/ with sizes and parsed experiment/slot matches.
+    Also shows pending expectations with match status.
+
+  lw stage assign <filename> <exp_id> <descriptor>
+    Manually rename, move, and register a file from staging.
+    Descriptor: alphanumeric + hyphens (validated).
+    Confirms experiment identity before filing.
+    File renamed to YYYYMMDD_LM-NNNN_descriptor.ext (filing date).
+
+  lw stage expect <exp_id> <descriptor> [descriptor2...]
+    Pre-register expected files. Assigns slot numbers (s1, s2...).
+    Prints instrument naming convention for each slot.
+    Checks for duplicate descriptors (within args and existing pending).
+
+  lw stage expect --list [exp_id]
+    Show all expectations (or filter by experiment).
+    Displays status: pending, filed, cancelled.
+
+  lw stage expect --cancel <exp_id> [sN]
+    Cancel pending expectations. Without slot: cancels all pending.
+    With slot (s1, S1, or bare 1): cancels single expectation.
+
+  lw stage auto [--confirm]
+    Match staged files to pending expectations by experiment ID + slot.
+    Dry-run by default: shows matched, skipped, and unmatched files.
+    Annotates inferred slot matches (single-pending-per-experiment).
+    --confirm executes: renames, moves, registers, marks expectations filed.
 
 
 ## Directory Structure
 
-    lab/
-    |-- experiments/              One folder per experiment (flat)
-    |   +-- YYYYMMDD_LM-NNNN_CAT_shortname/
-    |       +-- design.py         For factorial assays (used by exp manifest)
-    |-- protocols/                Markdown files, one per protocol
-    |-- publications/             One subfolder per publication
-    |-- resources/                Shared computational assets
-    |-- staging/                  Instrument file dump area
-    |-- docs/                     Documentation
-    |-- lab_notes.md              Single file, date headers
-    |-- lab.db                    SQLite database
-    |-- counter.txt               Next experiment number
-    |-- command_log.txt           Success/failure log
-    +-- README.md                 This file
+  lab/
+  |-- experiments/              One folder per experiment (flat)
+  |   +-- YYYYMMDD_LM-NNNN_CAT_shortname/
+  |       +-- design.py         Factorial design (for manifest)
+  |-- protocols/                Markdown, one per protocol
+  |-- publications/             One subfolder per publication
+  |-- resources/                Shared computational assets
+  |-- staging/                  Instrument dump area
+  |-- docs/                     Documentation
+  |   |-- workflow_recipes.md
+  |   +-- design_template.py
+  |-- lab_notes.md              Daily notes, date headers
+  |-- lab.db                    SQLite database
+  |-- counter.txt               Next experiment number
+  |-- command_log.txt           Append-only success/failure log
+  +-- README.md                 This file
 
 
 ## Database Schema
 
-Ten tables in lab.db:
+10 tables. Full DDL in lw.py Section 1 (SCHEMA_SQL).
 
-    experiments          Core experiment records (id, type, title, status, dates)
-    strains              Strain registry (id, genotype, label, construction, etc.)
-    experiment_strains   Many-to-many: which strains are in which experiments
-    experiment_links     Directed links between experiments (uses_prep_from, etc.)
-    files                Registered files with paths relative to lab root
-    purification_details Per-experiment: protein, yield, columns, fractions
-    assay_details        Per-experiment: protein_prep link, DNA template, conditions
-    figure_panels        Publication figure provenance (panel -> experiment + file)
-    samples              Per-experiment sample manifests (position, strain, conditions)
-    stage_expectations   Pre-registered staging slots (pending/filed/cancelled)
-
-The experiments table is the hub. Type-specific metadata lives in
-purification_details (for purification experiments) and assay_details
-(for loading, gelshift, atpase experiments). The `exp update` command
-searches across all three tables automatically.
+  experiments          Core record: id, type, title, shortname, dates,
+                       status, folder_name, protocol_id, notes.
+  strains              Strain registry: id, genotype, label, parent,
+                       construction, marker, verification, storage, notes.
+  experiment_strains   Many-to-many: experiment <-> strain with role.
+  experiment_links     Experiment relationships (uses_prep_from, etc.).
+  files                Registered files with paths relative to lab root.
+  purification_details Type-specific fields for purification experiments.
+  assay_details        Type-specific fields for assay experiments.
+  figure_panels        Links publication figures to experiments and files.
+  samples              Factorial manifest rows (position, strain, conditions).
+  stage_expectations   Pre-registered file expectations with slot numbers.
 
 
 ## Naming Conventions
 
 ### Experiment IDs: LM-NNNN
+  Initials + zero-padded 4-digit sequential. Globally unique, portable,
+  never reused. Counter stored in counter.txt.
 
-Initials + zero-padded 4-digit sequential number. Globally unique, never
-reused. The counter lives in counter.txt and increments on each `exp init`.
-
-### Folder names: YYYYMMDD_LM-NNNN_CAT_shortname
-
-Category codes map to experiment types:
-
-    purification -> pur       genetics     -> gen
-    loading      -> load      computational -> comp
-    gelshift     -> gs        cloning      -> clon
-    atpase       -> atp       sequencing   -> seq
-
-### File names: YYYYMMDD_LM-NNNN_descriptor.ext
-
-The filing date is the date the file was assigned (today), not the date
-the instrument captured it. This keeps file naming consistent regardless
-of when files are moved out of staging.
-
-Derived files use a prefix: YYYYMMDD_prefix_LM-NNNN_descriptor.ext
-
-    bc-enhanced    Brightness/contrast adjusted
-    quantified     Quantification output
-    cropped        Cropped region
-    plot           Plot or graph
-
-If a time disambiguation is needed, append _HHMM before the extension.
+### Folder Names: YYYYMMDD_LM-NNNN_CAT_shortname
+  Category codes:
+    pur   purification       load  loading
+    gs    gelshift           atp   atpase
+    gen   genetics           comp  computational
+    clon  cloning            seq   sequencing
 
 ### Shortnames
-
-Lowercase alphanumeric characters and hyphens only. Must start with a
-letter or digit. Used in folder names and as a filesystem-safe identifier.
-Examples: orc4-wt-prep, mcm-loading-01, ars1-gelshift.
+  Filesystem-safe: lowercase alphanumeric + hyphens. Must start with
+  a letter or digit. Set at creation, used in folder name.
 
 ### Titles
+  Human-readable, for recall. Can contain spaces and mixed case.
+  Defaults to shortname. Set via --title flag on exp init, or
+  updated via "lw exp update LM-NNNN title descriptive name here".
 
-Free-form human-readable names for recall. Set with `--title` on
-`exp init` or via `exp update <id> title "descriptive name"`. Default
-to the shortname if not specified. Displayed in search results and
-listings when different from the shortname.
+### File Names: YYYYMMDD_LM-NNNN_descriptor.ext
+  Date is the filing date (when the file was assigned to the experiment),
+  not the instrument date. Descriptor is lowercase alphanumeric + hyphens.
+
+### Derived Files: YYYYMMDD_prefix_LM-NNNN_descriptor.ext
+  Prefixes: bc-enhanced, quantified, cropped, plot.
+  Example: 20260513_bc-enhanced_LM-0005_gel-coomassie.tif
+
+### Time Disambiguation
+  When multiple files share the same date, experiment, and descriptor,
+  append _HHMM before the extension:
+  20260513_LM-0005_gel-coomassie_1430.tif
 
 ### Retakes
+  Append -v2, -v3 to descriptor. Both versions kept. Not system-enforced.
+  Example: gel-coomassie-v2
 
-Not system-enforced. Append -v2, -v3 to the descriptor when re-imaging.
-Both versions are kept in the experiment folder.
+### Instrument Naming Convention
+  At all instruments, name files:  lemr LM-NNNN sN
+    lemr     Personal search prefix (findable on instrument software)
+    LM-NNNN  Experiment ID (parsed by staging system)
+    sN       Slot number from stage expect
 
-### Instrument naming
-
-At all instruments, name files: `lemr LM-NNNN sN`
-
-- lemr: personal search prefix (findable in instrument software)
-- LM-NNNN: experiment ID (parsed by the staging system)
-- sN: slot number from pre-registered expectation
-
-No underscores (Imager 680 restriction). Spaces as delimiters.
-
-
-## Sample Manifests
-
-For factorial assays (loading, gelshift, ATPase), define the experimental
-design in a `design.py` file inside the experiment folder, then generate
-the manifest:
-
-    lw exp manifest LM-0050
-    lw exp manifest LM-0050 --force    # regenerate, replacing existing
-
-### design.py format
-
-The file must define a DESIGN dict:
-
-    DESIGN = {
-        "experiment_id": "LM-0050",       # must match the experiment
-        "expected_samples": 28,           # total: extras + factorial
-        "extras": [                       # optional, positioned first
-            {"label": "input", "strain": "LY100", "amount": "5% total"},
-            {"label": "input", "strain": "LY456", "amount": "5% total"},
-        ],
-        "categories": {                   # factorial dimensions
-            "strain": ["LY100", "LY456", "LY789", None],
-            "dna": ["ARS1", "A-B2-"],
-            "kglut": ["250", "300"],
-        },
-        "sort_order": ["strain", "dna", "kglut"],  # must match category keys
-        "exclude": [                      # optional, lambdas returning True to drop
-            lambda r: r["strain"] is None and r["kglut"] != "250",
-        ],
-    }
-
-Required keys: experiment_id, expected_samples, categories, sort_order.
-Optional keys: extras, exclude.
-
-- Categories define the factorial dimensions. Use None for no-protein
-  controls (rendered as "no protein" in the manifest).
-- sort_order must list exactly the same keys as categories.
-- exclude lambdas receive a dict of {category: value} and return True
-  to drop that combination.
-- extras are non-factorial samples (inputs, markers). Each must have a
-  "label" key. Optional: strain, dna, amount, or any other key (stored
-  in conditions JSON).
-- expected_samples is the total count (extras + factorial after excludes).
-  The command aborts if the generated count does not match.
-
-All strains referenced in categories or extras must be registered in the
-database before running the manifest command.
-
-The manifest command:
-1. Loads design.py
-2. Resolves strain labels from the database
-3. Generates extras (positions 1..N)
-4. Generates factorial cross product, applies excludes, sorts
-5. Verifies total matches expected_samples
-6. Inserts into samples table
-7. Writes manifest.csv to the experiment folder
-
-See docs/design_template.py for an annotated template.
+  No underscores (Imager 680 restriction). Spaces as delimiters.
+  Instrument software may append its own suffix (timestamps, channels).
 
 
 ## Key Behaviors
 
-### Notes always append
+### Notes Append
+  "lw exp update <id> notes <text>" always prepends [YYYY-MM-DD] and
+  appends to existing content. All other fields overwrite.
+  Same behavior for "lw strain update <id> notes <text>".
 
-The `notes` field on experiments and strains always appends with a
-date prefix. It never overwrites:
-
-    lw exp update LM-0001 notes gel looks clean
-    # notes: appended [2026-05-13] gel looks clean
-
-    lw exp update LM-0001 notes repeated with fresh buffer
-    # notes: appended [2026-05-13] repeated with fresh buffer
-
-All other fields overwrite the previous value.
-
-### Protected fields
-
-These fields cannot be changed via `exp update`:
-
+### Protected Fields
+  Cannot be modified via exp update:
     id, experiment_id, created_at, folder_name,
     date_started, date_completed, status
+  Status changes go through "lw exp complete".
 
-To change status, use `exp complete`. The other fields are immutable
-after creation.
+### Dry-Run Defaults
+  "lw exp delete" and "lw stage auto" are dry-run by default.
+  Both require --confirm to execute changes.
+  Dry runs show exactly what would happen, including cascade targets.
 
-### Dry-run defaults
+### Filing Dates
+  stage assign and stage auto use today's date for the renamed file,
+  not the date embedded in the original instrument filename.
+  Rationale: filing date is consistent and predictable.
 
-Two commands default to dry run (show what would happen, do nothing):
-- `exp delete` -- pass --confirm to execute
-- `stage auto` -- pass --confirm to execute
+### Command Log
+  Successful commands: logged to command_log.txt at script exit.
+  Failed commands: logged via bail() before exit.
+  Format: ISO timestamp <tab> command args <tab> ok|fail
+  Commands that exit early with nothing to do (dry-run display,
+  empty results, already-complete) are not logged.
 
-### Filing date convention
+### Transaction Model
+  All DB changes accumulate during command execution and commit once
+  at script end. Filesystem operations (file moves, directory creation)
+  are immediate and non-reversible. Operations ordered to minimize
+  unrecoverable states: prefer DB-then-filesystem.
 
-When a file is assigned from staging, the date in the new filename is
-today's date, not the date shown in the instrument's original filename.
-This keeps naming predictable regardless of when files leave staging.
+### Sub-tasks
+  Bradfords, OD readings, agarose gels for verification -- these are
+  files within the parent experiment folder, not separate experiments.
+  A purification is one experiment; the bradford measuring its fractions
+  is a file in that experiment's folder.
 
-### Command log
 
-Every successful command is logged to lab/command_log.txt:
+## Backup
 
-    2026-05-13T14:30:00  exp init purification orc4-prep  ok
+Backup is handled by lw_backup.sh, invoked via the lwbackup alias.
 
-Failed commands (those that exit via bail()) are also logged:
+Requires: LW_LAB_ROOT, LW_DB, LW_BACKUP_DIR env vars, plus sqlite3
+and rsync.
 
-    2026-05-13T14:31:00  exp update LM-9999 protein ORC  fail
+Process:
+  1. Creates a consistent DB snapshot using "sqlite3 .backup".
+  2. rsync -av (additive, never deletes) syncs lab/ to backup dir,
+     excluding lab.db and the temp snapshot.
+  3. Copies snapshot to backup dir as lab.db. Removes temp file.
+  4. Weekly: copies lab.db to snapshots/lab_YYYY-WNN.db (if not
+     already present). Prunes snapshots older than 84 days.
 
-The log is append-only. Commands that exit early with nothing to do
-(dry-run display, empty results, already-complete experiments) are
-not logged.
+Dry-run mode: lwbackup --dry-run (simulates all actions, no changes).
+
+The backup destination is typically a Dropbox-synced folder, providing
+off-machine redundancy. The weekly snapshots provide point-in-time
+recovery independent of Dropbox versioning.
 
 
 ## Design Principles
 
-**SQLite from day 1.** No flat files for metadata. The database schema
-is the format. CLI insertion is lower friction than file editing.
+Single-file tool. lw.py is one Python file, flat procedural, standard
+library only. No OOP, no classes, no argparse. sys.argv parsing,
+sqlite3 for database, if/elif dispatch. bail() for all error exits.
 
-**Flat experiment directories.** No hierarchy by assay type. The
-category code in the folder name provides soft filtering. Linked
-experiments (e.g., a purification and its downstream assays) live in
-separate folders and are connected via experiment_links in the database.
+Pull features. Build when friction demands, not in anticipation.
+The system grows by discovering what's missing during real use.
 
-**Single Python file.** lw.py uses only the standard library. No OOP,
-no classes, no argparse, no external dependencies. Data-oriented
-procedural style.
+Invisible to collaborators. The PI does not use git, LaTeX, or
+programmatic tools. Shared artifacts are Word-compatible. The system
+never leaks into shared workflows.
 
-**Forward-only migration.** Old experiments stay in the old system. New
-experiments use the new system. No bulk import.
-
-**Pull features.** Commands are built when friction demands them, not
-speculatively. If something is not implemented, it was not yet needed.
-
-**Invisible to collaborators.** The system is personal. Shared artifacts
-(manuscripts, figures) are Word-compatible. Collaborators never need to
-interact with the CLI, database, or directory structure.
-
-**Transaction model.** All database changes accumulate during command
-execution and commit once at the end. Filesystem operations (file moves,
-directory creation) are immediate. A crash after a filesystem change but
-before commit leaves the filesystem changed and the database unchanged.
-For a single-user CLI tool, this is acceptable.
-
-
-## Environment
-
-### Required environment variables
-
-Set one of:
-- LAB_ROOT: full path to the lab directory
-- MC_WINDOWS_USER: Windows username (constructs /mnt/c/Users/$USER/Desktop/lab)
-
-### Alias setup (optional)
-
-Add to your shell profile:
-
-    alias lw='python /path/to/lw.py'
-
-
-## Not Yet Implemented
-
-These features are planned but do not exist yet:
-
-- fig link / fig trace: figure provenance commands (figure_panels table
-  exists but has no CLI commands)
-- Strain import from old system
-- Old experiment registration/migration
-- Task tracking module
-- Inventory management (currently in Excel)
-- Document compilation pipeline
+Forward-only migration. New experiments use the new system. Old data
+stays where it is. No bulk import required.
 
 
 ## Known Limitations
 
-- protocol_id is a soft foreign key (no validation that the file exists)
-- JSON fields (purification columns, assay conditions) are written as raw
-  strings via exp update; no structured editing
-- No strain find command (strain list covers basic browsing)
-- Schema migration for existing databases requires manual intervention
-  or reinitialization
+- protocol_id is a soft foreign key (no validation that file exists).
+- JSON fields (purification_details.columns, assay_details.conditions)
+  written as raw strings via exp update. No append/parse logic.
+- No strain find command. Use strain list or raw SQL.
+- Schema migration for existing databases requires manual ALTER TABLE
+  or reinitialization. Not urgent while DB has minimal production data.
 - Status warnings (no strains, no notes) fire on freshly created and
-  computational experiments; this is by design
+  computational experiments. Accepted trade-off.
+- Fig commands (fig link, fig trace) not yet implemented.
+  Manual tracking via lab_notes.md until then.
