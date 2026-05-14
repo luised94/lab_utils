@@ -61,8 +61,8 @@ if [ ! -f "${LW_SCRIPT}" ]; then
     echo "lw: warning: Script not found: ${LW_SCRIPT}"
 fi
 
-if ! command -v uv >/dev/null 2>&1; then
-    echo "lw: warning: uv not found. lw alias will not work."
+if [ ! -x "$HOME/.local/bin/uv" ]; then
+    echo "lw: warning: uv not found at $HOME/.local/bin/uv. lw alias will not work."
 fi
 
 if [ ! -d "${LW_LAB_ROOT}" ]; then
