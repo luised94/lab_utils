@@ -128,7 +128,9 @@ for file in all_files:
             pass
 
         elif ext in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}:
-            # extraction: commit 4
+            image = Image.open(file).convert("L")
+            text  = pytesseract.image_to_string(image, lang=TESSERACT_LANG)
+            count_image += 1
             pass
 
         elif ext == ".docx":
