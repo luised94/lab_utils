@@ -119,14 +119,37 @@ for file in all_files:
 
     total_attempted += 1
 
+
     try:
-        # extraction: filled in commits 3-6
-        pass
+        text = None
+
+        if ext == ".pdf":
+            # extraction: commits 5-6
+            pass
+
+        elif ext in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}:
+            # extraction: commit 4
+            pass
+
+        elif ext == ".docx":
+            doc  = docx.Document(file)
+            text = ""
+            for para in doc.paragraphs:
+                text += para.text + "\n"
+            for table in doc.tables:
+                for row in table.rows:
+                    text += "\t".join(cell.text.strip() for cell in row.cells) + "\n"
+            count_docx += 1
+
+        if text is not None:
+            out_path.write_text(text, encoding="utf-8")
+            total_chars += len(text)
+            total_processed += 1
+            print(f"OK     : {file.name}  {out_path.name}")
 
     except Exception as e:
         total_errored += 1
         print(f"ERROR  : {file.name} failed - {e}")
-
 # =============================================================================
 # SUMMARY
 # =============================================================================
