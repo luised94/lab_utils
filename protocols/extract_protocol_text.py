@@ -130,7 +130,12 @@ for file in all_files:
             for page_index in range(len(doc)):
                 page      = doc[page_index]
                 page_text = page.get_text()
-                text     += page_text + "\n"
+                if len(page_text.replace(" ", "").replace("\n", "")) < SCANNED_PAGE_THRESHOLD:
+                    pixmap    = page.get_pixmap(dpi=300)
+                    pil_image = Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
+                    pil_image = pil_image.convert("L")
+                    page_text = pytesseract.image_to_string(pil_image, lang=TESSERACT_LANG)
+                text += page_text + "\n"
             doc.close()
             count_pdf += 1
             pass
