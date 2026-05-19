@@ -125,6 +125,14 @@ for file in all_files:
 
         if ext == ".pdf":
             # extraction: commits 5-6
+            doc  = fitz.open(file)
+            text = ""
+            for page_index in range(len(doc)):
+                page      = doc[page_index]
+                page_text = page.get_text()
+                text     += page_text + "\n"
+            doc.close()
+            count_pdf += 1
             pass
 
         elif ext in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}:
