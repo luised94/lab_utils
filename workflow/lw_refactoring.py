@@ -164,6 +164,98 @@ CREATE TABLE IF NOT EXISTS stage_expectations (
 
 
 # ============================================================
+# SECTION 1b: STORE (data-oriented state container)
+# ============================================================
+# The Store is a plain dict of lists-of-dicts.  Every table in the
+# schema maps to a key whose value is a list of row-dicts (column
+# names as keys).  load_store() reads the DB into this shape;
+# commit() writes it back atomically.  Between those two calls,
+# all transforms operate on the Store value -- no cursor needed.
+
+# Tables in write-back order (children before parents for FK safety
+# on delete; parents before children on insert).
+# Tables with INTEGER PRIMARY KEY AUTOINCREMENT preserve their IDs
+# explicitly so foreign-key references remain stable.
+STORE_TABLES = [
+    "experiments",
+    "strains",
+    "experiment_strains",
+    "experiment_links",
+    "files",
+    "purification_details",
+    "assay_details",
+    "figure_panels",
+    "samples",
+    "stage_expectations",
+]
+
+# Tables whose primary key is INTEGER AUTOINCREMENT -- IDs must be
+# preserved on write-back to avoid breaking FK references.
+_AUTOINCREMENT_TABLES = {"files", "figure_panels", "samples", "stage_expectations"}
+
+
+def load_store(db_path):
+    """Read every table into a dict-of-lists-of-dicts.
+
+    Returns {"experiments": [{...}, ...], "strains": [...], ...}.
+    Each row is a plain dict with column names as keys.
+    Opens and closes its own connection (read-only snapshot).
+    """
+    _conn = sqlite3.connect(db_path)
+    _conn.execute("PRAGMA foreign_keys = ON")
+    store = {}
+    for table in STORE_TABLES:
+        _cur = _conn.execute(f"SELECT * FROM {table}")
+        col_names = [d[0] for d in _cur.description]
+        store[table] = [dict(zip(col_names, row)) for row in _cur.fetchall()]
+    _conn.close()
+    return store
+
+
+def commit(store, db_path):
+    """Write the entire Store back to the database atomically.
+
+    Strategy: open a connection, begin a transaction, delete all rows
+    from each table (children first), then insert all rows (parents
+    first).  For AUTOINCREMENT tables the stored id is written
+    explicitly so FK references survive.
+
+    Write-order policy:
+      - The DB commit is atomic (sqlite transaction).
+      - Filesystem operations (folder creation, file moves) that
+        already happened are NOT rolled back by a DB failure.
+      - This matches the original behavior but is now documented in
+        one place.
+    """
+    _conn = sqlite3.connect(db_path)
+    _conn.execute("PRAGMA foreign_keys = OFF")  # defer FK checks during rewrite
+    _cur = _conn.cursor()
+    try:
+        _cur.execute("BEGIN")
+        # delete in reverse order (children first)
+        for table in reversed(STORE_TABLES):
+            _cur.execute(f"DELETE FROM {table}")
+        # insert in forward order (parents first)
+        for table in STORE_TABLES:
+            rows = store.get(table, [])
+            if not rows:
+                continue
+            columns = list(rows[0].keys())
+            placeholders = ", ".join(["?"] * len(columns))
+            col_str = ", ".join(columns)
+            sql = f"INSERT INTO {table} ({col_str}) VALUES ({placeholders})"
+            for row in rows:
+                _cur.execute(sql, [row[c] for c in columns])
+        _cur.execute("COMMIT")
+    except Exception:
+        _cur.execute("ROLLBACK")
+        raise
+    finally:
+        _conn.execute("PRAGMA foreign_keys = ON")
+        _conn.close()
+
+
+# ============================================================
 # SECTION 2: HELPER FUNCTIONS (module-level, reference global sentinels)
 # ============================================================
 
@@ -202,28 +294,60 @@ def parse_staging_name(filename):
     return exp_id, slot
 
 
-def file_staged(src_path, exp_id, folder_name, descriptor):
+def build_filed_name(exp_id, descriptor, clock, ext):
+    """Pure: construct the destination filename for a filed staging file.
+
+    Returns the new filename string, e.g. '20250610_LM-0001_gel-01.tiff'.
+    clock is the captured clock dict with a 'today' key.
+    ext should include the leading dot and be lowercased by the caller.
+    """
+    today_compact = clock["today"].strftime("%Y%m%d")
+    return f"{today_compact}_{exp_id}_{descriptor}{ext}"
+
+
+def validate_destination(dest_dir, dest_name):
+    """Pure: check whether the destination folder exists and the file is new.
+
+    Returns (True, None) if valid, or (False, reason_string) if not.
+    """
+    if not os.path.isdir(dest_dir):
+        folder = os.path.basename(dest_dir)
+        return (False, f"Experiment folder missing: {folder}/")
+    dest_path = os.path.join(dest_dir, dest_name)
+    if os.path.exists(dest_path):
+        return (False, f"Destination already exists: {dest_name}")
+    return (True, None)
+
+
+def file_staged(src_path, exp_id, folder_name, descriptor, clock, experiments_dir, cur):
     """Move a file from staging to an experiment folder and register it.
-    Side effects:
-      - Filesystem: moves file immediately (non-reversible)
-      - Database: inserts into files table (pending until commit)
-      - Uses module-level cursor; caller is responsible for commit
+
+    IMPURE -- performs irreversible filesystem move and DB insert.
+    Takes explicit parameters instead of using globals or date.today().
+
+    Args:
+        src_path: absolute path to source file in staging
+        exp_id: normalized experiment ID
+        folder_name: experiment folder name
+        descriptor: file descriptor (lowercased)
+        clock: captured clock dict with 'today' key
+        experiments_dir: absolute path to experiments/ directory
+        cur: sqlite3 cursor for DB insert
+
     Returns (new_name, rel_path).
     Raises ValueError if experiment folder is missing or destination exists.
     """
-    today_compact = datetime.date.today().strftime("%Y%m%d")
     _, ext = os.path.splitext(src_path)
     ext = ext.lower()
-    new_name = f"{today_compact}_{exp_id}_{descriptor}{ext}"
-    dest_dir = os.path.join(EXPERIMENTS_DIR, folder_name)
-    if not os.path.isdir(dest_dir):
-        raise ValueError(f"Experiment folder missing: {folder_name}/")
+    new_name = build_filed_name(exp_id, descriptor, clock, ext)
+    dest_dir = os.path.join(experiments_dir, folder_name)
+    ok, reason = validate_destination(dest_dir, new_name)
+    if not ok:
+        raise ValueError(reason)
     dest_path = os.path.join(dest_dir, new_name)
-    if os.path.exists(dest_path):
-        raise ValueError(f"Destination already exists: {new_name}")
     shutil.move(src_path, dest_path)
     rel_path = os.path.join("experiments", folder_name, new_name)
-    cursor.execute(
+    cur.execute(
         "INSERT INTO files (experiment_id, filename, file_type) VALUES (?, ?, ?)",
         (exp_id, rel_path, None),
     )
@@ -231,14 +355,17 @@ def file_staged(src_path, exp_id, folder_name, descriptor):
 
 
 def normalize_exp_id(raw_id):
-    """Normalize experiment ID to LM-NNNN format. Exits on invalid input."""
+    """Normalize experiment ID to LM-NNNN format.
+
+    Returns the normalized string, or None if the input is invalid.
+    Callers are responsible for printing an error and bailing.
+    """
     if raw_id.upper().startswith("LM-"):
         return raw_id.upper()
     try:
         return f"LM-{int(raw_id):04d}"
     except ValueError:
-        print(f"Invalid experiment ID: '{raw_id}'")
-        bail()
+        return None
 
 
 def require_experiment(exp_id):
@@ -254,15 +381,28 @@ def require_experiment(exp_id):
 
 def validate_name(value, label="name"):
     """Validate a name/descriptor: alphanumeric + hyphens, starts alphanumeric.
-    Exits on invalid input. Does not normalize (caller lowercases if needed).
+
+    Returns (True, None) if valid, or (False, reason_string) if invalid.
+    Does not exit, print, or touch the database.
+    Caller is responsible for printing the reason and bailing.
     """
     if not value:
-        print(f"Invalid {label}: cannot be empty.")
-        bail()
+        return (False, f"Invalid {label}: cannot be empty.")
     if not all(c.isalnum() or c == "-" for c in value) or not value[0].isalnum():
-        print(f"Invalid {label}: '{value}'. Use letters, digits, and hyphens.")
-        print("Must start with a letter or digit.")
-        bail()
+        return (False, f"Invalid {label}: '{value}'. Use letters, digits, and hyphens. Must start with a letter or digit.")
+    return (True, None)
+
+
+def lookup_experiment(store, exp_id):
+    """Pure lookup: find experiment by ID in the Store.
+
+    Returns the row dict if found, None otherwise.
+    Does not exit, print, or touch the database.
+    """
+    for row in store["experiments"]:
+        if row["id"] == exp_id:
+            return row
+    return None
 
 
 # ============================================================
@@ -376,6 +516,7 @@ def main(argv=None):
     # ============================================================
     conn = None
     cursor = None
+    store = None
     if command != "init":
         if not os.path.exists(DB_PATH):
             print(f"Error: Database not found at {DB_PATH}")
@@ -384,6 +525,15 @@ def main(argv=None):
         conn = sqlite3.connect(DB_PATH)
         conn.execute("PRAGMA foreign_keys = ON")
         cursor = conn.cursor()
+        # --- Commit 1.3: load Store alongside cursor (dual-path) ---
+        # The Store is the source of truth for new code.
+        # conn/cursor remain alive for legacy handlers that still use
+        # cursor.execute() directly.  Both are kept in sync: mutations
+        # happen through cursor (legacy) and the DB is also read into
+        # the Store.  commit(store, ...) writes the Store back at the
+        # end; conn.commit() also fires for belt-and-suspenders safety
+        # during the Phase 1 transition.
+        store = load_store(DB_PATH)
 
     # ============================================================
     # COMMAND DISPATCH
@@ -471,7 +621,10 @@ def main(argv=None):
                 print(f"Unknown experiment type: '{exp_type}'")
                 print(f"Valid types: {', '.join(VALID_TYPES)}")
                 bail()
-            validate_name(shortname, "shortname")
+            _ok, _reason = validate_name(shortname, "shortname")
+            if not _ok:
+                print(_reason)
+                bail()
             shortname = shortname.lower()
             # read and increment counter
             try:
@@ -488,8 +641,8 @@ def main(argv=None):
                 bail()
             exp_id = f"LM-{counter:04d}"
             # build folder name
-            today_compact = datetime.date.today().strftime("%Y%m%d")
-            today_sql = datetime.date.today().strftime("%Y-%m-%d")
+            today_compact = clock["today"].strftime("%Y%m%d")
+            today_sql = clock["today"].strftime("%Y-%m-%d")
             cat_code = CATEGORY_CODES[exp_type]
             folder_name = f"{today_compact}_{exp_id}_{cat_code}_{shortname}"
             folder_path = os.path.join(EXPERIMENTS_DIR, folder_name)
@@ -528,6 +681,9 @@ def main(argv=None):
             raw_id, field = pos_args[0], pos_args[1]
             value = " ".join(pos_args[2:])
             exp_id = normalize_exp_id(raw_id)
+            if not exp_id:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                bail()
             require_experiment(exp_id)
             # reject protected fields
             if field in PROTECTED_FIELDS:
@@ -619,6 +775,9 @@ def main(argv=None):
                 bail()
             raw_id = pos_args[0]
             exp_id = normalize_exp_id(raw_id)
+            if not exp_id:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                bail()
             exp = require_experiment(exp_id)
             if exp["status"] == "complete":
                 print(f"{exp_id} is already marked complete.")
@@ -642,7 +801,13 @@ def main(argv=None):
                 bail()
             raw_from, raw_to, relationship = pos_args[0], pos_args[1], pos_args[2]
             from_id = normalize_exp_id(raw_from)
+            if not from_id:
+                print(f"Invalid experiment ID: '{raw_from}'")
+                bail()
             to_id = normalize_exp_id(raw_to)
+            if not to_id:
+                print(f"Invalid experiment ID: '{raw_to}'")
+                bail()
             require_experiment(from_id)
             to_exp = require_experiment(to_id)
             # warn on unknown relationship (don't block)
@@ -690,6 +855,9 @@ def main(argv=None):
             raw_id, strain_id = pos_args[0], pos_args[1]
             role = pos_args[2] if len(pos_args) > 2 else None
             exp_id = normalize_exp_id(raw_id)
+            if not exp_id:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                bail()
             require_experiment(exp_id)
             # validate strain exists
             cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
@@ -720,6 +888,9 @@ def main(argv=None):
                 bail()
             raw_id = pos_args[0]
             exp_id = normalize_exp_id(raw_id)
+            if not exp_id:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                bail()
             exp = require_experiment(exp_id)
             # compute status display with age/duration
             if exp["status"] == "active":
@@ -851,6 +1022,9 @@ def main(argv=None):
             confirm = "--confirm" in pos_args
             keep_folder = "--keep-folder" in pos_args
             exp_id = normalize_exp_id(raw_id)
+            if not exp_id:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                bail()
             exp = require_experiment(exp_id)
             # gather cascade targets
             cascade = []
@@ -1190,6 +1364,9 @@ def main(argv=None):
             raw_id = pos_args[0]
             force = "--force" in pos_args
             exp_id = normalize_exp_id(raw_id)
+            if not exp_id:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                bail()
             exp = require_experiment(exp_id)
             folder_name = exp["folder_name"]
             folder_path = os.path.join(EXPERIMENTS_DIR, folder_name)
@@ -1493,7 +1670,10 @@ def main(argv=None):
                 bail()
             strain_id = pos_args[0]
             genotype = " ".join(pos_args[1:])
-            validate_name(strain_id, "strain ID")
+            _ok, _reason = validate_name(strain_id, "strain ID")
+            if not _ok:
+                print(_reason)
+                bail()
             # check for duplicate
             cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
             if cursor.fetchone():
@@ -1665,7 +1845,10 @@ def main(argv=None):
                 print("  Example: python lw.py stage assign Image_001.tiff LM-0001 gel-01")
                 bail()
             src_name, raw_id, descriptor = pos_args[0], pos_args[1], pos_args[2]
-            validate_name(descriptor, "descriptor")
+            _ok, _reason = validate_name(descriptor, "descriptor")
+            if not _ok:
+                print(_reason)
+                bail()
             descriptor = descriptor.lower()
             # validate source file exists
             src_path = os.path.join(STAGING_DIR, src_name)
@@ -1679,11 +1862,14 @@ def main(argv=None):
                         print(f"  {f}")
                 bail()
             exp_id = normalize_exp_id(raw_id)
+            if not exp_id:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                bail()
             exp = require_experiment(exp_id)
             folder_name = exp["folder_name"]
             # move file and register
             try:
-                new_name, rel_path = file_staged(src_path, exp_id, folder_name, descriptor)
+                new_name, rel_path = file_staged(src_path, exp_id, folder_name, descriptor, clock, EXPERIMENTS_DIR, cursor)
             except ValueError as e:
                 print(str(e))
                 print("Use a different descriptor.")
@@ -1701,6 +1887,9 @@ def main(argv=None):
                 filter_exp_id = None
                 if filter_args:
                     filter_exp_id = normalize_exp_id(filter_args[0])
+                    if not filter_exp_id:
+                        print(f"Invalid experiment ID: '{filter_args[0]}'")
+                        bail()
                     require_experiment(filter_exp_id)
                 # query expectations
                 if filter_exp_id:
@@ -1768,6 +1957,9 @@ def main(argv=None):
                     bail()
                 slot_arg = cancel_args[1] if len(cancel_args) > 1 else None
                 exp_id = normalize_exp_id(cancel_args[0])
+                if not exp_id:
+                    print(f"Invalid experiment ID: '{cancel_args[0]}'")
+                    bail()
                 require_experiment(exp_id)
                 if slot_arg:
                     # parse slot: accept s1, S1, or bare 1
@@ -1836,9 +2028,15 @@ def main(argv=None):
                 raw_id = pos_args[0]
                 descriptors = pos_args[1:]
                 exp_id = normalize_exp_id(raw_id)
+                if not exp_id:
+                    print(f"Invalid experiment ID: '{raw_id}'")
+                    bail()
                 require_experiment(exp_id)
                 for desc in descriptors:
-                    validate_name(desc, "descriptor")
+                    _ok, _reason = validate_name(desc, "descriptor")
+                    if not _ok:
+                        print(_reason)
+                        bail()
                 descriptors = [d.lower() for d in descriptors]
                 # check for duplicate descriptors within arguments
                 seen = set()
@@ -1998,7 +2196,7 @@ def main(argv=None):
                 valid_groups[key] = group
             matched_groups = valid_groups
             # validate destinations and build matched file list
-            today_compact = datetime.date.today().strftime("%Y%m%d")
+            today_compact = clock["today"].strftime("%Y%m%d")
             matched_files = []
             for key, group in matched_groups.items():
                 exp_id, slot = key
@@ -2078,7 +2276,7 @@ def main(argv=None):
                 ) in matched_files:
                     key = (exp_id, slot)
                     try:
-                        new_name, _ = file_staged(src_path, exp_id, folder_name, desc)
+                        new_name, _ = file_staged(src_path, exp_id, folder_name, desc, clock, EXPERIMENTS_DIR, cursor)
                         filed_count += 1
                         filed_display.append((fname, new_name))
                         filed_slots.add(key)
@@ -2257,6 +2455,13 @@ def main(argv=None):
     if conn:
         conn.commit()
         conn.close()
+    # --- Commit 1.3: write Store back (belt-and-suspenders) ---
+    # During Phase 1 transition, both conn.commit() and commit(store)
+    # fire.  Once all handlers migrate off cursor, conn/cursor are
+    # removed and commit(store) becomes the sole writer.
+    if store is not None:
+        store = load_store(DB_PATH)  # re-read after conn.commit() so Store reflects cursor mutations
+        commit(store, DB_PATH)
     # log successful command
     try:
         _log_path = os.path.join(LAB_ROOT, "command_log.txt")
