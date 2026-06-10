@@ -327,11 +327,94 @@ def execute_effects(effects, db_path):
 
 
 # ============================================================
-# SECTION 2b: PURE TRANSFORMS
+# SECTION 2b: PURE HELPERS AND TRANSFORMS
 # ============================================================
 # Each transform_<command> function is pure: it takes (store, args, clock)
 # and returns an Effects dict.  No IO, no globals, no cursor.
 # Transforms are registered in TRANSFORM_DISPATCH and called by main().
+
+
+# --- Commit 3.1: shared append_note helper ---
+def append_note(old_value, new_text, clock):
+    """Pure: append a timestamped note entry.
+
+    Returns the new notes string with [YYYY-MM-DD] prefix.
+    old_value may be None (first note) or a string (append).
+    """
+    today = clock["today"].strftime("%Y-%m-%d")
+    entry = f"[{today}] {new_text}"
+    if old_value:
+        return old_value + "\n" + entry
+    return entry
+
+
+# --- Commit 3.2: field-to-table mapping ---
+# Replaces PRAGMA table_info discovery.  Maps field names to the table
+# that owns them.  Protected fields are excluded (they cannot be updated).
+FIELD_TABLES = {}
+_FIELD_TABLE_DEFS = {
+    "experiments": [
+        "title", "shortname", "type", "protocol_id", "notes",
+    ],
+    "purification_details": [
+        "protein", "induction_od", "galactose_hours", "columns",
+        "v5_depletion", "fractions_pooled", "yield_mg", "storage",
+    ],
+    "assay_details": [
+        "protein_prep", "dna_template", "dna_prep_method", "conditions",
+    ],
+}
+for _tbl, _fields in _FIELD_TABLE_DEFS.items():
+    for _f in _fields:
+        FIELD_TABLES[_f] = _tbl
+
+# All valid strain fields (for strain update)
+STRAIN_FIELDS = [
+    "genotype", "label", "parent", "construction",
+    "selection_marker", "verification", "storage_location", "notes",
+]
+
+
+# --- Pure Store helpers ---
+
+def lookup_strain(store, strain_id):
+    """Pure lookup: find strain by ID in the Store. Returns dict or None."""
+    for row in store["strains"]:
+        if row["id"] == strain_id:
+            return row
+    return None
+
+
+def store_update_row(store, table, match_key, match_val, updates):
+    """Pure: return a new store with one row in `table` updated.
+
+    Finds the first row where row[match_key] == match_val and applies
+    `updates` (a dict of field->value).  Returns a new store (shallow
+    copy of the table list with the updated row replaced).
+    Returns (new_store, old_row) or (store, None) if not found.
+    """
+    new_rows = []
+    old_row = None
+    for row in store[table]:
+        if old_row is None and row[match_key] == match_val:
+            old_row = dict(row)
+            updated = dict(row)
+            updated.update(updates)
+            new_rows.append(updated)
+        else:
+            new_rows.append(row)
+    if old_row is None:
+        return store, None
+    new_store = dict(store)
+    new_store[table] = new_rows
+    return new_store, old_row
+
+
+def store_append_row(store, table, row):
+    """Pure: return a new store with `row` appended to `table`."""
+    new_store = dict(store)
+    new_store[table] = list(store[table]) + [row]
+    return new_store
 
 
 def transform_exp_complete(store, args, clock):
@@ -352,18 +435,10 @@ def transform_exp_complete(store, args, clock):
     today = clock["today"].strftime("%Y-%m-%d")
     started = datetime.date.fromisoformat(exp["date_started"])
     duration = (clock["today"] - started).days
-    # mutate store (shallow copy the experiments list with the updated row)
-    new_experiments = []
-    for row in store["experiments"]:
-        if row["id"] == exp_id:
-            updated = dict(row)
-            updated["status"] = "complete"
-            updated["date_completed"] = today
-            new_experiments.append(updated)
-        else:
-            new_experiments.append(row)
-    new_store = dict(store)
-    new_store["experiments"] = new_experiments
+    new_store, _ = store_update_row(
+        store, "experiments", "id", exp_id,
+        {"status": "complete", "date_completed": today},
+    )
     lines = [
         f"Completed: {exp_id}",
         f"  Date: {today}",
@@ -507,12 +582,279 @@ def transform_exp_show(store, args, clock):
     return effects_ok(stdout=lines)
 
 
+def transform_exp_update(store, args, clock):
+    """Pure transform: update a field on an experiment.
+
+    args: {"exp_id": str, "field": str, "value": str}
+    Handles notes-append, skeleton-row creation for purification/assay,
+    protected field rejection.
+    """
+    raw_id = args["exp_id"]
+    field = args["field"]
+    value = args["value"]
+    exp_id = normalize_exp_id(raw_id)
+    if not exp_id:
+        return effects_fail(f"Invalid experiment ID: '{raw_id}'")
+    exp = lookup_experiment(store, exp_id)
+    if not exp:
+        return effects_fail(f"No experiment found with ID {exp_id}")
+    # reject protected fields
+    if field in PROTECTED_FIELDS:
+        msgs = [f"Field '{field}' cannot be modified directly."]
+        if field == "status":
+            msgs.append(f"Use: python lw.py exp complete {exp_id}")
+        return effects_fail(msgs)
+    # find which table owns this field
+    target_table = FIELD_TABLES.get(field)
+    if not target_table:
+        all_fields = sorted(FIELD_TABLES.keys())
+        return effects_fail([
+            f"Unknown field: '{field}'",
+            f"Valid fields: {', '.join(all_fields)}",
+        ])
+    lines = []
+    new_store = dict(store)
+    # for type-specific tables, ensure row exists
+    if target_table in ("purification_details", "assay_details"):
+        existing = [
+            r for r in store[target_table]
+            if r["experiment_id"] == exp_id
+        ]
+        if not existing:
+            # insert skeleton row
+            if target_table == "purification_details":
+                if field == "protein":
+                    new_row = {
+                        "experiment_id": exp_id,
+                        "protein": value,
+                        "induction_od": None,
+                        "galactose_hours": None,
+                        "columns": None,
+                        "v5_depletion": 0,
+                        "fractions_pooled": None,
+                        "yield_mg": None,
+                        "storage": None,
+                    }
+                    new_store = store_append_row(new_store, "purification_details", new_row)
+                    lines.append(f"Created purification record for {exp_id}")
+                    lines.append(f"  protein: - -> {value}")
+                    return effects_ok(stdout=lines, store=new_store)
+                else:
+                    return effects_fail([
+                        f"No purification record for {exp_id}.",
+                        f"Set 'protein' first: python lw.py exp update {exp_id} protein <name>",
+                    ])
+            elif target_table == "assay_details":
+                new_row = {
+                    "experiment_id": exp_id,
+                    "protein_prep": None,
+                    "dna_template": None,
+                    "dna_prep_method": None,
+                    "conditions": None,
+                }
+                new_store = store_append_row(new_store, "assay_details", new_row)
+                lines.append(f"Created assay record for {exp_id}")
+    # get old value
+    id_col = "id" if target_table == "experiments" else "experiment_id"
+    target_rows = [r for r in new_store[target_table] if r[id_col] == exp_id]
+    old_val = target_rows[0][field] if target_rows else None
+    original_value = value
+    # notes: append with timestamp
+    if field == "notes":
+        value = append_note(old_val, value, clock)
+    # apply update
+    new_store, _ = store_update_row(new_store, target_table, id_col, exp_id, {field: value})
+    lines.append(f"Updated {exp_id}")
+    if field == "notes":
+        today = clock["today"].strftime("%Y-%m-%d")
+        lines.append(f"  {field}: appended [{today}] {original_value}")
+    else:
+        lines.append(f"  {field}: {old_val if old_val else '-'} -> {value}")
+    return effects_ok(stdout=lines, store=new_store)
+
+
+def transform_exp_link(store, args, clock):
+    """Pure transform: link two experiments.
+
+    args: {"from_id": str, "to_id": str, "relationship": str}
+    Handles uses_prep_from auto-populate of assay_details.
+    """
+    raw_from = args["from_id"]
+    raw_to = args["to_id"]
+    relationship = args["relationship"]
+    from_id = normalize_exp_id(raw_from)
+    if not from_id:
+        return effects_fail(f"Invalid experiment ID: '{raw_from}'")
+    to_id = normalize_exp_id(raw_to)
+    if not to_id:
+        return effects_fail(f"Invalid experiment ID: '{raw_to}'")
+    from_exp = lookup_experiment(store, from_id)
+    if not from_exp:
+        return effects_fail(f"No experiment found with ID {from_id}")
+    to_exp = lookup_experiment(store, to_id)
+    if not to_exp:
+        return effects_fail(f"No experiment found with ID {to_id}")
+    lines = []
+    # warn on unknown relationship (don't block)
+    if relationship not in KNOWN_RELATIONSHIPS:
+        lines.append(
+            f"  Note: '{relationship}' is not a standard relationship ({', '.join(KNOWN_RELATIONSHIPS)})"
+        )
+    # check for duplicate
+    for r in store["experiment_links"]:
+        if r["from_experiment"] == from_id and r["to_experiment"] == to_id:
+            return effects_fail(f"Link already exists: {from_id} -> {to_id}")
+    if relationship == "uses_prep_from" and to_exp["type"] != "purification":
+        lines.append(f"  Note: {to_id} is type '{to_exp['type']}', not purification.")
+    # insert link
+    new_link = {
+        "from_experiment": from_id,
+        "to_experiment": to_id,
+        "relationship": relationship,
+    }
+    new_store = store_append_row(store, "experiment_links", new_link)
+    # auto-populate assay_details.protein_prep if uses_prep_from
+    if relationship == "uses_prep_from":
+        existing_assay = [
+            r for r in new_store["assay_details"]
+            if r["experiment_id"] == from_id
+        ]
+        if existing_assay:
+            # update only if protein_prep is NULL
+            if existing_assay[0]["protein_prep"] is None:
+                new_store, _ = store_update_row(
+                    new_store, "assay_details", "experiment_id", from_id,
+                    {"protein_prep": to_id},
+                )
+        else:
+            new_assay = {
+                "experiment_id": from_id,
+                "protein_prep": to_id,
+                "dna_template": None,
+                "dna_prep_method": None,
+                "conditions": None,
+            }
+            new_store = store_append_row(new_store, "assay_details", new_assay)
+    lines.append(f"Linked: {from_id} -> {to_id} ({relationship})")
+    return effects_ok(stdout=lines, store=new_store)
+
+
+def transform_exp_addstrain(store, args, clock):
+    """Pure transform: associate a strain with an experiment.
+
+    args: {"exp_id": str, "strain_id": str, "role": str | None}
+    """
+    raw_id = args["exp_id"]
+    strain_id = args["strain_id"]
+    role = args.get("role")
+    exp_id = normalize_exp_id(raw_id)
+    if not exp_id:
+        return effects_fail(f"Invalid experiment ID: '{raw_id}'")
+    if not lookup_experiment(store, exp_id):
+        return effects_fail(f"No experiment found with ID {exp_id}")
+    # validate strain exists
+    if not lookup_strain(store, strain_id):
+        return effects_fail([
+            f"No strain found with ID {strain_id}",
+            "Register it first: python lw.py strain add <id> <genotype>",
+        ])
+    # check for duplicate
+    for r in store["experiment_strains"]:
+        if r["experiment_id"] == exp_id and r["strain_id"] == strain_id:
+            return effects_fail(f"Strain {strain_id} already linked to {exp_id}")
+    new_row = {
+        "experiment_id": exp_id,
+        "strain_id": strain_id,
+        "role": role,
+    }
+    new_store = store_append_row(store, "experiment_strains", new_row)
+    role_str = f" as {role}" if role else ""
+    return effects_ok(
+        stdout=[f"Added: {strain_id} -> {exp_id}{role_str}"],
+        store=new_store,
+    )
+
+
+def transform_strain_add(store, args, clock):
+    """Pure transform: register a new strain.
+
+    args: {"strain_id": str, "genotype": str}
+    """
+    strain_id = args["strain_id"]
+    genotype = args["genotype"]
+    ok, reason = validate_name(strain_id, "strain ID")
+    if not ok:
+        return effects_fail(reason)
+    # check for duplicate
+    if lookup_strain(store, strain_id):
+        return effects_fail([
+            f"Strain {strain_id} already exists.",
+            f"Use 'python lw.py strain show {strain_id}' to view it.",
+        ])
+    new_row = {
+        "id": strain_id,
+        "genotype": genotype,
+        "label": None,
+        "parent": None,
+        "construction": None,
+        "selection_marker": None,
+        "verification": None,
+        "storage_location": None,
+        "notes": None,
+    }
+    new_store = store_append_row(store, "strains", new_row)
+    lines = [
+        f"Registered: {strain_id}",
+        f"Genotype:   {genotype}",
+    ]
+    if not re.match(r"^[A-Za-z]+\d+$", strain_id):
+        lines.append(
+            f"Note: '{strain_id}' doesn't follow typical strain ID format (letters + digits, e.g., LY456)"
+        )
+    lines.append(f"Set a label: lw strain update {strain_id} label <short-name>")
+    return effects_ok(stdout=lines, store=new_store)
+
+
+def transform_strain_update(store, args, clock):
+    """Pure transform: update a field on a strain.
+
+    args: {"strain_id": str, "field": str, "value": str}
+    """
+    strain_id = args["strain_id"]
+    field = args["field"]
+    value = args["value"]
+    strain = lookup_strain(store, strain_id)
+    if not strain:
+        return effects_fail(f"No strain found with ID {strain_id}")
+    if field not in STRAIN_FIELDS:
+        return effects_fail([
+            f"Unknown field: '{field}'",
+            f"Valid fields: {', '.join(STRAIN_FIELDS)}",
+        ])
+    old_val = strain.get(field)
+    original_value = value
+    if field == "notes":
+        value = append_note(old_val, value, clock)
+    new_store, _ = store_update_row(store, "strains", "id", strain_id, {field: value})
+    lines = [f"Updated {strain_id}"]
+    if field == "notes":
+        lines.append(f"  {field}: appended entry")
+    else:
+        lines.append(f"  {field}: {old_val if old_val else '-'} -> {value}")
+    return effects_ok(stdout=lines, store=new_store)
+
+
 # --- Transform dispatch registry ---
 # Maps (command, subcommand) -> transform function.
 # main() checks this before falling through to the legacy if/elif chain.
 TRANSFORM_DISPATCH = {
     ("exp", "complete"): transform_exp_complete,
     ("exp", "show"): transform_exp_show,
+    ("exp", "update"): transform_exp_update,
+    ("exp", "link"): transform_exp_link,
+    ("exp", "addstrain"): transform_exp_addstrain,
+    ("strain", "add"): transform_strain_add,
+    ("strain", "update"): transform_strain_update,
 }
 
 def bail(code=1):
@@ -812,7 +1154,9 @@ def main(argv=None):
     if _transform_fn is not None:
         # Parse args for the transform.  Each transform expects a
         # specific args dict; we build it here from pos_args.
-        # For commands that need a single <id> argument:
+        _targs = None
+
+        # --- single <id> commands ---
         if _transform_key in (("exp", "complete"), ("exp", "show")):
             if len(pos_args) != 1:
                 usage = {
@@ -822,8 +1166,69 @@ def main(argv=None):
                 print(usage[_transform_key])
                 bail()
             _targs = {"exp_id": pos_args[0]}
+
+        # --- exp update <id> <field> <value...> ---
+        elif _transform_key == ("exp", "update"):
+            if len(pos_args) < 3:
+                print("Usage: python lw.py exp update <id> <field> <value>")
+                bail()
+            _targs = {
+                "exp_id": pos_args[0],
+                "field": pos_args[1],
+                "value": " ".join(pos_args[2:]),
+            }
+
+        # --- exp link <from> <to> <relationship> ---
+        elif _transform_key == ("exp", "link"):
+            if len(pos_args) < 3:
+                print("Usage: python lw.py exp link <from_id> <to_id> <relationship>")
+                print("  Relationships: uses_prep_from, replicate_of, follow_up_to")
+                bail()
+            _targs = {
+                "from_id": pos_args[0],
+                "to_id": pos_args[1],
+                "relationship": pos_args[2],
+            }
+
+        # --- exp addstrain <exp_id> <strain_id> [role] ---
+        elif _transform_key == ("exp", "addstrain"):
+            if len(pos_args) < 2:
+                print("Usage: python lw.py exp addstrain <exp_id> <strain_id> [role]")
+                bail()
+            _targs = {
+                "exp_id": pos_args[0],
+                "strain_id": pos_args[1],
+                "role": pos_args[2] if len(pos_args) > 2 else None,
+            }
+
+        # --- strain add <id> <genotype...> ---
+        elif _transform_key == ("strain", "add"):
+            if len(pos_args) < 2:
+                print("Usage: python lw.py strain add <id> <genotype>")
+                print(
+                    '  Example: python lw.py strain add LY456 "MATa orc4-R267A::KanMX ura3 leu2 trp1 his3"'
+                )
+                bail()
+            _targs = {
+                "strain_id": pos_args[0],
+                "genotype": " ".join(pos_args[1:]),
+            }
+
+        # --- strain update <id> <field> <value...> ---
+        elif _transform_key == ("strain", "update"):
+            if len(pos_args) < 3:
+                print("Usage: python lw.py strain update <id> <field> <value>")
+                bail()
+            _targs = {
+                "strain_id": pos_args[0],
+                "field": pos_args[1],
+                "value": " ".join(pos_args[2:]),
+            }
+
+        # --- fallback (should not reach for registered transforms) ---
         else:
             _targs = {"pos_args": pos_args}
+
         _effects = _transform_fn(store, _targs, clock)
         _rc = execute_effects(_effects, DB_PATH)
         # If the transform mutated the store, skip the legacy
@@ -969,189 +1374,13 @@ def main(argv=None):
             else:
                 print(f"Next: lw exp update {exp_id} notes <text>")
 
-        # --- lw exp update <id> <field> <value> ---
-        elif subcommand == "update":
-            if len(pos_args) < 3:
-                print("Usage: python lw.py exp update <id> <field> <value>")
-                bail()
-            raw_id, field = pos_args[0], pos_args[1]
-            value = " ".join(pos_args[2:])
-            exp_id = normalize_exp_id(raw_id)
-            if not exp_id:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                bail()
-            require_experiment(exp_id)
-            # reject protected fields
-            if field in PROTECTED_FIELDS:
-                print(f"Field '{field}' cannot be modified directly.")
-                if field == "status":
-                    print(f"Use: python lw.py exp complete {exp_id}")
-                bail()
-            # find which table owns this field
-            target_table = None
-            for table in ["experiments", "purification_details", "assay_details"]:
-                cursor.execute(f"PRAGMA table_info({table})")
-                columns = [r[1] for r in cursor.fetchall()]
-                if field in columns:
-                    target_table = table
-                    break
-            if not target_table:
-                # collect all valid fields across tables
-                all_fields = []
-                for table in ["experiments", "purification_details", "assay_details"]:
-                    cursor.execute(f"PRAGMA table_info({table})")
-                    all_fields.extend(
-                        r[1]
-                        for r in cursor.fetchall()
-                        if r[1] not in ("id", "experiment_id", "created_at")
-                    )
-                print(f"Unknown field: '{field}'")
-                print(f"Valid fields: {', '.join(sorted(set(all_fields)))}")
-                bail()
-            # for type-specific tables, ensure row exists
-            if target_table in ("purification_details", "assay_details"):
-                cursor.execute(
-                    f"SELECT experiment_id FROM {target_table} WHERE experiment_id = ?",
-                    (exp_id,),
-                )
-                if not cursor.fetchone():
-                    # insert skeleton row
-                    if target_table == "purification_details":
-                        if field == "protein":
-                            cursor.execute(
-                                "INSERT INTO purification_details (experiment_id, protein) VALUES (?, ?)",
-                                (exp_id, value),
-                            )
-                            print(f"Created purification record for {exp_id}")
-                            print(f"  protein: - -> {value}")
-                        else:
-                            print(f"No purification record for {exp_id}.")
-                            print(
-                                f"Set 'protein' first: python lw.py exp update {exp_id} protein <name>"
-                            )
-                            bail()
-                        # already inserted, skip the UPDATE below
-                        target_table = None
-                    elif target_table == "assay_details":
-                        cursor.execute(
-                            "INSERT INTO assay_details (experiment_id) VALUES (?)",
-                            (exp_id,),
-                        )
-                        print(f"Created assay record for {exp_id}")
-            if target_table:
-                # get old value
-                id_col = "id" if target_table == "experiments" else "experiment_id"
-                cursor.execute(
-                    f"SELECT {field} FROM {target_table} WHERE {id_col} = ?", (exp_id,)
-                )
-                old_row = cursor.fetchone()
-                old_val = old_row[0] if old_row else None
-                original_value = value
-                # notes fields: always prefix with timestamp, append if existing
-                if field == "notes":
-                    today = datetime.date.today().strftime("%Y-%m-%d")
-                    if old_val:
-                        value = old_val + f"\n[{today}] " + value
-                    else:
-                        value = f"[{today}] " + value
-                cursor.execute(
-                    f"UPDATE {target_table} SET {field} = ? WHERE {id_col} = ?",
-                    (value, exp_id),
-                )
-                print(f"Updated {exp_id}")
-                if field == "notes":
-                    print(f"  {field}: appended [{today}] {original_value}")
-                else:
-                    print(f"  {field}: {old_val if old_val else '-'} -> {value}")
+        # --- lw exp update: handled by transform_exp_update ---
 
         # --- lw exp complete: handled by transform_exp_complete ---
 
-        # --- lw exp link <from_id> <to_id> <relationship> ---
-        elif subcommand == "link":
-            if len(pos_args) < 3:
-                print("Usage: python lw.py exp link <from_id> <to_id> <relationship>")
-                print("  Relationships: uses_prep_from, replicate_of, follow_up_to")
-                bail()
-            raw_from, raw_to, relationship = pos_args[0], pos_args[1], pos_args[2]
-            from_id = normalize_exp_id(raw_from)
-            if not from_id:
-                print(f"Invalid experiment ID: '{raw_from}'")
-                bail()
-            to_id = normalize_exp_id(raw_to)
-            if not to_id:
-                print(f"Invalid experiment ID: '{raw_to}'")
-                bail()
-            require_experiment(from_id)
-            to_exp = require_experiment(to_id)
-            # warn on unknown relationship (don't block)
-            if relationship not in KNOWN_RELATIONSHIPS:
-                print(
-                    f"  Note: '{relationship}' is not a standard relationship ({', '.join(KNOWN_RELATIONSHIPS)})"
-                )
-            # check for duplicate
-            cursor.execute(
-                "SELECT 1 FROM experiment_links WHERE from_experiment = ? AND to_experiment = ?",
-                (from_id, to_id),
-            )
-            if cursor.fetchone():
-                print(f"Link already exists: {from_id} -> {to_id}")
-                bail()
-            if relationship == "uses_prep_from" and to_exp["type"] != "purification":
-                print(f"  Note: {to_id} is type '{to_exp['type']}', not purification.")
-            cursor.execute(
-                "INSERT INTO experiment_links (from_experiment, to_experiment, relationship) VALUES (?, ?, ?)",
-                (from_id, to_id, relationship),
-            )
-            # auto-populate assay_details.protein_prep if linking to a purification
-            if relationship == "uses_prep_from":
-                cursor.execute(
-                    "SELECT experiment_id FROM assay_details WHERE experiment_id = ?",
-                    (from_id,),
-                )
-                if cursor.fetchone():
-                    cursor.execute(
-                        "UPDATE assay_details SET protein_prep = ? WHERE experiment_id = ? AND protein_prep IS NULL",
-                        (to_id, from_id),
-                    )
-                else:
-                    cursor.execute(
-                        "INSERT INTO assay_details (experiment_id, protein_prep) VALUES (?, ?)",
-                        (from_id, to_id),
-                    )
-            print(f"Linked: {from_id} -> {to_id} ({relationship})")
+        # --- lw exp link: handled by transform_exp_link ---
 
-        # --- lw exp addstrain <exp_id> <strain_id> [role] ---
-        elif subcommand == "addstrain":
-            if len(pos_args) < 2:
-                print("Usage: python lw.py exp addstrain <exp_id> <strain_id> [role]")
-                bail()
-            raw_id, strain_id = pos_args[0], pos_args[1]
-            role = pos_args[2] if len(pos_args) > 2 else None
-            exp_id = normalize_exp_id(raw_id)
-            if not exp_id:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                bail()
-            require_experiment(exp_id)
-            # validate strain exists
-            cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
-            if not cursor.fetchone():
-                print(f"No strain found with ID {strain_id}")
-                print("Register it first: python lw.py strain add <id> <genotype>")
-                bail()
-            # check for duplicate
-            cursor.execute(
-                "SELECT 1 FROM experiment_strains WHERE experiment_id = ? AND strain_id = ?",
-                (exp_id, strain_id),
-            )
-            if cursor.fetchone():
-                print(f"Strain {strain_id} already linked to {exp_id}")
-                bail()
-            cursor.execute(
-                "INSERT INTO experiment_strains (experiment_id, strain_id, role) VALUES (?, ?, ?)",
-                (exp_id, strain_id, role),
-            )
-            role_str = f" as {role}" if role else ""
-            print(f"Added: {strain_id} -> {exp_id}{role_str}")
+        # --- lw exp addstrain: handled by transform_exp_addstrain ---
 
         # --- lw exp show: handled by transform_exp_show ---
 
@@ -1765,78 +1994,12 @@ def main(argv=None):
             print("  update <id> <f> <v>   Update a strain field")
             return 0
 
-        # --- lw strain update <id> <field> <value> ---
-        if subcommand == "update":
-            if len(pos_args) < 3:
-                print("Usage: python lw.py strain update <id> <field> <value>")
-                bail()
-            strain_id, field = pos_args[0], pos_args[1]
-            value = " ".join(pos_args[2:])
-            # verify strain exists
-            cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
-            if not cursor.fetchone():
-                print(f"No strain found with ID {strain_id}")
-                bail()
-            # validate field
-            cursor.execute("PRAGMA table_info(strains)")
-            valid_fields = [r[1] for r in cursor.fetchall() if r[1] != "id"]
-            if field not in valid_fields:
-                print(f"Unknown field: '{field}'")
-                print(f"Valid fields: {', '.join(valid_fields)}")
-                bail()
-            # get old value and update
-            cursor.execute(f"SELECT {field} FROM strains WHERE id = ?", (strain_id,))
-            old_val = cursor.fetchone()[0]
-            # notes: always prefix with timestamp, append if existing
-            if field == "notes":
-                today = datetime.date.today().strftime("%Y-%m-%d")
-                if old_val:
-                    value = old_val + f"\n[{today}] " + value
-                else:
-                    value = f"[{today}] " + value
-            cursor.execute(
-                f"UPDATE strains SET {field} = ? WHERE id = ?", (value, strain_id)
-            )
-            print(f"Updated {strain_id}")
-            if field == "notes":
-                print(f"  {field}: appended entry")
-            else:
-                print(f"  {field}: {old_val if old_val else '-'} -> {value}")
+        # --- lw strain update: handled by transform_strain_update ---
 
-        # --- lw strain add <id> <genotype> ---
-        elif subcommand == "add":
-            if len(pos_args) < 2:
-                print("Usage: python lw.py strain add <id> <genotype>")
-                print(
-                    '  Example: python lw.py strain add LY456 "MATa orc4-R267A::KanMX ura3 leu2 trp1 his3"'
-                )
-                bail()
-            strain_id = pos_args[0]
-            genotype = " ".join(pos_args[1:])
-            _ok, _reason = validate_name(strain_id, "strain ID")
-            if not _ok:
-                print(_reason)
-                bail()
-            # check for duplicate
-            cursor.execute("SELECT id FROM strains WHERE id = ?", (strain_id,))
-            if cursor.fetchone():
-                print(f"Strain {strain_id} already exists.")
-                print(f"Use 'python lw.py strain show {strain_id}' to view it.")
-                bail()
-            cursor.execute(
-                "INSERT INTO strains (id, genotype) VALUES (?, ?)",
-                (strain_id, genotype),
-            )
-            print(f"Registered: {strain_id}")
-            print(f"Genotype:   {genotype}")
-            if not re.match(r"^[A-Za-z]+\d+$", strain_id):
-                print(
-                    f"Note: '{strain_id}' doesn't follow typical strain ID format (letters + digits, e.g., LY456)"
-                )
-            print(f"Set a label: lw strain update {strain_id} label <short-name>")
+        # --- lw strain add: handled by transform_strain_add ---
 
         # --- lw strain show <id> ---
-        elif subcommand == "show":
+        if subcommand == "show":
             if len(pos_args) != 1:
                 print("Usage: python lw.py strain show <id>")
                 bail()

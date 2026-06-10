@@ -1,4 +1,4 @@
-"""Golden tests for Phase 2 transforms.
+"""Golden tests for Phase 2 and Phase 3A transforms.
 
 Each test uses dict-literal fixtures and a frozen clock.
 No database, no filesystem, no IO.
@@ -12,9 +12,16 @@ sys.path.insert(0, os.path.dirname(__file__))
 from lw_refactoring import (
     transform_exp_complete,
     transform_exp_show,
+    transform_exp_update,
+    transform_exp_link,
+    transform_exp_addstrain,
+    transform_strain_add,
+    transform_strain_update,
     effects_ok,
     effects_fail,
     lookup_experiment,
+    lookup_strain,
+    append_note,
 )
 
 
@@ -338,6 +345,356 @@ def test_show_does_not_mutate_store():
     original = copy.deepcopy(store)
     transform_exp_show(store, {"exp_id": "LM-0002"}, FROZEN_CLOCK)
     assert store == original
+
+
+# ============================================================
+# TESTS: append_note (shared helper)
+# ============================================================
+
+def test_append_note_first():
+    result = append_note(None, "first entry", FROZEN_CLOCK)
+    assert result == "[2025-06-10] first entry"
+
+
+def test_append_note_append():
+    result = append_note("[2025-06-01] old", "new entry", FROZEN_CLOCK)
+    assert result == "[2025-06-01] old\n[2025-06-10] new entry"
+
+
+# ============================================================
+# TESTS: transform_exp_update
+# ============================================================
+
+def test_update_simple_field():
+    """Update a simple experiments-table field (title)."""
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_update(
+        store, {"exp_id": "LM-0001", "field": "title", "value": "new-title"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    exp = lookup_experiment(effects["store"], "LM-0001")
+    assert exp["title"] == "new-title"
+    text = stdout_text(effects)
+    assert "Updated LM-0001" in text
+    assert "title:" in text
+
+
+def test_update_notes_append():
+    """Notes field appends with timestamp."""
+    store = copy.deepcopy(MINIMAL_STORE)
+    store["experiments"][0]["notes"] = "[2025-06-01] old note"
+    effects = transform_exp_update(
+        store, {"exp_id": "LM-0001", "field": "notes", "value": "new note"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    exp = lookup_experiment(effects["store"], "LM-0001")
+    assert "[2025-06-10] new note" in exp["notes"]
+    assert "[2025-06-01] old note" in exp["notes"]
+
+
+def test_update_protected_field():
+    """Protected fields are rejected."""
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_update(
+        store, {"exp_id": "LM-0001", "field": "status", "value": "complete"}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+    assert "cannot be modified" in effects["stderr"][0]
+
+
+def test_update_unknown_field():
+    """Unknown fields are rejected with a list of valid fields."""
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_update(
+        store, {"exp_id": "LM-0001", "field": "bogus", "value": "x"}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+    assert "Unknown field" in effects["stderr"][0]
+
+
+def test_update_protein_creates_purification():
+    """Setting protein on exp with no purification record creates one."""
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_update(
+        store, {"exp_id": "LM-0001", "field": "protein", "value": "Orc4"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    pur = [r for r in effects["store"]["purification_details"] if r["experiment_id"] == "LM-0001"]
+    assert len(pur) == 1
+    assert pur[0]["protein"] == "Orc4"
+    text = stdout_text(effects)
+    assert "Created purification record" in text
+
+
+def test_update_non_protein_pur_field_fails_without_record():
+    """Setting a non-protein purification field without existing record fails."""
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_update(
+        store, {"exp_id": "LM-0001", "field": "yield_mg", "value": "1.5"}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+    assert "Set 'protein' first" in effects["stderr"][1]
+
+
+def test_update_assay_field_creates_skeleton():
+    """Setting an assay field on exp with no assay record creates one."""
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_update(
+        store, {"exp_id": "LM-0001", "field": "dna_template", "value": "pUC19"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    assay = [r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0001"]
+    assert len(assay) == 1
+    assert assay[0]["dna_template"] == "pUC19"
+
+
+def test_update_nonexistent_exp():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_update(
+        store, {"exp_id": "LM-9999", "field": "title", "value": "x"}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+
+
+# ============================================================
+# TESTS: transform_exp_link
+# ============================================================
+
+def _two_exp_store():
+    """Store with two experiments for link testing."""
+    store = copy.deepcopy(MINIMAL_STORE)
+    store["experiments"].append({
+        "id": "LM-0002",
+        "type": "gelshift",
+        "title": "gel-test",
+        "shortname": "gel-test",
+        "date_started": "2025-06-05",
+        "date_completed": None,
+        "status": "active",
+        "folder_name": "20250605_LM-0002_gs_gel-test",
+        "protocol_id": None,
+        "notes": None,
+        "created_at": "2025-06-05T00:00:00",
+    })
+    return store
+
+
+def test_link_simple():
+    store = _two_exp_store()
+    effects = transform_exp_link(
+        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "follow_up_to"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    links = effects["store"]["experiment_links"]
+    assert len(links) == 1
+    assert links[0]["from_experiment"] == "LM-0002"
+    assert links[0]["to_experiment"] == "LM-0001"
+
+
+def test_link_uses_prep_from_auto_populates_assay():
+    """uses_prep_from creates assay_details with protein_prep."""
+    store = _two_exp_store()
+    effects = transform_exp_link(
+        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "uses_prep_from"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    assay = [r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0002"]
+    assert len(assay) == 1
+    assert assay[0]["protein_prep"] == "LM-0001"
+
+
+def test_link_uses_prep_from_existing_assay_null_prep():
+    """uses_prep_from updates existing assay if protein_prep is NULL."""
+    store = _two_exp_store()
+    store["assay_details"].append({
+        "experiment_id": "LM-0002",
+        "protein_prep": None,
+        "dna_template": "pUC19",
+        "dna_prep_method": None,
+        "conditions": None,
+    })
+    effects = transform_exp_link(
+        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "uses_prep_from"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    assay = [r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0002"]
+    assert len(assay) == 1
+    assert assay[0]["protein_prep"] == "LM-0001"
+    assert assay[0]["dna_template"] == "pUC19"  # preserved
+
+
+def test_link_uses_prep_from_existing_assay_with_prep():
+    """uses_prep_from does NOT overwrite existing non-NULL protein_prep."""
+    store = _two_exp_store()
+    store["assay_details"].append({
+        "experiment_id": "LM-0002",
+        "protein_prep": "LM-0099",
+        "dna_template": None,
+        "dna_prep_method": None,
+        "conditions": None,
+    })
+    effects = transform_exp_link(
+        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "uses_prep_from"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    assay = [r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0002"]
+    assert assay[0]["protein_prep"] == "LM-0099"  # NOT overwritten
+
+
+def test_link_duplicate():
+    store = _two_exp_store()
+    store["experiment_links"].append({
+        "from_experiment": "LM-0002",
+        "to_experiment": "LM-0001",
+        "relationship": "follow_up_to",
+    })
+    effects = transform_exp_link(
+        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "follow_up_to"}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+    assert "already exists" in effects["stderr"][0]
+
+
+def test_link_unknown_relationship_warns():
+    """Unknown relationship produces a warning but succeeds."""
+    store = _two_exp_store()
+    effects = transform_exp_link(
+        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "custom_rel"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "not a standard relationship" in text
+    assert "Linked:" in text
+
+
+# ============================================================
+# TESTS: transform_exp_addstrain
+# ============================================================
+
+def test_addstrain_happy():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    # LM-0002 and LY456 exist; add the link
+    # First remove existing link
+    store["experiment_strains"] = []
+    effects = transform_exp_addstrain(
+        store, {"exp_id": "LM-0002", "strain_id": "LY456", "role": "test"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    es = effects["store"]["experiment_strains"]
+    assert len(es) == 1
+    assert es[0]["strain_id"] == "LY456"
+    assert es[0]["role"] == "test"
+
+
+def test_addstrain_duplicate():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    effects = transform_exp_addstrain(
+        store, {"exp_id": "LM-0002", "strain_id": "LY456"}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+    assert "already linked" in effects["stderr"][0]
+
+
+def test_addstrain_missing_strain():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_addstrain(
+        store, {"exp_id": "LM-0001", "strain_id": "NOSUCH"}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+    assert "No strain found" in effects["stderr"][0]
+
+
+# ============================================================
+# TESTS: transform_strain_add
+# ============================================================
+
+def test_strain_add_happy():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_strain_add(
+        store, {"strain_id": "LY789", "genotype": "MATa wild-type"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    strain = lookup_strain(effects["store"], "LY789")
+    assert strain is not None
+    assert strain["genotype"] == "MATa wild-type"
+    text = stdout_text(effects)
+    assert "Registered: LY789" in text
+
+
+def test_strain_add_duplicate():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    effects = transform_strain_add(
+        store, {"strain_id": "LY456", "genotype": "dup"}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+    assert "already exists" in effects["stderr"][0]
+
+
+def test_strain_add_invalid_name():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_strain_add(
+        store, {"strain_id": "-bad", "genotype": "x"}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+
+
+def test_strain_add_atypical_format_warns():
+    """Non-standard ID format produces a note but succeeds."""
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_strain_add(
+        store, {"strain_id": "weird-name", "genotype": "x"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "doesn't follow typical" in text
+
+
+# ============================================================
+# TESTS: transform_strain_update
+# ============================================================
+
+def test_strain_update_label():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    effects = transform_strain_update(
+        store, {"strain_id": "LY456", "field": "label", "value": "new-label"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    strain = lookup_strain(effects["store"], "LY456")
+    assert strain["label"] == "new-label"
+    text = stdout_text(effects)
+    assert "Updated LY456" in text
+
+
+def test_strain_update_notes_append():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    store["strains"][0]["notes"] = "[2025-06-01] old"
+    effects = transform_strain_update(
+        store, {"strain_id": "LY456", "field": "notes", "value": "new"}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    strain = lookup_strain(effects["store"], "LY456")
+    assert "[2025-06-10] new" in strain["notes"]
+    assert "[2025-06-01] old" in strain["notes"]
+    text = stdout_text(effects)
+    assert "appended entry" in text
+
+
+def test_strain_update_unknown_field():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    effects = transform_strain_update(
+        store, {"strain_id": "LY456", "field": "bogus", "value": "x"}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+    assert "Unknown field" in effects["stderr"][0]
+
+
+def test_strain_update_nonexistent():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_strain_update(
+        store, {"strain_id": "NOSUCH", "field": "label", "value": "x"}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+    assert "No strain found" in effects["stderr"][0]
 
 
 # ============================================================
