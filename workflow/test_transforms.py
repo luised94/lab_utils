@@ -15,13 +15,20 @@ from lw_refactoring import (
     transform_exp_update,
     transform_exp_link,
     transform_exp_addstrain,
+    transform_exp_find,
+    transform_exp_list,
     transform_strain_add,
     transform_strain_update,
+    transform_strain_show,
+    transform_strain_list,
+    transform_stage_list,
+    transform_status,
     effects_ok,
     effects_fail,
     lookup_experiment,
     lookup_strain,
     append_note,
+    format_size,
 )
 
 
@@ -695,6 +702,293 @@ def test_strain_update_nonexistent():
     )
     assert_fail(effects)
     assert "No strain found" in effects["stderr"][0]
+
+
+# ============================================================
+# TESTS: transform_strain_show
+# ============================================================
+
+def test_strain_show_happy():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    effects = transform_strain_show(store, {"strain_id": "LY456"}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "LY456" in text
+    assert "orc4-mut" in text
+    assert "MATa orc4-R267A" in text
+    assert "KanMX" in text
+
+
+def test_strain_show_with_experiments():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    effects = transform_strain_show(store, {"strain_id": "LY456"}, FROZEN_CLOCK)
+    text = stdout_text(effects)
+    assert "Experiments:" in text
+    assert "LM-0002" in text
+    assert "(test)" in text
+
+
+def test_strain_show_nonexistent():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_strain_show(store, {"strain_id": "NOSUCH"}, FROZEN_CLOCK)
+    assert_fail(effects)
+
+
+# ============================================================
+# TESTS: transform_strain_list
+# ============================================================
+
+def test_strain_list_happy():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    effects = transform_strain_list(store, {"no_label_only": False}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "LY456" in text
+    assert "orc4-mut" in text
+    assert "1 strain" in text
+
+
+def test_strain_list_empty():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_strain_list(store, {"no_label_only": False}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "No strains registered" in text
+
+
+def test_strain_list_no_label_filter():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    effects = transform_strain_list(store, {"no_label_only": True}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "All strains have labels" in text
+
+
+def test_strain_list_no_label_found():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    store["strains"][0]["label"] = None
+    effects = transform_strain_list(store, {"no_label_only": True}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "*NO LABEL*" in text
+    assert "without labels" in text
+
+
+# ============================================================
+# TESTS: transform_exp_find
+# ============================================================
+
+def test_find_all():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_find(store, {"pos_args": []}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "LM-0001" in text
+    assert "1 experiment" in text
+
+
+def test_find_by_query():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_find(store, {"pos_args": ["test-pur"]}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "LM-0001" in text
+
+
+def test_find_case_insensitive():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_find(store, {"pos_args": ["TEST-PUR"]}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "LM-0001" in text
+
+
+def test_find_no_results():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_find(store, {"pos_args": ["nonexistent"]}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "No experiments found" in text
+
+
+def test_find_by_type():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_find(store, {"pos_args": ["--type", "purification"]}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "LM-0001" in text
+
+
+def test_find_by_type_no_match():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_find(store, {"pos_args": ["--type", "gelshift"]}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "No experiments found" in text
+
+
+def test_find_invalid_type():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_find(store, {"pos_args": ["--type", "bogus"]}, FROZEN_CLOCK)
+    assert_fail(effects)
+    assert "Unknown type" in effects["stderr"][0]
+
+
+def test_find_by_strain():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    effects = transform_exp_find(store, {"pos_args": ["--strain", "LY456"]}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "LM-0002" in text
+
+
+def test_find_by_nonexistent_strain():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_find(store, {"pos_args": ["--strain", "NOSUCH"]}, FROZEN_CLOCK)
+    assert_fail(effects)
+    assert "not found in database" in effects["stderr"][0]
+
+
+# ============================================================
+# TESTS: transform_exp_list
+# ============================================================
+
+def test_list_all():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_list(store, {"pos_args": []}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "purification (1)" in text
+    assert "LM-0001" in text
+    assert "1 experiment" in text
+
+
+def test_list_empty():
+    store = copy.deepcopy(MINIMAL_STORE)
+    store["experiments"] = []
+    effects = transform_exp_list(store, {"pos_args": []}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "No experiments registered" in text
+
+
+def test_list_with_purification_detail():
+    store = copy.deepcopy(MINIMAL_STORE)
+    store["purification_details"].append({
+        "experiment_id": "LM-0001",
+        "protein": "Orc4",
+        "induction_od": None, "galactose_hours": None, "columns": None,
+        "v5_depletion": 0, "fractions_pooled": None, "yield_mg": 2.5, "storage": None,
+    })
+    effects = transform_exp_list(store, {"pos_args": []}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "Orc4" in text
+    assert "2.5 mg" in text
+
+
+def test_list_by_type():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_list(store, {"pos_args": ["--type", "purification"]}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "LM-0001" in text
+
+
+def test_list_invalid_type():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_list(store, {"pos_args": ["--type", "bogus"]}, FROZEN_CLOCK)
+    assert_fail(effects)
+
+
+# ============================================================
+# TESTS: transform_stage_list
+# ============================================================
+
+def test_stage_list_dir_missing():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_stage_list(store, {"file_list": None}, FROZEN_CLOCK)
+    assert_fail(effects)
+    assert "does not exist" in effects["stderr"][0]
+
+
+def test_stage_list_empty():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_stage_list(store, {"file_list": []}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "Staging is empty" in text
+
+
+def test_stage_list_with_files():
+    store = copy.deepcopy(MINIMAL_STORE)
+    file_list = [
+        {"name": "lemr LM-0001 s1 nanodrop.csv", "size": 2048},
+        {"name": "random.txt", "size": 512},
+    ]
+    effects = transform_stage_list(store, {"file_list": file_list}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "2 files" in text
+    assert "LM-0001" in text
+    assert "random.txt" in text
+
+
+def test_stage_list_with_pending():
+    store = copy.deepcopy(MINIMAL_STORE)
+    store["stage_expectations"].append({
+        "id": 1, "experiment_id": "LM-0001", "slot": 1, "descriptor": "gel-01",
+        "status": "pending", "created_at": "2025-06-10", "filed_at": None,
+    })
+    file_list = [{"name": "lemr LM-0001 s1 nanodrop.csv", "size": 1024}]
+    effects = transform_stage_list(store, {"file_list": file_list}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "Pending expectations:" in text
+    assert "(matched)" in text
+
+
+# ============================================================
+# TESTS: transform_status
+# ============================================================
+
+def test_status_minimal():
+    store = copy.deepcopy(MINIMAL_STORE)
+    fs = {"staging_files": [], "staging_total_size": 0, "lab_notes_date": None}
+    effects = transform_status(store, {"fs": fs}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "Experiments:" in text
+    assert "1 total" in text
+    assert "1 active" in text
+    assert "Staging:" in text
+    assert "clean" in text
+    assert "Strains:" in text
+    assert "Samples:" in text
+
+
+def test_status_with_warnings():
+    store = copy.deepcopy(MINIMAL_STORE)
+    fs = {"staging_files": ["a.txt"], "staging_total_size": 100, "lab_notes_date": "2025-06-09"}
+    effects = transform_status(store, {"fs": fs}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "Attention needed:" in text
+    assert "no strains linked" in text
+    assert "no notes" in text
+    assert "1 file" in text
+    assert "Lab notes last modified: 2025-06-09" in text
+
+
+def test_status_empty():
+    store = copy.deepcopy(MINIMAL_STORE)
+    store["experiments"] = []
+    fs = {"staging_files": [], "staging_total_size": 0, "lab_notes_date": None}
+    effects = transform_status(store, {"fs": fs}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "0 total" in text
+    assert "No experiments yet" in text
 
 
 # ============================================================

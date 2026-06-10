@@ -844,6 +844,480 @@ def transform_strain_update(store, args, clock):
     return effects_ok(stdout=lines, store=new_store)
 
 
+# --- Phase 3B: Read-only transforms ---
+
+
+def transform_strain_show(store, args, clock):
+    """Pure transform: display strain details.
+
+    args: {"strain_id": str}
+    """
+    strain_id = args["strain_id"]
+    strain = lookup_strain(store, strain_id)
+    if not strain:
+        return effects_fail(f"No strain found with ID {strain_id}")
+    lines = []
+    fields = [
+        ("ID", strain["id"]),
+        ("Genotype", strain["genotype"]),
+        ("Label", strain["label"]),
+        ("Parent", strain["parent"]),
+        ("Construction", strain["construction"]),
+        ("Marker", strain["selection_marker"]),
+        ("Verification", strain["verification"]),
+        ("Storage", strain["storage_location"]),
+        ("Notes", strain["notes"]),
+    ]
+    label_width = max(len(f[0]) for f in fields)
+    for label, val in fields:
+        lines.append(f"  {label + ':':<{label_width + 2}} {val if val else '-'}")
+    # experiments using this strain
+    exps = []
+    for es in store["experiment_strains"]:
+        if es["strain_id"] == strain_id:
+            exp = lookup_experiment(store, es["experiment_id"])
+            if exp:
+                exps.append((exp["id"], exp["type"], exp["shortname"], es["role"]))
+    if exps:
+        lines.append("")
+        lines.append("  Experiments:")
+        for eid, etype, sname, role in exps:
+            role_str = f" ({role})" if role else ""
+            lines.append(f"    {eid}  {etype:<14} {sname}{role_str}")
+    return effects_ok(stdout=lines)
+
+
+def transform_strain_list(store, args, clock):
+    """Pure transform: list all strains.
+
+    args: {"no_label_only": bool}
+    """
+    no_label_only = args.get("no_label_only", False)
+    strains = store["strains"]
+    if no_label_only:
+        strains = [s for s in strains if s["label"] is None]
+    if not strains:
+        if no_label_only:
+            return effects_ok(stdout=["All strains have labels."])
+        else:
+            return effects_ok(stdout=["No strains registered."])
+    # compute experiment counts per strain
+    exp_counts = {}
+    for es in store["experiment_strains"]:
+        exp_counts[es["strain_id"]] = exp_counts.get(es["strain_id"], 0) + 1
+    lines = []
+    lines.append(f"  {'ID':<12} {'Label':<16} {'Genotype':<43} {'Exps':>4}")
+    lines.append("  " + "-" * 77)
+    n_missing = 0
+    # sort by id
+    for s in sorted(strains, key=lambda r: r["id"]):
+        sid = s["id"]
+        label = s["label"]
+        genotype = s["genotype"]
+        exp_count = exp_counts.get(sid, 0)
+        if label:
+            lbl_str = label
+        else:
+            lbl_str = "*NO LABEL*"
+            n_missing += 1
+        geno_str = (genotype[:40] + "...") if len(genotype) > 40 else genotype
+        lines.append(f"  {sid:<12} {lbl_str:<16} {geno_str:<43} {exp_count:>4}")
+    lines.append("")
+    if no_label_only:
+        lines.append(f"  {len(strains)} strain{'s' if len(strains) != 1 else ''} without labels")
+    else:
+        msg = f"  {len(strains)} strain{'s' if len(strains) != 1 else ''}"
+        if n_missing > 0:
+            msg += f", {n_missing} missing label{'s' if n_missing != 1 else ''}"
+        lines.append(msg)
+    return effects_ok(stdout=lines)
+
+
+def _parse_find_args(pos_args):
+    """Parse exp find arguments. Returns (query, f_type, f_status, f_strain) or error string."""
+    query_parts = []
+    f_type = None
+    f_status = None
+    f_strain = None
+    i = 0
+    while i < len(pos_args):
+        if pos_args[i] == "--type" and i + 1 < len(pos_args):
+            f_type = pos_args[i + 1]
+            i += 2
+        elif pos_args[i] == "--status" and i + 1 < len(pos_args):
+            f_status = pos_args[i + 1]
+            i += 2
+        elif pos_args[i] == "--strain" and i + 1 < len(pos_args):
+            f_strain = pos_args[i + 1]
+            i += 2
+        elif not pos_args[i].startswith("--"):
+            query_parts.append(pos_args[i])
+            i += 1
+        else:
+            return None, None, None, None, f"Unknown flag: {pos_args[i]}"
+    query = " ".join(query_parts) if query_parts else None
+    return query, f_type, f_status, f_strain, None
+
+
+def transform_exp_find(store, args, clock):
+    """Pure transform: search experiments.
+
+    args: {"pos_args": list}
+    Uses case-insensitive matching (replicating SQLite LIKE behavior for ASCII).
+    """
+    pos_args = args["pos_args"]
+    query, f_type, f_status, f_strain, err = _parse_find_args(pos_args)
+    if err:
+        return effects_fail(err)
+    if f_type and f_type not in VALID_TYPES:
+        return effects_fail([
+            f"Unknown type: '{f_type}'",
+            f"Valid types: {', '.join(VALID_TYPES)}",
+        ])
+    # filter experiments
+    results = []
+    # build strain set for filtering
+    strain_exp_ids = None
+    if f_strain:
+        strain_exp_ids = set()
+        for es in store["experiment_strains"]:
+            if es["strain_id"] == f_strain:
+                strain_exp_ids.add(es["experiment_id"])
+    for e in store["experiments"]:
+        if f_type and e["type"] != f_type:
+            continue
+        if f_status and e["status"] != f_status:
+            continue
+        if strain_exp_ids is not None and e["id"] not in strain_exp_ids:
+            continue
+        if query:
+            q_lower = query.lower()
+            fields_to_search = [
+                (e.get("id") or "").lower(),
+                (e.get("shortname") or "").lower(),
+                (e.get("title") or "").lower(),
+                (e.get("notes") or "").lower(),
+            ]
+            if not any(q_lower in f for f in fields_to_search):
+                continue
+        results.append(e)
+    if not results:
+        lines = []
+        if f_strain and not lookup_strain(store, f_strain):
+            return effects_fail(f"Strain '{f_strain}' not found in database.")
+        lines.append("No experiments found.")
+        return effects_ok(stdout=lines)
+    # sort: date_started desc, id desc
+    results.sort(key=lambda e: (e["date_started"], e["id"]), reverse=True)
+    lines = []
+    lines.append(f"{'ID':<10} {'Type':<14} {'Name':<24} {'Status':<10} {'Started'}")
+    lines.append("-" * 72)
+    for e in results:
+        display_name = e["title"] if e["title"] != e["shortname"] else e["shortname"]
+        lines.append(
+            f"{e['id']:<10} {e['type']:<14} {display_name:<24} {e['status']:<10} {e['date_started']}"
+        )
+    lines.append("")
+    lines.append(f"{len(results)} experiment{'s' if len(results) != 1 else ''}")
+    return effects_ok(stdout=lines)
+
+
+def _parse_list_args(pos_args):
+    """Parse exp list arguments. Returns (f_type, error_string)."""
+    f_type = None
+    i = 0
+    while i < len(pos_args):
+        if pos_args[i] == "--type" and i + 1 < len(pos_args):
+            f_type = pos_args[i + 1]
+            i += 2
+        else:
+            return None, f"Unknown argument: {pos_args[i]}"
+    return f_type, None
+
+
+def transform_exp_list(store, args, clock):
+    """Pure transform: list experiments grouped by type.
+
+    args: {"pos_args": list}
+    """
+    pos_args = args["pos_args"]
+    f_type, err = _parse_list_args(pos_args)
+    if err:
+        return effects_fail(err)
+    if f_type and f_type not in VALID_TYPES:
+        return effects_fail([
+            f"Unknown type: '{f_type}'",
+            f"Valid types: {', '.join(VALID_TYPES)}",
+        ])
+    experiments = store["experiments"]
+    if f_type:
+        experiments = [e for e in experiments if e["type"] == f_type]
+    if not experiments:
+        if f_type:
+            return effects_ok(stdout=[f"No {f_type} experiments found."])
+        else:
+            return effects_ok(stdout=["No experiments registered."])
+    # sort: date_started desc, id desc
+    experiments = sorted(experiments, key=lambda e: (e["date_started"], e["id"]), reverse=True)
+    # group by type
+    groups = {}
+    for e in experiments:
+        display_name = e["title"] if e["title"] != e["shortname"] else e["shortname"]
+        groups.setdefault(e["type"], []).append((e["id"], display_name, e["status"], e["date_started"]))
+    type_order = [t for t in VALID_TYPES if t in groups]
+    lines = []
+    total = 0
+    type_counts = []
+    for etype in type_order:
+        exps = groups[etype]
+        lines.append(f"{etype} ({len(exps)})")
+        for eid, sname, estatus, started in exps:
+            detail = ""
+            if etype == "purification":
+                pur = [r for r in store["purification_details"] if r["experiment_id"] == eid]
+                if pur and pur[0].get("protein"):
+                    detail = pur[0]["protein"]
+                    if pur[0].get("yield_mg") is not None:
+                        detail += f" / {pur[0]['yield_mg']} mg"
+                else:
+                    detail = "-"
+            elif etype in ("loading", "gelshift", "atpase"):
+                s_count = sum(1 for s in store["samples"] if s["experiment_id"] == eid)
+                parts = [f"{s_count} samples"]
+                assay = [r for r in store["assay_details"] if r["experiment_id"] == eid]
+                if assay and assay[0].get("protein_prep"):
+                    prep_id = assay[0]["protein_prep"]
+                    pur = [r for r in store["purification_details"] if r["experiment_id"] == prep_id]
+                    protein = pur[0]["protein"] if pur else None
+                    if protein:
+                        parts.append(f"prep={prep_id} ({protein})")
+                    else:
+                        parts.append(f"prep={prep_id}")
+                detail = "  ".join(parts)
+            if detail:
+                lines.append(f"    {eid:<10} {sname:<20} {estatus:<10} {started}  {detail}")
+            else:
+                lines.append(f"    {eid:<10} {sname:<20} {estatus:<10} {started}")
+        total += len(exps)
+        type_counts.append(f"{etype}: {len(exps)}")
+        lines.append("")
+    if f_type:
+        lines.append(f"{total} experiment{'s' if total != 1 else ''}")
+    else:
+        lines.append(
+            f"{total} experiment{'s' if total != 1 else ''} "
+            f"({', '.join(type_counts)})"
+        )
+    return effects_ok(stdout=lines)
+
+
+def format_size(size):
+    """Pure: format a byte count as a human-readable string."""
+    if size > 1024 * 1024:
+        return f"{size / (1024 * 1024):.1f} MB"
+    elif size > 1024:
+        return f"{size / 1024:.1f} KB"
+    else:
+        return f"{size} B"
+
+
+def prepare_stage_list_io(staging_dir):
+    """IMPURE (labeled): read filesystem state for stage list.
+
+    Returns a list of {"name": str, "size": int} dicts, or None if dir missing.
+    """
+    if not os.path.exists(staging_dir):
+        return None
+    files = [f for f in os.listdir(staging_dir) if not f.startswith(".")]
+    return [
+        {"name": f, "size": os.path.getsize(os.path.join(staging_dir, f))}
+        for f in sorted(files)
+    ]
+
+
+def transform_stage_list(store, args, clock):
+    """Pure transform: display staging files and pending expectations.
+
+    args: {"file_list": list[dict] | None}
+    file_list is the output of prepare_stage_list_io (None = dir missing).
+    """
+    file_list = args["file_list"]
+    if file_list is None:
+        return effects_fail("Staging directory does not exist.")
+    lines = []
+    if not file_list:
+        lines.append("Staging is empty.")
+    else:
+        lines.append(f"Staging ({len(file_list)} files):")
+        lines.append("")
+        for f in file_list:
+            fname = f["name"]
+            size_str = format_size(f["size"])
+            parsed_eid, parsed_slot = parse_staging_name(fname)
+            if parsed_eid:
+                slot_str = f" s{parsed_slot}" if parsed_slot else ""
+                match_str = f"  -> {parsed_eid}{slot_str}"
+            else:
+                match_str = ""
+            lines.append(f"  {fname:<40} {size_str:>10}{match_str}")
+    # pending expectations from store
+    pending_rows = sorted(
+        [r for r in store["stage_expectations"] if r["status"] == "pending"],
+        key=lambda r: (r["experiment_id"], r["slot"]),
+    )
+    if pending_rows:
+        staging_matches = set()
+        for f in (file_list or []):
+            parsed_eid, parsed_slot = parse_staging_name(f["name"])
+            if parsed_eid is not None and parsed_slot is not None:
+                staging_matches.add((parsed_eid, parsed_slot))
+        lines.append("")
+        lines.append("Pending expectations:")
+        n_matched = 0
+        for r in pending_rows:
+            eid, slot, desc = r["experiment_id"], r["slot"], r["descriptor"]
+            if (eid, slot) in staging_matches:
+                lines.append(f"  {eid} s{slot}  {desc:<20} (matched)")
+                n_matched += 1
+            else:
+                lines.append(f"  {eid} s{slot}  {desc:<20} (no file)")
+        lines.append(f"{len(pending_rows)} pending, {n_matched} matched")
+    return effects_ok(stdout=lines)
+
+
+def prepare_status_io(staging_dir, lab_notes_path):
+    """IMPURE (labeled): read filesystem state for status command.
+
+    Returns {"staging_files": list[str], "staging_total_size": int,
+             "lab_notes_date": str | None}.
+    """
+    staging_files = []
+    staging_total_size = 0
+    if os.path.exists(staging_dir):
+        staging_files = [f for f in os.listdir(staging_dir) if not f.startswith(".")]
+        staging_total_size = sum(
+            os.path.getsize(os.path.join(staging_dir, f)) for f in staging_files
+        )
+    lab_notes_date = None
+    if os.path.exists(lab_notes_path):
+        mtime = os.path.getmtime(lab_notes_path)
+        lab_notes_date = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
+    return {
+        "staging_files": staging_files,
+        "staging_total_size": staging_total_size,
+        "lab_notes_date": lab_notes_date,
+    }
+
+
+def transform_status(store, args, clock):
+    """Pure transform: display system dashboard.
+
+    args: {"fs": dict} where fs is the output of prepare_status_io.
+    """
+    fs = args["fs"]
+    staging_files = fs["staging_files"]
+    staging_total_size = fs["staging_total_size"]
+    lab_notes_date = fs["lab_notes_date"]
+    lines = []
+    # --- experiments ---
+    all_exps = store["experiments"]
+    n_total_exp = len(all_exps)
+    active_exps = [e for e in all_exps if e["status"] == "active"]
+    n_active = len(active_exps)
+    n_complete = sum(1 for e in all_exps if e["status"] == "complete")
+    lines.append("Experiments:")
+    lines.append(f"  {n_total_exp} total ({n_active} active, {n_complete} complete)")
+    if n_active > 0:
+        active_sorted = sorted(active_exps, key=lambda e: e["date_started"], reverse=True)
+        lines.append("")
+        for e in active_sorted[:10]:
+            days = (clock["today"] - datetime.date.fromisoformat(e["date_started"])).days
+            lines.append(f"    {e['id']:<10} {e['type']:<14} {e['shortname']:<20} ({days}d)")
+        if n_active > 10:
+            lines.append(f"    ... and {n_active - 10} more")
+    # --- staging ---
+    lines.append("")
+    lines.append("Staging:")
+    if staging_files:
+        size_str = format_size(staging_total_size)
+        lines.append(
+            f"  {len(staging_files)} file{'s' if len(staging_files) != 1 else ''}"
+            f" ({size_str})"
+        )
+    else:
+        lines.append("  clean")
+    # --- pending expectations ---
+    n_pending = sum(1 for r in store["stage_expectations"] if r["status"] == "pending")
+    if n_pending > 0:
+        lines.append(f"  {n_pending} pending expectation{'s' if n_pending != 1 else ''}")
+    # --- strains ---
+    lines.append("")
+    n_strains = len(store["strains"])
+    n_no_label = sum(1 for s in store["strains"] if s["label"] is None)
+    lines.append("Strains:")
+    strain_msg = f"  {n_strains} registered"
+    if n_no_label > 0:
+        strain_msg += f", {n_no_label} missing label{'s' if n_no_label != 1 else ''}"
+    lines.append(strain_msg)
+    # --- samples ---
+    lines.append("")
+    n_samples = len(store["samples"])
+    lines.append("Samples:")
+    lines.append(f"  {n_samples} total")
+    # --- recent activity ---
+    lines.append("")
+    lines.append("Recent activity:")
+    dates_started = [e["date_started"] for e in all_exps if e["date_started"]]
+    dates_completed = [e["date_completed"] for e in all_exps if e["date_completed"]]
+    last_started = max(dates_started) if dates_started else None
+    last_completed = max(dates_completed) if dates_completed else None
+    if last_started:
+        lines.append(f"  Last experiment created: {last_started}")
+    if last_completed:
+        lines.append(f"  Last experiment completed: {last_completed}")
+    if lab_notes_date:
+        lines.append(f"  Lab notes last modified: {lab_notes_date}")
+    if not last_started and not last_completed:
+        lines.append("  No experiments yet.")
+    # --- attention needed ---
+    warnings = []
+    if n_no_label > 0:
+        warnings.append(f"{n_no_label} strain{'s' if n_no_label != 1 else ''} without labels")
+    if staging_files:
+        warnings.append(
+            f"{len(staging_files)} file{'s' if len(staging_files) != 1 else ''} in staging"
+        )
+    if n_pending > 0:
+        warnings.append(f"{n_pending} pending expectation{'s' if n_pending != 1 else ''}")
+    n_no_strains = sum(
+        1 for e in all_exps
+        if e["status"] == "active"
+        and not any(es["experiment_id"] == e["id"] for es in store["experiment_strains"])
+    )
+    if n_no_strains > 0:
+        warnings.append(
+            f"{n_no_strains} active experiment"
+            f"{'s' if n_no_strains != 1 else ''}"
+            " with no strains linked"
+        )
+    n_no_notes = sum(
+        1 for e in all_exps
+        if e["status"] == "active" and e["notes"] is None
+    )
+    if n_no_notes > 0:
+        warnings.append(
+            f"{n_no_notes} active experiment"
+            f"{'s' if n_no_notes != 1 else ''}"
+            " with no notes"
+        )
+    if warnings:
+        lines.append("")
+        lines.append("Attention needed:")
+        for w in warnings:
+            lines.append(f"  - {w}")
+    return effects_ok(stdout=lines)
+
+
 # --- Transform dispatch registry ---
 # Maps (command, subcommand) -> transform function.
 # main() checks this before falling through to the legacy if/elif chain.
@@ -853,8 +1327,14 @@ TRANSFORM_DISPATCH = {
     ("exp", "update"): transform_exp_update,
     ("exp", "link"): transform_exp_link,
     ("exp", "addstrain"): transform_exp_addstrain,
+    ("exp", "find"): transform_exp_find,
+    ("exp", "list"): transform_exp_list,
     ("strain", "add"): transform_strain_add,
     ("strain", "update"): transform_strain_update,
+    ("strain", "show"): transform_strain_show,
+    ("strain", "list"): transform_strain_list,
+    ("stage", "list"): transform_stage_list,
+    ("status", None): transform_status,
 }
 
 def bail(code=1):
@@ -1225,6 +1705,35 @@ def main(argv=None):
                 "value": " ".join(pos_args[2:]),
             }
 
+        # --- strain show <id> ---
+        elif _transform_key == ("strain", "show"):
+            if len(pos_args) != 1:
+                print("Usage: python lw.py strain show <id>")
+                bail()
+            _targs = {"strain_id": pos_args[0]}
+
+        # --- strain list [--no-label] ---
+        elif _transform_key == ("strain", "list"):
+            _targs = {"no_label_only": "--no-label" in pos_args}
+
+        # --- exp find [query] [--type T] [--status S] [--strain S] ---
+        elif _transform_key == ("exp", "find"):
+            _targs = {"pos_args": pos_args}
+
+        # --- exp list [--type T] ---
+        elif _transform_key == ("exp", "list"):
+            _targs = {"pos_args": pos_args}
+
+        # --- stage list (T7 sandwich: IO then pure) ---
+        elif _transform_key == ("stage", "list"):
+            _file_list = prepare_stage_list_io(STAGING_DIR)
+            _targs = {"file_list": _file_list}
+
+        # --- status (T7 sandwich: IO then pure) ---
+        elif _transform_key == ("status", None):
+            _fs = prepare_status_io(STAGING_DIR, LAB_NOTES)
+            _targs = {"fs": _fs}
+
         # --- fallback (should not reach for registered transforms) ---
         else:
             _targs = {"pos_args": pos_args}
@@ -1557,176 +2066,9 @@ def main(argv=None):
             print()
             print(f"Deleted: {exp_id}")
 
-        # --- lw exp find [query] [--type T] [--status S] [--strain S] ---
-        elif subcommand == "find":
-            # parse flags and free-text query
-            query_parts = []
-            f_type = None
-            f_status = None
-            f_strain = None
-            i = 0
-            while i < len(pos_args):
-                if pos_args[i] == "--type" and i + 1 < len(pos_args):
-                    f_type = pos_args[i + 1]
-                    i += 2
-                elif pos_args[i] == "--status" and i + 1 < len(pos_args):
-                    f_status = pos_args[i + 1]
-                    i += 2
-                elif pos_args[i] == "--strain" and i + 1 < len(pos_args):
-                    f_strain = pos_args[i + 1]
-                    i += 2
-                elif not pos_args[i].startswith("--"):
-                    query_parts.append(pos_args[i])
-                    i += 1
-                else:
-                    print(f"Unknown flag: {pos_args[i]}")
-                    bail()
-            query = " ".join(query_parts) if query_parts else None
-            # validate type if given
-            if f_type and f_type not in VALID_TYPES:
-                print(f"Unknown type: '{f_type}'")
-                print(f"Valid types: {', '.join(VALID_TYPES)}")
-                bail()
-            # build query
-            sql = "SELECT DISTINCT e.id, e.type, e.shortname, e.title, e.status, e.date_started FROM experiments e"
-            conditions = []
-            params = []
-            if f_strain:
-                sql += " JOIN experiment_strains es ON e.id = es.experiment_id"
-                conditions.append("es.strain_id = ?")
-                params.append(f_strain)
-            if query:
-                like = f"%{query}%"
-                conditions.append(
-                    "(e.id LIKE ? OR e.shortname LIKE ? OR e.title LIKE ? OR e.notes LIKE ?)"
-                )
-                params.extend([like, like, like, like])
-            if f_type:
-                conditions.append("e.type = ?")
-                params.append(f_type)
-            if f_status:
-                conditions.append("e.status = ?")
-                params.append(f_status)
-            if conditions:
-                sql += " WHERE " + " AND ".join(conditions)
-            sql += " ORDER BY e.date_started DESC, e.id DESC"
-            cursor.execute(sql, params)
-            rows = cursor.fetchall()
-            if not rows:
-                if f_strain:
-                    cursor.execute("SELECT id FROM strains WHERE id = ?", (f_strain,))
-                    if not cursor.fetchone():
-                        print(f"Strain '{f_strain}' not found in database.")
-                        bail()
-                print("No experiments found.")
-                return 0
-            # display
-            print(f"{'ID':<10} {'Type':<14} {'Name':<24} {'Status':<10} {'Started'}")
-            print("-" * 72)
-            for eid, etype, sname, title, status, started in rows:
-                display_name = title if title != sname else sname
-                print(f"{eid:<10} {etype:<14} {display_name:<24} {status:<10} {started}")
-            print()
-            print(f"{len(rows)} experiment{'s' if len(rows) != 1 else ''}")
+        # --- lw exp find: handled by transform_exp_find ---
 
-        # --- lw exp list [--type T] ---
-        elif subcommand == "list":
-            f_type = None
-            i = 0
-            while i < len(pos_args):
-                if pos_args[i] == "--type" and i + 1 < len(pos_args):
-                    f_type = pos_args[i + 1]
-                    i += 2
-                else:
-                    print(f"Unknown argument: {pos_args[i]}")
-                    bail()
-            if f_type and f_type not in VALID_TYPES:
-                print(f"Unknown type: '{f_type}'")
-                print(f"Valid types: {', '.join(VALID_TYPES)}")
-                bail()
-            if f_type:
-                cursor.execute(
-                    "SELECT id, type, shortname, title, status, date_started "
-                    "FROM experiments WHERE type = ? ORDER BY date_started DESC, id DESC",
-                    (f_type,),
-                )
-            else:
-                cursor.execute(
-                    "SELECT id, type, shortname, title, status, date_started "
-                    "FROM experiments ORDER BY date_started DESC, id DESC"
-                )
-            rows = cursor.fetchall()
-            if not rows:
-                if f_type:
-                    print(f"No {f_type} experiments found.")
-                else:
-                    print("No experiments registered.")
-                return 0
-            groups = {}
-            for eid, etype, sname, etitle, estatus, started in rows:
-                display_name = etitle if etitle != sname else sname
-                groups.setdefault(etype, []).append((eid, display_name, estatus, started))
-            type_order = [t for t in VALID_TYPES if t in groups]
-            total = 0
-            type_counts = []
-            for etype in type_order:
-                exps = groups[etype]
-                print(f"{etype} ({len(exps)})")
-                for eid, sname, estatus, started in exps:
-                    detail = ""
-                    if etype == "purification":
-                        cursor.execute(
-                            "SELECT protein, yield_mg FROM purification_details "
-                            "WHERE experiment_id = ?",
-                            (eid,),
-                        )
-                        prow = cursor.fetchone()
-                        if prow and prow[0]:
-                            detail = prow[0]
-                            if prow[1] is not None:
-                                detail += f" / {prow[1]} mg"
-                        else:
-                            detail = "-"
-                    elif etype in ("loading", "gelshift", "atpase"):
-                        cursor.execute(
-                            "SELECT COUNT(*) FROM samples WHERE experiment_id = ?",
-                            (eid,),
-                        )
-                        s_count = cursor.fetchone()[0]
-                        cursor.execute(
-                            "SELECT a.protein_prep, p.protein "
-                            "FROM assay_details a "
-                            "LEFT JOIN purification_details p "
-                            "ON a.protein_prep = p.experiment_id "
-                            "WHERE a.experiment_id = ?",
-                            (eid,),
-                        )
-                        arow = cursor.fetchone()
-                        parts = [f"{s_count} samples"]
-                        if arow and arow[0]:
-                            prep_id = arow[0]
-                            protein = arow[1]
-                            if protein:
-                                parts.append(f"prep={prep_id} ({protein})")
-                            else:
-                                parts.append(f"prep={prep_id}")
-                        detail = "  ".join(parts)
-                    if detail:
-                        print(
-                            f"    {eid:<10} {sname:<20} {estatus:<10} {started}  {detail}"
-                        )
-                    else:
-                        print(f"    {eid:<10} {sname:<20} {estatus:<10} {started}")
-                total += len(exps)
-                type_counts.append(f"{etype}: {len(exps)}")
-                print()
-            if f_type:
-                print(f"{total} experiment{'s' if total != 1 else ''}")
-            else:
-                print(
-                    f"{total} experiment{'s' if total != 1 else ''} "
-                    f"({', '.join(type_counts)})"
-                )
+        # --- lw exp list: handled by transform_exp_list ---
 
         # --- lw exp manifest <id> [--force] ---
         elif subcommand == "manifest":
@@ -1998,83 +2340,9 @@ def main(argv=None):
 
         # --- lw strain add: handled by transform_strain_add ---
 
-        # --- lw strain show <id> ---
-        if subcommand == "show":
-            if len(pos_args) != 1:
-                print("Usage: python lw.py strain show <id>")
-                bail()
-            strain_id = pos_args[0]
-            cursor.execute("SELECT * FROM strains WHERE id = ?", (strain_id,))
-            row = cursor.fetchone()
-            if not row:
-                print(f"No strain found with ID {strain_id}")
-                bail()
-            col_names = [d[0] for d in cursor.description]
-            strain = dict(zip(col_names, row))
-            fields = [
-                ("ID", strain["id"]),
-                ("Genotype", strain["genotype"]),
-                ("Label", strain["label"]),
-                ("Parent", strain["parent"]),
-                ("Construction", strain["construction"]),
-                ("Marker", strain["selection_marker"]),
-                ("Verification", strain["verification"]),
-                ("Storage", strain["storage_location"]),
-                ("Notes", strain["notes"]),
-            ]
-            label_width = max(len(f[0]) for f in fields)
-            for label, val in fields:
-                print(f"  {label + ':':<{label_width + 2}} {val if val else '-'}")
-            # experiments using this strain
-            cursor.execute(
-                "SELECT e.id, e.type, e.shortname, es.role FROM experiment_strains es JOIN experiments e ON es.experiment_id = e.id WHERE es.strain_id = ?",
-                (strain_id,),
-            )
-            exps = cursor.fetchall()
-            if exps:
-                print()
-                print("  Experiments:")
-                for eid, etype, sname, role in exps:
-                    role_str = f" ({role})" if role else ""
-                    print(f"    {eid}  {etype:<14} {sname}{role_str}")
+        # --- lw strain show: handled by transform_strain_show ---
 
-        # --- lw strain list ---
-        elif subcommand == "list":
-            no_label_only = "--no-label" in pos_args
-            sql = (
-                "SELECT s.id, s.label, s.genotype, COUNT(es.experiment_id) "
-                "FROM strains s LEFT JOIN experiment_strains es ON s.id = es.strain_id "
-            )
-            if no_label_only:
-                sql += "WHERE s.label IS NULL "
-            sql += "GROUP BY s.id ORDER BY s.id"
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            if not rows:
-                if no_label_only:
-                    print("All strains have labels.")
-                else:
-                    print("No strains registered.")
-                return 0
-            print(f"  {'ID':<12} {'Label':<16} {'Genotype':<43} {'Exps':>4}")
-            print("  " + "-" * 77)
-            n_missing = 0
-            for sid, label, genotype, exp_count in rows:
-                if label:
-                    lbl_str = label
-                else:
-                    lbl_str = "*NO LABEL*"
-                    n_missing += 1
-                geno_str = (genotype[:40] + "...") if len(genotype) > 40 else genotype
-                print(f"  {sid:<12} {lbl_str:<16} {geno_str:<43} {exp_count:>4}")
-            print()
-            if no_label_only:
-                print(f"  {len(rows)} strain{'s' if len(rows) != 1 else ''} without labels")
-            else:
-                msg = f"  {len(rows)} strain{'s' if len(rows) != 1 else ''}"
-                if n_missing > 0:
-                    msg += f", {n_missing} missing label{'s' if n_missing != 1 else ''}"
-                print(msg)
+        # --- lw strain list: handled by transform_strain_list ---
 
         else:
             print(f"Unknown subcommand: strain {subcommand}")
@@ -2093,59 +2361,10 @@ def main(argv=None):
             print("  auto [--confirm]              Auto-assign from expectations")
             return 0
 
-        # --- lw stage list ---
-        if subcommand == "list":
-            if not os.path.exists(STAGING_DIR):
-                print("Staging directory does not exist.")
-                bail()
-            files = [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
-            if not files:
-                print("Staging is empty.")
-            else:
-                print(f"Staging ({len(files)} files):")
-                print()
-                for fname in sorted(files):
-                    size = os.path.getsize(os.path.join(STAGING_DIR, fname))
-                    if size > 1024 * 1024:
-                        size_str = f"{size / (1024 * 1024):.1f} MB"
-                    elif size > 1024:
-                        size_str = f"{size / 1024:.1f} KB"
-                    else:
-                        size_str = f"{size} B"
-                    parsed_eid, parsed_slot = parse_staging_name(fname)
-                    if parsed_eid:
-                        slot_str = f" s{parsed_slot}" if parsed_slot else ""
-                        match_str = f"  -> {parsed_eid}{slot_str}"
-                    else:
-                        match_str = ""
-                    print(f"  {fname:<40} {size_str:>10}{match_str}")
-            # pending expectations section
-            cursor.execute(
-                "SELECT experiment_id, slot, descriptor "
-                "FROM stage_expectations WHERE status = 'pending' "
-                "ORDER BY experiment_id, slot"
-            )
-            pending_rows = cursor.fetchall()
-            if pending_rows:
-                # check which expectations have matching files in staging
-                staging_matches = set()
-                for fname in files:
-                    parsed_eid, parsed_slot = parse_staging_name(fname)
-                    if parsed_eid is not None and parsed_slot is not None:
-                        staging_matches.add((parsed_eid, parsed_slot))
-                print()
-                print("Pending expectations:")
-                n_matched = 0
-                for eid, slot, desc in pending_rows:
-                    if (eid, slot) in staging_matches:
-                        print(f"  {eid} s{slot}  {desc:<20} (matched)")
-                        n_matched += 1
-                    else:
-                        print(f"  {eid} s{slot}  {desc:<20} (no file)")
-                print(f"{len(pending_rows)} pending, {n_matched} matched")
+        # --- lw stage list: handled by transform_stage_list ---
 
         # --- lw stage assign <filename> <exp_id> <descriptor> ---
-        elif subcommand == "assign":
+        if subcommand == "assign":
             if len(pos_args) < 3:
                 print("Usage: python lw.py stage assign <filename> <exp_id> <descriptor>")
                 print("  Example: python lw.py stage assign Image_001.tiff LM-0001 gel-01")
@@ -2619,135 +2838,7 @@ def main(argv=None):
             print("Run 'python lw.py stage' for usage.")
             bail()
 
-    # --- lw status ---
-    elif command == "status":
-        # --- experiments ---
-        cursor.execute("SELECT COUNT(*) FROM experiments")
-        n_total_exp = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM experiments WHERE status = 'active'")
-        n_active = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM experiments WHERE status = 'complete'")
-        n_complete = cursor.fetchone()[0]
-        print("Experiments:")
-        print(f"  {n_total_exp} total ({n_active} active, {n_complete} complete)")
-        if n_active > 0:
-            cursor.execute(
-                "SELECT id, type, shortname, date_started FROM experiments "
-                "WHERE status = 'active' ORDER BY date_started DESC LIMIT 11"
-            )
-            active_rows = cursor.fetchall()
-            today = datetime.date.today()
-            print()
-            for eid, etype, sname, started in active_rows[:10]:
-                days = (today - datetime.date.fromisoformat(started)).days
-                print(f"    {eid:<10} {etype:<14} {sname:<20} ({days}d)")
-            if len(active_rows) > 10:
-                print(f"    ... and {n_active - 10} more")
-        # --- staging ---
-        print()
-        print("Staging:")
-        staging_files = (
-            [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
-            if os.path.exists(STAGING_DIR)
-            else []
-        )
-        if staging_files:
-            total_size = sum(
-                os.path.getsize(os.path.join(STAGING_DIR, f)) for f in staging_files
-            )
-            if total_size > 1024 * 1024:
-                size_str = f"{total_size / (1024 * 1024):.1f} MB"
-            elif total_size > 1024:
-                size_str = f"{total_size / 1024:.1f} KB"
-            else:
-                size_str = f"{total_size} B"
-            print(
-                f"  {len(staging_files)} file{'s' if len(staging_files) != 1 else ''}"
-                f" ({size_str})"
-            )
-        else:
-            print("  clean")
-        # --- pending expectations ---
-        cursor.execute("SELECT COUNT(*) FROM stage_expectations WHERE status = 'pending'")
-        n_pending = cursor.fetchone()[0]
-        if n_pending > 0:
-            print(f"  {n_pending} pending expectation{'s' if n_pending != 1 else ''}")
-        # --- strains ---
-        print()
-        cursor.execute("SELECT COUNT(*) FROM strains")
-        n_strains = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM strains WHERE label IS NULL")
-        n_no_label = cursor.fetchone()[0]
-        print("Strains:")
-        strain_msg = f"  {n_strains} registered"
-        if n_no_label > 0:
-            strain_msg += f", {n_no_label} missing label{'s' if n_no_label != 1 else ''}"
-        print(strain_msg)
-        # --- samples ---
-        print()
-        cursor.execute("SELECT COUNT(*) FROM samples")
-        n_samples = cursor.fetchone()[0]
-        print("Samples:")
-        print(f"  {n_samples} total")
-        # --- recent activity ---
-        print()
-        print("Recent activity:")
-        cursor.execute("SELECT MAX(date_started) FROM experiments")
-        last_started = cursor.fetchone()[0]
-        cursor.execute("SELECT MAX(date_completed) FROM experiments")
-        last_completed = cursor.fetchone()[0]
-        if last_started:
-            print(f"  Last experiment created: {last_started}")
-        if last_completed:
-            print(f"  Last experiment completed: {last_completed}")
-        if os.path.exists(LAB_NOTES):
-            mtime = os.path.getmtime(LAB_NOTES)
-            notes_date = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
-            print(f"  Lab notes last modified: {notes_date}")
-        if not last_started and not last_completed:
-            print("  No experiments yet.")
-        # --- attention needed ---
-        warnings = []
-        if n_no_label > 0:
-            warnings.append(
-                f"{n_no_label} strain{'s' if n_no_label != 1 else ''} without labels"
-            )
-        if staging_files:
-            warnings.append(
-                f"{len(staging_files)} file{'s' if len(staging_files) != 1 else ''}"
-                " in staging"
-            )
-        if n_pending > 0:
-            warnings.append(
-                f"{n_pending} pending expectation{'s' if n_pending != 1 else ''}"
-            )
-        cursor.execute(
-            "SELECT COUNT(*) FROM experiments e WHERE e.status = 'active' "
-            "AND NOT EXISTS "
-            "(SELECT 1 FROM experiment_strains es WHERE es.experiment_id = e.id)"
-        )
-        n_no_strains = cursor.fetchone()[0]
-        if n_no_strains > 0:
-            warnings.append(
-                f"{n_no_strains} active experiment"
-                f"{'s' if n_no_strains != 1 else ''}"
-                " with no strains linked"
-            )
-        cursor.execute(
-            "SELECT COUNT(*) FROM experiments WHERE status = 'active' AND notes IS NULL"
-        )
-        n_no_notes = cursor.fetchone()[0]
-        if n_no_notes > 0:
-            warnings.append(
-                f"{n_no_notes} active experiment"
-                f"{'s' if n_no_notes != 1 else ''}"
-                " with no notes"
-            )
-        if warnings:
-            print()
-            print("Attention needed:")
-            for w in warnings:
-                print(f"  - {w}")
+    # --- lw status: handled by transform_status ---
 
     # --- unknown command ---
     else:
