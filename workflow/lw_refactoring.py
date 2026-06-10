@@ -5,6 +5,7 @@
 import sqlite3
 import sys
 import os
+import copy
 import datetime
 import shutil
 import itertools
@@ -1318,7 +1319,800 @@ def transform_status(store, args, clock):
     return effects_ok(stdout=lines)
 
 
-# --- Transform dispatch registry ---
+# --- Phase 3C: Complex/IO transforms ---
+
+
+def transform_expect_list(store, args, clock):
+    """Pure transform: list stage expectations.
+
+    args: {"filter_exp_id": str | None}
+    """
+    filter_exp_id = args.get("filter_exp_id")
+    if filter_exp_id:
+        exp = lookup_experiment(store, filter_exp_id)
+        if not exp:
+            return effects_fail(f"No experiment found with ID {filter_exp_id}")
+    expectations = store["stage_expectations"]
+    if filter_exp_id:
+        rows = [r for r in expectations if r["experiment_id"] == filter_exp_id]
+        rows.sort(key=lambda r: r["slot"])
+    else:
+        rows = sorted(expectations, key=lambda r: (r["experiment_id"], r["slot"]))
+    if not rows:
+        if filter_exp_id:
+            return effects_ok(stdout=[f"No expectations for {filter_exp_id}."])
+        else:
+            return effects_ok(stdout=["No expectations registered."])
+    lines = []
+    n_pending = 0
+    n_filed = 0
+    if filter_exp_id:
+        for r in rows:
+            status = r["status"]
+            slot = r["slot"]
+            desc = r["descriptor"]
+            if status == "pending":
+                created_date = (r["created_at"] or "unknown")[:10]
+                lines.append(
+                    f"  s{slot}  {desc:<20} (pending, registered {created_date})"
+                )
+                n_pending += 1
+            elif status == "filed":
+                filed_date = (r["filed_at"] or "unknown")[:10]
+                lines.append(f"  s{slot}  {desc:<20} (filed {filed_date})")
+                n_filed += 1
+            elif status == "cancelled":
+                lines.append(f"  s{slot}  {desc:<20} (cancelled)")
+    else:
+        current_eid = None
+        for r in rows:
+            eid = r["experiment_id"]
+            status = r["status"]
+            slot = r["slot"]
+            desc = r["descriptor"]
+            if eid != current_eid:
+                current_eid = eid
+                lines.append(f"{eid}:")
+            if status == "pending":
+                created_date = (r["created_at"] or "unknown")[:10]
+                lines.append(
+                    f"  s{slot}  {desc:<20} (pending, registered {created_date})"
+                )
+                n_pending += 1
+            elif status == "filed":
+                filed_date = (r["filed_at"] or "unknown")[:10]
+                lines.append(f"  s{slot}  {desc:<20} (filed {filed_date})")
+                n_filed += 1
+            elif status == "cancelled":
+                lines.append(f"  s{slot}  {desc:<20} (cancelled)")
+    lines.append(f"{n_pending} pending, {n_filed} filed")
+    return effects_ok(stdout=lines)
+
+
+def transform_expect_cancel(store, args, clock):
+    """Pure transform: cancel stage expectations.
+
+    args: {"exp_id": str, "slot": int | None}
+    If slot is None, cancels all pending for this experiment.
+    """
+    exp_id = args["exp_id"]
+    slot = args.get("slot")
+    exp = lookup_experiment(store, exp_id)
+    if not exp:
+        return effects_fail(f"No experiment found with ID {exp_id}")
+    new_store = copy.deepcopy(store)
+    lines = []
+    if slot is not None:
+        # find specific slot
+        target = None
+        for r in new_store["stage_expectations"]:
+            if r["experiment_id"] == exp_id and r["slot"] == slot:
+                target = r
+                break
+        if not target:
+            return effects_fail(f"Slot s{slot} not found for {exp_id}")
+        if target["status"] != "pending":
+            return effects_fail(f"Slot s{slot} is already {target['status']}.")
+        target["status"] = "cancelled"
+        lines.append(f"Cancelled: {exp_id} s{slot} ({target['descriptor']})")
+    else:
+        # cancel all pending
+        pending = [
+            r for r in new_store["stage_expectations"]
+            if r["experiment_id"] == exp_id and r["status"] == "pending"
+        ]
+        if not pending:
+            return effects_fail(f"No pending expectations for {exp_id}")
+        for r in pending:
+            r["status"] = "cancelled"
+        pending.sort(key=lambda r: r["slot"])
+        if len(pending) == 1:
+            s, d = pending[0]["slot"], pending[0]["descriptor"]
+            lines.append(f"Cancelled 1 pending expectation for {exp_id}:")
+            lines.append(f"  s{s}  {d}")
+        else:
+            lines.append(
+                f"Cancelled {len(pending)} pending expectations for {exp_id}:"
+            )
+            for r in pending:
+                lines.append(f"  s{r['slot']}  {r['descriptor']}")
+    return effects_ok(stdout=lines, store=new_store)
+
+
+def transform_expect_register(store, args, clock):
+    """Pure transform: register new stage expectations.
+
+    args: {"exp_id": str, "descriptors": list[str]}
+    Descriptors should already be validated and lowercased.
+    """
+    exp_id = args["exp_id"]
+    descriptors = args["descriptors"]
+    exp = lookup_experiment(store, exp_id)
+    if not exp:
+        return effects_fail(f"No experiment found with ID {exp_id}")
+    # check for duplicate descriptors within arguments
+    seen = set()
+    for desc in descriptors:
+        if desc in seen:
+            return effects_fail(f"Duplicate descriptor in arguments: '{desc}'")
+        seen.add(desc)
+    # check against existing pending expectations
+    existing_descs = {
+        r["descriptor"]
+        for r in store["stage_expectations"]
+        if r["experiment_id"] == exp_id and r["status"] == "pending"
+    }
+    for desc in descriptors:
+        if desc in existing_descs:
+            return effects_fail([
+                f"Descriptor '{desc}' already pending for {exp_id}.",
+                "Cancel it first or use a different descriptor.",
+            ])
+    # get max slot
+    exp_slots = [
+        r["slot"] for r in store["stage_expectations"]
+        if r["experiment_id"] == exp_id
+    ]
+    max_slot = max(exp_slots) if exp_slots else 0
+    new_store = copy.deepcopy(store)
+    lines = []
+    slots = []
+    created_at = clock["now"].isoformat(timespec="seconds")
+    for i, desc in enumerate(descriptors, 1):
+        slot = max_slot + i
+        new_store["stage_expectations"].append({
+            "id": None,  # AUTOINCREMENT filled by commit
+            "experiment_id": exp_id,
+            "slot": slot,
+            "descriptor": desc,
+            "status": "pending",
+            "created_at": created_at,
+            "filed_at": None,
+        })
+        slots.append((slot, desc))
+        lines.append(f"  s{slot}  {desc}")
+    # instrument names
+    if len(slots) == 1:
+        s, d = slots[0]
+        lines.append(f"  At instrument: lemr {exp_id} s{s}")
+    else:
+        lines.append("  At instrument:")
+        for s, d in slots:
+            lines.append(f"    lemr {exp_id} s{s}")
+    # count total pending
+    total_pending = sum(
+        1 for r in new_store["stage_expectations"]
+        if r["experiment_id"] == exp_id and r["status"] == "pending"
+    )
+    lines.append(f"  {total_pending} total pending for {exp_id}")
+    return effects_ok(stdout=lines, store=new_store)
+
+
+def transform_exp_delete_plan(store, args, clock):
+    """Pure transform: plan experiment deletion (dry-run or pre-confirm analysis).
+
+    args: {"exp_id": str, "confirm": bool, "keep_folder": bool,
+           "folder_exists": bool, "folder_contents": list[str]}
+    Returns effects with stdout lines describing what will/would be deleted.
+    When confirm=True, also returns store with cascaded deletions applied.
+    """
+    exp_id = args["exp_id"]
+    confirm = args.get("confirm", False)
+    keep_folder = args.get("keep_folder", False)
+    folder_exists = args.get("folder_exists", False)
+    folder_contents = args.get("folder_contents", [])
+    exp = lookup_experiment(store, exp_id)
+    if not exp:
+        return effects_fail(f"No experiment found with ID {exp_id}")
+    # gather cascade targets
+    cascade = []
+    es_rows = [
+        r for r in store["experiment_strains"] if r["experiment_id"] == exp_id
+    ]
+    if es_rows:
+        details = []
+        for r in es_rows:
+            details.append(
+                f"  {r['strain_id']}" + (f" ({r['role']})" if r.get("role") else "")
+            )
+        cascade.append(("experiment_strains", len(es_rows), details))
+    el_rows = [
+        r for r in store["experiment_links"]
+        if r["from_experiment"] == exp_id or r["to_experiment"] == exp_id
+    ]
+    if el_rows:
+        details = [
+            f"  {r['from_experiment']} -> {r['to_experiment']} ({r['relationship']})"
+            for r in el_rows
+        ]
+        cascade.append(("experiment_links", len(el_rows), details))
+    f_rows = [r for r in store["files"] if r["experiment_id"] == exp_id]
+    if f_rows:
+        details = [f"  {r['filename']}" for r in f_rows]
+        cascade.append(("files", len(f_rows), details))
+    pur_rows = [
+        r for r in store["purification_details"] if r["experiment_id"] == exp_id
+    ]
+    if pur_rows:
+        cascade.append(("purification_details", 1, []))
+    assay_rows = [
+        r for r in store["assay_details"] if r["experiment_id"] == exp_id
+    ]
+    if assay_rows:
+        cascade.append(("assay_details", 1, []))
+    fp_rows = [r for r in store["figure_panels"] if r["experiment_id"] == exp_id]
+    if fp_rows:
+        details = [f"  {r['figure']} panel {r['panel']}" for r in fp_rows]
+        cascade.append(("figure_panels", len(fp_rows), details))
+    s_rows = [r for r in store["samples"] if r["experiment_id"] == exp_id]
+    if s_rows:
+        cascade.append(("samples", len(s_rows), []))
+    se_rows = [
+        r for r in store["stage_expectations"] if r["experiment_id"] == exp_id
+    ]
+    if se_rows:
+        cascade.append(("stage_expectations", len(se_rows), []))
+    # downstream protein_prep references from other experiments
+    prep_ref_rows = [
+        r for r in store["assay_details"]
+        if r.get("protein_prep") == exp_id
+    ]
+    lines = []
+    mode = "DELETE" if confirm else "DRY RUN"
+    lines.append(
+        f"[{mode}] {exp_id}: {exp['type']} / {exp['shortname']} ({exp['status']})"
+    )
+    lines.append(
+        f"  Folder: {exp['folder_name']}/ ({'exists' if folder_exists else 'missing'}"
+        + (f", {len(folder_contents)} files" if folder_contents else "")
+        + ")"
+    )
+    if cascade:
+        lines.append("")
+        lines.append("  Related records:")
+        for table, count, details in cascade:
+            lines.append(f"    {table}: {count} row{'s' if count != 1 else ''}")
+            for d in details:
+                lines.append(f"      {d}")
+    if prep_ref_rows:
+        lines.append("")
+        lines.append("  Downstream references (protein_prep will be cleared):")
+        for r in prep_ref_rows:
+            lines.append(f"    {r['experiment_id']} assay_details.protein_prep -> {exp_id}")
+    if not confirm:
+        lines.append("")
+        lines.append(f"  This is a dry run. To delete, run:")
+        lines.append(f"    python lw.py exp delete {exp_id} --confirm")
+        if folder_exists:
+            lines.append(
+                f"    python lw.py exp delete {exp_id} --confirm --keep-folder  (keep files)"
+            )
+        return effects_ok(stdout=lines)
+    # --- actual deletion (in store) ---
+    new_store = copy.deepcopy(store)
+    # clear downstream protein_prep references
+    if prep_ref_rows:
+        for r in new_store["assay_details"]:
+            if r.get("protein_prep") == exp_id:
+                r["protein_prep"] = None
+        lines.append(
+            f"  Cleared {len(prep_ref_rows)} protein_prep"
+            f" reference{'s' if len(prep_ref_rows) != 1 else ''}"
+        )
+    # cascade deletes
+    new_store["stage_expectations"] = [
+        r for r in new_store["stage_expectations"] if r["experiment_id"] != exp_id
+    ]
+    new_store["samples"] = [
+        r for r in new_store["samples"] if r["experiment_id"] != exp_id
+    ]
+    new_store["figure_panels"] = [
+        r for r in new_store["figure_panels"] if r["experiment_id"] != exp_id
+    ]
+    new_store["files"] = [
+        r for r in new_store["files"] if r["experiment_id"] != exp_id
+    ]
+    new_store["assay_details"] = [
+        r for r in new_store["assay_details"] if r["experiment_id"] != exp_id
+    ]
+    new_store["purification_details"] = [
+        r for r in new_store["purification_details"] if r["experiment_id"] != exp_id
+    ]
+    new_store["experiment_strains"] = [
+        r for r in new_store["experiment_strains"] if r["experiment_id"] != exp_id
+    ]
+    new_store["experiment_links"] = [
+        r for r in new_store["experiment_links"]
+        if r["from_experiment"] != exp_id and r["to_experiment"] != exp_id
+    ]
+    new_store["experiments"] = [
+        r for r in new_store["experiments"] if r["id"] != exp_id
+    ]
+    total_rows = sum(c for _, c, _ in cascade) + 1
+    lines.append("")
+    lines.append(f"  Deleted {total_rows} database row{'s' if total_rows != 1 else ''}")
+    # folder handling is IO; we emit instructions for the caller
+    if folder_exists and not keep_folder:
+        lines.append(f"  Removed folder: {exp['folder_name']}/")
+    elif folder_exists and keep_folder:
+        lines.append(f"  Folder kept: {exp['folder_name']}/")
+    lines.append("")
+    lines.append(f"Deleted: {exp_id}")
+    return effects_ok(stdout=lines, store=new_store)
+
+
+def transform_stage_auto_plan(store, args, clock):
+    """Pure transform: plan stage auto-assignment.
+
+    args: {
+        "file_list": list[{"name": str, "src_path": str}] | None,
+        "confirm": bool,
+    }
+    file_list is None if staging dir missing, [] if empty.
+
+    Returns effects with stdout (dry-run or confirm report).
+    For confirm mode, the actual file moves are done by the caller after
+    inspecting the returned store's "_auto_plan" metadata.
+    """
+    file_list = args.get("file_list")
+    confirm = args.get("confirm", False)
+    if file_list is None:
+        return effects_fail("Staging directory does not exist.")
+    pending = [
+        r for r in store["stage_expectations"] if r["status"] == "pending"
+    ]
+    if not file_list:
+        if pending:
+            n_pend = len(pending)
+            return effects_ok(stdout=[
+                f"Staging is empty. {n_pend} expectation"
+                f"{'s' if n_pend != 1 else ''} still pending."
+            ])
+        else:
+            return effects_ok(stdout=["Staging is empty."])
+    if not pending:
+        lines = ["No pending expectations. Use 'stage assign' for ad hoc files."]
+        lines.append("")
+        lines.append(f"Unmatched ({len(file_list)}):")
+        for f in sorted(file_list, key=lambda f: f["name"]):
+            lines.append(f"  {f['name']}")
+        return effects_ok(stdout=lines)
+    # build lookup structures
+    pending_by_key = {}
+    pending_by_exp = {}
+    for r in pending:
+        key = (r["experiment_id"], r["slot"])
+        pending_by_key[key] = r["descriptor"]
+        pending_by_exp.setdefault(r["experiment_id"], []).append(
+            (r["slot"], r["descriptor"])
+        )
+    # match each file
+    matched_groups = {}
+    unmatched = []
+    skipped = []
+    inferred_files = set()
+    for f in sorted(file_list, key=lambda f: f["name"]):
+        fname = f["name"]
+        parsed_eid, parsed_slot = parse_staging_name(fname)
+        if parsed_eid is not None and parsed_slot is not None:
+            key = (parsed_eid, parsed_slot)
+            if key in pending_by_key:
+                if key not in matched_groups:
+                    matched_groups[key] = {
+                        "descriptor": pending_by_key[key],
+                        "files": [],
+                    }
+                matched_groups[key]["files"].append(fname)
+            else:
+                unmatched.append(fname)
+        elif parsed_eid is not None:
+            exp_pending = pending_by_exp.get(parsed_eid, [])
+            if len(exp_pending) == 1:
+                s, d = exp_pending[0]
+                key = (parsed_eid, s)
+                if key not in matched_groups:
+                    matched_groups[key] = {"descriptor": d, "files": []}
+                matched_groups[key]["files"].append(fname)
+                inferred_files.add(fname)
+            elif len(exp_pending) > 1:
+                skipped.append((
+                    fname,
+                    f"{parsed_eid} found but slot ambiguous "
+                    f"({len(exp_pending)} pending). "
+                    f"Use 'stage assign' or rename with slot number.",
+                ))
+            else:
+                unmatched.append(fname)
+        else:
+            unmatched.append(fname)
+    # resolve folder names for matched experiments
+    folder_cache = {}
+    valid_groups = {}
+    for key, group in matched_groups.items():
+        exp_id = key[0]
+        if exp_id not in folder_cache:
+            exp = lookup_experiment(store, exp_id)
+            if not exp:
+                for fname in group["files"]:
+                    skipped.append(
+                        (fname, f"Experiment {exp_id} not found in database.")
+                    )
+                continue
+            folder_cache[exp_id] = exp["folder_name"]
+        group["folder_name"] = folder_cache[exp_id]
+        valid_groups[key] = group
+    matched_groups = valid_groups
+    # build plan: compute destination names
+    today_compact = clock["today"].strftime("%Y%m%d")
+    matched_files = []
+    for key, group in matched_groups.items():
+        exp_id, slot = key
+        desc = group["descriptor"]
+        folder_name = group["folder_name"]
+        for fname in group["files"]:
+            ext = os.path.splitext(fname)[1].lower()
+            dest_name = f"{today_compact}_{exp_id}_{desc}{ext}"
+            rel_path = os.path.join("experiments", folder_name, dest_name)
+            matched_files.append({
+                "fname": fname,
+                "exp_id": exp_id,
+                "slot": slot,
+                "descriptor": desc,
+                "folder_name": folder_name,
+                "dest_name": dest_name,
+                "rel_path": rel_path,
+                "inferred": fname in inferred_files,
+            })
+    lines = []
+    if not confirm:
+        # --- dry run ---
+        lines.append("[DRY RUN]")
+        if matched_files:
+            lines.append(f"Matched ({len(matched_files)}):")
+            for mf in matched_files:
+                tag = " (slot inferred)" if mf["inferred"] else ""
+                lines.append(f"  {mf['fname']}{tag}")
+                lines.append(f"     -> {mf['rel_path']}")
+        if skipped:
+            lines.append(f"Skipped ({len(skipped)}):")
+            for fname, reason in skipped:
+                lines.append(f"  {fname}")
+                lines.append(f"     {reason}")
+        if unmatched:
+            lines.append(f"Unmatched ({len(unmatched)}):")
+            for fname in unmatched:
+                lines.append(f"  {fname}")
+        lines.append("")
+        if matched_files:
+            lines.append(
+                f"{len(matched_files)} file"
+                f"{'s' if len(matched_files) != 1 else ''}"
+                " ready to assign. Run with --confirm to execute."
+            )
+        else:
+            lines.append("No files matched any pending expectations.")
+            if unmatched or skipped:
+                lines.append("Use 'stage assign' for ad hoc files.")
+        return effects_ok(stdout=lines)
+    # --- confirm mode: return plan + updated store ---
+    # The caller is responsible for the actual file moves and destination checks.
+    # We return the plan in a special "_auto_plan" key on the effects dict.
+    # For the store update: mark expectations as filed for matched slots.
+    new_store = copy.deepcopy(store)
+    filed_at = clock["now"].isoformat(timespec="seconds")
+    matched_slot_keys = set()
+    for mf in matched_files:
+        matched_slot_keys.add((mf["exp_id"], mf["slot"]))
+    for r in new_store["stage_expectations"]:
+        key = (r["experiment_id"], r["slot"])
+        if key in matched_slot_keys and r["status"] == "pending":
+            r["status"] = "filed"
+            r["filed_at"] = filed_at
+    result = effects_ok(stdout=lines, store=new_store)
+    result["_auto_plan"] = {
+        "matched_files": matched_files,
+        "skipped": skipped,
+        "unmatched": unmatched,
+    }
+    return result
+
+
+def transform_exp_manifest_plan(store, args, clock):
+    """Pure transform: validate design and generate sample manifest.
+
+    args: {
+        "exp_id": str,
+        "force": bool,
+        "design": dict,   -- the loaded DESIGN dict from design.py
+        "design_source": str,  -- display path for messages
+    }
+    Returns effects with stdout (summary table) and store with new samples.
+    """
+    exp_id = args["exp_id"]
+    force = args.get("force", False)
+    design = args["design"]
+    design_source = args.get("design_source", "design.py")
+    exp = lookup_experiment(store, exp_id)
+    if not exp:
+        return effects_fail(f"No experiment found with ID {exp_id}")
+    # validate required keys
+    for key in ("experiment_id", "expected_samples", "categories", "sort_order"):
+        if key not in design:
+            return effects_fail(f"Error: DESIGN missing required key '{key}'")
+    if design["experiment_id"] != exp_id:
+        return effects_fail(
+            f"Error: DESIGN experiment_id '{design['experiment_id']}' does not match {exp_id}"
+        )
+    # validate sort_order matches category keys
+    cat_keys = set(design["categories"].keys())
+    sort_keys = set(design["sort_order"])
+    if sort_keys != cat_keys:
+        err_lines = []
+        missing = cat_keys - sort_keys
+        extra = sort_keys - cat_keys
+        if missing:
+            err_lines.append(f"Error: sort_order missing categories: {', '.join(missing)}")
+        if extra:
+            err_lines.append(
+                f"Error: sort_order references unknown categories: {', '.join(extra)}"
+            )
+        return effects_fail(err_lines)
+    # check for existing samples
+    existing = [s for s in store["samples"] if s["experiment_id"] == exp_id]
+    if existing:
+        if not force:
+            return effects_fail([
+                f"Error: {len(existing)} samples already exist for {exp_id}",
+                f"Use --force to delete and regenerate:",
+                f"  python lw.py exp manifest {exp_id} --force",
+            ])
+    new_store = copy.deepcopy(store)
+    # if force, remove existing samples
+    if existing:
+        new_store["samples"] = [
+            s for s in new_store["samples"] if s["experiment_id"] != exp_id
+        ]
+    lines = [f"Loading design from {design_source}"]
+    # resolve strain labels
+    strain_labels = {}
+    all_strain_ids = set()
+    categories = design["categories"]
+    if "strain" in categories:
+        for s in categories["strain"]:
+            if s is not None:
+                all_strain_ids.add(s)
+    for extra in design.get("extras", []):
+        s = extra.get("strain")
+        if s is not None:
+            all_strain_ids.add(s)
+    resolve_parts = []
+    for sid in sorted(all_strain_ids):
+        strain = lookup_strain(new_store, sid)
+        if not strain:
+            return effects_fail([
+                f"Error: strain '{sid}' not found in database.",
+                f"Register it first: python lw.py strain add {sid} <genotype>",
+            ])
+        lbl = strain["label"] if strain["label"] else sid
+        strain_labels[sid] = lbl
+        resolve_parts.append(f"{sid} -> {lbl}")
+    if resolve_parts:
+        lines.append(f"Resolving strains: {', '.join(resolve_parts)}")
+    # generate extras
+    samples = []
+    pos = 1
+    for extra in design.get("extras", []):
+        sid = extra.get("strain")
+        lbl = extra.get("label", "")
+        if not lbl and sid:
+            lbl = strain_labels.get(sid, sid)
+        conditions = dict(extra)
+        samples.append({
+            "position": pos,
+            "sample_type": "extra",
+            "strain_id": sid,
+            "dna": extra.get("dna"),
+            "label": lbl,
+            "conditions": conditions,
+        })
+        pos += 1
+    n_extras = len(samples)
+    # generate factorial cross
+    cat_names = list(categories.keys())
+    cat_values = [categories[c] for c in cat_names]
+    factorial_rows = []
+    for combo in itertools.product(*cat_values):
+        row = dict(zip(cat_names, combo))
+        excluded = False
+        for exc_i, exc in enumerate(design.get("exclude", [])):
+            try:
+                if exc(row):
+                    excluded = True
+                    break
+            except Exception as e:
+                return effects_fail(f"Error in design.py exclude function {exc_i}: {e}")
+        if not excluded:
+            factorial_rows.append(row)
+    # sort by sort_order
+    def sort_key(row):
+        keys = []
+        for cat in design["sort_order"]:
+            vals = categories[cat]
+            v = row[cat]
+            try:
+                keys.append(vals.index(v))
+            except ValueError:
+                keys.append(len(vals))
+        return tuple(keys)
+
+    factorial_rows.sort(key=sort_key)
+    # build sample records
+    for row in factorial_rows:
+        sid = row.get("strain")
+        if sid is None:
+            db_strain_id = None
+            lbl = "no protein"
+        else:
+            db_strain_id = sid
+            lbl = strain_labels.get(sid, sid)
+        samples.append({
+            "position": pos,
+            "sample_type": "factorial",
+            "strain_id": db_strain_id,
+            "dna": row.get("dna"),
+            "label": lbl,
+            "conditions": row,
+        })
+        pos += 1
+    n_factorial = len(samples) - n_extras
+    n_total = len(samples)
+    # verify count
+    expected = design["expected_samples"]
+    if n_total != expected:
+        err_lines = [f"Error: generated {n_total} samples (expected {expected})"]
+        err_lines.append(f"  {n_extras} extras + {n_factorial} factorial = {n_total}")
+        err_lines.append("")
+        err_lines.append("Factorial rows generated:")
+        for i, row in enumerate(factorial_rows, 1):
+            err_lines.append(f"  {i}: {row}")
+        err_lines.append("")
+        err_lines.append("Check your categories, excludes, and expected_samples.")
+        return effects_fail(err_lines)
+    if existing and force:
+        lines.append(f"Cleared {len(existing)} existing samples.")
+    lines.append(
+        f"Generated {n_extras} extras + {n_factorial} factorial = {n_total} samples (expected {expected})"
+    )
+    # insert into new_store
+    for s in samples:
+        new_store["samples"].append({
+            "id": None,
+            "experiment_id": exp_id,
+            "position": s["position"],
+            "sample_type": s["sample_type"],
+            "strain_id": s["strain_id"],
+            "dna": s["dna"],
+            "label": s["label"],
+            "conditions": json.dumps(s["conditions"]),
+        })
+    # build display table
+    cat_display = [c for c in cat_names if c != "strain"]
+    extra_keys = set()
+    for extra in design.get("extras", []):
+        for k in extra:
+            if k not in ("strain", "label", "dna") and k not in cat_display:
+                extra_keys.add(k)
+    extra_keys = sorted(extra_keys)
+    lines.append("")
+    hdr = f"  {'pos':>5}  {'type':<10} {'strain':<8} {'label':<14}"
+    for c in cat_display:
+        hdr += f" {c:<8}"
+    for k in extra_keys:
+        hdr += f" {k:<12}"
+    lines.append(hdr)
+    for s in samples:
+        cond = s["conditions"]
+        line = f"  {s['position']:>5}  {s['sample_type']:<10} {(s['strain_id'] or '-'):<8} {s['label']:<14}"
+        for c in cat_display:
+            v = cond.get(c)
+            line += f" {(str(v) if v is not None else '-'):<8}"
+        for k in extra_keys:
+            v = cond.get(k)
+            line += f" {(str(v) if v is not None else '-'):<12}"
+        lines.append(line)
+    lines.append("")
+    lines.append(f"Inserted {n_total} rows into samples table.")
+    # Caller is responsible for writing manifest.csv
+    result = effects_ok(stdout=lines, store=new_store)
+    result["_manifest_samples"] = samples
+    result["_manifest_cat_display"] = cat_display
+    result["_manifest_extra_keys"] = extra_keys
+    return result
+
+
+def transform_exp_init_plan(store, args, clock):
+    """Pure transform: plan experiment creation.
+
+    args: {
+        "exp_type": str,
+        "shortname": str,
+        "title": str | None,
+        "counter": int,
+    }
+    Returns effects with stdout and store with the new experiment row.
+    The caller is responsible for folder creation and counter file update.
+    """
+    exp_type = args["exp_type"]
+    shortname = args["shortname"]
+    title = args.get("title") or shortname
+    counter = args["counter"]
+    if exp_type not in VALID_TYPES:
+        return effects_fail([
+            f"Unknown experiment type: '{exp_type}'",
+            f"Valid types: {', '.join(VALID_TYPES)}",
+        ])
+    ok, reason = validate_name(shortname, "shortname")
+    if not ok:
+        return effects_fail(reason)
+    shortname = shortname.lower()
+    if title == shortname:
+        pass  # default
+    exp_id = f"LM-{counter:04d}"
+    today_compact = clock["today"].strftime("%Y%m%d")
+    today_sql = clock["today"].strftime("%Y-%m-%d")
+    cat_code = CATEGORY_CODES[exp_type]
+    folder_name = f"{today_compact}_{exp_id}_{cat_code}_{shortname}"
+    new_store = copy.deepcopy(store)
+    new_store["experiments"].append({
+        "id": exp_id,
+        "type": exp_type,
+        "title": title,
+        "shortname": shortname,
+        "date_started": today_sql,
+        "date_completed": None,
+        "status": "active",
+        "folder_name": folder_name,
+        "notes": None,
+    })
+    lines = []
+    lines.append(f"Created: {exp_id}")
+    lines.append(f"Folder:  {folder_name}/")
+    lines.append(f"Type:    {exp_type}")
+    if title != shortname:
+        lines.append(f"Title:   {title}")
+    if exp_type == "purification":
+        lines.append(f"Next: lw exp update {exp_id} protein <name>")
+    elif exp_type in ("loading", "gelshift", "atpase"):
+        lines.append(f"Next: lw exp addstrain {exp_id} <strain_id>")
+    else:
+        lines.append(f"Next: lw exp update {exp_id} notes <text>")
+    result = effects_ok(stdout=lines, store=new_store)
+    result["_init_plan"] = {
+        "exp_id": exp_id,
+        "folder_name": folder_name,
+        "new_counter": counter + 1,
+    }
+    return result
 # Maps (command, subcommand) -> transform function.
 # main() checks this before falling through to the legacy if/elif chain.
 TRANSFORM_DISPATCH = {
@@ -1329,11 +2123,18 @@ TRANSFORM_DISPATCH = {
     ("exp", "addstrain"): transform_exp_addstrain,
     ("exp", "find"): transform_exp_find,
     ("exp", "list"): transform_exp_list,
+    ("exp", "delete"): transform_exp_delete_plan,
+    ("exp", "init"): transform_exp_init_plan,
+    ("exp", "manifest"): transform_exp_manifest_plan,
     ("strain", "add"): transform_strain_add,
     ("strain", "update"): transform_strain_update,
     ("strain", "show"): transform_strain_show,
     ("strain", "list"): transform_strain_list,
     ("stage", "list"): transform_stage_list,
+    ("stage", "expect_list"): transform_expect_list,
+    ("stage", "expect_cancel"): transform_expect_cancel,
+    ("stage", "expect_register"): transform_expect_register,
+    ("stage", "auto"): transform_stage_auto_plan,
     ("status", None): transform_status,
 }
 
@@ -1630,6 +2431,14 @@ def main(argv=None):
     # to the legacy if/elif chain below.
     _dispatched = False
     _transform_key = (command, subcommand)
+    # Virtual dispatch keys for stage expect sub-modes
+    if command == "stage" and subcommand == "expect":
+        if "--list" in pos_args:
+            _transform_key = ("stage", "expect_list")
+        elif "--cancel" in pos_args:
+            _transform_key = ("stage", "expect_cancel")
+        else:
+            _transform_key = ("stage", "expect_register")
     _transform_fn = TRANSFORM_DISPATCH.get(_transform_key)
     if _transform_fn is not None:
         # Parse args for the transform.  Each transform expects a
@@ -1734,6 +2543,177 @@ def main(argv=None):
             _fs = prepare_status_io(STAGING_DIR, LAB_NOTES)
             _targs = {"fs": _fs}
 
+        # --- stage expect --list [exp_id] ---
+        elif _transform_key == ("stage", "expect_list"):
+            filter_args = [a for a in pos_args if a != "--list"]
+            filter_exp_id = None
+            if filter_args:
+                filter_exp_id = normalize_exp_id(filter_args[0])
+                if not filter_exp_id:
+                    print(f"Invalid experiment ID: '{filter_args[0]}'")
+                    bail()
+            _targs = {"filter_exp_id": filter_exp_id}
+
+        # --- stage expect --cancel <exp_id> [sN] ---
+        elif _transform_key == ("stage", "expect_cancel"):
+            cancel_args = [a for a in pos_args if a != "--cancel"]
+            if not cancel_args:
+                print("Usage: python lw.py stage expect --cancel <exp_id> [sN]")
+                bail()
+            exp_id = normalize_exp_id(cancel_args[0])
+            if not exp_id:
+                print(f"Invalid experiment ID: '{cancel_args[0]}'")
+                bail()
+            slot = None
+            if len(cancel_args) > 1:
+                m = re.match(r"^s?(\d+)$", cancel_args[1], re.IGNORECASE)
+                if not m:
+                    print(f"Invalid slot: '{cancel_args[1]}'. Use s1, s2, etc.")
+                    bail()
+                slot = int(m.group(1))
+            _targs = {"exp_id": exp_id, "slot": slot}
+
+        # --- stage expect <exp_id> <descriptor> [descriptor2...] ---
+        elif _transform_key == ("stage", "expect_register"):
+            if len(pos_args) < 2:
+                print(
+                    "Usage: python lw.py stage expect <exp_id> <descriptor> [descriptor2...]"
+                )
+                print(
+                    "  Example: python lw.py stage expect LM-0005 gel-coomassie gel-silver"
+                )
+                bail()
+            raw_id = pos_args[0]
+            descriptors = pos_args[1:]
+            exp_id = normalize_exp_id(raw_id)
+            if not exp_id:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                bail()
+            for desc in descriptors:
+                _ok, _reason = validate_name(desc, "descriptor")
+                if not _ok:
+                    print(_reason)
+                    bail()
+            _targs = {"exp_id": exp_id, "descriptors": [d.lower() for d in descriptors]}
+
+        # --- exp delete <id> [--confirm] [--keep-folder] ---
+        elif _transform_key == ("exp", "delete"):
+            if len(pos_args) < 1:
+                print("Usage: python lw.py exp delete <id> [--confirm] [--keep-folder]")
+                print("  Without --confirm: dry run (shows what would be deleted)")
+                bail()
+            raw_id = pos_args[0]
+            _confirm = "--confirm" in pos_args
+            _keep_folder = "--keep-folder" in pos_args
+            exp_id = normalize_exp_id(raw_id)
+            if not exp_id:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                bail()
+            _exp = lookup_experiment(store, exp_id)
+            if not _exp:
+                print(f"No experiment found with ID {exp_id}")
+                bail()
+            _folder_path = os.path.join(EXPERIMENTS_DIR, _exp["folder_name"])
+            _folder_exists = os.path.exists(_folder_path)
+            _folder_contents = os.listdir(_folder_path) if _folder_exists else []
+            _targs = {
+                "exp_id": exp_id,
+                "confirm": _confirm,
+                "keep_folder": _keep_folder,
+                "folder_exists": _folder_exists,
+                "folder_contents": _folder_contents,
+            }
+
+        # --- exp init <type> <shortname> [--title <title>] ---
+        elif _transform_key == ("exp", "init"):
+            _title = None
+            _filtered_args = []
+            i = 0
+            while i < len(pos_args):
+                if pos_args[i] == "--title":
+                    if i + 1 < len(pos_args):
+                        _title = " ".join(pos_args[i + 1:])
+                    else:
+                        print("--title requires a value.")
+                        bail()
+                    break
+                else:
+                    _filtered_args.append(pos_args[i])
+                    i += 1
+            if len(_filtered_args) != 2:
+                print("Usage: python lw.py exp init <type> <shortname> [--title <title>]")
+                print(f"Types: {', '.join(VALID_TYPES)}")
+                bail()
+            # read counter (IO)
+            try:
+                with open(COUNTER_FILE, "r") as f:
+                    _raw = f.read().strip()
+                _counter = int(_raw)
+            except FileNotFoundError:
+                print(f"Counter file not found: {COUNTER_FILE}")
+                print("Run 'python lw.py init' to initialize.")
+                bail()
+            except ValueError:
+                print(f"Counter file contains invalid value: '{_raw}'")
+                print(f"Expected an integer in {COUNTER_FILE}")
+                bail()
+            _targs = {
+                "exp_type": _filtered_args[0],
+                "shortname": _filtered_args[1],
+                "title": _title,
+                "counter": _counter,
+            }
+
+        # --- exp manifest <id> [--force] ---
+        elif _transform_key == ("exp", "manifest"):
+            if len(pos_args) < 1:
+                print("Usage: python lw.py exp manifest <id> [--force]")
+                bail()
+            raw_id = pos_args[0]
+            _force = "--force" in pos_args
+            exp_id = normalize_exp_id(raw_id)
+            if not exp_id:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                bail()
+            _exp = lookup_experiment(store, exp_id)
+            if not _exp:
+                print(f"No experiment found with ID {exp_id}")
+                bail()
+            _folder_path = os.path.join(EXPERIMENTS_DIR, _exp["folder_name"])
+            _design_path = os.path.join(_folder_path, "design.py")
+            if not os.path.exists(_design_path):
+                print(f"No design.py found in {_exp['folder_name']}/")
+                print(f"Create {_design_path} with a DESIGN dict.")
+                bail()
+            # load design via exec (IMPURE)
+            _design_ns = {}
+            with open(_design_path, "r") as f:
+                exec(f.read(), _design_ns)
+            if "DESIGN" not in _design_ns:
+                print("Error: design.py must define a DESIGN dict.")
+                bail()
+            _targs = {
+                "exp_id": exp_id,
+                "force": _force,
+                "design": _design_ns["DESIGN"],
+                "design_source": f"experiments/{_exp['folder_name']}/design.py",
+            }
+
+        # --- stage auto [--confirm] ---
+        elif _transform_key == ("stage", "auto"):
+            _confirm = "--confirm" in pos_args
+            if not os.path.exists(STAGING_DIR):
+                _file_list = None
+            else:
+                _staging_files = [
+                    f for f in os.listdir(STAGING_DIR) if not f.startswith(".")
+                ]
+                _file_list = [
+                    {"name": f, "src_path": os.path.join(STAGING_DIR, f)}
+                    for f in sorted(_staging_files)
+                ]
+            _targs = {"file_list": _file_list, "confirm": _confirm}
+
         # --- fallback (should not reach for registered transforms) ---
         else:
             _targs = {"pos_args": pos_args}
@@ -1744,1083 +2724,121 @@ def main(argv=None):
         # conn.commit path -- execute_effects already committed.
         if _effects.get("store") is not None:
             store = None  # prevent double-commit in cleanup
-        if _rc != 0:
-            bail(_rc)
-        _dispatched = True
 
-    # ============================================================
-    # LEGACY COMMAND DISPATCH
-    # ============================================================
-    # Commands not yet converted to transforms.  Skipped when
-    # _dispatched is True (the transform path already handled it).
+        # --- Post-transform IO for commands that need it ---
 
-    # --- lw init ---
-    if _dispatched:
-        pass
-    elif command == "init":
-        if os.path.exists(DB_PATH):
-            print(f"Database already exists at {DB_PATH}")
-            print("Init aborted to protect existing data.")
-            bail()
-        # create directories
-        for d in DIRECTORIES:
-            os.makedirs(os.path.join(LAB_ROOT, d), exist_ok=True)
-        print(f"Created directory structure at {LAB_ROOT}/")
-        # create database
-        conn = sqlite3.connect(DB_PATH)
-        conn.executescript(SCHEMA_SQL)
-        conn.commit()
-        conn.close()
-        conn = None
-        print(f"Created database at {DB_PATH}")
-        print(
-            f"Tables: {', '.join(['experiments', 'strains', 'experiment_strains', 'experiment_links', 'files', 'purification_details', 'assay_details', 'figure_panels', 'samples', 'stage_expectations'])}"
-        )
-        # seed counter
-        if not os.path.exists(COUNTER_FILE):
-            with open(COUNTER_FILE, "w") as f:
-                f.write("1")
-            print(f"Created {COUNTER_FILE} (starting at 1)")
-        else:
-            print(f"Counter file already exists, skipping")
-        # seed lab notes
-        if not os.path.exists(LAB_NOTES):
-            today = datetime.date.today().strftime("%Y-%m-%d")
-            with open(LAB_NOTES, "w") as f:
-                f.write(f"## {today}\n\n")
-            print(f"Created {LAB_NOTES}")
-        else:
-            print(f"Lab notes file already exists, skipping")
-        print()
-        print("Lab initialized. Ready for experiments.")
+        # exp delete --confirm: remove folder
+        if _transform_key == ("exp", "delete") and _targs.get("confirm") and _rc == 0:
+            _exp = lookup_experiment(_targs.get("_orig_store", store) or {}, _targs["exp_id"])
+            # Folder removal already printed by transform; do the actual IO
+            if _targs.get("folder_exists") and not _targs.get("keep_folder"):
+                _fp = os.path.join(EXPERIMENTS_DIR, _targs.get("folder_contents", [""])[0] if False else "")
+                # reconstruct folder path from the experiment we looked up earlier
+                pass  # handled below
 
-    # --- lw exp ---
-    elif command == "exp":
-        if not subcommand:
-            print("Usage: python lw.py exp <subcommand>")
-            print("  init <type> <shortname>   Create new experiment")
-            print("  show <id>                 Show experiment details")
-            return 0
+        # We need the original exp for folder path. Let's do it properly:
+        if _transform_key == ("exp", "delete") and _targs.get("confirm") and _rc == 0:
+            if _targs["folder_exists"] and not _targs["keep_folder"]:
+                # _exp was looked up before transform; get folder_name from targs context
+                _del_exp_id = _targs["exp_id"]
+                # The original store had the experiment; we need its folder_name.
+                # Since execute_effects already committed, we need to reconstruct.
+                # The folder path was computed from EXPERIMENTS_DIR + exp.folder_name
+                # before the transform ran. We still have _folder_path from arg parsing.
+                shutil.rmtree(_folder_path)
 
-        # --- lw exp init <type> <shortname> ---
-        if subcommand == "init":
-            # parse --title flag (consumes all args after --title as title text)
-            title = None
-            filtered_args = []
-            i = 0
-            while i < len(pos_args):
-                if pos_args[i] == "--title":
-                    if i + 1 < len(pos_args):
-                        title = " ".join(pos_args[i + 1 :])
-                    else:
-                        print("--title requires a value.")
-                        bail()
-                    break
-                else:
-                    filtered_args.append(pos_args[i])
-                    i += 1
-            if len(filtered_args) != 2:
-                print("Usage: python lw.py exp init <type> <shortname> [--title <title>]")
-                print(f"Types: {', '.join(VALID_TYPES)}")
-                bail()
-            exp_type, shortname = filtered_args[0], filtered_args[1]
-            if title is None:
-                title = shortname
-            # validate type
-            if exp_type not in VALID_TYPES:
-                print(f"Unknown experiment type: '{exp_type}'")
-                print(f"Valid types: {', '.join(VALID_TYPES)}")
-                bail()
-            _ok, _reason = validate_name(shortname, "shortname")
-            if not _ok:
-                print(_reason)
-                bail()
-            shortname = shortname.lower()
-            # read and increment counter
-            try:
-                with open(COUNTER_FILE, "r") as f:
-                    raw = f.read().strip()
-                counter = int(raw)
-            except FileNotFoundError:
-                print(f"Counter file not found: {COUNTER_FILE}")
-                print("Run 'python lw.py init' to initialize.")
-                bail()
-            except ValueError:
-                print(f"Counter file contains invalid value: '{raw}'")
-                print(f"Expected an integer in {COUNTER_FILE}")
-                bail()
-            exp_id = f"LM-{counter:04d}"
-            # build folder name
-            today_compact = clock["today"].strftime("%Y%m%d")
-            today_sql = clock["today"].strftime("%Y-%m-%d")
-            cat_code = CATEGORY_CODES[exp_type]
-            folder_name = f"{today_compact}_{exp_id}_{cat_code}_{shortname}"
-            folder_path = os.path.join(EXPERIMENTS_DIR, folder_name)
-            # guard: folder shouldn't exist
-            if os.path.exists(folder_path):
-                print(f"Error: Folder already exists: {folder_path}")
-                print("Counter may be out of sync. Check counter.txt.")
-                bail()
-            # insert record first (uncommitted - rolls back if later ops fail)
-            cursor.execute(
-                "INSERT INTO experiments (id, type, title, shortname, date_started, status, folder_name) VALUES (?, ?, ?, ?, ?, 'active', ?)",
-                (exp_id, exp_type, title, shortname, today_sql, folder_name),
-            )
-            # increment counter
-            with open(COUNTER_FILE, "w") as f:
-                f.write(str(counter + 1))
-            # create folder last (DB + counter already staged)
-            os.makedirs(folder_path)
-            print(f"Created: {exp_id}")
-            print(f"Folder:  {folder_name}/")
-            print(f"Type:    {exp_type}")
-            if title != shortname:
-                print(f"Title:   {title}")
-            if exp_type == "purification":
-                print(f"Next: lw exp update {exp_id} protein <name>")
-            elif exp_type in ("loading", "gelshift", "atpase"):
-                print(f"Next: lw exp addstrain {exp_id} <strain_id>")
-            else:
-                print(f"Next: lw exp update {exp_id} notes <text>")
-
-        # --- lw exp update: handled by transform_exp_update ---
-
-        # --- lw exp complete: handled by transform_exp_complete ---
-
-        # --- lw exp link: handled by transform_exp_link ---
-
-        # --- lw exp addstrain: handled by transform_exp_addstrain ---
-
-        # --- lw exp show: handled by transform_exp_show ---
-
-        # --- lw exp delete <id> [--confirm] [--keep-folder] ---
-        elif subcommand == "delete":
-            if len(pos_args) < 1:
-                print("Usage: python lw.py exp delete <id> [--confirm] [--keep-folder]")
-                print("  Without --confirm: dry run (shows what would be deleted)")
-                bail()
-            raw_id = pos_args[0]
-            confirm = "--confirm" in pos_args
-            keep_folder = "--keep-folder" in pos_args
-            exp_id = normalize_exp_id(raw_id)
-            if not exp_id:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                bail()
-            exp = require_experiment(exp_id)
-            # gather cascade targets
-            cascade = []
-            cursor.execute(
-                "SELECT strain_id, role FROM experiment_strains WHERE experiment_id = ?",
-                (exp_id,),
-            )
-            es_rows = cursor.fetchall()
-            if es_rows:
-                cascade.append(
-                    (
-                        "experiment_strains",
-                        len(es_rows),
-                        [
-                            f"  {sid}" + (f" ({role})" if role else "")
-                            for sid, role in es_rows
-                        ],
-                    )
-                )
-            cursor.execute(
-                "SELECT from_experiment, to_experiment, relationship FROM experiment_links "
-                "WHERE from_experiment = ? OR to_experiment = ?",
-                (exp_id, exp_id),
-            )
-            el_rows = cursor.fetchall()
-            if el_rows:
-                cascade.append(
-                    (
-                        "experiment_links",
-                        len(el_rows),
-                        [f"  {fr} -> {to} ({rel})" for fr, to, rel in el_rows],
-                    )
-                )
-            cursor.execute(
-                "SELECT filename FROM files WHERE experiment_id = ?",
-                (exp_id,),
-            )
-            f_rows = cursor.fetchall()
-            if f_rows:
-                cascade.append(("files", len(f_rows), [f"  {fn}" for (fn,) in f_rows]))
-            cursor.execute(
-                "SELECT experiment_id FROM purification_details WHERE experiment_id = ?",
-                (exp_id,),
-            )
-            if cursor.fetchone():
-                cascade.append(("purification_details", 1, []))
-            cursor.execute(
-                "SELECT experiment_id FROM assay_details WHERE experiment_id = ?",
-                (exp_id,),
-            )
-            if cursor.fetchone():
-                cascade.append(("assay_details", 1, []))
-            cursor.execute(
-                "SELECT id, figure, panel FROM figure_panels WHERE experiment_id = ?",
-                (exp_id,),
-            )
-            fp_rows = cursor.fetchall()
-            if fp_rows:
-                cascade.append(
-                    (
-                        "figure_panels",
-                        len(fp_rows),
-                        [f"  {fig} panel {pan}" for _, fig, pan in fp_rows],
-                    )
-                )
-            cursor.execute(
-                "SELECT COUNT(*) FROM samples WHERE experiment_id = ?",
-                (exp_id,),
-            )
-            s_count = cursor.fetchone()[0]
-            if s_count:
-                cascade.append(("samples", s_count, []))
-            cursor.execute(
-                "SELECT COUNT(*) FROM stage_expectations WHERE experiment_id = ?",
-                (exp_id,),
-            )
-            se_count = cursor.fetchone()[0]
-            if se_count:
-                cascade.append(("stage_expectations", se_count, []))
-            # downstream protein_prep references from other experiments
-            cursor.execute(
-                "SELECT experiment_id FROM assay_details WHERE protein_prep = ?",
-                (exp_id,),
-            )
-            prep_ref_rows = cursor.fetchall()
-            # folder
-            folder_path = os.path.join(EXPERIMENTS_DIR, exp["folder_name"])
-            folder_exists = os.path.exists(folder_path)
-            folder_contents = os.listdir(folder_path) if folder_exists else []
-            # print summary
-            mode = "DELETE" if confirm else "DRY RUN"
-            print(
-                f"[{mode}] {exp_id}: {exp['type']} / {exp['shortname']} ({exp['status']})"
-            )
-            print(
-                f"  Folder: {exp['folder_name']}/ ({'exists' if folder_exists else 'missing'}"
-                + (f", {len(folder_contents)} files" if folder_contents else "")
-                + ")"
-            )
-            if cascade:
-                print()
-                print("  Related records:")
-                for table, count, details in cascade:
-                    print(f"    {table}: {count} row{'s' if count != 1 else ''}")
-                    for d in details:
-                        print(f"      {d}")
-            if prep_ref_rows:
-                print()
-                print("  Downstream references (protein_prep will be cleared):")
-                for (ref_eid,) in prep_ref_rows:
-                    print(f"    {ref_eid} assay_details.protein_prep -> {exp_id}")
-            if not confirm:
-                print()
-                print(f"  This is a dry run. To delete, run:")
-                print(f"    python lw.py exp delete {exp_id} --confirm")
-                if folder_exists:
-                    print(
-                        f"    python lw.py exp delete {exp_id} --confirm --keep-folder  (keep files)"
-                    )
-                return 0
-            # --- actual deletion ---
-            # clear downstream protein_prep references
-            if prep_ref_rows:
-                cursor.execute(
-                    "UPDATE assay_details SET protein_prep = NULL WHERE protein_prep = ?",
-                    (exp_id,),
-                )
-                print(
-                    f"  Cleared {len(prep_ref_rows)} protein_prep"
-                    f" reference{'s' if len(prep_ref_rows) != 1 else ''}"
-                )
-            cursor.execute(
-                "DELETE FROM stage_expectations WHERE experiment_id = ?", (exp_id,)
-            )
-            cursor.execute("DELETE FROM samples WHERE experiment_id = ?", (exp_id,))
-            cursor.execute("DELETE FROM figure_panels WHERE experiment_id = ?", (exp_id,))
-            cursor.execute("DELETE FROM files WHERE experiment_id = ?", (exp_id,))
-            cursor.execute("DELETE FROM assay_details WHERE experiment_id = ?", (exp_id,))
-            cursor.execute(
-                "DELETE FROM purification_details WHERE experiment_id = ?", (exp_id,)
-            )
-            cursor.execute(
-                "DELETE FROM experiment_strains WHERE experiment_id = ?", (exp_id,)
-            )
-            cursor.execute(
-                "DELETE FROM experiment_links WHERE from_experiment = ? OR to_experiment = ?",
-                (exp_id, exp_id),
-            )
-            cursor.execute("DELETE FROM experiments WHERE id = ?", (exp_id,))
-            total_rows = sum(c for _, c, _ in cascade) + 1  # +1 for experiments row
-            print()
-            print(f"  Deleted {total_rows} database row{'s' if total_rows != 1 else ''}")
-            if folder_exists and not keep_folder:
-                shutil.rmtree(folder_path)
-                print(f"  Removed folder: {exp['folder_name']}/")
-            elif folder_exists and keep_folder:
-                print(f"  Folder kept: {exp['folder_name']}/")
-            print()
-            print(f"Deleted: {exp_id}")
-
-        # --- lw exp find: handled by transform_exp_find ---
-
-        # --- lw exp list: handled by transform_exp_list ---
-
-        # --- lw exp manifest <id> [--force] ---
-        elif subcommand == "manifest":
-            if len(pos_args) < 1:
-                print("Usage: python lw.py exp manifest <id> [--force]")
-                bail()
-            raw_id = pos_args[0]
-            force = "--force" in pos_args
-            exp_id = normalize_exp_id(raw_id)
-            if not exp_id:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                bail()
-            exp = require_experiment(exp_id)
-            folder_name = exp["folder_name"]
-            folder_path = os.path.join(EXPERIMENTS_DIR, folder_name)
-            # locate design.py
-            design_path = os.path.join(folder_path, "design.py")
-            if not os.path.exists(design_path):
-                print(f"No design.py found in {folder_name}/")
-                print(f"Create {design_path} with a DESIGN dict.")
-                bail()
-            print(f"Loading design from experiments/{folder_name}/design.py")
-            # load config via exec
-            design_ns = {}
-            with open(design_path, "r") as f:
-                exec(f.read(), design_ns)
-            if "DESIGN" not in design_ns:
-                print("Error: design.py must define a DESIGN dict.")
-                bail()
-            design = design_ns["DESIGN"]
-            # validate required keys
-            for key in ("experiment_id", "expected_samples", "categories", "sort_order"):
-                if key not in design:
-                    print(f"Error: DESIGN missing required key '{key}'")
+        # exp init: create folder, update counter
+        if _transform_key == ("exp", "init") and _rc == 0:
+            _plan = _effects.get("_init_plan", {})
+            if _plan:
+                _init_folder = os.path.join(EXPERIMENTS_DIR, _plan["folder_name"])
+                if os.path.exists(_init_folder):
+                    print(f"Error: Folder already exists: {_init_folder}")
+                    print("Counter may be out of sync. Check counter.txt.")
                     bail()
-            if design["experiment_id"] != exp_id:
-                print(
-                    f"Error: DESIGN experiment_id '{design['experiment_id']}' does not match {exp_id}"
+                os.makedirs(_init_folder)
+                with open(COUNTER_FILE, "w") as f:
+                    f.write(str(_plan["new_counter"]))
+
+        # exp manifest: write manifest.csv
+        if _transform_key == ("exp", "manifest") and _rc == 0:
+            _manifest_samples = _effects.get("_manifest_samples")
+            if _manifest_samples is not None:
+                _m_exp = lookup_experiment(
+                    _effects.get("store") or store, _targs["exp_id"]
                 )
-                bail()
-            # validate sort_order matches category keys
-            cat_keys = set(design["categories"].keys())
-            sort_keys = set(design["sort_order"])
-            if sort_keys != cat_keys:
-                missing = cat_keys - sort_keys
-                extra = sort_keys - cat_keys
-                if missing:
-                    print(f"Error: sort_order missing categories: {', '.join(missing)}")
-                if extra:
-                    print(
-                        f"Error: sort_order references unknown categories: {', '.join(extra)}"
+                if _m_exp:
+                    _csv_path = os.path.join(
+                        EXPERIMENTS_DIR, _m_exp["folder_name"], "manifest.csv"
                     )
-                bail()
-            # check for existing samples
-            cursor.execute(
-                "SELECT COUNT(*) FROM samples WHERE experiment_id = ?", (exp_id,)
-            )
-            existing = cursor.fetchone()[0]
-            if existing > 0:
-                if not force:
-                    print(f"Error: {existing} samples already exist for {exp_id}")
-                    print(f"Use --force to delete and regenerate:")
-                    print(f"  python lw.py exp manifest {exp_id} --force")
-                    bail()
-                cursor.execute("DELETE FROM samples WHERE experiment_id = ?", (exp_id,))
-                print(f"Cleared {existing} existing samples.")
-            # --- resolve strain labels ---
-            strain_labels = {}
-            all_strain_ids = set()
-            # collect from categories
-            if "strain" in design["categories"]:
-                for s in design["categories"]["strain"]:
-                    if s is not None:
-                        all_strain_ids.add(s)
-            # collect from extras
-            for extra in design.get("extras", []):
-                s = extra.get("strain")
-                if s is not None:
-                    all_strain_ids.add(s)
-            # look up each strain
-            resolve_parts = []
-            for sid in sorted(all_strain_ids):
-                cursor.execute("SELECT id, label FROM strains WHERE id = ?", (sid,))
-                row = cursor.fetchone()
-                if not row:
-                    print(f"Error: strain '{sid}' not found in database.")
-                    print(f"Register it first: python lw.py strain add {sid} <genotype>")
-                    bail()
-                lbl = row[1] if row[1] else sid  # fall back to ID if no label
-                strain_labels[sid] = lbl
-                resolve_parts.append(f"{sid} -> {lbl}")
-            if resolve_parts:
-                print(f"Resolving strains: {', '.join(resolve_parts)}")
-            # --- generate extras ---
-            samples = []
-            pos = 1
-            for extra in design.get("extras", []):
-                sid = extra.get("strain")
-                lbl = extra.get("label", "")
-                if not lbl and sid:
-                    lbl = strain_labels.get(sid, sid)
-                conditions = dict(extra)  # copy all fields into conditions
-                samples.append(
-                    {
-                        "position": pos,
-                        "sample_type": "extra",
-                        "strain_id": sid,
-                        "dna": extra.get("dna"),
-                        "label": lbl,
-                        "conditions": conditions,
-                    }
-                )
-                pos += 1
-            n_extras = len(samples)
-            # --- generate factorial cross ---
-            categories = design["categories"]
-            cat_names = list(categories.keys())
-            cat_values = [categories[c] for c in cat_names]
-            factorial_rows = []
-            for combo in itertools.product(*cat_values):
-                row = dict(zip(cat_names, combo))
-                excluded = False
-                for exc_i, exc in enumerate(design.get("exclude", [])):
-                    try:
-                        if exc(row):
-                            excluded = True
-                            break
-                    except Exception as e:
-                        print(f"Error in design.py exclude function {exc_i}: {e}")
-                        print(f"  Row: {row}")
-                        bail()
-                if not excluded:
-                    factorial_rows.append(row)
-            # sort by sort_order using category-level ordering
-            def sort_key(row):
-                keys = []
-                for cat in design["sort_order"]:
-                    vals = categories[cat]
-                    v = row[cat]
-                    try:
-                        keys.append(vals.index(v))
-                    except ValueError:
-                        keys.append(len(vals))
-                return tuple(keys)
-
-            factorial_rows.sort(key=sort_key)
-            # build sample records
-            for row in factorial_rows:
-                sid = row.get("strain")
-                if sid is None:
-                    db_strain_id = None
-                    lbl = "no protein"
-                else:
-                    db_strain_id = sid
-                    lbl = strain_labels.get(sid, sid)
-                samples.append(
-                    {
-                        "position": pos,
-                        "sample_type": "factorial",
-                        "strain_id": db_strain_id,
-                        "dna": row.get("dna"),
-                        "label": lbl,
-                        "conditions": row,
-                    }
-                )
-                pos += 1
-            n_factorial = len(samples) - n_extras
-            n_total = len(samples)
-            # verify count
-            expected = design["expected_samples"]
-            if n_total != expected:
-                print(f"Error: generated {n_total} samples (expected {expected})")
-                print(f"  {n_extras} extras + {n_factorial} factorial = {n_total}")
-                # print the factorial rows for debugging
-                print()
-                print("Factorial rows generated:")
-                for i, row in enumerate(factorial_rows, 1):
-                    print(f"  {i}: {row}")
-                print()
-                print("Check your categories, excludes, and expected_samples.")
-                bail()
-            print(
-                f"Generated {n_extras} extras + {n_factorial} factorial = {n_total} samples (expected {expected})"
-            )
-            # --- insert into database ---
-            for s in samples:
-                cursor.execute(
-                    "INSERT INTO samples (experiment_id, position, sample_type, strain_id, dna, label, conditions) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        exp_id,
-                        s["position"],
-                        s["sample_type"],
-                        s["strain_id"],
-                        s["dna"],
-                        s["label"],
-                        json.dumps(s["conditions"]),
-                    ),
-                )
-            # --- determine display columns ---
-            cat_display = [c for c in cat_names if c != "strain"]
-            extra_keys = set()
-            for extra in design.get("extras", []):
-                for k in extra:
-                    if k not in ("strain", "label", "dna") and k not in cat_display:
-                        extra_keys.add(k)
-            extra_keys = sorted(extra_keys)
-            # --- print summary table ---
-            print()
-            hdr = f"  {'pos':>5}  {'type':<10} {'strain':<8} {'label':<14}"
-            for c in cat_display:
-                hdr += f" {c:<8}"
-            for k in extra_keys:
-                hdr += f" {k:<12}"
-            print(hdr)
-            for s in samples:
-                cond = s["conditions"]
-                line = f"  {s['position']:>5}  {s['sample_type']:<10} {(s['strain_id'] or '-'):<8} {s['label']:<14}"
-                for c in cat_display:
-                    v = cond.get(c)
-                    line += f" {(str(v) if v is not None else '-'):<8}"
-                for k in extra_keys:
-                    v = cond.get(k)
-                    line += f" {(str(v) if v is not None else '-'):<12}"
-                print(line)
-            # --- write manifest.csv ---
-            csv_path = os.path.join(folder_path, "manifest.csv")
-            csv_columns = (
-                ["position", "sample_type", "strain_id", "label"] + cat_display + extra_keys
-            )
-            with open(csv_path, "w", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(csv_columns)
-                for s in samples:
-                    cond = s["conditions"]
-                    row = [
-                        s["position"],
-                        s["sample_type"],
-                        s["strain_id"] or "",
-                        s["label"],
-                    ]
-                    for c in cat_display:
-                        v = cond.get(c)
-                        row.append(str(v) if v is not None else "")
-                    for k in extra_keys:
-                        v = cond.get(k)
-                        row.append(str(v) if v is not None else "")
-                    writer.writerow(row)
-            print()
-            print(f"Inserted {n_total} rows into samples table.")
-            print(f"Wrote manifest.csv to experiments/{folder_name}/")
-
-        else:
-            print(f"Unknown subcommand: exp {subcommand}")
-            print("Run 'python lw.py exp' for usage.")
-            bail()
-
-    # --- lw strain ---
-    elif command == "strain":
-        if not subcommand:
-            print("Usage: python lw.py strain <subcommand>")
-            print("  add <id> <genotype>   Register a new strain")
-            print("  show <id>             Show strain details and experiments")
-            print("  list [--no-label]     List all strains (--no-label: missing only)")
-            print("  update <id> <f> <v>   Update a strain field")
-            return 0
-
-        # --- lw strain update: handled by transform_strain_update ---
-
-        # --- lw strain add: handled by transform_strain_add ---
-
-        # --- lw strain show: handled by transform_strain_show ---
-
-        # --- lw strain list: handled by transform_strain_list ---
-
-        else:
-            print(f"Unknown subcommand: strain {subcommand}")
-            print("Run 'python lw.py strain' for usage.")
-            bail()
-
-    # --- lw stage ---
-    elif command == "stage":
-        if not subcommand:
-            print("Usage: python lw.py stage <subcommand>")
-            print("  list                          Show files in staging/")
-            print("  assign <file> <exp_id> <desc> Rename, move, and register")
-            print("  expect <exp_id> <desc...>     Pre-register expected files")
-            print("  expect --list [exp_id]        Show pending expectations")
-            print("  expect --cancel <exp_id> [sN] Cancel pending expectations")
-            print("  auto [--confirm]              Auto-assign from expectations")
-            return 0
-
-        # --- lw stage list: handled by transform_stage_list ---
-
-        # --- lw stage assign <filename> <exp_id> <descriptor> ---
-        if subcommand == "assign":
-            if len(pos_args) < 3:
-                print("Usage: python lw.py stage assign <filename> <exp_id> <descriptor>")
-                print("  Example: python lw.py stage assign Image_001.tiff LM-0001 gel-01")
-                bail()
-            src_name, raw_id, descriptor = pos_args[0], pos_args[1], pos_args[2]
-            _ok, _reason = validate_name(descriptor, "descriptor")
-            if not _ok:
-                print(_reason)
-                bail()
-            descriptor = descriptor.lower()
-            # validate source file exists
-            src_path = os.path.join(STAGING_DIR, src_name)
-            if not os.path.exists(src_path):
-                print(f"File not found in staging: {src_name}")
-                # list what's there
-                files = [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
-                if files:
-                    print("Available files:")
-                    for f in sorted(files):
-                        print(f"  {f}")
-                bail()
-            exp_id = normalize_exp_id(raw_id)
-            if not exp_id:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                bail()
-            exp = require_experiment(exp_id)
-            folder_name = exp["folder_name"]
-            # move file and register
-            try:
-                new_name, rel_path = file_staged(src_path, exp_id, folder_name, descriptor, clock, EXPERIMENTS_DIR, cursor)
-            except ValueError as e:
-                print(str(e))
-                print("Use a different descriptor.")
-                bail()
-            print(f"Experiment: {exp_id} ({exp['shortname']}, {exp['type']})")
-            print(f"Filed: {src_name}")
-            print(f"    -> {rel_path}")
-
-        # --- lw stage expect ---
-        elif subcommand == "expect":
-            # dispatch on flags: --list, --cancel, or register (default)
-            if "--list" in pos_args:
-                # --- lw stage expect --list [exp_id] ---
-                filter_args = [a for a in pos_args if a != "--list"]
-                filter_exp_id = None
-                if filter_args:
-                    filter_exp_id = normalize_exp_id(filter_args[0])
-                    if not filter_exp_id:
-                        print(f"Invalid experiment ID: '{filter_args[0]}'")
-                        bail()
-                    require_experiment(filter_exp_id)
-                # query expectations
-                if filter_exp_id:
-                    cursor.execute(
-                        "SELECT experiment_id, slot, descriptor, status, created_at, filed_at "
-                        "FROM stage_expectations WHERE experiment_id = ? ORDER BY slot",
-                        (filter_exp_id,),
+                    _cat_display = _effects.get("_manifest_cat_display", [])
+                    _extra_keys = _effects.get("_manifest_extra_keys", [])
+                    _csv_columns = (
+                        ["position", "sample_type", "strain_id", "label"]
+                        + _cat_display
+                        + _extra_keys
                     )
-                else:
-                    cursor.execute(
-                        "SELECT experiment_id, slot, descriptor, status, created_at, filed_at "
-                        "FROM stage_expectations ORDER BY experiment_id, slot"
-                    )
-                rows = cursor.fetchall()
-                if not rows:
-                    if filter_exp_id:
-                        print(f"No expectations for {filter_exp_id}.")
-                    else:
-                        print("No expectations registered.")
-                    return 0
-                n_pending = 0
-                n_filed = 0
-                if filter_exp_id:
-                    # flat display, no grouping header
-                    for eid, slot, desc, status, created_at, filed_at in rows:
-                        if status == "pending":
-                            created_date = created_at[:10] if created_at else "unknown"
-                            print(
-                                f"  s{slot}  {desc:<20} (pending, registered {created_date})"
-                            )
-                            n_pending += 1
-                        elif status == "filed":
-                            filed_date = filed_at[:10] if filed_at else "unknown"
-                            print(f"  s{slot}  {desc:<20} (filed {filed_date})")
-                            n_filed += 1
-                        elif status == "cancelled":
-                            print(f"  s{slot}  {desc:<20} (cancelled)")
-                else:
-                    # group by experiment_id
-                    current_eid = None
-                    for eid, slot, desc, status, created_at, filed_at in rows:
-                        if eid != current_eid:
-                            current_eid = eid
-                            print(f"{eid}:")
-                        if status == "pending":
-                            created_date = created_at[:10] if created_at else "unknown"
-                            print(
-                                f"  s{slot}  {desc:<20} (pending, registered {created_date})"
-                            )
-                            n_pending += 1
-                        elif status == "filed":
-                            filed_date = filed_at[:10] if filed_at else "unknown"
-                            print(f"  s{slot}  {desc:<20} (filed {filed_date})")
-                            n_filed += 1
-                        elif status == "cancelled":
-                            print(f"  s{slot}  {desc:<20} (cancelled)")
-                print(f"{n_pending} pending, {n_filed} filed")
-                return 0
+                    with open(_csv_path, "w", newline="") as f:
+                        writer = csv.writer(f)
+                        writer.writerow(_csv_columns)
+                        for s in _manifest_samples:
+                            cond = s["conditions"]
+                            row = [
+                                s["position"],
+                                s["sample_type"],
+                                s["strain_id"] or "",
+                                s["label"],
+                            ]
+                            for c in _cat_display:
+                                v = cond.get(c)
+                                row.append(str(v) if v is not None else "")
+                            for k in _extra_keys:
+                                v = cond.get(k)
+                                row.append(str(v) if v is not None else "")
+                            writer.writerow(row)
+                    print(f"Wrote manifest.csv to experiments/{_m_exp['folder_name']}/")
 
-            elif "--cancel" in pos_args:
-                # --- lw stage expect --cancel <exp_id> [sN] ---
-                cancel_args = [a for a in pos_args if a != "--cancel"]
-                if not cancel_args:
-                    print("Usage: python lw.py stage expect --cancel <exp_id> [sN]")
-                    bail()
-                slot_arg = cancel_args[1] if len(cancel_args) > 1 else None
-                exp_id = normalize_exp_id(cancel_args[0])
-                if not exp_id:
-                    print(f"Invalid experiment ID: '{cancel_args[0]}'")
-                    bail()
-                require_experiment(exp_id)
-                if slot_arg:
-                    # parse slot: accept s1, S1, or bare 1
-                    m = re.match(r"^s?(\d+)$", slot_arg, re.IGNORECASE)
-                    if not m:
-                        print(f"Invalid slot: '{slot_arg}'. Use s1, s2, etc.")
-                        bail()
-                    slot = int(m.group(1))
-                    # check if slot exists and its status
-                    cursor.execute(
-                        "SELECT status, descriptor FROM stage_expectations "
-                        "WHERE experiment_id = ? AND slot = ?",
-                        (exp_id, slot),
-                    )
-                    row = cursor.fetchone()
-                    if not row:
-                        print(f"Slot s{slot} not found for {exp_id}")
-                        bail()
-                    if row[0] != "pending":
-                        print(f"Slot s{slot} is already {row[0]}.")
-                        bail()
-                    cursor.execute(
-                        "UPDATE stage_expectations SET status = 'cancelled' "
-                        "WHERE experiment_id = ? AND slot = ?",
-                        (exp_id, slot),
-                    )
-                    print(f"Cancelled: {exp_id} s{slot} ({row[1]})")
-                else:
-                    # cancel all pending for this experiment
-                    cursor.execute(
-                        "SELECT slot, descriptor FROM stage_expectations "
-                        "WHERE experiment_id = ? AND status = 'pending' ORDER BY slot",
-                        (exp_id,),
-                    )
-                    pending = cursor.fetchall()
-                    if not pending:
-                        print(f"No pending expectations for {exp_id}")
-                        bail()
-                    cursor.execute(
-                        "UPDATE stage_expectations SET status = 'cancelled' "
-                        "WHERE experiment_id = ? AND status = 'pending'",
-                        (exp_id,),
-                    )
-                    if len(pending) == 1:
-                        s, d = pending[0]
-                        print(f"Cancelled 1 pending expectation for {exp_id}:")
-                        print(f"  s{s}  {d}")
-                    else:
-                        print(
-                            f"Cancelled {len(pending)} pending expectations for {exp_id}:"
-                        )
-                        for s, d in pending:
-                            print(f"  s{s}  {d}")
-                return 0
-
-            else:
-                # --- lw stage expect <exp_id> <descriptor> [descriptor2...] ---
-                if len(pos_args) < 2:
-                    print(
-                        "Usage: python lw.py stage expect <exp_id> <descriptor> [descriptor2...]"
-                    )
-                    print(
-                        "  Example: python lw.py stage expect LM-0005 gel-coomassie gel-silver"
-                    )
-                    bail()
-                raw_id = pos_args[0]
-                descriptors = pos_args[1:]
-                exp_id = normalize_exp_id(raw_id)
-                if not exp_id:
-                    print(f"Invalid experiment ID: '{raw_id}'")
-                    bail()
-                require_experiment(exp_id)
-                for desc in descriptors:
-                    _ok, _reason = validate_name(desc, "descriptor")
-                    if not _ok:
-                        print(_reason)
-                        bail()
-                descriptors = [d.lower() for d in descriptors]
-                # check for duplicate descriptors within arguments
-                seen = set()
-                for desc in descriptors:
-                    if desc in seen:
-                        print(f"Duplicate descriptor in arguments: '{desc}'")
-                        bail()
-                    seen.add(desc)
-                # check against existing pending expectations
-                cursor.execute(
-                    "SELECT descriptor FROM stage_expectations "
-                    "WHERE experiment_id = ? AND status = 'pending'",
-                    (exp_id,),
-                )
-                existing_descs = {row[0] for row in cursor.fetchall()}
-                for desc in descriptors:
-                    if desc in existing_descs:
-                        print(f"Descriptor '{desc}' already pending for {exp_id}.")
-                        print("Cancel it first or use a different descriptor.")
-                        bail()
-                # get max slot once before loop
-                cursor.execute(
-                    "SELECT COALESCE(MAX(slot), 0) FROM stage_expectations WHERE experiment_id = ?",
-                    (exp_id,),
-                )
-                max_slot = cursor.fetchone()[0]
-                # insert expectations
-                slots = []
-                for i, desc in enumerate(descriptors, 1):
-                    slot = max_slot + i
-                    cursor.execute(
-                        "INSERT INTO stage_expectations (experiment_id, slot, descriptor, status) "
-                        "VALUES (?, ?, ?, 'pending')",
-                        (exp_id, slot, desc),
-                    )
-                    slots.append((slot, desc))
-                    print(f"  s{slot}  {desc}")
-                # print instrument names
-                if len(slots) == 1:
-                    s, d = slots[0]
-                    print(f"  At instrument: lemr {exp_id} s{s}")
-                else:
-                    print("  At instrument:")
-                    for s, d in slots:
-                        print(f"    lemr {exp_id} s{s}")
-                cursor.execute(
-                    "SELECT COUNT(*) FROM stage_expectations "
-                    "WHERE experiment_id = ? AND status = 'pending'",
-                    (exp_id,),
-                )
-                total_pending = cursor.fetchone()[0]
-                print(f"  {total_pending} total pending for {exp_id}")
-
-        # --- lw stage auto [--confirm] ---
-        elif subcommand == "auto":
-            confirm = "--confirm" in pos_args
-            # list staging files
-            if not os.path.exists(STAGING_DIR):
-                print("Staging directory does not exist.")
-                bail()
-            staging_files = [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
-            if not staging_files:
-                cursor.execute(
-                    "SELECT COUNT(*) FROM stage_expectations WHERE status = 'pending'"
-                )
-                n_pend = cursor.fetchone()[0]
-                if n_pend > 0:
-                    print(
-                        f"Staging is empty. {n_pend} expectation"
-                        f"{'s' if n_pend != 1 else ''} still pending."
-                    )
-                else:
-                    print("Staging is empty.")
-                return 0
-            # query all pending expectations
-            cursor.execute(
-                "SELECT experiment_id, slot, descriptor "
-                "FROM stage_expectations WHERE status = 'pending'"
-            )
-            pending = cursor.fetchall()
-            if not pending:
-                print("No pending expectations. Use 'stage assign' for ad hoc files.")
-                print()
-                print(f"Unmatched ({len(staging_files)}):")
-                for fname in sorted(staging_files):
-                    print(f"  {fname}")
-                return 0
-            # build lookup structures
-            pending_by_key = {}  # (exp_id, slot) -> descriptor
-            pending_by_exp = {}  # exp_id -> [(slot, descriptor), ...]
-            for eid, slot, desc in pending:
-                pending_by_key[(eid, slot)] = desc
-                pending_by_exp.setdefault(eid, []).append((slot, desc))
-            # match each file against expectations
-            matched_groups = {}
-            unmatched = []
-            skipped = []  # (fname, reason)
-            inferred_files = set()  # filenames matched by single-pending inference
-            for fname in sorted(staging_files):
-                src_path = os.path.join(STAGING_DIR, fname)
-                parsed_eid, parsed_slot = parse_staging_name(fname)
-                if parsed_eid is not None and parsed_slot is not None:
-                    key = (parsed_eid, parsed_slot)
-                    if key in pending_by_key:
-                        if key not in matched_groups:
-                            matched_groups[key] = {
-                                "descriptor": pending_by_key[key],
-                                "files": [],
-                            }
-                        matched_groups[key]["files"].append((fname, src_path))
-                    else:
-                        unmatched.append(fname)
-                elif parsed_eid is not None:
-                    exp_pending = pending_by_exp.get(parsed_eid, [])
-                    if len(exp_pending) == 1:
-                        s, d = exp_pending[0]
-                        key = (parsed_eid, s)
-                        if key not in matched_groups:
-                            matched_groups[key] = {
-                                "descriptor": d,
-                                "files": [],
-                            }
-                        matched_groups[key]["files"].append((fname, src_path))
-                        inferred_files.add(fname)
-                    elif len(exp_pending) > 1:
-                        skipped.append(
-                            (
-                                fname,
-                                f"{parsed_eid} found but slot ambiguous "
-                                f"({len(exp_pending)} pending). "
-                                f"Use 'stage assign' or rename with slot number.",
-                            )
-                        )
-                    else:
-                        unmatched.append(fname)
-                else:
-                    unmatched.append(fname)
-            # resolve folder_names for matched experiments
-            folder_cache = {}
-            valid_groups = {}
-            for key, group in matched_groups.items():
-                exp_id = key[0]
-                if exp_id not in folder_cache:
-                    cursor.execute(
-                        "SELECT folder_name FROM experiments WHERE id = ?",
-                        (exp_id,),
-                    )
-                    row = cursor.fetchone()
-                    if not row:
-                        for fname, _ in group["files"]:
-                            skipped.append(
-                                (fname, f"Experiment {exp_id} not found in database.")
-                            )
-                        continue
-                    folder_cache[exp_id] = row[0]
-                group["folder_name"] = folder_cache[exp_id]
-                valid_groups[key] = group
-            matched_groups = valid_groups
-            # validate destinations and build matched file list
-            today_compact = clock["today"].strftime("%Y%m%d")
-            matched_files = []
-            for key, group in matched_groups.items():
-                exp_id, slot = key
-                desc = group["descriptor"]
-                folder_name = group["folder_name"]
-                for fname, src_path in group["files"]:
-                    ext = os.path.splitext(fname)[1].lower()
-                    dest_name = f"{today_compact}_{exp_id}_{desc}{ext}"
-                    rel_path = os.path.join("experiments", folder_name, dest_name)
-                    dest_path = os.path.join(EXPERIMENTS_DIR, folder_name, dest_name)
-                    if os.path.exists(dest_path):
-                        skipped.append(
-                            (
-                                fname,
-                                f"Destination exists: {dest_name}. "
-                                "Use a different descriptor or remove existing file.",
-                            )
-                        )
-                    else:
-                        matched_files.append(
-                            (
-                                fname,
-                                src_path,
-                                exp_id,
-                                slot,
-                                desc,
-                                folder_name,
-                                dest_name,
-                                rel_path,
-                            )
-                        )
-            if not confirm:
-                # --- dry run ---
-                print("[DRY RUN]")
-                if matched_files:
-                    print(f"Matched ({len(matched_files)}):")
-                    for fname, _, _, _, _, _, _, rel_path in matched_files:
-                        tag = " (slot inferred)" if fname in inferred_files else ""
-                        print(f"  {fname}{tag}")
-                        print(f"     -> {rel_path}")
-                if skipped:
-                    print(f"Skipped ({len(skipped)}):")
-                    for fname, reason in skipped:
-                        print(f"  {fname}")
-                        print(f"     {reason}")
-                if unmatched:
-                    print(f"Unmatched ({len(unmatched)}):")
-                    for fname in unmatched:
-                        print(f"  {fname}")
-                print()
-                if matched_files:
-                    print(
-                        f"{len(matched_files)} file"
-                        f"{'s' if len(matched_files) != 1 else ''}"
-                        " ready to assign. Run with --confirm to execute."
-                    )
-                else:
-                    print("No files matched any pending expectations.")
-                    if unmatched or skipped:
-                        print("Use 'stage assign' for ad hoc files.")
-            else:
-                # --- confirmed execution ---
+        # stage auto --confirm: execute file moves
+        if _transform_key == ("stage", "auto") and _targs.get("confirm") and _rc == 0:
+            _plan = _effects.get("_auto_plan")
+            if _plan:
                 filed_count = 0
                 filed_display = []
-                skip_display = list(skipped)
+                skip_display = list(_plan["skipped"])
                 filed_slots = set()
                 error_slots = set()
-                for (
-                    fname,
-                    src_path,
-                    exp_id,
-                    slot,
-                    desc,
-                    folder_name,
-                    dest_name,
-                    rel_path,
-                ) in matched_files:
+                for mf in _plan["matched_files"]:
+                    fname = mf["fname"]
+                    src_path = os.path.join(STAGING_DIR, fname)
+                    exp_id = mf["exp_id"]
+                    slot = mf["slot"]
+                    desc = mf["descriptor"]
+                    folder_name = mf["folder_name"]
+                    dest_name = mf["dest_name"]
                     key = (exp_id, slot)
                     try:
-                        new_name, _ = file_staged(src_path, exp_id, folder_name, desc, clock, EXPERIMENTS_DIR, cursor)
+                        new_name, _ = file_staged(
+                            src_path, exp_id, folder_name, desc, clock,
+                            EXPERIMENTS_DIR, cursor
+                        )
                         filed_count += 1
                         filed_display.append((fname, new_name))
                         filed_slots.add(key)
                     except ValueError as e:
                         skip_display.append((fname, str(e)))
                         error_slots.add(key)
-                # mark expectations as filed (only fully successful slots)
-                for key in filed_slots - error_slots:
+                # If any slots had errors, revert their filed status
+                # (The transform already marked them filed in the store;
+                # execute_effects committed. We need a corrective DB update.)
+                for key in error_slots:
                     eid, sl = key
                     cursor.execute(
-                        "UPDATE stage_expectations "
-                        "SET status = 'filed', filed_at = datetime('now') "
+                        "UPDATE stage_expectations SET status = 'pending', filed_at = NULL "
                         "WHERE experiment_id = ? AND slot = ?",
                         (eid, sl),
                     )
-                # combine skipped and unmatched for display
-                for fname in unmatched:
+                for fname in _plan["unmatched"]:
                     skip_display.append((fname, "no match"))
-                # display results
                 if filed_display:
                     print(f"Filed ({len(filed_display)}):")
                     for fname, new_name in filed_display:
@@ -2833,12 +2851,123 @@ def main(argv=None):
                 print()
                 print(f"{filed_count} filed, {len(skip_display)} skipped.")
 
+        if _rc != 0:
+            bail(_rc)
+        _dispatched = True
+
+    # ============================================================
+    # LEGACY COMMAND DISPATCH
+    # ============================================================
+    # Only 'init' and 'stage assign' remain here.
+    # 'init' cannot use the Store (DB does not exist yet).
+    # 'stage assign' is a thin IO wrapper around file_staged.
+    # All other commands are transform-dispatched above.
+
+    # --- lw init ---
+    if _dispatched:
+        pass
+    elif command == "init":
+        if os.path.exists(DB_PATH):
+            print(f"Database already exists at {DB_PATH}")
+            print("Init aborted to protect existing data.")
+            bail()
+        for d in DIRECTORIES:
+            os.makedirs(os.path.join(LAB_ROOT, d), exist_ok=True)
+        print(f"Created directory structure at {LAB_ROOT}/")
+        conn = sqlite3.connect(DB_PATH)
+        conn.executescript(SCHEMA_SQL)
+        conn.commit()
+        conn.close()
+        conn = None
+        print(f"Created database at {DB_PATH}")
+        print(
+            f"Tables: {', '.join(['experiments', 'strains', 'experiment_strains', 'experiment_links', 'files', 'purification_details', 'assay_details', 'figure_panels', 'samples', 'stage_expectations'])}"
+        )
+        if not os.path.exists(COUNTER_FILE):
+            with open(COUNTER_FILE, "w") as f:
+                f.write("1")
+            print(f"Created {COUNTER_FILE} (starting at 1)")
+        else:
+            print(f"Counter file already exists, skipping")
+        if not os.path.exists(LAB_NOTES):
+            today = clock["today"].strftime("%Y-%m-%d")
+            with open(LAB_NOTES, "w") as f:
+                f.write(f"## {today}\n\n")
+            print(f"Created {LAB_NOTES}")
+        else:
+            print(f"Lab notes file already exists, skipping")
+        print()
+        print("Lab initialized. Ready for experiments.")
+
+    elif command == "exp":
+        if not subcommand:
+            print("Usage: python lw.py exp <subcommand>")
+            print("  init <type> <shortname>   Create new experiment")
+            print("  show <id>                 Show experiment details")
+            return 0
+
+    elif command == "strain":
+        if not subcommand:
+            print("Usage: python lw.py strain <subcommand>")
+            print("  add <id> <genotype>   Register a new strain")
+            print("  show <id>             Show strain details and experiments")
+            print("  list [--no-label]     List all strains (--no-label: missing only)")
+            print("  update <id> <f> <v>   Update a strain field")
+            return 0
+
+    elif command == "stage":
+        if not subcommand:
+            print("Usage: python lw.py stage <subcommand>")
+            print("  list                          Show files in staging/")
+            print("  assign <file> <exp_id> <desc> Rename, move, and register")
+            print("  expect <exp_id> <desc...>     Pre-register expected files")
+            print("  expect --list [exp_id]        Show pending expectations")
+            print("  expect --cancel <exp_id> [sN] Cancel pending expectations")
+            print("  auto [--confirm]              Auto-assign from expectations")
+            return 0
+        # --- lw stage assign (kept in legacy: thin IO wrapper) ---
+        if subcommand == "assign":
+            if len(pos_args) < 3:
+                print("Usage: python lw.py stage assign <filename> <exp_id> <descriptor>")
+                print("  Example: python lw.py stage assign Image_001.tiff LM-0001 gel-01")
+                bail()
+            src_name, raw_id, descriptor = pos_args[0], pos_args[1], pos_args[2]
+            _ok, _reason = validate_name(descriptor, "descriptor")
+            if not _ok:
+                print(_reason)
+                bail()
+            descriptor = descriptor.lower()
+            src_path = os.path.join(STAGING_DIR, src_name)
+            if not os.path.exists(src_path):
+                print(f"File not found in staging: {src_name}")
+                files = [f for f in os.listdir(STAGING_DIR) if not f.startswith(".")]
+                if files:
+                    print("Available files:")
+                    for f in sorted(files):
+                        print(f"  {f}")
+                bail()
+            exp_id = normalize_exp_id(raw_id)
+            if not exp_id:
+                print(f"Invalid experiment ID: '{raw_id}'")
+                bail()
+            exp = require_experiment(exp_id)
+            folder_name = exp["folder_name"]
+            try:
+                new_name, rel_path = file_staged(
+                    src_path, exp_id, folder_name, descriptor, clock,
+                    EXPERIMENTS_DIR, cursor
+                )
+            except ValueError as e:
+                print(str(e))
+                print("Use a different descriptor.")
+                bail()
+            print(f"Experiment: {exp_id} ({exp['shortname']}, {exp['type']})")
+            print(f"Filed: {src_name}")
+            print(f"    -> {rel_path}")
         else:
             print(f"Unknown subcommand: stage {subcommand}")
             print("Run 'python lw.py stage' for usage.")
             bail()
-
-    # --- lw status: handled by transform_status ---
 
     # --- unknown command ---
     else:

@@ -17,11 +17,18 @@ from lw_refactoring import (
     transform_exp_addstrain,
     transform_exp_find,
     transform_exp_list,
+    transform_exp_delete_plan,
+    transform_exp_init_plan,
+    transform_exp_manifest_plan,
     transform_strain_add,
     transform_strain_update,
     transform_strain_show,
     transform_strain_list,
     transform_stage_list,
+    transform_stage_auto_plan,
+    transform_expect_list,
+    transform_expect_cancel,
+    transform_expect_register,
     transform_status,
     effects_ok,
     effects_fail,
@@ -29,6 +36,8 @@ from lw_refactoring import (
     lookup_strain,
     append_note,
     format_size,
+    VALID_TYPES,
+    CATEGORY_CODES,
 )
 
 
@@ -989,6 +998,358 @@ def test_status_empty():
     text = stdout_text(effects)
     assert "0 total" in text
     assert "No experiments yet" in text
+
+
+# ============================================================
+# TESTS: transform_expect_list
+# ============================================================
+
+def _store_with_expectations():
+    store = copy.deepcopy(MINIMAL_STORE)
+    store["stage_expectations"].extend([
+        {
+            "id": 1, "experiment_id": "LM-0001", "slot": 1, "descriptor": "gel-01",
+            "status": "pending", "created_at": "2025-06-10T10:00:00", "filed_at": None,
+        },
+        {
+            "id": 2, "experiment_id": "LM-0001", "slot": 2, "descriptor": "nanodrop",
+            "status": "filed", "created_at": "2025-06-09T10:00:00", "filed_at": "2025-06-10T11:00:00",
+        },
+    ])
+    return store
+
+
+def test_expect_list_all():
+    store = _store_with_expectations()
+    effects = transform_expect_list(store, {"filter_exp_id": None}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "LM-0001:" in text
+    assert "gel-01" in text
+    assert "pending" in text
+    assert "1 pending, 1 filed" in text
+
+
+def test_expect_list_filtered():
+    store = _store_with_expectations()
+    effects = transform_expect_list(store, {"filter_exp_id": "LM-0001"}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "gel-01" in text
+    assert "nanodrop" in text
+
+
+def test_expect_list_empty():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_expect_list(store, {"filter_exp_id": None}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "No expectations registered" in text
+
+
+# ============================================================
+# TESTS: transform_expect_cancel
+# ============================================================
+
+def test_expect_cancel_single():
+    store = _store_with_expectations()
+    effects = transform_expect_cancel(store, {"exp_id": "LM-0001", "slot": 1}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "Cancelled:" in text
+    assert "gel-01" in text
+    # verify store mutation
+    se = [r for r in effects["store"]["stage_expectations"] if r["slot"] == 1]
+    assert se[0]["status"] == "cancelled"
+
+
+def test_expect_cancel_all_pending():
+    store = _store_with_expectations()
+    effects = transform_expect_cancel(store, {"exp_id": "LM-0001", "slot": None}, FROZEN_CLOCK)
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "Cancelled 1 pending" in text
+
+
+def test_expect_cancel_not_pending():
+    store = _store_with_expectations()
+    effects = transform_expect_cancel(store, {"exp_id": "LM-0001", "slot": 2}, FROZEN_CLOCK)
+    assert_fail(effects)
+    assert "already filed" in effects["stderr"][0]
+
+
+def test_expect_cancel_nonexistent_slot():
+    store = _store_with_expectations()
+    effects = transform_expect_cancel(store, {"exp_id": "LM-0001", "slot": 99}, FROZEN_CLOCK)
+    assert_fail(effects)
+
+
+# ============================================================
+# TESTS: transform_expect_register
+# ============================================================
+
+def test_expect_register_happy():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_expect_register(
+        store, {"exp_id": "LM-0001", "descriptors": ["gel-01", "nanodrop"]}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "s1" in text
+    assert "s2" in text
+    assert "gel-01" in text
+    assert "nanodrop" in text
+    assert "lemr" in text
+    assert "2 total pending" in text
+    new_se = [r for r in effects["store"]["stage_expectations"] if r["status"] == "pending"]
+    assert len(new_se) == 2
+
+
+def test_expect_register_duplicate_in_args():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_expect_register(
+        store, {"exp_id": "LM-0001", "descriptors": ["gel-01", "gel-01"]}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+    assert "Duplicate" in effects["stderr"][0]
+
+
+def test_expect_register_duplicate_existing():
+    store = _store_with_expectations()
+    effects = transform_expect_register(
+        store, {"exp_id": "LM-0001", "descriptors": ["gel-01"]}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+    assert "already pending" in effects["stderr"][0]
+
+
+def test_expect_register_nonexistent_exp():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_expect_register(
+        store, {"exp_id": "LM-9999", "descriptors": ["gel-01"]}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+
+
+# ============================================================
+# TESTS: transform_exp_delete_plan
+# ============================================================
+
+def test_delete_dry_run():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_delete_plan(
+        store,
+        {"exp_id": "LM-0001", "confirm": False, "keep_folder": False,
+         "folder_exists": True, "folder_contents": ["file.txt"]},
+        FROZEN_CLOCK,
+    )
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "[DRY RUN]" in text
+    assert "LM-0001" in text
+    assert effects.get("store") is None  # dry run doesn't mutate
+
+
+def test_delete_confirm():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_delete_plan(
+        store,
+        {"exp_id": "LM-0001", "confirm": True, "keep_folder": False,
+         "folder_exists": True, "folder_contents": []},
+        FROZEN_CLOCK,
+    )
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "[DELETE]" in text
+    assert "Deleted: LM-0001" in text
+    assert effects["store"] is not None
+    # experiment removed from store
+    assert not any(e["id"] == "LM-0001" for e in effects["store"]["experiments"])
+
+
+def test_delete_nonexistent():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_delete_plan(
+        store,
+        {"exp_id": "LM-9999", "confirm": False, "keep_folder": False,
+         "folder_exists": False, "folder_contents": []},
+        FROZEN_CLOCK,
+    )
+    assert_fail(effects)
+
+
+# ============================================================
+# TESTS: transform_exp_init_plan
+# ============================================================
+
+def test_init_plan_happy():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_init_plan(
+        store,
+        {"exp_type": "purification", "shortname": "test-pur2", "title": None, "counter": 2},
+        FROZEN_CLOCK,
+    )
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "Created: LM-0002" in text
+    assert "purification" in text
+    assert "protein" in text  # "Next: lw exp update ... protein"
+    plan = effects.get("_init_plan")
+    assert plan is not None
+    assert plan["exp_id"] == "LM-0002"
+    assert plan["new_counter"] == 3
+    # new exp in store
+    new_exp = [e for e in effects["store"]["experiments"] if e["id"] == "LM-0002"]
+    assert len(new_exp) == 1
+    assert new_exp[0]["type"] == "purification"
+
+
+def test_init_plan_invalid_type():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_init_plan(
+        store,
+        {"exp_type": "bogus", "shortname": "test", "title": None, "counter": 2},
+        FROZEN_CLOCK,
+    )
+    assert_fail(effects)
+    assert "Unknown experiment type" in effects["stderr"][0]
+
+
+def test_init_plan_invalid_name():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_exp_init_plan(
+        store,
+        {"exp_type": "purification", "shortname": "has spaces", "title": None, "counter": 2},
+        FROZEN_CLOCK,
+    )
+    assert_fail(effects)
+
+
+# ============================================================
+# TESTS: transform_exp_manifest_plan
+# ============================================================
+
+def test_manifest_plan_happy():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    store["samples"] = []  # clear pre-existing samples
+    design = {
+        "experiment_id": "LM-0002",
+        "expected_samples": 2,
+        "categories": {"strain": ["LY456", None]},
+        "sort_order": ["strain"],
+    }
+    effects = transform_exp_manifest_plan(
+        store,
+        {"exp_id": "LM-0002", "force": False, "design": design,
+         "design_source": "experiments/test/design.py"},
+        FROZEN_CLOCK,
+    )
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "2 samples" in text
+    assert effects["store"] is not None
+    new_samples = [s for s in effects["store"]["samples"] if s["experiment_id"] == "LM-0002"]
+    assert len(new_samples) == 2
+
+
+def test_manifest_plan_missing_key():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    design = {"experiment_id": "LM-0002"}
+    effects = transform_exp_manifest_plan(
+        store,
+        {"exp_id": "LM-0002", "force": False, "design": design,
+         "design_source": "test"},
+        FROZEN_CLOCK,
+    )
+    assert_fail(effects)
+    assert "missing required key" in effects["stderr"][0]
+
+
+def test_manifest_plan_wrong_count():
+    store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
+    store["samples"] = []  # clear pre-existing
+    design = {
+        "experiment_id": "LM-0002",
+        "expected_samples": 99,
+        "categories": {"strain": ["LY456"]},
+        "sort_order": ["strain"],
+    }
+    effects = transform_exp_manifest_plan(
+        store,
+        {"exp_id": "LM-0002", "force": False, "design": design,
+         "design_source": "test"},
+        FROZEN_CLOCK,
+    )
+    assert_fail(effects)
+    assert "expected 99" in effects["stderr"][0]
+
+
+# ============================================================
+# TESTS: transform_stage_auto_plan
+# ============================================================
+
+def test_auto_plan_dir_missing():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_stage_auto_plan(
+        store, {"file_list": None, "confirm": False}, FROZEN_CLOCK
+    )
+    assert_fail(effects)
+
+
+def test_auto_plan_empty_staging():
+    store = copy.deepcopy(MINIMAL_STORE)
+    effects = transform_stage_auto_plan(
+        store, {"file_list": [], "confirm": False}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "empty" in text.lower()
+
+
+def test_auto_plan_no_pending():
+    store = copy.deepcopy(MINIMAL_STORE)
+    file_list = [{"name": "random.txt", "src_path": "/staging/random.txt"}]
+    effects = transform_stage_auto_plan(
+        store, {"file_list": file_list, "confirm": False}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "No pending expectations" in text
+    assert "random.txt" in text
+
+
+def test_auto_plan_dry_run_match():
+    store = _store_with_expectations()
+    file_list = [
+        {"name": "lemr LM-0001 s1 image.tiff", "src_path": "/staging/lemr LM-0001 s1 image.tiff"},
+    ]
+    effects = transform_stage_auto_plan(
+        store, {"file_list": file_list, "confirm": False}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    text = stdout_text(effects)
+    assert "[DRY RUN]" in text
+    assert "Matched (1)" in text
+    assert "ready to assign" in text
+
+
+def test_auto_plan_confirm_returns_plan():
+    store = _store_with_expectations()
+    file_list = [
+        {"name": "lemr LM-0001 s1 image.tiff", "src_path": "/staging/lemr LM-0001 s1 image.tiff"},
+    ]
+    effects = transform_stage_auto_plan(
+        store, {"file_list": file_list, "confirm": True}, FROZEN_CLOCK
+    )
+    assert_ok(effects)
+    assert effects.get("_auto_plan") is not None
+    assert len(effects["_auto_plan"]["matched_files"]) == 1
+    # expectation marked filed in store
+    se = [
+        r for r in effects["store"]["stage_expectations"]
+        if r["experiment_id"] == "LM-0001" and r["slot"] == 1
+    ]
+    assert se[0]["status"] == "filed"
 
 
 # ============================================================
