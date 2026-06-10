@@ -25,10 +25,6 @@ STAGING_DIR = None
 COUNTER_FILE = None
 LAB_NOTES = None
 
-# --- DB sentinels (assigned by main() at runtime) ---
-conn = None
-cursor = None
-
 DIRECTORIES = [
     "experiments",
     "protocols",
@@ -2198,11 +2194,11 @@ def validate_destination(dest_dir, dest_name):
     return (True, None)
 
 
-def file_staged(src_path, exp_id, folder_name, descriptor, clock, experiments_dir, cur):
+def file_staged(src_path, exp_id, folder_name, descriptor, clock, experiments_dir, db_path):
     """Move a file from staging to an experiment folder and register it.
 
     IMPURE -- performs irreversible filesystem move and DB insert.
-    Takes explicit parameters instead of using globals or date.today().
+    Takes explicit parameters instead of using globals.
 
     Args:
         src_path: absolute path to source file in staging
@@ -2211,7 +2207,7 @@ def file_staged(src_path, exp_id, folder_name, descriptor, clock, experiments_di
         descriptor: file descriptor (lowercased)
         clock: captured clock dict with 'today' key
         experiments_dir: absolute path to experiments/ directory
-        cur: sqlite3 cursor for DB insert
+        db_path: path to SQLite database
 
     Returns (new_name, rel_path).
     Raises ValueError if experiment folder is missing or destination exists.
@@ -2226,10 +2222,15 @@ def file_staged(src_path, exp_id, folder_name, descriptor, clock, experiments_di
     dest_path = os.path.join(dest_dir, new_name)
     shutil.move(src_path, dest_path)
     rel_path = os.path.join("experiments", folder_name, new_name)
-    cur.execute(
-        "INSERT INTO files (experiment_id, filename, file_type) VALUES (?, ?, ?)",
-        (exp_id, rel_path, None),
-    )
+    _conn = sqlite3.connect(db_path)
+    try:
+        _conn.execute(
+            "INSERT INTO files (experiment_id, filename, file_type) VALUES (?, ?, ?)",
+            (exp_id, rel_path, None),
+        )
+        _conn.commit()
+    finally:
+        _conn.close()
     return (new_name, rel_path)
 
 
@@ -2245,17 +2246,6 @@ def normalize_exp_id(raw_id):
         return f"LM-{int(raw_id):04d}"
     except ValueError:
         return None
-
-
-def require_experiment(exp_id):
-    """Verify experiment exists. Returns row as dict. Exits if not found."""
-    cursor.execute("SELECT * FROM experiments WHERE id = ?", (exp_id,))
-    row = cursor.fetchone()
-    if not row:
-        print(f"No experiment found with ID {exp_id}")
-        bail()
-    col_names = [d[0] for d in cursor.description]
-    return dict(zip(col_names, row))
 
 
 def validate_name(value, label="name"):
@@ -2290,7 +2280,6 @@ def lookup_experiment(store, exp_id):
 
 def main(argv=None):
     global LAB_ROOT, DB_PATH, EXPERIMENTS_DIR, STAGING_DIR, COUNTER_FILE, LAB_NOTES
-    global conn, cursor
 
     if argv is None:
         argv = sys.argv
@@ -2391,27 +2380,14 @@ def main(argv=None):
     pos_args = args[2:]
 
     # ============================================================
-    # DATABASE CONNECTION
+    # DATABASE / STORE
     # ============================================================
-    conn = None
-    cursor = None
     store = None
     if command != "init":
         if not os.path.exists(DB_PATH):
             print(f"Error: Database not found at {DB_PATH}")
             print("Run 'python lw.py init' first.")
             bail()
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("PRAGMA foreign_keys = ON")
-        cursor = conn.cursor()
-        # --- Commit 1.3: load Store alongside cursor (dual-path) ---
-        # The Store is the source of truth for new code.
-        # conn/cursor remain alive for legacy handlers that still use
-        # cursor.execute() directly.  Both are kept in sync: mutations
-        # happen through cursor (legacy) and the DB is also read into
-        # the Store.  commit(store, ...) writes the Store back at the
-        # end; conn.commit() also fires for belt-and-suspenders safety
-        # during the Phase 1 transition.
         store = load_store(DB_PATH)
 
     # ============================================================
@@ -2819,7 +2795,7 @@ def main(argv=None):
                     try:
                         new_name, _ = file_staged(
                             src_path, exp_id, folder_name, desc, clock,
-                            EXPERIMENTS_DIR, cursor
+                            EXPERIMENTS_DIR, DB_PATH
                         )
                         filed_count += 1
                         filed_display.append((fname, new_name))
@@ -2828,15 +2804,19 @@ def main(argv=None):
                         skip_display.append((fname, str(e)))
                         error_slots.add(key)
                 # If any slots had errors, revert their filed status
-                # (The transform already marked them filed in the store;
-                # execute_effects committed. We need a corrective DB update.)
-                for key in error_slots:
-                    eid, sl = key
-                    cursor.execute(
-                        "UPDATE stage_expectations SET status = 'pending', filed_at = NULL "
-                        "WHERE experiment_id = ? AND slot = ?",
-                        (eid, sl),
-                    )
+                if error_slots:
+                    _revert_conn = sqlite3.connect(DB_PATH)
+                    try:
+                        for key in error_slots:
+                            eid, sl = key
+                            _revert_conn.execute(
+                                "UPDATE stage_expectations SET status = 'pending', filed_at = NULL "
+                                "WHERE experiment_id = ? AND slot = ?",
+                                (eid, sl),
+                            )
+                        _revert_conn.commit()
+                    finally:
+                        _revert_conn.close()
                 for fname in _plan["unmatched"]:
                     skip_display.append((fname, "no match"))
                 if filed_display:
@@ -2950,12 +2930,15 @@ def main(argv=None):
             if not exp_id:
                 print(f"Invalid experiment ID: '{raw_id}'")
                 bail()
-            exp = require_experiment(exp_id)
+            exp = lookup_experiment(store, exp_id)
+            if not exp:
+                print(f"No experiment found with ID {exp_id}")
+                bail()
             folder_name = exp["folder_name"]
             try:
                 new_name, rel_path = file_staged(
                     src_path, exp_id, folder_name, descriptor, clock,
-                    EXPERIMENTS_DIR, cursor
+                    EXPERIMENTS_DIR, DB_PATH
                 )
             except ValueError as e:
                 print(str(e))
@@ -2978,16 +2961,6 @@ def main(argv=None):
     # ============================================================
     # CLEANUP
     # ============================================================
-    if conn:
-        conn.commit()
-        conn.close()
-    # --- Commit 1.3: write Store back (belt-and-suspenders) ---
-    # During Phase 1 transition, both conn.commit() and commit(store)
-    # fire.  Once all handlers migrate off cursor, conn/cursor are
-    # removed and commit(store) becomes the sole writer.
-    if store is not None:
-        store = load_store(DB_PATH)  # re-read after conn.commit() so Store reflects cursor mutations
-        commit(store, DB_PATH)
     # log successful command
     try:
         _log_path = os.path.join(LAB_ROOT, "command_log.txt")

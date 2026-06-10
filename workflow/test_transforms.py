@@ -9,7 +9,7 @@ import copy
 # Import the transforms and helpers from lw.py (same directory)
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from lw_refactoring import (
+from lw import (
     transform_exp_complete,
     transform_exp_show,
     transform_exp_update,
