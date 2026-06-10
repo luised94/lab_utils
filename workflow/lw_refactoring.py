@@ -259,6 +259,262 @@ def commit(store, db_path):
 # SECTION 2: HELPER FUNCTIONS (module-level, reference global sentinels)
 # ============================================================
 
+# ============================================================
+# SECTION 2a: EFFECTS (effects-as-data infrastructure)
+# ============================================================
+# An Effects value is a plain dict describing what should happen,
+# not a function that does it.  Transforms return Effects;
+# execute_effects is the single "dumb shell" that performs IO.
+#
+# Shape:
+#   {
+#       "ok":        bool,           # True = success, False = error
+#       "stdout":    [str, ...],     # lines to print (no trailing newline)
+#       "stderr":    [str, ...],     # error lines (printed to stderr)
+#       "store":     dict | None,    # mutated Store to commit, or None
+#       "exit_code": int,            # 0 = success, nonzero = failure
+#   }
+
+
+def effects_ok(stdout=None, store=None, exit_code=0):
+    """Construct a successful Effects value.
+
+    stdout: list of output lines (each without trailing newline).
+    store:  the mutated Store dict to commit, or None for read-only commands.
+    """
+    return {
+        "ok": True,
+        "stdout": stdout if stdout is not None else [],
+        "stderr": [],
+        "store": store,
+        "exit_code": exit_code,
+    }
+
+
+def effects_fail(msg, exit_code=1):
+    """Construct a failure Effects value.
+
+    msg: a single error message string (or list of strings).
+    """
+    if isinstance(msg, str):
+        msg = [msg]
+    return {
+        "ok": False,
+        "stdout": [],
+        "stderr": msg,
+        "store": None,
+        "exit_code": exit_code,
+    }
+
+
+def execute_effects(effects, db_path):
+    """The dumb shell: perform the IO described by an Effects value.
+
+    1. Print stdout lines to sys.stdout.
+    2. Print stderr lines to sys.stderr.
+    3. If effects["store"] is not None, call commit(store, db_path).
+    4. Return effects["exit_code"].
+
+    This is the ONLY function that performs IO for transformed commands.
+    """
+    for line in effects.get("stdout", []):
+        print(line)
+    for line in effects.get("stderr", []):
+        print(line, file=sys.stderr)
+    if effects.get("store") is not None:
+        commit(effects["store"], db_path)
+    return effects.get("exit_code", 0)
+
+
+# ============================================================
+# SECTION 2b: PURE TRANSFORMS
+# ============================================================
+# Each transform_<command> function is pure: it takes (store, args, clock)
+# and returns an Effects dict.  No IO, no globals, no cursor.
+# Transforms are registered in TRANSFORM_DISPATCH and called by main().
+
+
+def transform_exp_complete(store, args, clock):
+    """Pure transform: mark an experiment as complete.
+
+    args: {"exp_id": str (raw, unnormalized)}
+    Returns Effects with mutated store or error/no-op message.
+    """
+    raw_id = args["exp_id"]
+    exp_id = normalize_exp_id(raw_id)
+    if not exp_id:
+        return effects_fail(f"Invalid experiment ID: '{raw_id}'")
+    exp = lookup_experiment(store, exp_id)
+    if not exp:
+        return effects_fail(f"No experiment found with ID {exp_id}")
+    if exp["status"] == "complete":
+        return effects_ok(stdout=[f"{exp_id} is already marked complete."])
+    today = clock["today"].strftime("%Y-%m-%d")
+    started = datetime.date.fromisoformat(exp["date_started"])
+    duration = (clock["today"] - started).days
+    # mutate store (shallow copy the experiments list with the updated row)
+    new_experiments = []
+    for row in store["experiments"]:
+        if row["id"] == exp_id:
+            updated = dict(row)
+            updated["status"] = "complete"
+            updated["date_completed"] = today
+            new_experiments.append(updated)
+        else:
+            new_experiments.append(row)
+    new_store = dict(store)
+    new_store["experiments"] = new_experiments
+    lines = [
+        f"Completed: {exp_id}",
+        f"  Date: {today}",
+        f"  Duration: {duration}d (started {exp['date_started']})",
+    ]
+    return effects_ok(stdout=lines, store=new_store)
+
+
+def transform_exp_show(store, args, clock):
+    """Pure transform: display experiment details.
+
+    args: {"exp_id": str (raw, unnormalized)}
+    Returns Effects with stdout lines (read-only, no store mutation).
+    """
+    raw_id = args["exp_id"]
+    exp_id = normalize_exp_id(raw_id)
+    if not exp_id:
+        return effects_fail(f"Invalid experiment ID: '{raw_id}'")
+    exp = lookup_experiment(store, exp_id)
+    if not exp:
+        return effects_fail(f"No experiment found with ID {exp_id}")
+    lines = []
+    # compute status display with age/duration
+    if exp["status"] == "active":
+        started = datetime.date.fromisoformat(exp["date_started"])
+        age = (clock["today"] - started).days
+        status_str = f"active ({age}d)"
+    elif exp["status"] == "complete" and exp["date_completed"]:
+        started = datetime.date.fromisoformat(exp["date_started"])
+        completed = datetime.date.fromisoformat(exp["date_completed"])
+        duration = (completed - started).days
+        status_str = f"complete ({duration}d)"
+    else:
+        status_str = exp["status"]
+    # main fields
+    fields = [
+        ("ID", exp["id"]),
+        ("Type", exp["type"]),
+        ("Title", exp["title"]),
+        ("Shortname", exp["shortname"]),
+        ("Date started", exp["date_started"]),
+        ("Date completed", exp["date_completed"]),
+        ("Status", status_str),
+        ("Folder", exp["folder_name"] + "/"),
+        ("Protocol", exp["protocol_id"]),
+        ("Notes", exp["notes"]),
+    ]
+    label_width = max(len(f[0]) for f in fields)
+    for label, val in fields:
+        lines.append(f"  {label + ':':<{label_width + 2}} {val if val else '-'}")
+    # linked strains
+    strains = [
+        (r["strain_id"], r["role"])
+        for r in store["experiment_strains"]
+        if r["experiment_id"] == exp_id
+    ]
+    if strains:
+        lines.append("")
+        lines.append("  Strains:")
+        for sid, role in strains:
+            role_str = f" ({role})" if role else ""
+            lines.append(f"    {sid}{role_str}")
+    # linked experiments
+    links_out = [
+        (r["to_experiment"], r["relationship"])
+        for r in store["experiment_links"]
+        if r["from_experiment"] == exp_id
+    ]
+    links_in = [
+        (r["from_experiment"], r["relationship"])
+        for r in store["experiment_links"]
+        if r["to_experiment"] == exp_id
+    ]
+    if links_out or links_in:
+        lines.append("")
+        lines.append("  Links:")
+        for target, rel in links_out:
+            lines.append(f"    -> {target} ({rel})")
+        for source, rel in links_in:
+            lines.append(f"    <- {source} ({rel})")
+    # files
+    exp_files = [
+        (r["filename"], r["file_type"], r["description"])
+        for r in store["files"]
+        if r["experiment_id"] == exp_id
+    ]
+    if exp_files:
+        lines.append("")
+        lines.append("  Files:")
+        for fname, ftype, desc in exp_files:
+            parts = [fname]
+            if ftype:
+                parts.append(f"[{ftype}]")
+            if desc:
+                parts.append(desc)
+            lines.append(f"    {' '.join(parts)}")
+    # purification details
+    pur_rows = [
+        r for r in store["purification_details"]
+        if r["experiment_id"] == exp_id
+    ]
+    if pur_rows:
+        pur = pur_rows[0]
+        lines.append("")
+        lines.append("  Purification details:")
+        for k, v in pur.items():
+            if k == "experiment_id" or v is None:
+                continue
+            lines.append(f"    {k}: {v}")
+    # assay details
+    assay_rows = [
+        r for r in store["assay_details"]
+        if r["experiment_id"] == exp_id
+    ]
+    if assay_rows:
+        assay = assay_rows[0]
+        lines.append("")
+        lines.append("  Assay details:")
+        for k, v in assay.items():
+            if k == "experiment_id" or v is None:
+                continue
+            lines.append(f"    {k}: {v}")
+    # samples
+    sample_rows = sorted(
+        [r for r in store["samples"] if r["experiment_id"] == exp_id],
+        key=lambda r: r["position"],
+    )
+    if sample_rows:
+        lines.append("")
+        lines.append(f"  Samples ({len(sample_rows)}):")
+        for s in sample_rows:
+            pos = s["position"]
+            stype = s["sample_type"]
+            sid = s["strain_id"]
+            lbl = s["label"]
+            dna = s["dna"]
+            sid_str = sid if sid else "-"
+            dna_str = dna if dna else ""
+            extra = f"  dna={dna_str}" if dna_str else ""
+            lines.append(f"    {pos:>3}  {stype:<10} {sid_str:<8} {lbl}{extra}")
+    return effects_ok(stdout=lines)
+
+
+# --- Transform dispatch registry ---
+# Maps (command, subcommand) -> transform function.
+# main() checks this before falling through to the legacy if/elif chain.
+TRANSFORM_DISPATCH = {
+    ("exp", "complete"): transform_exp_complete,
+    ("exp", "show"): transform_exp_show,
+}
+
 def bail(code=1):
     """Log command failure and exit. Safe to call even before LAB_ROOT exists."""
     try:
@@ -546,8 +802,48 @@ def main(argv=None):
     # the filesystem does not. Commands are ordered to minimize
     # unrecoverable states: prefer DB-then-filesystem where possible.
 
+    # --- Commit 2.2: Transform dispatch (pure commands) ---
+    # If (command, subcommand) has a registered transform, call it
+    # and feed the result to execute_effects.  Otherwise fall through
+    # to the legacy if/elif chain below.
+    _dispatched = False
+    _transform_key = (command, subcommand)
+    _transform_fn = TRANSFORM_DISPATCH.get(_transform_key)
+    if _transform_fn is not None:
+        # Parse args for the transform.  Each transform expects a
+        # specific args dict; we build it here from pos_args.
+        # For commands that need a single <id> argument:
+        if _transform_key in (("exp", "complete"), ("exp", "show")):
+            if len(pos_args) != 1:
+                usage = {
+                    ("exp", "complete"): "Usage: python lw.py exp complete <id>",
+                    ("exp", "show"): "Usage: python lw.py exp show <id>\n  Accepts 'LM-0001' or just '1'",
+                }
+                print(usage[_transform_key])
+                bail()
+            _targs = {"exp_id": pos_args[0]}
+        else:
+            _targs = {"pos_args": pos_args}
+        _effects = _transform_fn(store, _targs, clock)
+        _rc = execute_effects(_effects, DB_PATH)
+        # If the transform mutated the store, skip the legacy
+        # conn.commit path -- execute_effects already committed.
+        if _effects.get("store") is not None:
+            store = None  # prevent double-commit in cleanup
+        if _rc != 0:
+            bail(_rc)
+        _dispatched = True
+
+    # ============================================================
+    # LEGACY COMMAND DISPATCH
+    # ============================================================
+    # Commands not yet converted to transforms.  Skipped when
+    # _dispatched is True (the transform path already handled it).
+
     # --- lw init ---
-    if command == "init":
+    if _dispatched:
+        pass
+    elif command == "init":
         if os.path.exists(DB_PATH):
             print(f"Database already exists at {DB_PATH}")
             print("Init aborted to protect existing data.")
@@ -768,30 +1064,7 @@ def main(argv=None):
                 else:
                     print(f"  {field}: {old_val if old_val else '-'} -> {value}")
 
-        # --- lw exp complete <id> ---
-        elif subcommand == "complete":
-            if len(pos_args) != 1:
-                print("Usage: python lw.py exp complete <id>")
-                bail()
-            raw_id = pos_args[0]
-            exp_id = normalize_exp_id(raw_id)
-            if not exp_id:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                bail()
-            exp = require_experiment(exp_id)
-            if exp["status"] == "complete":
-                print(f"{exp_id} is already marked complete.")
-                return 0
-            today = datetime.date.today().strftime("%Y-%m-%d")
-            cursor.execute(
-                "UPDATE experiments SET status = 'complete', date_completed = ? WHERE id = ?",
-                (today, exp_id),
-            )
-            started = datetime.date.fromisoformat(exp["date_started"])
-            duration = (datetime.date.today() - started).days
-            print(f"Completed: {exp_id}")
-            print(f"  Date: {today}")
-            print(f"  Duration: {duration}d (started {exp['date_started']})")
+        # --- lw exp complete: handled by transform_exp_complete ---
 
         # --- lw exp link <from_id> <to_id> <relationship> ---
         elif subcommand == "link":
@@ -880,137 +1153,7 @@ def main(argv=None):
             role_str = f" as {role}" if role else ""
             print(f"Added: {strain_id} -> {exp_id}{role_str}")
 
-        # --- lw exp show <id> ---
-        elif subcommand == "show":
-            if len(pos_args) != 1:
-                print("Usage: python lw.py exp show <id>")
-                print("  Accepts 'LM-0001' or just '1'")
-                bail()
-            raw_id = pos_args[0]
-            exp_id = normalize_exp_id(raw_id)
-            if not exp_id:
-                print(f"Invalid experiment ID: '{raw_id}'")
-                bail()
-            exp = require_experiment(exp_id)
-            # compute status display with age/duration
-            if exp["status"] == "active":
-                started = datetime.date.fromisoformat(exp["date_started"])
-                age = (datetime.date.today() - started).days
-                status_str = f"active ({age}d)"
-            elif exp["status"] == "complete" and exp["date_completed"]:
-                started = datetime.date.fromisoformat(exp["date_started"])
-                completed = datetime.date.fromisoformat(exp["date_completed"])
-                duration = (completed - started).days
-                status_str = f"complete ({duration}d)"
-            else:
-                status_str = exp["status"]
-            # display
-            fields = [
-                ("ID", exp["id"]),
-                ("Type", exp["type"]),
-                ("Title", exp["title"]),
-                ("Shortname", exp["shortname"]),
-                ("Date started", exp["date_started"]),
-                ("Date completed", exp["date_completed"]),
-                ("Status", status_str),
-                ("Folder", exp["folder_name"] + "/"),
-                ("Protocol", exp["protocol_id"]),
-                ("Notes", exp["notes"]),
-            ]
-            label_width = max(len(f[0]) for f in fields)
-            for label, val in fields:
-                print(f"  {label + ':':<{label_width + 2}} {val if val else '-'}")
-            # linked strains
-            cursor.execute(
-                "SELECT strain_id, role FROM experiment_strains WHERE experiment_id = ?",
-                (exp_id,),
-            )
-            strains = cursor.fetchall()
-            if strains:
-                print()
-                print("  Strains:")
-                for sid, role in strains:
-                    role_str = f" ({role})" if role else ""
-                    print(f"    {sid}{role_str}")
-            # linked experiments
-            cursor.execute(
-                "SELECT to_experiment, relationship FROM experiment_links WHERE from_experiment = ?",
-                (exp_id,),
-            )
-            links_out = cursor.fetchall()
-            cursor.execute(
-                "SELECT from_experiment, relationship FROM experiment_links WHERE to_experiment = ?",
-                (exp_id,),
-            )
-            links_in = cursor.fetchall()
-            if links_out or links_in:
-                print()
-                print("  Links:")
-                for target, rel in links_out:
-                    print(f"    -> {target} ({rel})")
-                for source, rel in links_in:
-                    print(f"    <- {source} ({rel})")
-            # files
-            cursor.execute(
-                "SELECT filename, file_type, description FROM files WHERE experiment_id = ?",
-                (exp_id,),
-            )
-            exp_files = cursor.fetchall()
-            if exp_files:
-                print()
-                print("  Files:")
-                for fname, ftype, desc in exp_files:
-                    parts = [fname]
-                    if ftype:
-                        parts.append(f"[{ftype}]")
-                    if desc:
-                        parts.append(desc)
-                    print(f"    {' '.join(parts)}")
-            # purification details
-            cursor.execute(
-                "SELECT * FROM purification_details WHERE experiment_id = ?",
-                (exp_id,),
-            )
-            pur_row = cursor.fetchone()
-            if pur_row:
-                pur_cols = [d[0] for d in cursor.description]
-                pur = dict(zip(pur_cols, pur_row))
-                print()
-                print("  Purification details:")
-                for k, v in pur.items():
-                    if k == "experiment_id" or v is None:
-                        continue
-                    print(f"    {k}: {v}")
-            # assay details
-            cursor.execute(
-                "SELECT * FROM assay_details WHERE experiment_id = ?",
-                (exp_id,),
-            )
-            assay_row = cursor.fetchone()
-            if assay_row:
-                assay_cols = [d[0] for d in cursor.description]
-                assay = dict(zip(assay_cols, assay_row))
-                print()
-                print("  Assay details:")
-                for k, v in assay.items():
-                    if k == "experiment_id" or v is None:
-                        continue
-                    print(f"    {k}: {v}")
-            # samples
-            cursor.execute(
-                "SELECT position, sample_type, strain_id, label, dna, conditions "
-                "FROM samples WHERE experiment_id = ? ORDER BY position",
-                (exp_id,),
-            )
-            sample_rows = cursor.fetchall()
-            if sample_rows:
-                print()
-                print(f"  Samples ({len(sample_rows)}):")
-                for pos, stype, sid, lbl, dna, cond in sample_rows:
-                    sid_str = sid if sid else "-"
-                    dna_str = dna if dna else ""
-                    extra = f"  dna={dna_str}" if dna_str else ""
-                    print(f"    {pos:>3}  {stype:<10} {sid_str:<8} {lbl}{extra}")
+        # --- lw exp show: handled by transform_exp_show ---
 
         # --- lw exp delete <id> [--confirm] [--keep-folder] ---
         elif subcommand == "delete":
