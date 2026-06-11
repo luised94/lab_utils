@@ -3,11 +3,13 @@
 Each test uses dict-literal fixtures and a frozen clock.
 No database, no filesystem, no IO.
 """
+
 import datetime
 import copy
 
 # Import the transforms and helpers from lw.py (same directory)
 import sys, os
+
 sys.path.insert(0, os.path.dirname(__file__))
 from lw import (
     transform_exp_complete,
@@ -176,6 +178,7 @@ COMPLETE_EXPERIMENT_STORE = {
 # HELPERS
 # ============================================================
 
+
 def assert_ok(effects):
     assert effects["ok"], f"Expected ok=True, got stderr={effects['stderr']}"
     assert effects["exit_code"] == 0
@@ -194,6 +197,7 @@ def stdout_text(effects):
 # ============================================================
 # TESTS: transform_exp_complete
 # ============================================================
+
 
 def test_complete_happy_path():
     """Active experiment -> complete. Store mutated, stdout matches."""
@@ -260,6 +264,7 @@ def test_complete_does_not_mutate_input():
 # TESTS: transform_exp_show
 # ============================================================
 
+
 def test_show_minimal():
     """Show experiment with no related records."""
     store = copy.deepcopy(MINIMAL_STORE)
@@ -283,32 +288,36 @@ def test_show_full():
     """Show experiment with all related records populated."""
     # Need LM-0001 in the store for the link target
     store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
-    store["experiments"].append({
-        "id": "LM-0001",
-        "type": "purification",
-        "title": "test-pur",
-        "shortname": "test-pur",
-        "date_started": "2025-05-15",
-        "date_completed": None,
-        "status": "active",
-        "folder_name": "20250515_LM-0001_pur_test-pur",
-        "protocol_id": None,
-        "notes": None,
-        "created_at": "2025-05-15T00:00:00",
-    })
-    store["experiments"].append({
-        "id": "LM-0003",
-        "type": "gelshift",
-        "title": "gel-rep",
-        "shortname": "gel-rep",
-        "date_started": "2025-06-01",
-        "date_completed": None,
-        "status": "active",
-        "folder_name": "20250601_LM-0003_gs_gel-rep",
-        "protocol_id": None,
-        "notes": None,
-        "created_at": "2025-06-01T00:00:00",
-    })
+    store["experiments"].append(
+        {
+            "id": "LM-0001",
+            "type": "purification",
+            "title": "test-pur",
+            "shortname": "test-pur",
+            "date_started": "2025-05-15",
+            "date_completed": None,
+            "status": "active",
+            "folder_name": "20250515_LM-0001_pur_test-pur",
+            "protocol_id": None,
+            "notes": None,
+            "created_at": "2025-05-15T00:00:00",
+        }
+    )
+    store["experiments"].append(
+        {
+            "id": "LM-0003",
+            "type": "gelshift",
+            "title": "gel-rep",
+            "shortname": "gel-rep",
+            "date_started": "2025-06-01",
+            "date_completed": None,
+            "status": "active",
+            "folder_name": "20250601_LM-0003_gs_gel-rep",
+            "protocol_id": None,
+            "notes": None,
+            "created_at": "2025-06-01T00:00:00",
+        }
+    )
     effects = transform_exp_show(store, {"exp_id": "LM-0002"}, FROZEN_CLOCK)
     assert_ok(effects)
     assert effects["store"] is None  # read-only
@@ -367,6 +376,7 @@ def test_show_does_not_mutate_store():
 # TESTS: append_note (shared helper)
 # ============================================================
 
+
 def test_append_note_first():
     result = append_note(None, "first entry", FROZEN_CLOCK)
     assert result == "[2025-06-10] first entry"
@@ -381,11 +391,14 @@ def test_append_note_append():
 # TESTS: transform_exp_update
 # ============================================================
 
+
 def test_update_simple_field():
     """Update a simple experiments-table field (title)."""
     store = copy.deepcopy(MINIMAL_STORE)
     effects = transform_exp_update(
-        store, {"exp_id": "LM-0001", "field": "title", "value": "new-title"}, FROZEN_CLOCK
+        store,
+        {"exp_id": "LM-0001", "field": "title", "value": "new-title"},
+        FROZEN_CLOCK,
     )
     assert_ok(effects)
     exp = lookup_experiment(effects["store"], "LM-0001")
@@ -400,7 +413,9 @@ def test_update_notes_append():
     store = copy.deepcopy(MINIMAL_STORE)
     store["experiments"][0]["notes"] = "[2025-06-01] old note"
     effects = transform_exp_update(
-        store, {"exp_id": "LM-0001", "field": "notes", "value": "new note"}, FROZEN_CLOCK
+        store,
+        {"exp_id": "LM-0001", "field": "notes", "value": "new note"},
+        FROZEN_CLOCK,
     )
     assert_ok(effects)
     exp = lookup_experiment(effects["store"], "LM-0001")
@@ -412,7 +427,9 @@ def test_update_protected_field():
     """Protected fields are rejected."""
     store = copy.deepcopy(MINIMAL_STORE)
     effects = transform_exp_update(
-        store, {"exp_id": "LM-0001", "field": "status", "value": "complete"}, FROZEN_CLOCK
+        store,
+        {"exp_id": "LM-0001", "field": "status", "value": "complete"},
+        FROZEN_CLOCK,
     )
     assert_fail(effects)
     assert "cannot be modified" in effects["stderr"][0]
@@ -435,7 +452,11 @@ def test_update_protein_creates_purification():
         store, {"exp_id": "LM-0001", "field": "protein", "value": "Orc4"}, FROZEN_CLOCK
     )
     assert_ok(effects)
-    pur = [r for r in effects["store"]["purification_details"] if r["experiment_id"] == "LM-0001"]
+    pur = [
+        r
+        for r in effects["store"]["purification_details"]
+        if r["experiment_id"] == "LM-0001"
+    ]
     assert len(pur) == 1
     assert pur[0]["protein"] == "Orc4"
     text = stdout_text(effects)
@@ -456,10 +477,14 @@ def test_update_assay_field_creates_skeleton():
     """Setting an assay field on exp with no assay record creates one."""
     store = copy.deepcopy(MINIMAL_STORE)
     effects = transform_exp_update(
-        store, {"exp_id": "LM-0001", "field": "dna_template", "value": "pUC19"}, FROZEN_CLOCK
+        store,
+        {"exp_id": "LM-0001", "field": "dna_template", "value": "pUC19"},
+        FROZEN_CLOCK,
     )
     assert_ok(effects)
-    assay = [r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0001"]
+    assay = [
+        r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0001"
+    ]
     assert len(assay) == 1
     assert assay[0]["dna_template"] == "pUC19"
 
@@ -476,29 +501,34 @@ def test_update_nonexistent_exp():
 # TESTS: transform_exp_link
 # ============================================================
 
+
 def _two_exp_store():
     """Store with two experiments for link testing."""
     store = copy.deepcopy(MINIMAL_STORE)
-    store["experiments"].append({
-        "id": "LM-0002",
-        "type": "gelshift",
-        "title": "gel-test",
-        "shortname": "gel-test",
-        "date_started": "2025-06-05",
-        "date_completed": None,
-        "status": "active",
-        "folder_name": "20250605_LM-0002_gs_gel-test",
-        "protocol_id": None,
-        "notes": None,
-        "created_at": "2025-06-05T00:00:00",
-    })
+    store["experiments"].append(
+        {
+            "id": "LM-0002",
+            "type": "gelshift",
+            "title": "gel-test",
+            "shortname": "gel-test",
+            "date_started": "2025-06-05",
+            "date_completed": None,
+            "status": "active",
+            "folder_name": "20250605_LM-0002_gs_gel-test",
+            "protocol_id": None,
+            "notes": None,
+            "created_at": "2025-06-05T00:00:00",
+        }
+    )
     return store
 
 
 def test_link_simple():
     store = _two_exp_store()
     effects = transform_exp_link(
-        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "follow_up_to"}, FROZEN_CLOCK
+        store,
+        {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "follow_up_to"},
+        FROZEN_CLOCK,
     )
     assert_ok(effects)
     links = effects["store"]["experiment_links"]
@@ -511,10 +541,14 @@ def test_link_uses_prep_from_auto_populates_assay():
     """uses_prep_from creates assay_details with protein_prep."""
     store = _two_exp_store()
     effects = transform_exp_link(
-        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "uses_prep_from"}, FROZEN_CLOCK
+        store,
+        {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "uses_prep_from"},
+        FROZEN_CLOCK,
     )
     assert_ok(effects)
-    assay = [r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0002"]
+    assay = [
+        r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0002"
+    ]
     assert len(assay) == 1
     assert assay[0]["protein_prep"] == "LM-0001"
 
@@ -522,18 +556,24 @@ def test_link_uses_prep_from_auto_populates_assay():
 def test_link_uses_prep_from_existing_assay_null_prep():
     """uses_prep_from updates existing assay if protein_prep is NULL."""
     store = _two_exp_store()
-    store["assay_details"].append({
-        "experiment_id": "LM-0002",
-        "protein_prep": None,
-        "dna_template": "pUC19",
-        "dna_prep_method": None,
-        "conditions": None,
-    })
+    store["assay_details"].append(
+        {
+            "experiment_id": "LM-0002",
+            "protein_prep": None,
+            "dna_template": "pUC19",
+            "dna_prep_method": None,
+            "conditions": None,
+        }
+    )
     effects = transform_exp_link(
-        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "uses_prep_from"}, FROZEN_CLOCK
+        store,
+        {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "uses_prep_from"},
+        FROZEN_CLOCK,
     )
     assert_ok(effects)
-    assay = [r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0002"]
+    assay = [
+        r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0002"
+    ]
     assert len(assay) == 1
     assert assay[0]["protein_prep"] == "LM-0001"
     assert assay[0]["dna_template"] == "pUC19"  # preserved
@@ -542,30 +582,40 @@ def test_link_uses_prep_from_existing_assay_null_prep():
 def test_link_uses_prep_from_existing_assay_with_prep():
     """uses_prep_from does NOT overwrite existing non-NULL protein_prep."""
     store = _two_exp_store()
-    store["assay_details"].append({
-        "experiment_id": "LM-0002",
-        "protein_prep": "LM-0099",
-        "dna_template": None,
-        "dna_prep_method": None,
-        "conditions": None,
-    })
+    store["assay_details"].append(
+        {
+            "experiment_id": "LM-0002",
+            "protein_prep": "LM-0099",
+            "dna_template": None,
+            "dna_prep_method": None,
+            "conditions": None,
+        }
+    )
     effects = transform_exp_link(
-        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "uses_prep_from"}, FROZEN_CLOCK
+        store,
+        {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "uses_prep_from"},
+        FROZEN_CLOCK,
     )
     assert_ok(effects)
-    assay = [r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0002"]
+    assay = [
+        r for r in effects["store"]["assay_details"] if r["experiment_id"] == "LM-0002"
+    ]
     assert assay[0]["protein_prep"] == "LM-0099"  # NOT overwritten
 
 
 def test_link_duplicate():
     store = _two_exp_store()
-    store["experiment_links"].append({
-        "from_experiment": "LM-0002",
-        "to_experiment": "LM-0001",
-        "relationship": "follow_up_to",
-    })
+    store["experiment_links"].append(
+        {
+            "from_experiment": "LM-0002",
+            "to_experiment": "LM-0001",
+            "relationship": "follow_up_to",
+        }
+    )
     effects = transform_exp_link(
-        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "follow_up_to"}, FROZEN_CLOCK
+        store,
+        {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "follow_up_to"},
+        FROZEN_CLOCK,
     )
     assert_fail(effects)
     assert "already exists" in effects["stderr"][0]
@@ -575,7 +625,9 @@ def test_link_unknown_relationship_warns():
     """Unknown relationship produces a warning but succeeds."""
     store = _two_exp_store()
     effects = transform_exp_link(
-        store, {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "custom_rel"}, FROZEN_CLOCK
+        store,
+        {"from_id": "LM-0002", "to_id": "LM-0001", "relationship": "custom_rel"},
+        FROZEN_CLOCK,
     )
     assert_ok(effects)
     text = stdout_text(effects)
@@ -586,6 +638,7 @@ def test_link_unknown_relationship_warns():
 # ============================================================
 # TESTS: transform_exp_addstrain
 # ============================================================
+
 
 def test_addstrain_happy():
     store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
@@ -623,6 +676,7 @@ def test_addstrain_missing_strain():
 # ============================================================
 # TESTS: transform_strain_add
 # ============================================================
+
 
 def test_strain_add_happy():
     store = copy.deepcopy(MINIMAL_STORE)
@@ -669,10 +723,13 @@ def test_strain_add_atypical_format_warns():
 # TESTS: transform_strain_update
 # ============================================================
 
+
 def test_strain_update_label():
     store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
     effects = transform_strain_update(
-        store, {"strain_id": "LY456", "field": "label", "value": "new-label"}, FROZEN_CLOCK
+        store,
+        {"strain_id": "LY456", "field": "label", "value": "new-label"},
+        FROZEN_CLOCK,
     )
     assert_ok(effects)
     strain = lookup_strain(effects["store"], "LY456")
@@ -717,6 +774,7 @@ def test_strain_update_nonexistent():
 # TESTS: transform_strain_show
 # ============================================================
 
+
 def test_strain_show_happy():
     store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
     effects = transform_strain_show(store, {"strain_id": "LY456"}, FROZEN_CLOCK)
@@ -746,6 +804,7 @@ def test_strain_show_nonexistent():
 # ============================================================
 # TESTS: transform_strain_list
 # ============================================================
+
 
 def test_strain_list_happy():
     store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
@@ -787,6 +846,7 @@ def test_strain_list_no_label_found():
 # TESTS: transform_exp_find
 # ============================================================
 
+
 def test_find_all():
     store = copy.deepcopy(MINIMAL_STORE)
     effects = transform_exp_find(store, {"pos_args": []}, FROZEN_CLOCK)
@@ -822,7 +882,9 @@ def test_find_no_results():
 
 def test_find_by_type():
     store = copy.deepcopy(MINIMAL_STORE)
-    effects = transform_exp_find(store, {"pos_args": ["--type", "purification"]}, FROZEN_CLOCK)
+    effects = transform_exp_find(
+        store, {"pos_args": ["--type", "purification"]}, FROZEN_CLOCK
+    )
     assert_ok(effects)
     text = stdout_text(effects)
     assert "LM-0001" in text
@@ -830,7 +892,9 @@ def test_find_by_type():
 
 def test_find_by_type_no_match():
     store = copy.deepcopy(MINIMAL_STORE)
-    effects = transform_exp_find(store, {"pos_args": ["--type", "gelshift"]}, FROZEN_CLOCK)
+    effects = transform_exp_find(
+        store, {"pos_args": ["--type", "gelshift"]}, FROZEN_CLOCK
+    )
     assert_ok(effects)
     text = stdout_text(effects)
     assert "No experiments found" in text
@@ -845,7 +909,9 @@ def test_find_invalid_type():
 
 def test_find_by_strain():
     store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
-    effects = transform_exp_find(store, {"pos_args": ["--strain", "LY456"]}, FROZEN_CLOCK)
+    effects = transform_exp_find(
+        store, {"pos_args": ["--strain", "LY456"]}, FROZEN_CLOCK
+    )
     assert_ok(effects)
     text = stdout_text(effects)
     assert "LM-0002" in text
@@ -853,7 +919,9 @@ def test_find_by_strain():
 
 def test_find_by_nonexistent_strain():
     store = copy.deepcopy(MINIMAL_STORE)
-    effects = transform_exp_find(store, {"pos_args": ["--strain", "NOSUCH"]}, FROZEN_CLOCK)
+    effects = transform_exp_find(
+        store, {"pos_args": ["--strain", "NOSUCH"]}, FROZEN_CLOCK
+    )
     assert_fail(effects)
     assert "not found in database" in effects["stderr"][0]
 
@@ -861,6 +929,7 @@ def test_find_by_nonexistent_strain():
 # ============================================================
 # TESTS: transform_exp_list
 # ============================================================
+
 
 def test_list_all():
     store = copy.deepcopy(MINIMAL_STORE)
@@ -883,12 +952,19 @@ def test_list_empty():
 
 def test_list_with_purification_detail():
     store = copy.deepcopy(MINIMAL_STORE)
-    store["purification_details"].append({
-        "experiment_id": "LM-0001",
-        "protein": "Orc4",
-        "induction_od": None, "galactose_hours": None, "columns": None,
-        "v5_depletion": 0, "fractions_pooled": None, "yield_mg": 2.5, "storage": None,
-    })
+    store["purification_details"].append(
+        {
+            "experiment_id": "LM-0001",
+            "protein": "Orc4",
+            "induction_od": None,
+            "galactose_hours": None,
+            "columns": None,
+            "v5_depletion": 0,
+            "fractions_pooled": None,
+            "yield_mg": 2.5,
+            "storage": None,
+        }
+    )
     effects = transform_exp_list(store, {"pos_args": []}, FROZEN_CLOCK)
     assert_ok(effects)
     text = stdout_text(effects)
@@ -898,7 +974,9 @@ def test_list_with_purification_detail():
 
 def test_list_by_type():
     store = copy.deepcopy(MINIMAL_STORE)
-    effects = transform_exp_list(store, {"pos_args": ["--type", "purification"]}, FROZEN_CLOCK)
+    effects = transform_exp_list(
+        store, {"pos_args": ["--type", "purification"]}, FROZEN_CLOCK
+    )
     assert_ok(effects)
     text = stdout_text(effects)
     assert "LM-0001" in text
@@ -913,6 +991,7 @@ def test_list_invalid_type():
 # ============================================================
 # TESTS: transform_stage_list
 # ============================================================
+
 
 def test_stage_list_dir_missing():
     store = copy.deepcopy(MINIMAL_STORE)
@@ -945,10 +1024,17 @@ def test_stage_list_with_files():
 
 def test_stage_list_with_pending():
     store = copy.deepcopy(MINIMAL_STORE)
-    store["stage_expectations"].append({
-        "id": 1, "experiment_id": "LM-0001", "slot": 1, "descriptor": "gel-01",
-        "status": "pending", "created_at": "2025-06-10", "filed_at": None,
-    })
+    store["stage_expectations"].append(
+        {
+            "id": 1,
+            "experiment_id": "LM-0001",
+            "slot": 1,
+            "descriptor": "gel-01",
+            "status": "pending",
+            "created_at": "2025-06-10",
+            "filed_at": None,
+        }
+    )
     file_list = [{"name": "lemr LM-0001 s1 nanodrop.csv", "size": 1024}]
     effects = transform_stage_list(store, {"file_list": file_list}, FROZEN_CLOCK)
     assert_ok(effects)
@@ -960,6 +1046,7 @@ def test_stage_list_with_pending():
 # ============================================================
 # TESTS: transform_status
 # ============================================================
+
 
 def test_status_minimal():
     store = copy.deepcopy(MINIMAL_STORE)
@@ -978,7 +1065,11 @@ def test_status_minimal():
 
 def test_status_with_warnings():
     store = copy.deepcopy(MINIMAL_STORE)
-    fs = {"staging_files": ["a.txt"], "staging_total_size": 100, "lab_notes_date": "2025-06-09"}
+    fs = {
+        "staging_files": ["a.txt"],
+        "staging_total_size": 100,
+        "lab_notes_date": "2025-06-09",
+    }
     effects = transform_status(store, {"fs": fs}, FROZEN_CLOCK)
     assert_ok(effects)
     text = stdout_text(effects)
@@ -1004,18 +1095,31 @@ def test_status_empty():
 # TESTS: transform_expect_list
 # ============================================================
 
+
 def _store_with_expectations():
     store = copy.deepcopy(MINIMAL_STORE)
-    store["stage_expectations"].extend([
-        {
-            "id": 1, "experiment_id": "LM-0001", "slot": 1, "descriptor": "gel-01",
-            "status": "pending", "created_at": "2025-06-10T10:00:00", "filed_at": None,
-        },
-        {
-            "id": 2, "experiment_id": "LM-0001", "slot": 2, "descriptor": "nanodrop",
-            "status": "filed", "created_at": "2025-06-09T10:00:00", "filed_at": "2025-06-10T11:00:00",
-        },
-    ])
+    store["stage_expectations"].extend(
+        [
+            {
+                "id": 1,
+                "experiment_id": "LM-0001",
+                "slot": 1,
+                "descriptor": "gel-01",
+                "status": "pending",
+                "created_at": "2025-06-10T10:00:00",
+                "filed_at": None,
+            },
+            {
+                "id": 2,
+                "experiment_id": "LM-0001",
+                "slot": 2,
+                "descriptor": "nanodrop",
+                "status": "filed",
+                "created_at": "2025-06-09T10:00:00",
+                "filed_at": "2025-06-10T11:00:00",
+            },
+        ]
+    )
     return store
 
 
@@ -1051,9 +1155,12 @@ def test_expect_list_empty():
 # TESTS: transform_expect_cancel
 # ============================================================
 
+
 def test_expect_cancel_single():
     store = _store_with_expectations()
-    effects = transform_expect_cancel(store, {"exp_id": "LM-0001", "slot": 1}, FROZEN_CLOCK)
+    effects = transform_expect_cancel(
+        store, {"exp_id": "LM-0001", "slot": 1}, FROZEN_CLOCK
+    )
     assert_ok(effects)
     text = stdout_text(effects)
     assert "Cancelled:" in text
@@ -1065,7 +1172,9 @@ def test_expect_cancel_single():
 
 def test_expect_cancel_all_pending():
     store = _store_with_expectations()
-    effects = transform_expect_cancel(store, {"exp_id": "LM-0001", "slot": None}, FROZEN_CLOCK)
+    effects = transform_expect_cancel(
+        store, {"exp_id": "LM-0001", "slot": None}, FROZEN_CLOCK
+    )
     assert_ok(effects)
     text = stdout_text(effects)
     assert "Cancelled 1 pending" in text
@@ -1073,14 +1182,18 @@ def test_expect_cancel_all_pending():
 
 def test_expect_cancel_not_pending():
     store = _store_with_expectations()
-    effects = transform_expect_cancel(store, {"exp_id": "LM-0001", "slot": 2}, FROZEN_CLOCK)
+    effects = transform_expect_cancel(
+        store, {"exp_id": "LM-0001", "slot": 2}, FROZEN_CLOCK
+    )
     assert_fail(effects)
     assert "already filed" in effects["stderr"][0]
 
 
 def test_expect_cancel_nonexistent_slot():
     store = _store_with_expectations()
-    effects = transform_expect_cancel(store, {"exp_id": "LM-0001", "slot": 99}, FROZEN_CLOCK)
+    effects = transform_expect_cancel(
+        store, {"exp_id": "LM-0001", "slot": 99}, FROZEN_CLOCK
+    )
     assert_fail(effects)
 
 
@@ -1088,10 +1201,13 @@ def test_expect_cancel_nonexistent_slot():
 # TESTS: transform_expect_register
 # ============================================================
 
+
 def test_expect_register_happy():
     store = copy.deepcopy(MINIMAL_STORE)
     effects = transform_expect_register(
-        store, {"exp_id": "LM-0001", "descriptors": ["gel-01", "nanodrop"]}, FROZEN_CLOCK
+        store,
+        {"exp_id": "LM-0001", "descriptors": ["gel-01", "nanodrop"]},
+        FROZEN_CLOCK,
     )
     assert_ok(effects)
     text = stdout_text(effects)
@@ -1101,7 +1217,9 @@ def test_expect_register_happy():
     assert "nanodrop" in text
     assert "lemr" in text
     assert "2 total pending" in text
-    new_se = [r for r in effects["store"]["stage_expectations"] if r["status"] == "pending"]
+    new_se = [
+        r for r in effects["store"]["stage_expectations"] if r["status"] == "pending"
+    ]
     assert len(new_se) == 2
 
 
@@ -1135,12 +1253,18 @@ def test_expect_register_nonexistent_exp():
 # TESTS: transform_exp_delete_plan
 # ============================================================
 
+
 def test_delete_dry_run():
     store = copy.deepcopy(MINIMAL_STORE)
     effects = transform_exp_delete_plan(
         store,
-        {"exp_id": "LM-0001", "confirm": False, "keep_folder": False,
-         "folder_exists": True, "folder_contents": ["file.txt"]},
+        {
+            "exp_id": "LM-0001",
+            "confirm": False,
+            "keep_folder": False,
+            "folder_exists": True,
+            "folder_contents": ["file.txt"],
+        },
         FROZEN_CLOCK,
     )
     assert_ok(effects)
@@ -1154,8 +1278,13 @@ def test_delete_confirm():
     store = copy.deepcopy(MINIMAL_STORE)
     effects = transform_exp_delete_plan(
         store,
-        {"exp_id": "LM-0001", "confirm": True, "keep_folder": False,
-         "folder_exists": True, "folder_contents": []},
+        {
+            "exp_id": "LM-0001",
+            "confirm": True,
+            "keep_folder": False,
+            "folder_exists": True,
+            "folder_contents": [],
+        },
         FROZEN_CLOCK,
     )
     assert_ok(effects)
@@ -1171,8 +1300,13 @@ def test_delete_nonexistent():
     store = copy.deepcopy(MINIMAL_STORE)
     effects = transform_exp_delete_plan(
         store,
-        {"exp_id": "LM-9999", "confirm": False, "keep_folder": False,
-         "folder_exists": False, "folder_contents": []},
+        {
+            "exp_id": "LM-9999",
+            "confirm": False,
+            "keep_folder": False,
+            "folder_exists": False,
+            "folder_contents": [],
+        },
         FROZEN_CLOCK,
     )
     assert_fail(effects)
@@ -1182,11 +1316,17 @@ def test_delete_nonexistent():
 # TESTS: transform_exp_init_plan
 # ============================================================
 
+
 def test_init_plan_happy():
     store = copy.deepcopy(MINIMAL_STORE)
     effects = transform_exp_init_plan(
         store,
-        {"exp_type": "purification", "shortname": "test-pur2", "title": None, "counter": 2},
+        {
+            "exp_type": "purification",
+            "shortname": "test-pur2",
+            "title": None,
+            "counter": 2,
+        },
         FROZEN_CLOCK,
     )
     assert_ok(effects)
@@ -1219,7 +1359,12 @@ def test_init_plan_invalid_name():
     store = copy.deepcopy(MINIMAL_STORE)
     effects = transform_exp_init_plan(
         store,
-        {"exp_type": "purification", "shortname": "has spaces", "title": None, "counter": 2},
+        {
+            "exp_type": "purification",
+            "shortname": "has spaces",
+            "title": None,
+            "counter": 2,
+        },
         FROZEN_CLOCK,
     )
     assert_fail(effects)
@@ -1228,6 +1373,7 @@ def test_init_plan_invalid_name():
 # ============================================================
 # TESTS: transform_exp_manifest_plan
 # ============================================================
+
 
 def test_manifest_plan_happy():
     store = copy.deepcopy(COMPLETE_EXPERIMENT_STORE)
@@ -1240,15 +1386,21 @@ def test_manifest_plan_happy():
     }
     effects = transform_exp_manifest_plan(
         store,
-        {"exp_id": "LM-0002", "force": False, "design": design,
-         "design_source": "experiments/test/design.py"},
+        {
+            "exp_id": "LM-0002",
+            "force": False,
+            "design": design,
+            "design_source": "experiments/test/design.py",
+        },
         FROZEN_CLOCK,
     )
     assert_ok(effects)
     text = stdout_text(effects)
     assert "2 samples" in text
     assert effects["store"] is not None
-    new_samples = [s for s in effects["store"]["samples"] if s["experiment_id"] == "LM-0002"]
+    new_samples = [
+        s for s in effects["store"]["samples"] if s["experiment_id"] == "LM-0002"
+    ]
     assert len(new_samples) == 2
 
 
@@ -1257,8 +1409,12 @@ def test_manifest_plan_missing_key():
     design = {"experiment_id": "LM-0002"}
     effects = transform_exp_manifest_plan(
         store,
-        {"exp_id": "LM-0002", "force": False, "design": design,
-         "design_source": "test"},
+        {
+            "exp_id": "LM-0002",
+            "force": False,
+            "design": design,
+            "design_source": "test",
+        },
         FROZEN_CLOCK,
     )
     assert_fail(effects)
@@ -1276,8 +1432,12 @@ def test_manifest_plan_wrong_count():
     }
     effects = transform_exp_manifest_plan(
         store,
-        {"exp_id": "LM-0002", "force": False, "design": design,
-         "design_source": "test"},
+        {
+            "exp_id": "LM-0002",
+            "force": False,
+            "design": design,
+            "design_source": "test",
+        },
         FROZEN_CLOCK,
     )
     assert_fail(effects)
@@ -1287,6 +1447,7 @@ def test_manifest_plan_wrong_count():
 # ============================================================
 # TESTS: transform_stage_auto_plan
 # ============================================================
+
 
 def test_auto_plan_dir_missing():
     store = copy.deepcopy(MINIMAL_STORE)
@@ -1321,7 +1482,10 @@ def test_auto_plan_no_pending():
 def test_auto_plan_dry_run_match():
     store = _store_with_expectations()
     file_list = [
-        {"name": "lemr LM-0001 s1 image.tiff", "src_path": "/staging/lemr LM-0001 s1 image.tiff"},
+        {
+            "name": "lemr LM-0001 s1 image.tiff",
+            "src_path": "/staging/lemr LM-0001 s1 image.tiff",
+        },
     ]
     effects = transform_stage_auto_plan(
         store, {"file_list": file_list, "confirm": False}, FROZEN_CLOCK
@@ -1336,7 +1500,10 @@ def test_auto_plan_dry_run_match():
 def test_auto_plan_confirm_returns_plan():
     store = _store_with_expectations()
     file_list = [
-        {"name": "lemr LM-0001 s1 image.tiff", "src_path": "/staging/lemr LM-0001 s1 image.tiff"},
+        {
+            "name": "lemr LM-0001 s1 image.tiff",
+            "src_path": "/staging/lemr LM-0001 s1 image.tiff",
+        },
     ]
     effects = transform_stage_auto_plan(
         store, {"file_list": file_list, "confirm": True}, FROZEN_CLOCK
@@ -1346,7 +1513,8 @@ def test_auto_plan_confirm_returns_plan():
     assert len(effects["_auto_plan"]["matched_files"]) == 1
     # expectation marked filed in store
     se = [
-        r for r in effects["store"]["stage_expectations"]
+        r
+        for r in effects["store"]["stage_expectations"]
         if r["experiment_id"] == "LM-0001" and r["slot"] == 1
     ]
     assert se[0]["status"] == "filed"
@@ -1355,6 +1523,7 @@ def test_auto_plan_confirm_returns_plan():
 # ============================================================
 # RUNNER
 # ============================================================
+
 
 def run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
