@@ -238,12 +238,21 @@ def commit(store, db_path):
             rows = store.get(table, [])
             if not rows:
                 continue
-            columns = list(rows[0].keys())
+            # Union of keys across all rows, so rows that omit a
+            # nullable column (e.g. protocol_id) do not raise KeyError.
+            # Preserve first-seen order for stable, readable SQL.
+            columns = []
+            seen = set()
+            for r in rows:
+                for k in r:
+                    if k not in seen:
+                        seen.add(k)
+                        columns.append(k)
             placeholders = ", ".join(["?"] * len(columns))
             col_str = ", ".join(columns)
             sql = f"INSERT INTO {table} ({col_str}) VALUES ({placeholders})"
             for row in rows:
-                _cur.execute(sql, [row[c] for c in columns])
+                _cur.execute(sql, [row.get(c) for c in columns])
         _cur.execute("COMMIT")
     except Exception:
         _cur.execute("ROLLBACK")
@@ -2172,6 +2181,7 @@ def transform_exp_init_plan(store, args, clock):
             "date_completed": None,
             "status": "active",
             "folder_name": folder_name,
+            "protocol_id": None,
             "notes": None,
         }
     )
