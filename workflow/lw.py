@@ -903,6 +903,73 @@ def append_command_log_line(command_arguments):
         pass
 
 
+# --- Usage text: one declarative source of truth, rendered by helpers so
+# --- every error site shows a consistent (condition -> usage -> next step)
+# --- shape instead of a bare one-line stub.
+
+PROGRAM_NAME = "lw"
+
+# command name -> (argument signature, one-line purpose)
+COMMAND_USAGE = {
+    "init": (
+        "",
+        "Create the lab directory, database, and counter (safe to re-run).",
+    ),
+    "new": (
+        "<type> <shortname> [--title TITLE...]",
+        "Register an experiment: make its folder, row, and id.",
+    ),
+    "link": (
+        "<from> <to> <relationship>",
+        "Record a directed provenance edge between two experiments.",
+    ),
+    "show": (
+        "<id> [--files]",
+        "Print an experiment's row, links, and folder file summary.",
+    ),
+    "list": (
+        "[--type TYPE] [--status STATUS]",
+        "List experiments, optionally filtered by type and/or status.",
+    ),
+}
+
+
+def format_command_usage(command_name):
+    """Return a single 'usage: lw <command> <signature>' line."""
+    argument_signature, _purpose = COMMAND_USAGE[command_name]
+    if argument_signature:
+        return f"usage: {PROGRAM_NAME} {command_name} {argument_signature}"
+    return f"usage: {PROGRAM_NAME} {command_name}"
+
+
+def format_all_commands_usage():
+    """Return the multi-line overview: every command, signature, purpose."""
+    overview_lines = [f"usage: {PROGRAM_NAME} <command> [arguments]", "", "commands:"]
+    for command_name in COMMAND_USAGE:
+        argument_signature, command_purpose = COMMAND_USAGE[command_name]
+        invocation = f"{command_name} {argument_signature}".rstrip()
+        overview_lines.append(f"  {invocation}")
+        overview_lines.append(f"      {command_purpose}")
+    return "\n".join(overview_lines)
+
+
+def print_usage_error(condition_line, command_name=None, next_step_line=None):
+    """Emit a consistent (condition -> usage -> next step) error to stderr.
+
+    condition_line states what triggered the error. If command_name is
+    given, the specific command's usage line follows; otherwise the full
+    command overview is shown. next_step_line, if given, is appended as an
+    actionable hint.
+    """
+    print(condition_line, file=sys.stderr)
+    if command_name is not None:
+        print(format_command_usage(command_name), file=sys.stderr)
+    else:
+        print(format_all_commands_usage(), file=sys.stderr)
+    if next_step_line is not None:
+        print(next_step_line, file=sys.stderr)
+
+
 def main(command_arguments=None):
     if command_arguments is None:
         command_arguments = list(sys.argv[1:])
@@ -910,7 +977,13 @@ def main(command_arguments=None):
         command_arguments = list(command_arguments)
 
     if not command_arguments:
-        print("usage: lw <init|new|link|show|list> ...", file=sys.stderr)
+        print_usage_error(
+            "No command given.",
+            next_step_line=(
+                f"Run '{PROGRAM_NAME} init' first if you haven't, then "
+                f"pick a command above."
+            ),
+        )
         return 2
 
     command_name = command_arguments[0]
@@ -938,9 +1011,11 @@ def main(command_arguments=None):
             experiment_title = " ".join(remaining_arguments[title_flag_index + 1 :])
             remaining_arguments = remaining_arguments[:title_flag_index]
         if len(remaining_arguments) < 2:
-            print(
-                "usage: lw new <type> <shortname> [--title T]",
-                file=sys.stderr,
+            print_usage_error(
+                f"'new' needs <type> and <shortname> "
+                f"({len(remaining_arguments)} given).",
+                command_name="new",
+                next_step_line=(f"Valid types: {', '.join(VALID_EXPERIMENT_TYPES)}."),
             )
             return 2
         exit_code = run_new_command(
@@ -954,9 +1029,13 @@ def main(command_arguments=None):
     elif command_name == "link":
         # link <from> <to> <relationship>: three required, ordered args.
         if len(remaining_arguments) != 3:
-            print(
-                "usage: lw link <from> <to> <relationship>",
-                file=sys.stderr,
+            print_usage_error(
+                f"'link' needs exactly <from> <to> <relationship> "
+                f"({len(remaining_arguments)} given).",
+                command_name="link",
+                next_step_line=(
+                    f"Valid relationships: {', '.join(ALLOWED_LINK_RELATIONSHIPS)}."
+                ),
             )
             return 2
         exit_code = run_link_command(
@@ -972,8 +1051,23 @@ def main(command_arguments=None):
         positional_arguments, parsed_flags = separate_flags_from_positionals(
             remaining_arguments, boolean_flag_names=("files",)
         )
-        if len(positional_arguments) != 1:
-            print("usage: lw show <id> [--files]", file=sys.stderr)
+        if len(positional_arguments) == 0:
+            print_usage_error(
+                "'show' needs an experiment <id>.",
+                command_name="show",
+                next_step_line=(f"Run '{PROGRAM_NAME} list' to see existing ids."),
+            )
+            return 2
+        if len(positional_arguments) > 1:
+            print_usage_error(
+                f"'show' takes one <id>, got "
+                f"{len(positional_arguments)}: "
+                f"{', '.join(positional_arguments)}.",
+                command_name="show",
+                next_step_line=(
+                    "Did you mean to add '--files' rather than a second id?"
+                ),
+            )
             return 2
         exit_code = run_show_command(
             {
@@ -987,6 +1081,20 @@ def main(command_arguments=None):
         positional_arguments, parsed_flags = separate_flags_from_positionals(
             remaining_arguments, value_flag_names=("type", "status")
         )
+        if positional_arguments:
+            # `list` takes no positionals; a bare word here is almost
+            # certainly a filter value typed without its flag.
+            print_usage_error(
+                f"'list' takes no positional arguments, got "
+                f"{', '.join(positional_arguments)}.",
+                command_name="list",
+                next_step_line=(
+                    "Filters use flags, e.g. "
+                    f"'{PROGRAM_NAME} list --type purification "
+                    f"--status active'."
+                ),
+            )
+            return 2
         exit_code = run_list_command(
             {
                 "type": parsed_flags.get("type"),
@@ -995,8 +1103,12 @@ def main(command_arguments=None):
         )
 
     else:
-        print(f"Unknown command: {command_name}", file=sys.stderr)
-        print("usage: lw <init|new|link|show|list> ...", file=sys.stderr)
+        print_usage_error(
+            f"Unknown command: '{command_name}'.",
+            next_step_line=(
+                f"Run '{PROGRAM_NAME}' with no arguments to see all commands."
+            ),
+        )
         return 2
 
     if exit_code == 0:

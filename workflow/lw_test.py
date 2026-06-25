@@ -525,6 +525,73 @@ def test_experiment_id_constants_are_coupled(sandbox_lab_root):
 
 
 # ---------------------------------------------------------------------------
+# Dispatch usage messages -- condition stated, usage shown, next step given
+# ---------------------------------------------------------------------------
+
+
+def test_no_command_shows_full_overview(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    result = run_command(lw, [])
+    assert_equal(result.exit_code, 2, "no-command exit code")
+    assert_contains(result.stderr_text, "No command given", "no-command condition")
+    # full overview lists every command with its purpose line.
+    for command_name in ("init", "new", "link", "show", "list"):
+        assert_contains(
+            result.stderr_text, command_name, f"overview lists {command_name}"
+        )
+
+
+def test_unknown_command_names_it_and_points_to_overview(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    result = run_command(lw, ["frobnicate"])
+    assert_equal(result.exit_code, 2, "unknown-command exit code")
+    assert_contains(result.stderr_text, "frobnicate", "unknown-command names the input")
+
+
+def test_new_too_few_args_lists_valid_types(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    result = run_command(lw, ["new", "purification"])
+    assert_equal(result.exit_code, 2, "new-too-few exit code")
+    assert_contains(result.stderr_text, "1 given", "new-too-few states count")
+    assert_contains(result.stderr_text, "purification", "new-too-few lists valid types")
+
+
+def test_link_wrong_arg_count_lists_valid_relationships(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    result = run_command(lw, ["link", "1", "2"])
+    assert_equal(result.exit_code, 2, "link-arity exit code")
+    assert_contains(result.stderr_text, "2 given", "link-arity states count")
+    assert_contains(
+        result.stderr_text, "follow_up_to", "link-arity lists relationships"
+    )
+
+
+def test_show_missing_id_points_to_list(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    result = run_command(lw, ["show"])
+    assert_equal(result.exit_code, 2, "show-missing-id exit code")
+    assert_contains(
+        result.stderr_text, "needs an experiment", "show-missing-id condition"
+    )
+    assert_contains(result.stderr_text, "lw list", "show-missing-id next step")
+
+
+def test_show_extra_positional_suggests_files_flag(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    result = run_command(lw, ["show", "1", "2"])
+    assert_equal(result.exit_code, 2, "show-extra exit code")
+    assert_contains(result.stderr_text, "--files", "show-extra suggests flag")
+
+
+def test_list_stray_positional_is_rejected_with_flag_hint(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    result = run_command(lw, ["list", "active"])
+    assert_equal(result.exit_code, 2, "list-stray exit code")
+    assert_contains(result.stderr_text, "no positional", "list-stray condition")
+    assert_contains(result.stderr_text, "--status", "list-stray flag hint")
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -551,6 +618,13 @@ ALL_TESTS = [
     test_read_counter_missing_file_raises_counter_file_error,
     test_new_counter_db_disagreement_blocks_collision_no_effect,
     test_experiment_id_constants_are_coupled,
+    test_no_command_shows_full_overview,
+    test_unknown_command_names_it_and_points_to_overview,
+    test_new_too_few_args_lists_valid_types,
+    test_link_wrong_arg_count_lists_valid_relationships,
+    test_show_missing_id_points_to_list,
+    test_show_extra_positional_suggests_files_flag,
+    test_list_stray_positional_is_rejected_with_flag_hint,
 ]
 
 
