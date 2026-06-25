@@ -22,7 +22,7 @@ import sys
 # (a) it supplies the short code in the folder name (here), and (b) it
 # filters `list`. Do not mistake `type` for a contract pointing at
 # DB-resident data.
-CATEGORY_CODES = {
+EXPERIMENT_TYPE_TO_CATEGORY_CODE = {
     "purification": "pur",
     "loading": "load",
     "gelshift": "gs",
@@ -32,34 +32,39 @@ CATEGORY_CODES = {
     "cloning": "clon",
     "sequencing": "seq",
 }
-VALID_TYPES = list(CATEGORY_CODES.keys())
+VALID_EXPERIMENT_TYPES = list(EXPERIMENT_TYPE_TO_CATEGORY_CODE.keys())
 
 # Closed set of edge labels. The name encodes block-on-absence semantics:
 # `link` REJECTS any relationship not in this list (blocks, does not warn).
 # Extending is a deliberate one-line edit. All three are now plain edge
 # labels -- `uses_prep_from` no longer has special behavior.
-ALLOWED_RELATIONSHIPS = ["uses_prep_from", "replicate_of", "follow_up_to"]
+ALLOWED_LINK_RELATIONSHIPS = ["uses_prep_from", "replicate_of", "follow_up_to"]
 
 # Captured once at startup, passed as the "clock" to transforms so the
 # transforms never read the clock themselves.
-clock = {"today": datetime.date.today(), "now": datetime.datetime.now()}
+startup_clock = {
+    "today": datetime.date.today(),
+    "now": datetime.datetime.now(),
+}
 
 # --- LAB_ROOT resolution ---
-_lab_root_env = os.environ.get("LW_LAB_ROOT") or os.environ.get("LAB_ROOT")
-if _lab_root_env:
-    LAB_ROOT = _lab_root_env
+lab_root_from_environment = os.environ.get("LW_LAB_ROOT") or os.environ.get("LAB_ROOT")
+if lab_root_from_environment:
+    LAB_ROOT = lab_root_from_environment
 else:
-    _win_user = os.environ.get("LW_WINDOWS_USER") or os.environ.get("MC_WINDOWS_USER")
-    if _win_user:
-        LAB_ROOT = f"/mnt/c/Users/{_win_user}/Desktop/lab"
+    windows_username_from_environment = os.environ.get(
+        "LW_WINDOWS_USER"
+    ) or os.environ.get("MC_WINDOWS_USER")
+    if windows_username_from_environment:
+        LAB_ROOT = f"/mnt/c/Users/{windows_username_from_environment}/Desktop/lab"
     else:
         print("Error: Set LW_LAB_ROOT or LW_WINDOWS_USER environment variable.")
         sys.exit(1)
 
 # --- derived paths ---
-DB_PATH = os.path.join(LAB_ROOT, "lab.db")
-EXPERIMENTS_DIR = os.path.join(LAB_ROOT, "experiments")
-COUNTER_FILE = os.path.join(LAB_ROOT, "counter.txt")
+DATABASE_PATH = os.path.join(LAB_ROOT, "lab.db")
+EXPERIMENTS_DIRECTORY = os.path.join(LAB_ROOT, "experiments")
+COUNTER_FILE_PATH = os.path.join(LAB_ROOT, "counter.txt")
 
 
 # ---------------------------------------------------------------------------
@@ -67,36 +72,36 @@ COUNTER_FILE = os.path.join(LAB_ROOT, "counter.txt")
 # ---------------------------------------------------------------------------
 
 
-def effects_ok(stdout=None, store=None, exit_code=0):
+def make_success_effects(standard_output_lines=None, store=None, exit_code=0):
     return {
         "ok": True,
-        "stdout": stdout or [],
+        "stdout": standard_output_lines or [],
         "stderr": [],
         "store": store,
         "exit_code": exit_code,
     }
 
 
-def effects_fail(msg, exit_code=1):
-    if isinstance(msg, str):
-        msg = [msg]
+def make_failure_effects(error_message, exit_code=1):
+    if isinstance(error_message, str):
+        error_message = [error_message]
     return {
         "ok": False,
         "stdout": [],
-        "stderr": msg,
+        "stderr": error_message,
         "store": None,
         "exit_code": exit_code,
     }
 
 
-def execute_effects(effects, db_path):
+def execute_effects(effects, database_path):
     """The ONLY function that performs IO for transformed commands."""
-    for line in effects.get("stdout", []):
-        print(line)
-    for line in effects.get("stderr", []):
-        print(line, file=sys.stderr)
+    for output_line in effects.get("stdout", []):
+        print(output_line)
+    for error_line in effects.get("stderr", []):
+        print(error_line, file=sys.stderr)
     if effects.get("store") is not None:
-        commit(effects["store"], db_path)
+        write_store_to_database(effects["store"], database_path)
     return effects.get("exit_code", 0)
 
 
@@ -105,12 +110,12 @@ def execute_effects(effects, db_path):
 # ---------------------------------------------------------------------------
 
 
-def normalize_exp_id(raw_id):
+def normalize_experiment_id(raw_experiment_id):
     """'LM-0003' or '3' -> 'LM-0003'; None if invalid."""
-    if raw_id.upper().startswith("LM-"):
-        return raw_id.upper()
+    if raw_experiment_id.upper().startswith("LM-"):
+        return raw_experiment_id.upper()
     try:
-        return f"LM-{int(raw_id):04d}"
+        return f"LM-{int(raw_experiment_id):04d}"
     except ValueError:
         return None
 
@@ -136,7 +141,7 @@ def normalize_exp_id(raw_id):
 # tables in the .db is seeing intended state, not a bug. The live schema is
 # the two tables defined here.
 
-SCHEMA = """
+DATABASE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS experiments (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,
@@ -159,23 +164,25 @@ CREATE TABLE IF NOT EXISTS experiment_links (
 """
 
 # The two live tables, in the order load/commit walk them.
-LIVE_TABLES = ["experiments", "experiment_links"]
+LIVE_TABLE_NAMES = ["experiments", "experiment_links"]
 
 
-def load_store(db_path):
+def load_store_from_database(database_path):
     """Read every live table into a dict-of-lists of row dicts.
 
     Reads ONLY the two live tables. The orphaned tables sit inert.
     """
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+    database_connection = sqlite3.connect(database_path)
+    database_connection.row_factory = sqlite3.Row
     store = {}
     try:
-        for table in LIVE_TABLES:
-            cur = conn.execute(f"SELECT * FROM {table}")
-            store[table] = [dict(row) for row in cur.fetchall()]
+        for table_name in LIVE_TABLE_NAMES:
+            table_cursor = database_connection.execute(f"SELECT * FROM {table_name}")
+            store[table_name] = [
+                dict(table_row) for table_row in table_cursor.fetchall()
+            ]
     finally:
-        conn.close()
+        database_connection.close()
     return store
 
 
@@ -183,7 +190,7 @@ def load_store(db_path):
 # ---------------------------------------------------------------------------
 
 
-def commit(store, db_path):
+def write_store_to_database(store, database_path):
     """Rewrite the whole store in one transaction.
 
     This whole-store-rewrite is DELIBERATELY RETAINED. It works for a
@@ -191,50 +198,63 @@ def commit(store, db_path):
     effects unless a real problem is reported (row count, a second writer).
 
     The column list per table is built from the UNION of all rows' keys,
-    and values are read with row.get(c) rather than row[c] -- this is the
-    fix for the KeyError the naive version raised on a missing dict key.
-    Touches only the live tables that load_store loaded; orphaned tables are
-    never read or written here.
+    and values are read with experiment_row.get(column_name) rather than
+    experiment_row[column_name] -- this is the fix for the KeyError the
+    naive version raised on a missing dict key. Touches only the live
+    tables that load_store_from_database loaded; orphaned tables are never
+    read or written here.
     """
-    conn = sqlite3.connect(db_path)
+    database_connection = sqlite3.connect(database_path)
     try:
-        conn.executescript(SCHEMA)
-        cur = conn.cursor()
-        for table in LIVE_TABLES:
-            rows = store.get(table, [])
-            cur.execute(f"DELETE FROM {table}")
-            if not rows:
+        database_connection.executescript(DATABASE_SCHEMA)
+        database_cursor = database_connection.cursor()
+        for table_name in LIVE_TABLE_NAMES:
+            table_rows = store.get(table_name, [])
+            database_cursor.execute(f"DELETE FROM {table_name}")
+            if not table_rows:
                 continue
-            columns = []
-            seen = set()
-            for r in rows:
-                for k in r:
-                    if k not in seen:
-                        seen.add(k)
-                        columns.append(k)
-            placeholders = ", ".join(["?"] * len(columns))
-            sql = f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})"
-            for row in rows:
-                cur.execute(sql, [row.get(c) for c in columns])
-        conn.commit()
+
+            # Build the column list from the UNION of all rows' keys, in
+            # first-seen order, so a ragged row missing a key cannot break
+            # the INSERT.
+            column_names = []
+            seen_column_names = set()
+            for table_row in table_rows:
+                for column_name in table_row:
+                    if column_name not in seen_column_names:
+                        seen_column_names.add(column_name)
+                        column_names.append(column_name)
+
+            placeholder_list = ", ".join(["?"] * len(column_names))
+            insert_statement = (
+                f"INSERT INTO {table_name} "
+                f"({', '.join(column_names)}) VALUES ({placeholder_list})"
+            )
+            for table_row in table_rows:
+                row_values = [
+                    table_row.get(column_name) for column_name in column_names
+                ]
+                database_cursor.execute(insert_statement, row_values)
+        database_connection.commit()
     finally:
-        conn.close()
+        database_connection.close()
 
 
 # C6 -- missing-DB precondition
 # ---------------------------------------------------------------------------
 
 
-def require_db(db_path):
+def require_existing_database(database_path):
     """Store-boundary precondition for every command except init.
 
-    Returns None if the DB exists; otherwise an effects_fail describing the
-    clean error. This runs BEFORE any transform -- transforms assume a
-    loaded store. Distinct from a missing experiment FOLDER on show, which
-    is a normal rendered state, not a precondition error.
+    Returns None if the DB exists; otherwise a failure-effects dict
+    describing the clean error. This runs BEFORE any transform --
+    transforms assume a loaded store. Distinct from a missing experiment
+    FOLDER on show, which is a normal rendered state, not a precondition
+    error.
     """
-    if not os.path.exists(db_path):
-        return effects_fail("No lab database found. Run 'lw init' first.")
+    if not os.path.exists(database_path):
+        return make_failure_effects("No lab database found. Run 'lw init' first.")
     return None
 
 
@@ -242,7 +262,7 @@ def require_db(db_path):
 # ---------------------------------------------------------------------------
 
 
-def cmd_init():
+def run_init_command():
     """Create LAB_ROOT/experiments, the DB, and seed counter.txt if absent.
 
     The outsider: runs before the store exists, so it cannot use the store
@@ -251,18 +271,18 @@ def cmd_init():
     edge, not a transform routed through execute_effects).
     """
     os.makedirs(LAB_ROOT, exist_ok=True)
-    os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
+    os.makedirs(EXPERIMENTS_DIRECTORY, exist_ok=True)
 
-    conn = sqlite3.connect(DB_PATH)
+    database_connection = sqlite3.connect(DATABASE_PATH)
     try:
-        conn.executescript(SCHEMA)
-        conn.commit()
+        database_connection.executescript(DATABASE_SCHEMA)
+        database_connection.commit()
     finally:
-        conn.close()
+        database_connection.close()
 
-    if not os.path.exists(COUNTER_FILE):
-        with open(COUNTER_FILE, "w") as f:
-            f.write("1")
+    if not os.path.exists(COUNTER_FILE_PATH):
+        with open(COUNTER_FILE_PATH, "w") as counter_file:
+            counter_file.write("1")
 
     print(f"Initialized lab at {LAB_ROOT}")
     return 0
@@ -278,17 +298,17 @@ def cmd_init():
 # ---------------------------------------------------------------------------
 
 
-def read_counter():
+def read_next_experiment_number():
     """Read the current 'next experiment number' from counter.txt.
 
     Filesystem edge -- never called from inside a transform. The value is
     passed INTO the new transform via args; the transform stays pure.
     """
-    with open(COUNTER_FILE) as f:
-        return int(f.read().strip())
+    with open(COUNTER_FILE_PATH) as counter_file:
+        return int(counter_file.read().strip())
 
 
-def write_counter(value):
+def write_next_experiment_number(next_experiment_number):
     """Write the bumped counter value to counter.txt.
 
     Filesystem edge. Called LAST in the new sequence (after row insert and
@@ -296,61 +316,67 @@ def write_counter(value):
     than reusing one (a PK collision -- a real failure). Bumping last fails
     toward the harmless direction. Honor the ordering.
     """
-    with open(COUNTER_FILE, "w") as f:
-        f.write(str(value))
+    with open(COUNTER_FILE_PATH, "w") as counter_file:
+        counter_file.write(str(next_experiment_number))
 
 
 # C9 -- new pure transform
 # ---------------------------------------------------------------------------
 
 
-def transform_new(store, args, clock):
-    """(store, args, clock) -> effects. Pure: no IO, no clock-read, no print.
+def build_new_experiment_effects(store, arguments, clock):
+    """(store, arguments, clock) -> effects. Pure: no IO, no clock-read,
+    no print.
 
-    args carries: type, shortname, title (optional), and the counter value
-    read at the edge (C8). Builds exp_id / folder_name purely, produces the
-    experiment row, and returns the new counter value as an extra
-    'counter' key on the effects dict for the new edge (C10) to write. The
-    fixed effects_ok shape is unchanged; the extra key rides alongside it.
+    arguments carries: type, shortname, title (optional), and the
+    experiment number read at the edge (C8). Builds experiment_id /
+    folder_name purely, produces the experiment row, and returns the next
+    experiment number as an extra 'next_experiment_number' key on the
+    effects dict for the new edge (C10) to write. The fixed success-effects
+    shape is unchanged; the extra key rides alongside it.
     """
-    exp_type = args["type"]
-    shortname = args["shortname"]
-    title = args.get("title") or shortname
-    counter = args["counter"]
+    experiment_type = arguments["type"]
+    experiment_shortname = arguments["shortname"]
+    experiment_title = arguments.get("title") or experiment_shortname
+    current_experiment_number = arguments["experiment_number"]
 
-    if exp_type not in VALID_TYPES:
-        return effects_fail(
-            f"Unknown type '{exp_type}'. Valid types: {', '.join(VALID_TYPES)}"
+    if experiment_type not in VALID_EXPERIMENT_TYPES:
+        return make_failure_effects(
+            f"Unknown type '{experiment_type}'. "
+            f"Valid types: {', '.join(VALID_EXPERIMENT_TYPES)}"
         )
 
-    exp_id = f"LM-{counter:04d}"
-    today_compact = clock["today"].strftime("%Y%m%d")
-    cat_code = CATEGORY_CODES[exp_type]
-    folder_name = f"{today_compact}_{exp_id}_{cat_code}_{shortname}"
-    today_iso = clock["today"].strftime("%Y-%m-%d")
+    experiment_id = f"LM-{current_experiment_number:04d}"
+    compact_date_string = clock["today"].strftime("%Y%m%d")
+    category_code = EXPERIMENT_TYPE_TO_CATEGORY_CODE[experiment_type]
+    folder_name = (
+        f"{compact_date_string}_{experiment_id}_{category_code}_{experiment_shortname}"
+    )
+    iso_date_string = clock["today"].strftime("%Y-%m-%d")
 
-    row = {
-        "id": exp_id,
-        "type": exp_type,
-        "title": title,
-        "shortname": shortname,
-        "date_started": today_iso,
+    experiment_row = {
+        "id": experiment_id,
+        "type": experiment_type,
+        "title": experiment_title,
+        "shortname": experiment_shortname,
+        "date_started": iso_date_string,
         "date_completed": None,
         "status": "active",
         "folder_name": folder_name,
         "notes": None,
     }
 
-    new_store = dict(store)
-    new_store["experiments"] = list(store["experiments"]) + [row]
+    updated_store = dict(store)
+    updated_store["experiments"] = list(store["experiments"]) + [experiment_row]
 
-    effects = effects_ok(
-        stdout=[f"Created {exp_id}: {folder_name}"],
-        store=new_store,
+    effects = make_success_effects(
+        standard_output_lines=[f"Created {experiment_id}: {folder_name}"],
+        store=updated_store,
     )
-    # Extra key on top of the fixed effects_ok shape: the new counter value
-    # the C10 edge writes LAST. Not part of execute_effects' duties.
-    effects["counter"] = counter + 1
+    # Extra keys on top of the fixed success-effects shape: the next
+    # experiment number the C10 edge writes LAST, and the folder name the
+    # C10 edge needs for mkdir. Not part of execute_effects' duties.
+    effects["next_experiment_number"] = current_experiment_number + 1
     effects["folder_name"] = folder_name
     return effects
 
@@ -359,33 +385,36 @@ def transform_new(store, args, clock):
 # ---------------------------------------------------------------------------
 
 
-def cmd_new(args):
+def run_new_command(arguments):
     """Edge for `new`: read counter, run the pure transform, sequence the
     effects in the fixed fail-safe order, route through execute_effects.
 
-    Order is deliberate (SS6.6): row insert (via execute_effects -> commit)
-    and mkdir happen FIRST; the counter bump happens LAST. A run that dies
-    before the bump wastes a number (harmless); never reuses one.
+    Order is deliberate (SS6.6): row insert (via execute_effects ->
+    write_store_to_database) and mkdir happen FIRST; the counter bump
+    happens LAST. A run that dies before the bump wastes a number
+    (harmless); never reuses one.
     """
-    counter = read_counter()
-    args = dict(args)
-    args["counter"] = counter
+    current_experiment_number = read_next_experiment_number()
+    arguments = dict(arguments)
+    arguments["experiment_number"] = current_experiment_number
 
-    effects = transform_new(load_store(DB_PATH), args, clock)
+    effects = build_new_experiment_effects(
+        load_store_from_database(DATABASE_PATH), arguments, startup_clock
+    )
 
     if not effects["ok"]:
         # Rejected: no row, no mkdir, no bump. Just emit the failure.
-        return execute_effects(effects, DB_PATH)
+        return execute_effects(effects, DATABASE_PATH)
 
     # FIRST: mkdir the experiment folder.
-    folder_path = os.path.join(EXPERIMENTS_DIR, effects["folder_name"])
-    os.makedirs(folder_path, exist_ok=True)
+    experiment_folder_path = os.path.join(EXPERIMENTS_DIRECTORY, effects["folder_name"])
+    os.makedirs(experiment_folder_path, exist_ok=True)
 
     # FIRST (cont.): commit the row + print stdout via execute_effects.
-    exit_code = execute_effects(effects, DB_PATH)
+    exit_code = execute_effects(effects, DATABASE_PATH)
 
     # LAST: bump the counter, only after row + folder are durable.
-    write_counter(effects["counter"])
+    write_next_experiment_number(effects["next_experiment_number"])
 
     return exit_code
 
@@ -398,55 +427,71 @@ def cmd_new(args):
 # ---------------------------------------------------------------------------
 
 
-def transform_link(store, args, clock):
-    """(store, args, clock) -> effects. Pure. Appends one bare edge.
+def build_link_effects(store, arguments, clock):
+    """(store, arguments, clock) -> effects. Pure. Appends one bare edge.
 
     Four rejection paths, each a no-effect failure:
-      1. bad id            -- either id fails normalize_exp_id
+      1. bad id            -- either id fails normalize_experiment_id
       2. missing experiment-- either id not present in the store
-      3. unknown relationship -- not in ALLOWED_RELATIONSHIPS (block, not warn)
+      3. unknown relationship -- not in ALLOWED_LINK_RELATIONSHIPS
+                                 (block, not warn)
       4. duplicate edge    -- (from, to) already present
     No assay_details, no type-specific behavior -- a plain edge label.
     """
-    from_id = normalize_exp_id(args["from_id"])
-    to_id = normalize_exp_id(args["to_id"])
-    relationship = args["relationship"]
+    from_experiment_id = normalize_experiment_id(arguments["from_id"])
+    to_experiment_id = normalize_experiment_id(arguments["to_id"])
+    relationship = arguments["relationship"]
 
     # 1. bad id
-    if from_id is None or to_id is None:
-        bad = args["from_id"] if from_id is None else args["to_id"]
-        return effects_fail(f"Invalid experiment id: '{bad}'")
+    if from_experiment_id is None or to_experiment_id is None:
+        if from_experiment_id is None:
+            invalid_raw_id = arguments["from_id"]
+        else:
+            invalid_raw_id = arguments["to_id"]
+        return make_failure_effects(f"Invalid experiment id: '{invalid_raw_id}'")
 
     # 2. missing experiment
-    known = {r["id"] for r in store["experiments"]}
-    if from_id not in known:
-        return effects_fail(f"No such experiment: {from_id}")
-    if to_id not in known:
-        return effects_fail(f"No such experiment: {to_id}")
+    known_experiment_ids = {
+        experiment_row["id"] for experiment_row in store["experiments"]
+    }
+    if from_experiment_id not in known_experiment_ids:
+        return make_failure_effects(f"No such experiment: {from_experiment_id}")
+    if to_experiment_id not in known_experiment_ids:
+        return make_failure_effects(f"No such experiment: {to_experiment_id}")
 
     # 3. unknown relationship -- blocked, not warned
-    if relationship not in ALLOWED_RELATIONSHIPS:
-        return effects_fail(
+    if relationship not in ALLOWED_LINK_RELATIONSHIPS:
+        return make_failure_effects(
             f"Unknown relationship '{relationship}'. "
-            f"Allowed: {', '.join(ALLOWED_RELATIONSHIPS)}"
+            f"Allowed: {', '.join(ALLOWED_LINK_RELATIONSHIPS)}"
         )
 
     # 4. duplicate edge
-    for link in store["experiment_links"]:
-        if link["from_experiment"] == from_id and link["to_experiment"] == to_id:
-            return effects_fail(f"Link already exists: {from_id} -> {to_id}")
+    for existing_link in store["experiment_links"]:
+        existing_pair_matches = (
+            existing_link["from_experiment"] == from_experiment_id
+            and existing_link["to_experiment"] == to_experiment_id
+        )
+        if existing_pair_matches:
+            return make_failure_effects(
+                f"Link already exists: {from_experiment_id} -> {to_experiment_id}"
+            )
 
-    edge = {
-        "from_experiment": from_id,
-        "to_experiment": to_id,
+    new_link_edge = {
+        "from_experiment": from_experiment_id,
+        "to_experiment": to_experiment_id,
         "relationship": relationship,
     }
-    new_store = dict(store)
-    new_store["experiment_links"] = list(store["experiment_links"]) + [edge]
+    updated_store = dict(store)
+    updated_store["experiment_links"] = list(store["experiment_links"]) + [
+        new_link_edge
+    ]
 
-    return effects_ok(
-        stdout=[f"Linked {from_id} -> {to_id} ({relationship})"],
-        store=new_store,
+    return make_success_effects(
+        standard_output_lines=[
+            f"Linked {from_experiment_id} -> {to_experiment_id} ({relationship})"
+        ],
+        store=updated_store,
     )
 
 
@@ -454,10 +499,13 @@ def transform_link(store, args, clock):
 # ---------------------------------------------------------------------------
 
 
-def cmd_link(args):
-    """Edge for `link`: run the pure transform, route through execute_effects."""
-    effects = transform_link(load_store(DB_PATH), args, clock)
-    return execute_effects(effects, DB_PATH)
+def run_link_command(arguments):
+    """Edge for `link`: run the pure transform, route through
+    execute_effects."""
+    effects = build_link_effects(
+        load_store_from_database(DATABASE_PATH), arguments, startup_clock
+    )
+    return execute_effects(effects, DATABASE_PATH)
 
 
 # ---------------------------------------------------------------------------
@@ -471,89 +519,119 @@ def cmd_link(args):
 # absent. Missing folder is a NORMAL state (the user hand-edits the
 # filesystem), rendered not raised -- distinct from the missing-DB hard
 # precondition (SS2).
-FOLDER_NOT_FOUND = object()
+EXPERIMENT_FOLDER_NOT_FOUND = object()
 
 
-def transform_show(store, args, clock):
-    """(store, args, clock) -> effects. Pure: receives the file listing (or
-    the FOLDER_NOT_FOUND sentinel) from the edge; never touches the FS.
+def build_show_effects(store, arguments, clock):
+    """(store, arguments, clock) -> effects. Pure: receives the file
+    listing (or the EXPERIMENT_FOLDER_NOT_FOUND sentinel) from the edge;
+    never touches the FS.
 
-    args carries: id, files (list[str] | FOLDER_NOT_FOUND), folder_path,
-    full (bool -- the --files flag).
+    arguments carries: id, folder_file_names (list[str] |
+    EXPERIMENT_FOLDER_NOT_FOUND), experiment_folder_path, show_full_listing
+    (bool -- the --files flag).
     """
-    exp_id = normalize_exp_id(args["id"])
-    if exp_id is None:
-        return effects_fail(f"Invalid experiment id: '{args['id']}'")
+    experiment_id = normalize_experiment_id(arguments["id"])
+    if experiment_id is None:
+        return make_failure_effects(f"Invalid experiment id: '{arguments['id']}'")
 
-    rows = [r for r in store["experiments"] if r["id"] == exp_id]
-    if not rows:
-        return effects_fail(f"No such experiment: {exp_id}")
-    row = rows[0]
+    matching_experiment_rows = [
+        experiment_row
+        for experiment_row in store["experiments"]
+        if experiment_row["id"] == experiment_id
+    ]
+    if not matching_experiment_rows:
+        return make_failure_effects(f"No such experiment: {experiment_id}")
+    experiment_row = matching_experiment_rows[0]
 
-    out = []
-    out.append(f"{row['id']}: {row['title']}")
-    out.append(f"  type:      {row['type']}")
-    out.append(f"  shortname: {row['shortname']}")
-    out.append(f"  status:    {row['status']}")
-    out.append(f"  started:   {row['date_started']}")
-    if row.get("date_completed"):
-        out.append(f"  completed: {row['date_completed']}")
-    out.append(f"  folder:    {row['folder_name']}")
+    output_lines = []
+    output_lines.append(f"{experiment_row['id']}: {experiment_row['title']}")
+    output_lines.append(f"  type:      {experiment_row['type']}")
+    output_lines.append(f"  shortname: {experiment_row['shortname']}")
+    output_lines.append(f"  status:    {experiment_row['status']}")
+    output_lines.append(f"  started:   {experiment_row['date_started']}")
+    if experiment_row.get("date_completed"):
+        output_lines.append(f"  completed: {experiment_row['date_completed']}")
+    output_lines.append(f"  folder:    {experiment_row['folder_name']}")
 
     # Links: outgoing and incoming.
-    outgoing = [l for l in store["experiment_links"] if l["from_experiment"] == exp_id]
-    incoming = [l for l in store["experiment_links"] if l["to_experiment"] == exp_id]
-    if outgoing:
-        out.append("  links out:")
-        for l in outgoing:
-            out.append(f"    -> {l['to_experiment']} ({l['relationship']})")
-    if incoming:
-        out.append("  links in:")
-        for l in incoming:
-            out.append(f"    <- {l['from_experiment']} ({l['relationship']})")
+    outgoing_links = [
+        link
+        for link in store["experiment_links"]
+        if link["from_experiment"] == experiment_id
+    ]
+    incoming_links = [
+        link
+        for link in store["experiment_links"]
+        if link["to_experiment"] == experiment_id
+    ]
+    if outgoing_links:
+        output_lines.append("  links out:")
+        for link in outgoing_links:
+            output_lines.append(
+                f"    -> {link['to_experiment']} ({link['relationship']})"
+            )
+    if incoming_links:
+        output_lines.append("  links in:")
+        for link in incoming_links:
+            output_lines.append(
+                f"    <- {link['from_experiment']} ({link['relationship']})"
+            )
 
     # Files: folder IS the record. Date-front-loaded names => lexical sort
     # equals chronological, so no stat calls.
-    files = args["files"]
-    if files is FOLDER_NOT_FOUND:
-        out.append(f"  Files: folder not found ({args['folder_path']})")
-    elif args.get("full"):
-        out.append(f"  Files: {len(files)}")
-        for name in sorted(files):
-            out.append(f"    {name}")
+    folder_file_names = arguments["folder_file_names"]
+    if folder_file_names is EXPERIMENT_FOLDER_NOT_FOUND:
+        output_lines.append(
+            f"  Files: folder not found ({arguments['experiment_folder_path']})"
+        )
+    elif arguments.get("show_full_listing"):
+        output_lines.append(f"  Files: {len(folder_file_names)}")
+        for file_name in sorted(folder_file_names):
+            output_lines.append(f"    {file_name}")
     else:
-        if files:
-            newest = sorted(files)[-1]
-            out.append(f"  Files: {len(files)} (last: {newest})")
+        if folder_file_names:
+            newest_file_name = sorted(folder_file_names)[-1]
+            output_lines.append(
+                f"  Files: {len(folder_file_names)} (last: {newest_file_name})"
+            )
         else:
-            out.append("  Files: 0")
+            output_lines.append("  Files: 0")
 
-    return effects_ok(stdout=out)
+    return make_success_effects(standard_output_lines=output_lines)
 
 
-def cmd_show(args):
-    """Edge for `show`: unconditional listdir at the FS edge, missing folder
-    caught into a sentinel, then the pure transform formats the output.
+def run_show_command(arguments):
+    """Edge for `show`: unconditional listdir at the FS edge, missing
+    folder caught into a sentinel, then the pure transform formats the
+    output.
     """
-    store = load_store(DB_PATH)
-    exp_id = normalize_exp_id(args["id"])
+    store = load_store_from_database(DATABASE_PATH)
+    experiment_id = normalize_experiment_id(arguments["id"])
 
-    folder_path = ""
-    files = FOLDER_NOT_FOUND
-    if exp_id is not None:
-        rows = [r for r in store["experiments"] if r["id"] == exp_id]
-        if rows:
-            folder_path = os.path.join(EXPERIMENTS_DIR, rows[0]["folder_name"])
+    experiment_folder_path = ""
+    folder_file_names = EXPERIMENT_FOLDER_NOT_FOUND
+    if experiment_id is not None:
+        matching_experiment_rows = [
+            experiment_row
+            for experiment_row in store["experiments"]
+            if experiment_row["id"] == experiment_id
+        ]
+        if matching_experiment_rows:
+            experiment_folder_path = os.path.join(
+                EXPERIMENTS_DIRECTORY,
+                matching_experiment_rows[0]["folder_name"],
+            )
             try:
-                files = os.listdir(folder_path)
+                folder_file_names = os.listdir(experiment_folder_path)
             except OSError:
-                files = FOLDER_NOT_FOUND
+                folder_file_names = EXPERIMENT_FOLDER_NOT_FOUND
 
-    args = dict(args)
-    args["files"] = files
-    args["folder_path"] = folder_path
-    effects = transform_show(store, args, clock)
-    return execute_effects(effects, DB_PATH)
+    arguments = dict(arguments)
+    arguments["folder_file_names"] = folder_file_names
+    arguments["experiment_folder_path"] = experiment_folder_path
+    effects = build_show_effects(store, arguments, startup_clock)
+    return execute_effects(effects, DATABASE_PATH)
 
 
 # ---------------------------------------------------------------------------
@@ -564,32 +642,53 @@ def cmd_show(args):
 # ---------------------------------------------------------------------------
 
 
-def transform_list(store, args, clock):
-    """(store, args, clock) -> effects. Pure. Absent flag = no filter on
-    that field (an absent predicate is meaningful: it matches everything).
+def build_list_effects(store, arguments, clock):
+    """(store, arguments, clock) -> effects. Pure. Absent flag = no filter
+    on that field (an absent predicate is meaningful: it matches
+    everything).
     """
-    type_filter = args.get("type")
-    status_filter = args.get("status")
+    type_filter = arguments.get("type")
+    status_filter = arguments.get("status")
 
-    rows = store["experiments"]
+    matching_experiment_rows = store["experiments"]
     if type_filter is not None:
-        rows = [r for r in rows if r["type"] == type_filter]
+        matching_experiment_rows = [
+            experiment_row
+            for experiment_row in matching_experiment_rows
+            if experiment_row["type"] == type_filter
+        ]
     if status_filter is not None:
-        rows = [r for r in rows if r["status"] == status_filter]
+        matching_experiment_rows = [
+            experiment_row
+            for experiment_row in matching_experiment_rows
+            if experiment_row["status"] == status_filter
+        ]
 
-    if not rows:
-        return effects_ok(stdout=["No experiments match."])
+    if not matching_experiment_rows:
+        return make_success_effects(standard_output_lines=["No experiments match."])
 
-    out = []
-    for r in sorted(rows, key=lambda r: r["id"]):
-        out.append(f"{r['id']}  {r['status']:8}  {r['type']:13}  {r['title']}")
-    return effects_ok(stdout=out)
+    output_lines = []
+    sorted_experiment_rows = sorted(
+        matching_experiment_rows,
+        key=lambda experiment_row: experiment_row["id"],
+    )
+    for experiment_row in sorted_experiment_rows:
+        output_lines.append(
+            f"{experiment_row['id']}  "
+            f"{experiment_row['status']:8}  "
+            f"{experiment_row['type']:13}  "
+            f"{experiment_row['title']}"
+        )
+    return make_success_effects(standard_output_lines=output_lines)
 
 
-def cmd_list(args):
-    """Edge for `list`: run the pure transform, route through execute_effects."""
-    effects = transform_list(load_store(DB_PATH), args, clock)
-    return execute_effects(effects, DB_PATH)
+def run_list_command(arguments):
+    """Edge for `list`: run the pure transform, route through
+    execute_effects."""
+    effects = build_list_effects(
+        load_store_from_database(DATABASE_PATH), arguments, startup_clock
+    )
+    return execute_effects(effects, DATABASE_PATH)
 
 
 # ---------------------------------------------------------------------------
@@ -603,106 +702,155 @@ def cmd_list(args):
 # this if/elif into a parse_shape wearing a costume. See SS5.
 
 
-def _parse_flags(argv, value_flags=(), bool_flags=()):
-    """Tiny shared parser: pull named flags out of argv, return
-    (positionals, flags_dict). Honest helper for a real shared need, not a
-    binder -- it does NOT know command shapes, it just separates flags from
-    positionals. value_flags take the next token; bool_flags are presence.
+def separate_flags_from_positionals(
+    command_arguments, value_flag_names=(), boolean_flag_names=()
+):
+    """Tiny shared parser: pull named flags out of command_arguments,
+    return (positional_arguments, parsed_flags). Honest helper for a real
+    shared need, not a binder -- it does NOT know command shapes, it just
+    separates flags from positionals. value_flag_names take the next token;
+    boolean_flag_names are presence-only.
     """
-    positionals = []
-    flags = {}
-    i = 0
-    while i < len(argv):
-        tok = argv[i]
-        name = tok[2:] if tok.startswith("--") else None
-        if name in bool_flags:
-            flags[name] = True
-            i += 1
-        elif name in value_flags:
-            flags[name] = argv[i + 1] if i + 1 < len(argv) else None
-            i += 2
+    positional_arguments = []
+    parsed_flags = {}
+    argument_index = 0
+    while argument_index < len(command_arguments):
+        current_token = command_arguments[argument_index]
+        if current_token.startswith("--"):
+            flag_name = current_token[2:]
         else:
-            positionals.append(tok)
-            i += 1
-    return positionals, flags
+            flag_name = None
+
+        if flag_name in boolean_flag_names:
+            parsed_flags[flag_name] = True
+            argument_index += 1
+        elif flag_name in value_flag_names:
+            if argument_index + 1 < len(command_arguments):
+                parsed_flags[flag_name] = command_arguments[argument_index + 1]
+            else:
+                parsed_flags[flag_name] = None
+            argument_index += 2
+        else:
+            positional_arguments.append(current_token)
+            argument_index += 1
+    return positional_arguments, parsed_flags
 
 
-def log_command(argv):
+def append_command_log_line(command_arguments):
     """Append one audit line to command_log.txt. An EFFECT performed at the
     edge after a successful run -- never from inside a transform. Optional
     and harmless; reintroducing it as an inline side-channel would be the
     entanglement this design removes (SS6.6).
     """
-    line = f"{clock['now'].isoformat()}  {' '.join(argv)}\n"
+    log_line = f"{startup_clock['now'].isoformat()}  {' '.join(command_arguments)}\n"
     try:
-        with open(os.path.join(LAB_ROOT, "command_log.txt"), "a") as f:
-            f.write(line)
+        log_file_path = os.path.join(LAB_ROOT, "command_log.txt")
+        with open(log_file_path, "a") as log_file:
+            log_file.write(log_line)
     except OSError:
-        pass  # logging must never break a command
+        # Logging must never break a command.
+        pass
 
 
-def main(argv=None):
-    argv = list(sys.argv[1:] if argv is None else argv)
-    if not argv:
+def main(command_arguments=None):
+    if command_arguments is None:
+        command_arguments = list(sys.argv[1:])
+    else:
+        command_arguments = list(command_arguments)
+
+    if not command_arguments:
         print("usage: lw <init|new|link|show|list> ...", file=sys.stderr)
         return 2
 
-    command, rest = argv[0], argv[1:]
+    command_name = command_arguments[0]
+    remaining_arguments = command_arguments[1:]
 
     # init is the outsider: runs before the store exists.
-    if command == "init":
-        rc = cmd_init()
-        if rc == 0:
-            log_command(argv)
-        return rc
+    if command_name == "init":
+        exit_code = run_init_command()
+        if exit_code == 0:
+            append_command_log_line(command_arguments)
+        return exit_code
 
     # Every other command requires the DB. Precondition at the store
     # boundary, before any transform.
-    precondition = require_db(DB_PATH)
-    if precondition is not None:
-        return execute_effects(precondition, DB_PATH)
+    missing_database_effects = require_existing_database(DATABASE_PATH)
+    if missing_database_effects is not None:
+        return execute_effects(missing_database_effects, DATABASE_PATH)
 
-    if command == "new":
-        # new <type> <shortname> [--title T...]: --title joins the tail, so
-        # it must come last on the line.
-        title = None
-        if "--title" in rest:
-            idx = rest.index("--title")
-            title = " ".join(rest[idx + 1 :])
-            rest = rest[:idx]
-        if len(rest) < 2:
-            print("usage: lw new <type> <shortname> [--title T]", file=sys.stderr)
+    if command_name == "new":
+        # new <type> <shortname> [--title T...]: --title joins the tail,
+        # so it must come last on the line.
+        experiment_title = None
+        if "--title" in remaining_arguments:
+            title_flag_index = remaining_arguments.index("--title")
+            experiment_title = " ".join(remaining_arguments[title_flag_index + 1 :])
+            remaining_arguments = remaining_arguments[:title_flag_index]
+        if len(remaining_arguments) < 2:
+            print(
+                "usage: lw new <type> <shortname> [--title T]",
+                file=sys.stderr,
+            )
             return 2
-        rc = cmd_new({"type": rest[0], "shortname": rest[1], "title": title})
+        exit_code = run_new_command(
+            {
+                "type": remaining_arguments[0],
+                "shortname": remaining_arguments[1],
+                "title": experiment_title,
+            }
+        )
 
-    elif command == "link":
+    elif command_name == "link":
         # link <from> <to> <relationship>: three required, ordered args.
-        if len(rest) != 3:
-            print("usage: lw link <from> <to> <relationship>", file=sys.stderr)
+        if len(remaining_arguments) != 3:
+            print(
+                "usage: lw link <from> <to> <relationship>",
+                file=sys.stderr,
+            )
             return 2
-        rc = cmd_link({"from_id": rest[0], "to_id": rest[1], "relationship": rest[2]})
+        exit_code = run_link_command(
+            {
+                "from_id": remaining_arguments[0],
+                "to_id": remaining_arguments[1],
+                "relationship": remaining_arguments[2],
+            }
+        )
 
-    elif command == "show":
+    elif command_name == "show":
         # show <id> [--files]: positional + optional bool modifier.
-        pos, flags = _parse_flags(rest, bool_flags=("files",))
-        if len(pos) != 1:
+        positional_arguments, parsed_flags = separate_flags_from_positionals(
+            remaining_arguments, boolean_flag_names=("files",)
+        )
+        if len(positional_arguments) != 1:
             print("usage: lw show <id> [--files]", file=sys.stderr)
             return 2
-        rc = cmd_show({"id": pos[0], "full": flags.get("files", False)})
+        exit_code = run_show_command(
+            {
+                "id": positional_arguments[0],
+                "show_full_listing": parsed_flags.get("files", False),
+            }
+        )
 
-    elif command == "list":
+    elif command_name == "list":
         # list [--type T] [--status S]: optional predicates.
-        pos, flags = _parse_flags(rest, value_flags=("type", "status"))
-        rc = cmd_list({"type": flags.get("type"), "status": flags.get("status")})
+        positional_arguments, parsed_flags = separate_flags_from_positionals(
+            remaining_arguments, value_flag_names=("type", "status")
+        )
+        exit_code = run_list_command(
+            {
+                "type": parsed_flags.get("type"),
+                "status": parsed_flags.get("status"),
+            }
+        )
 
     else:
-        print(f"Unknown command: {command}", file=sys.stderr)
+        print(f"Unknown command: {command_name}", file=sys.stderr)
         print("usage: lw <init|new|link|show|list> ...", file=sys.stderr)
         return 2
 
-    if rc == 0:
-        log_command(argv)
-    return rc
+    if exit_code == 0:
+        append_command_log_line(command_arguments)
+    return exit_code
 
 
 if __name__ == "__main__":
