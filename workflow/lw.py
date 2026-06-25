@@ -353,3 +353,38 @@ def transform_new(store, args, clock):
     effects["counter"] = counter + 1
     effects["folder_name"] = folder_name
     return effects
+
+
+# C10 -- new edge + wiring
+# ---------------------------------------------------------------------------
+
+
+def cmd_new(args):
+    """Edge for `new`: read counter, run the pure transform, sequence the
+    effects in the fixed fail-safe order, route through execute_effects.
+
+    Order is deliberate (SS6.6): row insert (via execute_effects -> commit)
+    and mkdir happen FIRST; the counter bump happens LAST. A run that dies
+    before the bump wastes a number (harmless); never reuses one.
+    """
+    counter = read_counter()
+    args = dict(args)
+    args["counter"] = counter
+
+    effects = transform_new(load_store(DB_PATH), args, clock)
+
+    if not effects["ok"]:
+        # Rejected: no row, no mkdir, no bump. Just emit the failure.
+        return execute_effects(effects, DB_PATH)
+
+    # FIRST: mkdir the experiment folder.
+    folder_path = os.path.join(EXPERIMENTS_DIR, effects["folder_name"])
+    os.makedirs(folder_path, exist_ok=True)
+
+    # FIRST (cont.): commit the row + print stdout via execute_effects.
+    exit_code = execute_effects(effects, DB_PATH)
+
+    # LAST: bump the counter, only after row + folder are durable.
+    write_counter(effects["counter"])
+
+    return exit_code
