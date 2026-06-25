@@ -590,3 +590,120 @@ def cmd_list(args):
     """Edge for `list`: run the pure transform, route through execute_effects."""
     effects = transform_list(load_store(DB_PATH), args, clock)
     return execute_effects(effects, DB_PATH)
+
+
+# ---------------------------------------------------------------------------
+# Dispatch -- plain if/elif. C15.
+# ---------------------------------------------------------------------------
+# The interface is unified at the CONTRACT (every command parses to a
+# transform whose effects flow through execute_effects), deliberately NOT at
+# the parse: each branch parses its own argument shape because the shapes are
+# genuinely different KINDS (required-ordered / optional-modifier /
+# optional-free-text-tail / optional-predicate). A binder would just relocate
+# this if/elif into a parse_shape wearing a costume. See SS5.
+
+
+def _parse_flags(argv, value_flags=(), bool_flags=()):
+    """Tiny shared parser: pull named flags out of argv, return
+    (positionals, flags_dict). Honest helper for a real shared need, not a
+    binder -- it does NOT know command shapes, it just separates flags from
+    positionals. value_flags take the next token; bool_flags are presence.
+    """
+    positionals = []
+    flags = {}
+    i = 0
+    while i < len(argv):
+        tok = argv[i]
+        name = tok[2:] if tok.startswith("--") else None
+        if name in bool_flags:
+            flags[name] = True
+            i += 1
+        elif name in value_flags:
+            flags[name] = argv[i + 1] if i + 1 < len(argv) else None
+            i += 2
+        else:
+            positionals.append(tok)
+            i += 1
+    return positionals, flags
+
+
+def log_command(argv):
+    """Append one audit line to command_log.txt. An EFFECT performed at the
+    edge after a successful run -- never from inside a transform. Optional
+    and harmless; reintroducing it as an inline side-channel would be the
+    entanglement this design removes (SS6.6).
+    """
+    line = f"{clock['now'].isoformat()}  {' '.join(argv)}\n"
+    try:
+        with open(os.path.join(LAB_ROOT, "command_log.txt"), "a") as f:
+            f.write(line)
+    except OSError:
+        pass  # logging must never break a command
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv:
+        print("usage: lw <init|new|link|show|list> ...", file=sys.stderr)
+        return 2
+
+    command, rest = argv[0], argv[1:]
+
+    # init is the outsider: runs before the store exists.
+    if command == "init":
+        rc = cmd_init()
+        if rc == 0:
+            log_command(argv)
+        return rc
+
+    # Every other command requires the DB. Precondition at the store
+    # boundary, before any transform.
+    precondition = require_db(DB_PATH)
+    if precondition is not None:
+        return execute_effects(precondition, DB_PATH)
+
+    if command == "new":
+        # new <type> <shortname> [--title T...]: --title joins the tail, so
+        # it must come last on the line.
+        title = None
+        if "--title" in rest:
+            idx = rest.index("--title")
+            title = " ".join(rest[idx + 1 :])
+            rest = rest[:idx]
+        if len(rest) < 2:
+            print("usage: lw new <type> <shortname> [--title T]", file=sys.stderr)
+            return 2
+        rc = cmd_new({"type": rest[0], "shortname": rest[1], "title": title})
+
+    elif command == "link":
+        # link <from> <to> <relationship>: three required, ordered args.
+        if len(rest) != 3:
+            print("usage: lw link <from> <to> <relationship>", file=sys.stderr)
+            return 2
+        rc = cmd_link({"from_id": rest[0], "to_id": rest[1], "relationship": rest[2]})
+
+    elif command == "show":
+        # show <id> [--files]: positional + optional bool modifier.
+        pos, flags = _parse_flags(rest, bool_flags=("files",))
+        if len(pos) != 1:
+            print("usage: lw show <id> [--files]", file=sys.stderr)
+            return 2
+        rc = cmd_show({"id": pos[0], "full": flags.get("files", False)})
+
+    elif command == "list":
+        # list [--type T] [--status S]: optional predicates.
+        pos, flags = _parse_flags(rest, value_flags=("type", "status"))
+        rc = cmd_list({"type": flags.get("type"), "status": flags.get("status")})
+
+    else:
+        print(f"Unknown command: {command}", file=sys.stderr)
+        print("usage: lw <init|new|link|show|list> ...", file=sys.stderr)
+        return 2
+
+    if rc == 0:
+        log_command(argv)
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())
