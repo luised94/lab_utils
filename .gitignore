@@ -27,3 +27,4 @@ template_sample_grid.csv
 test.log
 treestructure*.txt
 verification.R
+__pycache__

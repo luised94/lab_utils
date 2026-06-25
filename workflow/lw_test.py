@@ -440,6 +440,91 @@ def test_list_no_match_is_normal_state_and_no_effect(sandbox_lab_root):
 
 
 # ---------------------------------------------------------------------------
+# Hardening -- counter file corruption + counter/DB disagreement
+# ---------------------------------------------------------------------------
+
+
+def test_new_with_corrupt_counter_fails_cleanly_and_no_effect(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    # hand-corrupt the counter as a user editing the filesystem might.
+    with open(lw.COUNTER_FILE_PATH, "w") as counter_file:
+        counter_file.write("not-a-number")
+    # snapshot the DB + folders (cannot snapshot counter -- read raises).
+    store_before = lw.load_store_from_database(lw.DATABASE_PATH)
+    folders_before = sorted(os.listdir(lw.EXPERIMENTS_DIRECTORY))
+
+    result = run_command(lw, ["new", "purification", "x"])
+    assert_equal(result.exit_code, 1, "corrupt-counter exit code")
+    assert_contains(result.stderr_text, "corrupt", "corrupt-counter message")
+    assert_contains(result.stderr_text, "Fix it by hand", "corrupt-counter remedy hint")
+    store_after = lw.load_store_from_database(lw.DATABASE_PATH)
+    folders_after = sorted(os.listdir(lw.EXPERIMENTS_DIRECTORY))
+    assert_equal(
+        store_after["experiments"],
+        store_before["experiments"],
+        "corrupt counter / no row written",
+    )
+    assert_equal(folders_after, folders_before, "corrupt counter / no folder created")
+
+
+def test_new_with_empty_counter_fails_cleanly(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    with open(lw.COUNTER_FILE_PATH, "w") as counter_file:
+        counter_file.write("")
+    result = run_command(lw, ["new", "purification", "x"])
+    assert_equal(result.exit_code, 1, "empty-counter exit code")
+    assert_contains(result.stderr_text, "empty", "empty-counter message")
+
+
+def test_read_counter_missing_file_raises_counter_file_error(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    os.remove(lw.COUNTER_FILE_PATH)
+    raised = False
+    try:
+        lw.read_next_experiment_number()
+    except lw.CounterFileError as counter_error:
+        raised = True
+        assert_contains(str(counter_error), "not found", "missing-counter message")
+    assert_true(raised, "missing counter file must raise CounterFileError")
+
+
+def test_new_counter_db_disagreement_blocks_collision_no_effect(sandbox_lab_root):
+    # The SS6.6 failure mode: counter points at an id the DB already has.
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    run_command(lw, ["new", "purification", "first"])  # LM-0001, counter -> 2
+    # hand-rewind the counter so it now points back at the existing LM-0001.
+    lw.write_next_experiment_number(1)
+    before_state = snapshot_store_state(lw)
+
+    result = run_command(lw, ["new", "cloning", "second"])
+    assert_equal(result.exit_code, 1, "disagreement exit code")
+    assert_contains(result.stderr_text, "disagree", "disagreement message")
+    assert_contains(result.stderr_text, "above the highest", "disagreement remedy hint")
+    after_state = snapshot_store_state(lw)
+    # crucial: the existing LM-0001 row is NOT clobbered by the rewrite, and
+    # nothing new is written.
+    assert_no_effect(before_state, after_state, "counter/DB disagreement")
+
+
+def test_experiment_id_constants_are_coupled(sandbox_lab_root):
+    # Guards the CRITICAL INVARIANT: build and normalize agree because both
+    # read the same two constants. If a future edit hardcodes a width or
+    # prefix at one site, this round-trip breaks.
+    lw = load_lw_into_sandbox(sandbox_lab_root)
+    built_id = f"{lw.EXPERIMENT_ID_PREFIX}{7:0{lw.EXPERIMENT_ID_NUMBER_WIDTH}d}"
+    assert_equal(
+        lw.normalize_experiment_id("7"),
+        built_id,
+        "normalize agrees with the built id format",
+    )
+    assert_equal(
+        lw.normalize_experiment_id(built_id),
+        built_id,
+        "normalize is idempotent on a built id",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -461,6 +546,11 @@ ALL_TESTS = [
     test_show_missing_experiment_error_and_no_effect,
     test_list_happy_path_and_filters,
     test_list_no_match_is_normal_state_and_no_effect,
+    test_new_with_corrupt_counter_fails_cleanly_and_no_effect,
+    test_new_with_empty_counter_fails_cleanly,
+    test_read_counter_missing_file_raises_counter_file_error,
+    test_new_counter_db_disagreement_blocks_collision_no_effect,
+    test_experiment_id_constants_are_coupled,
 ]
 
 

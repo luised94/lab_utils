@@ -16,6 +16,49 @@ import sys
 # C1 -- data definitions + config + paths
 # ---------------------------------------------------------------------------
 
+# --- Explicit declarations: every value that was previously a magic literal
+# --- is surfaced here as a named constant, so the coupled invariants below
+# --- are single-sourced and a future reader can change them in one place.
+
+# Experiment id format. CRITICAL INVARIANT: EXPERIMENT_ID_PREFIX and
+# EXPERIMENT_ID_NUMBER_WIDTH are coupled. The prefix is matched (case
+# -insensitively) when normalizing a raw id, and the width is the zero-pad
+# applied when building an id from the counter. Both the build site
+# (build_new_experiment_effects) and the normalize site
+# (normalize_experiment_id) read these constants -- do NOT hardcode "LM-" or
+# 4 anywhere else, or the two sites can silently drift apart.
+EXPERIMENT_ID_PREFIX = "LM-"
+EXPERIMENT_ID_NUMBER_WIDTH = 4
+
+# Date formats. CRITICAL INVARIANT: FOLDER_DATE_FORMAT must remain
+# date-front-loaded (YYYYMMDD, most-significant-first) because `show` relies
+# on lexical sort equalling chronological order to find the newest file
+# WITHOUT stat calls (SS3). Changing this format to anything not
+# lexically-sortable-as-chronological silently breaks the "newest file"
+# logic. ISO_DATE_FORMAT is the stored date_started value.
+FOLDER_DATE_FORMAT = "%Y%m%d"
+ISO_DATE_FORMAT = "%Y-%m-%d"
+
+# Experiment row defaults.
+DEFAULT_EXPERIMENT_STATUS = "active"
+
+# Counter seed: the first experiment number a fresh `init` writes.
+INITIAL_COUNTER_VALUE = 1
+
+# `list` output column widths (status, type) for aligned columns.
+LIST_STATUS_COLUMN_WIDTH = 8
+LIST_TYPE_COLUMN_WIDTH = 13
+
+# Filenames within LAB_ROOT (joined to LAB_ROOT to derive the paths below).
+DATABASE_FILENAME = "lab.db"
+COUNTER_FILENAME = "counter.txt"
+COMMAND_LOG_FILENAME = "command_log.txt"
+
+# Environment variables consulted for LAB_ROOT resolution, in precedence
+# order. The second of each pair is a legacy alias kept because it is free.
+LAB_ROOT_ENV_VARS = ("LW_LAB_ROOT", "LAB_ROOT")
+WINDOWS_USER_ENV_VARS = ("LW_WINDOWS_USER", "MC_WINDOWS_USER")
+
 # Folder-naming category codes. NOTE: `type` is NOT a data contract. The
 # typed data it once dispatched to (purification_details, assay_details,
 # samples) now lives in Excel. `type` is retained for exactly two uses:
@@ -48,23 +91,45 @@ startup_clock = {
 }
 
 # --- LAB_ROOT resolution ---
-lab_root_from_environment = os.environ.get("LW_LAB_ROOT") or os.environ.get("LAB_ROOT")
+# Resolve in precedence order: an explicit LAB_ROOT env var wins; otherwise
+# a Windows username env var derives the WSL desktop convention path;
+# otherwise we cannot proceed and exit with a hint naming both options.
+
+
+def first_environment_value(environment_variable_names):
+    """Return the first set, non-empty environment variable value among the
+    given names, or None if none is set."""
+    for environment_variable_name in environment_variable_names:
+        value = os.environ.get(environment_variable_name)
+        if value:
+            return value
+    return None
+
+
+lab_root_from_environment = first_environment_value(LAB_ROOT_ENV_VARS)
 if lab_root_from_environment:
     LAB_ROOT = lab_root_from_environment
 else:
-    windows_username_from_environment = os.environ.get(
-        "LW_WINDOWS_USER"
-    ) or os.environ.get("MC_WINDOWS_USER")
+    windows_username_from_environment = first_environment_value(WINDOWS_USER_ENV_VARS)
     if windows_username_from_environment:
         LAB_ROOT = f"/mnt/c/Users/{windows_username_from_environment}/Desktop/lab"
     else:
-        print("Error: Set LW_LAB_ROOT or LW_WINDOWS_USER environment variable.")
-        sys.exit(1)
+        print(
+            "Error: lab root is not configured.\n"
+            f"  Set one of {', '.join(LAB_ROOT_ENV_VARS)} to an absolute "
+            "lab directory path,\n"
+            f"  or set one of {', '.join(WINDOWS_USER_ENV_VARS)} to your "
+            "Windows username\n"
+            "  to use the /mnt/c/Users/<user>/Desktop/lab WSL convention.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
 # --- derived paths ---
-DATABASE_PATH = os.path.join(LAB_ROOT, "lab.db")
+DATABASE_PATH = os.path.join(LAB_ROOT, DATABASE_FILENAME)
 EXPERIMENTS_DIRECTORY = os.path.join(LAB_ROOT, "experiments")
-COUNTER_FILE_PATH = os.path.join(LAB_ROOT, "counter.txt")
+COUNTER_FILE_PATH = os.path.join(LAB_ROOT, COUNTER_FILENAME)
+COMMAND_LOG_PATH = os.path.join(LAB_ROOT, COMMAND_LOG_FILENAME)
 
 
 # ---------------------------------------------------------------------------
@@ -95,9 +160,21 @@ def make_failure_effects(error_message, exit_code=1):
 
 
 def execute_effects(effects, database_path):
-    """The ONLY function that performs IO for transformed commands."""
-    for output_line in effects.get("stdout", []):
-        print(output_line)
+    """The ONLY function that performs IO for transformed commands.
+
+    The stdout writes are guarded against BrokenPipeError so that piping a
+    command into a reader that closes early (e.g. `lw show 3 | head`) exits
+    cleanly instead of dumping a traceback. The DB commit still runs: the
+    consumer closing the pipe does not mean the effect should be abandoned.
+    """
+    try:
+        for output_line in effects.get("stdout", []):
+            print(output_line)
+    except BrokenPipeError:
+        # Downstream reader closed the pipe. Redirect remaining stdout to
+        # devnull so interpreter shutdown does not re-raise, then continue.
+        devnull_file_descriptor = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull_file_descriptor, sys.stdout.fileno())
     for error_line in effects.get("stderr", []):
         print(error_line, file=sys.stderr)
     if effects.get("store") is not None:
@@ -111,11 +188,18 @@ def execute_effects(effects, database_path):
 
 
 def normalize_experiment_id(raw_experiment_id):
-    """'LM-0003' or '3' -> 'LM-0003'; None if invalid."""
-    if raw_experiment_id.upper().startswith("LM-"):
+    """'LM-0003' or '3' -> 'LM-0003'; None if invalid.
+
+    Reads EXPERIMENT_ID_PREFIX and EXPERIMENT_ID_NUMBER_WIDTH so this site
+    cannot drift from the id-building site in build_new_experiment_effects.
+    """
+    if raw_experiment_id.upper().startswith(EXPERIMENT_ID_PREFIX):
         return raw_experiment_id.upper()
     try:
-        return f"LM-{int(raw_experiment_id):04d}"
+        return (
+            f"{EXPERIMENT_ID_PREFIX}"
+            f"{int(raw_experiment_id):0{EXPERIMENT_ID_NUMBER_WIDTH}d}"
+        )
     except ValueError:
         return None
 
@@ -282,7 +366,7 @@ def run_init_command():
 
     if not os.path.exists(COUNTER_FILE_PATH):
         with open(COUNTER_FILE_PATH, "w") as counter_file:
-            counter_file.write("1")
+            counter_file.write(str(INITIAL_COUNTER_VALUE))
 
     print(f"Initialized lab at {LAB_ROOT}")
     return 0
@@ -298,14 +382,49 @@ def run_init_command():
 # ---------------------------------------------------------------------------
 
 
+class CounterFileError(Exception):
+    """Raised when counter.txt is missing, empty, or not a plain integer.
+
+    The counter lives on a filesystem the user hand-edits (SS3), so a
+    corrupt counter is a foreseeable state, not an impossible one. The edge
+    raises this with an actionable message rather than letting a bare
+    ValueError/FileNotFoundError surface as an opaque traceback.
+    """
+
+
 def read_next_experiment_number():
     """Read the current 'next experiment number' from counter.txt.
 
     Filesystem edge -- never called from inside a transform. The value is
     passed INTO the new transform via args; the transform stays pure.
+
+    Presupposition being guarded: counter.txt exists and holds a single
+    plain integer. Both can be violated by hand-editing, so a missing,
+    empty, or non-integer file raises CounterFileError with a remedy.
     """
-    with open(COUNTER_FILE_PATH) as counter_file:
-        return int(counter_file.read().strip())
+    try:
+        with open(COUNTER_FILE_PATH) as counter_file:
+            raw_counter_contents = counter_file.read().strip()
+    except FileNotFoundError:
+        raise CounterFileError(
+            f"Counter file not found at {COUNTER_FILE_PATH}. "
+            "Run 'lw init' to create it."
+        )
+
+    if not raw_counter_contents:
+        raise CounterFileError(
+            f"Counter file {COUNTER_FILE_PATH} is empty; expected a plain "
+            f"integer. Set it to the next experiment number (e.g. "
+            f"{INITIAL_COUNTER_VALUE}) by hand and retry."
+        )
+    try:
+        return int(raw_counter_contents)
+    except ValueError:
+        raise CounterFileError(
+            f"Counter file {COUNTER_FILE_PATH} is corrupt: expected a plain "
+            f"integer, got {raw_counter_contents!r}. Fix it by hand "
+            "(set it above the highest existing LM- id) and retry."
+        )
 
 
 def write_next_experiment_number(next_experiment_number):
@@ -346,13 +465,34 @@ def build_new_experiment_effects(store, arguments, clock):
             f"Valid types: {', '.join(VALID_EXPERIMENT_TYPES)}"
         )
 
-    experiment_id = f"LM-{current_experiment_number:04d}"
-    compact_date_string = clock["today"].strftime("%Y%m%d")
+    experiment_id = (
+        f"{EXPERIMENT_ID_PREFIX}"
+        f"{current_experiment_number:0{EXPERIMENT_ID_NUMBER_WIDTH}d}"
+    )
+
+    # Collision precondition (the SS6.6 counter/DB-disagreement failure
+    # mode). CRITICAL: the whole-store rewrite (write_store_to_database)
+    # does DELETE-then-INSERT, so a duplicate id would NOT raise a PK
+    # IntegrityError -- it would silently clobber the table and re-insert,
+    # losing the older row. The collision must therefore be caught HERE, as
+    # an explicit store-based precondition, not as a caught DB exception.
+    existing_experiment_ids = {
+        existing_row["id"] for existing_row in store["experiments"]
+    }
+    if experiment_id in existing_experiment_ids:
+        return make_failure_effects(
+            f"Experiment {experiment_id} already exists, but the counter "
+            f"points at it -- counter.txt and the database disagree. Set "
+            f"{COUNTER_FILE_PATH} above the highest existing "
+            f"{EXPERIMENT_ID_PREFIX} id and retry."
+        )
+
+    compact_date_string = clock["today"].strftime(FOLDER_DATE_FORMAT)
     category_code = EXPERIMENT_TYPE_TO_CATEGORY_CODE[experiment_type]
     folder_name = (
         f"{compact_date_string}_{experiment_id}_{category_code}_{experiment_shortname}"
     )
-    iso_date_string = clock["today"].strftime("%Y-%m-%d")
+    iso_date_string = clock["today"].strftime(ISO_DATE_FORMAT)
 
     experiment_row = {
         "id": experiment_id,
@@ -361,7 +501,7 @@ def build_new_experiment_effects(store, arguments, clock):
         "shortname": experiment_shortname,
         "date_started": iso_date_string,
         "date_completed": None,
-        "status": "active",
+        "status": DEFAULT_EXPERIMENT_STATUS,
         "folder_name": folder_name,
         "notes": None,
     }
@@ -394,7 +534,10 @@ def run_new_command(arguments):
     happens LAST. A run that dies before the bump wastes a number
     (harmless); never reuses one.
     """
-    current_experiment_number = read_next_experiment_number()
+    try:
+        current_experiment_number = read_next_experiment_number()
+    except CounterFileError as counter_error:
+        return execute_effects(make_failure_effects(str(counter_error)), DATABASE_PATH)
     arguments = dict(arguments)
     arguments["experiment_number"] = current_experiment_number
 
@@ -455,9 +598,15 @@ def build_link_effects(store, arguments, clock):
         experiment_row["id"] for experiment_row in store["experiments"]
     }
     if from_experiment_id not in known_experiment_ids:
-        return make_failure_effects(f"No such experiment: {from_experiment_id}")
+        return make_failure_effects(
+            f"No such experiment: {from_experiment_id}. "
+            "Run 'lw list' to see existing experiments."
+        )
     if to_experiment_id not in known_experiment_ids:
-        return make_failure_effects(f"No such experiment: {to_experiment_id}")
+        return make_failure_effects(
+            f"No such experiment: {to_experiment_id}. "
+            "Run 'lw list' to see existing experiments."
+        )
 
     # 3. unknown relationship -- blocked, not warned
     if relationship not in ALLOWED_LINK_RELATIONSHIPS:
@@ -541,7 +690,10 @@ def build_show_effects(store, arguments, clock):
         if experiment_row["id"] == experiment_id
     ]
     if not matching_experiment_rows:
-        return make_failure_effects(f"No such experiment: {experiment_id}")
+        return make_failure_effects(
+            f"No such experiment: {experiment_id}. "
+            "Run 'lw list' to see existing experiments."
+        )
     experiment_row = matching_experiment_rows[0]
 
     output_lines = []
@@ -675,8 +827,8 @@ def build_list_effects(store, arguments, clock):
     for experiment_row in sorted_experiment_rows:
         output_lines.append(
             f"{experiment_row['id']}  "
-            f"{experiment_row['status']:8}  "
-            f"{experiment_row['type']:13}  "
+            f"{experiment_row['status']:{LIST_STATUS_COLUMN_WIDTH}}  "
+            f"{experiment_row['type']:{LIST_TYPE_COLUMN_WIDTH}}  "
             f"{experiment_row['title']}"
         )
     return make_success_effects(standard_output_lines=output_lines)
@@ -744,8 +896,7 @@ def append_command_log_line(command_arguments):
     """
     log_line = f"{startup_clock['now'].isoformat()}  {' '.join(command_arguments)}\n"
     try:
-        log_file_path = os.path.join(LAB_ROOT, "command_log.txt")
-        with open(log_file_path, "a") as log_file:
+        with open(COMMAND_LOG_PATH, "a") as log_file:
             log_file.write(log_line)
     except OSError:
         # Logging must never break a command.
