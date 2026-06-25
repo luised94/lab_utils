@@ -388,3 +388,73 @@ def cmd_new(args):
     write_counter(effects["counter"])
 
     return exit_code
+
+
+# ---------------------------------------------------------------------------
+# link -- append a bare provenance edge. C11 transform + C12 wiring.
+# ---------------------------------------------------------------------------
+
+# C11 -- link transform (bare edge; the ~20-line version)
+# ---------------------------------------------------------------------------
+
+
+def transform_link(store, args, clock):
+    """(store, args, clock) -> effects. Pure. Appends one bare edge.
+
+    Four rejection paths, each a no-effect failure:
+      1. bad id            -- either id fails normalize_exp_id
+      2. missing experiment-- either id not present in the store
+      3. unknown relationship -- not in ALLOWED_RELATIONSHIPS (block, not warn)
+      4. duplicate edge    -- (from, to) already present
+    No assay_details, no type-specific behavior -- a plain edge label.
+    """
+    from_id = normalize_exp_id(args["from_id"])
+    to_id = normalize_exp_id(args["to_id"])
+    relationship = args["relationship"]
+
+    # 1. bad id
+    if from_id is None or to_id is None:
+        bad = args["from_id"] if from_id is None else args["to_id"]
+        return effects_fail(f"Invalid experiment id: '{bad}'")
+
+    # 2. missing experiment
+    known = {r["id"] for r in store["experiments"]}
+    if from_id not in known:
+        return effects_fail(f"No such experiment: {from_id}")
+    if to_id not in known:
+        return effects_fail(f"No such experiment: {to_id}")
+
+    # 3. unknown relationship -- blocked, not warned
+    if relationship not in ALLOWED_RELATIONSHIPS:
+        return effects_fail(
+            f"Unknown relationship '{relationship}'. "
+            f"Allowed: {', '.join(ALLOWED_RELATIONSHIPS)}"
+        )
+
+    # 4. duplicate edge
+    for link in store["experiment_links"]:
+        if link["from_experiment"] == from_id and link["to_experiment"] == to_id:
+            return effects_fail(f"Link already exists: {from_id} -> {to_id}")
+
+    edge = {
+        "from_experiment": from_id,
+        "to_experiment": to_id,
+        "relationship": relationship,
+    }
+    new_store = dict(store)
+    new_store["experiment_links"] = list(store["experiment_links"]) + [edge]
+
+    return effects_ok(
+        stdout=[f"Linked {from_id} -> {to_id} ({relationship})"],
+        store=new_store,
+    )
+
+
+# C12 -- link wiring
+# ---------------------------------------------------------------------------
+
+
+def cmd_link(args):
+    """Edge for `link`: run the pure transform, route through execute_effects."""
+    effects = transform_link(load_store(DB_PATH), args, clock)
+    return execute_effects(effects, DB_PATH)
