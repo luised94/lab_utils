@@ -458,3 +458,135 @@ def cmd_link(args):
     """Edge for `link`: run the pure transform, route through execute_effects."""
     effects = transform_link(load_store(DB_PATH), args, clock)
     return execute_effects(effects, DB_PATH)
+
+
+# ---------------------------------------------------------------------------
+# show -- experiment row + links + folder file summary. C13.
+# ---------------------------------------------------------------------------
+
+# C13 -- show transform + listdir edge
+# ---------------------------------------------------------------------------
+
+# Sentinel the edge passes to the transform when the experiment folder is
+# absent. Missing folder is a NORMAL state (the user hand-edits the
+# filesystem), rendered not raised -- distinct from the missing-DB hard
+# precondition (SS2).
+FOLDER_NOT_FOUND = object()
+
+
+def transform_show(store, args, clock):
+    """(store, args, clock) -> effects. Pure: receives the file listing (or
+    the FOLDER_NOT_FOUND sentinel) from the edge; never touches the FS.
+
+    args carries: id, files (list[str] | FOLDER_NOT_FOUND), folder_path,
+    full (bool -- the --files flag).
+    """
+    exp_id = normalize_exp_id(args["id"])
+    if exp_id is None:
+        return effects_fail(f"Invalid experiment id: '{args['id']}'")
+
+    rows = [r for r in store["experiments"] if r["id"] == exp_id]
+    if not rows:
+        return effects_fail(f"No such experiment: {exp_id}")
+    row = rows[0]
+
+    out = []
+    out.append(f"{row['id']}: {row['title']}")
+    out.append(f"  type:      {row['type']}")
+    out.append(f"  shortname: {row['shortname']}")
+    out.append(f"  status:    {row['status']}")
+    out.append(f"  started:   {row['date_started']}")
+    if row.get("date_completed"):
+        out.append(f"  completed: {row['date_completed']}")
+    out.append(f"  folder:    {row['folder_name']}")
+
+    # Links: outgoing and incoming.
+    outgoing = [l for l in store["experiment_links"] if l["from_experiment"] == exp_id]
+    incoming = [l for l in store["experiment_links"] if l["to_experiment"] == exp_id]
+    if outgoing:
+        out.append("  links out:")
+        for l in outgoing:
+            out.append(f"    -> {l['to_experiment']} ({l['relationship']})")
+    if incoming:
+        out.append("  links in:")
+        for l in incoming:
+            out.append(f"    <- {l['from_experiment']} ({l['relationship']})")
+
+    # Files: folder IS the record. Date-front-loaded names => lexical sort
+    # equals chronological, so no stat calls.
+    files = args["files"]
+    if files is FOLDER_NOT_FOUND:
+        out.append(f"  Files: folder not found ({args['folder_path']})")
+    elif args.get("full"):
+        out.append(f"  Files: {len(files)}")
+        for name in sorted(files):
+            out.append(f"    {name}")
+    else:
+        if files:
+            newest = sorted(files)[-1]
+            out.append(f"  Files: {len(files)} (last: {newest})")
+        else:
+            out.append("  Files: 0")
+
+    return effects_ok(stdout=out)
+
+
+def cmd_show(args):
+    """Edge for `show`: unconditional listdir at the FS edge, missing folder
+    caught into a sentinel, then the pure transform formats the output.
+    """
+    store = load_store(DB_PATH)
+    exp_id = normalize_exp_id(args["id"])
+
+    folder_path = ""
+    files = FOLDER_NOT_FOUND
+    if exp_id is not None:
+        rows = [r for r in store["experiments"] if r["id"] == exp_id]
+        if rows:
+            folder_path = os.path.join(EXPERIMENTS_DIR, rows[0]["folder_name"])
+            try:
+                files = os.listdir(folder_path)
+            except OSError:
+                files = FOLDER_NOT_FOUND
+
+    args = dict(args)
+    args["files"] = files
+    args["folder_path"] = folder_path
+    effects = transform_show(store, args, clock)
+    return execute_effects(effects, DB_PATH)
+
+
+# ---------------------------------------------------------------------------
+# list -- filter experiments by --type / --status. C14.
+# ---------------------------------------------------------------------------
+
+# C14 -- list transform + flag parse
+# ---------------------------------------------------------------------------
+
+
+def transform_list(store, args, clock):
+    """(store, args, clock) -> effects. Pure. Absent flag = no filter on
+    that field (an absent predicate is meaningful: it matches everything).
+    """
+    type_filter = args.get("type")
+    status_filter = args.get("status")
+
+    rows = store["experiments"]
+    if type_filter is not None:
+        rows = [r for r in rows if r["type"] == type_filter]
+    if status_filter is not None:
+        rows = [r for r in rows if r["status"] == status_filter]
+
+    if not rows:
+        return effects_ok(stdout=["No experiments match."])
+
+    out = []
+    for r in sorted(rows, key=lambda r: r["id"]):
+        out.append(f"{r['id']}  {r['status']:8}  {r['type']:13}  {r['title']}")
+    return effects_ok(stdout=out)
+
+
+def cmd_list(args):
+    """Edge for `list`: run the pure transform, route through execute_effects."""
+    effects = transform_list(load_store(DB_PATH), args, clock)
+    return execute_effects(effects, DB_PATH)
