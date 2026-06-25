@@ -266,3 +266,90 @@ def cmd_init():
 
     print(f"Initialized lab at {LAB_ROOT}")
     return 0
+
+
+# ---------------------------------------------------------------------------
+# new -- the #1 feature, decomposed: counter edge (C8) + pure transform (C9)
+# + edge/wiring (C10). The one place transform purity, the counter-as-effect
+# boundary, fixed bump-last ordering, and filesystem IO all intersect.
+# ---------------------------------------------------------------------------
+
+# C8 -- counter edge (read + bump), ordering-sensitive
+# ---------------------------------------------------------------------------
+
+
+def read_counter():
+    """Read the current 'next experiment number' from counter.txt.
+
+    Filesystem edge -- never called from inside a transform. The value is
+    passed INTO the new transform via args; the transform stays pure.
+    """
+    with open(COUNTER_FILE) as f:
+        return int(f.read().strip())
+
+
+def write_counter(value):
+    """Write the bumped counter value to counter.txt.
+
+    Filesystem edge. Called LAST in the new sequence (after row insert and
+    mkdir), so a run that dies mid-way wastes a number (harmless) rather
+    than reusing one (a PK collision -- a real failure). Bumping last fails
+    toward the harmless direction. Honor the ordering.
+    """
+    with open(COUNTER_FILE, "w") as f:
+        f.write(str(value))
+
+
+# C9 -- new pure transform
+# ---------------------------------------------------------------------------
+
+
+def transform_new(store, args, clock):
+    """(store, args, clock) -> effects. Pure: no IO, no clock-read, no print.
+
+    args carries: type, shortname, title (optional), and the counter value
+    read at the edge (C8). Builds exp_id / folder_name purely, produces the
+    experiment row, and returns the new counter value as an extra
+    'counter' key on the effects dict for the new edge (C10) to write. The
+    fixed effects_ok shape is unchanged; the extra key rides alongside it.
+    """
+    exp_type = args["type"]
+    shortname = args["shortname"]
+    title = args.get("title") or shortname
+    counter = args["counter"]
+
+    if exp_type not in VALID_TYPES:
+        return effects_fail(
+            f"Unknown type '{exp_type}'. Valid types: {', '.join(VALID_TYPES)}"
+        )
+
+    exp_id = f"LM-{counter:04d}"
+    today_compact = clock["today"].strftime("%Y%m%d")
+    cat_code = CATEGORY_CODES[exp_type]
+    folder_name = f"{today_compact}_{exp_id}_{cat_code}_{shortname}"
+    today_iso = clock["today"].strftime("%Y-%m-%d")
+
+    row = {
+        "id": exp_id,
+        "type": exp_type,
+        "title": title,
+        "shortname": shortname,
+        "date_started": today_iso,
+        "date_completed": None,
+        "status": "active",
+        "folder_name": folder_name,
+        "notes": None,
+    }
+
+    new_store = dict(store)
+    new_store["experiments"] = list(store["experiments"]) + [row]
+
+    effects = effects_ok(
+        stdout=[f"Created {exp_id}: {folder_name}"],
+        store=new_store,
+    )
+    # Extra key on top of the fixed effects_ok shape: the new counter value
+    # the C10 edge writes LAST. Not part of execute_effects' duties.
+    effects["counter"] = counter + 1
+    effects["folder_name"] = folder_name
+    return effects
