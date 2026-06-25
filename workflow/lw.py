@@ -23,9 +23,14 @@ import sys
 # filters `list`. Do not mistake `type` for a contract pointing at
 # DB-resident data.
 CATEGORY_CODES = {
-    "purification": "pur", "loading": "load", "gelshift": "gs",
-    "atpase": "atp", "genetics": "gen", "computational": "comp",
-    "cloning": "clon", "sequencing": "seq",
+    "purification": "pur",
+    "loading": "load",
+    "gelshift": "gs",
+    "atpase": "atp",
+    "genetics": "gen",
+    "computational": "comp",
+    "cloning": "clon",
+    "sequencing": "seq",
 }
 VALID_TYPES = list(CATEGORY_CODES.keys())
 
@@ -52,25 +57,36 @@ else:
         sys.exit(1)
 
 # --- derived paths ---
-DB_PATH         = os.path.join(LAB_ROOT, "lab.db")
+DB_PATH = os.path.join(LAB_ROOT, "lab.db")
 EXPERIMENTS_DIR = os.path.join(LAB_ROOT, "experiments")
-COUNTER_FILE    = os.path.join(LAB_ROOT, "counter.txt")
+COUNTER_FILE = os.path.join(LAB_ROOT, "counter.txt")
 
 
 # ---------------------------------------------------------------------------
 # C2 -- effects-as-data primitives (the core contract)
 # ---------------------------------------------------------------------------
 
+
 def effects_ok(stdout=None, store=None, exit_code=0):
-    return {"ok": True, "stdout": stdout or [], "stderr": [],
-            "store": store, "exit_code": exit_code}
+    return {
+        "ok": True,
+        "stdout": stdout or [],
+        "stderr": [],
+        "store": store,
+        "exit_code": exit_code,
+    }
 
 
 def effects_fail(msg, exit_code=1):
     if isinstance(msg, str):
         msg = [msg]
-    return {"ok": False, "stdout": [], "stderr": msg,
-            "store": None, "exit_code": exit_code}
+    return {
+        "ok": False,
+        "stdout": [],
+        "stderr": msg,
+        "store": None,
+        "exit_code": exit_code,
+    }
 
 
 def execute_effects(effects, db_path):
@@ -88,6 +104,7 @@ def execute_effects(effects, db_path):
 # C3 -- id normalization
 # ---------------------------------------------------------------------------
 
+
 def normalize_exp_id(raw_id):
     """'LM-0003' or '3' -> 'LM-0003'; None if invalid."""
     if raw_id.upper().startswith("LM-"):
@@ -96,3 +113,109 @@ def normalize_exp_id(raw_id):
         return f"LM-{int(raw_id):04d}"
     except ValueError:
         return None
+
+
+# ---------------------------------------------------------------------------
+# Store -- the ONLY place that touches SQL. One module owns the schema, the
+# connection, load, and commit. Transforms receive plain dicts and return
+# effects; they never touch this layer.
+# ---------------------------------------------------------------------------
+
+# C4 -- schema + load
+# ---------------------------------------------------------------------------
+
+# Live schema is exactly the two tables defined below.
+#
+# schema_notes: this DB file also contains eight ORPHANED tables --
+#   strains, experiment_strains, files, purification_details,
+#   assay_details, figure_panels, samples, stage_expectations
+# -- from retired subsystems now migrated to manual Excel tracking. They are
+# INTENTIONALLY RETIRED: no longer read or written by this code, and
+# deliberately NOT dropped (leaving them untouched is zero-risk and
+# reversible; a fresh DB is neither). A future reader seeing eight extra
+# tables in the .db is seeing intended state, not a bug. The live schema is
+# the two tables defined here.
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS experiments (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    shortname TEXT NOT NULL,
+    date_started TEXT NOT NULL,
+    date_completed TEXT,
+    status TEXT DEFAULT 'active',
+    folder_name TEXT NOT NULL,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS experiment_links (
+    from_experiment TEXT REFERENCES experiments(id),
+    to_experiment   TEXT REFERENCES experiments(id),
+    relationship    TEXT NOT NULL,
+    PRIMARY KEY (from_experiment, to_experiment)
+);
+"""
+
+# The two live tables, in the order load/commit walk them.
+LIVE_TABLES = ["experiments", "experiment_links"]
+
+
+def load_store(db_path):
+    """Read every live table into a dict-of-lists of row dicts.
+
+    Reads ONLY the two live tables. The orphaned tables sit inert.
+    """
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    store = {}
+    try:
+        for table in LIVE_TABLES:
+            cur = conn.execute(f"SELECT * FROM {table}")
+            store[table] = [dict(row) for row in cur.fetchall()]
+    finally:
+        conn.close()
+    return store
+
+
+# C5 -- commit (whole-store rewrite + union-of-keys fix)
+# ---------------------------------------------------------------------------
+
+
+def commit(store, db_path):
+    """Rewrite the whole store in one transaction.
+
+    This whole-store-rewrite is DELIBERATELY RETAINED. It works for a
+    single-user, few-hundred-row DB. Do NOT replace with per-statement
+    effects unless a real problem is reported (row count, a second writer).
+
+    The column list per table is built from the UNION of all rows' keys,
+    and values are read with row.get(c) rather than row[c] -- this is the
+    fix for the KeyError the naive version raised on a missing dict key.
+    Touches only the live tables that load_store loaded; orphaned tables are
+    never read or written here.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.executescript(SCHEMA)
+        cur = conn.cursor()
+        for table in LIVE_TABLES:
+            rows = store.get(table, [])
+            cur.execute(f"DELETE FROM {table}")
+            if not rows:
+                continue
+            columns = []
+            seen = set()
+            for r in rows:
+                for k in r:
+                    if k not in seen:
+                        seen.add(k)
+                        columns.append(k)
+            placeholders = ", ".join(["?"] * len(columns))
+            sql = f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})"
+            for row in rows:
+                cur.execute(sql, [row.get(c) for c in columns])
+        conn.commit()
+    finally:
+        conn.close()
