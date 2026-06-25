@@ -219,3 +219,50 @@ def commit(store, db_path):
         conn.commit()
     finally:
         conn.close()
+
+
+# C6 -- missing-DB precondition
+# ---------------------------------------------------------------------------
+
+
+def require_db(db_path):
+    """Store-boundary precondition for every command except init.
+
+    Returns None if the DB exists; otherwise an effects_fail describing the
+    clean error. This runs BEFORE any transform -- transforms assume a
+    loaded store. Distinct from a missing experiment FOLDER on show, which
+    is a normal rendered state, not a precondition error.
+    """
+    if not os.path.exists(db_path):
+        return effects_fail("No lab database found. Run 'lw init' first.")
+    return None
+
+
+# C7 -- init (the bootstrap outsider)
+# ---------------------------------------------------------------------------
+
+
+def cmd_init():
+    """Create LAB_ROOT/experiments, the DB, and seed counter.txt if absent.
+
+    The outsider: runs before the store exists, so it cannot use the store
+    machinery. Idempotent -- CREATE TABLE IF NOT EXISTS and the counter
+    seed both no-op on re-run. Returns an exit code directly (it is its own
+    edge, not a transform routed through execute_effects).
+    """
+    os.makedirs(LAB_ROOT, exist_ok=True)
+    os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
+
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.executescript(SCHEMA)
+        conn.commit()
+    finally:
+        conn.close()
+
+    if not os.path.exists(COUNTER_FILE):
+        with open(COUNTER_FILE, "w") as f:
+            f.write("1")
+
+    print(f"Initialized lab at {LAB_ROOT}")
+    return 0
