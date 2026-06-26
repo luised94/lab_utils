@@ -591,6 +591,173 @@ def test_list_stray_positional_is_rejected_with_flag_hint(sandbox_lab_root):
     assert_contains(result.stderr_text, "--status", "list-stray flag hint")
 
 
+def test_init_rejects_extra_arguments_and_suggests_new(sandbox_lab_root):
+    # The real bug: `lw init cloning thing --title X` silently ran bare init.
+    lw = load_lw_into_sandbox(sandbox_lab_root)
+    result = run_command(lw, ["init", "cloning", "thing", "--title", "Some Title"])
+    assert_equal(result.exit_code, 2, "init-extra-args exit code")
+    assert_contains(
+        result.stderr_text, "takes no arguments", "init-extra-args condition"
+    )
+    # the hint reconstructs the likely-intended `new` command.
+    assert_contains(
+        result.stderr_text, "lw new cloning thing", "init-extra-args suggests new"
+    )
+
+
+def test_new_rejects_extra_positionals(sandbox_lab_root):
+    # multi-word title typed without --title -> caught, not silently dropped.
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    before_state = snapshot_store_state(lw)
+    result = run_command(lw, ["new", "cloning", "thing", "Some", "Long", "Title"])
+    assert_equal(result.exit_code, 2, "new-extra-positionals exit code")
+    assert_contains(result.stderr_text, "positional arguments", "new-extra condition")
+    assert_contains(result.stderr_text, "--title", "new-extra suggests --title")
+    after_state = snapshot_store_state(lw)
+    assert_no_effect(before_state, after_state, "new extra positionals")
+
+
+def test_new_rejects_unknown_flag(sandbox_lab_root):
+    # a typo'd flag like --titel must not be silently swallowed.
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    before_state = snapshot_store_state(lw)
+    result = run_command(lw, ["new", "cloning", "thing", "--titel", "Oops"])
+    assert_equal(result.exit_code, 2, "new-unknown-flag exit code")
+    assert_contains(result.stderr_text, "unexpected flag", "new-unknown-flag condition")
+    after_state = snapshot_store_state(lw)
+    assert_no_effect(before_state, after_state, "new unknown flag")
+
+
+def test_init_bare_still_works(sandbox_lab_root):
+    # regression guard: the strictness must not break the normal init.
+    lw = load_lw_into_sandbox(sandbox_lab_root)
+    result = run_command(lw, ["init"])
+    assert_equal(result.exit_code, 0, "bare init still works")
+    assert_true(os.path.exists(lw.DATABASE_PATH), "bare init created database")
+
+
+# ---------------------------------------------------------------------------
+# complete -- mark done, built on the status-transition engine
+# ---------------------------------------------------------------------------
+
+
+def test_complete_happy_path_sets_status_and_date(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    seed_two_experiments(lw)
+    result = run_command(lw, ["complete", "1"])
+    assert_equal(result.exit_code, 0, "complete exit code")
+    assert_contains(result.stdout_text, "complete", "complete confirmation")
+
+    store = lw.load_store_from_database(lw.DATABASE_PATH)
+    completed_row = next(row for row in store["experiments"] if row["id"] == "LM-0001")
+    assert_equal(
+        completed_row["status"],
+        lw.COMPLETE_EXPERIMENT_STATUS,
+        "complete set status",
+    )
+    assert_true(completed_row["date_completed"], "complete stamped date_completed")
+    # the other experiment is untouched.
+    other_row = next(row for row in store["experiments"] if row["id"] == "LM-0002")
+    assert_equal(other_row["status"], "active", "complete left others active")
+
+
+def test_complete_then_list_filter_reflects_status(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    seed_two_experiments(lw)
+    run_command(lw, ["complete", "1"])
+    completed_listing = run_command(lw, ["list", "--status", "complete"])
+    assert_contains(
+        completed_listing.stdout_text, "LM-0001", "completed shows in filter"
+    )
+    assert_true(
+        "LM-0002" not in completed_listing.stdout_text,
+        "active experiment absent from complete filter",
+    )
+
+
+def test_complete_already_complete_is_no_effect_error(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    seed_two_experiments(lw)
+    run_command(lw, ["complete", "1"])
+    before_state = snapshot_store_state(lw)
+    result = run_command(lw, ["complete", "1"])
+    assert_equal(result.exit_code, 1, "already-complete exit code")
+    assert_contains(result.stderr_text, "already", "already-complete message")
+    after_state = snapshot_store_state(lw)
+    assert_no_effect(before_state, after_state, "complete already complete")
+
+
+def test_complete_missing_experiment_no_effect(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    seed_two_experiments(lw)
+    before_state = snapshot_store_state(lw)
+    result = run_command(lw, ["complete", "99"])
+    assert_equal(result.exit_code, 1, "complete-missing exit code")
+    assert_contains(
+        result.stderr_text, "No such experiment", "complete-missing message"
+    )
+    after_state = snapshot_store_state(lw)
+    assert_no_effect(before_state, after_state, "complete missing experiment")
+
+
+def test_complete_bad_id_no_effect(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    seed_two_experiments(lw)
+    before_state = snapshot_store_state(lw)
+    result = run_command(lw, ["complete", "banana"])
+    assert_equal(result.exit_code, 1, "complete-bad-id exit code")
+    assert_contains(
+        result.stderr_text, "Invalid experiment id", "complete-bad-id message"
+    )
+    after_state = snapshot_store_state(lw)
+    assert_no_effect(before_state, after_state, "complete bad id")
+
+
+def test_complete_missing_id_argument_points_to_list(sandbox_lab_root):
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    seed_two_experiments(lw)
+    result = run_command(lw, ["complete"])
+    assert_equal(result.exit_code, 2, "complete-no-id exit code")
+    assert_contains(
+        result.stderr_text, "needs an experiment", "complete-no-id condition"
+    )
+
+
+def test_status_transition_engine_supports_reopen(sandbox_lab_root):
+    # The engine is general by design: a future `reopen` is a wrapper that
+    # targets the active status and clears the completion date. Exercise
+    # that path directly to prove the core already supports it -- so adding
+    # the verb later is a pure addition, not a redesign.
+    lw = fresh_initialized_lw(sandbox_lab_root)
+    seed_two_experiments(lw)
+    run_command(lw, ["complete", "1"])
+
+    store = lw.load_store_from_database(lw.DATABASE_PATH)
+    reopen_effects = lw.build_status_transition_effects(
+        store,
+        {
+            "id": "1",
+            "target_status": lw.DEFAULT_EXPERIMENT_STATUS,
+            "set_completion_date": "clear",
+        },
+        lw.startup_clock,
+    )
+    assert_true(reopen_effects["ok"], "engine reopen succeeds")
+    reopened_row = next(
+        row for row in reopen_effects["store"]["experiments"] if row["id"] == "LM-0001"
+    )
+    assert_equal(
+        reopened_row["status"],
+        lw.DEFAULT_EXPERIMENT_STATUS,
+        "engine reopen restored active status",
+    )
+    assert_equal(
+        reopened_row["date_completed"],
+        None,
+        "engine reopen cleared completion date",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
@@ -625,6 +792,17 @@ ALL_TESTS = [
     test_show_missing_id_points_to_list,
     test_show_extra_positional_suggests_files_flag,
     test_list_stray_positional_is_rejected_with_flag_hint,
+    test_init_rejects_extra_arguments_and_suggests_new,
+    test_new_rejects_extra_positionals,
+    test_new_rejects_unknown_flag,
+    test_init_bare_still_works,
+    test_complete_happy_path_sets_status_and_date,
+    test_complete_then_list_filter_reflects_status,
+    test_complete_already_complete_is_no_effect_error,
+    test_complete_missing_experiment_no_effect,
+    test_complete_bad_id_no_effect,
+    test_complete_missing_id_argument_points_to_list,
+    test_status_transition_engine_supports_reopen,
 ]
 
 

@@ -39,8 +39,12 @@ EXPERIMENT_ID_NUMBER_WIDTH = 4
 FOLDER_DATE_FORMAT = "%Y%m%d"
 ISO_DATE_FORMAT = "%Y-%m-%d"
 
-# Experiment row defaults.
+# Experiment row defaults and status values. DEFAULT_EXPERIMENT_STATUS is
+# what `new` writes; COMPLETE_EXPERIMENT_STATUS is what `complete` writes.
+# The status-transition engine reads these so the two ends of every
+# transition (active <-> complete) are single-sourced.
 DEFAULT_EXPERIMENT_STATUS = "active"
+COMPLETE_EXPERIMENT_STATUS = "complete"
 
 # Counter seed: the first experiment number a fresh `init` writes.
 INITIAL_COUNTER_VALUE = 1
@@ -844,6 +848,128 @@ def run_list_command(arguments):
 
 
 # ---------------------------------------------------------------------------
+# complete -- mark an experiment done. Built on a general status-transition
+# engine so a future `reopen` (or a collapse into one `status` command) is a
+# pure addition over an unchanged, already-tested core (see BUILD_SUMMARY).
+# ---------------------------------------------------------------------------
+
+
+def build_status_transition_effects(store, arguments, clock):
+    """(store, arguments, clock) -> effects. Pure. The shared core of every
+    status change: set one experiment's status, and set or clear its
+    completion date.
+
+    arguments carries:
+      id                -- the experiment to transition (raw or normalized)
+      target_status     -- the status to move the row INTO
+      set_completion_date -- one of:
+          "today"  : stamp date_completed with clock["today"]
+          "clear"  : set date_completed back to None
+          (a future "--on" flag would add an explicit-date policy here,
+           which is why this is a policy argument rather than a bare bool)
+
+    Rejection paths, each a no-effect failure:
+      1. bad id           -- id fails normalize_experiment_id
+      2. missing experiment
+      3. already in target -- the row is already at target_status; rejected
+                              (consistent with link's duplicate handling --
+                              "you asked for a state that is already true"
+                              is surfaced, not silently no-op'd)
+    """
+    experiment_id = normalize_experiment_id(arguments["id"])
+    target_status = arguments["target_status"]
+    completion_date_policy = arguments["set_completion_date"]
+
+    # 1. bad id
+    if experiment_id is None:
+        return make_failure_effects(f"Invalid experiment id: '{arguments['id']}'")
+
+    # 2. missing experiment
+    matching_rows = [
+        experiment_row
+        for experiment_row in store["experiments"]
+        if experiment_row["id"] == experiment_id
+    ]
+    if not matching_rows:
+        return make_failure_effects(
+            f"No such experiment: {experiment_id}. "
+            "Run 'lw list' to see existing experiments."
+        )
+    current_row = matching_rows[0]
+
+    # 3. already in the target state
+    if current_row["status"] == target_status:
+        return make_failure_effects(
+            f"{experiment_id} is already '{target_status}'; nothing to do."
+        )
+
+    # Resolve the completion-date policy into a concrete value.
+    if completion_date_policy == "today":
+        new_completion_date = clock["today"].strftime(ISO_DATE_FORMAT)
+    elif completion_date_policy == "clear":
+        new_completion_date = None
+    else:
+        # Defensive: an unknown policy is a programming error, not user
+        # input -- surface it loudly rather than writing a wrong row.
+        return make_failure_effects(
+            f"Internal error: unknown completion-date policy "
+            f"'{completion_date_policy}'."
+        )
+
+    # Build the updated store with exactly this one row changed. The
+    # transform stays pure: a fresh row dict, a fresh experiments list, a
+    # fresh store dict -- the input store is not mutated.
+    updated_row = dict(current_row)
+    updated_row["status"] = target_status
+    updated_row["date_completed"] = new_completion_date
+
+    updated_experiments = [
+        updated_row if experiment_row["id"] == experiment_id else experiment_row
+        for experiment_row in store["experiments"]
+    ]
+    updated_store = dict(store)
+    updated_store["experiments"] = updated_experiments
+
+    if new_completion_date is not None:
+        confirmation_line = (
+            f"Marked {experiment_id} '{target_status}' "
+            f"(completed {new_completion_date})."
+        )
+    else:
+        confirmation_line = f"Marked {experiment_id} '{target_status}'."
+
+    return make_success_effects(
+        standard_output_lines=[confirmation_line],
+        store=updated_store,
+    )
+
+
+def build_complete_effects(store, arguments, clock):
+    """(store, arguments, clock) -> effects. Pure. The narrow `complete`
+    verb: a thin wrapper that drives the status-transition engine toward
+    the complete status, stamping today's completion date.
+
+    This wrapper is the entire `complete`-specific surface. A future
+    `reopen` would be the symmetric wrapper (target DEFAULT_EXPERIMENT_STATUS,
+    policy "clear") over the same engine.
+    """
+    transition_arguments = dict(arguments)
+    transition_arguments["target_status"] = COMPLETE_EXPERIMENT_STATUS
+    transition_arguments["set_completion_date"] = "today"
+    return build_status_transition_effects(store, transition_arguments, clock)
+
+
+def run_complete_command(arguments):
+    """Edge for `complete`: run the pure transform, route through
+    execute_effects. No filesystem edge -- completion touches only the DB.
+    """
+    effects = build_complete_effects(
+        load_store_from_database(DATABASE_PATH), arguments, startup_clock
+    )
+    return execute_effects(effects, DATABASE_PATH)
+
+
+# ---------------------------------------------------------------------------
 # Dispatch -- plain if/elif. C15.
 # ---------------------------------------------------------------------------
 # The interface is unified at the CONTRACT (every command parses to a
@@ -931,6 +1057,10 @@ COMMAND_USAGE = {
         "[--type TYPE] [--status STATUS]",
         "List experiments, optionally filtered by type and/or status.",
     ),
+    "complete": (
+        "<id>",
+        "Mark an experiment complete and stamp its completion date.",
+    ),
 }
 
 
@@ -991,6 +1121,18 @@ def main(command_arguments=None):
 
     # init is the outsider: runs before the store exists.
     if command_name == "init":
+        if remaining_arguments:
+            # init takes no arguments. Extra words here are almost always a
+            # `new` invocation typed with the wrong verb.
+            print_usage_error(
+                f"'init' takes no arguments, got {', '.join(remaining_arguments)}.",
+                command_name="init",
+                next_step_line=(
+                    f"Did you mean '{PROGRAM_NAME} new "
+                    f"{' '.join(remaining_arguments)}'?"
+                ),
+            )
+            return 2
         exit_code = run_init_command()
         if exit_code == 0:
             append_command_log_line(command_arguments)
@@ -1004,18 +1146,45 @@ def main(command_arguments=None):
 
     if command_name == "new":
         # new <type> <shortname> [--title T...]: --title joins the tail,
-        # so it must come last on the line.
+        # so it must come last on the line. After the tail is stripped, the
+        # remaining tokens must be exactly the two positionals -- no extra
+        # words, no stray flags (a stray --flag here is usually a typo'd
+        # --title, e.g. --titel, that would otherwise be silently dropped).
         experiment_title = None
         if "--title" in remaining_arguments:
             title_flag_index = remaining_arguments.index("--title")
             experiment_title = " ".join(remaining_arguments[title_flag_index + 1 :])
             remaining_arguments = remaining_arguments[:title_flag_index]
+
+        unexpected_flags = [
+            token for token in remaining_arguments if token.startswith("--")
+        ]
+        if unexpected_flags:
+            print_usage_error(
+                f"'new' got an unexpected flag: {', '.join(unexpected_flags)}.",
+                command_name="new",
+                next_step_line=("The only flag is '--title', and it must come last."),
+            )
+            return 2
         if len(remaining_arguments) < 2:
             print_usage_error(
                 f"'new' needs <type> and <shortname> "
                 f"({len(remaining_arguments)} given).",
                 command_name="new",
                 next_step_line=(f"Valid types: {', '.join(VALID_EXPERIMENT_TYPES)}."),
+            )
+            return 2
+        if len(remaining_arguments) > 2:
+            print_usage_error(
+                f"'new' takes <type> and <shortname>, got "
+                f"{len(remaining_arguments)} positional arguments: "
+                f"{', '.join(remaining_arguments)}.",
+                command_name="new",
+                next_step_line=(
+                    "A multi-word title goes after '--title', e.g. "
+                    f"'{PROGRAM_NAME} new {remaining_arguments[0]} "
+                    f"{remaining_arguments[1]} --title Some Long Title'."
+                ),
             )
             return 2
         exit_code = run_new_command(
@@ -1101,6 +1270,29 @@ def main(command_arguments=None):
                 "status": parsed_flags.get("status"),
             }
         )
+
+    elif command_name == "complete":
+        # complete <id>: one positional, like show. Reject missing or extra.
+        positional_arguments, _parsed_flags = separate_flags_from_positionals(
+            remaining_arguments
+        )
+        if len(positional_arguments) == 0:
+            print_usage_error(
+                "'complete' needs an experiment <id>.",
+                command_name="complete",
+                next_step_line=(f"Run '{PROGRAM_NAME} list' to see existing ids."),
+            )
+            return 2
+        if len(positional_arguments) > 1:
+            print_usage_error(
+                f"'complete' takes one <id>, got "
+                f"{len(positional_arguments)}: "
+                f"{', '.join(positional_arguments)}.",
+                command_name="complete",
+                next_step_line="Complete one experiment at a time.",
+            )
+            return 2
+        exit_code = run_complete_command({"id": positional_arguments[0]})
 
     else:
         print_usage_error(
