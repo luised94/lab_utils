@@ -1,3 +1,5 @@
+loading/.Rprofile
+*renv*
 **/bmc_config.R
 pymol/pymol_configuration.py
 **/renv/library/

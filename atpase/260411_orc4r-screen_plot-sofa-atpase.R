@@ -4,7 +4,17 @@
 # Date created: 2026-04-11
 # Reads processed_data.csv produced by 260411_orc4r-screen_analyze-sofa-atpase.R
 # and generates the percent hydrolysis timecourse plot.
-# Usage: Source in R REPL or run via Rscript.
+# Usage: source("260411_orc4r-screen_plot-sofa-atpase.R")
+# ==============================================================================
+
+# ==============================================================================
+# GIT STATE REFERENCE (manual-fill at deposit time; no runtime git calls)
+# ==============================================================================
+# Commit hash:    ____________________________________________
+# Branch:         ____________________________________________
+# Tag / release:  ____________________________________________
+# Snapshot date:  ____________________________________________
+# Repository URL: ____________________________________________
 # ==============================================================================
 
 library(tidyverse)
@@ -43,23 +53,71 @@ SAMPLE_COLORS <- c(
 )
 
 # ------------------------------------------------------------------------------
+# Script location (C1): resolve the directory of THIS file under source().
+# Only source() invocation is supported. Rscript and interactive paste do not
+# set 'ofile' in any call frame, so we stop() with a clear message otherwise.
+# ------------------------------------------------------------------------------
+script_path_under_source <- NULL
+for (frame_index in seq_len(sys.nframe())) {
+    candidate_ofile <- sys.frame(frame_index)$ofile
+    if (!is.null(candidate_ofile)) {
+        script_path_under_source <- candidate_ofile
+    }
+}
+if (is.null(script_path_under_source)) {
+    stop(
+        "This script must be run via source(\"260411_orc4r-screen_plot-sofa-atpase.R\").\n",
+        "Rscript and interactive invocation are not supported ",
+        "(no script path is available to resolve data locations)."
+    )
+}
+SCRIPT_DIRECTORY <- dirname(normalizePath(script_path_under_source))
+
+# ------------------------------------------------------------------------------
 # Paths
 # ------------------------------------------------------------------------------
-# Expects processed_data.csv in the same directory as this script.
-SCRIPT_DIRECTORY <- getwd()
-
-INPUT_DIRECTORY <- SCRIPT_DIRECTORY
-OUTPUT_DIRECTORY <- SCRIPT_DIRECTORY
+# MC_DROPBOX_PATH is the original (Dropbox) data home; may be unset in a
+# Zenodo deposit where processed_data.csv sits alongside this script.
+MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
 
 PROCESSED_DATA_FILENAME <- "processed_data.csv"
-PROCESSED_DATA_FILEPATH <- file.path(INPUT_DIRECTORY, PROCESSED_DATA_FILENAME)
 
-if (!file.exists(PROCESSED_DATA_FILEPATH)) {
+# Path resolution (C1): script-relative (Zenodo co-located) -> MC_DROPBOX_PATH
+# (consolidated_analysis, where the analyze script writes it) -> stop().
+script_relative_processed_data_filepath <- file.path(
+    SCRIPT_DIRECTORY, PROCESSED_DATA_FILENAME
+)
+if (nchar(MC_DROPBOX_PATH) > 0) {
+    dropbox_processed_data_filepath <- file.path(
+        MC_DROPBOX_PATH, "Lab", "Experiments", "ATPase",
+        "2020_09_03 ATPase Analysis of 4R supps", "consolidated_analysis",
+        PROCESSED_DATA_FILENAME
+    )
+} else {
+    dropbox_processed_data_filepath <- NA_character_
+}
+
+if (file.exists(script_relative_processed_data_filepath)) {
+    PROCESSED_DATA_FILEPATH <- script_relative_processed_data_filepath
+} else if (!is.na(dropbox_processed_data_filepath) &&
+    file.exists(dropbox_processed_data_filepath)) {
+    PROCESSED_DATA_FILEPATH <- dropbox_processed_data_filepath
+} else {
     stop(
-        "Processed data file not found: ", PROCESSED_DATA_FILEPATH, "\n",
+        "processed_data.csv not found in either supported location:\n",
+        "  script-relative: ", script_relative_processed_data_filepath, "\n",
+        "  MC_DROPBOX_PATH:  ",
+        if (is.na(dropbox_processed_data_filepath)) {
+            "<MC_DROPBOX_PATH not set>"
+        } else {
+            dropbox_processed_data_filepath
+        }, "\n",
         "Run 260411_orc4r-screen_analyze-sofa-atpase.R first."
     )
 }
+
+INPUT_DIRECTORY <- dirname(PROCESSED_DATA_FILEPATH)
+OUTPUT_DIRECTORY <- INPUT_DIRECTORY
 
 message("Input file: ", PROCESSED_DATA_FILEPATH)
 message("Output directory: ", OUTPUT_DIRECTORY)

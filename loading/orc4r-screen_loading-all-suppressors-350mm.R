@@ -5,16 +5,14 @@
 # due to noisy gels. Results are consistent across replicates.
 # Usage: source("orc4r-screen_loading-all-suppressors-350mm.R")
 # Prerequisites:
-#   1. Environment variable MC_DROPBOX_PATH must be set in shell profile.
-#      Points to the root of the shared Dropbox folder.
+#   1. Either MC_DROPBOX_PATH is set (original data home) OR the input Excel
+#      file sits in the same directory as this script (Zenodo co-located).
 #   2. Font setup (one-time per machine):
 #      a. Install system fonts (WSL/Ubuntu/Debian):
 #           sudo apt update
 #           sudo apt install ttf-mscorefonts-installer
 #           sudo fc-cache -fv
 #         Verify: fc-list | grep -i arial
-#         (ttf-mscorefonts-installer provides Arial and other Microsoft fonts.
-#          fc-cache rebuilds the fontconfig cache so they become visible.)
 #      b. Import fonts into R extrafont database:
 #           renv::install(c("extrafont", "ragg"))
 #           library(extrafont); font_import(prompt = FALSE)
@@ -46,14 +44,40 @@
 #   Percent Wildtype: already normalized to WT = 100 per replicate in Excel
 #   Sheet2 contains source image filenames only - not used here.
 
-MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
-if (nchar(MC_DROPBOX_PATH) == 0) {
-  stop(
-    "MC_DROPBOX_PATH not defined in bash environment.\n",
-    "Set manually via command line if necessary."
-  )
+# ==============================================================================
+# GIT STATE REFERENCE (manual-fill at deposit time; no runtime git calls)
+# ==============================================================================
+# Commit hash:    ____________________________________________
+# Branch:         ____________________________________________
+# Tag / release:  ____________________________________________
+# Snapshot date:  ____________________________________________
+# Repository URL: ____________________________________________
+# ==============================================================================
 
+# ------------------------------------------------------------------------------
+# Script location (C1): resolve the directory of THIS file under source().
+# Only source() invocation is supported. Rscript and interactive paste do not
+# set 'ofile' in any call frame, so we stop() with a clear message otherwise.
+# ------------------------------------------------------------------------------
+script_path_under_source <- NULL
+for (frame_index in seq_len(sys.nframe())) {
+    candidate_ofile <- sys.frame(frame_index)$ofile
+    if (!is.null(candidate_ofile)) {
+        script_path_under_source <- candidate_ofile
+    }
 }
+if (is.null(script_path_under_source)) {
+    stop(
+        "This script must be run via source(\"orc4r-screen_loading-all-suppressors-350mm.R\").\n",
+        "Rscript and interactive invocation are not supported ",
+        "(no script path is available to resolve data locations)."
+    )
+}
+SCRIPT_DIRECTORY <- dirname(normalizePath(script_path_under_source))
+
+# MC_DROPBOX_PATH is the original (Dropbox) data home; may be unset in a
+# Zenodo deposit where the input Excel sits alongside this script.
+MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
 
 # ==============================================================================
 # Configuration
@@ -84,7 +108,28 @@ OVERWRITE_CSVS <- TRUE
 
 EXPERIMENT_DIRECTORY <- "Lab/Experiments/Loading/2022_12_18 Loading Assays Repeats for publication/analysis"
 INPUT_FILENAME <- "260331_aggregate-analysis_load_wt-4r-supps_350mM-KGlut.xlsx"
-INPUT_FILEPATH <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, INPUT_FILENAME)
+
+# Path resolution (C1): script-relative (Zenodo co-located) -> MC_DROPBOX_PATH
+# -> stop() naming both attempted absolute paths.
+script_relative_input_filepath <- file.path(SCRIPT_DIRECTORY, INPUT_FILENAME)
+if (nchar(MC_DROPBOX_PATH) > 0) {
+    dropbox_input_filepath <- file.path(MC_DROPBOX_PATH, EXPERIMENT_DIRECTORY, INPUT_FILENAME)
+} else {
+    dropbox_input_filepath <- NA_character_
+}
+if (file.exists(script_relative_input_filepath)) {
+    INPUT_FILEPATH <- script_relative_input_filepath
+} else if (!is.na(dropbox_input_filepath) && file.exists(dropbox_input_filepath)) {
+    INPUT_FILEPATH <- dropbox_input_filepath
+} else {
+    stop(
+        "Input file not found in either supported location:\n",
+        "  script-relative: ", script_relative_input_filepath, "\n",
+        "  MC_DROPBOX_PATH:  ",
+        if (is.na(dropbox_input_filepath)) "<MC_DROPBOX_PATH not set>" else dropbox_input_filepath
+    )
+}
+
 OUTPUT_DIRECTORY <- "~/data/loading_analysis"
 SHEET_NAME <- "Sheet1"
 EXPECTED_NUMBER_OF_ROWS <- 21
@@ -234,26 +279,10 @@ if (nrow(bad_orc4r) > 0) {
 
 message("Row-count and uniqueness assertions passed.")
 
-message("Labels mapped and factor order applied.")
-
-
-# Percent difference: |A - B| / ((A + B) / 2) * 100
-# Computed per-replicate so we can derive mean +/- SD downstream.
-# Paired within replicate: each condition compared to the WT and ORC4R
-# values from the same experiment.
-message("Percent difference, percent change, and fold change columns computed.")
-
-# Guard against division by zero in derived calculations.
-derived_cols <- c("fold_change_from_orc4r", "percent_change_from_wildtype",
-                  "percent_change_from_orc4r")
-for (col in derived_cols) {
-    stopifnot(
-        !any(is.infinite(loading_data[[col]])),
-        !any(is.nan(loading_data[[col]]))
-    )
-}
-message("Inf/NaN guard passed on derived calculations.")
-
+# Percent difference / change / fold change, paired within replicate: each
+# condition compared to the WT and ORC4R values from the same experiment.
+# C4: this derivation MUST run before the Inf/NaN guard below, which inspects
+# the columns it creates.
 loading_data <- loading_data %>%
     group_by(replicate) %>%
     mutate(
@@ -268,6 +297,20 @@ loading_data <- loading_data %>%
         fold_change_from_orc4r = percent_wildtype / percent_wildtype[label == "ORC4R"]
     ) %>%
     ungroup()
+message("Percent difference, percent change, and fold change columns computed.")
+
+# Guard against division by zero in derived calculations.
+# C4: runs AFTER the mutate above so it inspects existing columns (previously
+# it ran first and passed vacuously against NULL columns).
+derived_cols <- c("fold_change_from_orc4r", "percent_change_from_wildtype",
+                  "percent_change_from_orc4r")
+for (col in derived_cols) {
+    stopifnot(
+        !any(is.infinite(loading_data[[col]])),
+        !any(is.nan(loading_data[[col]]))
+    )
+}
+message("Inf/NaN guard passed on derived calculations.")
 
 # ==============================================================================
 # Summary statistics

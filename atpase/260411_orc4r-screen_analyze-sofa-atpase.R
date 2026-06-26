@@ -7,10 +7,20 @@
 # Input: Excel files containing ImageJ band intensity measurements.
 # Output: Combined raw data CSV, processed data CSV, summary CSV, and
 #         percent hydrolysis timecourse plot (PDF).
-# Usage: Source in R REPL or run via Rscript.
+# Usage: source("260411_orc4r-screen_analyze-sofa-atpase.R")
 # ==============================================================================
 
-library(xlsx)
+# ==============================================================================
+# GIT STATE REFERENCE (manual-fill at deposit time; no runtime git calls)
+# ==============================================================================
+# Commit hash:    ____________________________________________
+# Branch:         ____________________________________________
+# Tag / release:  ____________________________________________
+# Snapshot date:  ____________________________________________
+# Repository URL: ____________________________________________
+# ==============================================================================
+
+library(readxl)  # C3: migrated from library(xlsx)
 library(tidyverse)
 
 # ==============================================================================
@@ -24,31 +34,33 @@ OVERWRITE_CSVS <- TRUE
 TIMEPOINTS <- c(0, 15, 45, 90)
 
 # ------------------------------------------------------------------------------
-# Paths
+# Script location (C1): resolve the directory of THIS file under source().
+# Only source() invocation is supported. Rscript and interactive paste do not
+# set 'ofile' in any call frame, so we stop() with a clear message otherwise.
 # ------------------------------------------------------------------------------
-MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
-if (nchar(MC_DROPBOX_PATH) == 0) {
+script_path_under_source <- NULL
+for (frame_index in seq_len(sys.nframe())) {
+    candidate_ofile <- sys.frame(frame_index)$ofile
+    if (!is.null(candidate_ofile)) {
+        script_path_under_source <- candidate_ofile
+    }
+}
+if (is.null(script_path_under_source)) {
     stop(
-        "MC_DROPBOX_PATH not defined in environment.\n",
-        "Set via Sys.setenv(MC_DROPBOX_PATH = '/your/path') or export in shell."
+        "This script must be run via source(\"260411_orc4r-screen_analyze-sofa-atpase.R\").\n",
+        "Rscript and interactive invocation are not supported ",
+        "(no script path is available to resolve data locations)."
     )
 }
+SCRIPT_DIRECTORY <- dirname(normalizePath(script_path_under_source))
 
-BASE_EXPERIMENT_DIRECTORY <- file.path(
-    MC_DROPBOX_PATH,
-    "Lab", "Experiments",
-    "ATPase"
-)
-
-OUTPUT_DIRECTORY <- file.path(MC_DROPBOX_PATH, "Lab", "Experiments",
-    "ATPase", "2020_09_03 ATPase Analysis of 4R supps",
-    "consolidated_analysis"
-)
-
-if (!dir.exists(OUTPUT_DIRECTORY)) {
-    dir.create(OUTPUT_DIRECTORY, showWarnings = FALSE, recursive = TRUE)
-    message("Created output directory: ", OUTPUT_DIRECTORY)
-}
+# ------------------------------------------------------------------------------
+# Paths
+# ------------------------------------------------------------------------------
+# MC_DROPBOX_PATH is the original (Dropbox) data home. It may be unset in a
+# Zenodo deposit, where data sits alongside this script instead. Resolution
+# (below, after the registry is defined) picks the live location.
+MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
 
 # ------------------------------------------------------------------------------
 # Sample ordering and colors
@@ -249,6 +261,50 @@ EXPERIMENT_REGISTRY <- list(
 )
 
 # ------------------------------------------------------------------------------
+# Path resolution (C1): script-relative (Zenodo co-located) -> MC_DROPBOX_PATH
+# -> stop() naming both. Probe with the first registry file's relative path.
+# ------------------------------------------------------------------------------
+probe_relative_file_path <- EXPERIMENT_REGISTRY[[1]]$relative_file_path
+script_relative_base_directory <- SCRIPT_DIRECTORY
+if (nchar(MC_DROPBOX_PATH) > 0) {
+    dropbox_base_directory <- file.path(
+        MC_DROPBOX_PATH, "Lab", "Experiments", "ATPase"
+    )
+} else {
+    dropbox_base_directory <- NA_character_
+}
+
+if (file.exists(file.path(script_relative_base_directory, probe_relative_file_path))) {
+    BASE_EXPERIMENT_DIRECTORY <- script_relative_base_directory
+    OUTPUT_DIRECTORY <- SCRIPT_DIRECTORY
+} else if (!is.na(dropbox_base_directory) &&
+    file.exists(file.path(dropbox_base_directory, probe_relative_file_path))) {
+    BASE_EXPERIMENT_DIRECTORY <- dropbox_base_directory
+    OUTPUT_DIRECTORY <- file.path(
+        dropbox_base_directory,
+        "2020_09_03 ATPase Analysis of 4R supps",
+        "consolidated_analysis"
+    )
+} else {
+    stop(
+        "ATPase input files not found in either supported location:\n",
+        "  script-relative: ",
+        file.path(script_relative_base_directory, probe_relative_file_path), "\n",
+        "  MC_DROPBOX_PATH:  ",
+        if (is.na(dropbox_base_directory)) {
+            "<MC_DROPBOX_PATH not set>"
+        } else {
+            file.path(dropbox_base_directory, probe_relative_file_path)
+        }
+    )
+}
+
+if (!dir.exists(OUTPUT_DIRECTORY)) {
+    dir.create(OUTPUT_DIRECTORY, showWarnings = FALSE, recursive = TRUE)
+    message("Created output directory: ", OUTPUT_DIRECTORY)
+}
+
+# ------------------------------------------------------------------------------
 # Validate file paths
 # ------------------------------------------------------------------------------
 message("Validating file paths...")
@@ -320,15 +376,19 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
         " (sheet ", current_experiment$sheet_index, ")..."
     )
 
-    current_raw_data <- read.xlsx(
+    # C3: readxl replaces xlsx. read_excel(sheet=) is 1-based, matching the
+    # former sheetIndex= numbering. col_names = FALSE mirrors header = FALSE.
+    current_raw_data <- readxl::read_excel(
         current_full_path,
-        header = FALSE,
-        sheetIndex = current_experiment$sheet_index
+        col_names = FALSE,
+        sheet = current_experiment$sheet_index
     )
     current_raw_data <- as.data.frame(current_raw_data)
-    colnames(current_raw_data) <- RAW_COLUMN_NAMES
 
-    # -- Validate dimensions --
+    # -- Validate dimensions BEFORE assigning column names (C3) --
+    # readxl returns a tibble; an unexpected column count would make the
+    # length-2 RAW_COLUMN_NAMES assignment crash with an opaque length
+    # error. Checking dimensions first lets the clear assertion fire.
     if (nrow(current_raw_data) != current_experiment$expected_raw_row_count) {
         stop(
             "Row count mismatch for ", current_label, ": ",
@@ -344,6 +404,8 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
         )
     }
 
+    colnames(current_raw_data) <- RAW_COLUMN_NAMES
+
     # -- Validate content --
     if (anyNA(current_raw_data$intensity)) {
         stop("NA values found in intensity column for ", current_label)
@@ -354,6 +416,8 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
 
     # ImageJ indices should be sequential 1:N. A gap or reordering
     # indicates the Excel sheet was modified or rows were deleted.
+    # NOTE (C3): readxl parses imagej_index as double; as.integer() coerces
+    # it back so identical(integer, integer) still fires for any gap/reorder.
     expected_indices <- seq_len(nrow(current_raw_data))
     if (!identical(as.integer(current_raw_data$imagej_index), expected_indices)) {
         stop(
