@@ -6,6 +6,10 @@
 #
 # Derives LW_WINDOWS_USER from MC_WINDOWS_USER if set.
 # Override any variable by exporting it before sourcing.
+#
+# lw.py is the source of truth for the command surface and id/folder format.
+# This file and lw.lua mirror it; update them when lw.py's commands or format
+# change (noted 2026-06-26).
 # ============================================================
 
 # --- user configuration ---
@@ -84,7 +88,9 @@ fi
 alias lwdb='sqlite3 "${LW_DB}"'
 
 # database integrity check
-alias lwcheck='sqlite3 "${LW_DB}" "PRAGMA integrity_check; PRAGMA foreign_key_check;"'
+# FK check scoped to live tables; retired tables (see lw.py schema_notes)
+# carry FKs to experiments and would add noise. Verify live set: rg 'LIVE_TABLE_NAMES' lw.py.
+alias lwcheck='sqlite3 "${LW_DB}" "PRAGMA integrity_check; PRAGMA foreign_key_check(experiments); PRAGMA foreign_key_check(experiment_links);"'
 
 # backup to dropbox
 if [ -n "${LW_BACKUP_SCRIPT}" ] && [ -f "${LW_BACKUP_SCRIPT}" ]; then
