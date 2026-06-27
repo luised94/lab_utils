@@ -216,61 +216,69 @@ end
 
 ---@return nil
 local function find_experiment_files()
+    -- PARSE (pure): is the current buffer inside an experiment folder?
+    -- Mirrors lw.py's folder_name format: YYYYMMDD_LM-NNNN_<code>_<shortname>,
+    -- which lw.py flags as a critical invariant. If the id width or date format
+    -- changes there, this pattern silently stops matching (no error, scoping
+    -- just falls back to the picker). Verify: rg 'folder_name =' lw.py.
     local bufname = api.nvim_buf_get_name(0)
     local exp_match = bufname:match("experiments/(%d%d%d%d%d%d%d%d_LM%-%d%d%d%d_[^/]+)/")
 
-    if exp_match == nil then
-        -- not inside an experiment folder; prompt for experiment
-        local rows = query_db(
-            "SELECT id, folder_name, title FROM experiments WHERE status = 'active' "
-            .. "ORDER BY date_started DESC"
-        )
-        if #rows == 0 then
-            vim.notify("[lw] no active experiments", vim.log.levels.INFO)
-            return
-        end
-
-        local entries = {}
-        for _, row in ipairs(rows) do
-            local parts = vim.split(row, FIELD_SEP, { plain = true })
-            if #parts >= 3 then
-                table.insert(entries, {
-                    id     = parts[1],
-                    folder = parts[2],
-                    title  = parts[3],
-                })
-            end
-        end
-
-        local function format_item(item)
-            return string.format("%s  %s", item.id, item.title)
-        end
-
-        vim.ui.select(entries, {
-            prompt      = "Select experiment folder:",
-            format_item = format_item,
-        }, function(choice)
-            if choice == nil then return end
-            local folder_path = string.format("%s/%s", experiments_dir, choice.folder)
-            telescope_builtin.find_files({
-                prompt_title = string.format("%s (%s)", choice.id, choice.title),
-                cwd          = folder_path,
-                hidden       = false,
-                follow       = true,
-            })
-        end)
+    -- EFFECT, arm 1: inside an experiment folder -- scope telescope to it.
+    if exp_match ~= nil then
+        local folder_path = string.format("%s/%s", experiments_dir, exp_match)
+        local exp_id = exp_match:match("(LM%-%d%d%d%d)")
+        telescope_builtin.find_files({
+            prompt_title = string.format("%s files", exp_id or exp_match),
+            cwd          = folder_path,
+            hidden       = false,
+            follow       = true,
+        })
         return
     end
 
-    -- inside an experiment folder; scope telescope to it
-    local folder_path = string.format("%s/%s", experiments_dir, exp_match)
-    local exp_id = exp_match:match("(LM%-%d%d%d%d)")
-    telescope_builtin.find_files({
-        prompt_title = string.format("%s files", exp_id or exp_match),
-        cwd          = folder_path,
-        hidden       = false,
-        follow       = true,
-    })
+    -- EFFECT, arm 2: not inside one -- prompt for an experiment, then scope.
+    -- status='active' only: completed experiments are omitted from this picker.
+    -- Silent boundary, not load-bearing as of writing; widen if you navigate
+    -- completed experiments often.
+    local rows = query_db(
+        "SELECT id, folder_name, title FROM experiments WHERE status = 'active' "
+        .. "ORDER BY date_started DESC"
+    )
+    if #rows == 0 then
+        vim.notify("[lw] no active experiments", vim.log.levels.INFO)
+        return
+    end
+
+    local entries = {}
+    for _, row in ipairs(rows) do
+        local parts = vim.split(row, FIELD_SEP, { plain = true })
+        if #parts >= 3 then
+            table.insert(entries, {
+                id     = parts[1],
+                folder = parts[2],
+                title  = parts[3],
+            })
+        end
+    end
+
+    local function format_item(item)
+        return string.format("%s  %s", item.id, item.title)
+    end
+
+    vim.ui.select(entries, {
+        prompt      = "Select experiment folder:",
+        format_item = format_item,
+    }, function(choice)
+        if choice == nil then return end
+        local folder_path = string.format("%s/%s", experiments_dir, choice.folder)
+        telescope_builtin.find_files({
+            prompt_title = string.format("%s (%s)", choice.id, choice.title),
+            cwd          = folder_path,
+            hidden       = false,
+            follow       = true,
+        })
+    end)
 end
 
 ---@return nil
