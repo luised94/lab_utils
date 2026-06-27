@@ -108,23 +108,23 @@ lwcd() {
 }
 
 # --- tab completion ---
+# Mirrors lw.py's command surface. Verify: rg 'COMMAND_USAGE' lw.py.
+# Update when commands are added or removed there. The pre-migration
+# exp/strain/stage subcommand tree is parked in archive/satellites_dormant.md.
 _lw_completions() {
-    local cur prev commands exp_subs strain_subs stage_subs
+    local cur prev commands
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    commands="init status exp strain stage"
-    exp_subs="init show update complete link addstrain delete find list manifest"
-    strain_subs="add show update list"
-    stage_subs="list assign expect auto"
+    commands="init new link show list complete"
 
     if [ "${COMP_CWORD}" -eq 1 ]; then
         COMPREPLY=($(compgen -W "${commands}" -- "${cur}"))
     elif [ "${COMP_CWORD}" -eq 2 ]; then
         case "${prev}" in
-            exp)    COMPREPLY=($(compgen -W "${exp_subs}" -- "${cur}")) ;;
-            strain) COMPREPLY=($(compgen -W "${strain_subs}" -- "${cur}")) ;;
-            stage)  COMPREPLY=($(compgen -W "${stage_subs}" -- "${cur}")) ;;
+            new)      COMPREPLY=($(compgen -W "--title" -- "${cur}")) ;;
+            show)     COMPREPLY=($(compgen -W "--files" -- "${cur}")) ;;
+            list)     COMPREPLY=($(compgen -W "--type --status" -- "${cur}")) ;;
         esac
     fi
 }

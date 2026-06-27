@@ -183,60 +183,8 @@ local function pick_experiment()
     vim.ui.select(entries, select_opts, on_selection)
 end
 
----@return nil
-local function pick_strain()
-    local rows = query_db(
-        "SELECT id, COALESCE(label, '*NO LABEL*'), genotype FROM strains ORDER BY id"
-    )
-    if #rows == 0 then
-        vim.notify("[lw] no strains found", vim.log.levels.INFO)
-        return
-    end
-
-    local entries = {}
-    for _, row in ipairs(rows) do
-        local parts = vim.split(row, FIELD_SEP, { plain = true })
-        if #parts >= 3 then
-            table.insert(entries, {
-                id       = parts[1],
-                label    = parts[2],
-                genotype = parts[3],
-            })
-        end
-    end
-
-    if #entries == 0 then
-        vim.notify("[lw] failed to parse strain rows", vim.log.levels.ERROR)
-        return
-    end
-
-    ---@param item table
-    ---@return string
-    local function format_item(item)
-        local geno = item.genotype
-        if #geno > 40 then
-            geno = geno:sub(1, 37) .. "..."
-        end
-        return string.format("%-12s %-16s %s", item.id, item.label, geno)
-    end
-
-    local select_opts = {
-        prompt      = "Select strain:",
-        format_item = format_item,
-    }
-
-    ---@param choice table|nil
-    ---@return nil
-    local function on_selection(choice)
-        if choice == nil then
-            vim.notify("[lw] no strain selected", vim.log.levels.INFO)
-            return
-        end
-        api.nvim_put({ choice.id }, "c", true, true)
-    end
-
-    vim.ui.select(entries, select_opts, on_selection)
-end
+-- pick_strain (queried the retired `strains` table) parked in
+-- archive/satellites_dormant.md; revive when strains rejoins LIVE_TABLE_NAMES.
 
 ---@return nil
 local function find_lab_files()
@@ -379,11 +327,6 @@ local commands = {
         opts = { desc = "lw: pick experiment and insert ID" },
     },
     {
-        name = "LwPickStrain",
-        fn   = pick_strain,
-        opts = { desc = "lw: pick strain and insert ID" },
-    },
-    {
         name = "LwTodos",
         fn   = lab_todos,
         opts = { desc = "lw: list TODOs in quickfix" },
@@ -402,7 +345,7 @@ local LW_KEYMAP_SPECS = {
     -- actions
     { key = "h", fn = prepend_date_header,    desc = "insert date header in lab notes"   },
     { key = "e", fn = pick_experiment,        desc = "pick experiment, insert ID"        },
-    { key = "s", fn = pick_strain,            desc = "pick strain, insert ID"            },
+    -- 's' (strain pick) parked in archive/satellites_dormant.md; strains table retired.
     -- navigation
     { key = "f", fn = find_lab_files,         desc = "find files in lab root (telescope)" },
     { key = "p", fn = find_protocols,         desc = "find protocols (telescope)"        },
