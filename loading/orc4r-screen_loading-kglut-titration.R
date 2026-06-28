@@ -353,6 +353,78 @@ loading_data <- loading_data %>%
     mutate(percent_wildtype_global = normalized_to_wildtype_250mm * 100)
 message("Percent wildtype global baseline column computed.")
 
+# ==============================================================================
+# Negative-value detection and floor (kglut)  [Thread 2b, pre-C12]
+# ==============================================================================
+# User decision: negative percent_wildtype values come from background
+# subtraction in low-signal lanes and are QUANTIFICATION ARTIFACTS. Handling is
+# FLOOR-AFTER-DETECTION (not silent floor, not exclusion): print every offending
+# row so the user can confirm they are small artifacts, assert they are FEW and
+# SMALL (a systematic failure must STOP the script loudly), then floor into NEW
+# columns. Raw columns are retained for transparency and the methods doc.
+# Flooring can only move a value UP toward zero, so it cannot manufacture a
+# restorer effect or exaggerate a WT-mutant gap -> this is the safety argument.
+
+# Membership-checked guard (carry-forward #1): NULL columns would make the
+# value scan vacuously pass, so confirm the columns exist first.
+stopifnot(
+    "Negative-detection: percent_wildtype column missing." =
+        "percent_wildtype" %in% names(loading_data),
+    "Negative-detection: percent_wildtype_global column missing." =
+        "percent_wildtype_global" %in% names(loading_data),
+    "Negative-detection: net_intensity column missing." =
+        "net_intensity" %in% names(loading_data)
+)
+
+negative_value_rows <- loading_data %>%
+    filter(net_intensity < 0 | percent_wildtype < 0 | percent_wildtype_global < 0) %>%
+    select(label, replicate, kglut, net_intensity, relative_to_input,
+           percent_wildtype, percent_wildtype_global)
+
+negative_value_count <- nrow(negative_value_rows)
+message("Negative-value detection: found ", negative_value_count,
+        " row(s) with net_intensity < 0 or a negative percent value.")
+if (negative_value_count > 0) {
+    message("Full list of negative (floored) rows:")
+    print(as.data.frame(negative_value_rows))
+}
+
+# Documented envelope thresholds. A breach means a systematic quantification
+# failure, which MUST stop the script rather than being floored away.
+NEGATIVE_VALUE_MAX_COUNT <- 3          # stray artifacts only (of 36 rows)
+NEGATIVE_VALUE_MAX_ABS_PERCENT <- 50   # small relative to WT = 100
+
+stopifnot(
+    "Negative envelope: too many negative rows -> systematic failure, not a stray artifact. STOP." =
+        negative_value_count <= NEGATIVE_VALUE_MAX_COUNT,
+    "Negative envelope: a negative value is too large in magnitude -> not a low-signal artifact. STOP." =
+        (negative_value_count == 0 ||
+         max(abs(negative_value_rows$percent_wildtype)) < NEGATIVE_VALUE_MAX_ABS_PERCENT)
+)
+message("Negative envelope assertions passed (count <= ", NEGATIVE_VALUE_MAX_COUNT,
+        ", |percent_wildtype| < ", NEGATIVE_VALUE_MAX_ABS_PERCENT, ").")
+
+# Floor into NEW columns. Raw columns retained. Decision (carry-forward #1d):
+# the global-baseline column used by C13 is ALSO derived from floored values so
+# a single artifact cannot distort the salt-sensitivity baseline. For the test
+# genotypes (WT/ORC4R/+4sofa) NO value is negative, so floored == raw for every
+# value entering C12/C13; the only floored row is +5sofa (rotating, filtered).
+loading_data <- loading_data %>%
+    mutate(
+        percent_wildtype_floored = pmax(percent_wildtype, 0),
+        percent_wildtype_global_floored = pmax(percent_wildtype_global, 0)
+    )
+message("Floored columns computed (percent_wildtype_floored, percent_wildtype_global_floored).")
+
+# Persist the floored-row list (empty CSV if none) for the methods record.
+floored_rows_csv_output_filepath <- file.path(
+    OUTPUT_DIRECTORY, "loading_kglut-titration_floored-rows.csv")
+if (!file.exists(floored_rows_csv_output_filepath) || OVERWRITE_CSVS) {
+    write.csv(as.data.frame(negative_value_rows),
+              floored_rows_csv_output_filepath, row.names = FALSE)
+    message("Saved CSV: ", basename(floored_rows_csv_output_filepath))
+}
+
 # Derived calculations: paired within replicate and kglut so each condition
 # is compared to the WT and ORC4R values from the same experiment and salt
 # concentration. Formulas match Script 1 for cross-script comparability.
@@ -491,11 +563,358 @@ stopifnot(
 )
 
 # ==============================================================================
+# C11: Assumption diagnostics (kglut, per-salt + pooled residuals)
+# ==============================================================================
+# Mirrors the 350mm diagnostics (Thread 2a C6): per-cell {n, mean, sd, variance}
+# plus pooled-residual Shapiro. ADDS a per-salt split (per-salt residuals AND
+# pooled residuals) because kglut spans three salts.
+#
+# I4 CAVEAT: at n=3 per cell, normality CANNOT be meaningfully tested. The
+# Shapiro statistics below are DECORATIVE. Justification for the parametric
+# paired t-tests rests on the paired/blocked design and the assay's established
+# track record, NOT on a passing normality test.
+#
+# Bartlett/Levene are OMITTED: under per-kglut normalization WT is pinned to 100
+# at every salt (zero within-cell variance), making those tests undefined
+# (mirrors 2a). WT residuals below are therefore exactly 0 -- a normalization
+# artifact, not biology.
+#
+# Diagnostics computed on percent_wildtype_floored (the column the C12 per-salt
+# tests use).
+
+diagnostic_data <- loading_data %>%
+    filter(label %in% c("WT", "ORC4R", "+4sofa")) %>%
+    droplevels()
+
+stopifnot(
+    "C11 diagnostics: percent_wildtype_floored column missing." =
+        "percent_wildtype_floored" %in% names(diagnostic_data)
+)
+
+diagnostics_cell_stats <- diagnostic_data %>%
+    group_by(kglut, label) %>%
+    summarise(
+        n = n(),
+        mean_percent_wildtype_floored = mean(percent_wildtype_floored),
+        sd_percent_wildtype_floored = sd(percent_wildtype_floored),
+        variance_percent_wildtype_floored = var(percent_wildtype_floored),
+        .groups = "drop"
+    )
+message("C11: per-cell descriptive stats computed.")
+
+# Residual = value - (label x salt) cell mean.
+diagnostic_data <- diagnostic_data %>%
+    group_by(kglut, label) %>%
+    mutate(cell_residual_percent_wildtype_floored =
+               percent_wildtype_floored - mean(percent_wildtype_floored)) %>%
+    ungroup()
+
+pooled_residual_vector <- diagnostic_data$cell_residual_percent_wildtype_floored
+pooled_residual_shapiro <- shapiro.test(pooled_residual_vector)
+
+diagnostics_shapiro_rows <- list()
+diagnostics_shapiro_rows[["pooled_all_salts"]] <- data.frame(
+    residual_scope = "pooled_all_salts",
+    shapiro_W = unname(pooled_residual_shapiro$statistic),
+    shapiro_p = pooled_residual_shapiro$p.value,
+    n_residuals = length(pooled_residual_vector),
+    caveat = "n=3 per cell; normality untestable; DECORATIVE only",
+    stringsAsFactors = FALSE
+)
+for (one_salt in levels(diagnostic_data$kglut)) {
+    salt_residuals <- diagnostic_data$cell_residual_percent_wildtype_floored[
+        diagnostic_data$kglut == one_salt]
+    salt_residual_shapiro <- shapiro.test(salt_residuals)
+    diagnostics_shapiro_rows[[one_salt]] <- data.frame(
+        residual_scope = paste0("salt_", one_salt),
+        shapiro_W = unname(salt_residual_shapiro$statistic),
+        shapiro_p = salt_residual_shapiro$p.value,
+        n_residuals = length(salt_residuals),
+        caveat = "n=3 per cell; normality untestable; DECORATIVE only",
+        stringsAsFactors = FALSE
+    )
+}
+diagnostics_shapiro <- do.call(rbind, diagnostics_shapiro_rows)
+rownames(diagnostics_shapiro) <- NULL
+message("C11: pooled and per-salt Shapiro computed (DECORATIVE; see I4 caveat).")
+
+diagnostics_cellstats_csv_output_filepath <- file.path(
+    OUTPUT_DIRECTORY, "loading_kglut-titration_diagnostics-cellstats.csv")
+diagnostics_shapiro_csv_output_filepath <- file.path(
+    OUTPUT_DIRECTORY, "loading_kglut-titration_diagnostics-shapiro.csv")
+if (!file.exists(diagnostics_cellstats_csv_output_filepath) || OVERWRITE_CSVS) {
+    write.csv(as.data.frame(diagnostics_cell_stats),
+              diagnostics_cellstats_csv_output_filepath, row.names = FALSE)
+    message("Saved CSV: ", basename(diagnostics_cellstats_csv_output_filepath))
+}
+if (!file.exists(diagnostics_shapiro_csv_output_filepath) || OVERWRITE_CSVS) {
+    write.csv(diagnostics_shapiro,
+              diagnostics_shapiro_csv_output_filepath, row.names = FALSE)
+    message("Saved CSV: ", basename(diagnostics_shapiro_csv_output_filepath))
+}
+
+# ==============================================================================
+# C12: Per-salt paired tests (kglut) -- SIMPLE FRAMING, direct reviewer answer
+# ==============================================================================
+# For each salt (250/300/350), paired t-tests blocked on replicate:
+#   WT vs ORC4R     (DIRECT reviewer answer: is loading reduced in ORC4R?)
+#   WT vs +4sofa    (is +4sofa restored toward WT?)
+#   ORC4R vs +4sofa (NARRATIVE-FIREWALL ordinary effect size -- see below)
+#
+# HOLM FAMILY (I2): the correction family is the WT-CONTRASTS within a SINGLE
+# salt = { WT-vs-ORC4R, WT-vs-+4sofa }. Holm is applied WITHIN each salt across
+# exactly these two contrasts. NEVER pooled across the three salts -- each salt
+# is a separate question, hence a separate family. ORC4R-vs-+4sofa is NOT a WT
+# contrast and is reported with its raw p, OUTSIDE the Holm family.
+#
+# NARRATIVE FIREWALL (handoff F6): the (+4sofa - ORC4R) comparison is an
+# ORDINARY loading effect size. It is NOT the ATPase floor-proximity argument.
+# In a loading assay, restorers/reducers deviate from ORC4R by design.
+#
+# I4 CAVEAT: parametric paired t at n=3; normality untestable; justification =
+# paired/blocked design + assay track record, not a normality test. Wilcoxon
+# companions are DECORATIVE -- at n=3 paired the two-sided exact p floors at
+# ~0.25 and can never reach 0.05; reported for transparency, never leaned on.
+#
+# Tests run on percent_wildtype_floored (per-kglut normalization). No test
+# genotype carries a negative value, so floored == raw for every value here.
+
+per_salt_contrast_rows <- list()
+salts_to_test <- levels(diagnostic_data$kglut)
+contrast_definitions <- list(
+    c("WT", "ORC4R"),
+    c("WT", "+4sofa"),
+    c("ORC4R", "+4sofa")
+)
+
+for (one_salt in salts_to_test) {
+    salt_subset <- diagnostic_data %>% filter(kglut == one_salt) %>% arrange(replicate)
+    for (one_contrast in contrast_definitions) {
+        group_a_label <- one_contrast[1]
+        group_b_label <- one_contrast[2]
+        group_a_values <- salt_subset$percent_wildtype_floored[salt_subset$label == group_a_label]
+        group_b_values <- salt_subset$percent_wildtype_floored[salt_subset$label == group_b_label]
+        group_a_reps   <- salt_subset$replicate[salt_subset$label == group_a_label]
+        group_b_reps   <- salt_subset$replicate[salt_subset$label == group_b_label]
+
+        stopifnot(
+            "C12 pairing: unequal pair lengths." =
+                length(group_a_values) == length(group_b_values),
+            "C12 pairing: expected n=3 per group." =
+                length(group_a_values) == 3,
+            "C12 pairing: replicate alignment broken (pairs not in same block order)." =
+                identical(group_a_reps, group_b_reps)
+        )
+
+        paired_t <- t.test(group_a_values, group_b_values, paired = TRUE)
+        paired_wilcox <- suppressWarnings(
+            wilcox.test(group_a_values, group_b_values, paired = TRUE))
+        is_wt_contrast <- group_a_label == "WT"
+
+        per_salt_contrast_rows[[paste(one_salt, group_a_label, group_b_label, sep = "_")]] <-
+            data.frame(
+                salt_kglut = one_salt,
+                contrast = paste0(group_a_label, "_vs_", group_b_label),
+                group_a = group_a_label,
+                group_b = group_b_label,
+                n_pairs = length(group_a_values),
+                mean_difference_a_minus_b = unname(paired_t$estimate),
+                ci_low = paired_t$conf.int[1],
+                ci_high = paired_t$conf.int[2],
+                t_statistic = unname(paired_t$statistic),
+                df = unname(paired_t$parameter),
+                raw_p_paired_t = paired_t$p.value,
+                wilcoxon_p_decorative = paired_wilcox$p.value,
+                is_wt_contrast = is_wt_contrast,
+                holm_family = if (is_wt_contrast)
+                    paste0("WT-contrasts_salt_", one_salt) else "not_in_WT_family",
+                test = "paired t-test (block = replicate)",
+                normalization_column = "percent_wildtype_floored (per-kglut, WT=100/salt)",
+                stringsAsFactors = FALSE
+            )
+    }
+}
+per_salt_contrasts <- do.call(rbind, per_salt_contrast_rows)
+rownames(per_salt_contrasts) <- NULL
+
+# Holm WITHIN each salt across the WT-contrasts ONLY (I2). Non-WT contrasts: NA.
+per_salt_contrasts$holm_p_within_salt_wt_family <- NA_real_
+for (one_salt in salts_to_test) {
+    wt_family_index <- which(per_salt_contrasts$salt_kglut == one_salt &
+                             per_salt_contrasts$is_wt_contrast)
+    per_salt_contrasts$holm_p_within_salt_wt_family[wt_family_index] <-
+        p.adjust(per_salt_contrasts$raw_p_paired_t[wt_family_index], method = "holm")
+}
+message("C12: per-salt paired tests + within-salt Holm (WT family) computed.")
+
+# ==============================================================================
+# C13: Salt-sensitivity interaction (kglut) -- STRUCTURED FRAMING, REPORTED
+# ==============================================================================
+# REPORTED result, NOT a diagnostic (I5 note): it answers the reviewer's salt-
+# sensitivity question by quantifying how the WT-vs-genotype gap CHANGES with
+# salt. C12 is the simple framing; this is the structured one. BOTH are reported.
+#
+# Model: percent_wildtype_global ~ label * kglut, random = ~1 | replicate (lme).
+# salt (kglut) as FACTOR (3 levels, no monotonic/trend assumption) -- DEFAULT.
+#   Alternative considered: salt as numeric/ordered (linear trend across
+#   250/300/350). NOT adopted: only 3 levels, the decline need not be linear,
+#   and the factor model is the assumption-light conservative choice.
+#
+# I3 NORMALIZATION FIREWALL: the interaction MUST use the GLOBAL-baseline column
+# (WT@250mM). Under per-kglut normalization WT is pinned to 100 at every salt
+# (within-WT sd across salts = 0) so WT cannot show a salt effect -> the
+# genotype:salt interaction is MECHANICALLY DEGENERATE. The firewall below
+# confirms (membership + VALUE + name) the response is the global column and
+# that WT is NOT pinned flat across salts.
+
+# *** SANCTIONED DELIBERATE RED (C13 -- the ONLY one in the project) ***
+# GREEN (committed): the global-baseline floored column.
+# To WITNESS the firewall fire, comment the GREEN line and uncomment the RED
+# line (per-kglut column, WT pinned to 100). The VALUE check then fires
+# (WT sd = 0), proving the guard is real -- not merely a name check. Restore
+# GREEN to proceed.
+interaction_response_column <- "percent_wildtype_global_floored"   # GREEN (committed)
+# interaction_response_column <- "percent_wildtype_floored"        # RED (witness guard)
+
+interaction_data <- loading_data %>%
+    filter(label %in% c("WT", "ORC4R", "+4sofa")) %>%
+    droplevels() %>%
+    mutate(replicate_factor = factor(replicate))
+
+# Membership FIRST (carry-forward #1): a missing column makes [[ ]] return NULL.
+stopifnot(
+    "C13 firewall: chosen response column absent from interaction data." =
+        interaction_response_column %in% names(interaction_data)
+)
+wt_values_in_chosen_column <- interaction_data[[interaction_response_column]][
+    interaction_data$label == "WT"]
+# VALUE check is the load-bearing one; NAME check is belt-and-suspenders.
+stopifnot(
+    "C13 firewall (VALUE): WT is pinned flat across salts -> per-kglut column fed to the interaction; use the global-baseline column (I3)." =
+        sd(wt_values_in_chosen_column) > 1,
+    "C13 firewall (NAME): response column is not a global-baseline column (I3)." =
+        interaction_response_column %in%
+            c("percent_wildtype_global", "percent_wildtype_global_floored")
+)
+message("C13 firewall passed: interaction runs on '", interaction_response_column,
+        "' (WT sd across salts = ", round(sd(wt_values_in_chosen_column), 2), ").")
+
+interaction_model_formula <- as.formula(paste0(interaction_response_column, " ~ label * kglut"))
+
+interaction_model_fit <- tryCatch(
+    nlme::lme(interaction_model_formula,
+              random = ~ 1 | replicate_factor,
+              data = interaction_data, method = "REML"),
+    error = function(e) {
+        message("C13: nlme::lme did NOT converge -> reporting as a finding, not a code bug:\n  ",
+                conditionMessage(e))
+        NULL
+    }
+)
+
+if (is.null(interaction_model_fit)) {
+    interaction_results <- data.frame(
+        term = NA_character_, estimate = NA_real_, std_error = NA_real_,
+        df = NA_real_, t_value = NA_real_, p_value = NA_real_,
+        ci_low = NA_real_, ci_high = NA_real_,
+        normalization_column = "percent_wildtype_global_floored (global, WT@250mM)",
+        note = "nlme::lme did not converge; see console.", stringsAsFactors = FALSE
+    )
+} else {
+    interaction_fixed_table <- summary(interaction_model_fit)$tTable
+    interaction_intervals_fixed <- tryCatch(
+        nlme::intervals(interaction_model_fit, which = "fixed")$fixed,
+        error = function(e) {
+            message("C13: intervals() failed (", conditionMessage(e), "); CI columns set NA.")
+            NULL
+        }
+    )
+    interaction_results <- data.frame(
+        term = rownames(interaction_fixed_table),
+        estimate = interaction_fixed_table[, "Value"],
+        std_error = interaction_fixed_table[, "Std.Error"],
+        df = interaction_fixed_table[, "DF"],
+        t_value = interaction_fixed_table[, "t-value"],
+        p_value = interaction_fixed_table[, "p-value"],
+        stringsAsFactors = FALSE
+    )
+    rownames(interaction_results) <- NULL
+    if (is.null(interaction_intervals_fixed)) {
+        interaction_results$ci_low <- NA_real_
+        interaction_results$ci_high <- NA_real_
+    } else {
+        interaction_results$ci_low <-
+            interaction_intervals_fixed[interaction_results$term, "lower"]
+        interaction_results$ci_high <-
+            interaction_intervals_fixed[interaction_results$term, "upper"]
+    }
+    interaction_results$normalization_column <-
+        "percent_wildtype_global_floored (global, WT@250mM)"
+    interaction_results$note <-
+        "salt as factor; genotype:salt term = salt-sensitivity of the WT gap"
+}
+message("C13: salt-sensitivity interaction model fit; fixed-effects table extracted.")
+
+# ==============================================================================
+# C14a: Results CSVs -- BOTH framings, with normalization-column lineage
+# ==============================================================================
+per_salt_contrasts_csv_output_filepath <- file.path(
+    OUTPUT_DIRECTORY, "loading_kglut-titration_per-salt-contrasts.csv")
+salt_interaction_csv_output_filepath <- file.path(
+    OUTPUT_DIRECTORY, "loading_kglut-titration_salt-interaction.csv")
+
+if (!file.exists(per_salt_contrasts_csv_output_filepath) || OVERWRITE_CSVS) {
+    write.csv(per_salt_contrasts, per_salt_contrasts_csv_output_filepath, row.names = FALSE)
+    message("Saved CSV: ", basename(per_salt_contrasts_csv_output_filepath))
+}
+if (!file.exists(salt_interaction_csv_output_filepath) || OVERWRITE_CSVS) {
+    write.csv(interaction_results, salt_interaction_csv_output_filepath, row.names = FALSE)
+    message("Saved CSV: ", basename(salt_interaction_csv_output_filepath))
+}
+
+# ==============================================================================
+# C14b prep: annotation data + interaction caption (built before plot)
+# ==============================================================================
+wt_vs_orc4r_per_salt_annotation <- per_salt_contrasts %>%
+    filter(contrast == "WT_vs_ORC4R") %>%
+    transmute(
+        kglut = factor(salt_kglut, levels = levels(loading_data$kglut)),
+        annotation_text = paste0(
+            "WT vs ORC4R\np = ", formatC(raw_p_paired_t, format = "f", digits = 4),
+            "\nHolm p = ", formatC(holm_p_within_salt_wt_family, format = "f", digits = 4)
+        )
+    )
+
+salt_sensitivity_term_for_caption <- "labelORC4R:kglut350"
+if (!is.null(interaction_model_fit) &&
+    salt_sensitivity_term_for_caption %in% interaction_results$term) {
+    caption_estimate <- interaction_results$estimate[interaction_results$term == salt_sensitivity_term_for_caption]
+    caption_ci_low   <- interaction_results$ci_low[interaction_results$term == salt_sensitivity_term_for_caption]
+    caption_ci_high  <- interaction_results$ci_high[interaction_results$term == salt_sensitivity_term_for_caption]
+    caption_p        <- interaction_results$p_value[interaction_results$term == salt_sensitivity_term_for_caption]
+    salt_sensitivity_caption_text <- paste0(
+        "Per-panel: WT vs ORC4R exact paired-t p (Holm-adjusted within salt; family = WT contrasts).\n",
+        "Salt-sensitivity interaction (nlme genotype x salt, global baseline WT@250mM): ",
+        "WT-ORC4R gap change 250->350 mM = ",
+        formatC(caption_estimate, format = "f", digits = 2), " %WT-units, 95% CI [",
+        formatC(caption_ci_low, format = "f", digits = 2), ", ",
+        formatC(caption_ci_high, format = "f", digits = 2), "], p = ",
+        formatC(caption_p, format = "f", digits = 4), "."
+    )
+} else {
+    salt_sensitivity_caption_text <-
+        "Salt-sensitivity interaction: model did not converge (see console)."
+}
+message("C14b: per-salt annotation and interaction caption prepared.")
+
+# ==============================================================================
 # Plots
 # ==============================================================================
 
 # Primary plot. Exploratory plots are in
 # quantification_kgluttitr_wt-4r-ps_exploratory-plots.R
+# C14b: per-salt WT-vs-ORC4R EXACT p annotated above each panel; salt-sensitivity
+# interaction estimate/CI/p bound into the caption. EXACT p-values, never stars.
 faceted_by_kglut_plot <- ggplot(summary_loading_data, aes(x = label, y = mean_percent_wildtype, fill = label)) +
     geom_col(
         width = PLOT_CONFIG$bar$width,
@@ -528,6 +947,12 @@ faceted_by_kglut_plot <- ggplot(summary_loading_data, aes(x = label, y = mean_pe
         stroke = PLOT_CONFIG$point$stroke,
         inherit.aes = FALSE
     ) +
+    geom_text(
+        data = wt_vs_orc4r_per_salt_annotation,
+        aes(x = 1.5, y = Inf, label = annotation_text),
+        inherit.aes = FALSE, vjust = 1.15, hjust = 0.5,
+        size = 3, family = PLOT_CONFIG$theme$base_family, lineheight = 0.9
+    ) +
     facet_wrap(~kglut, nrow = 1, labeller = label_both) +
     scale_fill_manual(values = PLOT_CONFIG$fill_colors) +
     scale_shape_manual(
@@ -535,12 +960,13 @@ faceted_by_kglut_plot <- ggplot(summary_loading_data, aes(x = label, y = mean_pe
         labels = c("1" = "Replicate 1", "2" = "Replicate 2", "3" = "Replicate 3"),
         name = "Replicate"
     ) +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
     labs(
         x = "Sample",
         y = "MCM Loading (% WT)",
         title = "MCM Loading Across KGlut Concentrations",
-        fill = "Sample"
+        fill = "Sample",
+        caption = salt_sensitivity_caption_text
     ) +
     theme_classic(
         base_size = PLOT_CONFIG$theme$base_size,
@@ -550,6 +976,7 @@ faceted_by_kglut_plot <- ggplot(summary_loading_data, aes(x = label, y = mean_pe
         strip.background = element_rect(fill = "gray90", color = "black"),
         strip.text = element_text(face = "bold", size = 12),
         legend.position = PLOT_CONFIG$theme$legend_position,
+        plot.caption = element_text(hjust = 0, size = 8),
         panel.spacing = unit(1, "lines")
     )
 message("Faceted-by-kglut plot constructed.")
