@@ -1,0 +1,116 @@
+You are implementing Thread 2a of a multi-thread plan to add statistical
+analysis to R scripts for an ORC4R suppressor screen (PLOS ONE publication,
+Zenodo deposit). Thread 1 (infrastructure, bug fixes, xlsx->readxl, nlme
+restore) is DONE; the scripts source() clean against real data. The full plan,
+project facts, and global invariants are in the attached IMPLEMENTATION_HANDOFF.md
+-- read it first, in full. Then read the attached DECISION_LOG (Threads 0+1):
+it carries Thread 1 findings that change how you must write guards.
+
+This is the FIRST of two loading-statistics sub-threads. You do the 350mm
+all-suppressors assay only. A later thread (2b) does the kglut titration and
+will inherit YOUR decisions and verified facts -- so record them well.
+
+Attached:
+- IMPLEMENTATION_HANDOFF.md                         (plan -- authoritative)
+- DECISION_LOG.md                                   (Threads 0+1 -- read it)
+- orc4r-screen_loading-all-suppressors-350mm.R      (the ONLY script you edit)
+- ALL loading output CSVs from the Thread-1 run     (full data, for shape;
+  you only act on the 350mm ones, but the kglut CSVs are attached as context)
+
+YOUR SCOPE: commits C6, C7, C8, C9, C10a, C10b -- the 350mm assay, end to end.
+Do NOT touch the kglut script (that is Thread 2b). Do NOT touch ATPase
+(Thread 3). Edit only the 350mm script.
+
+STYLE CONTRACT (non-negotiable): procedural, no helpers, no abstractions,
+explicit descriptive names, "nothing too clever." Dependencies: base R stats
++ nlme only, nothing hand-rolled. Plots show EXACT p-values, never stars.
+
+GLOBAL INVARIANTS (full text in handoff; the ones that bite here):
+- I1 "green" = script source()s clean AND its assertions pass on real data.
+- I2 Holm family = the WT-contrasts within the single 350mm condition. State
+     the family explicitly in the test code/comments.
+- I4 n=3 HONESTY: every parametric test carries an in-comment caveat that
+     normality is untestable at n=3; justification is the paired/block design
+     + assay track record, not a passing normality test. Wilcoxon companions
+     are labeled DECORATIVE (n=3 paired floors two-sided p ~ 0.25), included
+     for transparency, never leaned on.
+- I5 The mixed-model cross-check (C9) is a PRE-COMMITTED DIAGNOSTIC: the paired
+     t-test is the reported result, fixed in advance; if the model disagrees
+     materially, that triggers investigation, never selection of the friendlier
+     p.
+
+CARRY-FORWARD FROM THREAD 1 (changes how you write code):
+1. THE VACUOUS-GUARD LESSON. Thread 1 found the prior "bug" was a guard that
+   PASSED without checking anything: loading_data[["missing_col"]] returns
+   NULL, any(is.infinite(NULL)) is FALSE, so stopifnot passed vacuously. EVERY
+   new guard you write that references a column by name MUST first assert the
+   column exists:
+       stopifnot("the_column" %in% names(the_data))
+   BEFORE testing its values. A guard that can pass vacuously is worse than no
+   guard.
+2. Keep statistical COMPUTATION upstream of the font/Cairo-dependent plotting
+   step (the loading scripts stop() at the Arial check at source time in bare
+   environments). Your annotation commit (C10b) is in the plotting region and
+   is fine in your real environment; just don't put compute that a future
+   bare-run needs behind the font gate.
+
+NARRATIVE FIREWALL (handoff F6 / C8) -- the trap specific to this thread:
+In LOADING, the (suppressor - 4R/ORC4R) comparison is an ORDINARY effect size.
+Reducers (Orc3, Orc5, Orc6) fall BELOW ORC4R by design. This is NOT the ATPase
+"4R-floor-proximity" argument (that one rests on a shared catalytic mutation
+and belongs only to the ATPase thread). C8 MUST carry a comment stating
+explicitly that this is an ordinary effect size, not a floor claim, so a future
+reader (or Thread 2b/3) cannot conflate the two narratives.
+
+VERIFY BEFORE YOU EDIT (do not assume):
+- Open the 350mm CSVs and confirm ACTUAL data shape: how many replicates
+  survive per condition; the actual sample labels present (WT, ORC4R, and which
+  of +1/+3/+4/+5/+6sofa); the real blocking-variable name as it appears in the
+  script (replicate? gel?).
+- Confirm the pairing is COMPLETE: do WT, ORC4R, and each suppressor truly
+  co-occur within every block? If any block is missing a condition, the paired
+  test for that pair is invalid on that block -- say so, and report the usable
+  n per contrast. This is exactly the kind of data fact Thread 2b will inherit.
+- Confirm the pre-normalized values are what you think (WT=100 per replicate)
+  and which column holds them.
+
+WORK ONE COMMIT AT A TIME. For each:
+- state what you're computing and which CLAIM it supports (handoff terms:
+  "non-restoration-to-WT contrast" = rejectable WT-vs-suppressor test; the
+  (X - ORC4R) effect size per the narrative firewall above),
+- state the Holm family (I2) and the n=3 caveat (I4) where they apply,
+- make the edit, show the changed block,
+- state how you confirmed it (what you read in the data; the membership-checked
+  guard from carry-forward #1).
+Keep it tight: a few sentences per commit. One real verification beats
+paragraphs.
+
+NO DELIBERATE RED THIS THREAD. The only sanctioned deliberate-red in the whole
+project is C13, which is in Thread 2b (kglut). Everything here lands green.
+
+DECISION_LOG + VERIFIED-FACTS HANDOFF: append under "[Thread 2a appends here]"
+every non-obvious choice (test per contrast, Holm family scope, diagnostic-CSV
+column scheme, exact n=3 caveat wording, the C8 effect-size framing) AND a
+distinct VERIFIED FACTS block recording what you confirmed against the real
+data: replicate counts per condition, real labels, pairing completeness, the
+actual p-values produced, and any assumption that did NOT hold. Thread 2b makes
+the SAME pairing/n=3 assumptions for kglut, so if one proved shaky here, that
+warning must travel. Output the full updated log at the end.
+
+WHAT I CANNOT DO: I (the user) run the script, not you. You cannot execute to
+confirm green; reason explicitly about why it will source() clean, then give me
+at the end: the edited 350mm script, the exact command to run it, and the exact
+outputs to paste back (console trail + the augmented 350mm CSVs + the real
+p-values). Those outputs plus your handoff block are the inputs to Thread 2b.
+
+If anything in the handoff or carry-forward is wrong against the ACTUAL data or
+code -- STOP and raise it before editing. Data and code are ground truth; the
+plan was reviewed but not run. If the data shape contradicts the design (a
+block missing a condition, n not 3 where assumed), surface it immediately --
+it changes the tests and it warns Thread 2b.
+
+Start with your read-back: the actual 350mm data shape from the CSVs (replicate
+counts per condition, real labels, blocking-variable name), confirmation the
+pairing is complete within blocks (or precisely where it is not), and your plan
+for the C6 diagnostic structure that C11 (kglut, Thread 2b) will later mirror.
+Then proceed commit by commit.
