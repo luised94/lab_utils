@@ -2,8 +2,14 @@
 # ATPase Percent Hydrolysis Plot - Standalone
 # ==============================================================================
 # Date created: 2026-04-11
-# Reads processed_data.csv produced by 260411_orc4r-screen_analyze-sofa-atpase.R
-# and generates the percent hydrolysis timecourse plot.
+# Reads processed_data.csv AND atpase_per_timepoint_wt_contrasts.csv produced by
+# 260411_orc4r-screen_analyze-sofa-atpase.R, and generates the percent
+# hydrolysis timecourse plot WITH exact per-timepoint WT-contrast p-value
+# annotations.
+# ANTI-DRIFT (C18b): all inferential statistics (p-values) are READ from the
+# analyze script's results CSV; this script never recomputes a test. The line
+# geometry (means/SD) is recomputed deterministically from processed_data for
+# display only.
 # Usage: source("260411_orc4r-screen_plot-sofa-atpase.R")
 # ==============================================================================
 
@@ -53,9 +59,7 @@ SAMPLE_COLORS <- c(
 )
 
 # ------------------------------------------------------------------------------
-# Script location (C1): resolve the directory of THIS file under source().
-# Only source() invocation is supported. Rscript and interactive paste do not
-# set 'ofile' in any call frame, so we stop() with a clear message otherwise.
+# Script location (C1)
 # ------------------------------------------------------------------------------
 script_path_under_source <- NULL
 for (frame_index in seq_len(sys.nframe())) {
@@ -76,14 +80,10 @@ SCRIPT_DIRECTORY <- dirname(normalizePath(script_path_under_source))
 # ------------------------------------------------------------------------------
 # Paths
 # ------------------------------------------------------------------------------
-# MC_DROPBOX_PATH is the original (Dropbox) data home; may be unset in a
-# Zenodo deposit where processed_data.csv sits alongside this script.
 MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
 
 PROCESSED_DATA_FILENAME <- "processed_data.csv"
 
-# Path resolution (C1): script-relative (Zenodo co-located) -> MC_DROPBOX_PATH
-# (consolidated_analysis, where the analyze script writes it) -> stop().
 script_relative_processed_data_filepath <- file.path(
     SCRIPT_DIRECTORY, PROCESSED_DATA_FILENAME
 )
@@ -119,7 +119,13 @@ if (file.exists(script_relative_processed_data_filepath)) {
 INPUT_DIRECTORY <- dirname(PROCESSED_DATA_FILEPATH)
 OUTPUT_DIRECTORY <- INPUT_DIRECTORY
 
+# C18b: per-timepoint WT-contrast results CSV (written by the analyze script).
+# This is the SOLE source of plotted p-values (anti-drift).
+WT_CONTRASTS_FILENAME <- "atpase_per_timepoint_wt_contrasts.csv"
+WT_CONTRASTS_FILEPATH <- file.path(INPUT_DIRECTORY, WT_CONTRASTS_FILENAME)
+
 message("Input file: ", PROCESSED_DATA_FILEPATH)
+message("Stats CSV:  ", WT_CONTRASTS_FILEPATH)
 message("Output directory: ", OUTPUT_DIRECTORY)
 message("=== CONFIGURATION COMPLETE ===")
 
@@ -147,7 +153,6 @@ if (anyNA(processed_data$percent_adp_corrected)) {
     stop("NA values found in percent_adp_corrected column.")
 }
 
-# Verify all expected samples are present in the data.
 plotted_samples <- setdiff(unique(processed_data$sample), c("No_ORC", "WT_DNA"))
 unknown_samples <- setdiff(plotted_samples, SAMPLE_DISPLAY_ORDER)
 if (length(unknown_samples) > 0) {
@@ -158,11 +163,34 @@ if (length(unknown_samples) > 0) {
     )
 }
 
+# C18b: stats CSV is REQUIRED (anti-drift: we read, never recompute).
+if (!file.exists(WT_CONTRASTS_FILEPATH)) {
+    stop(
+        "Per-timepoint WT-contrasts CSV not found:\n  ", WT_CONTRASTS_FILEPATH,
+        "\nRun 260411_orc4r-screen_analyze-sofa-atpase.R first (it computes and ",
+        "writes the statistics this plot annotates)."
+    )
+}
+wt_contrasts <- read.csv(WT_CONTRASTS_FILEPATH, stringsAsFactors = FALSE)
+REQUIRED_CONTRAST_COLUMNS <- c(
+    "timepoint", "comparison", "group_label", "n_pairs",
+    "holm_adjusted_p_value", "computable"
+)
+missing_contrast_columns <- setdiff(REQUIRED_CONTRAST_COLUMNS, colnames(wt_contrasts))
+if (length(missing_contrast_columns) > 0) {
+    stop(
+        "Missing columns in WT-contrasts CSV: ",
+        paste(missing_contrast_columns, collapse = ", "),
+        "\nRe-run the analyze script (C18a writes these)."
+    )
+}
+message("Loaded ", nrow(wt_contrasts), " WT-contrast rows from stats CSV.")
+
 message("All required columns present. All sample names recognized.")
 message("=== DATA LOADING COMPLETE ===")
 
 # ==============================================================================
-# SUMMARY STATISTICS
+# SUMMARY STATISTICS (display geometry only -- means/SD for lines + error bars)
 # ==============================================================================
 message("=== SUMMARY STATISTICS ===")
 
@@ -197,6 +225,36 @@ print(
 )
 
 # ==============================================================================
+# ANNOTATION TABLE (C18b: exact p-values READ from the stats CSV, never stars)
+# ==============================================================================
+message("=== ANNOTATION (exact WT-contrast p-values, from stats CSV) ===")
+
+# WT-vs-{4R + each suppressor}, Holm-adjusted WITHIN each timepoint (I2).
+annotation_data <- wt_contrasts
+annotation_data$short_label <- sub("_.*", "", annotation_data$group_label)
+annotation_data$p_text <- ifelse(
+    annotation_data$computable %in% c(TRUE, "TRUE", "True"),
+    paste0(
+        annotation_data$short_label, " p=",
+        sprintf("%.4f", annotation_data$holm_adjusted_p_value),
+        " (n=", annotation_data$n_pairs, ")"
+    ),
+    paste0(annotation_data$short_label, " p=n.c. (n=", annotation_data$n_pairs, ")")
+)
+
+# Stack the (up to) six labels above each timepoint cluster.
+annotation_data <- annotation_data[
+    order(annotation_data$timepoint, annotation_data$group_label),
+]
+ANNOTATION_Y_TOP <- 0.62
+ANNOTATION_Y_STEP <- 0.045
+annotation_data$y_pos <- NA_real_
+for (current_timepoint in unique(annotation_data$timepoint)) {
+    idx <- which(annotation_data$timepoint == current_timepoint)
+    annotation_data$y_pos[idx] <- ANNOTATION_Y_TOP - (seq_along(idx) - 1) * ANNOTATION_Y_STEP
+}
+
+# ==============================================================================
 # PLOTTING
 # ==============================================================================
 message("=== PLOTTING ===")
@@ -219,22 +277,41 @@ atpase_timecourse_plot <- ggplot(
         width = 3,
         linewidth = 0.5
     ) +
+    geom_text(
+        data = annotation_data,
+        aes(x = timepoint, y = y_pos, label = p_text, color = group_label),
+        hjust = 0.5,
+        size = 2.3,
+        show.legend = FALSE
+    ) +
     scale_color_manual(values = SAMPLE_COLORS) +
+    coord_cartesian(xlim = c(-8, 104), ylim = c(-0.08, 0.66)) +
     labs(
         title = "ORC ATPase Timecourse",
+        subtitle = "Annotations: WT vs sample, paired t-test (block=experiment), Holm-adjusted WITHIN timepoint; exact p, n.c.=not computable",
         x = "Time (min)",
         y = "Percent hydrolysis (background-corrected)",
-        color = "Sample"
+        color = "Sample",
+        caption = paste0(
+            "Per-timepoint WT-contrasts read from ", WT_CONTRASTS_FILENAME,
+            " (not recomputed). Holm family = WT-contrasts within a single ",
+            "timepoint (NEVER across timepoints). WT subset to each sample's ",
+            "shared experiments; n shown per label. Pooled suppressor-vs-4R ",
+            "contrasts + CIs and the sample:timepoint interaction are in the ",
+            "mixed-model CSVs."
+        )
     ) +
     theme_classic(base_size = 13) +
     theme(
         plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5, size = 8),
+        plot.caption = element_text(hjust = 0, size = 6),
         legend.position = "right"
     )
 
 plot_pdf_path <- file.path(OUTPUT_DIRECTORY, "atpase_timecourse_plot.pdf")
 if (!file.exists(plot_pdf_path) || OVERWRITE_PLOTS) {
-    ggsave(plot_pdf_path, atpase_timecourse_plot, width = 8, height = 5)
+    ggsave(plot_pdf_path, atpase_timecourse_plot, width = 9, height = 6)
     message("Saved plot: ", basename(plot_pdf_path))
 } else {
     message("Skipped plot (already exists): ", basename(plot_pdf_path))

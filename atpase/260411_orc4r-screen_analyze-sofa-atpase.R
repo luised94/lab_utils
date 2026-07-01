@@ -5,8 +5,8 @@
 # Consolidates analysis of ORC ATPase assays across Orc1, Orc3, Orc4, Orc5,
 # and Orc6 suppressor mutants in the 4R background.
 # Input: Excel files containing ImageJ band intensity measurements.
-# Output: Combined raw data CSV, processed data CSV, summary CSV, and
-#         percent hydrolysis timecourse plot (PDF).
+# Output: Combined raw data CSV, processed data CSV, summary CSV, statistics
+#         CSVs (Thread 3), and percent hydrolysis timecourse plot (PDF).
 # Usage: source("260411_orc4r-screen_analyze-sofa-atpase.R")
 # ==============================================================================
 
@@ -22,6 +22,7 @@
 
 library(readxl)  # C3: migrated from library(xlsx)
 library(tidyverse)
+library(nlme)    # C17 (Thread 3): mixed models; ships with R, recorded via renv (C0d)
 
 # ==============================================================================
 # CONFIGURATION
@@ -32,6 +33,12 @@ OVERWRITE_PLOTS <- TRUE
 OVERWRITE_CSVS <- TRUE
 
 TIMEPOINTS <- c(0, 15, 45, 90)
+
+# Thread 3: subtraction-only negative-value tripwire (NOT a floor gate). A wild
+# negative signals an upstream sign/load error and must STOP; small near-zero
+# scatter passes silently. Bound mirrors the existing WT-t0 background threshold
+# (0.15). See DECISION_LOG [Thread 3]: ATPase does NOT floor (differs from loading).
+ATPASE_NEGATIVE_SANITY_BOUND <- -0.15
 
 # ------------------------------------------------------------------------------
 # Script location (C1): resolve the directory of THIS file under source().
@@ -57,9 +64,6 @@ SCRIPT_DIRECTORY <- dirname(normalizePath(script_path_under_source))
 # ------------------------------------------------------------------------------
 # Paths
 # ------------------------------------------------------------------------------
-# MC_DROPBOX_PATH is the original (Dropbox) data home. It may be unset in a
-# Zenodo deposit, where data sits alongside this script instead. Resolution
-# (below, after the registry is defined) picks the live location.
 MC_DROPBOX_PATH <- Sys.getenv("MC_DROPBOX_PATH")
 
 # ------------------------------------------------------------------------------
@@ -134,6 +138,7 @@ FILE_ORC5_ORC6_EK <- file.path(
 #
 #   Layouts A/B (2020 experiments): odd ImageJ index = ADP, even = ATP
 #   Layout C   (2021 experiments): even ImageJ index = ADP, odd = ATP
+# (see full layout documentation retained below)
 #
 # The No_ORC control (no enzyme, measures spontaneous hydrolysis) was
 # recorded differently across batches:
@@ -261,8 +266,7 @@ EXPERIMENT_REGISTRY <- list(
 )
 
 # ------------------------------------------------------------------------------
-# Path resolution (C1): script-relative (Zenodo co-located) -> MC_DROPBOX_PATH
-# -> stop() naming both. Probe with the first registry file's relative path.
+# Path resolution (C1)
 # ------------------------------------------------------------------------------
 probe_relative_file_path <- EXPERIMENT_REGISTRY[[1]]$relative_file_path
 script_relative_base_directory <- SCRIPT_DIRECTORY
@@ -331,6 +335,7 @@ for (relative_path in unique_relative_paths) {
 
 message("All ", length(unique_relative_paths), " input files found.")
 message("Experiment registry contains ", length(EXPERIMENT_REGISTRY), " experiments.")
+
 # Validate that every sample name in the registry is a recognized sample.
 # Catches typos when adding new experiments.
 all_registry_sample_names <- unique(unlist(
@@ -376,8 +381,6 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
         " (sheet ", current_experiment$sheet_index, ")..."
     )
 
-    # C3: readxl replaces xlsx. read_excel(sheet=) is 1-based, matching the
-    # former sheetIndex= numbering. col_names = FALSE mirrors header = FALSE.
     current_raw_data <- readxl::read_excel(
         current_full_path,
         col_names = FALSE,
@@ -385,10 +388,6 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
     )
     current_raw_data <- as.data.frame(current_raw_data)
 
-    # -- Validate dimensions BEFORE assigning column names (C3) --
-    # readxl returns a tibble; an unexpected column count would make the
-    # length-2 RAW_COLUMN_NAMES assignment crash with an opaque length
-    # error. Checking dimensions first lets the clear assertion fire.
     if (nrow(current_raw_data) != current_experiment$expected_raw_row_count) {
         stop(
             "Row count mismatch for ", current_label, ": ",
@@ -406,7 +405,6 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
 
     colnames(current_raw_data) <- RAW_COLUMN_NAMES
 
-    # -- Validate content --
     if (anyNA(current_raw_data$intensity)) {
         stop("NA values found in intensity column for ", current_label)
     }
@@ -414,10 +412,6 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
         stop("Negative intensity values found for ", current_label)
     }
 
-    # ImageJ indices should be sequential 1:N. A gap or reordering
-    # indicates the Excel sheet was modified or rows were deleted.
-    # NOTE (C3): readxl parses imagej_index as double; as.integer() coerces
-    # it back so identical(integer, integer) still fires for any gap/reorder.
     expected_indices <- seq_len(nrow(current_raw_data))
     if (!identical(as.integer(current_raw_data$imagej_index), expected_indices)) {
         stop(
@@ -427,7 +421,6 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
         )
     }
 
-    # Raw row count must be even: every ADP band has a paired ATP band.
     if (nrow(current_raw_data) %% 2 != 0) {
         stop(
             "Odd number of rows (", nrow(current_raw_data), ") for ",
@@ -463,14 +456,12 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
     # The wand selection order in ImageJ determines which raw rows are
     # ADP vs ATP. See layout documentation in the configuration section.
     if (current_layout %in% c("A", "B")) {
-        # Odd-indexed rows are ADP, the following even-indexed row is ATP.
         odd_row_positions <- seq(1, nrow(current_raw_data), by = 2)
         paired_data <- data.frame(
             adp_intensity = current_raw_data$intensity[odd_row_positions],
             atp_intensity = current_raw_data$intensity[odd_row_positions + 1]
         )
     } else if (current_layout == "C") {
-        # Even-indexed rows are ADP, the preceding odd-indexed row is ATP.
         even_row_positions <- seq(2, nrow(current_raw_data), by = 2)
         paired_data <- data.frame(
             adp_intensity = current_raw_data$intensity[even_row_positions],
@@ -480,33 +471,25 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
         stop("Unknown layout '", current_layout, "' for ", current_label)
     }
 
-    # -- Assign timepoints --
     if (current_layout == "A") {
-        # All samples have all 4 timepoints. No standalone No_ORC row.
         paired_data$timepoint <- rep(TIMEPOINTS, times = length(current_sample_names))
     } else if (current_layout == "B") {
-        # 4 samples with all timepoints, then single No_ORC at t=90.
         paired_data$timepoint <- c(
             rep(TIMEPOINTS, times = length(current_sample_names)), 90
         )
     } else if (current_layout == "C") {
-        # Single No_ORC at t=90 first, then 3 samples with all timepoints.
         paired_data$timepoint <- c(
             90, rep(TIMEPOINTS, times = length(current_sample_names))
         )
     }
 
-    # -- Assign sample names --
     if (current_layout == "A") {
-        # Each sample occupies 4 consecutive rows.
         paired_data$sample <- rep(current_sample_names, each = 4)
     } else if (current_layout == "B") {
-        # 4 samples with 4 rows each, then one No_ORC row.
         paired_data$sample <- c(
             rep(current_sample_names, each = 4), "No_ORC"
         )
     } else if (current_layout == "C") {
-        # One No_ORC row, then 3 samples with 4 rows each.
         paired_data$sample <- c(
             "No_ORC", rep(current_sample_names, each = 4)
         )
@@ -514,7 +497,6 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
 
     paired_data$experiment_label <- current_label
 
-    # -- Validate paired data dimensions --
     if (current_layout == "A") {
         expected_paired_rows <- length(current_sample_names) * 4
     } else if (current_layout == "B") {
@@ -530,10 +512,6 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
         )
     }
 
-    # -- Validate ADP/ATP assignment --
-    # If ADP and ATP columns were swapped, percent would be near 1.0
-    # for No_ORC (almost all signal in the "ADP" slot). Correct assignment
-    # gives No_ORC percent near 0.05-0.20 (low spontaneous hydrolysis).
     quick_percent_check <- paired_data$adp_intensity /
         (paired_data$adp_intensity + paired_data$atp_intensity)
     if (any(quick_percent_check < 0 | quick_percent_check > 1, na.rm = TRUE)) {
@@ -543,8 +521,6 @@ for (registry_index in seq_along(EXPERIMENT_REGISTRY)) {
         )
     }
 
-    # Each experiment must have exactly one No_ORC measurement at t=90
-    # for background subtraction downstream.
     no_orc_t90_count <- sum(
         paired_data$sample == "No_ORC" & paired_data$timepoint == 90
     )
@@ -565,11 +541,9 @@ rownames(combined_raw_data) <- NULL
 message("Combined raw data: ", nrow(combined_raw_data), " rows x ",
     ncol(combined_raw_data), " columns.")
 
-# -- Per-experiment row counts --
 message("Row counts per experiment:")
 print(table(combined_raw_data$experiment_label))
 
-# -- Write to CSV --
 combined_raw_csv_path <- file.path(OUTPUT_DIRECTORY, "combined_raw_data.csv")
 if (!file.exists(combined_raw_csv_path) || OVERWRITE_CSVS) {
     write.csv(combined_raw_data, combined_raw_csv_path, row.names = FALSE)
@@ -589,8 +563,6 @@ processed_data <- combined_raw_data
 processed_data$percent_adp <- processed_data$adp_intensity /
     (processed_data$adp_intensity + processed_data$atp_intensity)
 
-# Percent ADP must be in [0, 1]. Values outside this range indicate
-# a problem in the ADP/ATP pairing or negative intensities.
 if (any(processed_data$percent_adp < 0 | processed_data$percent_adp > 1)) {
     bad_rows <- which(
         processed_data$percent_adp < 0 | processed_data$percent_adp > 1
@@ -602,8 +574,6 @@ if (any(processed_data$percent_adp < 0 | processed_data$percent_adp > 1)) {
     )
 }
 
-# Background subtraction: subtract the No_ORC percent_adp at t=90 from all
-# rows within the same experiment.
 processed_data$percent_adp_corrected <- NA
 
 for (current_label in unique(processed_data$experiment_label)) {
@@ -630,8 +600,6 @@ if (anyNA(processed_data$percent_adp_corrected)) {
 }
 
 # Sanity check: WT at t=0 should be near zero after background subtraction.
-# A large value (above 0.15) suggests the wrong row was used as background
-# or the ADP/ATP assignment is incorrect for that experiment.
 wt_t0_corrected <- processed_data$percent_adp_corrected[
     processed_data$sample == "WT" & processed_data$timepoint == 0
 ]
@@ -648,14 +616,63 @@ if (wt_t0_max_absolute > 0.15) {
     )
 }
 
-# Note: negative corrected values are possible when a sample has less
-# apparent ADP than the No_ORC background. These are biologically
-# meaningless but are retained for transparency. They typically occur
-# at t=0 and are small in magnitude.
+# ------------------------------------------------------------------------------
+# THREAD 3: ATPase NEGATIVE-VALUE HANDLING -- DETECT + REPORT + TRIPWIRE.
+# DELIBERATELY DIFFERENT FROM LOADING (which FLOORED). Rationale (see
+# DECISION_LOG [Thread 3] + STATISTICAL_METHODS.md): percent_adp_corrected is
+# analysed by mixed model + per-timepoint DIFFERENCES -- both subtraction-based,
+# negative-safe, NO division by a near-zero quantity. Small negatives are
+# EXPECTED noise around a true zero in the near-zero 4R/suppressor group, and
+# that noise is DATA the model must absorb. Flooring would erase exactly the
+# variance the model needs AND would bias the near-zero group mean upward (not
+# cleanly one-directional safe here). So: NO floor, NO floored column, NO pmax.
+# (a) DETECT + REPORT; (b) KEEP RAW; (c) SANITY TRIPWIRE (membership-checked
+# before value-checked, per the Thread-1 vacuous-guard lesson).
+# (d) DIVISION-COLUMN CHECK: the only division is adp/(adp+atp), bounded [0,1]
+#     BEFORE subtraction; there is NO fold-over-4R / percent-of-WT column. None
+#     is introduced. (Verified against the received file.)
+# ------------------------------------------------------------------------------
+stopifnot("percent_adp_corrected" %in% names(processed_data))   # membership BEFORE value
+negative_corrected_rows <- processed_data[
+    processed_data$percent_adp_corrected < 0,
+    c("sample", "experiment_label", "timepoint",
+      "adp_intensity", "atp_intensity", "percent_adp", "percent_adp_corrected")
+]
+message(
+    "Negative percent_adp_corrected rows detected: ",
+    nrow(negative_corrected_rows),
+    " (NOT floored; reported for transparency; flow raw into all models/tests)."
+)
+if (nrow(negative_corrected_rows) > 0) {
+    print(negative_corrected_rows)
+}
+# (c) tripwire: a wild negative => upstream sign/load error => STOP. Small
+#     near-zero scatter passes silently.
+if (any(processed_data$percent_adp_corrected < ATPASE_NEGATIVE_SANITY_BOUND)) {
+    stop(
+        "Implausibly large negative percent_adp_corrected (< ",
+        ATPASE_NEGATIVE_SANITY_BOUND,
+        ") detected -- this signals an upstream sign/load error, not near-zero ",
+        "scatter. Inspect the offending rows above."
+    )
+}
+message(
+    "Negative-value sanity tripwire passed (most-negative = ",
+    round(min(processed_data$percent_adp_corrected), 5),
+    " >= bound ", ATPASE_NEGATIVE_SANITY_BOUND, ")."
+)
+
+negative_values_csv_path <- file.path(OUTPUT_DIRECTORY, "atpase_negative_values.csv")
+if (!file.exists(negative_values_csv_path) || OVERWRITE_CSVS) {
+    write.csv(negative_corrected_rows, negative_values_csv_path, row.names = FALSE)
+    message("Saved CSV: ", basename(negative_values_csv_path))
+}
+
+# Note: negative corrected values are biologically meaningless (a sample reading
+# below the No_ORC background) but are RETAINED RAW for the reasons above.
 
 message("Processing complete. ", nrow(processed_data), " rows.")
 
-# -- Write processed data CSV --
 processed_data_csv_path <- file.path(OUTPUT_DIRECTORY, "processed_data.csv")
 if (!file.exists(processed_data_csv_path) || OVERWRITE_CSVS) {
     write.csv(processed_data, processed_data_csv_path, row.names = FALSE)
@@ -669,7 +686,6 @@ if (!file.exists(processed_data_csv_path) || OVERWRITE_CSVS) {
 # ==============================================================================
 message("=== SUMMARY STATISTICS ===")
 
-# Filter out control samples before summarizing.
 samples_to_exclude <- c("No_ORC", "WT_DNA")
 plotting_data <- processed_data[
     !(processed_data$sample %in% samples_to_exclude),
@@ -702,8 +718,6 @@ replicate_counts_at_t0 <- summary_data[
 ]
 print(replicate_counts_at_t0)
 
-# Replicate counts should be consistent across timepoints for each sample.
-# If they differ, rows were lost during processing.
 replicate_count_check <- plotting_data %>%
     group_by(sample) %>%
     summarise(
@@ -721,8 +735,6 @@ if (length(samples_missing_timepoints) > 0) {
     )
 }
 
-# WT and 4R should have more replicates than individual mutants since
-# they were measured in nearly every experiment.
 wt_replicate_count <- replicate_counts_at_t0$replicate_count[
     replicate_counts_at_t0$sample == "WT"
 ]
@@ -733,7 +745,6 @@ if (wt_replicate_count < 5) {
     )
 }
 
-# -- Write summary CSV --
 summary_csv_path <- file.path(OUTPUT_DIRECTORY, "summary_data.csv")
 if (!file.exists(summary_csv_path) || OVERWRITE_CSVS) {
     write.csv(summary_data, summary_csv_path, row.names = FALSE)
@@ -743,7 +754,393 @@ if (!file.exists(summary_csv_path) || OVERWRITE_CSVS) {
 }
 
 # ==============================================================================
-# PLOTTING
+# STATISTICAL ANALYSIS (Thread 3: C15 diagnostics, C16 per-timepoint contrasts,
+# C17 pooled mixed models, C18a results CSVs)
+# ==============================================================================
+message("=== STATISTICAL ANALYSIS ===")
+
+# ------------------------------------------------------------------------------
+# Build the analysis frame (exclude controls). Block = experiment_label.
+# ------------------------------------------------------------------------------
+atpase_analysis_data <- processed_data[
+    !(processed_data$sample %in% c("No_ORC", "WT_DNA")),
+]
+
+# n=3 HONESTY caveat (I4), reused verbatim from the consolidated log:
+N3_CAVEAT <- paste0(
+    "Per-cell replicate counts are 2-3 for the mutants; normality CANNOT be ",
+    "meaningfully tested (Shapiro-Wilk at these n has almost no power and is ",
+    "NOT a license to assume normality). Justification rests on the ",
+    "PAIRED/BLOCKED design plus the assay's established track record -- NOT on ",
+    "a normality test passing. Shapiro is DECORATIVE."
+)
+
+# ------------------------------------------------------------------------------
+# C15: ASSUMPTION DIAGNOSTICS
+# Per-cell {n, mean, sd}; pooled + per-timepoint within-cell-residual Shapiro
+# (DECORATIVE). Unequal-n and grossly unequal variance noted explicitly.
+# ------------------------------------------------------------------------------
+message("--- C15 diagnostics ---")
+message(
+    "NOTE (C15): per-cell replicate counts are UNEQUAL (WT n=13, 4R n=12, ",
+    "Orc1 n=2, Orc3/Orc4/Orc5/Orc6 n=3 lanes) and within-cell variances are ",
+    "GROSSLY unequal (WT cells large variance; near-floor mutant cells ~0, ",
+    "several exactly 0). Bartlett/Levene are UNDEFINED on zero-variance cells ",
+    "and are OMITTED (as in loading). The homoscedastic-residual assumption of ",
+    "the C17 lme is therefore VIOLATED; the lme is reported WITH that caveat, ",
+    "and varIdent(form = ~1 | sample) is noted as a documented, NOT-adopted, ",
+    "heteroscedastic alternative."
+)
+
+atpase_analysis_data <- atpase_analysis_data %>%
+    group_by(sample, timepoint) %>%
+    mutate(
+        cell_n = n(),
+        cell_mean = mean(percent_adp_corrected),
+        cell_sd = sd(percent_adp_corrected),
+        within_cell_residual = percent_adp_corrected - cell_mean
+    ) %>%
+    ungroup() %>%
+    as.data.frame()
+
+atpase_cell_stats <- atpase_analysis_data %>%
+    group_by(sample, timepoint) %>%
+    summarise(
+        n = dplyr::first(cell_n),
+        mean_corrected = dplyr::first(cell_mean),
+        sd_corrected = dplyr::first(cell_sd),
+        .groups = "drop"
+    ) %>%
+    as.data.frame()
+
+cellstats_csv_path <- file.path(OUTPUT_DIRECTORY, "atpase_diagnostics_cellstats.csv")
+if (!file.exists(cellstats_csv_path) || OVERWRITE_CSVS) {
+    write.csv(atpase_cell_stats, cellstats_csv_path, row.names = FALSE)
+    message("Saved CSV: ", basename(cellstats_csv_path))
+}
+
+# Shapiro on pooled within-cell residuals + per-timepoint splits (DECORATIVE).
+shapiro_rows <- data.frame()
+pooled_shapiro <- tryCatch(
+    shapiro.test(atpase_analysis_data$within_cell_residual),
+    error = function(e) NULL
+)
+shapiro_rows <- rbind(shapiro_rows, data.frame(
+    scope = "pooled_within_cell_residuals",
+    shapiro_W = if (is.null(pooled_shapiro)) NA_real_ else unname(pooled_shapiro$statistic),
+    shapiro_p = if (is.null(pooled_shapiro)) NA_real_ else pooled_shapiro$p.value,
+    n = length(atpase_analysis_data$within_cell_residual),
+    caveat = N3_CAVEAT,
+    stringsAsFactors = FALSE
+))
+for (current_timepoint in TIMEPOINTS) {
+    tp_residuals <- atpase_analysis_data$within_cell_residual[
+        atpase_analysis_data$timepoint == current_timepoint
+    ]
+    tp_shapiro <- tryCatch(shapiro.test(tp_residuals), error = function(e) NULL)
+    shapiro_rows <- rbind(shapiro_rows, data.frame(
+        scope = paste0("within_cell_residuals_timepoint_", current_timepoint),
+        shapiro_W = if (is.null(tp_shapiro)) NA_real_ else unname(tp_shapiro$statistic),
+        shapiro_p = if (is.null(tp_shapiro)) NA_real_ else tp_shapiro$p.value,
+        n = length(tp_residuals),
+        caveat = N3_CAVEAT,
+        stringsAsFactors = FALSE
+    ))
+}
+shapiro_csv_path <- file.path(OUTPUT_DIRECTORY, "atpase_diagnostics_shapiro.csv")
+if (!file.exists(shapiro_csv_path) || OVERWRITE_CSVS) {
+    write.csv(shapiro_rows, shapiro_csv_path, row.names = FALSE)
+    message("Saved CSV: ", basename(shapiro_csv_path))
+}
+print(shapiro_rows[, c("scope", "shapiro_W", "shapiro_p", "n")])
+
+# ------------------------------------------------------------------------------
+# C16: PER-TIMEPOINT WT-CONTRASTS (PRIMARY/plotted; the "not restored to WT"
+# half of the delta-free claim -- rejectable, load-bearing).
+# Block = experiment_label. WT is SUBSET to each suppressor's SHARED blocks
+# (D1): a "WT vs OrcX" paired test uses ONLY the experiments where BOTH appear.
+# WT's full replicate count does NOT strengthen these contrasts.
+# Block-mean aggregation collapses the two Orc4 lanes in 2020_08_24, so the
+# block is the paired unit. Holm WITHIN each timepoint (I2), NEVER across
+# timepoints. Wilcoxon companions DECORATIVE (I4).
+# ------------------------------------------------------------------------------
+message("--- C16 per-timepoint WT-contrasts (WT subset to shared blocks) ---")
+
+block_means <- atpase_analysis_data %>%
+    group_by(sample, experiment_label, timepoint) %>%
+    summarise(block_mean_corrected = mean(percent_adp_corrected), .groups = "drop") %>%
+    as.data.frame()
+
+CONTRAST_SAMPLES <- c(
+    "4R", "Orc1_E495K_4R", "Orc3_P481L_4R",
+    "Orc4_P225S_4R", "Orc5_E104K_4R", "Orc6_E304K_4R"
+)
+
+per_timepoint_contrast_rows <- data.frame()
+for (current_timepoint in TIMEPOINTS) {
+    timepoint_raw_p <- rep(NA_real_, length(CONTRAST_SAMPLES))
+    timepoint_rows_list <- vector("list", length(CONTRAST_SAMPLES))
+
+    for (k in seq_along(CONTRAST_SAMPLES)) {
+        current_group <- CONTRAST_SAMPLES[k]
+        wt_rows <- block_means[
+            block_means$sample == "WT" & block_means$timepoint == current_timepoint,
+        ]
+        grp_rows <- block_means[
+            block_means$sample == current_group & block_means$timepoint == current_timepoint,
+        ]
+        shared_experiments <- sort(intersect(
+            wt_rows$experiment_label, grp_rows$experiment_label
+        ))
+        n_pairs <- length(shared_experiments)
+
+        wt_vec <- wt_rows$block_mean_corrected[
+            match(shared_experiments, wt_rows$experiment_label)
+        ]
+        grp_vec <- grp_rows$block_mean_corrected[
+            match(shared_experiments, grp_rows$experiment_label)
+        ]
+        paired_diff <- wt_vec - grp_vec
+
+        estimate_wt_minus_group <- if (n_pairs >= 1) mean(paired_diff) else NA_real_
+        is_computable <- FALSE
+        ci_lower <- NA_real_; ci_upper <- NA_real_
+        t_statistic <- NA_real_; degrees_freedom <- NA_real_
+        raw_p <- NA_real_; wilcoxon_p <- NA_real_; contrast_note <- ""
+
+        if (n_pairs < 2) {
+            contrast_note <- paste0(
+                "only ", n_pairs, " shared block(s); paired t-test needs >= 2"
+            )
+        } else if (sd(paired_diff) == 0) {
+            contrast_note <- paste0(
+                "zero variance in paired differences (all values identical at ",
+                "this timepoint, e.g. both groups at zero); paired t-test undefined"
+            )
+        } else {
+            tt <- t.test(wt_vec, grp_vec, paired = TRUE)
+            is_computable <- TRUE
+            estimate_wt_minus_group <- unname(tt$estimate)
+            ci_lower <- tt$conf.int[1]
+            ci_upper <- tt$conf.int[2]
+            t_statistic <- unname(tt$statistic)
+            degrees_freedom <- unname(tt$parameter)
+            raw_p <- tt$p.value
+            wilcoxon_p <- tryCatch(
+                suppressWarnings(wilcox.test(wt_vec, grp_vec, paired = TRUE)$p.value),
+                error = function(e) NA_real_
+            )
+            contrast_note <- "ok"
+        }
+
+        timepoint_raw_p[k] <- if (is_computable) raw_p else NA_real_
+        timepoint_rows_list[[k]] <- data.frame(
+            timepoint = current_timepoint,
+            comparison = paste0("WT_vs_", current_group),
+            group_label = current_group,
+            claim = "not_restored_to_WT (rejectable; load-bearing half of delta-free framing)",
+            test = "paired t-test; block=experiment_label; WT subset to shared blocks; block-mean aggregated",
+            holm_family = paste0("WT-contrasts within timepoint=", current_timepoint, " (NEVER across timepoints, I2)"),
+            n_pairs = n_pairs,
+            shared_experiments = paste(shared_experiments, collapse = ";"),
+            estimate_wt_minus_group = estimate_wt_minus_group,
+            ci_lower = ci_lower,
+            ci_upper = ci_upper,
+            t_statistic = t_statistic,
+            df = degrees_freedom,
+            raw_p_value = raw_p,
+            holm_adjusted_p_value = NA_real_,
+            holm_family_size = NA_integer_,
+            wilcoxon_p_value_decorative = wilcoxon_p,
+            computable = is_computable,
+            note = contrast_note,
+            stringsAsFactors = FALSE
+        )
+    }
+
+    computable_idx <- which(!is.na(timepoint_raw_p))
+    holm_p <- rep(NA_real_, length(CONTRAST_SAMPLES))
+    if (length(computable_idx) > 0) {
+        holm_p[computable_idx] <- p.adjust(
+            timepoint_raw_p[computable_idx], method = "holm"
+        )
+    }
+    for (k in seq_along(CONTRAST_SAMPLES)) {
+        timepoint_rows_list[[k]]$holm_adjusted_p_value <- holm_p[k]
+        timepoint_rows_list[[k]]$holm_family_size <- length(computable_idx)
+    }
+    per_timepoint_contrast_rows <- rbind(
+        per_timepoint_contrast_rows, do.call(rbind, timepoint_rows_list)
+    )
+}
+
+message("Per-timepoint WT-contrast pairing and p-values:")
+print(per_timepoint_contrast_rows[, c(
+    "timepoint", "comparison", "n_pairs", "computable",
+    "estimate_wt_minus_group", "raw_p_value", "holm_adjusted_p_value", "note"
+)])
+
+per_timepoint_csv_path <- file.path(
+    OUTPUT_DIRECTORY, "atpase_per_timepoint_wt_contrasts.csv"
+)
+if (!file.exists(per_timepoint_csv_path) || OVERWRITE_CSVS) {
+    write.csv(per_timepoint_contrast_rows, per_timepoint_csv_path, row.names = FALSE)
+    message("Saved CSV: ", basename(per_timepoint_csv_path))
+}
+
+# ------------------------------------------------------------------------------
+# C17: POOLED MIXED MODELS (nlme). PRIMARY home for the 4R-floor-proximity
+# claim (D2 -- NOT a stand-in diagnostic).
+# Two complementary fits, each answering one question (procedural, no helpers):
+#  (1) ADDITIVE model, reference = 4R -> gives the suppressor-vs-4R difference
+#      POOLED across timepoints + 95% CI directly from intervals(). This is the
+#      reported 4R-floor-proximity estimate. (A "pooled across timepoints"
+#      contrast IS the additive sample effect under no-interaction.)
+#  (2) INTERACTION model sample*timepoint -> tests whether the curves diverge
+#      (sample:timepoint) and the sample main effect, via anova(). The
+#      interaction test is the check that the additive pooling is reasonable
+#      for the near-floor groups (expected: WT drives any interaction; the
+#      suppressor curves stay flat near 4R).
+# timepoint as FACTOR (accumulation saturates -> not linear); the numeric/linear
+# trend alternative is documented and NOT adopted (only 4 levels; saturating
+# kinetics; factor is the conservative choice).
+# Caveat (C15): WT-vs-suppressor variance heterogeneity violates the
+# homoscedastic-residual assumption; CIs for the near-floor contrasts are if
+# anything CONSERVATIVELY WIDE (residual variance is inflated by WT spread).
+# Both fits wrapped in tryCatch -> non-convergence is a REPORTED finding.
+# ------------------------------------------------------------------------------
+message("--- C17 pooled mixed models (nlme) ---")
+
+atpase_analysis_data$sample_factor <- factor(
+    atpase_analysis_data$sample, levels = SAMPLE_DISPLAY_ORDER
+)
+atpase_analysis_data$sample_ref4R <- relevel(
+    factor(atpase_analysis_data$sample, levels = SAMPLE_DISPLAY_ORDER), ref = "4R"
+)
+atpase_analysis_data$timepoint_factor <- factor(
+    atpase_analysis_data$timepoint, levels = TIMEPOINTS
+)
+atpase_analysis_data$experiment_block <- factor(atpase_analysis_data$experiment_label)
+
+# (1) additive pooled model, reference = 4R
+pooled_additive_fit <- tryCatch(
+    nlme::lme(
+        fixed = percent_adp_corrected ~ sample_ref4R + timepoint_factor,
+        random = ~ 1 | experiment_block,
+        data = atpase_analysis_data,
+        method = "REML"
+    ),
+    error = function(e) e
+)
+
+pooled_contrast_rows <- data.frame()
+if (inherits(pooled_additive_fit, "lme")) {
+    pooled_ttable <- summary(pooled_additive_fit)$tTable
+    pooled_intervals <- tryCatch(
+        intervals(pooled_additive_fit, which = "fixed")$fixed,
+        error = function(e) NULL
+    )
+    coef_names <- rownames(pooled_ttable)
+    sample_coef_names <- coef_names[grepl("^sample_ref4R", coef_names)]
+    for (cn in sample_coef_names) {
+        lvl <- sub("^sample_ref4R", "", cn)
+        ci_l <- if (!is.null(pooled_intervals)) pooled_intervals[cn, "lower"] else NA_real_
+        ci_u <- if (!is.null(pooled_intervals)) pooled_intervals[cn, "upper"] else NA_real_
+        pooled_contrast_rows <- rbind(pooled_contrast_rows, data.frame(
+            contrast = paste0(lvl, "_minus_4R"),
+            level = lvl,
+            estimate_minus_4R = unname(pooled_ttable[cn, "Value"]),
+            ci_lower = ci_l,
+            ci_upper = ci_u,
+            std_error = unname(pooled_ttable[cn, "Std.Error"]),
+            df = unname(pooled_ttable[cn, "DF"]),
+            t_value = unname(pooled_ttable[cn, "t-value"]),
+            p_value = unname(pooled_ttable[cn, "p-value"]),
+            model = "lme percent_adp_corrected ~ sample + timepoint, ~1|experiment (REML); ref=4R; POOLED across timepoints",
+            interpretation = if (lvl == "WT") {
+                "WT elevation above 4R (pooled); NOT the floor-proximity claim"
+            } else {
+                "4R-floor-proximity (suppressor-4R pooled); near 0 with CI bracketing 0 supports 'near the 4R floor'"
+            },
+            converged = TRUE,
+            stringsAsFactors = FALSE
+        ))
+    }
+    message("Pooled additive lme CONVERGED. Suppressor-vs-4R pooled contrasts:")
+    print(pooled_contrast_rows[, c(
+        "contrast", "estimate_minus_4R", "ci_lower", "ci_upper", "p_value"
+    )])
+} else {
+    message("Pooled additive lme DID NOT CONVERGE: ",
+        conditionMessage(pooled_additive_fit))
+    pooled_contrast_rows <- data.frame(
+        contrast = "CONVERGENCE_FAILURE", level = NA_character_,
+        estimate_minus_4R = NA_real_, ci_lower = NA_real_, ci_upper = NA_real_,
+        std_error = NA_real_, df = NA_real_, t_value = NA_real_, p_value = NA_real_,
+        model = "lme percent_adp_corrected ~ sample + timepoint, ~1|experiment (REML); ref=4R",
+        interpretation = conditionMessage(pooled_additive_fit),
+        converged = FALSE, stringsAsFactors = FALSE
+    )
+}
+
+pooled_contrasts_csv_path <- file.path(
+    OUTPUT_DIRECTORY, "atpase_pooled_contrasts_vs_4R.csv"
+)
+if (!file.exists(pooled_contrasts_csv_path) || OVERWRITE_CSVS) {
+    write.csv(pooled_contrast_rows, pooled_contrasts_csv_path, row.names = FALSE)
+    message("Saved CSV: ", basename(pooled_contrasts_csv_path))
+}
+
+# (2) interaction model: divergence + sample main effect
+interaction_fit <- tryCatch(
+    nlme::lme(
+        fixed = percent_adp_corrected ~ sample_factor * timepoint_factor,
+        random = ~ 1 | experiment_block,
+        data = atpase_analysis_data,
+        method = "REML"
+    ),
+    error = function(e) e
+)
+
+interaction_anova_rows <- data.frame()
+if (inherits(interaction_fit, "lme")) {
+    interaction_anova <- anova(interaction_fit)
+    interaction_anova_rows <- data.frame(
+        term = rownames(interaction_anova),
+        numDF = interaction_anova[["numDF"]],
+        denDF = interaction_anova[["denDF"]],
+        F_value = interaction_anova[["F-value"]],
+        p_value = interaction_anova[["p-value"]],
+        model = "lme percent_adp_corrected ~ sample*timepoint, ~1|experiment (REML); sequential anova",
+        converged = TRUE,
+        stringsAsFactors = FALSE
+    )
+    message("Interaction lme CONVERGED. Sequential anova (divergence = sample:timepoint):")
+    print(interaction_anova_rows)
+} else {
+    message("Interaction lme DID NOT CONVERGE: ",
+        conditionMessage(interaction_fit))
+    interaction_anova_rows <- data.frame(
+        term = "CONVERGENCE_FAILURE", numDF = NA_real_, denDF = NA_real_,
+        F_value = NA_real_, p_value = NA_real_,
+        model = conditionMessage(interaction_fit), converged = FALSE,
+        stringsAsFactors = FALSE
+    )
+}
+
+interaction_anova_csv_path <- file.path(
+    OUTPUT_DIRECTORY, "atpase_interaction_anova.csv"
+)
+if (!file.exists(interaction_anova_csv_path) || OVERWRITE_CSVS) {
+    write.csv(interaction_anova_rows, interaction_anova_csv_path, row.names = FALSE)
+    message("Saved CSV: ", basename(interaction_anova_csv_path))
+}
+
+message("=== STATISTICAL ANALYSIS COMPLETE ===")
+
+# ==============================================================================
+# PLOTTING (legacy in-script timecourse; the ANNOTATED stats figure is produced
+# by 260411_orc4r-screen_plot-sofa-atpase.R, which reads the C18a CSV)
 # ==============================================================================
 message("=== PLOTTING ===")
 
