@@ -1,0 +1,85 @@
+STATISTICAL RESULTS FOR THE PAPER -- LOADING ASSAYS (real values from run output)
+Generated from: loading_350mm-all-suppressors_wt-contrasts.csv,
+loading_350mm-all-suppressors_effect-size-vs-orc4r.csv,
+loading_kglut-titration_per-salt-contrasts.csv,
+loading_kglut-titration_salt-interaction.csv
+All loading tests: paired t-test, block = replicate, n = 3 pairs unless noted.
+p-values are EXACT. Holm correction applied within the stated family only.
+--------------------------------------------------------------------------------
+
+TABLE 1. 350 mM all-suppressors -- non-restoration-to-WT (WT vs each group)
+Holm family = the 6 WT-contrasts within the single 350 mM condition.
+Estimate = WT - group, in % of WT loading.
+
+ contrast          estimate(WT-grp)  95% CI            raw p       Holm p     signif
+ WT vs ORC4R        94.2             [77.7, 110.7]     0.00165     0.00495    **
+ WT vs +1sofa       79.0             [48.7, 109.2]     0.00785     0.0132     *
+ WT vs +3sofa       91.5             [83.8,  99.2]     0.000381    0.00153    **
+ WT vs +4sofa       76.9             [49.9, 103.9]     0.00659     0.0132     *
+ WT vs +5sofa       96.2             [89.1, 103.3]     0.000294    0.00147    **
+ WT vs +6sofa       97.1             [90.9, 103.2]     0.000216    0.00130    **
+ --> ALL SIX significant after Holm. Every suppressor loads well below WT;
+     none is restored to WT level. (Wilcoxon companions all p = 0.25, the
+     n=3 paired floor -- decorative, not reported as evidence.)
+
+TABLE 2. 350 mM -- ordinary effect size vs ORC4R (suppressor - ORC4R)
+NOT a floor claim; reducers fall below ORC4R by design. % of WT loading.
+CIs are wide at n=3 -- point estimates directional, not individually resolved.
+
+ suppressor   estimate(grp-ORC4R)  95% CI              reading
+ +1sofa        +15.3               [-18.2, +48.7]      above ORC4R (restorer), CI spans 0
+ +3sofa         +2.7               [-18.7, +24.0]      ~ORC4R
+ +4sofa        +17.3               [-12.9, +47.5]      above ORC4R (restorer), CI spans 0
+ +5sofa         -2.0               [-15.0, +10.9]      below ORC4R (reducer)
+ +6sofa         -2.9               [-18.0, +12.3]      below ORC4R (reducer)
+ --> At 350 mM the restorer (+1, +4) vs ORC4R differences are directional but
+     NOT statistically resolved (CIs cross 0). Report as trend pending the
+     planned replicates. The kglut titration (Table 3) resolves +4sofa's
+     partial restoration more cleanly.
+
+TABLE 3. kglut titration -- per-salt paired contrasts (WT/ORC4R/+4sofa, n=3)
+Holm family = the 2 WT-contrasts within EACH salt (WT-vs-ORC4R, WT-vs-+4sofa).
+ORC4R-vs-+4sofa is outside the WT family (reported raw). % of WT within salt.
+
+ salt   contrast            diff(a-b)   95% CI            raw p      Holm p(within-salt)
+ 250    WT vs ORC4R          38.0       [10.8,  65.3]     0.0267     0.0533
+ 250    WT vs +4sofa         12.1       [-16.4, 40.6]     0.2095     0.2095
+ 250    ORC4R vs +4sofa     -25.9       [-32.3,-19.6]     0.00326    (raw; outside family)
+ 300    WT vs ORC4R          42.2       [-4.1,  88.5]     0.0593     0.1185
+ 300    WT vs +4sofa         17.7       [-23.1, 58.5]     0.2028     0.2028
+ 300    ORC4R vs +4sofa     -24.5       [-35.3,-13.6]     0.0105     (raw; outside family)
+ 350    WT vs ORC4R          81.2       [67.2,  95.2]     0.00160    0.00320
+ 350    WT vs +4sofa         57.0       [44.9,  69.1]     0.00242    0.00320
+ 350    ORC4R vs +4sofa     -24.2       [-44.5, -3.9]     0.0359     (raw; outside family)
+ --> WT vs ORC4R: significant at 350 (Holm 0.0032), borderline at 250
+     (Holm 0.053), n.s. at 300 (Holm 0.119) -- means clearly separated
+     (38-42 pts) but n=3 underpowered at 250/300.
+ --> ORC4R vs +4sofa significant at ALL THREE salts (0.003-0.036): +4sofa sits
+     reliably ABOVE ORC4R -- consistent partial restoration, the cleanest
+     +4sofa-restores evidence in the loading data.
+
+TABLE 4. kglut -- salt-sensitivity interaction (the reviewer's question)
+nlme: percent_wildtype_global_floored ~ genotype * salt, random = ~1|replicate.
+Computed on the GLOBAL baseline (WT@250mM) -- NOT per-kglut (where WT=100/salt
+by construction, which makes the interaction degenerate).
+The genotype:salt terms ARE the salt-sensitivity-of-the-gap result.
+
+ term                    estimate   95% CI            p        meaning
+ kglut300 (main)         -23.6      [-38.9, -8.4]     0.00472  WT itself falls at 300mM
+ kglut350 (main)         -56.9      [-72.2,-41.7]     6.5e-07  WT itself falls hard at 350mM
+ ORC4R:kglut300          +6.26      [-15.3, +27.9]    0.548    gap change 250->300: n.s.
+ ORC4R:kglut350          +3.01      [-18.6, +24.6]    0.772    gap change 250->350: n.s.
+ +4sofa:kglut350         -12.4      [-34.0,  +9.2]    0.241    n.s.
+ --> KEY RESULT: the ORC4R-vs-WT gap does NOT significantly change with salt
+     once measured on the global baseline (interaction p = 0.77 at 350mM). The
+     dramatic "ORC4R collapses at 350mM" on the per-kglut scale is largely WT
+     ITSELF declining (-56.9), inflating the ratio. ORC4R's relative deficit is
+     roughly CONSTANT across salt (~38-42%). Honest framing: no evidence for
+     differential salt sensitivity; central estimate near zero; wide CI at n=3
+     (do not claim proven equivalence).
+--------------------------------------------------------------------------------
+ATPase values: NOT YET AVAILABLE. Run the Thread-3 analyze script; it writes
+atpase_per_timepoint_wt_contrasts.csv, atpase_pooled_contrasts_vs_4R.csv,
+atpase_interaction_anova.csv. Paste those back and this table gets an ATPase
+section with real values.
+--------------------------------------------------------------------------------
