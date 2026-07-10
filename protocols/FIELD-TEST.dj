@@ -1,0 +1,119 @@
+{% Project document, not a lab protocol: excluded from lw glob (uppercase name). %}
+# Field-Test Plan and Deferred Backlog
+
+The system is built enough. This document exists to *stop* building for a while
+and instead run the system on real work, gather signal cheaply, and let evidence
+-- not speculation -- decide what gets built next. Everything below is
+deliberately low-effort; if maintaining this plan becomes a chore, that itself is
+a finding (the process is too heavy).
+
+Guiding rule: *do not build a deferred feature until its listed trigger actually
+fires.*
+
+- - -
+
+## Feedback gathering
+
+Keep it to one habit so it actually happens:
+
+- *Cross-cutting friction* (about the format, template, or workflow) -> append
+  one dated line to `FEEDBACK.log` at the repo root. Free-form. Example:
+  `2026-07-11  safety section feels redundant with the top hazard line on cold protocols`
+- *File-specific friction* (about one protocol) -> add a single-line
+  `{% FEEDBACK: ... %}` comment in that file (stripped on render, greppable).
+
+That is the whole system. Do not build a form or a tracker. Review the log at
+the cadence below.
+
+```
+grep -rn "FEEDBACK" *.dj FEEDBACK.log 2>/dev/null   # collect all feedback
+```
+
+## Usage tracking (cheap metrics only)
+
+Everything measurable from git and grep -- no instrumentation. Run occasionally,
+not obsessively:
+
+```
+ls *_*.dj | wc -l                                  # protocols authored
+grep -l "status=active"  *_*.dj | wc -l            # promoted to active
+grep -l "status=draft"   *_*.dj | wc -l            # still draft
+grep -rc "REVIEW" *.dj | grep -v ':0'              # files with open REVIEW flags
+git log --oneline --since="4 weeks ago" | wc -l    # activity
+```
+
+The single most informative number: *open REVIEW flags trending down* means
+conversions are being finished; flat or rising means the backlog is not being
+worked.
+
+## Trials to run
+
+Concrete, each produces a specific signal. Do the cheap ones first.
+
+| # | Trial | Signal it produces |
+|---|-------|--------------------|
+| T1 | Convert 5-10 representative legacy PDFs with `CONVERT_PROMPT.txt`; diff every quantity against the source | Conversion-prompt fidelity + failure modes; is REVIEW catching gaps or is it fabricating? |
+| T2 | Cold-follow: run one bench task from the rendered PDF only, no original at hand | Whether the format is actually usable at the bench, not just tidy on screen |
+| T3 | Fresh-machine render: clone elsewhere, `make` | Toolchain portability; validates the pandoc >= 3.1.8 assumption in the wild |
+| T4 | Author one `assays_*` protocol (a different family) | Does the skeleton and note-density generalize beyond preps? |
+| T5 | Adversarial input: feed the convert prompt deliberately garbled OCR | Does it flag-and-omit rather than invent? (the critical failure mode) |
+| T6 | `make share` a PDF to a labmate | Provenance stamp + readability for an outside reader |
+
+::: note
+T1 and T5 together are the real test of the conversion prompt. Spend review time
+diffing *numbers*, not prose -- a silent unit or quantity error is invisible and
+is the only kind that ruins an experiment.
+:::
+
+## Questions to answer with evidence
+
+Resolve these from use, not from more design discussion up front:
+
+- Does the `preps/assays/calculators/genetics` family taxonomy fit every
+  protocol, or do some feel forced? (signal: frequency of REVIEW on `family`)
+- Are the six admonition types the right set -- any consistently unused, any
+  repeatedly wanted? (signal: `grep -ho ':::[a-z ]*' *.dj | sort | uniq -c`)
+- Is Safety-after-Purpose working, or do cold protocols make it feel like
+  boilerplate?
+- Did removing the per-file djot legend confuse anyone editing source, now that
+  it lives only in the README?
+- Is the step + note density sustainable across ~180 files, or too heavy to
+  maintain?
+- Do you actually render and share, or mostly read source? (decides whether the
+  Makefile/CSS earn their keep)
+- Any real "which version did I use" confusion from git-only versioning (no
+  version in filenames)?
+- At what file count does the flat directory stop being comfortable in `ls`?
+
+## Deferred features (parked until trigger fires)
+
+| Feature | Build it when... | Notes |
+|---------|------------------|-------|
+| `make check` target + git pre-commit hook (uses `check-djot.mjs`) | you commit a malformed `.dj`, or start bulk conversion | cheapest to add; likely first to graduate |
+| `lw protocol` subcommand (list protocols, link to experiments) | >~20 active protocols AND you regularly hunt "which protocol for this experiment" | hooks (`{% lw: %}`, naming) already exist |
+| Compilation / includes for shared steps (Quarto `{{< include >}}`) | the same sub-method is duplicated in >~5 files and drifts | costs djot simplicity; only if duplication becomes real pain |
+| In-document PDF footer provenance stamp | you share PDFs externally often and filename stamps are not enough | filename stamp via `make share` covers most cases |
+| CI render / auto-publish HTML | several people consume rendered docs and manual `make` is a bottleneck | |
+| Cross-protocol index / tag search | >~50 protocols and `ls`/`grep` stop finding things fast | |
+| Swap xelatex -> typst | xelatex build time or dependency weight becomes annoying | one Makefile variable |
+| Metadata linter (enforce family/status/types vocab) | metadata drift observed across files | trivial once it matters |
+
+::: warning
+Resist building from this table because a feature is interesting. Each row has a
+trigger for a reason: the point of the field-test period is to find out which
+triggers actually fire. Most may not.
+:::
+
+## Review cadence and exit criteria
+
+Reconvene once, after whichever comes first: ~20 protocols authored, or ~1 month
+of real use. At that review:
+
+1. Read `FEEDBACK.log` and all `{% FEEDBACK %}` / `REVIEW` flags.
+2. Look at the usage metrics and the trial results.
+3. Answer as many of the open questions as the evidence allows.
+4. Only then, promote any deferred features whose triggers have fired -- and
+   note which triggers did not, so they stay parked.
+
+If little friction showed up, the correct outcome is to change nothing and keep
+using it.

@@ -1,0 +1,99 @@
+{% Project document, not a lab protocol: does not follow the protocol skeleton %}
+{% and is excluded from lw glob(uppercase name does not match <family>_*.dj). %}
+# Findings -- djot Format and Rendering
+
+Verified results from testing the protocol format and toolchain, kept for
+reference so future decisions rest on checked behavior rather than assumption.
+djot support is recent, so everything here was run rather than recalled. Re-check
+if you upgrade pandoc or the djot library.
+
+- - -
+
+## Toolchain tested
+
+| Tool | Version | Result |
+|------|---------|--------|
+| `@djot/djot` (reference impl, via npm) | 0.3.2 | all `.dj` files parse clean, zero warnings |
+| pandoc (in test container) | 3.1.3 | *cannot* read djot (too old) |
+
+- - -
+
+## Finding 1 -- pandoc needs >= 3.1.8 for djot
+
+pandoc 3.1.3 rejects `-f djot` with "Unknown input format djot"; djot support
+landed in pandoc 3.1.8. Check `pandoc --version`. If it is older, use Quarto's
+bundled pandoc without installing anything: `make PANDOC="quarto pandoc"`.
+
+::: note
+The `quarto pandoc` passthrough was not verifiable in the test environment (no
+Quarto there). Confirm on your machine with `quarto pandoc --version`. High
+confidence it exists, but it is unproven here.
+:::
+
+## Finding 2 -- djot comment syntax is strict (this shaped the design)
+
+- `{% ... %}` is a comment (stripped from output) *only on a single line*. A
+  multi-line `{% ... <newline> ... %}` is NOT recognized and renders literally.
+  This is why the `lw` metadata is one line and why REVIEW flags are single-line.
+- HTML comments `<!-- ... -->` are not a djot concept -- they render as literal
+  visible (escaped) text. Do not use them.
+- A single-line comment on its own line leaves no stray empty paragraph;
+  stacked comment lines also produce nothing. This is what makes invisible
+  metadata and REVIEW flags clean.
+- A literal `%}` inside a comment closes it early. Avoid `%}` in comment text.
+
+## Finding 3 -- local validator that works regardless of pandoc version
+
+Because your pandoc may be too old, the reliable local check is the djot
+reference implementation directly. The kit ships `check-djot.mjs`:
+
+```
+npm install @djot/djot      # once
+node check-djot.mjs *.dj    # OK / WARN / FAIL per file; exits non-zero on any FAIL
+```
+
+It catches mis-nested `:::` divs and broken tables that are easy to miss in raw
+source. Worth wiring into a `make check` target and a git pre-commit hook.
+
+## Finding 4 -- structural rendering confirmed
+
+Rendered HTML from the real protocol files:
+
+- `::: note` / `::: warning` / `::: safety` become `<div class="note">` etc., so
+  `protocol.css` styles them.
+- Pipe tables become real `<table>` elements.
+- Fenced code blocks carry `class="language-..."`.
+- Headings become `<section>`-wrapped with auto-generated IDs (usable anchors).
+- The `{% lw: %}` metadata line does not leak into output -- checked on all three
+  protocols.
+
+## Finding 5 -- djot applies smart typography at render time
+
+In rendered output, `--` becomes an en-dash and straight quotes become curly,
+even though the source is pure ASCII. So source files stay ASCII-clean (good for
+grep/diff), but rendered PDF/HTML will contain those non-ASCII glyphs. Normal and
+usually desirable for printed protocols. If you ever need the rendered output
+itself to be ASCII, that is a separate pandoc-level chase and probably not worth
+it.
+
+## Finding 6 -- what was NOT tested
+
+::: warning
+The PDF path is unverified end to end. The test environment had neither a
+djot-capable pandoc nor xelatex, so `make pdf`, `--pdf-engine=xelatex`, and the
+`make share` git-stamp were not run against a real build. The Makefile is correct
+in structure, but do a first `make pdf` and `make share` on your machine before
+trusting them in a batch. The HTML path and all djot parsing/structure are
+verified; the PDF engine layer is not.
+:::
+
+- - -
+
+## Standing caveats
+
+- Findings are pinned to djot 0.3.2 and the pandoc/Quarto behavior above. A
+  library or pandoc upgrade can change smart-typography, comment handling, or
+  section-wrapping. Re-run `check-djot.mjs` and a sample render after any upgrade.
+- Treat `check-djot.mjs` output as the source of truth for "is this valid djot",
+  not a successful pandoc render (pandoc may accept things the spec does not, or
+  vice versa across versions).
