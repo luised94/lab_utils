@@ -33,6 +33,11 @@ script detects the residue and says so rather than guessing.
 
 import argparse
 import datetime
+import os
+import pathlib
+import re
+import shutil
+import subprocess
 import sys
 
 # =============================================================================
@@ -40,6 +45,21 @@ import sys
 # =============================================================================
 
 OUTPUT_DIRECTORY_NAME_SUFFIX = "_gel_analysis"
+
+# Used only when wslpath is unavailable. /etc/wsl.conf can relocate the automount
+# root, so this is a fallback and not an assumption.
+WINDOWS_DRIVE_MOUNT_ROOT_FALLBACK = "/mnt/"
+WSL_CONFIGURATION_FILE_PATH = "/etc/wsl.conf"
+
+# Drive letter followed by a separator: a real Windows absolute path.
+WINDOWS_DRIVE_ABSOLUTE_PATH_PATTERN = re.compile(r"^([A-Za-z]):[/\\]")
+
+# Drive letter NOT followed by a separator. Either the drive-relative form
+# "C:file.img", which has no WSL equivalent, or far more often the residue of an
+# unquoted Windows path whose backslashes the shell consumed.
+WINDOWS_DRIVE_RELATIVE_PATH_PATTERN = re.compile(r"^([A-Za-z]):(?![/\\])")
+
+SURROUNDING_QUOTE_CHARACTERS = ('"', "'")
 
 # =============================================================================
 # The two permitted helpers (CONVENTIONS.md section 1)
@@ -117,5 +137,203 @@ if parsed_arguments.output_parent_directory is not None:
         "output parent directory as given: " + repr(parsed_arguments.output_parent_directory),
     )
 
-emit_message("stage 0", "argument handling complete")
+
+# =============================================================================
+# Path normalization
+# =============================================================================
+
+# Both supplied paths get identical treatment. This is a two-element loop rather
+# than a function because CONVENTIONS.md section 1 permits no third helper, and a
+# loop over plain data is inline logic rather than an abstraction.
+path_normalization_inputs = [("input_image_path", parsed_arguments.input_image_path)]
+if parsed_arguments.output_parent_directory is not None:
+    path_normalization_inputs.append(
+        ("output_parent_directory", parsed_arguments.output_parent_directory)
+    )
+
+normalized_paths_by_role = {}
+
+for path_role_name, raw_path_text in path_normalization_inputs:
+    working_path_text = raw_path_text
+
+    # A pasted path routinely carries a trailing newline or a stray space. The
+    # cost of stripping is that a file genuinely named with a leading or
+    # trailing space becomes unaddressable. Accepted: the paste case happens
+    # every session, the named-with-space case has not happened here.
+    whitespace_stripped_path_text = working_path_text.strip(" \t\r\n")
+    if whitespace_stripped_path_text != working_path_text:
+        emit_message(path_role_name, "stripped surrounding whitespace from the supplied path")
+        working_path_text = whitespace_stripped_path_text
+    if working_path_text == "":
+        die(path_role_name, "path is empty after stripping surrounding whitespace")
+
+    # Windows Explorer "Copy as path" produces a double-quoted string, and it
+    # gets pasted verbatim inside another pair of shell quotes.
+    for quote_character in SURROUNDING_QUOTE_CHARACTERS:
+        if (
+            len(working_path_text) >= 2
+            and working_path_text.startswith(quote_character)
+            and working_path_text.endswith(quote_character)
+        ):
+            emit_message(
+                path_role_name,
+                "removed a surrounding pair of " + quote_character + " characters",
+            )
+            working_path_text = working_path_text[1:-1]
+            break
+    if working_path_text == "":
+        die(path_role_name, "path is empty after removing surrounding quotes")
+
+    # This check exists because it is the single most common way this script will
+    # be invoked wrongly, and the failure is otherwise unintelligible: bash turns
+    # C:\Users\liusm\scan.img into C:Usersliusmscan.img before argv is built. The
+    # information is gone, so the only correct response is to name the cause.
+    if WINDOWS_DRIVE_RELATIVE_PATH_PATTERN.match(working_path_text) is not None:
+        die(
+            path_role_name,
+            "the path " + repr(working_path_text) + " has a drive letter but no "
+            "separator after it. Backslash is the shell escape character, so an "
+            "unquoted Windows path arrives with its separators already deleted and "
+            "cannot be reconstructed. Re-run with the path inside single quotes. "
+            "If you really meant the Windows drive-relative form C:name, that has "
+            "no WSL equivalent; supply a full path.",
+        )
+
+    # A UNC share has no general mapping to a WSL path. Guessing produces a path
+    # that does not exist, and the resulting error blames the wrong thing.
+    if working_path_text.startswith("\\\\"):
+        die(
+            path_role_name,
+            "UNC path " + repr(working_path_text) + " is not supported. Map the share "
+            "to a drive letter, or supply the /mnt path directly.",
+        )
+
+    windows_drive_match = WINDOWS_DRIVE_ABSOLUTE_PATH_PATTERN.match(working_path_text)
+    if windows_drive_match is not None:
+        wslpath_executable_path = shutil.which("wslpath")
+        if wslpath_executable_path is not None:
+            # wslpath reads the live automount configuration. A string transform
+            # only guesses it, so prefer the authority whenever it is present.
+            wslpath_result = subprocess.run(
+                [wslpath_executable_path, "-u", "-a", working_path_text],
+                capture_output=True,
+                text=True,
+            )
+            if wslpath_result.returncode != 0:
+                die(
+                    path_role_name,
+                    "wslpath refused to convert " + repr(working_path_text) + ": "
+                    + wslpath_result.stderr.strip(),
+                )
+            converted_path_text = wslpath_result.stdout.strip("\n")
+            if converted_path_text == "":
+                die(path_role_name, "wslpath returned an empty conversion for " + repr(working_path_text))
+            emit_message(
+                path_role_name,
+                "converted Windows path via wslpath to " + converted_path_text,
+            )
+            working_path_text = converted_path_text
+        else:
+            windows_drive_letter = windows_drive_match.group(1).lower()
+            windows_drive_mount_root = WINDOWS_DRIVE_MOUNT_ROOT_FALLBACK
+            # [automount] root = / is a common change, and hardcoding /mnt/ there
+            # produces a path that silently does not exist.
+            try:
+                wsl_configuration_text = pathlib.Path(WSL_CONFIGURATION_FILE_PATH).read_text()
+            except OSError:
+                wsl_configuration_text = ""
+            inside_automount_section = False
+            for wsl_configuration_line in wsl_configuration_text.splitlines():
+                stripped_configuration_line = wsl_configuration_line.strip()
+                if stripped_configuration_line.startswith("["):
+                    inside_automount_section = stripped_configuration_line.lower() == "[automount]"
+                    continue
+                if inside_automount_section and "=" in stripped_configuration_line:
+                    configuration_key, configuration_value = stripped_configuration_line.split("=", 1)
+                    if configuration_key.strip().lower() == "root":
+                        windows_drive_mount_root = configuration_value.strip()
+                        if not windows_drive_mount_root.endswith("/"):
+                            windows_drive_mount_root = windows_drive_mount_root + "/"
+            path_remainder_after_drive = working_path_text[len(windows_drive_match.group(0)):]
+            converted_path_text = (
+                windows_drive_mount_root
+                + windows_drive_letter
+                + "/"
+                + path_remainder_after_drive.replace("\\", "/")
+            )
+            emit_message(
+                path_role_name,
+                "wslpath is unavailable; converted Windows path by string transform "
+                "using mount root " + windows_drive_mount_root + " to " + converted_path_text,
+            )
+            working_path_text = converted_path_text
+
+    # expanduser only touches a leading tilde, so a file named ~backup elsewhere
+    # in the path is untouched. A file named ~backup in the leading position
+    # would be misread; accepted, since the tilde only survives to argv when the
+    # user quoted it deliberately.
+    if working_path_text.startswith("~"):
+        try:
+            tilde_expanded_path_text = os.path.expanduser(working_path_text)
+        except RuntimeError as tilde_expansion_error:
+            die(path_role_name, "cannot expand the leading tilde: " + str(tilde_expansion_error))
+        if tilde_expanded_path_text == working_path_text:
+            die(
+                path_role_name,
+                "the leading tilde in " + repr(working_path_text) + " did not expand; "
+                "the named user probably does not exist on this machine.",
+            )
+        emit_message(path_role_name, "expanded leading tilde to " + tilde_expanded_path_text)
+        working_path_text = tilde_expanded_path_text
+
+    if not pathlib.Path(working_path_text).is_absolute():
+        emit_message(
+            path_role_name,
+            "path is relative and was resolved against the current working directory "
+            + os.getcwd(),
+        )
+
+    # Two absolute forms, both kept and both reported. abspath normalizes ".."
+    # lexically and preserves symlinks; resolve() follows them to the physical
+    # target. DESIGN.md section 3 clones test files to a local working location
+    # specifically to avoid touching the synced Dropbox tree, so collapsing to
+    # the physical target and forgetting the given form would defeat that.
+    lexically_absolute_path = pathlib.Path(os.path.abspath(working_path_text))
+    symlink_resolved_absolute_path = pathlib.Path(working_path_text).resolve()
+    if symlink_resolved_absolute_path != lexically_absolute_path:
+        emit_message(
+            path_role_name,
+            "path traverses a symlink or a ..-through-symlink: given form "
+            + str(lexically_absolute_path)
+            + " resolves to physical form "
+            + str(symlink_resolved_absolute_path),
+        )
+
+    # stdout is a tab separated report, so a tab or newline in a path would
+    # corrupt it. Both are legal in POSIX filenames, so this is checked rather
+    # than assumed away.
+    for forbidden_character_name, forbidden_character in (("tab", "\t"), ("newline", "\n")):
+        if forbidden_character in str(lexically_absolute_path):
+            die(
+                path_role_name,
+                "path contains a literal " + forbidden_character_name + ", which cannot "
+                "be represented in the tab separated report written to stdout.",
+            )
+
+    if not str(lexically_absolute_path).isascii():
+        emit_message(
+            path_role_name,
+            "WARNING: path contains non-ASCII characters. CONVENTIONS.md section 4 "
+            "requires ASCII filenames, and the output directory name derived from "
+            "this stem will inherit them.",
+        )
+
+    normalized_paths_by_role[path_role_name] = {
+        "raw_path_text": raw_path_text,
+        "lexically_absolute_path": lexically_absolute_path,
+        "symlink_resolved_absolute_path": symlink_resolved_absolute_path,
+    }
+    emit_message(path_role_name, "normalized to " + str(lexically_absolute_path))
+
+emit_message("stage 0", "path normalization complete")
 sys.exit(0)
