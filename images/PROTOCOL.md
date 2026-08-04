@@ -6,33 +6,33 @@ design.
 
 Run every command from `~/personal_repos/lab_utils/images`.
 
-**Quote every path with single quotes.** Real filenames contain spaces, commas and
-square brackets, and square brackets are glob metacharacters in bash.
+**Quote every path with single quotes.** Real filenames contain spaces, commas,
+square brackets, and characters like `& ; | ( ) $ ` `` ` `` `! * ? # ~`. Single
+quotes neutralize all of them. Note that inside *double* quotes an interactive
+bash still history-expands `!`, which is one more reason to use single quotes.
 
 ---
 
-## 0. The one thing that will catch you out
+## 0. The two things that will catch you out
 
-**The image opens upside down.** The scan origin is bottom-left, so row 0 of the
-file is the physical bottom of the gel, and Fiji draws row 0 at the top of the
-window. On screen the gel is mirrored vertically, which means:
+The image is mirrored top-to-bottom on screen. The scan origin is bottom-left, so
+file row 0 is the physical bottom of the gel, and Fiji draws row 0 at the top of
+the window. You do not correct for this: measure the image exactly as it opens,
+and the pipeline flips it later.
 
-> **The wells appear at the BOTTOM of the Fiji window, not the top.**
+Identify the orientation by eye before measuring. Find the wells (the loading
+points); migration runs away from them. If the wells run down the left or right
+edge and bands march sideways, the migration axis is horizontal; if the wells run
+across the top or bottom and bands march up or down, it is vertical. Record this
+in `gel_migration_axis`. Do not assume: gels get imaged both ways, and the wells
+are only faintly visible, so if the thick cast edge of the cassette is clearer,
+use it to fix the axis and confirm with the wells.
 
-Everything you measure for the sidecar is measured in this as-opened frame. Do not
-flip it, do not rotate it, do not save it. The pipeline handles the flip.
-
-Use this as a free check on the metadata: whichever end of the window the wells
-are at tells you the row order directly, without trusting any tag. If the wells
-are at the top instead, the file is not what the pipeline believes it is. Stop and
-say so.
-
-Second thing, less dangerous but confusing: Fiji renders these files with an
-inverting lookup table, because the TIFF declares `PhotometricInterpretation =
-MINISWHITE`. Bands look dark on light in Fiji. Every image this pipeline emits
-uses a matching reversed colormap, so the two agree. If you ever see an image from
-this pipeline with bright bands on a dark field, something is wrong with the
-pipeline, not with your file.
+Second, less dangerous: Fiji renders these files through an inverting lookup
+table, because the TIFF declares `PhotometricInterpretation = MINISWHITE`. Bands
+look dark on a light field. Every image this pipeline emits uses a matching
+reversed colormap, so the two agree. Bright bands on a dark field from this
+pipeline mean something is wrong with the pipeline, not your file.
 
 ---
 
@@ -52,6 +52,22 @@ everything that differs is read from the file's own tags. Pixel size is 200
 micrometres on the Typhoon and 79.9 on the Imager 680, and nothing anywhere
 assumes either.
 
+To list the `.tif` files in an experiment directory with full, space-safe paths:
+
+```
+printf '%s\n' "$(pwd)"/*.tif
+```
+
+Two gotchas. If no `.tif` matches, bash prints the literal pattern `.../*.tif`
+rather than nothing, so an empty directory is obvious but looks odd. And the
+printed paths still need single-quoting when you paste them back into a command.
+To capture one path in a variable that survives a `cd`, quote it once at
+assignment:
+
+```
+GEL="$(pwd)/<name>.tif"; ls -la "$GEL"
+```
+
 ---
 
 ## 2. Inventory the tags, once per new instrument or new file type
@@ -60,7 +76,7 @@ Reports everything, interprets nothing, validates nothing. Run it when you meet 
 file type for the first time, or when something looks wrong.
 
 ```
-uv run inventory_tiff_tags.py '/mnt/c/Users/liusm/MIT Dropbox/Luis Martinez/lab-backup/experiments/<experiment>/<scan>.tif'
+uv run inventory_tiff_tags.py '<experiment directory>/<scan>.tif'
 ```
 
 stdout is the inventory and stderr is the commentary, so this redirects cleanly:
@@ -92,72 +108,51 @@ The parent directory must already exist. Only the leaf is created, so a typo in
 
 ## 4. Measure the sidecar in Fiji
 
-Once per scan. This is the only manual step.
+Once per scan, the only manual step. Copy the template to `<stem>_preprocess.txt`
+next to the `.tif` first. Open the `.tif` in Fiji (drag and drop). Do NOT adjust
+brightness/contrast and Apply, convert to 8-bit, rotate, or save; any of those
+destroys data or discards tags.
 
-1. Copy the template:
+Do these in order. The order matters: the line macro in step 4 only works while a
+line is the active selection, so the rectangle must come after it.
+
+1. **Preflight, once per session.** `Analyze > Set Measurements`: tick "Bounding
+   rectangle" (so Measure reports BX, BY, Width, Height), and confirm "Invert Y
+   coordinates" is UNTICKED. If it is ticked, every y you record is silently
+   mirrored. Confirm the origin is 0,0.
+
+2. **Record identity.** Fill `measured_against_input_filename` (filename only),
+   `measured_against_image_width_pixels` and `_height_pixels` (from
+   `Image > Properties` or the title bar), `gel_migration_axis` (from section 0),
+   and `coordinate_unit` (see the template's how-to-tell note).
+
+3. **Draw the landmark line.** Use the well line if you can see it, else the
+   cassette cast edge. With the straight-line tool, draw from one far end to the
+   other, as far apart as possible. Do NOT hold Shift: it snaps the line
+   perfectly straight, forcing the sideways drift to zero and reporting a tilt of
+   exactly zero that looks like success but has destroyed the measurement. Zoom to
+   100% at each end before placing the point.
+
+4. **Measure and capture the line.** `Ctrl+M`, and record the `Angle` value (an
+   independent cross-check on the tilt sign). Then, with the line still selected,
+   `Plugins > New > Macro`, paste and run (`Ctrl+R`):
 
    ```
-   cp preprocess_sidecar_template.txt '/mnt/c/.../<stem>_preprocess.txt'
+   getLine(x1, y1, x2, y2, w); print(x1+", "+y1+", "+x2+", "+y2);
    ```
 
-2. Open the `.tif` in Fiji. Drag and drop is fine. **Do not** adjust
-   brightness/contrast and press Apply, **do not** convert to 8-bit, **do not**
-   rotate, **do not** save. Any of those either destroys the data or discards the
-   tags. Fiji is being used here purely as a ruler.
+   `getLine` returns the endpoints in raw pixels regardless of any centimetre
+   calibration. Record them as `landmark_a` and `landmark_b`, and note in
+   `rotation_landmark_description` what you clicked and which end is a.
 
-3. Read the dimensions from `Image > Properties` and fill in
-   `measured_against_image_width_pixels` and
-   `measured_against_image_height_pixels`. Fill in
-   `measured_against_input_filename` with the filename only, no directory.
+5. **Draw the crop rectangle and `Ctrl+M`.** Follow the crop rule in the template:
+   contain every band plus 20 to 50 px of clean gel on all four sides; do not clip
+   a band or its flanking gel; include or exclude the pure well strip per that
+   rule. Glance at the reported Max: below 65535 means no saturated
+   (ceiling-clipped) pixel is inside the crop.
 
-4. **Landmarks for the tilt.** Find something that should be level on the
-   physical gel: the line of wells is usually best, or a band shared by the
-   outermost lanes. Hover over the leftmost instance and read `x=..., y=...` from
-   the status bar; record it as the `left` pair. Hover over the rightmost
-   instance and record it as the `right` pair.
-
-   **Choose the two points as far apart as possible.** The angle is derived from
-   them, so the span sets the precision:
-
-   | Span between landmarks | Uncertainty from a 1 px click error |
-   |---|---|
-   | 400 px | 0.14 degrees |
-   | 800 px | 0.07 degrees |
-   | 1000 px | 0.06 degrees |
-
-   For scale, on a 1125 px wide image a residual tilt of 0.5 degrees shifts a
-   band by about 10 px end to end, which is a full band height at 200
-   micrometres per pixel. 0.1 degrees shifts it by 2 px, which does not matter.
-
-   Write down what you clicked in `rotation_landmark_description`. It is the only
-   record.
-
-5. **Crop box.** Drag a rectangle with the rectangle tool and read `x`, `y`, `w`,
-   `h` from the status bar.
-
-   The crop is **not** a measurement boundary and does not need to be precise. Be
-   generous. Exclude:
-
-   - the wells, which are a near-saturated step artifact that a rolling-ball
-     baseline treats as a giant feature, bleeding the correction into your
-     topmost real band. Remember they are at the **bottom** of the window.
-   - everything outside the gel edge, which is plate background: a different
-     pixel population that skews the histogram, the inferred floor and the
-     baseline.
-
-   Keep a margin of clean gel, roughly 20 to 50 px, outside the outermost lanes
-   and beyond the topmost and bottommost bands. The baseline needs somewhere to
-   be measured. A generous crop costs a slightly slower run; a tight one biases
-   every baseline in the image.
-
-   The pipeline crops first and rotates second, and rotation leaves small blank
-   wedges in the corners, about `(width / 2) * tan(angle)`. On a 910 px crop at 1
-   degree that is 8 px. Your margin absorbs it, which is one more reason for the
-   margin.
-
-6. Fill in `expected_lane_count`, counting empty lanes.
-
-7. Save the file. Leave `notes` empty if you have nothing to say.
+6. **Finish.** Fill `expected_lane_count` (empty lanes included), save, leave
+   `notes` empty if you have nothing to add.
 
 ---
 
@@ -209,3 +204,35 @@ derived from your landmarks and does not attempt to find the tilt itself.
 only. Per-band saturation and the plateau statistic come later, and the plateau
 statistic is the primary detector because the instrument can saturate below the
 numeric ceiling.
+
+---
+
+## Appendix. Quick tests in Fiji
+
+Cheap checks that each catch one specific silent failure. None of them alter the
+file.
+
+**Saturation-location test.** `Image > Adjust > Threshold` (`Ctrl+Shift+T`). Drag
+the lower slider up to 65535 and leave the upper at 65535, so only ceiling pixels
+(the maximum a 16-bit pixel can hold) are highlighted in red. Do NOT press Apply.
+Look at where the red sits: if any is inside your crop, those lanes are
+saturated and their numbers are compromised; if it is all outside, the measured
+lanes are clean. This is the direct test of whether at-ceiling pixels touch your
+measurement region.
+
+**Whole-image read.** `Ctrl+Shift+A` to deselect, `Ctrl+A` to select all, `Ctrl+M`.
+The Min, Max and Mean now describe every pixel. On these gels the majority
+population is bare plate, so the image-wide mode and median describe the plate,
+not the gel; the gel's own statistics come from inside the crop.
+
+**Exact line endpoints.** With a line selected, `Plugins > New > Macro`, run
+`getLine(x1,y1,x2,y2,w); print(x1+", "+y1+", "+x2+", "+y2);`. Returns raw pixels
+with no centimetre rounding. If it prints `-1, -1, -1, -1`, a line is not the
+active selection (you probably measured a rectangle after the line); redraw the
+line and run it again.
+
+**Centimetre-versus-pixel check.** Hover any pixel and read the status bar. A
+value in parentheses, like `x=3.80 (476)`, means the image is calibrated: the
+leading number is centimetres, the parenthesised number is the pixel. A bare
+integer means you are already in pixels. This decides `coordinate_unit` and
+prevents recording centimetres into a field read as pixels.
