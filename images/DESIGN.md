@@ -1140,3 +1140,210 @@ not needed. `sed -n '1,9p' | cat -A` on the real file settles it in one command.
   positional block is not. Anything obtainable from the key-value block or from the
   TIFF tags should be taken from there, and the positional block used only for what
   is available nowhere else.
+
+---
+
+## 13. Verification log for stage 1
+
+Appended during stage 1. Same convention as sections 9 to 12: findings that
+contradict the text above are recorded here rather than by editing the original
+prose, so the design conversation stays legible as a record.
+
+### Section 12's byte arithmetic did not close. Corrected.
+
+Section 12 concluded that "exactly one line, of exactly four characters, was
+omitted from the transcription". The real file's first nine lines show the omitted
+line is **blank**, at position 3:
+
+```
+1: FLA_IMAGE_FILE
+2: 20220303-114817-[Phosphor].img
+3: (empty)
+4: 200
+```
+
+A blank CRLF line costs 2 bytes, not 6. Re-deriving:
+
+```
+transcribed 56 lines, CRLF, trailing newline : 1,164 bytes
+real filesize                                : 1,170 bytes
+unaccounted                                  :     6 bytes
+one blank line at position 3                 :    -2 bytes
+still unaccounted                            :     4 bytes
+```
+
+Three blank lines in total would close it exactly. **Two blank lines remain
+unlocated and the question is being left open by decision**, because nothing reads
+the `.inf` positional block for a decision any more. A reconstruction with one
+blank line was built as a test fixture and comes to 1,166 bytes, four short of the
+real file, which is consistent.
+
+The off-by-one itself is confirmed and now explained: everything from position 3
+onward shifts by one, which is why `875` and `1` land on lines 8 and 9.
+
+### The .inf is demoted from validation target to provenance
+
+Decision, not a discovery. The `.tif` carries dimensions, bits per sample, pixel
+size, timestamp and orientation authoritatively, so nothing in the `.inf` is read
+for a decision. This retires three defects at once rather than fixing them
+individually:
+
+- section 2's positional indices are off by one from position 3 onward
+- section 12's byte arithmetic does not close, per the above
+- **section 6's "Line 14 count matches the actual number of key-value lines" is
+  broken on real files, and this had not been noticed.** In the transcription `42`
+  is on line 14; with the blank line restored it is on line 15. Section 9 verified
+  the check against the transcription and passed it, which is exactly how the
+  defect survived. Same class as the CRLF magic-string bug and not caught with it.
+
+**Cost, named and accepted:** a corrupt `.inf` is no longer detected. Acceptable
+because nothing consumes it for a decision.
+
+What survives the demotion: the magic string, the keyed-line count located
+relative to the first keyed line rather than by index, and the timestamp
+cross-check. The timestamps live in the positional block, so the demotion would
+have lost section 6's whole-hours check; both are instead located by regular
+expression, which is immune to an inserted line. Verified against a fixture whose
+epoch was deliberately skewed by four seconds: the check fires.
+
+### Section 6's TIFF checks, reconciled against real tag dumps
+
+Both instruments' files were dumped with `inventory_tiff_tags.py`. Every section 6
+TIFF hard stop passes on both, and the two files differ in ways that make several
+of section 6's assumptions load-bearing rather than decorative:
+
+| | Amersham Typhoon | Amersham Imager 680 |
+|---|---|---|
+| dimensions | 1125 x 875 (repeat 2 is 1250 x 750) | 2048 x 2816 |
+| pixel size | 200 micrometres | 79.9 micrometres |
+| `XResolution` | (10000, 200) = 50 px/cm | (100000, 799) = 125.1564 px/cm |
+| photometric | MINISWHITE | MINISWHITE |
+| private tags 65000+ | none | none |
+| `.inf` sidecar | present | never |
+
+**Repeat 2 has different dimensions from repeats 1 and 3.** `1875000 = 1250 * 750 *
+2` against `1968750 = 1125 * 875 * 2`. Anything hardcoded from repeat 1 breaks
+silently on the second of three files. This is the strongest available argument for
+CONVENTIONS.md section 10's rule that millimetre config values convert through the
+pixel size read from the input's own header.
+
+### Section 11's orientation rule is satisfiable after all, from ImageDescription
+
+Section 11 required orientation to come from the TIFF rather than from
+`S,Orientation`, and made disagreement a hard stop. **TIFF tag 274 is absent from
+both instruments' files**, so as literally written the rule cannot execute. But the
+`.tif` states its own orientation inside `ImageDescription` as
+`Orientation=bottom-left`, agreeing with the `.inf`. The read path is therefore
+self-describing and the hard stop has something to compare. Stage 1 collects every
+orientation statement available from tag 274, from `ImageDescription` and from the
+`.inf`, and fails when they disagree.
+
+**Free empirical check that beats all three sources**, now in `PROTOCOL.md`: row 0
+is the physical bottom of the gel, and Fiji draws row 0 at the top, so the wells
+appear at the **bottom** of the window. Whichever end has the wells settles row
+order without trusting any metadata.
+
+### Section 2's polarity, resolved and previously understated
+
+`PhotometricInterpretation` is MINISWHITE on both instruments, which section 2 does
+not mention. Combined with `S,Invert=Off` and a background near 2,800 counts, high
+stored value is more signal, bands render dark on a light field, and integration
+needs no sign flip. Stage 1 infers the direction from the histogram and
+cross-checks it against the tag; verified against a MINISBLACK fixture, where the
+cross-check correctly disagrees.
+
+**Consequence not previously recorded:** Fiji applies an inverting lookup table to
+MINISWHITE files. Anyone comparing Fiji against a default-colormap render concludes
+the pipeline inverted the image. Every figure this pipeline emits uses `gray_r`.
+
+**Section 11's "ImageJ comparability question is closed, favourably" is
+overstated.** It closed the linearity half. Whether historical measurements were
+taken on displayed-inverted values is a separate question, and the user reports
+opening the files by drag and drop, so it is unknown. Resolution is empirical and
+costs one comparison: run a band already measured by hand through the pipeline. Not
+worth investigating before there is a number to compare.
+
+### Section 10's three-way scatter does not decide the encoding question
+
+Section 10 says the pixel-for-pixel scatter "decides the entire question". It does
+not. It shows that two containers differ by some transform; it cannot show which is
+linear in signal, because neither is a calibrated reference. It reaches "decides"
+only by tacitly accepting `.tif` as ground truth, which is the thing in question.
+
+**The scatter is therefore deferred, and stage 1 is no longer blocking.** What
+would settle linearity is a dilution series or a known-dose standard. Stage 1
+records `encoding_verified: false`, the vendor claim, `H,ScaleType` and
+`H,SignalProcess2` verbatim when a `.inf` exists, and the named consequence: every
+ratio compressed toward 1, with nothing in the pipeline noticing.
+
+For the Amersham Imager 680 the position is much stronger. A CCD cooled to -25 C is
+linear in photons by construction and no source claims a transform. **But its files
+record an exposure time**, so two fluorescence images are comparable only after
+dividing by it. Stage 1 extracts and records the exposure.
+
+### Section 5.12's ceiling inference, implemented and tested
+
+Stride over the present values, verified against a fixture whose values were
+right-shifted and left-shifted by 4 bits: stride 16 is detected, 12 effective bits
+inferred, ceiling reported as 65520 rather than 65535.
+
+Saturation is detected as an anomalous spike at the maximum rather than as equality
+with any particular number, since the instrument can saturate below the numeric
+ceiling. Verified against a fixture clipped at 6000 of a possible 65535, where the
+at-container-maximum count is zero and the spike is caught anyway.
+
+### Section 6's lane tilt estimate is deferred to the grid fit
+
+The only section 6 item that is neither reading a tag nor computing a moment, and
+the grid fit needs the angle regardless. Stage 1 reports the angle derived from the
+operator's two landmark points and does not attempt to find the tilt itself. The
+field is present in the report as `estimated_lane_tilt_angle_degrees: null` so its
+absence is explicit.
+
+### Rotation and crop are supplied by the operator, as landmarks rather than angles
+
+Decision. Removes sections 5.7 and 5.8 from the critical path. See
+`preprocess_sidecar_template.txt`, which is the authority for the key list, and
+`PROTOCOL.md` section 4.
+
+Two landmark points are recorded and the angle derived, because a typed angle is
+unauditable while clicked points can be drawn back onto the preview. Precision
+follows from the span: a 1 px click error over 800 px is 0.072 degrees, against 0.5
+degrees being enough to walk a band a full band height across a 1125 px image.
+
+**Sign convention, stated once so nothing re-derives it:** landmarks are in Fiji's
+frame, where y increases downward, so a positive derived angle means the right-hand
+landmark sits lower on screen and levelling requires rotating by its negative.
+**Whatever applies the rotation must transform the two landmarks by the same
+rotation and assert the re-derived angle is near zero.** Both Fiji's downward y and
+the rotation library's convention invert the sign, and the failure mode is a
+doubled tilt that still looks roughly straight.
+
+**Order of operations:** crop first, then rotate, both measured in the raw
+as-opened frame. Rotation leaves blank corner wedges of about
+`(width / 2) * tan(angle)`, which is 8 px on a 910 px crop at 1 degree, absorbed by
+the crop margin. Interpolation must be bilinear rather than the default cubic,
+because spline overshoot manufactures values above the ceiling and below the floor,
+corrupting exactly the at-ceiling statistics 5.12 depends on. Saturation statistics
+must therefore be computed before any rotation.
+
+### What stage 1 could not verify, and what remains open
+
+Verified only against synthetic TIFFs built to imitate both instruments' tag sets.
+Pixel values are invented. Nothing here is instrument output.
+
+Untestable in the development container, which runs as root: every
+`PermissionError` branch. DrvFs behaviour likewise.
+
+Still open:
+
+- Two blank lines in the `.inf`, unlocated, deliberately not chased.
+- Whether the Typhoon `.tif` values are linear in signal. Requires a dilution
+  series.
+- Which container was opened in ImageJ historically, and whether Fiji's inverting
+  LUT affected the recorded values.
+- `S,RangeLow=2` / `S,RangeHigh=258`. Recorded verbatim, interpreted not at all. A
+  distinct-value count over the whole array now exists in the report and would show
+  a few hundred levels if the `.tif` were a display mapping of that window; on
+  synthetic data it reports thousands, so the test works but has not been run on a
+  real file.
