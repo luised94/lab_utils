@@ -754,3 +754,59 @@ directories, aggregate. Sensitivity analysis.
 - Per-lane vertical offset tracking for smiling
 - OD transform for transmitted-light stains
 - Multi-page TIFF handling
+
+---
+
+## 9. Verification log
+
+Appended during stage 0. Section 2 was re-derived rather than trusted. Findings
+that contradict the text above are recorded here rather than by editing the
+original prose, so the design conversation stays legible as a record.
+
+### Section 2 arithmetic: all of it holds
+
+- `1125 * 875 * 2 = 1,968,750` exactly equals the stated `.img` filesize.
+- Line 14 declares `42`; there are exactly 42 following lines, all matching
+  `^[SH],key=value`, 21 with each prefix, no duplicate keys.
+- Epoch `1646326296` is `Thu Mar 03 16:51:36 2022 UTC`, which is
+  `11:51:36` at UTC-5, matching the stated human-readable value.
+- Container overheads (+1,427 and +2,607), repeat 2 pixel count, 225 x 175 mm,
+  25 px per 5 mm lane, 10 px per 2 mm band, and the float64 footprint all hold.
+
+### Corrections to section 2
+
+- **Width and height are not confirmed by arithmetic.** `1125 * 875` and
+  `875 * 1125` give the same filesize, so the arithmetic constrains the product
+  only. Lines 6 and 7 are labelled "High, confirmed by arithmetic"; the
+  confirmation does not exist. Reshaping with the axes swapped produces a
+  diagonally sheared image, not an error. Stage 1 must reshape both ways and
+  decide by eye.
+- **The timestamp cross-check is not offset-free.** Agreement required assuming
+  UTC-5. Any scan taken between the second Sunday in March and the first Sunday
+  in November is UTC-4, so a hardcoded offset makes the section 6 hard stop fire
+  on correct files. Assert instead that minutes and seconds match exactly and
+  that the hour difference is a whole number of hours.
+- **The transcribed `.inf` does not reconcile with its stated 1,170 bytes.**
+  Reconstructing the 56 transcribed lines gives 1,108 bytes with LF endings and
+  1,164 with CRLF. CRLF plus 6 unaccounted bytes is the closest fit, which is
+  consistent with a Windows-authored file plus something small not transcribed.
+  Consequence: if the file is CRLF, `line == "FLA_IMAGE_FILE"` fails against
+  `"FLA_IMAGE_FILE\r"` and the section 6 magic-string hard stop fires on every
+  real file. Parse with `splitlines()` and strip each line. Unresolved until a
+  real `.inf` is byte-inspected.
+
+### Section 3 gitignore assertion: false
+
+Only `__pycache__` was covered. `.venv`, `*.pyc`, `.python-version`, and the
+tool caches were not. Corrected in the commit preceding this one.
+
+Separately, the repository-wide `*.png` rule silently ignores every image this
+pipeline is designed to emit. Harmless while outputs live outside the worktree,
+and a silent loss if they ever live inside it.
+
+### Fields section 2 does not mention
+
+`StageAndAreaName=20x40` is inconsistent with the derived 225 x 175 mm scan area
+under any unit reading. `MainStartPosition`, `SubStartPosition`, `Filter=0/2` and
+`Correction7=26531/26553` are likewise uninterpreted but absent from the
+uninterpreted-fields list. Record verbatim, interpret nothing.
