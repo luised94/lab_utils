@@ -2,92 +2,107 @@
 #
 # Copy this file once per scan, next to the input .tif, named
 #   <input stem>_preprocess.txt
-# For example:
-#   20220303-wt,4r,5,6-sofa-repeat-1-1000-[Phosphor]_preprocess.txt
 #
 # THIS FILE IS THE AUTHORITY FOR THE KEY LIST. validate_gel_image.py duplicates
-# the list rather than importing it, because CONVENTIONS.md section 1 forbids
-# sharing between scripts. Drift between the two cannot go unnoticed: a missing
-# key and an unknown key are both hard stops, so adding a key here without adding
-# it there fails on the next run instead of being silently ignored.
+# the list rather than importing it (CONVENTIONS.md section 1 forbids sharing
+# between scripts). A missing key and an unknown key are both hard stops, so
+# drift between this file and the script fails on the next run instead of being
+# silently ignored.
 #
-# Format rules:
+# Format:
 #   - one key=value per line, no spaces around the =
 #   - lines starting with # are comments, blank lines are ignored
-#   - CRLF is fine, edit this from Windows or from nvim
 #   - every key below is REQUIRED; the two free-text ones may be left empty
-#   - an unrecognized key is a hard stop, so a misspelling cannot be ignored
 #
-# All coordinates are measured in Fiji on the raw .tif as it opens, with NO
-# rotation, NO flip and NO saving. Fiji's origin is the top-left of the window
-# and y increases downward.
-#
-# READ THIS BEFORE MEASURING: the scan origin is bottom-left, so row 0 of the
-# file is the physical BOTTOM of the gel, and Fiji draws row 0 at the top of the
-# window. The image on screen is therefore upside down relative to the gel, and
-# THE WELLS APPEAR AT THE BOTTOM OF THE WINDOW. See PROTOCOL.md.
+# WHAT FRAME YOU MEASURE IN. Open the raw .tif in Fiji and measure it exactly as
+# it opens: no rotation, no flip, no save. Fiji is a ruler here, nothing else.
+# The scan origin is bottom-left, so file row 0 is the physical BOTTOM of the gel
+# and Fiji draws row 0 at the top of the window: the image is mirrored top-to-
+# bottom on screen. You do not need to correct for this. Record what you see; the
+# pipeline performs the flip later. The measured_in_frame key pins this contract.
 
-schema_version=1
+schema_version=2
 
-# Must be exactly raw_as_opened_unflipped. It exists so that if the convention
-# is ever changed, old sidecars fail loudly instead of being reinterpreted.
+# Must be exactly raw_as_opened_unflipped. If the measuring convention ever
+# changes, old sidecars fail loudly instead of being silently reinterpreted.
 measured_in_frame=raw_as_opened_unflipped
 
 # The filename these measurements were taken against, without any directory.
-# Checked against the file actually being processed. This catches the most likely
-# error with hand-written sidecars: copying one scan's file to another scan,
-# updating the dimensions because you noticed they differed, and leaving the crop
-# coordinates untouched.
+# Checked against the file actually being processed.
 measured_against_input_filename=CHANGE_ME.tif
 
-# From Image > Properties, or the title bar. Checked against the TIFF tags.
-# These genuinely differ between scans: repeat 1 and repeat 3 are 1125 x 875
-# while repeat 2 is 1250 x 750, so nothing may be assumed.
+# Image dimensions, from Image > Properties or the window title bar. Checked
+# against the TIFF tags. These keep the _pixels suffix because they are always
+# pixels, read from the file, regardless of coordinate_unit below.
 measured_against_image_width_pixels=0
 measured_against_image_height_pixels=0
 
-# Two points that SHOULD lie on a line that is level on the physical gel. The
-# tilt angle is derived from these rather than typed, so that it is auditable:
-# the preview image draws them back for you to check, which a typed angle makes
-# impossible.
-#
-# Put them AS FAR APART AS YOU CAN. A one-pixel click error over a 400 pixel span
-# is 0.14 degrees of uncertainty; over 1000 pixels it is 0.06. For scale, 0.5
-# degrees of residual tilt walks a band by about 10 pixels across a 1125 pixel
-# image, which is a full band height at 200 micrometres per pixel.
-rotation_landmark_left_x_pixels=0
-rotation_landmark_left_y_pixels=0
-rotation_landmark_right_x_pixels=0
-rotation_landmark_right_y_pixels=0
+# The direction the samples migrate. REQUIRED, no default, so a gel imaged in
+# either orientation cannot be processed under a silent assumption.
+#   horizontal = samples run left-to-right; lanes are stacked top-to-bottom
+#   vertical   = samples run top-to-bottom; lanes are stacked left-to-right
+# Determine it by eye: find the wells (the loading points); migration leads away
+# from them.
+gel_migration_axis=CHANGE_ME
 
-# What you actually clicked, in words. This is the only record of it. May be
-# empty, but an empty one costs you the ability to reproduce your own choice.
+# The unit of every landmark_* and crop_* value below. REQUIRED.
+#   pixels      = the raw pixel coordinates
+#   centimetres = the calibrated values Fiji shows when the image carries a
+#                 spatial scale; the pipeline converts them using the pixel size
+#                 in the file's own resolution tag
+# HOW TO TELL WHICH YOU HAVE: hover a pixel and read the status bar. If it shows
+# something like  x=3.80 (476)  the image is calibrated: the leading number is
+# centimetres and the number in parentheses is the pixel. If it shows a bare
+# integer, you are already in pixels. Recommended: record pixels, using the
+# getLine macro (see PROTOCOL.md) for the landmark, so nothing is rounded.
+coordinate_unit=CHANGE_ME
+
+# Two points on a line that is straight and LEVEL on the physical gel, used to
+# derive the residual tilt. The tilt is derived, not typed, so the crop preview
+# can draw the points back for you to check.
+#   For gel_migration_axis=horizontal: use a line that runs top-to-bottom (the
+#     well line is usually best). a = one end, b = the other end.
+#   For gel_migration_axis=vertical:   use a line that runs left-to-right.
+# Put a and b AS FAR APART AS YOU CAN along that line. One pixel of click error
+# over a 950 px span is about 0.06 degrees; over 400 px it is 0.14. The tilt is
+# the deviation of the a-b line from the axis perpendicular to migration.
+landmark_a_x=0
+landmark_a_y=0
+landmark_b_x=0
+landmark_b_y=0
+
+# What you actually clicked, in words, and which end is a and which is b. This is
+# the only record of your choice. May be empty, but an empty one costs you the
+# ability to reproduce it.
 rotation_landmark_description=
 
-# Crop box as Fiji reports it for a rectangle selection: x, y, width, height.
+# Crop box as Fiji reports a rectangle selection: x, y, width, height of its
+# top-left corner and size.
 #
-# THE CROP DOES NOT NEED TO BE PRECISE. It is not a measurement boundary; the
-# per-band boxes set later are. The crop only has to exclude what would corrupt
-# the baseline and the lane finder, and it must be GENEROUS. Twenty pixels either
-# way changes no number.
-#
-# The rule: the smallest rectangle containing every lane and every band you
-# intend to measure, PLUS a margin of clean gel outside the outermost lanes and
-# beyond the topmost and bottommost bands. Roughly 20 to 50 pixels of margin,
-# which is 4 to 10 mm at 200 micrometres per pixel and 1.6 to 4 mm at 79.9.
-#
-# Err generous. A crop that is too large costs a slightly slower run. A crop that
-# is too tight biases every baseline in the image, and that error is consistent,
-# believable and wrong.
-crop_x_pixels=0
-crop_y_pixels=0
-crop_width_pixels=0
-crop_height_pixels=0
+# THE CROP IS NOT A MEASUREMENT BOUNDARY; the per-band boxes set later are. Its
+# only job is to enclose every band generously. The rule:
+#   DO   contain every band you intend to measure, plus 20 to 50 pixels of clean
+#        gel margin on all four sides: margin along the migration axis so each
+#        band has background on both sides for its local baseline, and margin
+#        along the lane-stacking axis so the outermost lanes are fully inside.
+#   DO   err generous. Too large costs a slightly slower run. Too tight, clipping
+#        a band or the clean gel flanking it, biases that lane consistently and
+#        believably and wrongly.
+#   DO NOT clip inward through any band or its flanking gel to tidy the edges or
+#        to exclude bare plate.
+# The wells (the loading origin) are a separate choice. If no measured band sits
+# near them you may leave them just outside, which avoids pulling in a strip of
+# bare plate and the near-saturated well artifact. If a band sits near them, or
+# you are unsure, include them: a superset is always safe.
+crop_x=0
+crop_y=0
+crop_width=0
+crop_height=0
 
-# Number of lanes you expect inside the crop, including empty ones. Used by the
-# grid fit later; stage 1 only range-checks it and cross-checks the implied lane
-# pitch in millimetres against the pixel size read from the file.
+# Number of lanes you expect inside the crop, empty lanes included. Stage 1
+# range-checks it and cross-checks the implied lane pitch (the center-to-center
+# spacing between adjacent lanes) against the pixel size from the file.
 expected_lane_count=0
 
-# Anything you want to remember about this scan. May be empty.
+# Anything worth remembering about this scan. May be empty.
 notes=
