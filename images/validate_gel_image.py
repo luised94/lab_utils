@@ -1853,6 +1853,96 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                                          % (MINIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES,
                                             MAXIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES)),
                         })
+
+                    # In-crop statistics, computed the same single-pass way as the
+                    # whole-image block above but over the crop only. The whole-image
+                    # mode is the bare plate, which is the majority population, so a
+                    # baseline or an isolation margin derived from it is off by hundreds
+                    # of counts (F2, F16). This reports the gel's own numbers. Note that
+                    # a generous crop still includes a strip of plate at the well end, so
+                    # these describe the gel only where the crop is gel; the baseline
+                    # proper is a per-band local estimate in stage 2, not a crop-wide one.
+                    if pixel_statistics_were_computed:
+                        crop_pixels = pixel_array[
+                            crop_y:crop_y + crop_height, crop_x:crop_x + crop_width
+                        ]
+                        crop_value_counts = numpy.bincount(
+                            crop_pixels.ravel(), minlength=CONTAINER_VALUE_SLOT_COUNT_16_BIT
+                        ).astype(numpy.int64)
+                        crop_total_pixel_count = int(crop_value_counts.sum())
+                        crop_present_values = numpy.nonzero(crop_value_counts)[0]
+                        crop_minimum_value = int(crop_present_values[0])
+                        crop_maximum_value = int(crop_present_values[-1])
+                        crop_mode_value = int(crop_value_counts.argmax())
+                        crop_present_float = crop_present_values.astype(numpy.float64)
+                        crop_counts_float = crop_value_counts[crop_present_values].astype(numpy.float64)
+                        crop_mean_value = float(
+                            (crop_present_float * crop_counts_float).sum() / crop_total_pixel_count
+                        )
+                        crop_cumulative_counts = numpy.cumsum(crop_value_counts)
+                        crop_median_value = int(numpy.searchsorted(
+                            crop_cumulative_counts, (crop_total_pixel_count + 1) // 2, side="left"
+                        ))
+                        # MAD from the value counts, same trick as the whole-image block:
+                        # deviation d is contributed by median-d and median+d.
+                        crop_maximum_absolute_deviation = max(
+                            crop_median_value - crop_minimum_value,
+                            crop_maximum_value - crop_median_value,
+                        )
+                        crop_deviation_magnitudes = numpy.arange(0, crop_maximum_absolute_deviation + 1)
+                        crop_lower_values = crop_median_value - crop_deviation_magnitudes
+                        crop_upper_values = crop_median_value + crop_deviation_magnitudes
+                        crop_lower_in_range = (crop_lower_values >= 0)
+                        crop_upper_in_range = (crop_upper_values < CONTAINER_VALUE_SLOT_COUNT_16_BIT)
+                        crop_absolute_deviation_counts = numpy.zeros(
+                            crop_maximum_absolute_deviation + 1, dtype=numpy.int64
+                        )
+                        crop_absolute_deviation_counts[crop_lower_in_range] += (
+                            crop_value_counts[crop_lower_values[crop_lower_in_range]]
+                        )
+                        crop_absolute_deviation_counts[crop_upper_in_range] += (
+                            crop_value_counts[crop_upper_values[crop_upper_in_range]]
+                        )
+                        crop_absolute_deviation_counts[0] = crop_value_counts[crop_median_value]
+                        crop_median_absolute_deviation = int(numpy.searchsorted(
+                            numpy.cumsum(crop_absolute_deviation_counts),
+                            (crop_total_pixel_count + 1) // 2, side="left"
+                        ))
+                        crop_robust_standard_deviation = (
+                            MEDIAN_ABSOLUTE_DEVIATION_TO_SIGMA * crop_median_absolute_deviation
+                        )
+                        crop_isolation_margin_counts = (
+                            ISOLATION_MARGIN_ROBUST_SIGMAS * crop_robust_standard_deviation
+                        )
+                        whole_image_mode_value = int(pixel_value_counts.argmax())
+                        preprocess_sidecar_record["in_crop_statistics"] = {
+                            "crop_pixel_count": crop_total_pixel_count,
+                            "minimum_pixel_value": crop_minimum_value,
+                            "maximum_pixel_value": crop_maximum_value,
+                            "mode_value": crop_mode_value,
+                            "median_pixel_value": crop_median_value,
+                            "mean_pixel_value": crop_mean_value,
+                            "median_absolute_deviation_counts": crop_median_absolute_deviation,
+                            "robust_standard_deviation_counts": crop_robust_standard_deviation,
+                            "isolation_margin_counts": crop_isolation_margin_counts,
+                            "whole_image_mode_value_for_comparison": whole_image_mode_value,
+                            "whole_image_median_value_for_comparison": median_pixel_value,
+                        }
+                        VALIDATION_FINDINGS.append({
+                            "check_name": "preprocess_sidecar_in_crop_statistics",
+                            "status": "reported",
+                            "is_hard_stop": False,
+                            "detail": "in-crop mode %d, median %d, MAD %d, isolation margin "
+                                      "%.1f counts over %d pixels; whole-image mode %d and "
+                                      "median %d for comparison. The whole-image mode is the "
+                                      "bare plate, so the baseline and the isolation margin "
+                                      "belong on these in-crop numbers, not the whole-image "
+                                      "ones."
+                                      % (crop_mode_value, crop_median_value,
+                                         crop_median_absolute_deviation,
+                                         crop_isolation_margin_counts, crop_total_pixel_count,
+                                         whole_image_mode_value, median_pixel_value),
+                        })
 else:
     VALIDATION_FINDINGS.append({
         "check_name": "preprocess_sidecar_present",
