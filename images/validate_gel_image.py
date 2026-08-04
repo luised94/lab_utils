@@ -80,7 +80,7 @@ INF_SIDECAR_SUFFIX = ".inf"
 # does not understand instead of reading a missing key as absent.
 VALIDATION_REPORT_SCHEMA_VERSION = 1
 
-SUPPORTED_SIDECAR_SCHEMA_VERSION = 1
+SUPPORTED_SIDECAR_SCHEMA_VERSION = 2
 
 # Coordinates are meaningless without the frame they were measured in. This exists
 # so that if the convention ever changes, old sidecars fail loudly instead of being
@@ -97,15 +97,17 @@ REQUIRED_SIDECAR_KEY_NAMES = (
     "measured_against_input_filename",
     "measured_against_image_width_pixels",
     "measured_against_image_height_pixels",
-    "rotation_landmark_left_x_pixels",
-    "rotation_landmark_left_y_pixels",
-    "rotation_landmark_right_x_pixels",
-    "rotation_landmark_right_y_pixels",
+    "gel_migration_axis",
+    "coordinate_unit",
+    "landmark_a_x",
+    "landmark_a_y",
+    "landmark_b_x",
+    "landmark_b_y",
     "rotation_landmark_description",
-    "crop_x_pixels",
-    "crop_y_pixels",
-    "crop_width_pixels",
-    "crop_height_pixels",
+    "crop_x",
+    "crop_y",
+    "crop_width",
+    "crop_height",
     "expected_lane_count",
     "notes",
 )
@@ -113,20 +115,36 @@ REQUIRED_SIDECAR_KEY_NAMES = (
 # The two free-text fields. Everything else must be non-empty.
 SIDECAR_KEY_NAMES_PERMITTED_EMPTY = ("rotation_landmark_description", "notes")
 
+# Always integers, and always pixels regardless of coordinate_unit: schema and the
+# image dimensions read from the tags, and the lane count.
 SIDECAR_INTEGER_KEY_NAMES = (
     "schema_version",
     "measured_against_image_width_pixels",
     "measured_against_image_height_pixels",
-    "rotation_landmark_left_x_pixels",
-    "rotation_landmark_left_y_pixels",
-    "rotation_landmark_right_x_pixels",
-    "rotation_landmark_right_y_pixels",
-    "crop_x_pixels",
-    "crop_y_pixels",
-    "crop_width_pixels",
-    "crop_height_pixels",
     "expected_lane_count",
 )
+
+# The geometry values. Numeric rather than integer because under
+# coordinate_unit=centimetres they are fractional centimetres; they are converted
+# to pixels once, below, using the pixel size read from the file's own tags.
+SIDECAR_NUMERIC_KEY_NAMES = (
+    "landmark_a_x",
+    "landmark_a_y",
+    "landmark_b_x",
+    "landmark_b_y",
+    "crop_x",
+    "crop_y",
+    "crop_width",
+    "crop_height",
+)
+
+# Closed vocabularies. gel_migration_axis has no default (an old gel imaged in the
+# other orientation must not be processed under a silent assumption); coordinate_unit
+# distinguishes raw pixels from the calibrated centimetres Fiji reports.
+SIDECAR_ENUM_KEY_ALLOWED_VALUES = {
+    "gel_migration_axis": ("horizontal", "vertical"),
+    "coordinate_unit": ("pixels", "centimetres"),
+}
 
 PRIVATE_TAG_CODE_FLOOR = 65000
 
@@ -1476,6 +1494,27 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                 sidecar_parse_problems.append(
                     "key " + repr(sidecar_key) + " is not an integer: " + repr(sidecar_value)
                 )
+        # Geometry values may carry a decimal point because centimetres are
+        # fractional; a bare integer is also valid (pixel coordinates).
+        for sidecar_key in SIDECAR_NUMERIC_KEY_NAMES:
+            if sidecar_key not in raw_sidecar_values:
+                continue
+            sidecar_value = raw_sidecar_values[sidecar_key]
+            if not re.match(r"^-?\d+(?:\.\d+)?$", sidecar_value):
+                sidecar_parse_problems.append(
+                    "key " + repr(sidecar_key) + " is not a number: " + repr(sidecar_value)
+                )
+        # Enum values must be one of a closed set, so a typo like coordinate_unit=px
+        # is a hard stop rather than a silently unrecognised value.
+        for sidecar_key, allowed_values in SIDECAR_ENUM_KEY_ALLOWED_VALUES.items():
+            if sidecar_key not in raw_sidecar_values:
+                continue
+            sidecar_value = raw_sidecar_values[sidecar_key]
+            if sidecar_value not in allowed_values:
+                sidecar_parse_problems.append(
+                    "key " + repr(sidecar_key) + " is " + repr(sidecar_value)
+                    + "; allowed: " + repr(allowed_values)
+                )
 
         sidecar_structure_is_valid = (
             len(unknown_sidecar_keys) == 0
@@ -1499,7 +1538,62 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
             parsed_sidecar_values = dict(raw_sidecar_values)
             for sidecar_key in SIDECAR_INTEGER_KEY_NAMES:
                 parsed_sidecar_values[sidecar_key] = int(parsed_sidecar_values[sidecar_key])
+            for sidecar_key in SIDECAR_NUMERIC_KEY_NAMES:
+                parsed_sidecar_values[sidecar_key] = float(parsed_sidecar_values[sidecar_key])
             preprocess_sidecar_record["values"] = parsed_sidecar_values
+
+            gel_migration_axis = parsed_sidecar_values["gel_migration_axis"]
+            coordinate_unit = parsed_sidecar_values["coordinate_unit"]
+            # Convert every geometry value to pixels once, so every check below works
+            # in pixel space regardless of the unit the operator recorded (F13). ImageJ
+            # reports calibrated centimetres when the image carries a spatial scale, and
+            # a centimetre value is a perfectly valid-looking pixel value, so the unit is
+            # declared explicitly rather than guessed.
+            if coordinate_unit == "pixels":
+                pixels_per_coordinate_unit = 1.0
+            elif micrometres_per_pixel is not None:
+                # 1 cm = 10000 micrometres, so pixels per cm = 10000 / (micrometres/px).
+                pixels_per_coordinate_unit = 10000.0 / micrometres_per_pixel
+            else:
+                pixels_per_coordinate_unit = None
+            coordinate_conversion_ok = pixels_per_coordinate_unit is not None
+            VALIDATION_FINDINGS.append({
+                "check_name": "preprocess_sidecar_coordinate_unit_convertible",
+                "status": "pass" if coordinate_conversion_ok else "fail",
+                "is_hard_stop": True,
+                "detail": (("coordinate_unit 'pixels' needs no conversion"
+                            if coordinate_unit == "pixels"
+                            else "coordinate_unit 'centimetres' converts at %.6f pixels "
+                                 "per centimetre from the file's pixel size"
+                                 % pixels_per_coordinate_unit)
+                           if coordinate_conversion_ok else
+                           "coordinate_unit is 'centimetres' but the file carries no usable "
+                           "pixel size, so the coordinates cannot be converted to pixels"),
+            })
+
+            if coordinate_conversion_ok:
+                landmark_a_x_pixels = parsed_sidecar_values["landmark_a_x"] * pixels_per_coordinate_unit
+                landmark_a_y_pixels = parsed_sidecar_values["landmark_a_y"] * pixels_per_coordinate_unit
+                landmark_b_x_pixels = parsed_sidecar_values["landmark_b_x"] * pixels_per_coordinate_unit
+                landmark_b_y_pixels = parsed_sidecar_values["landmark_b_y"] * pixels_per_coordinate_unit
+                # Crop bounds must be whole pixels for slicing and the preview rectangle.
+                crop_x_pixels = int(round(parsed_sidecar_values["crop_x"] * pixels_per_coordinate_unit))
+                crop_y_pixels = int(round(parsed_sidecar_values["crop_y"] * pixels_per_coordinate_unit))
+                crop_width_pixels = int(round(parsed_sidecar_values["crop_width"] * pixels_per_coordinate_unit))
+                crop_height_pixels = int(round(parsed_sidecar_values["crop_height"] * pixels_per_coordinate_unit))
+                preprocess_sidecar_record["geometry_pixels"] = {
+                    "gel_migration_axis": gel_migration_axis,
+                    "coordinate_unit": coordinate_unit,
+                    "pixels_per_coordinate_unit": pixels_per_coordinate_unit,
+                    "landmark_a_x_pixels": landmark_a_x_pixels,
+                    "landmark_a_y_pixels": landmark_a_y_pixels,
+                    "landmark_b_x_pixels": landmark_b_x_pixels,
+                    "landmark_b_y_pixels": landmark_b_y_pixels,
+                    "crop_x_pixels": crop_x_pixels,
+                    "crop_y_pixels": crop_y_pixels,
+                    "crop_width_pixels": crop_width_pixels,
+                    "crop_height_pixels": crop_height_pixels,
+                }
 
             VALIDATION_FINDINGS.append({
                 "check_name": "preprocess_sidecar_schema_version",
@@ -1563,175 +1657,202 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                           + str(pixel_array_height_pixels),
             })
 
-            landmark_left_x = parsed_sidecar_values["rotation_landmark_left_x_pixels"]
-            landmark_left_y = parsed_sidecar_values["rotation_landmark_left_y_pixels"]
-            landmark_right_x = parsed_sidecar_values["rotation_landmark_right_x_pixels"]
-            landmark_right_y = parsed_sidecar_values["rotation_landmark_right_y_pixels"]
-            landmarks_inside_image = all(
-                0 <= landmark_x < pixel_array_width_pixels
-                and 0 <= landmark_y < pixel_array_height_pixels
-                for landmark_x, landmark_y in (
-                    (landmark_left_x, landmark_left_y), (landmark_right_x, landmark_right_y)
+            # Everything below works in pixel space, which only exists once the
+            # coordinate conversion above succeeded. If it did not, the convertible
+            # check already recorded a hard stop and there is nothing to check here.
+            if coordinate_conversion_ok:
+                landmarks_inside_image = all(
+                    0 <= landmark_x < pixel_array_width_pixels
+                    and 0 <= landmark_y < pixel_array_height_pixels
+                    for landmark_x, landmark_y in (
+                        (landmark_a_x_pixels, landmark_a_y_pixels),
+                        (landmark_b_x_pixels, landmark_b_y_pixels),
+                    )
                 )
-            )
-            VALIDATION_FINDINGS.append({
-                "check_name": "preprocess_sidecar_landmarks_inside_image",
-                "status": "pass" if landmarks_inside_image else "fail",
-                "is_hard_stop": True,
-                "detail": "landmarks (%d, %d) and (%d, %d) against an image of %d by %d"
-                          % (landmark_left_x, landmark_left_y, landmark_right_x,
-                             landmark_right_y, pixel_array_width_pixels,
-                             pixel_array_height_pixels),
-            })
-
-            landmark_delta_x = float(landmark_right_x - landmark_left_x)
-            landmark_delta_y = float(landmark_right_y - landmark_left_y)
-            landmark_span_pixels = math.hypot(landmark_delta_x, landmark_delta_y)
-            preprocess_sidecar_record["landmark_span_pixels"] = landmark_span_pixels
-
-            # Sign convention, stated once here so that nothing downstream has to
-            # re-derive it: the landmarks are in Fiji's frame, where y increases
-            # downward. A positive derived angle therefore means the right-hand
-            # landmark sits LOWER ON SCREEN than the left, and levelling requires
-            # rotating by the negative of it. Stage 1 does not rotate; it reports.
-            # Whatever applies the rotation must transform these two points by the
-            # same rotation and assert the re-derived angle is near zero, because
-            # both Fiji's downward y and the rotation library's convention invert
-            # the sign, and the failure mode is a doubled tilt that still looks
-            # roughly straight.
-            if landmark_span_pixels >= MINIMUM_LANDMARK_SPAN_PIXELS:
-                derived_tilt_angle_degrees = math.degrees(
-                    math.atan2(landmark_delta_y, landmark_delta_x)
-                )
-                # Fold onto the interval nearest zero, so that landmarks entered
-                # right-to-left do not read as a 180 degree tilt.
-                if derived_tilt_angle_degrees > 90.0:
-                    derived_tilt_angle_degrees -= 180.0
-                elif derived_tilt_angle_degrees < -90.0:
-                    derived_tilt_angle_degrees += 180.0
-                preprocess_sidecar_record["derived_tilt_angle_degrees"] = derived_tilt_angle_degrees
-                angle_uncertainty_degrees = math.degrees(math.atan(1.0 / landmark_span_pixels))
-                preprocess_sidecar_record[
-                    "angle_uncertainty_degrees_per_pixel_of_click_error"
-                ] = angle_uncertainty_degrees
                 VALIDATION_FINDINGS.append({
-                    "check_name": "preprocess_sidecar_tilt_angle_is_plausible",
-                    "status": ("pass" if abs(derived_tilt_angle_degrees)
-                               <= MAXIMUM_PLAUSIBLE_TILT_DEGREES else "fail"),
+                    "check_name": "preprocess_sidecar_landmarks_inside_image",
+                    "status": "pass" if landmarks_inside_image else "fail",
                     "is_hard_stop": True,
-                    "detail": "derived tilt %.4f degrees over a %.1f pixel span, "
-                              "uncertainty %.4f degrees per pixel of click error"
-                              % (derived_tilt_angle_degrees, landmark_span_pixels,
-                                 angle_uncertainty_degrees)
-                              + ("" if abs(derived_tilt_angle_degrees)
-                                 <= MAXIMUM_PLAUSIBLE_TILT_DEGREES else
-                                 ". Beyond %.1f degrees the landmarks were almost "
-                                 "certainly not the level feature intended, or the two "
-                                 "pairs were entered in the wrong order."
-                                 % MAXIMUM_PLAUSIBLE_TILT_DEGREES),
+                    "detail": "landmarks a (%.1f, %.1f) and b (%.1f, %.1f) against an image "
+                              "of %d by %d"
+                              % (landmark_a_x_pixels, landmark_a_y_pixels,
+                                 landmark_b_x_pixels, landmark_b_y_pixels,
+                                 pixel_array_width_pixels, pixel_array_height_pixels),
                 })
-                if landmark_span_pixels < LANDMARK_SPAN_WARNING_PIXELS:
+
+                # Delta runs a -> b. The landmark line is the level feature; how its
+                # angle becomes a tilt depends on gel_migration_axis, derived below.
+                landmark_delta_x = landmark_b_x_pixels - landmark_a_x_pixels
+                landmark_delta_y = landmark_b_y_pixels - landmark_a_y_pixels
+                landmark_span_pixels = math.hypot(landmark_delta_x, landmark_delta_y)
+                preprocess_sidecar_record["landmark_span_pixels"] = landmark_span_pixels
+
+                # Sign convention, stated once here so that nothing downstream has to
+                # re-derive it: the landmarks are in Fiji's frame, where y increases
+                # downward. Stage 1 does not rotate; it reports. Whatever applies the
+                # rotation must transform these two points by the same rotation and
+                # assert the re-derived angle is near zero, because both Fiji's
+                # downward y and the rotation library's convention invert the sign,
+                # and the failure mode is a doubled tilt that still looks roughly
+                # straight. ImageJ's Angle is the independent cross-check on the sign.
+                if landmark_span_pixels >= MINIMUM_LANDMARK_SPAN_PIXELS:
+                    # The landmark line is meant to be level and perpendicular to
+                    # migration. For a vertical gel that level line runs left-to-right,
+                    # so its target angle from the x axis is 0; for a horizontal gel
+                    # (migration left-to-right) the level line runs top-to-bottom, so
+                    # its target is 90. The tilt is the signed deviation of the actual
+                    # line from that target, folded onto the interval nearest zero so
+                    # that reversed landmarks or a near-vertical line do not read as a
+                    # 180 degree tilt. A perfectly level gel therefore reads about zero
+                    # in either orientation, and the old atan2(dy, dx) that hard-stopped
+                    # on a level horizontal gel is gone.
+                    landmark_line_angle_degrees = math.degrees(
+                        math.atan2(landmark_delta_y, landmark_delta_x)
+                    )
+                    target_line_angle_degrees = (
+                        0.0 if gel_migration_axis == "vertical" else 90.0
+                    )
+                    derived_tilt_angle_degrees = (
+                        landmark_line_angle_degrees - target_line_angle_degrees
+                    )
+                    while derived_tilt_angle_degrees > 90.0:
+                        derived_tilt_angle_degrees -= 180.0
+                    while derived_tilt_angle_degrees <= -90.0:
+                        derived_tilt_angle_degrees += 180.0
+                    preprocess_sidecar_record["derived_tilt_angle_degrees"] = derived_tilt_angle_degrees
+                    angle_uncertainty_degrees = math.degrees(math.atan(1.0 / landmark_span_pixels))
+                    preprocess_sidecar_record[
+                        "angle_uncertainty_degrees_per_pixel_of_click_error"
+                    ] = angle_uncertainty_degrees
                     VALIDATION_FINDINGS.append({
-                        "check_name": "preprocess_sidecar_landmark_span_is_generous",
-                        "status": "warning",
-                        "is_hard_stop": False,
-                        "detail": "span is only %.1f pixels, giving %.3f degrees of "
-                                  "uncertainty per pixel of click error. Re-measure with "
-                                  "the landmarks further apart: 0.5 degrees of residual "
-                                  "tilt walks a band a full band height across a 1125 "
-                                  "pixel image."
-                                  % (landmark_span_pixels, angle_uncertainty_degrees),
+                        "check_name": "preprocess_sidecar_tilt_angle_is_plausible",
+                        "status": ("pass" if abs(derived_tilt_angle_degrees)
+                                   <= MAXIMUM_PLAUSIBLE_TILT_DEGREES else "fail"),
+                        "is_hard_stop": True,
+                        "detail": "derived tilt %.4f degrees over a %.1f pixel span, "
+                                  "uncertainty %.4f degrees per pixel of click error"
+                                  % (derived_tilt_angle_degrees, landmark_span_pixels,
+                                     angle_uncertainty_degrees)
+                                  + ("" if abs(derived_tilt_angle_degrees)
+                                     <= MAXIMUM_PLAUSIBLE_TILT_DEGREES else
+                                     ". Beyond %.1f degrees the landmarks were almost "
+                                     "certainly not the level feature intended, or the two "
+                                     "pairs were entered in the wrong order."
+                                     % MAXIMUM_PLAUSIBLE_TILT_DEGREES),
                     })
-            else:
-                VALIDATION_FINDINGS.append({
-                    "check_name": "preprocess_sidecar_tilt_angle_is_plausible",
-                    "status": "fail",
-                    "is_hard_stop": True,
-                    "detail": "landmark span is only %.1f pixels, below the floor of %d, "
-                              "so no angle worth having can be derived from it"
-                              % (landmark_span_pixels, MINIMUM_LANDMARK_SPAN_PIXELS),
-                })
-
-            crop_x = parsed_sidecar_values["crop_x_pixels"]
-            crop_y = parsed_sidecar_values["crop_y_pixels"]
-            crop_width = parsed_sidecar_values["crop_width_pixels"]
-            crop_height = parsed_sidecar_values["crop_height_pixels"]
-            crop_is_inside_image = (
-                crop_width > 0 and crop_height > 0
-                and 0 <= crop_x and 0 <= crop_y
-                and crop_x + crop_width <= pixel_array_width_pixels
-                and crop_y + crop_height <= pixel_array_height_pixels
-            )
-            VALIDATION_FINDINGS.append({
-                "check_name": "preprocess_sidecar_crop_inside_image",
-                "status": "pass" if crop_is_inside_image else "fail",
-                "is_hard_stop": True,
-                "detail": "crop x %d y %d width %d height %d against an image of %d by %d"
-                          % (crop_x, crop_y, crop_width, crop_height,
-                             pixel_array_width_pixels, pixel_array_height_pixels),
-            })
-
-            if crop_is_inside_image:
-                crop_area_fraction = (
-                    (crop_width * crop_height)
-                    / float(pixel_array_width_pixels * pixel_array_height_pixels)
-                )
-                crop_fraction_is_plausible = (
-                    CROP_AREA_FRACTION_WARNING_FLOOR
-                    <= crop_area_fraction
-                    <= CROP_AREA_FRACTION_WARNING_CEILING
-                )
-                VALIDATION_FINDINGS.append({
-                    "check_name": "preprocess_sidecar_crop_area_fraction",
-                    "status": "pass" if crop_fraction_is_plausible else "warning",
-                    "is_hard_stop": False,
-                    "detail": "the crop covers %.4f of the image" % crop_area_fraction
-                              + ("" if crop_fraction_is_plausible else
-                                 ". Outside the plausible range. A crop that is too tight "
-                                 "biases every baseline in the image, and one that covers "
-                                 "everything has excluded neither the wells nor the plate "
-                                 "background."),
-                })
-
-                # Cross-check the geometry against the pixel size read from this
-                # file's own tags. DESIGN.md section 2 records a 5 mm lane pitch,
-                # which is 25 px at 200 micrometres and 63 px at 79.9, so the same
-                # millimetre figure has to be reached through the file.
-                expected_lane_count = parsed_sidecar_values["expected_lane_count"]
-                if expected_lane_count <= 0:
+                    if landmark_span_pixels < LANDMARK_SPAN_WARNING_PIXELS:
+                        VALIDATION_FINDINGS.append({
+                            "check_name": "preprocess_sidecar_landmark_span_is_generous",
+                            "status": "warning",
+                            "is_hard_stop": False,
+                            "detail": "span is only %.1f pixels, giving %.3f degrees of "
+                                      "uncertainty per pixel of click error. Re-measure with "
+                                      "the landmarks further apart: 0.5 degrees of residual "
+                                      "tilt walks a band a full band height across a 1125 "
+                                      "pixel image."
+                                      % (landmark_span_pixels, angle_uncertainty_degrees),
+                        })
+                else:
                     VALIDATION_FINDINGS.append({
-                        "check_name": "preprocess_sidecar_expected_lane_count",
+                        "check_name": "preprocess_sidecar_tilt_angle_is_plausible",
                         "status": "fail",
                         "is_hard_stop": True,
-                        "detail": "expected_lane_count is " + str(expected_lane_count)
-                                  + ", which must be a positive integer",
+                        "detail": "landmark span is only %.1f pixels, below the floor of %d, "
+                                  "so no angle worth having can be derived from it"
+                                  % (landmark_span_pixels, MINIMUM_LANDMARK_SPAN_PIXELS),
                     })
-                elif micrometres_per_pixel is not None:
-                    implied_lane_pitch_millimetres = (
-                        (crop_width / float(expected_lane_count)) * micrometres_per_pixel / 1000.0
+
+                crop_x = crop_x_pixels
+                crop_y = crop_y_pixels
+                crop_width = crop_width_pixels
+                crop_height = crop_height_pixels
+                crop_is_inside_image = (
+                    crop_width > 0 and crop_height > 0
+                    and 0 <= crop_x and 0 <= crop_y
+                    and crop_x + crop_width <= pixel_array_width_pixels
+                    and crop_y + crop_height <= pixel_array_height_pixels
+                )
+                VALIDATION_FINDINGS.append({
+                    "check_name": "preprocess_sidecar_crop_inside_image",
+                    "status": "pass" if crop_is_inside_image else "fail",
+                    "is_hard_stop": True,
+                    "detail": "crop x %d y %d width %d height %d against an image of %d by %d"
+                              % (crop_x, crop_y, crop_width, crop_height,
+                                 pixel_array_width_pixels, pixel_array_height_pixels),
+                })
+
+                if crop_is_inside_image:
+                    crop_area_fraction = (
+                        (crop_width * crop_height)
+                        / float(pixel_array_width_pixels * pixel_array_height_pixels)
                     )
-                    preprocess_sidecar_record[
-                        "implied_lane_pitch_millimetres"
-                    ] = implied_lane_pitch_millimetres
-                    pitch_is_plausible = (
-                        MINIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES
-                        <= implied_lane_pitch_millimetres
-                        <= MAXIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES
+                    crop_fraction_is_plausible = (
+                        CROP_AREA_FRACTION_WARNING_FLOOR
+                        <= crop_area_fraction
+                        <= CROP_AREA_FRACTION_WARNING_CEILING
                     )
                     VALIDATION_FINDINGS.append({
-                        "check_name": "preprocess_sidecar_implied_lane_pitch",
-                        "status": "pass" if pitch_is_plausible else "warning",
+                        "check_name": "preprocess_sidecar_crop_area_fraction",
+                        "status": "pass" if crop_fraction_is_plausible else "warning",
                         "is_hard_stop": False,
-                        "detail": "%d lanes across %d crop pixels at %.4f micrometres per "
-                                  "pixel implies a lane pitch of %.2f mm"
-                                  % (expected_lane_count, crop_width, micrometres_per_pixel,
-                                     implied_lane_pitch_millimetres)
-                                  + ("" if pitch_is_plausible else
-                                     ". Outside the plausible range of %.1f to %.1f mm, so "
-                                     "either the lane count or the crop width is wrong."
-                                     % (MINIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES,
-                                        MAXIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES)),
+                        "detail": "the crop covers %.4f of the image" % crop_area_fraction
+                                  + ("" if crop_fraction_is_plausible else
+                                     ". Outside the plausible range. A crop that is too tight "
+                                     "biases every baseline in the image, and one that covers "
+                                     "everything has excluded neither the wells nor the plate "
+                                     "background."),
                     })
+
+                    # Cross-check the geometry against the pixel size read from this
+                    # file's own tags. DESIGN.md section 2 records a 5 mm lane pitch,
+                    # which is 25 px at 200 micrometres and 63 px at 79.9, so the same
+                    # millimetre figure has to be reached through the file. Lanes are
+                    # stacked across the dimension perpendicular to migration, so the
+                    # pitch is taken along the crop height for a horizontally migrating
+                    # gel and the crop width for a vertical one.
+                    expected_lane_count = parsed_sidecar_values["expected_lane_count"]
+                    if gel_migration_axis == "horizontal":
+                        lane_stacking_extent_pixels = crop_height
+                    else:
+                        lane_stacking_extent_pixels = crop_width
+                    if expected_lane_count <= 0:
+                        VALIDATION_FINDINGS.append({
+                            "check_name": "preprocess_sidecar_expected_lane_count",
+                            "status": "fail",
+                            "is_hard_stop": True,
+                            "detail": "expected_lane_count is " + str(expected_lane_count)
+                                      + ", which must be a positive integer",
+                        })
+                    elif micrometres_per_pixel is not None:
+                        implied_lane_pitch_millimetres = (
+                            (lane_stacking_extent_pixels / float(expected_lane_count))
+                            * micrometres_per_pixel / 1000.0
+                        )
+                        preprocess_sidecar_record[
+                            "implied_lane_pitch_millimetres"
+                        ] = implied_lane_pitch_millimetres
+                        pitch_is_plausible = (
+                            MINIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES
+                            <= implied_lane_pitch_millimetres
+                            <= MAXIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES
+                        )
+                        VALIDATION_FINDINGS.append({
+                            "check_name": "preprocess_sidecar_implied_lane_pitch",
+                            "status": "pass" if pitch_is_plausible else "warning",
+                            "is_hard_stop": False,
+                            "detail": "%d lanes across %d crop pixels (the %s dimension) at "
+                                      "%.4f micrometres per pixel implies a lane pitch of "
+                                      "%.2f mm"
+                                      % (expected_lane_count, lane_stacking_extent_pixels,
+                                         "height" if gel_migration_axis == "horizontal"
+                                         else "width",
+                                         micrometres_per_pixel, implied_lane_pitch_millimetres)
+                                      + ("" if pitch_is_plausible else
+                                         ". Outside the plausible range of %.1f to %.1f mm, so "
+                                         "either the lane count or the crop is wrong."
+                                         % (MINIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES,
+                                            MAXIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES)),
+                        })
 else:
     VALIDATION_FINDINGS.append({
         "check_name": "preprocess_sidecar_present",
@@ -1815,7 +1936,9 @@ else:
 # =============================================================================
 
 crop_preview_was_written = False
-if parsed_sidecar_values is not None and pixel_statistics_were_computed:
+if (parsed_sidecar_values is not None and pixel_statistics_were_computed
+        and "geometry_pixels" in preprocess_sidecar_record):
+    preview_geometry = preprocess_sidecar_record["geometry_pixels"]
     # Downsampled by an integer stride: this exists to be looked at, not measured.
     preview_stride = max(
         1,
@@ -1837,23 +1960,24 @@ if parsed_sidecar_values is not None and pixel_statistics_were_computed:
         origin="upper",
     )
     preview_axes.add_patch(matplotlib.patches.Rectangle(
-        (parsed_sidecar_values["crop_x_pixels"] / preview_stride - 0.5,
-         parsed_sidecar_values["crop_y_pixels"] / preview_stride - 0.5),
-        parsed_sidecar_values["crop_width_pixels"] / preview_stride,
-        parsed_sidecar_values["crop_height_pixels"] / preview_stride,
+        (preview_geometry["crop_x_pixels"] / preview_stride - 0.5,
+         preview_geometry["crop_y_pixels"] / preview_stride - 0.5),
+        preview_geometry["crop_width_pixels"] / preview_stride,
+        preview_geometry["crop_height_pixels"] / preview_stride,
         fill=False, linewidth=1.6, linestyle="solid", edgecolor="red",
     ))
     preview_axes.plot(
-        [parsed_sidecar_values["rotation_landmark_left_x_pixels"] / preview_stride,
-         parsed_sidecar_values["rotation_landmark_right_x_pixels"] / preview_stride],
-        [parsed_sidecar_values["rotation_landmark_left_y_pixels"] / preview_stride,
-         parsed_sidecar_values["rotation_landmark_right_y_pixels"] / preview_stride],
+        [preview_geometry["landmark_a_x_pixels"] / preview_stride,
+         preview_geometry["landmark_b_x_pixels"] / preview_stride],
+        [preview_geometry["landmark_a_y_pixels"] / preview_stride,
+         preview_geometry["landmark_b_y_pixels"] / preview_stride],
         marker="+", markersize=11, linewidth=1.2, color="blue",
     )
     preview_title_text = (
         "Crop and landmarks as measured, unflipped: " + input_tiff_absolute_path.name
         + "\nrendered with " + DISPLAY_COLORMAP_NAME
-        + " to match Fiji's inverting LUT; wells should be at the BOTTOM"
+        + " to match Fiji's inverting LUT; migration axis "
+        + preview_geometry["gel_migration_axis"]
     )
     if preprocess_sidecar_record["derived_tilt_angle_degrees"] is not None:
         preview_title_text += (
