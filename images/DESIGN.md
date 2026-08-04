@@ -632,7 +632,13 @@ reported.
 - Bits per pixel is 16
 - Width and height parse as positive integers
 - `width * height * (bits/8) == .img filesize` **exactly**
-- Human-readable timestamp and epoch timestamp agree
+- Human-readable timestamp and epoch timestamp agree **modulo timezone offset**:
+  minutes and seconds must match exactly, and the difference must be a whole
+  number of hours. Do not assert a specific offset. `Thu Mar 03 11:51:36 2022`
+  and `1646326296` agree only under UTC-5, and any scan taken between the second
+  Sunday in March and the first Sunday in November is UTC-4, so a hardcoded
+  offset makes this hard stop fire on correct files. The whole-hours form still
+  catches a corrupted header, which is the only thing it was ever for.
 - `Orientation` field present and understood
 - `ScaleType` present; anything other than `Linear` is a hard stop until the
   transform is implemented
