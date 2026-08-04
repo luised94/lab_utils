@@ -66,6 +66,10 @@ SURROUNDING_QUOTE_CHARACTERS = ('"', "'")
 # readability check, not image reading: no interpretation of the byte occurs.
 READABILITY_PROBE_BYTE_COUNT = 1
 
+# Created and removed to prove the output directory is writable, for the same
+# reason os.access is not used on the input.
+WRITABILITY_PROBE_FILENAME = ".stage0_write_probe"
+
 # Checked in order; the first match names the type in the error message.
 NON_REGULAR_FILE_TYPE_PREDICATES = (
     ("directory", stat.S_ISDIR),
@@ -459,4 +463,106 @@ emit_message(
 )
 
 emit_message("stage 0", "input checks complete")
+
+# =============================================================================
+# Output directory
+# =============================================================================
+
+# Derived from the lexically absolute path, not the physical one. If the input is
+# a symlink into the synced Dropbox tree, the physical parent is the place
+# DESIGN.md section 3 decided not to write to.
+if parsed_arguments.output_parent_directory is None:
+    output_parent_directory_path = input_image_absolute_path.parent
+else:
+    output_parent_directory_path = normalized_paths_by_role["output_parent_directory"][
+        "lexically_absolute_path"
+    ]
+    # A typo in --output-parent-directory must not silently succeed. With
+    # parents=True below, '~/gel_scrach' would create a whole new tree in the
+    # wrong place and report success; found by running exactly that mistake.
+    if not output_parent_directory_path.is_dir():
+        die(
+            "output directory",
+            "--output-parent-directory " + str(output_parent_directory_path) + " does not "
+            "exist as a directory. Only the per-input output directory is created; the "
+            "parent must already exist so that a typo cannot build a tree elsewhere.",
+        )
+
+# The stem is preserved exactly, brackets and commas included. DESIGN.md requires
+# sidecar files to be matched by disk stem; sanitizing the stem here would break
+# that correspondence and make the output directory name stop identifying its
+# input. The cost is a directory name that must be quoted in the shell, which is
+# already true of every input file.
+output_directory_path = output_parent_directory_path / (
+    input_image_absolute_path.stem + OUTPUT_DIRECTORY_NAME_SUFFIX
+)
+
+if os.path.lexists(output_directory_path) and not output_directory_path.is_dir():
+    die(
+        "output directory",
+        str(output_directory_path) + " already exists and is not a directory, so the "
+        "output directory cannot be created there.",
+    )
+
+try:
+    # parents is deliberately False: the parent has been proven to exist above,
+    # and creating intermediate directories is how a mistyped path turns into a
+    # successful run in the wrong location.
+    output_directory_path.mkdir(parents=False, exist_ok=True)
+except PermissionError as directory_permission_error:
+    die(
+        "output directory",
+        "cannot create " + str(output_directory_path) + ": " + str(directory_permission_error)
+        + ". If the input sits on a read-only mount, pass --output-parent-directory.",
+    )
+except OSError as directory_creation_error:
+    die(
+        "output directory",
+        "cannot create " + str(output_directory_path) + ": " + str(directory_creation_error),
+    )
+
+existing_output_entry_names = sorted(entry.name for entry in output_directory_path.iterdir())
+if len(existing_output_entry_names) > 0:
+    # DESIGN.md 5.9 makes reruns overwrite deliberately, so this is not an error.
+    # It is worth saying out loud, because the directory contents after a failed
+    # run are a mixture of two runs until the next one completes.
+    emit_message(
+        "output directory",
+        "WARNING: already contains " + str(len(existing_output_entry_names))
+        + " entries which a full run will overwrite: "
+        + ", ".join(existing_output_entry_names),
+    )
+
+# Same reasoning as the input readability probe: a directory that looks writable
+# on DrvFs can still refuse the write, and as root the permission bits mean
+# nothing. Create something and remove it.
+writability_probe_path = output_directory_path / WRITABILITY_PROBE_FILENAME
+try:
+    writability_probe_path.write_bytes(b"")
+    writability_probe_path.unlink()
+except OSError as writability_error:
+    die(
+        "output directory",
+        str(output_directory_path) + " exists but cannot be written to: "
+        + str(writability_error)
+        + ". Pass --output-parent-directory to place outputs elsewhere.",
+    )
+emit_message("output directory", "created and confirmed writable: " + str(output_directory_path))
+
+# =============================================================================
+# Resolved path report
+# =============================================================================
+
+# stdout carries only this, tab separated, fixed field order. Everything
+# explanatory went to stderr. Paths containing a tab or a newline were rejected
+# during normalization so this cannot be silently corrupted.
+print("input_image_absolute_path\t" + str(input_image_absolute_path))
+print("input_image_physical_path\t" + str(input_image_physical_path))
+print("output_directory_path\t" + str(output_directory_path))
+
+emit_message(
+    "stage 0",
+    "complete; no image data was read and " + str(len(ACCUMULATED_RUN_LOG_LINES))
+    + " run log lines accumulated for the stage 2 provenance JSON",
+)
 sys.exit(0)
