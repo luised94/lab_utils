@@ -30,3 +30,16 @@ test.log
 treestructure*.txt
 verification.R
 __pycache__
+
+# Python and uv artifacts. DESIGN.md asserted these were already covered; only
+# __pycache__ was, so a single `uv run` in images/ filled `git status` with .venv.
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.python-version
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+build/
+dist/
