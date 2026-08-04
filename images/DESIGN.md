@@ -1239,9 +1239,13 @@ orientation statement available from tag 274, from `ImageDescription` and from t
 `.inf`, and fails when they disagree.
 
 **Free empirical check that beats all three sources**, now in `PROTOCOL.md`: row 0
-is the physical bottom of the gel, and Fiji draws row 0 at the top, so the wells
-appear at the **bottom** of the window. Whichever end has the wells settles row
-order without trusting any metadata.
+is the physical bottom of the gel, and Fiji draws row 0 at the top, so the image is
+mirrored top-to-bottom on screen. The wells appear at whichever window edge the
+loading side was scanned toward: the bottom for a gel imaged vertically, a side for
+one imaged horizontally. Whichever edge has the wells settles the row order, and
+together with `gel_migration_axis` fixes the geometry, without trusting any
+metadata. (The earlier claim that the wells always appear at the bottom assumed a
+vertical gel and is false in general; see the horizontal s001 session logged below.)
 
 ### Section 2's polarity, resolved and previously understated
 
@@ -1347,3 +1351,93 @@ Still open:
   a few hundred levels if the `.tif` were a display mapping of that window; on
   synthetic data it reports thousands, so the test works but has not been run on a
   real file.
+
+## 14. Live-measured session: s001, a horizontally imaged gel
+
+Measured interactively in Fiji against a real Amersham Imager 680 scan,
+`2026.07.10_20.06.32_LM-0008_s001_input-controls_Fl-Green.tif` (2048 x 2816,
+uint16, MINISWHITE, 79.9 micrometres/px). This section records what the session
+established and what it corrected; several earlier claims are overwritten in place
+above where they were localized, and the rest are logged here.
+
+### The gel is imaged horizontally, and the template/geometry model was vertical
+
+Wells run down the left edge, the cassette bottom is on the right, migration is
+left-to-right, and the ~15 lanes are stacked along y. The sidecar template and the
+tilt derivation both assumed a vertical gel (a left/right landmark pair, a level
+line running left-to-right). Corrected by adding a required `gel_migration_axis`
+key and renaming the landmark keys to `landmark_a`/`landmark_b`, described per axis
+(template is now schema 2). The level reference here is the well line, which runs
+top-to-bottom; the tilt is its deviation from vertical, the axis perpendicular to
+migration.
+
+**Deferred, and coupled to stage 2 on purpose.** Section 5.1 defines lanes as
+"columns found by collapsing the image vertically" and 5.2 speaks of the "left"
+and "right" crop edges. Both are the same vertical assumption. They are NOT rewritten
+here, because the correct axis-aware wording is fixed by the stage-2 grid-fit code
+that will read `gel_migration_axis`, and rewriting the design ahead of that code
+would let the two drift. The rewrite of 5.1 and 5.2 lands with that code.
+
+### Tilt on s001, and E9 confirmed on real data
+
+Well line clicked bottom-to-top at pixel endpoints (443, 1848) and (445, 900): a
+948 px rise with 2 px of sideways drift, so the lean from vertical is
+atan(2/948) = 0.121 degrees. ImageJ's reported `Angle` of 89.879 degrees is
+90 - 89.879 = 0.121 degrees. The endpoint arithmetic and ImageJ's Angle agree to
+the third decimal, which confirms E9: **the Angle is the primary tilt source and
+the bounding box the cross-check**, not the reverse. Over the crop width this tilt
+displaces a band by under two pixels; whether correcting a sub-0.13-degree tilt is
+worth the interpolation blur it costs is left as a stage-2 decision.
+
+Cross-check in the spirit of the geometry chain: 15 wells give 14 gaps over the
+948 px span, a lane pitch of ~68 px, consistent with the ~66 px seen on an earlier
+file. Lane count, well-line span and pixel size agree.
+
+### F18 saturation on s001: lanes clean, sensor-defect claim not yet evidenced
+
+The full image has 666 pixels at the 65535 ceiling. The Fiji threshold test (raise
+the lower threshold to 65535, view the red pixels, never Apply) shows every one of
+them outside the operator's crop, on the bare plate; the crop's own Max is 58291,
+below the ceiling. So no measured lane in this scan is saturated.
+
+The earlier reading of the cross-file `ceiling_columns` output as proof of a sensor
+defect is overstated. The "recurring in at least 4 of 8 files" list is inflated
+because two or three saturation-dense files (390, 664 and 445 columns at ceiling)
+paint most of the 2048-column width, so many columns clear the threshold by
+coincidence. The real defect candidates are the narrow columns that recur even in
+the sparse files: roughly 108-114, 474-478, and the 586-594 region. These are
+candidates only; confirming a defect needs the cluster-geometry test (a defect is a
+thin tall streak at a fixed column, a band is a short wide blob), not raw column
+recurrence. Masking is deferred until that test runs across the eight files, and any
+mask belongs in per-instrument configuration, not per-image.
+
+**Frame relation, to be confirmed.** A verified ceiling pixel reads at Fiji column
+476, row 836, value 65535. Column 476 is one of the recurring candidates, so
+columns appear shared between Fiji and the arrays `ceiling_columns` reports. The row
+relation appears to be raw_row = 2815 - Fiji_y, consistent with a row-flip inside
+that pipeline, but this rests on the one point plus the bottom-left-origin argument;
+confirm it against the raw ceiling output's row for column 476 before any masking
+code trusts F18's row numbers.
+
+### The crop includes plate, so the baseline must be local (corrects 5.4 and F2/F16)
+
+To avoid clipping any lane, the crop must be generous and will usually include a
+strip of bare plate at the well end. Two consequences. First, statistics computed
+inside the crop are therefore NOT gel-only; findings F2 and F16 wanted in-crop
+statistics precisely because the whole-image mode is the plate, but the in-crop
+numbers are still plate-contaminated at that end, so they describe the gel only
+where the crop is gel. Second, and more consequential for the numbers: the baseline
+cannot be a single value across the crop, which a strip of plate would drag down.
+The two baselines chosen in 5.4 (valley-to-valley and rolling-ball) must be applied
+locally, per band or per lane, from the gel immediately flanking each band, not
+globally across the crop. This is a design commitment, not a preference: a global
+rolling-ball baseline over a crop that contains plate is wrong.
+
+### Superseded
+
+- "The wells always appear at the bottom of the window" (section 13): false in
+  general, assumed a vertical gel. Corrected in place.
+- "Recurring ceiling columns indicate a sensor defect" (working hypothesis from the
+  ceiling_columns output): not yet evidenced; downgraded to candidate columns
+  pending the geometry test.
+- The implication in F2/F16 that in-crop equals gel-only: corrected above.
