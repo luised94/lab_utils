@@ -376,10 +376,9 @@ if input_image_absolute_path.suffix.lower() == INF_SIDECAR_SUFFIX:
         + ". Pass the image; the sidecar is located from its stem.",
     )
 
-# The .inf is the only statement of dimensions, orientation and ScaleType anywhere
-# in the file set, and the vendor documentation disagrees with the .inf about
-# whether .img is linear or log encoded. Nothing downstream can proceed without
-# it, so its absence is a stage 0 hard stop rather than a stage 1 surprise.
+# Located by suffix substitution on the disk stem, never by the internal
+# acquisition filename on .inf line 2, which corresponds to nothing on disk after
+# the post-scan rename recorded in DESIGN.md section 2.
 inf_sidecar_absolute_path = input_image_absolute_path.with_suffix(INF_SIDECAR_SUFFIX)
 
 input_not_found_hint_text = ""
@@ -389,18 +388,45 @@ if "\\" in parsed_arguments.input_image_path:
         "it needs a drive letter and single quotes."
     )
 
-# Identical checks over two files, so a loop rather than a duplicated block. The
-# second real call site now exists, which is what CONVENTIONS.md section 1 asks
-# for before logic is shared.
 files_requiring_checks = [
     ("input image", input_image_absolute_path, input_not_found_hint_text),
-    (
-        "inf sidecar",
-        inf_sidecar_absolute_path,
-        " Located by replacing the image suffix with " + INF_SIDECAR_SUFFIX
-        + " on the disk stem. The Typhoon writes it alongside every scan.",
-    ),
 ]
+
+# The sidecar is used when present and reported when absent. It is not required.
+# The read path is the .tif, which carries its own dimensions and resolution, and
+# the fluorescence and loading scans will only ever have a .tif. Making this a
+# hard stop would reject exactly the files the pipeline has to handle.
+#
+# What is lost when it is absent, and must therefore be surfaced rather than
+# quietly skipped: pixel size in micrometres, S,Orientation, H,ScaleType,
+# S,Invert, and the PMT voltage S,V that DESIGN.md section 2 keeps solely so that
+# a difference between repeats gets noticed.
+inf_sidecar_is_present = os.path.lexists(inf_sidecar_absolute_path)
+if inf_sidecar_is_present:
+    files_requiring_checks.append(("inf sidecar", inf_sidecar_absolute_path, ""))
+else:
+    # ext4 is case sensitive and DrvFs is not, so a sidecar written as .INF
+    # resolves on /mnt/c and vanishes on a local copy of the same files. Naming the
+    # variant is the difference between a one-second fix and a hunt.
+    case_variant_hint_text = ""
+    if inf_sidecar_absolute_path.parent.is_dir():
+        case_variant_names = sorted(
+            sibling_entry.name
+            for sibling_entry in inf_sidecar_absolute_path.parent.iterdir()
+            if sibling_entry.name.lower() == inf_sidecar_absolute_path.name.lower()
+        )
+        if len(case_variant_names) > 0:
+            case_variant_hint_text = (
+                " A file differing only in case exists: "
+                + ", ".join(case_variant_names) + "."
+            )
+    emit_message(
+        "inf sidecar",
+        "WARNING: no sidecar at " + str(inf_sidecar_absolute_path)
+        + ". Pixel size, orientation, ScaleType, Invert and PMT voltage are then "
+        "unavailable and must come from the container's own tags or be recorded as "
+        "unknown." + case_variant_hint_text,
+    )
 
 for file_role_label, file_absolute_path, file_not_found_hint_text in files_requiring_checks:
 
@@ -612,6 +638,7 @@ emit_message("output directory", "created and confirmed writable: " + str(output
 print("input_image_absolute_path\t" + str(input_image_absolute_path))
 print("input_image_physical_path\t" + str(input_image_physical_path))
 print("inf_sidecar_absolute_path\t" + str(inf_sidecar_absolute_path))
+print("inf_sidecar_is_present\t" + ("yes" if inf_sidecar_is_present else "no"))
 print("output_directory_path\t" + str(output_directory_path))
 
 emit_message(
