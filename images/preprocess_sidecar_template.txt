@@ -1,0 +1,93 @@
+# Preprocessing sidecar template - gel densitometry pipeline
+#
+# Copy this file once per scan, next to the input .tif, named
+#   <input stem>_preprocess.txt
+# For example:
+#   20220303-wt,4r,5,6-sofa-repeat-1-1000-[Phosphor]_preprocess.txt
+#
+# THIS FILE IS THE AUTHORITY FOR THE KEY LIST. validate_gel_image.py duplicates
+# the list rather than importing it, because CONVENTIONS.md section 1 forbids
+# sharing between scripts. Drift between the two cannot go unnoticed: a missing
+# key and an unknown key are both hard stops, so adding a key here without adding
+# it there fails on the next run instead of being silently ignored.
+#
+# Format rules:
+#   - one key=value per line, no spaces around the =
+#   - lines starting with # are comments, blank lines are ignored
+#   - CRLF is fine, edit this from Windows or from nvim
+#   - every key below is REQUIRED; the two free-text ones may be left empty
+#   - an unrecognized key is a hard stop, so a misspelling cannot be ignored
+#
+# All coordinates are measured in Fiji on the raw .tif as it opens, with NO
+# rotation, NO flip and NO saving. Fiji's origin is the top-left of the window
+# and y increases downward.
+#
+# READ THIS BEFORE MEASURING: the scan origin is bottom-left, so row 0 of the
+# file is the physical BOTTOM of the gel, and Fiji draws row 0 at the top of the
+# window. The image on screen is therefore upside down relative to the gel, and
+# THE WELLS APPEAR AT THE BOTTOM OF THE WINDOW. See PROTOCOL.md.
+
+schema_version=1
+
+# Must be exactly raw_as_opened_unflipped. It exists so that if the convention
+# is ever changed, old sidecars fail loudly instead of being reinterpreted.
+measured_in_frame=raw_as_opened_unflipped
+
+# The filename these measurements were taken against, without any directory.
+# Checked against the file actually being processed. This catches the most likely
+# error with hand-written sidecars: copying one scan's file to another scan,
+# updating the dimensions because you noticed they differed, and leaving the crop
+# coordinates untouched.
+measured_against_input_filename=CHANGE_ME.tif
+
+# From Image > Properties, or the title bar. Checked against the TIFF tags.
+# These genuinely differ between scans: repeat 1 and repeat 3 are 1125 x 875
+# while repeat 2 is 1250 x 750, so nothing may be assumed.
+measured_against_image_width_pixels=0
+measured_against_image_height_pixels=0
+
+# Two points that SHOULD lie on a line that is level on the physical gel. The
+# tilt angle is derived from these rather than typed, so that it is auditable:
+# the preview image draws them back for you to check, which a typed angle makes
+# impossible.
+#
+# Put them AS FAR APART AS YOU CAN. A one-pixel click error over a 400 pixel span
+# is 0.14 degrees of uncertainty; over 1000 pixels it is 0.06. For scale, 0.5
+# degrees of residual tilt walks a band by about 10 pixels across a 1125 pixel
+# image, which is a full band height at 200 micrometres per pixel.
+rotation_landmark_left_x_pixels=0
+rotation_landmark_left_y_pixels=0
+rotation_landmark_right_x_pixels=0
+rotation_landmark_right_y_pixels=0
+
+# What you actually clicked, in words. This is the only record of it. May be
+# empty, but an empty one costs you the ability to reproduce your own choice.
+rotation_landmark_description=
+
+# Crop box as Fiji reports it for a rectangle selection: x, y, width, height.
+#
+# THE CROP DOES NOT NEED TO BE PRECISE. It is not a measurement boundary; the
+# per-band boxes set later are. The crop only has to exclude what would corrupt
+# the baseline and the lane finder, and it must be GENEROUS. Twenty pixels either
+# way changes no number.
+#
+# The rule: the smallest rectangle containing every lane and every band you
+# intend to measure, PLUS a margin of clean gel outside the outermost lanes and
+# beyond the topmost and bottommost bands. Roughly 20 to 50 pixels of margin,
+# which is 4 to 10 mm at 200 micrometres per pixel and 1.6 to 4 mm at 79.9.
+#
+# Err generous. A crop that is too large costs a slightly slower run. A crop that
+# is too tight biases every baseline in the image, and that error is consistent,
+# believable and wrong.
+crop_x_pixels=0
+crop_y_pixels=0
+crop_width_pixels=0
+crop_height_pixels=0
+
+# Number of lanes you expect inside the crop, including empty ones. Used by the
+# grid fit later; stage 1 only range-checks it and cross-checks the implied lane
+# pitch in millimetres against the pixel size read from the file.
+expected_lane_count=0
+
+# Anything you want to remember about this scan. May be empty.
+notes=
