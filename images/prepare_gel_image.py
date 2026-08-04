@@ -66,6 +66,11 @@ SURROUNDING_QUOTE_CHARACTERS = ('"', "'")
 # readability check, not image reading: no interpretation of the byte occurs.
 READABILITY_PROBE_BYTE_COUNT = 1
 
+# The sidecar is located by suffix substitution on the disk stem. DESIGN.md
+# section 2 records that these files were renamed after scanning, so the internal
+# acquisition filename on .inf line 2 corresponds to nothing on disk.
+INF_SIDECAR_SUFFIX = ".inf"
+
 # Created and removed to prove the output directory is writable, for the same
 # reason os.access is not used on the input.
 WRITABILITY_PROBE_FILENAME = ".stage0_write_probe"
@@ -356,111 +361,159 @@ for path_role_name, raw_path_text in path_normalization_inputs:
 emit_message("stage 0", "path normalization complete")
 
 # =============================================================================
-# Existence, file type and readability of the input
+# Existence, file type and readability of the input and its .inf sidecar
 # =============================================================================
 
 input_image_absolute_path = normalized_paths_by_role["input_image_path"]["lexically_absolute_path"]
 input_image_physical_path = normalized_paths_by_role["input_image_path"]["symlink_resolved_absolute_path"]
 
-# lexists rather than exists, so that a broken symlink is reported as a broken
-# symlink instead of as a missing file.
-if not os.path.lexists(input_image_absolute_path):
-    # Naming the first component that does not exist converts "file not found"
-    # into an actionable message when the real fault is an unmounted drive or a
-    # mistyped directory several levels up.
-    first_missing_path_component = input_image_absolute_path
-    for candidate_ancestor_path in [input_image_absolute_path] + list(input_image_absolute_path.parents):
-        if os.path.lexists(candidate_ancestor_path):
-            break
-        first_missing_path_component = candidate_ancestor_path
-    backslash_hint_text = ""
-    if "\\" in parsed_arguments.input_image_path:
-        backslash_hint_text = (
-            " The supplied path still contains backslashes; if this is a Windows path, "
-            "it needs a drive letter and single quotes."
-        )
+# Passing the sidecar where the image belongs would otherwise survive stage 0 and
+# reach stage 1, where 1,170 bytes of text get reshaped as if they were pixels.
+if input_image_absolute_path.suffix.lower() == INF_SIDECAR_SUFFIX:
     die(
-        "existence",
-        "input image not found: " + str(input_image_absolute_path)
-        + ". Highest path component that does not exist: " + str(first_missing_path_component)
-        + "." + backslash_hint_text,
+        "arguments",
+        "the input is the .inf sidecar itself: " + str(input_image_absolute_path)
+        + ". Pass the image; the sidecar is located from its stem.",
     )
 
-input_image_link_status = os.lstat(input_image_absolute_path)
-if stat.S_ISLNK(input_image_link_status.st_mode) and not os.path.exists(input_image_absolute_path):
-    die(
-        "existence",
-        "input image " + str(input_image_absolute_path) + " is a symlink whose target "
-        + str(input_image_physical_path) + " does not exist.",
+# The .inf is the only statement of dimensions, orientation and ScaleType anywhere
+# in the file set, and the vendor documentation disagrees with the .inf about
+# whether .img is linear or log encoded. Nothing downstream can proceed without
+# it, so its absence is a stage 0 hard stop rather than a stage 1 surprise.
+inf_sidecar_absolute_path = input_image_absolute_path.with_suffix(INF_SIDECAR_SUFFIX)
+
+input_not_found_hint_text = ""
+if "\\" in parsed_arguments.input_image_path:
+    input_not_found_hint_text = (
+        " The supplied path still contains backslashes; if this is a Windows path, "
+        "it needs a drive letter and single quotes."
     )
 
-input_image_file_status = os.stat(input_image_absolute_path)
+# Identical checks over two files, so a loop rather than a duplicated block. The
+# second real call site now exists, which is what CONVENTIONS.md section 1 asks
+# for before logic is shared.
+files_requiring_checks = [
+    ("input image", input_image_absolute_path, input_not_found_hint_text),
+    (
+        "inf sidecar",
+        inf_sidecar_absolute_path,
+        " Located by replacing the image suffix with " + INF_SIDECAR_SUFFIX
+        + " on the disk stem. The Typhoon writes it alongside every scan.",
+    ),
+]
 
-# Rejecting non-regular files before opening anything is not pedantry: opening a
-# named pipe blocks until a writer appears, so the readability probe below would
-# hang forever rather than fail.
-for non_regular_type_name, non_regular_type_predicate in NON_REGULAR_FILE_TYPE_PREDICATES:
-    if non_regular_type_predicate(input_image_file_status.st_mode):
-        directory_hint_text = ""
-        if non_regular_type_name == "directory":
-            directory_hint_text = (
-                " Directory mode is stage 4 in DESIGN.md section 7; pass a single file."
+for file_role_label, file_absolute_path, file_not_found_hint_text in files_requiring_checks:
+
+    # lexists rather than exists, so that a broken symlink is reported as a broken
+    # symlink instead of as a missing file.
+    if not os.path.lexists(file_absolute_path):
+        # Naming the first component that does not exist converts "not found" into
+        # an actionable message when the real fault is an unmounted drive or a
+        # mistyped directory several levels up.
+        first_missing_path_component = file_absolute_path
+        for candidate_ancestor_path in [file_absolute_path] + list(file_absolute_path.parents):
+            if os.path.lexists(candidate_ancestor_path):
+                break
+            first_missing_path_component = candidate_ancestor_path
+        case_variant_hint_text = ""
+        if file_absolute_path.parent.is_dir():
+            # ext4 is case sensitive and DrvFs is not, so a sidecar written as .INF
+            # resolves on /mnt/c and vanishes on a local copy of the same files.
+            # Naming the variant is the difference between a one-second fix and a
+            # hunt through the directory.
+            case_variant_names = sorted(
+                sibling_entry.name
+                for sibling_entry in file_absolute_path.parent.iterdir()
+                if sibling_entry.name.lower() == file_absolute_path.name.lower()
             )
+            if len(case_variant_names) > 0:
+                case_variant_hint_text = (
+                    " A file differing only in case exists: "
+                    + ", ".join(case_variant_names) + "."
+                )
+        die(
+            "existence",
+            file_role_label + " not found: " + str(file_absolute_path)
+            + ". Highest path component that does not exist: "
+            + str(first_missing_path_component) + "."
+            + case_variant_hint_text + file_not_found_hint_text,
+        )
+
+    file_link_status = os.lstat(file_absolute_path)
+    if stat.S_ISLNK(file_link_status.st_mode) and not os.path.exists(file_absolute_path):
+        die(
+            "existence",
+            file_role_label + " " + str(file_absolute_path) + " is a symlink whose target "
+            + str(pathlib.Path(file_absolute_path).resolve()) + " does not exist.",
+        )
+
+    file_status = os.stat(file_absolute_path)
+
+    # Rejecting non-regular files before opening anything is not pedantry: opening
+    # a named pipe blocks until a writer appears, so the readability probe below
+    # would hang forever rather than fail.
+    for non_regular_type_name, non_regular_type_predicate in NON_REGULAR_FILE_TYPE_PREDICATES:
+        if non_regular_type_predicate(file_status.st_mode):
+            directory_hint_text = ""
+            if non_regular_type_name == "directory" and file_role_label == "input image":
+                directory_hint_text = (
+                    " Directory mode is stage 4 in DESIGN.md section 7; pass a single file."
+                )
+            die(
+                "file type",
+                file_role_label + " " + str(file_absolute_path) + " is a "
+                + non_regular_type_name + ", not a regular file." + directory_hint_text,
+            )
+    if not stat.S_ISREG(file_status.st_mode):
         die(
             "file type",
-            "input image " + str(input_image_absolute_path) + " is a "
-            + non_regular_type_name + ", not a regular file." + directory_hint_text,
+            file_role_label + " " + str(file_absolute_path) + " is not a regular file "
+            "(st_mode " + oct(file_status.st_mode) + ").",
         )
-if not stat.S_ISREG(input_image_file_status.st_mode):
-    die(
-        "file type",
-        "input image " + str(input_image_absolute_path) + " is not a regular file "
-        "(st_mode " + oct(input_image_file_status.st_mode) + ").",
-    )
 
-# DESIGN.md section 3 names reading a partially synced Dropbox file as a real
-# risk. A zero byte file is the one degenerate case stage 0 can catch without
-# reading image data, and it is exactly what an interrupted sync leaves behind.
-if input_image_file_status.st_size == 0:
-    die(
-        "file size",
-        "input image " + str(input_image_absolute_path) + " is zero bytes. An "
-        "interrupted or placeholder-only Dropbox sync produces exactly this.",
-    )
+    # DESIGN.md section 3 names reading a partially synced Dropbox file as a real
+    # risk. A zero byte file is the one degenerate case stage 0 can catch without
+    # reading image data, and it is exactly what an interrupted sync leaves behind.
+    if file_status.st_size == 0:
+        die(
+            "file size",
+            file_role_label + " " + str(file_absolute_path) + " is zero bytes. An "
+            "interrupted or placeholder-only Dropbox sync produces exactly this.",
+        )
 
-# os.access is deliberately not used. DESIGN.md section 3 records that /mnt/c is
-# DrvFs and reports 777 regardless of real permissions, and access() run as root
-# returns true for nearly everything. Opening the file and reading a byte is the
-# only test that answers the question actually being asked.
-try:
-    with open(input_image_absolute_path, "rb") as input_image_file_handle:
-        readability_probe_bytes = input_image_file_handle.read(READABILITY_PROBE_BYTE_COUNT)
-except PermissionError as permission_error:
-    die(
+    # os.access is deliberately not used. DESIGN.md section 3 records that /mnt/c is
+    # DrvFs and reports 777 regardless of real permissions, and access() run as root
+    # returns true for nearly everything. Opening the file and reading a byte is the
+    # only test that answers the question actually being asked.
+    try:
+        with open(file_absolute_path, "rb") as file_handle:
+            readability_probe_bytes = file_handle.read(READABILITY_PROBE_BYTE_COUNT)
+    except PermissionError as permission_error:
+        die(
+            "readability",
+            file_role_label + " " + str(file_absolute_path) + " exists but cannot be "
+            "opened for reading: " + str(permission_error),
+        )
+    except OSError as open_error:
+        die(
+            "readability",
+            file_role_label + " " + str(file_absolute_path) + " exists but failed to "
+            "open: " + str(open_error),
+        )
+
+    if len(readability_probe_bytes) != READABILITY_PROBE_BYTE_COUNT:
+        die(
+            "readability",
+            file_role_label + " " + str(file_absolute_path) + " opened but returned "
+            + str(len(readability_probe_bytes)) + " bytes instead of "
+            + str(READABILITY_PROBE_BYTE_COUNT) + ".",
+        )
+
+    emit_message(
         "readability",
-        "input image " + str(input_image_absolute_path) + " exists but cannot be opened "
-        "for reading: " + str(permission_error),
+        file_role_label + ": opened and read " + str(len(readability_probe_bytes))
+        + " byte; reported size is " + str(file_status.st_size) + " bytes",
     )
-except OSError as open_error:
-    die(
-        "readability",
-        "input image " + str(input_image_absolute_path) + " exists but failed to open: "
-        + str(open_error),
-    )
-
-if len(readability_probe_bytes) != READABILITY_PROBE_BYTE_COUNT:
-    die(
-        "readability",
-        "input image " + str(input_image_absolute_path) + " opened but returned "
-        + str(len(readability_probe_bytes)) + " bytes instead of "
-        + str(READABILITY_PROBE_BYTE_COUNT) + ".",
-    )
-
-emit_message(
-    "readability",
-    "opened the input and read " + str(len(readability_probe_bytes))
-    + " byte; reported size is " + str(input_image_file_status.st_size) + " bytes",
-)
 
 emit_message("stage 0", "input checks complete")
 
@@ -558,6 +611,7 @@ emit_message("output directory", "created and confirmed writable: " + str(output
 # during normalization so this cannot be silently corrupted.
 print("input_image_absolute_path\t" + str(input_image_absolute_path))
 print("input_image_physical_path\t" + str(input_image_physical_path))
+print("inf_sidecar_absolute_path\t" + str(inf_sidecar_absolute_path))
 print("output_directory_path\t" + str(output_directory_path))
 
 emit_message(
