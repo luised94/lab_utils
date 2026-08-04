@@ -816,3 +816,151 @@ and a silent loss if they ever live inside it.
 under any unit reading. `MainStartPosition`, `SubStartPosition`, `Filter=0/2` and
 `Correction7=26531/26553` are likewise uninterpreted but absent from the
 uninterpreted-fields list. Record verbatim, interpret nothing.
+
+---
+
+## 10. Reconciliation against vendor and ImageJ sources
+
+Sources were Perplexity searches. Treated as leads. Where a source contradicts a
+stated fact, the contradiction is recorded with a test against the real files
+rather than resolved by preferring one account.
+
+### The linearity assumption is no longer safe
+
+Section 2 concluded "These files are linear. No inverse transform required." on
+the strength of `H,ScaleType=Linear` and `H,SignalProcess2=Linear`.
+
+Cytiva/GE documentation, as reported, says the three containers carry three
+different encodings:
+
+| Container | Vendor documentation says | Section 2 assumed |
+|-----------|---------------------------|-------------------|
+| `.tif` | linear 16-bit grayscale TIFF | linear |
+| `.gel` | square-root encoded 16-bit TIFF | linear |
+| `.img` | log-encoded 16-bit TIFF | linear, and raw |
+
+If true for `.img`, the primary read path in 5.11 is reading log-encoded data as
+if it were linear, which is the exact failure section 2 identified and believed it
+had defused. Integrating log-encoded values compresses ratios far more severely
+than square-root encoding does, and normalizing to wildtype does not fix it.
+
+**This does not change which file to read. It changes what must be proven before
+any number leaves the pipeline.** Stage 1 becomes blocking rather than merely
+valuable.
+
+### One vendor claim is already falsified by arithmetic
+
+`.img` cannot be a "log-encoded 16-bit **TIFF**". Its filesize is exactly
+`1125 * 875 * 2` with zero bytes of overhead, and no TIFF can have a zero-byte
+header. The `.tif` and `.gel` are 1,427 and 2,607 bytes larger, which is what a
+TIFF wrapper looks like.
+
+So the source is wrong about `.img` in at least one respect, which is a reason to
+distrust the rest of its three-way table rather than to accept it. It may be
+describing the export options in the acquisition software rather than the files on
+disk. Both remain possible; the pixels decide.
+
+### The `FLA_IMAGE_FILE` magic string is the strongest lead in the set
+
+It is Fuji lineage, not GE. The Amersham Typhoon inherited the Fuji FLA container.
+The classic Fuji BAS/FLA `.img` convention is a **log** encoding parameterized by
+sensitivity and latitude, of the general form
+
+```
+PSL proportional to 10 ^ (latitude * (stored_value / stored_maximum - 0.5))
+```
+
+Positional lines 8 and 9 are `1` and `5`. Section 2 marks both "Unknown - do not
+interpret", confidence None. `5` is a canonical Fuji latitude value, and latitude
+is precisely the parameter that formula needs. That is a hypothesis, not a
+finding, and it is the first thing worth testing because it would explain the
+vendor's log claim while leaving `ScaleType=Linear` describing something else,
+such as the display mapping.
+
+Correspondingly, `S,RangeLow=2` / `S,RangeHigh=258` fits a display window, which
+is what section 2 already guessed. Confidence raised slightly, still a guess.
+
+### Byte order: the stated assumption is probably backwards
+
+Section 8 says the `.img` byte order is "almost certainly little-endian". Fuji
+FLA and BAS `.img` files are conventionally **big-endian**. Downgrade to unknown
+and test, which is cheap: the wrong byte order makes a smooth gel histogram look
+like noise, and swapped high and low bytes produce a characteristic banded
+texture.
+
+### ImageJ: section 8's open question is effectively answered
+
+An ImageJ plugin exists whose entire purpose is to linearize `.gel` data, with the
+decode given as `linear = stored^2 * MD_ScalePixel`.
+
+The existence of that plugin is the answer. If ImageJ linearized `.gel` on open,
+the plugin would have nothing to do. So historical manual measurements taken on
+`.gel` in ImageJ were almost certainly made on **square-root-encoded values**, and
+are not comparable to linear integrated intensities without applying the decode.
+
+The source itself declines to confirm the on-open behaviour, so this is an
+inference from the plugin's existence rather than a documented fact. It needs one
+question answered by the user, not more searching: **which file was opened in
+ImageJ for the historical measurements.** If `.tif`, the old numbers were linear
+and comparable. If `.gel`, they were not.
+
+**Decision changed:** private tag `MD_ScalePixel` is promoted from provenance to
+be recorded to a **required decode parameter** on the `.gel` path. Section 6 lists
+tags 65000+ as "reported, never assumed"; for `.gel` the scale factor is not
+optional metadata, it is a multiplier.
+
+### Section 5.12: the ceiling is below the container maximum
+
+Cytiva material describes a quantitation range around 0 to 100,000 grayscale
+counts against a 16-bit container whose maximum is 65,535, and the acquisition
+software flags saturated pixels separately while PMT voltage is tuned to avoid
+them.
+
+Section 5.12 already refuses to assume 65535 and infers the ceiling from the data,
+so the approach survives. What changes is the **ranking of the two diagnostics**.
+Section 5.12 presents the at-ceiling count and the plateau statistic as
+co-equal. If the instrument saturates at the detector before the numeric ceiling
+is reached, the at-ceiling count can be zero on a badly clipped band. The plateau
+statistic is then the primary detector of saturation and the at-ceiling count is
+the secondary one. Reorder the CSV columns and the reporting accordingly.
+
+The 100,000 figure comes from a product data sheet and a video walkthrough. Weak
+sourcing, and it is not needed for the decision: the ranking change follows from
+the mechanism, not the number.
+
+### Section 5.5 unaffected
+
+Polarity remains reliably detectable from the histogram mode. Encoding remains
+undetectable from pixels alone in a single file, which is exactly why 5.11's
+two-format scatter matters. Stain chemistry remains undetectable. No change.
+
+### Phosphor plate linearity: confidence only
+
+Imaging plates are approximately linear in PSL over a wide dose range and saturate
+at high dose through radiation-induced colour-centre formation. This supports the
+existing decision to restrict analysis to unsaturated bands and adds nothing to
+build. Methods-section material, out of scope here.
+
+### Tests that distinguish the accounts, in priority order
+
+All are stage 1, all cheap, none require new machinery beyond 5.11's scatter.
+
+1. **Three-way pixel-for-pixel scatter** on one scan: `.img` against `.tif`,
+   `.gel` against `.tif`, `.img` against `.gel`. Straight line through origin
+   means identical up to scale. Parabola means one is square-root encoded relative
+   to the other. Exponential means one is log encoded. This single plot decides
+   the entire question, and 5.11 already calls for it.
+2. **Test the published decode directly.** Check whether
+   `gel_value^2 * MD_ScalePixel` reproduces the `.tif` values. If it does, the
+   square-root claim is confirmed and the ImageJ comparability problem is real.
+3. **Byte order and axis order together.** Read `.img` as little-endian and as
+   big-endian, and reshape each as 1125x875 and as 875x1125. Exactly one of the
+   four should correlate with the `.tif`. This resolves byte order, resolves the
+   width-versus-height ambiguity recorded in section 9, and doubles as the flip
+   verification 5.11 wanted.
+4. **Latitude hypothesis.** If the `.img` versus `.tif` relationship is
+   exponential, check whether the fitted exponent is consistent with
+   `latitude = 5` from positional line 9.
+
+Until test 1 has been run on real files, no integrated intensity from this
+pipeline should be reported to anyone.
