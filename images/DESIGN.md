@@ -1085,3 +1085,58 @@ repo-wide `*.png` rule recorded in section 9 is not a problem in practice.
 and section 3's concern about reading a partially synced file now applies to
 outputs as well as inputs. The zero-byte check in stage 0 catches the degenerate
 case on the input side only.
+
+---
+
+## 12. The .inf transcription in section 2 is off by one
+
+`file` reports `ASCII text, with CRLF line terminators`. `wc -c` reports 1170.
+`sed -n '8p;9p' | cat -A` reports:
+
+```
+875^M$
+1^M$
+```
+
+Section 2's transcription puts `875` on line 7 and `1` on line 8. The real file
+puts them on lines 8 and 9. **Every positional line number in section 2's
+interpretation table is off by one from some point at or before line 7.**
+
+The byte count closes this exactly and leaves nothing else outstanding:
+
+```
+transcribed 56 lines, CRLF, trailing newline : 1,164 bytes
+real filesize                                : 1,170 bytes
+unaccounted                                  :     6 bytes
+one omitted line of length L costs L + 2      -> L = 4
+```
+
+So exactly one line, of exactly four characters, was omitted from the
+transcription, and it sits at real position 7 or earlier. Nothing else is missing
+and no line was added. The 42 key-value lines are unaffected, since the omission
+is in the positional block.
+
+**Not yet known: which position, and what the line says.** A four-character field
+immediately after the internal filename would be consistent with the Fuji FLA
+lineage the `FLA_IMAGE_FILE` magic implies, but that is a guess and the guess is
+not needed. `sed -n '1,9p' | cat -A` on the real file settles it in one command.
+
+### Consequences
+
+- **The positional table in section 2 must not be used to write a parser until the
+  omitted line is located.** Its interpretations are probably still right, but its
+  indices are not.
+- **A positional parser fails loudly rather than silently, which is lucky.** Using
+  section 2's indices, line 3 would be read as the main-axis pixel size and would
+  hit a non-numeric field, so `int()` raises. Had the omitted line been numeric,
+  the parser would have read bits-per-pixel as 200 and width as 16 and produced
+  garbage without complaint.
+- **CRLF is confirmed, so the section 6 magic-string hard stop as written fails on
+  every real file.** Section 9 recorded this as a lead; it is now a fact.
+  `line == "FLA_IMAGE_FILE"` is compared against `"FLA_IMAGE_FILE\r"`. Parse with
+  `splitlines()` and strip every line before comparing anything.
+- **Prefer keyed access over positional access wherever possible.** The 42
+  key-value lines carry `S,` and `H,` keys and are immune to an inserted line. The
+  positional block is not. Anything obtainable from the key-value block or from the
+  TIFF tags should be taken from there, and the positional block used only for what
+  is available nowhere else.
