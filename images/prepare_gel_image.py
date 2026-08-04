@@ -37,6 +37,7 @@ import os
 import pathlib
 import re
 import shutil
+import stat
 import subprocess
 import sys
 
@@ -60,6 +61,19 @@ WINDOWS_DRIVE_ABSOLUTE_PATH_PATTERN = re.compile(r"^([A-Za-z]):[/\\]")
 WINDOWS_DRIVE_RELATIVE_PATH_PATTERN = re.compile(r"^([A-Za-z]):(?![/\\])")
 
 SURROUNDING_QUOTE_CHARACTERS = ('"', "'")
+
+# One byte is enough to prove the file opens and yields data. This is a
+# readability check, not image reading: no interpretation of the byte occurs.
+READABILITY_PROBE_BYTE_COUNT = 1
+
+# Checked in order; the first match names the type in the error message.
+NON_REGULAR_FILE_TYPE_PREDICATES = (
+    ("directory", stat.S_ISDIR),
+    ("named pipe", stat.S_ISFIFO),
+    ("socket", stat.S_ISSOCK),
+    ("character device", stat.S_ISCHR),
+    ("block device", stat.S_ISBLK),
+)
 
 # =============================================================================
 # The two permitted helpers (CONVENTIONS.md section 1)
@@ -336,4 +350,113 @@ for path_role_name, raw_path_text in path_normalization_inputs:
     emit_message(path_role_name, "normalized to " + str(lexically_absolute_path))
 
 emit_message("stage 0", "path normalization complete")
+
+# =============================================================================
+# Existence, file type and readability of the input
+# =============================================================================
+
+input_image_absolute_path = normalized_paths_by_role["input_image_path"]["lexically_absolute_path"]
+input_image_physical_path = normalized_paths_by_role["input_image_path"]["symlink_resolved_absolute_path"]
+
+# lexists rather than exists, so that a broken symlink is reported as a broken
+# symlink instead of as a missing file.
+if not os.path.lexists(input_image_absolute_path):
+    # Naming the first component that does not exist converts "file not found"
+    # into an actionable message when the real fault is an unmounted drive or a
+    # mistyped directory several levels up.
+    first_missing_path_component = input_image_absolute_path
+    for candidate_ancestor_path in [input_image_absolute_path] + list(input_image_absolute_path.parents):
+        if os.path.lexists(candidate_ancestor_path):
+            break
+        first_missing_path_component = candidate_ancestor_path
+    backslash_hint_text = ""
+    if "\\" in parsed_arguments.input_image_path:
+        backslash_hint_text = (
+            " The supplied path still contains backslashes; if this is a Windows path, "
+            "it needs a drive letter and single quotes."
+        )
+    die(
+        "existence",
+        "input image not found: " + str(input_image_absolute_path)
+        + ". Highest path component that does not exist: " + str(first_missing_path_component)
+        + "." + backslash_hint_text,
+    )
+
+input_image_link_status = os.lstat(input_image_absolute_path)
+if stat.S_ISLNK(input_image_link_status.st_mode) and not os.path.exists(input_image_absolute_path):
+    die(
+        "existence",
+        "input image " + str(input_image_absolute_path) + " is a symlink whose target "
+        + str(input_image_physical_path) + " does not exist.",
+    )
+
+input_image_file_status = os.stat(input_image_absolute_path)
+
+# Rejecting non-regular files before opening anything is not pedantry: opening a
+# named pipe blocks until a writer appears, so the readability probe below would
+# hang forever rather than fail.
+for non_regular_type_name, non_regular_type_predicate in NON_REGULAR_FILE_TYPE_PREDICATES:
+    if non_regular_type_predicate(input_image_file_status.st_mode):
+        directory_hint_text = ""
+        if non_regular_type_name == "directory":
+            directory_hint_text = (
+                " Directory mode is stage 4 in DESIGN.md section 7; pass a single file."
+            )
+        die(
+            "file type",
+            "input image " + str(input_image_absolute_path) + " is a "
+            + non_regular_type_name + ", not a regular file." + directory_hint_text,
+        )
+if not stat.S_ISREG(input_image_file_status.st_mode):
+    die(
+        "file type",
+        "input image " + str(input_image_absolute_path) + " is not a regular file "
+        "(st_mode " + oct(input_image_file_status.st_mode) + ").",
+    )
+
+# DESIGN.md section 3 names reading a partially synced Dropbox file as a real
+# risk. A zero byte file is the one degenerate case stage 0 can catch without
+# reading image data, and it is exactly what an interrupted sync leaves behind.
+if input_image_file_status.st_size == 0:
+    die(
+        "file size",
+        "input image " + str(input_image_absolute_path) + " is zero bytes. An "
+        "interrupted or placeholder-only Dropbox sync produces exactly this.",
+    )
+
+# os.access is deliberately not used. DESIGN.md section 3 records that /mnt/c is
+# DrvFs and reports 777 regardless of real permissions, and access() run as root
+# returns true for nearly everything. Opening the file and reading a byte is the
+# only test that answers the question actually being asked.
+try:
+    with open(input_image_absolute_path, "rb") as input_image_file_handle:
+        readability_probe_bytes = input_image_file_handle.read(READABILITY_PROBE_BYTE_COUNT)
+except PermissionError as permission_error:
+    die(
+        "readability",
+        "input image " + str(input_image_absolute_path) + " exists but cannot be opened "
+        "for reading: " + str(permission_error),
+    )
+except OSError as open_error:
+    die(
+        "readability",
+        "input image " + str(input_image_absolute_path) + " exists but failed to open: "
+        + str(open_error),
+    )
+
+if len(readability_probe_bytes) != READABILITY_PROBE_BYTE_COUNT:
+    die(
+        "readability",
+        "input image " + str(input_image_absolute_path) + " opened but returned "
+        + str(len(readability_probe_bytes)) + " bytes instead of "
+        + str(READABILITY_PROBE_BYTE_COUNT) + ".",
+    )
+
+emit_message(
+    "readability",
+    "opened the input and read " + str(len(readability_probe_bytes))
+    + " byte; reported size is " + str(input_image_file_status.st_size) + " bytes",
+)
+
+emit_message("stage 0", "input checks complete")
 sys.exit(0)
