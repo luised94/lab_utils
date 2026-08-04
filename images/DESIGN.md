@@ -964,3 +964,124 @@ All are stage 1, all cheap, none require new machinery beyond 5.11's scatter.
 
 Until test 1 has been run on real files, no integrated intensity from this
 pipeline should be reported to anyone.
+
+---
+
+## 11. Settled by running against real files
+
+Stage 0 was run against
+`20220303-wt,4r,5,6-sofa-repeat-1-1000-[Phosphor].img` on `/mnt/c`. Everything
+below is from that run and from `ls -la`, `file` and `xxd` on the same file. It
+supersedes the corresponding guesses above.
+
+### `.img` byte order is BIG endian. Section 8 guessed wrong.
+
+Section 8 recorded "Almost certainly little-endian". The last 23 pixels of the
+file decide it, without needing the rest:
+
+```
+001e0a40: 0b08 0af5 0c58 0ba5 0b0f 0b58 0b1a 0b0d
+001e0a50: 0b5b 0aba 0ac1 0af6 0aae 0b7a 0b04 0ad9
+001e0a60: 0a81 0ae4 0a6e 0b87 0ac5 0b1c 0b39
+```
+
+The first byte of every pair takes only three distinct values across all 23
+pixels (`0x0a`, `0x0b`, `0x0c`). The second byte takes 22 distinct values out of
+23. That is the signature of a slowly varying most significant byte leading a
+noisy least significant byte, which is big endian by definition.
+
+Decoded both ways:
+
+| | big endian | little endian |
+|---|---|---|
+| first values | 2824, 2805, 3160, 2981, 2831 | 2059, 62730, 22540, 42251, 3851 |
+| min / max | 2670 / 3160 | 1035 / 62986 |
+| mean adjacent difference | 113 | 23,819 |
+
+Big endian gives a smooth background around 2,800 counts. Little endian gives
+adjacent pixels swinging across most of the 16-bit range, which no gel does. This
+is consistent with the Fuji FLA lineage the `FLA_IMAGE_FILE` magic string implies.
+
+### `.img` is confirmed not a TIFF
+
+`file` reports `data`, not a TIFF. Combined with the filesize being exactly
+`1125 * 875 * 2` and `xxd` showing the final byte at offset 1,968,749 with no
+footer, the vendor documentation's claim that `.img` is a "log-encoded 16-bit
+TIFF" is false as a description of the file on disk. What remains open is whether
+the *values* are log encoded inside a headerless container. Section 10's tests
+still apply.
+
+### Effective bit depth is not left-aligned in the container
+
+Of those 23 pixels, values are not all divisible by 16 or by 4, and odd values
+occur. So the data is not 12-bit or 14-bit left-shifted into 16 bits, which is the
+case section 5.12 warns about. Twenty-three pixels is not a bit-depth
+determination; it is enough to say the obvious stride is absent. The ceiling
+inference in 5.12 still has to run over the whole array.
+
+Background sitting near 2,800 of a possible 65,535 is worth noting for the
+saturation work: there is a great deal of headroom, consistent with the PMT being
+tuned conservatively.
+
+### DrvFs behaves exactly as section 3 predicted
+
+`ls -la` reports `-rwxrwxrwx 1 lius lius` on a file that is not executable. This
+is why readability is tested by opening the file rather than by `os.access`.
+
+### Section 5.11 is decided: read the `.tif`
+
+Section 5.11 ranked `.img` + `.inf` first and `.tif` third, with "Do not build on
+it without evidence." That ranking is superseded, for reasons that were not
+available when it was written:
+
+1. All historical ImageJ measurements were made on `.tif`. Comparability between
+   old manual numbers and new pipeline numbers requires reading the same
+   container.
+2. Vendor documentation describes `.tif` as linear 16-bit grayscale. It is the one
+   container no source claims is transformed.
+3. The fluorescence and loading experiments will only have `.tif` available. A
+   pipeline built on `.img` + `.inf` cannot process them at all.
+
+**Cost of this decision, named:** it reintroduces the TIFF library as a possible
+source of ambiguity, which was 5.11's stated reason for preferring `.img`. That is
+paid for by the tag inventory already required in section 6, and by the `.img`
+versus `.tif` scatter, which is now a *validation* of the chosen path rather than a
+selection between candidates. Byte order and axis order for `.img` are known well
+enough to make that check cheap.
+
+### The ImageJ comparability question is closed, favourably
+
+Section 8 asked whether ImageJ silently transforms `.gel` on open, and section 10
+inferred that historical `.gel` measurements would not be comparable. The question
+does not arise: the historical work was on `.tif`, which is linear. Old and new
+numbers are comparable in principle, and the square-root decode and
+`MD_ScalePixel` matter only if the `.gel` path is ever built.
+
+`MD_ScalePixel` therefore returns to being provenance to record rather than a
+required decode parameter, contingent on the `.tif` path.
+
+### The `.inf` is optional, not required
+
+Consequence of reading `.tif`, and of the fluorescence scans lacking a sidecar.
+Stage 0 reports presence and names what is unavailable when it is absent: pixel
+size, `S,Orientation`, `H,ScaleType`, `S,Invert`, and `S,V`. For `.tif`-only
+inputs the pixel size must come from `XResolution` / `YResolution` /
+`ResolutionUnit`, and where both exist the two must be cross-checked against the
+`.inf`'s 200 micrometres.
+
+**New consequence for section 5.7 and the orientation handling:** TIFF carries its
+own `Orientation` tag, and section 2 already warned that `.tif` and `.img` may
+disagree in row order. With `.tif` as the read path, orientation must come from
+the TIFF tag, not from `S,Orientation` in the `.inf`. Where both exist and
+disagree, that is a hard stop, not a preference.
+
+### Section 8 and 5.9: output location resolved
+
+Outputs live next to the source data, inside the Dropbox tree, as section 5.9
+specified. The repository tracks text and does not track data or binaries, so the
+repo-wide `*.png` rule recorded in section 9 is not a problem in practice.
+
+**Cost, named and accepted:** every overlay and profile plot syncs on every rerun,
+and section 3's concern about reading a partially synced file now applies to
+outputs as well as inputs. The zero-byte check in stage 0 catches the degenerate
+case on the input side only.
