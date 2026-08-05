@@ -56,6 +56,7 @@ import sys
 
 import numpy
 import scipy.ndimage
+import scipy.signal
 import tifffile
 
 import matplotlib
@@ -96,6 +97,38 @@ LANE_PITCH_SEARCH_FRACTION = 0.30
 # gels: a guard that blocks a correct gel is worse than no guard.
 ORIENTATION_PERIODICITY_RATIO = 1.25
 ORIENTATION_AUTOCORRELATION_FLOOR = 0.25
+
+# Data-driven lane locator tuning. These were derived by measurement on the s0002
+# fixture (a gel where all 15 wells were loaded but only 5 carried usable signal,
+# clustered rather than evenly spread) and are documented so they are understood,
+# not copied blindly.
+#
+# A migration column that is elevated down its whole length is a plate edge or
+# scratch, not a lane; a real gel column sits at plate level except where bands
+# cross it. Exclude any column whose median (down the stacking axis) exceeds this
+# multiple of the typical column median.
+EDGE_COLUMN_MEDIAN_MULTIPLE = 8.0
+# Lane centres are found on a profile smoothed over half the lane pitch. Each well
+# shows a symmetric two-lobed (doublet) intensity across its width from edge/well
+# concentration during loading; smoothing over half a pitch merges the doublet into
+# one bump so a lane is not split into two, while staying below a full pitch so
+# adjacent lanes are not merged.
+LANE_CENTRE_SMOOTHING_PITCH_FRACTION = 0.5
+# Minimum separation between accepted lane centres, as a fraction of the pitch. Set
+# below one pitch to tolerate a slightly irregular comb, above the doublet lobe
+# spacing so one lane yields one centre.
+LANE_MINIMUM_SEPARATION_PITCH_FRACTION = 0.7
+# A candidate lane bump must clear this fraction of the strongest bump to be
+# considered; kept gentle so a faint but real lane survives, since compact
+# artifacts are removed afterwards by the band-structure test.
+LANE_PROMINENCE_FRACTION_OF_MAXIMUM = 0.06
+# The band-structure test that separates a real lane from a compact artifact (dust
+# speck, ring): a real lane carries band signal across many migration columns,
+# while a speck lights up only a handful even when its brightest point is dark or
+# its scattered debris spans a wide range. Require at least this fraction of usable
+# migration columns to participate (exceed 15 percent of the lane strip maximum).
+LANE_MINIMUM_PARTICIPATING_COLUMN_FRACTION = 0.05
+LANE_COLUMN_PARTICIPATION_THRESHOLD_FRACTION = 0.15
 
 DISPLAY_COLORMAP_NAME = "gray_r"
 OVERLAY_MAXIMUM_DIMENSION_PIXELS = 1400
@@ -370,34 +403,178 @@ for axis_name, axis_profile, axis_extent in (
 stacking_autocorrelation = periodicity_autocorrelation_by_axis["stacking"]
 migration_autocorrelation = periodicity_autocorrelation_by_axis["migration"]
 
-# The comb, along the stacking axis only, to place the lane centres for the overlay.
-# This is the part that assumes a fixed count filling the crop, and is the next
-# thing to make robust once the profiles show how the real lanes sit.
-stacking_detrended = detrended_profile_by_axis["stacking"]
-stacking_scale = float(stacking_detrended.std()) + 1e-9
+# Data-driven lane locator, replacing the imposed even-count comb. The old comb
+# assumed expected_lane_count lanes filling the crop at a single pitch and scored
+# whichever phase best hit that many evenly-spaced samples. On a gel where only
+# some wells carry signal, and unevenly, that produced a plausible-looking grid
+# that did not sit on the real lanes. Here the pitch is MEASURED from the stacking
+# autocorrelation, the populated lane centres are FOUND by peak-finding, compact
+# non-lane artifacts (dust, rings) are REJECTED by requiring band structure across
+# the migration width, each surviving centre is REFINED to the intensity centroid
+# of its lane (a bare peak lands on one lobe of the intra-lane doublet and reads
+# off centre), and a pitch-and-phase comb is fitted to the survivors ONLY to give
+# each an integer well index, so a sparse gel reads as "wells 1, 11, 12, 13, 14
+# populated of 15" rather than as five renumbered lanes.
 expected_stacking_pitch = stacking_extent_pixels / float(expected_lane_count)
-best_comb_score = -1e18
-lane_centres_stacking_pixels = None
-lane_pitch_pixels = expected_stacking_pitch
-pitch_low = expected_stacking_pitch * (1.0 - LANE_PITCH_SEARCH_FRACTION)
-pitch_high = expected_stacking_pitch * (1.0 + LANE_PITCH_SEARCH_FRACTION)
-for candidate_pitch in numpy.linspace(pitch_low, pitch_high, 61):
-    first_centre_step = max(1.0, candidate_pitch / 20.0)
-    first_centre = 0.0
-    while first_centre < candidate_pitch:
-        centres = first_centre + candidate_pitch * numpy.arange(expected_lane_count)
-        sample_indices = numpy.rint(centres).astype(int)
-        if (sample_indices >= 0).all() and (sample_indices < stacking_extent_pixels).all():
-            score = float(stacking_detrended[sample_indices].mean()) / stacking_scale
-            if score > best_comb_score:
-                best_comb_score = score
-                lane_centres_stacking_pixels = centres
-                lane_pitch_pixels = candidate_pitch
-        first_centre += first_centre_step
+
+# Measured pitch: the lag of the strongest stacking autocorrelation peak, if the
+# axis is periodic enough to trust; otherwise fall back to the geometry-implied
+# pitch and say so. The autocorrelation was already computed above over a band of
+# lags around the expected pitch.
+stacking_autocorrelation_lags = autocorrelation_lags_by_axis["stacking"]
+stacking_autocorrelation_curve = autocorrelation_curve_by_axis["stacking"]
+if (stacking_autocorrelation_curve.size > 0
+        and stacking_autocorrelation_curve.max() >= ORIENTATION_AUTOCORRELATION_FLOOR):
+    measured_lane_pitch_pixels = float(
+        stacking_autocorrelation_lags[int(numpy.argmax(stacking_autocorrelation_curve))]
+    )
+    lane_pitch_source = "measured_by_stacking_autocorrelation"
+else:
+    measured_lane_pitch_pixels = expected_stacking_pitch
+    lane_pitch_source = "fell_back_to_geometry_expected_pitch"
+lane_pitch_pixels = measured_lane_pitch_pixels
 lane_pitch_millimetres = (
     lane_pitch_pixels * micrometres_per_pixel / 1000.0
     if micrometres_per_pixel is not None else None
 )
+
+# Orient a background-subtracted signal image so axis 0 is the stacking axis and
+# axis 1 is the migration axis, whatever the scan orientation, so the locator logic
+# is written once. Background is the crop median (the plate level).
+plate_background_value = float(numpy.median(analysis_crop))
+signal_above_plate = analysis_crop - plate_background_value
+signal_above_plate[signal_above_plate < 0.0] = 0.0
+if gel_migration_axis == "horizontal":
+    stacking_by_migration_signal = signal_above_plate
+else:
+    stacking_by_migration_signal = signal_above_plate.T
+
+# Usable migration columns: drop plate-edge and scratch columns (elevated down
+# their whole length) and any container-saturated columns, so they neither swamp
+# the stacking profile nor defeat the band-structure test.
+per_migration_column_median = numpy.median(stacking_by_migration_signal, axis=0)
+positive_column_medians = per_migration_column_median[per_migration_column_median > 0.0]
+typical_column_median = (
+    float(numpy.median(positive_column_medians)) if positive_column_medians.size else 1.0
+)
+per_migration_column_saturated_fraction = numpy.mean(
+    (analysis_crop if gel_migration_axis == "horizontal" else analysis_crop.T)
+    >= CONTAINER_MAXIMUM_VALUE_16_BIT, axis=0
+)
+usable_migration_column_mask = (
+    (per_migration_column_median <= EDGE_COLUMN_MEDIAN_MULTIPLE * typical_column_median)
+    & (per_migration_column_saturated_fraction < 0.05)
+)
+usable_migration_column_count = int(usable_migration_column_mask.sum())
+
+# Stacking profile for lane finding: signal summed over the usable migration
+# columns only, then smoothed over half the pitch to merge each lane's doublet.
+usable_stacking_by_migration_signal = numpy.where(
+    usable_migration_column_mask[numpy.newaxis, :], stacking_by_migration_signal, 0.0
+)
+stacking_profile_for_lane_finding = usable_stacking_by_migration_signal.sum(axis=1)
+lane_centre_smoothing_pixels = max(
+    3, int(round(LANE_CENTRE_SMOOTHING_PITCH_FRACTION * measured_lane_pitch_pixels))
+)
+stacking_profile_smoothed_for_lane_finding = scipy.ndimage.uniform_filter1d(
+    stacking_profile_for_lane_finding, size=lane_centre_smoothing_pixels, mode="nearest"
+)
+
+# Candidate lane centres: prominent peaks, separated by at least most of a pitch.
+lane_minimum_separation_pixels = max(
+    1.0, LANE_MINIMUM_SEPARATION_PITCH_FRACTION * measured_lane_pitch_pixels
+)
+lane_prominence_threshold = (
+    LANE_PROMINENCE_FRACTION_OF_MAXIMUM * float(stacking_profile_smoothed_for_lane_finding.max())
+)
+candidate_lane_centre_rows, _ = scipy.signal.find_peaks(
+    stacking_profile_smoothed_for_lane_finding,
+    distance=lane_minimum_separation_pixels,
+    prominence=lane_prominence_threshold,
+)
+
+# Keep only candidates with real lane structure, and refine each kept centre to the
+# intensity centroid of its strip so the doublet does not bias it off centre.
+half_pitch_pixels = int(round(measured_lane_pitch_pixels / 2.0))
+lane_centres_stacking_pixels = []
+lane_participating_column_counts = []
+lane_band_counts = []
+lane_total_signal_values = []
+rejected_candidate_rows = []
+rejected_candidate_reasons = []
+for candidate_row in candidate_lane_centre_rows:
+    strip_start = max(0, int(candidate_row) - half_pitch_pixels)
+    strip_end = min(stacking_extent_pixels, int(candidate_row) + half_pitch_pixels)
+    lane_strip = usable_stacking_by_migration_signal[strip_start:strip_end, :]
+    lane_migration_profile = lane_strip.sum(axis=0)
+    lane_migration_profile_maximum = float(lane_migration_profile.max())
+    if lane_migration_profile_maximum <= 0.0:
+        rejected_candidate_rows.append(int(candidate_row))
+        rejected_candidate_reasons.append("no_signal_in_strip")
+        continue
+    participation_threshold = (
+        LANE_COLUMN_PARTICIPATION_THRESHOLD_FRACTION * lane_migration_profile_maximum
+    )
+    participating_column_count = int((lane_migration_profile > participation_threshold).sum())
+    band_peaks, _ = scipy.signal.find_peaks(
+        lane_migration_profile,
+        distance=8,
+        prominence=LANE_COLUMN_PARTICIPATION_THRESHOLD_FRACTION * lane_migration_profile_maximum,
+    )
+    is_real_lane = (
+        participating_column_count
+        >= LANE_MINIMUM_PARTICIPATING_COLUMN_FRACTION * usable_migration_column_count
+        and len(band_peaks) >= 1
+    )
+    if not is_real_lane:
+        rejected_candidate_rows.append(int(candidate_row))
+        rejected_candidate_reasons.append(
+            "participating_columns_%d_bands_%d" % (participating_column_count, len(band_peaks))
+        )
+        continue
+    strip_rows = numpy.arange(strip_start, strip_end)
+    strip_stacking_weight = stacking_profile_for_lane_finding[strip_start:strip_end]
+    strip_weight_total = float(strip_stacking_weight.sum())
+    refined_centre_row = (
+        float((strip_rows * strip_stacking_weight).sum() / strip_weight_total)
+        if strip_weight_total > 0.0 else float(candidate_row)
+    )
+    lane_centres_stacking_pixels.append(refined_centre_row)
+    lane_participating_column_counts.append(participating_column_count)
+    lane_band_counts.append(int(len(band_peaks)))
+    lane_total_signal_values.append(float(lane_strip.sum()))
+
+populated_lane_count = len(lane_centres_stacking_pixels)
+
+# Fit a pitch-and-phase comb to the found centres ONLY to label them with integer
+# well indices consistent with the physical comb, tolerating empty wells between
+# populated ones. Pitch is the measured pitch; phase is brute-forced over one pitch.
+lane_well_indices = None
+if populated_lane_count >= 2:
+    found_centres_array = numpy.array(lane_centres_stacking_pixels, dtype=numpy.float64)
+    best_phase_offset_pixels = 0.0
+    best_total_squared_residual_pixels = None
+    for candidate_phase_offset_pixels in numpy.linspace(0.0, measured_lane_pitch_pixels, 200):
+        nearest_well_index = numpy.round(
+            (found_centres_array - candidate_phase_offset_pixels) / measured_lane_pitch_pixels
+        )
+        model_centre_positions = (
+            candidate_phase_offset_pixels + nearest_well_index * measured_lane_pitch_pixels
+        )
+        total_squared_residual_pixels = float(
+            numpy.sum((found_centres_array - model_centre_positions) ** 2)
+        )
+        if (best_total_squared_residual_pixels is None
+                or total_squared_residual_pixels < best_total_squared_residual_pixels):
+            best_total_squared_residual_pixels = total_squared_residual_pixels
+            best_phase_offset_pixels = float(candidate_phase_offset_pixels)
+    raw_well_indices = numpy.round(
+        (found_centres_array - best_phase_offset_pixels) / measured_lane_pitch_pixels
+    ).astype(int)
+    raw_well_indices = raw_well_indices - int(raw_well_indices.min())
+    lane_well_indices = [int(value) for value in raw_well_indices]
+elif populated_lane_count == 1:
+    lane_well_indices = [0]
 
 # Orientation verdict, from autocorrelation, reported as a WARNING not a hard stop.
 # It flags a probable mislabel for the operator to check against the overlay, but
@@ -422,22 +599,36 @@ ANALYSIS_FINDINGS.append({
                  "before trusting or fixing the sidecar."),
 })
 
-lane_count_found_plausible = (
-    lane_centres_stacking_pixels is not None
-    and len(lane_centres_stacking_pixels) == expected_lane_count
-)
+# Lane grid finding: report the MEASURED occupancy, not the assumed count. Finding
+# fewer populated lanes than expected is normal (empty wells) and is a warning for
+# the operator to confirm against the overlay, not a failure. Finding none is a
+# warning worth flagging louder.
+if populated_lane_count == 0:
+    lane_grid_status = "warning"
+    lane_grid_detail = (
+        "no populated lanes were found. The crop may be blank, the signal may be "
+        "below the prominence floor, or the migration axis may be mislabelled; "
+        "check lane_profiles.png and the orientation finding."
+    )
+else:
+    lane_grid_status = "pass" if populated_lane_count == expected_lane_count else "warning"
+    lane_grid_detail = (
+        "found %d populated lane(s) of %d wells by peak-finding at a measured pitch "
+        "of %.2f pixels" % (populated_lane_count, expected_lane_count, lane_pitch_pixels)
+        + ("" if lane_pitch_millimetres is None else " (%.3f mm)" % lane_pitch_millimetres)
+        + " (%s)" % lane_pitch_source
+        + (", assigned to well indices %s" % lane_well_indices
+           if lane_well_indices is not None else "")
+        + (", rejected %d candidate(s) as non-lane artifacts" % len(rejected_candidate_rows)
+           if rejected_candidate_rows else "")
+        + ". Occupancy is measured from the image, not assumed; confirm against the "
+          "overlay."
+    )
 ANALYSIS_FINDINGS.append({
     "check_name": "lane_grid_fit",
-    "status": "pass" if lane_count_found_plausible else "warning",
+    "status": lane_grid_status,
     "is_hard_stop": False,
-    "detail": ("placed %d evenly-spaced lane centres at a pitch of %.2f pixels"
-               % (expected_lane_count, lane_pitch_pixels)
-               + ("" if lane_pitch_millimetres is None
-                  else " (%.3f mm)" % lane_pitch_millimetres)
-               + ". Note the count is assumed from expected_lane_count, not counted "
-                 "from peaks; confirm against the overlay.")
-              if lane_count_found_plausible else
-              "could not place the expected number of lane centres inside the crop.",
+    "detail": lane_grid_detail,
 })
 
 # Overlay for the operator. The crop is drawn unflipped so it matches Fiji, with the
@@ -579,11 +770,19 @@ analysis_report = {
     "lane_grid": {
         "pitch_pixels": lane_pitch_pixels,
         "pitch_millimetres": lane_pitch_millimetres,
-        "lane_count": expected_lane_count,
-        "lane_centres_stacking_pixels": (
-            [float(value) for value in lane_centres_stacking_pixels]
-            if lane_centres_stacking_pixels is not None else None
-        ),
+        "pitch_source": lane_pitch_source,
+        "expected_lane_count": expected_lane_count,
+        "populated_lane_count": populated_lane_count,
+        "lane_well_indices": lane_well_indices,
+        "lane_centres_stacking_pixels": [
+            float(value) for value in lane_centres_stacking_pixels
+        ],
+        "lane_participating_column_counts": lane_participating_column_counts,
+        "lane_band_counts": lane_band_counts,
+        "lane_total_signal_values": lane_total_signal_values,
+        "usable_migration_column_count": usable_migration_column_count,
+        "rejected_candidate_rows": rejected_candidate_rows,
+        "rejected_candidate_reasons": rejected_candidate_reasons,
     },
     "orientation_check": {
         "claimed_migration_axis": gel_migration_axis,
