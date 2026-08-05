@@ -98,6 +98,16 @@ LANE_PITCH_SEARCH_FRACTION = 0.30
 ORIENTATION_PERIODICITY_RATIO = 1.25
 ORIENTATION_AUTOCORRELATION_FLOOR = 0.25
 
+# Orientation is decided by per-axis gradient energy, not lane-pitch periodicity.
+# Bands are sharp along the migration axis (narrow, closely spaced edges) and
+# smooth along the stacking axis (a band spans the lane width), so the migration
+# axis carries more high-frequency structure regardless of how many lanes are
+# populated. This holds on a sparse gel where autocorrelation at the lane pitch is
+# near zero and cannot decide orientation at all. The claimed migration axis is
+# consistent when its gradient energy exceeds the claimed stacking axis's by at
+# least this ratio. Measured ~2.3 on the s0002 fixture (correctly labelled).
+ORIENTATION_GRADIENT_ENERGY_RATIO = 1.25
+
 # Data-driven lane locator tuning. These were derived by measurement on the s0002
 # fixture (a gel where all 15 wells were loaded but only 5 carried usable signal,
 # clustered rather than evenly spread) and are documented so they are understood,
@@ -576,27 +586,42 @@ if populated_lane_count >= 2:
 elif populated_lane_count == 1:
     lane_well_indices = [0]
 
-# Orientation verdict, from autocorrelation, reported as a WARNING not a hard stop.
-# It flags a probable mislabel for the operator to check against the overlay, but
-# does not block, because the statistic is not yet proven on real gels and a false
-# block on a correct gel is the worse failure.
+# Orientation verdict, from per-axis gradient energy, reported as a WARNING not a
+# hard stop. It flags a probable mislabel for the operator to check against the
+# overlay, but does not block: a false block on a correct gel is the worse failure.
+# Gradient energy is measured on the usable (edge-masked) signal, oriented so axis
+# 0 is stacking and axis 1 is migration, so plate edges do not count as band edges.
+# The lane-pitch autocorrelations are still computed above and carried into the
+# report as secondary diagnostics, but they no longer decide orientation, because
+# they collapse to noise on a sparsely populated gel.
+stacking_axis_gradient = numpy.diff(usable_stacking_by_migration_signal, axis=0)
+migration_axis_gradient = numpy.diff(usable_stacking_by_migration_signal, axis=1)
+stacking_gradient_energy = float((stacking_axis_gradient * stacking_axis_gradient).sum())
+migration_gradient_energy = float((migration_axis_gradient * migration_axis_gradient).sum())
+orientation_gradient_energy_ratio = (
+    migration_gradient_energy / stacking_gradient_energy
+    if stacking_gradient_energy > 0.0 else 0.0
+)
 orientation_is_consistent = (
-    stacking_autocorrelation >= ORIENTATION_AUTOCORRELATION_FLOOR
-    and stacking_autocorrelation >= ORIENTATION_PERIODICITY_RATIO * migration_autocorrelation
+    orientation_gradient_energy_ratio >= ORIENTATION_GRADIENT_ENERGY_RATIO
 )
 ANALYSIS_FINDINGS.append({
-    "check_name": "orientation_matches_lane_periodicity",
+    "check_name": "orientation_matches_band_sharpness",
     "status": "pass" if orientation_is_consistent else "warning",
     "is_hard_stop": False,
-    "detail": "lane-pitch autocorrelation is %.3f along the claimed stacking axis and "
-              "%.3f along the claimed migration axis (%s migration). "
-              % (stacking_autocorrelation, migration_autocorrelation, gel_migration_axis)
-              + ("consistent: the lanes stack across the axis recorded."
+    "detail": "gradient energy is %.2fx higher along the claimed migration axis than "
+              "the claimed stacking axis (%s migration); bands are sharp along "
+              "migration and smooth along stacking, so migration should carry more "
+              "structure. "
+              % (orientation_gradient_energy_ratio, gel_migration_axis)
+              + ("consistent: the sharper axis is the one recorded as migration."
                  if orientation_is_consistent else
-                 "the stacking axis is not clearly the more periodic one. Either the "
-                 "axis is mislabelled, or the lanes are faint or unevenly spaced and "
-                 "the periodicity is weak. Check the overlay and lane_profiles.png "
-                 "before trusting or fixing the sidecar."),
+                 "the migration axis is not clearly the sharper one, so the axis may "
+                 "be mislabelled. Check the overlay and lane_profiles.png before "
+                 "trusting or fixing the sidecar.")
+              + " Lane-pitch autocorrelation (secondary, unreliable on sparse gels) "
+                "is %.3f stacking vs %.3f migration."
+              % (stacking_autocorrelation, migration_autocorrelation),
 })
 
 # Lane grid finding: report the MEASURED occupancy, not the assumed count. Finding
@@ -655,8 +680,8 @@ overlay_title = (
     + ("; unrotated" if not rotation_applied
        else "; rotated %.3f deg" % rotation_applied_angle_degrees)
     + "; orientation " + ("OK" if orientation_is_consistent else "CHECK")
-    + "\nlane-pitch autocorr stacking %.2f vs migration %.2f"
-      % (stacking_autocorrelation, migration_autocorrelation)
+    + "\nmigration/stacking gradient-energy ratio %.2f (orientation cue)"
+      % orientation_gradient_energy_ratio
     + ("" if lane_pitch_millimetres is None
        else "; pitch %.2f mm" % lane_pitch_millimetres)
 )
@@ -786,8 +811,13 @@ analysis_report = {
     },
     "orientation_check": {
         "claimed_migration_axis": gel_migration_axis,
-        "lane_pitch_autocorrelation_stacking": stacking_autocorrelation,
-        "lane_pitch_autocorrelation_migration": migration_autocorrelation,
+        "decided_by": "per_axis_gradient_energy",
+        "migration_gradient_energy": migration_gradient_energy,
+        "stacking_gradient_energy": stacking_gradient_energy,
+        "migration_over_stacking_gradient_energy_ratio": orientation_gradient_energy_ratio,
+        "gradient_energy_ratio_threshold": ORIENTATION_GRADIENT_ENERGY_RATIO,
+        "lane_pitch_autocorrelation_stacking_diagnostic": stacking_autocorrelation,
+        "lane_pitch_autocorrelation_migration_diagnostic": migration_autocorrelation,
         "consistent": orientation_is_consistent,
     },
     "analysis_findings": ANALYSIS_FINDINGS,
