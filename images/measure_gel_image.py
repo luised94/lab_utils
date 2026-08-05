@@ -69,6 +69,8 @@ ANALYSIS_REPORT_SCHEMA_VERSION = 1
 VALIDATION_REPORT_FILENAME = "input_file_validation_report.json"
 ANALYSIS_REPORT_FILENAME = "stage2_analysis_report.json"
 LANE_GRID_OVERLAY_FILENAME = "lane_grid_overlay.png"
+LANE_PROFILES_PLOT_FILENAME = "lane_profiles.png"
+LANE_PROFILES_CSV_FILENAME = "lane_profiles.csv"
 
 # Below this the correction is a small fraction of a pixel across a band and is not
 # worth the interpolation blur, so the tilt is recorded and the image left alone.
@@ -85,11 +87,15 @@ CONTAINER_MAXIMUM_VALUE_16_BIT = 65535
 # or an expected count that is off by the odd empty lane.
 LANE_PITCH_SEARCH_FRACTION = 0.30
 
-# The stacking axis must be at least this many times as periodic as the migration
-# axis for the recorded orientation to be believed, and must clear the floor so a
-# featureless crop does not pass by default.
+# Orientation is decided by autocorrelation of the collapsed profile at the lane
+# spacing, which is phase-independent: it measures whether an axis carries lane-
+# pitch periodicity at all, without needing a comb to have landed on it. The
+# stacking axis must be at least this many times as periodic as the migration
+# axis, and must clear the floor so a featureless crop does not pass by default.
+# This is a soft check (a warning, not a hard stop) until it is proven on real
+# gels: a guard that blocks a correct gel is worse than no guard.
 ORIENTATION_PERIODICITY_RATIO = 1.25
-ORIENTATION_PERIODICITY_FLOOR = 0.8
+ORIENTATION_AUTOCORRELATION_FLOOR = 0.25
 
 DISPLAY_COLORMAP_NAME = "gray_r"
 OVERLAY_MAXIMUM_DIMENSION_PIXELS = 1400
@@ -318,13 +324,17 @@ else:
     profile_along_stacking = analysis_crop.mean(axis=0)
     profile_along_migration = analysis_crop.mean(axis=1)
 
-# One periodicity measurement, applied to each axis in turn. Detrend by subtracting
-# a moving average about two pitches wide to remove illumination gradient, then find
-# the comb of expected_lane_count teeth that best lands on the peaks, and score it
-# against the profile's own scale so the two axes are comparable.
-periodicity_score_by_axis = {}
-best_lane_centres_by_axis = {}
-best_pitch_pixels_by_axis = {}
+# Two questions from the collapsed profiles, kept separate because conflating them
+# is what made the old check wrong. (1) Orientation: does an axis carry lane-pitch
+# periodicity at all? Answered by autocorrelation at the lane spacing, which needs
+# no phase and no comb. (2) Where exactly are the lanes? Answered by a comb, but
+# only along the stacking axis and only for drawing; its score is no longer trusted
+# to decide orientation. Detrend each profile by subtracting a moving average about
+# two pitches wide to remove the illumination gradient.
+detrended_profile_by_axis = {}
+autocorrelation_lags_by_axis = {}
+autocorrelation_curve_by_axis = {}
+periodicity_autocorrelation_by_axis = {}
 for axis_name, axis_profile, axis_extent in (
     ("stacking", profile_along_stacking, stacking_extent_pixels),
     ("migration", profile_along_migration, migration_extent_pixels),
@@ -335,59 +345,81 @@ for axis_name, axis_profile, axis_extent in (
         axis_profile, size=smoothing_window, mode="nearest"
     )
     detrended_profile = axis_profile - profile_baseline
-    detrended_scale = float(detrended_profile.std()) + 1e-9
+    detrended_profile = detrended_profile - detrended_profile.mean()
+    detrended_energy = float((detrended_profile * detrended_profile).sum()) + 1e-9
 
-    best_score = -1e18
-    best_centres = None
-    best_pitch = expected_pitch_pixels
-    pitch_low = expected_pitch_pixels * (1.0 - LANE_PITCH_SEARCH_FRACTION)
-    pitch_high = expected_pitch_pixels * (1.0 + LANE_PITCH_SEARCH_FRACTION)
-    for candidate_pitch in numpy.linspace(pitch_low, pitch_high, 61):
-        first_centre_step = max(1.0, candidate_pitch / 20.0)
-        first_centre = 0.0
-        while first_centre < candidate_pitch:
-            centres = first_centre + candidate_pitch * numpy.arange(expected_lane_count)
-            sample_indices = numpy.rint(centres).astype(int)
-            if (sample_indices >= 0).all() and (sample_indices < axis_extent).all():
-                score = float(detrended_profile[sample_indices].mean()) / detrended_scale
-                if score > best_score:
-                    best_score = score
-                    best_centres = centres
-                    best_pitch = candidate_pitch
-            first_centre += first_centre_step
-    periodicity_score_by_axis[axis_name] = best_score
-    best_lane_centres_by_axis[axis_name] = best_centres
-    best_pitch_pixels_by_axis[axis_name] = best_pitch
+    # Normalised autocorrelation over a band of lags around the expected pitch, so a
+    # pitch that is a little tighter or looser than crop_extent / lane_count is still
+    # found. The peak over the band is the periodicity score for this axis.
+    lag_low = max(1, int(round(expected_pitch_pixels * (1.0 - LANE_PITCH_SEARCH_FRACTION))))
+    lag_high = max(lag_low + 1, int(round(expected_pitch_pixels * (1.0 + LANE_PITCH_SEARCH_FRACTION))))
+    lag_high = min(lag_high, axis_extent - 1)
+    autocorrelation_lags = numpy.arange(lag_low, lag_high + 1)
+    autocorrelation_curve = numpy.array([
+        float((detrended_profile[:-lag] * detrended_profile[lag:]).sum()) / detrended_energy
+        for lag in autocorrelation_lags
+    ])
 
-stacking_score = periodicity_score_by_axis["stacking"]
-migration_score = periodicity_score_by_axis["migration"]
-lane_centres_stacking_pixels = best_lane_centres_by_axis["stacking"]
-lane_pitch_pixels = best_pitch_pixels_by_axis["stacking"]
+    detrended_profile_by_axis[axis_name] = detrended_profile
+    autocorrelation_lags_by_axis[axis_name] = autocorrelation_lags
+    autocorrelation_curve_by_axis[axis_name] = autocorrelation_curve
+    periodicity_autocorrelation_by_axis[axis_name] = (
+        float(autocorrelation_curve.max()) if autocorrelation_curve.size else 0.0
+    )
+
+stacking_autocorrelation = periodicity_autocorrelation_by_axis["stacking"]
+migration_autocorrelation = periodicity_autocorrelation_by_axis["migration"]
+
+# The comb, along the stacking axis only, to place the lane centres for the overlay.
+# This is the part that assumes a fixed count filling the crop, and is the next
+# thing to make robust once the profiles show how the real lanes sit.
+stacking_detrended = detrended_profile_by_axis["stacking"]
+stacking_scale = float(stacking_detrended.std()) + 1e-9
+expected_stacking_pitch = stacking_extent_pixels / float(expected_lane_count)
+best_comb_score = -1e18
+lane_centres_stacking_pixels = None
+lane_pitch_pixels = expected_stacking_pitch
+pitch_low = expected_stacking_pitch * (1.0 - LANE_PITCH_SEARCH_FRACTION)
+pitch_high = expected_stacking_pitch * (1.0 + LANE_PITCH_SEARCH_FRACTION)
+for candidate_pitch in numpy.linspace(pitch_low, pitch_high, 61):
+    first_centre_step = max(1.0, candidate_pitch / 20.0)
+    first_centre = 0.0
+    while first_centre < candidate_pitch:
+        centres = first_centre + candidate_pitch * numpy.arange(expected_lane_count)
+        sample_indices = numpy.rint(centres).astype(int)
+        if (sample_indices >= 0).all() and (sample_indices < stacking_extent_pixels).all():
+            score = float(stacking_detrended[sample_indices].mean()) / stacking_scale
+            if score > best_comb_score:
+                best_comb_score = score
+                lane_centres_stacking_pixels = centres
+                lane_pitch_pixels = candidate_pitch
+        first_centre += first_centre_step
 lane_pitch_millimetres = (
     lane_pitch_pixels * micrometres_per_pixel / 1000.0
     if micrometres_per_pixel is not None else None
 )
 
-# The orientation verdict: the axis the sidecar calls the stacking axis must be
-# where the lane periodicity actually is. If the migration axis is more periodic,
-# the label is almost certainly flipped and every downstream number would be wrong
-# while looking plausible, so it is a hard stop.
+# Orientation verdict, from autocorrelation, reported as a WARNING not a hard stop.
+# It flags a probable mislabel for the operator to check against the overlay, but
+# does not block, because the statistic is not yet proven on real gels and a false
+# block on a correct gel is the worse failure.
 orientation_is_consistent = (
-    stacking_score >= ORIENTATION_PERIODICITY_FLOOR
-    and stacking_score >= ORIENTATION_PERIODICITY_RATIO * migration_score
+    stacking_autocorrelation >= ORIENTATION_AUTOCORRELATION_FLOOR
+    and stacking_autocorrelation >= ORIENTATION_PERIODICITY_RATIO * migration_autocorrelation
 )
 ANALYSIS_FINDINGS.append({
     "check_name": "orientation_matches_lane_periodicity",
-    "status": "pass" if orientation_is_consistent else "fail",
-    "is_hard_stop": True,
-    "detail": "periodicity score is %.3f along the claimed stacking axis and %.3f "
-              "along the claimed migration axis (%s migration). "
-              % (stacking_score, migration_score, gel_migration_axis)
-              + ("consistent: the lanes run across the stacking axis as recorded."
+    "status": "pass" if orientation_is_consistent else "warning",
+    "is_hard_stop": False,
+    "detail": "lane-pitch autocorrelation is %.3f along the claimed stacking axis and "
+              "%.3f along the claimed migration axis (%s migration). "
+              % (stacking_autocorrelation, migration_autocorrelation, gel_migration_axis)
+              + ("consistent: the lanes stack across the axis recorded."
                  if orientation_is_consistent else
-                 "the lanes are more periodic along the axis called migration, so "
-                 "gel_migration_axis is probably wrong. Every measurement would run "
-                 "across the lanes instead of along them. Fix the sidecar."),
+                 "the stacking axis is not clearly the more periodic one. Either the "
+                 "axis is mislabelled, or the lanes are faint or unevenly spaced and "
+                 "the periodicity is weak. Check the overlay and lane_profiles.png "
+                 "before trusting or fixing the sidecar."),
 })
 
 lane_count_found_plausible = (
@@ -396,12 +428,14 @@ lane_count_found_plausible = (
 )
 ANALYSIS_FINDINGS.append({
     "check_name": "lane_grid_fit",
-    "status": "pass" if lane_count_found_plausible else "fail",
-    "is_hard_stop": True,
-    "detail": ("fitted %d lane centres at a pitch of %.2f pixels"
+    "status": "pass" if lane_count_found_plausible else "warning",
+    "is_hard_stop": False,
+    "detail": ("placed %d evenly-spaced lane centres at a pitch of %.2f pixels"
                % (expected_lane_count, lane_pitch_pixels)
                + ("" if lane_pitch_millimetres is None
-                  else " (%.3f mm)" % lane_pitch_millimetres))
+                  else " (%.3f mm)" % lane_pitch_millimetres)
+               + ". Note the count is assumed from expected_lane_count, not counted "
+                 "from peaks; confirm against the overlay.")
               if lane_count_found_plausible else
               "could not place the expected number of lane centres inside the crop.",
 })
@@ -429,8 +463,9 @@ overlay_title = (
     + "\nmigration " + gel_migration_axis
     + ("; unrotated" if not rotation_applied
        else "; rotated %.3f deg" % rotation_applied_angle_degrees)
-    + "; orientation " + ("OK" if orientation_is_consistent else "MISMATCH")
-    + "\nperiodicity stacking %.2f vs migration %.2f" % (stacking_score, migration_score)
+    + "; orientation " + ("OK" if orientation_is_consistent else "CHECK")
+    + "\nlane-pitch autocorr stacking %.2f vs migration %.2f"
+      % (stacking_autocorrelation, migration_autocorrelation)
     + ("" if lane_pitch_millimetres is None
        else "; pitch %.2f mm" % lane_pitch_millimetres)
 )
@@ -445,6 +480,58 @@ except Exception as overlay_write_error:
     die("overlay", "could not write " + str(overlay_output_path) + ": " + str(overlay_write_error))
 matplotlib.pyplot.close(overlay_figure)
 emit_message("overlay", "wrote " + str(overlay_output_path))
+
+# Diagnostic profiles, always written. This is the view that tells us, on a real
+# gel, the true lane pitch and phase, how many bumps there are, whether the lanes
+# fill the crop or sit inside margins, and how cleanly the two axes separate. The
+# top panels are the detrended collapsed profiles with the fitted comb centres
+# marked; the bottom panel is the lane-pitch autocorrelation for both axes.
+profiles_figure, profiles_axes = matplotlib.pyplot.subplots(3, 1, figsize=(9.0, 9.0))
+stacking_detrended_profile = detrended_profile_by_axis["stacking"]
+migration_detrended_profile = detrended_profile_by_axis["migration"]
+profiles_axes[0].plot(numpy.arange(stacking_detrended_profile.size),
+                      stacking_detrended_profile, color="black", linewidth=0.8)
+if lane_centres_stacking_pixels is not None:
+    for lane_centre in lane_centres_stacking_pixels:
+        profiles_axes[0].axvline(lane_centre, color="red", linewidth=0.7)
+profiles_axes[0].set_title("collapsed along migration -> stacking-axis profile "
+                           "(should show the lanes); red = fitted comb centres",
+                           fontsize="small")
+profiles_axes[0].set_xlabel("stacking-axis position (pixels)")
+profiles_axes[1].plot(numpy.arange(migration_detrended_profile.size),
+                      migration_detrended_profile, color="black", linewidth=0.8)
+profiles_axes[1].set_title("collapsed along stacking -> migration-axis profile "
+                           "(should NOT be lane-periodic)", fontsize="small")
+profiles_axes[1].set_xlabel("migration-axis position (pixels)")
+for axis_name, curve_color in (("stacking", "red"), ("migration", "blue")):
+    profiles_axes[2].plot(autocorrelation_lags_by_axis[axis_name],
+                          autocorrelation_curve_by_axis[axis_name],
+                          color=curve_color, linewidth=1.0, label=axis_name)
+profiles_axes[2].axhline(0.0, color="grey", linewidth=0.5)
+profiles_axes[2].set_title("lane-pitch autocorrelation vs lag; peak decides "
+                           "orientation (stacking should win)", fontsize="small")
+profiles_axes[2].set_xlabel("lag (pixels)")
+profiles_axes[2].legend(fontsize="small")
+profiles_figure.tight_layout()
+lane_profiles_plot_path = output_directory_path / LANE_PROFILES_PLOT_FILENAME
+profiles_figure.savefig(lane_profiles_plot_path, dpi=FIGURE_DOTS_PER_INCH)
+matplotlib.pyplot.close(profiles_figure)
+emit_message("profiles", "wrote " + str(lane_profiles_plot_path))
+
+# The same profiles as data, long format, so they can be re-plotted or fitted
+# outside this script without re-running it.
+lane_profiles_csv_lines = ["axis,position_pixels,detrended_value"]
+for axis_name, axis_profile_values in (
+    ("stacking", stacking_detrended_profile),
+    ("migration", migration_detrended_profile),
+):
+    for position_index in range(axis_profile_values.size):
+        lane_profiles_csv_lines.append(
+            "%s,%d,%.6f" % (axis_name, position_index, float(axis_profile_values[position_index]))
+        )
+lane_profiles_csv_path = output_directory_path / LANE_PROFILES_CSV_FILENAME
+lane_profiles_csv_path.write_text("\n".join(lane_profiles_csv_lines) + "\n")
+emit_message("profiles", "wrote " + str(lane_profiles_csv_path))
 
 # Single exit point: assemble and write the provenance report, then set the code.
 failed_hard_stops = [
@@ -500,12 +587,16 @@ analysis_report = {
     },
     "orientation_check": {
         "claimed_migration_axis": gel_migration_axis,
-        "periodicity_score_stacking": stacking_score,
-        "periodicity_score_migration": migration_score,
+        "lane_pitch_autocorrelation_stacking": stacking_autocorrelation,
+        "lane_pitch_autocorrelation_migration": migration_autocorrelation,
         "consistent": orientation_is_consistent,
     },
     "analysis_findings": ANALYSIS_FINDINGS,
-    "outputs": {"lane_grid_overlay": str(overlay_output_path)},
+    "outputs": {
+        "lane_grid_overlay": str(overlay_output_path),
+        "lane_profiles_plot": str(lane_profiles_plot_path),
+        "lane_profiles_csv": str(lane_profiles_csv_path),
+    },
 }
 analysis_report_path = output_directory_path / ANALYSIS_REPORT_FILENAME
 analysis_report_path.write_text(json.dumps(analysis_report, indent=2))
