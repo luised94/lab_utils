@@ -12,12 +12,28 @@ Stage 3 of the gel densitometry pipeline, Slice B1: per-lane band-centre
 detection only. Reads the Slice A geometry report (stage2_analysis_report.json)
 for the crop, the migration axis, the pixel size, and the located lane centres,
 then for each lane collapses the lane's own strip into a migration profile and
-calls the band centres as prominent peaks of that profile. It places a region
-window around each centre and draws everything for the operator to check.
+calls the band centres as prominent peaks of that profile (B1). It then groups the
+per-lane centres into consensus bands across lanes, places a fixed window on each
+(clipped at neighbour midpoints), applies that window set to every lane, and
+integrates each cell above a local valley-to-valley baseline in region mode,
+tagging each cell's occupancy (B2).
 
-It integrates nothing and computes no baseline or intensity; that is Slice B2/B3.
-B1 exists to prove that the band centres and windows land where the bands are
-before any number is measured on them.
+B1 output (per-lane centres, windows, overlay, profiles) is kept as the detection
+intermediate; B2 adds the consensus definition and the integrated measurements.
+Peak mode, the rolling-ball baseline, and per-cell saturation and plateau
+statistics are Slice B3.
+
+Consensus design, verified on s0002: the cluster tolerance is tied to the minimum
+band separation rather than derived from a gap histogram, because the pooled
+adjacent-gap distribution is not reliably bimodal (on s0002 it is a continuous
+ramp with no valley), and a valley-based tolerance over-splits. Two centres from
+different lanes closer than the tightest within-lane band spacing are the same band
+shifted; the same-lane exclusion in the clustering keeps this bounded. Each
+canonical band reports its cross-lane spread, and a spread reaching the separation
+limit is a warning with a suggested action, not a hard stop. The whole complete
+rectangular table is emitted with per-cell occupancy so real bands and
+background-at-a-shared-position are distinguishable, and lane correspondence stays
+a postprocessing concern.
 
 Design decisions this slice commits to (see DESIGN.md sections 5.1, 5.2, 5.3,
 5.4, and 14, and the s0002 measurement session):
@@ -82,6 +98,11 @@ BAND_DETECTION_REPORT_FILENAME = "band_detection_report.json"
 BAND_WINDOWS_OVERLAY_FILENAME = "overlay_band_windows_labeled.png"
 LANE_MIGRATION_PROFILES_FILENAME = "lane_migration_profiles.png"
 BAND_CENTERS_CSV_FILENAME = "band_centers.csv"
+# Slice B2 outputs.
+BAND_DEFINITIONS_CSV_FILENAME = "band_definitions.csv"
+BAND_MEASUREMENTS_CSV_FILENAME = "band_measurements.csv"
+CONSENSUS_CENTER_MAP_FILENAME = "consensus_center_map.png"
+CONSENSUS_WINDOWS_OVERLAY_FILENAME = "overlay_consensus_windows_by_occupancy.png"
 
 CONTAINER_MAXIMUM_VALUE_16_BIT = 65535
 
@@ -112,6 +133,25 @@ DEFAULT_BAND_PEAK_PROMINENCE_FRACTION = 0.12
 # The lane strip runs to where the lane's stacking cross-section falls to this
 # fraction of its own maximum, capturing the doublet.
 DEFAULT_LANE_STRIP_CROSS_SECTION_FRACTION = 0.25
+
+# Slice B2 consensus and integration config.
+# The cluster tolerance is NOT derived from a gap histogram: on real gels the
+# pooled adjacent-gap distribution is not reliably bimodal (verified on s0002,
+# where it is a continuous ramp with no clean valley), so a valley-based tolerance
+# over-splits. Instead the tolerance defaults to the minimum band separation: two
+# centres from DIFFERENT lanes closer than the tightest within-lane band spacing
+# are the same band shifted by cross-lane misalignment. The same-lane exclusion in
+# the clustering (never two centres from one lane in one canonical band) is the
+# hard constraint that keeps this from over-merging, so the tolerance is a bounded
+# choice rather than a delicate knob. Overridable on the command line.
+# A canonical band whose cross-lane spread reaches this fraction of the minimum
+# separation is flagged: its members may not be the same species, and the merge is
+# uncertain. It is a warning with a suggested action, not a hard stop.
+CANONICAL_SPREAD_WARN_FRACTION = 0.8
+# Local valley-to-valley baseline: the flanking-gel minima are searched this far
+# outside each window; where windows abut (clipped at a midpoint) the search runs
+# into the shared valley, so neighbouring bands sit on a consistent baseline.
+DEFAULT_BASELINE_FLANK_SEARCH_MILLIMETRES = 1.0
 
 DISPLAY_COLORMAP_NAME = "gray_r"
 FIGURE_DOTS_PER_INCH = 130
@@ -156,6 +196,20 @@ argument_parser.add_argument(
 argument_parser.add_argument(
     "--lane-strip-fixed-half-height-millimetres", type=float,
     default=DEFAULT_LANE_STRIP_FIXED_HALF_HEIGHT_MILLIMETRES,
+)
+argument_parser.add_argument(
+    "--band-cluster-tolerance-millimetres", type=float, default=None,
+    help="tolerance for grouping per-lane band centres into one canonical band "
+         "across lanes; defaults to the minimum band separation when omitted",
+)
+argument_parser.add_argument(
+    "--baseline-flank-search-millimetres", type=float,
+    default=DEFAULT_BASELINE_FLANK_SEARCH_MILLIMETRES,
+)
+argument_parser.add_argument(
+    "--use-existing-band-definitions", action="store_true",
+    help="read canonical band positions and windows from an existing "
+         "band_definitions.csv (operator override) instead of deriving them",
 )
 parsed_arguments = argument_parser.parse_args()
 
@@ -402,14 +456,380 @@ for lane_position in range(len(ordered_lane_centres)):
 
 total_band_count = len(band_centers_csv_rows)
 
-# Overlay for the operator: display-scaled crop on gray_r so bands read dark and it
-# matches Fiji. Each lane's strip is drawn as two boundary lines; each band window
-# is a box spanning the strip, with the centre marked. Display array is separate
-# from the measured signal per DESIGN 5.9.
+# Display array, computed once and shared by every overlay. Separate from the
+# measured signal per DESIGN 5.9: contrast scaling is display-only.
 display_source = signal_above_plate
 display_normalized = numpy.clip(
     display_source / numpy.percentile(display_source, 99.5), 0.0, 1.0
 )
+
+# ==========================================================================
+# Slice B2: consensus band definition across lanes, then region integration.
+# ==========================================================================
+baseline_flank_search_pixels = max(
+    1, int(round(parsed_arguments.baseline_flank_search_millimetres / millimetres_per_pixel))
+)
+if parsed_arguments.band_cluster_tolerance_millimetres is None:
+    cluster_tolerance_pixels = minimum_band_separation_pixels
+    cluster_tolerance_source = "tied_to_minimum_band_separation"
+else:
+    cluster_tolerance_pixels = parsed_arguments.band_cluster_tolerance_millimetres / millimetres_per_pixel
+    cluster_tolerance_source = "operator_override"
+
+band_definitions_csv_path = output_directory_path / BAND_DEFINITIONS_CSV_FILENAME
+
+# Recompute each lane's migration profile once, keyed by well index, so both the
+# integration and the baseline read the same profile the detection used.
+lane_profile_by_well_index = {}
+lane_strip_bounds_by_well_index = {}
+lane_detected_centres_by_well_index = {}
+for lane_record in per_lane_records:
+    strip_top = lane_record["strip_top_stacking_pixels"]
+    strip_bottom = lane_record["strip_bottom_stacking_pixels"]
+    lane_profile_by_well_index[lane_record["well_index"]] = (
+        usable_stacking_by_migration_signal[strip_top:strip_bottom, :].sum(axis=0)
+    )
+    lane_strip_bounds_by_well_index[lane_record["well_index"]] = (strip_top, strip_bottom)
+    lane_detected_centres_by_well_index[lane_record["well_index"]] = list(
+        lane_record["band_centre_migration_pixels"]
+    )
+
+canonical_band_records = []
+if parsed_arguments.use_existing_band_definitions and band_definitions_csv_path.is_file():
+    # Operator override: read canonical positions and windows verbatim. The operator
+    # owns the boundaries; the tool applies exactly what the file says.
+    definition_lines = band_definitions_csv_path.read_text().strip().splitlines()
+    definition_header = definition_lines[0].split(",")
+    for definition_line in definition_lines[1:]:
+        definition_values = dict(zip(definition_header, definition_line.split(",")))
+        canonical_band_records.append({
+            "canonical_position_migration_pixels": float(definition_values["canonical_position_migration_pixels"]),
+            "window_start_migration_pixels": int(definition_values["window_start_migration_pixels"]),
+            "window_end_migration_pixels": int(definition_values["window_end_migration_pixels"]),
+            "member_wells": [int(w) for w in definition_values["member_wells"].split(";") if w != ""],
+            "cross_lane_spread_pixels": int(definition_values.get("cross_lane_spread_pixels", "0")),
+            "spread_warns": definition_values.get("spread_warns", "False") == "True",
+        })
+    canonical_band_records.sort(key=lambda record: record["canonical_position_migration_pixels"])
+    band_definition_source = "operator_band_definitions_file"
+else:
+    # Derive canonical bands. Pool every detected centre with its well index, sorted
+    # by migration position, then single-linkage cluster with same-lane exclusion.
+    pooled_centre_records = []
+    for lane_record in per_lane_records:
+        for band_centre in lane_record["band_centre_migration_pixels"]:
+            pooled_centre_records.append((int(band_centre), lane_record["well_index"]))
+    pooled_centre_records.sort()
+
+    canonical_clusters = []
+    if pooled_centre_records:
+        current_cluster = [pooled_centre_records[0]]
+        for centre_column, well_index in pooled_centre_records[1:]:
+            wells_in_current_cluster = {member_well for _, member_well in current_cluster}
+            if (centre_column - current_cluster[-1][0] <= cluster_tolerance_pixels
+                    and well_index not in wells_in_current_cluster):
+                current_cluster.append((centre_column, well_index))
+            else:
+                canonical_clusters.append(current_cluster)
+                current_cluster = [(centre_column, well_index)]
+        canonical_clusters.append(current_cluster)
+
+    for cluster in canonical_clusters:
+        member_columns = [column for column, _ in cluster]
+        member_wells = sorted({member_well for _, member_well in cluster})
+        cross_lane_spread_pixels = int(max(member_columns) - min(member_columns))
+        canonical_band_records.append({
+            "canonical_position_migration_pixels": float(numpy.median(member_columns)),
+            "member_columns": member_columns,
+            "member_wells": member_wells,
+            "cross_lane_spread_pixels": cross_lane_spread_pixels,
+            "spread_warns": cross_lane_spread_pixels >= CANONICAL_SPREAD_WARN_FRACTION * minimum_band_separation_pixels,
+        })
+    canonical_band_records.sort(key=lambda record: record["canonical_position_migration_pixels"])
+
+    # Fixed-width windows centred on each canonical position, clipped at the midpoint
+    # to each neighbour so windows never overlap and the valley between two crowded
+    # bands is assigned to the nearer band, not counted twice.
+    half_window_pixels = region_window_width_pixels / 2.0
+    for band_position in range(len(canonical_band_records)):
+        canonical_position = canonical_band_records[band_position]["canonical_position_migration_pixels"]
+        window_start = canonical_position - half_window_pixels
+        window_end = canonical_position + half_window_pixels
+        if band_position > 0:
+            left_midpoint = 0.5 * (
+                canonical_band_records[band_position - 1]["canonical_position_migration_pixels"]
+                + canonical_position
+            )
+            window_start = max(window_start, left_midpoint)
+        if band_position < len(canonical_band_records) - 1:
+            right_midpoint = 0.5 * (
+                canonical_position
+                + canonical_band_records[band_position + 1]["canonical_position_migration_pixels"]
+            )
+            window_end = min(window_end, right_midpoint)
+        canonical_band_records[band_position]["window_start_migration_pixels"] = max(0, int(round(window_start)))
+        canonical_band_records[band_position]["window_end_migration_pixels"] = min(
+            migration_extent_pixels, int(round(window_end))
+        )
+    band_definition_source = "derived_by_consensus"
+
+# Findings for canonical bands whose cross-lane spread reaches the separation limit:
+# the merge is uncertain, so warn with the value and a suggested action, and keep
+# going, because the complete table is still wanted.
+for canonical_position_index in range(len(canonical_band_records)):
+    canonical_band = canonical_band_records[canonical_position_index]
+    if canonical_band.get("spread_warns"):
+        BAND_DETECTION_FINDINGS.append({
+            "check_name": "canonical_band_spread_within_separation",
+            "status": "warning",
+            "is_hard_stop": False,
+            "detail": "canonical band near migration %d has a cross-lane spread of %d "
+                      "pixels, reaching the %.0f%% of minimum-separation flag; its "
+                      "members may not be the same species. Suggested action: check "
+                      "this band on the center map, re-crop if the lanes are "
+                      "misaligned, or set --band-cluster-tolerance-millimetres "
+                      "explicitly."
+                      % (int(round(canonical_band["canonical_position_migration_pixels"])),
+                         canonical_band["cross_lane_spread_pixels"],
+                         100.0 * CANONICAL_SPREAD_WARN_FRACTION),
+        })
+
+# Write the editable band-definition file (unless we just read it back), so the
+# operator can override the boundaries and re-run with --use-existing-band-definitions.
+if band_definition_source != "operator_band_definitions_file":
+    definition_lines = [
+        "canonical_band_index,canonical_position_migration_pixels,"
+        "canonical_position_migration_millimetres,window_start_migration_pixels,"
+        "window_end_migration_pixels,member_well_count,member_wells,"
+        "cross_lane_spread_pixels,spread_warns"
+    ]
+    for canonical_position_index in range(len(canonical_band_records)):
+        canonical_band = canonical_band_records[canonical_position_index]
+        definition_lines.append("%d,%.2f,%.4f,%d,%d,%d,%s,%d,%s" % (
+            canonical_position_index,
+            canonical_band["canonical_position_migration_pixels"],
+            canonical_band["canonical_position_migration_pixels"] * millimetres_per_pixel,
+            canonical_band["window_start_migration_pixels"],
+            canonical_band["window_end_migration_pixels"],
+            len(canonical_band["member_wells"]),
+            ";".join(str(well) for well in canonical_band["member_wells"]),
+            canonical_band["cross_lane_spread_pixels"],
+            canonical_band["spread_warns"],
+        ))
+    band_definitions_csv_path.write_text("\n".join(definition_lines) + "\n")
+    emit_message("bands", "wrote " + str(band_definitions_csv_path))
+
+# Occupancy binding: each detected band in a lane belongs to its NEAREST canonical
+# band only, so one detected band cannot be claimed as locally detected by two
+# adjacent canonical positions.
+locally_detected_well_canonical_pairs = set()
+for lane_record in per_lane_records:
+    for detected_centre in lane_record["band_centre_migration_pixels"]:
+        nearest_canonical_index = None
+        nearest_distance = None
+        for canonical_position_index in range(len(canonical_band_records)):
+            distance = abs(
+                detected_centre
+                - canonical_band_records[canonical_position_index]["canonical_position_migration_pixels"]
+            )
+            if nearest_distance is None or distance < nearest_distance:
+                nearest_distance = distance
+                nearest_canonical_index = canonical_position_index
+        if nearest_canonical_index is not None:
+            locally_detected_well_canonical_pairs.add((lane_record["well_index"], nearest_canonical_index))
+
+# Region integration: apply the same canonical windows to every lane (complete
+# rectangular table), integrate above a local valley-to-valley baseline, tag
+# occupancy so a real band and background-at-a-shared-position are distinguishable.
+band_measurement_rows = []
+locally_detected_cell_count = 0
+consensus_only_cell_count = 0
+for lane_record in per_lane_records:
+    well_index = lane_record["well_index"]
+    lane_migration_profile = lane_profile_by_well_index[well_index]
+    strip_top, strip_bottom = lane_strip_bounds_by_well_index[well_index]
+    for canonical_position_index in range(len(canonical_band_records)):
+        canonical_band = canonical_band_records[canonical_position_index]
+        window_start = canonical_band["window_start_migration_pixels"]
+        window_end = canonical_band["window_end_migration_pixels"]
+        canonical_position = canonical_band["canonical_position_migration_pixels"]
+
+        # Local valley-to-valley baseline: flanking minima just outside the window.
+        left_search_start = max(0, window_start - baseline_flank_search_pixels)
+        left_flank = lane_migration_profile[left_search_start:window_start + 1]
+        if left_flank.size:
+            left_reference_offset = int(numpy.argmin(left_flank))
+            left_reference_column = left_search_start + left_reference_offset
+            left_reference_value = float(left_flank[left_reference_offset])
+        else:
+            left_reference_column = window_start
+            left_reference_value = float(lane_migration_profile[window_start])
+        right_search_end = min(migration_extent_pixels, window_end + baseline_flank_search_pixels)
+        right_flank = lane_migration_profile[max(window_start, window_end - 1):right_search_end]
+        if right_flank.size:
+            right_reference_offset = int(numpy.argmin(right_flank))
+            right_reference_column = max(window_start, window_end - 1) + right_reference_offset
+            right_reference_value = float(right_flank[right_reference_offset])
+        else:
+            right_reference_column = max(window_start, window_end - 1)
+            right_reference_value = float(lane_migration_profile[right_reference_column])
+
+        window_columns = numpy.arange(window_start, window_end)
+        if window_columns.size == 0:
+            integrated_intensity = 0.0
+            raw_window_sum = 0.0
+            baseline_mean_value = 0.0
+            net_above_baseline = 0.0
+            measurement_status = "empty_window"
+        else:
+            if right_reference_column != left_reference_column:
+                baseline_over_window = left_reference_value + (
+                    (right_reference_value - left_reference_value)
+                    * (window_columns - left_reference_column)
+                    / float(right_reference_column - left_reference_column)
+                )
+            else:
+                baseline_over_window = numpy.full(window_columns.shape, left_reference_value)
+            profile_over_window = lane_migration_profile[window_start:window_end]
+            raw_window_sum = float(profile_over_window.sum())
+            net_above_baseline = float((profile_over_window - baseline_over_window).sum())
+            baseline_mean_value = float(baseline_over_window.mean())
+            # Clip the reported intensity at zero: a window on the tail of a strong
+            # neighbouring band can put the sloped valley baseline above the profile,
+            # giving a spurious large negative. The honest value there is no band. The
+            # unclipped net is kept for audit, and a flag marks where clipping bit,
+            # which is exactly where B3's rolling-ball baseline is the cross-check.
+            if net_above_baseline < 0.0:
+                integrated_intensity = 0.0
+                if window_start == 0 or window_end == migration_extent_pixels:
+                    measurement_status = "window_truncated_at_crop_edge"
+                else:
+                    measurement_status = "baseline_above_signal_clipped_to_zero"
+            else:
+                integrated_intensity = net_above_baseline
+                if window_start == 0 or window_end == migration_extent_pixels:
+                    measurement_status = "window_truncated_at_crop_edge"
+                else:
+                    measurement_status = "ok"
+
+        occupancy = (
+            "locally_detected"
+            if (well_index, canonical_position_index) in locally_detected_well_canonical_pairs
+            else "consensus_only"
+        )
+        if occupancy == "locally_detected":
+            locally_detected_cell_count += 1
+        else:
+            consensus_only_cell_count += 1
+
+        band_measurement_rows.append({
+            "well_index": well_index,
+            "lane_centre_stacking_pixels": round(lane_record["lane_centre_stacking_pixels"], 2),
+            "canonical_band_index": canonical_position_index,
+            "canonical_position_migration_pixels": int(round(canonical_position)),
+            "canonical_position_migration_millimetres": round(canonical_position * millimetres_per_pixel, 4),
+            "window_start_migration_pixels": window_start,
+            "window_end_migration_pixels": window_end,
+            "lane_strip_top_stacking_pixels": strip_top,
+            "lane_strip_bottom_stacking_pixels": strip_bottom,
+            "integration_method": "region",
+            "baseline_method": "valley_to_valley",
+            "integrated_intensity": round(integrated_intensity, 2),
+            "net_above_baseline_unclipped": round(net_above_baseline, 2),
+            "raw_window_sum": round(raw_window_sum, 2),
+            "baseline_mean_value": round(baseline_mean_value, 2),
+            "occupancy": occupancy,
+            "canonical_member_well_count": len(canonical_band["member_wells"]),
+            "cross_lane_spread_pixels": canonical_band["cross_lane_spread_pixels"],
+            "measurement_status": measurement_status,
+        })
+
+canonical_band_count = len(canonical_band_records)
+
+# band_measurements.csv, long format per DESIGN 5.10: one row per lane x canonical
+# band x baseline method (one baseline method in B2; B3 adds rolling-ball).
+measurement_column_names = [
+    "well_index", "lane_centre_stacking_pixels", "canonical_band_index",
+    "canonical_position_migration_pixels", "canonical_position_migration_millimetres",
+    "window_start_migration_pixels", "window_end_migration_pixels",
+    "lane_strip_top_stacking_pixels", "lane_strip_bottom_stacking_pixels",
+    "integration_method", "baseline_method", "integrated_intensity",
+    "net_above_baseline_unclipped", "raw_window_sum",
+    "baseline_mean_value", "occupancy", "canonical_member_well_count",
+    "cross_lane_spread_pixels", "measurement_status",
+]
+measurement_csv_lines = [",".join(measurement_column_names)]
+for measurement_row in band_measurement_rows:
+    measurement_csv_lines.append(",".join(str(measurement_row[name]) for name in measurement_column_names))
+band_measurements_csv_path = output_directory_path / BAND_MEASUREMENTS_CSV_FILENAME
+band_measurements_csv_path.write_text("\n".join(measurement_csv_lines) + "\n")
+emit_message("csv", "wrote " + str(band_measurements_csv_path))
+
+# Consensus center map: per-lane detected centres by well, with canonical positions
+# and their windows drawn, so the operator sees how the clustering grouped centres
+# and where the flagged (wide-spread) bands are.
+center_map_figure, center_map_axes = matplotlib.pyplot.subplots(figsize=(11.0, 4.5))
+for lane_record in per_lane_records:
+    for band_centre in lane_record["band_centre_migration_pixels"]:
+        center_map_axes.plot(band_centre, lane_record["well_index"], "o",
+                             color="black", markersize=4)
+for canonical_band in canonical_band_records:
+    canonical_position = canonical_band["canonical_position_migration_pixels"]
+    line_color = "orange" if canonical_band.get("spread_warns") else "red"
+    center_map_axes.axvline(canonical_position, color=line_color, linewidth=0.9)
+    center_map_axes.axvspan(canonical_band["window_start_migration_pixels"],
+                            canonical_band["window_end_migration_pixels"],
+                            color=line_color, alpha=0.08)
+center_map_axes.set_xlabel("migration position (pixels, crop-local)")
+center_map_axes.set_ylabel("well index")
+center_map_axes.set_title(
+    "Consensus center map: black = per-lane detected centre; red line/band = "
+    "canonical band and window; orange = spread reaches separation limit (%d canonical bands)"
+    % canonical_band_count, fontsize="small")
+center_map_figure.tight_layout()
+consensus_center_map_path = output_directory_path / CONSENSUS_CENTER_MAP_FILENAME
+center_map_figure.savefig(consensus_center_map_path, dpi=FIGURE_DOTS_PER_INCH)
+matplotlib.pyplot.close(center_map_figure)
+emit_message("map", "wrote " + str(consensus_center_map_path))
+
+# Occupancy-coloured overlay: every canonical window on every lane, green where the
+# lane locally detected a band, red where it is measured only because other lanes
+# had a band there (the phantom cells, labelled not hidden).
+occupancy_figure, occupancy_axes = matplotlib.pyplot.subplots(figsize=(9.0, 9.0))
+occupancy_axes.imshow(display_normalized, cmap=DISPLAY_COLORMAP_NAME,
+                      interpolation="nearest", origin="upper")
+for measurement_row in band_measurement_rows:
+    if measurement_row["measurement_status"] == "empty_window":
+        continue
+    window_start = measurement_row["window_start_migration_pixels"]
+    window_end = measurement_row["window_end_migration_pixels"]
+    strip_top = measurement_row["lane_strip_top_stacking_pixels"]
+    strip_bottom = measurement_row["lane_strip_bottom_stacking_pixels"]
+    cell_color = "green" if measurement_row["occupancy"] == "locally_detected" else "red"
+    if gel_migration_axis == "horizontal":
+        cell_box = matplotlib.patches.Rectangle(
+            (window_start, strip_top), window_end - window_start, strip_bottom - strip_top,
+            fill=False, edgecolor=cell_color, linewidth=0.6)
+    else:
+        cell_box = matplotlib.patches.Rectangle(
+            (strip_top, window_start), strip_bottom - strip_top, window_end - window_start,
+            fill=False, edgecolor=cell_color, linewidth=0.6)
+    occupancy_axes.add_patch(cell_box)
+occupancy_axes.set_title(
+    "Consensus windows on every lane (B2): " + input_tiff_absolute_path.name
+    + "\ngreen = locally detected, red = consensus-only (measured, phantom-tagged); "
+      "%d cells" % len(band_measurement_rows), fontsize="medium")
+occupancy_axes.set_xlabel("crop column / 1")
+occupancy_axes.set_ylabel("crop row / 1")
+occupancy_figure.tight_layout()
+consensus_windows_overlay_path = output_directory_path / CONSENSUS_WINDOWS_OVERLAY_FILENAME
+occupancy_figure.savefig(consensus_windows_overlay_path, dpi=FIGURE_DOTS_PER_INCH)
+matplotlib.pyplot.close(occupancy_figure)
+emit_message("overlay", "wrote " + str(consensus_windows_overlay_path))
+
+# Overlay for the operator: display-scaled crop on gray_r so bands read dark and it
+# matches Fiji. Each lane's strip is drawn as two boundary lines; each band window
+# is a box spanning the strip, with the centre marked.
 overlay_figure, overlay_axes = matplotlib.pyplot.subplots(figsize=(9.0, 9.0))
 overlay_axes.imshow(display_normalized, cmap=DISPLAY_COLORMAP_NAME,
                     interpolation="nearest", origin="upper")
@@ -550,6 +970,11 @@ band_detection_report = {
         "use_fixed_strip_height": parsed_arguments.use_fixed_strip_height,
         "lane_strip_fixed_half_height_millimetres": parsed_arguments.lane_strip_fixed_half_height_millimetres,
         "migration_profile_smoothing_pixels": migration_profile_smoothing_pixels,
+        "band_cluster_tolerance_pixels": round(cluster_tolerance_pixels, 2),
+        "band_cluster_tolerance_source": cluster_tolerance_source,
+        "canonical_spread_warn_fraction": CANONICAL_SPREAD_WARN_FRACTION,
+        "baseline_flank_search_pixels": baseline_flank_search_pixels,
+        "band_definition_source": band_definition_source,
     },
     "total_band_count": total_band_count,
     "per_lane": [
@@ -567,10 +992,36 @@ band_detection_report = {
         for lane_record in per_lane_records
     ],
     "band_detection_findings": BAND_DETECTION_FINDINGS,
+    "consensus_bands": [
+        {
+            "canonical_band_index": canonical_position_index,
+            "canonical_position_migration_pixels": int(round(
+                canonical_band_records[canonical_position_index]["canonical_position_migration_pixels"])),
+            "canonical_position_migration_millimetres": round(
+                canonical_band_records[canonical_position_index]["canonical_position_migration_pixels"]
+                * millimetres_per_pixel, 4),
+            "window_start_migration_pixels": canonical_band_records[canonical_position_index]["window_start_migration_pixels"],
+            "window_end_migration_pixels": canonical_band_records[canonical_position_index]["window_end_migration_pixels"],
+            "member_wells": canonical_band_records[canonical_position_index]["member_wells"],
+            "cross_lane_spread_pixels": canonical_band_records[canonical_position_index]["cross_lane_spread_pixels"],
+            "spread_warns": canonical_band_records[canonical_position_index].get("spread_warns", False),
+        }
+        for canonical_position_index in range(len(canonical_band_records))
+    ],
+    "integration_summary": {
+        "canonical_band_count": canonical_band_count,
+        "measured_cell_count": len(band_measurement_rows),
+        "locally_detected_cell_count": locally_detected_cell_count,
+        "consensus_only_cell_count": consensus_only_cell_count,
+    },
     "outputs": {
         "band_windows_overlay": str(band_windows_overlay_path),
         "lane_migration_profiles": str(lane_profiles_path),
         "band_centers_csv": str(band_centers_csv_path),
+        "band_definitions_csv": str(band_definitions_csv_path),
+        "band_measurements_csv": str(band_measurements_csv_path),
+        "consensus_center_map": str(consensus_center_map_path),
+        "consensus_windows_overlay": str(consensus_windows_overlay_path),
     },
 }
 band_detection_report_path = output_directory_path / BAND_DETECTION_REPORT_FILENAME
