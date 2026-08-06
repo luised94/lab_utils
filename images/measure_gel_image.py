@@ -103,8 +103,36 @@ BAND_DEFINITIONS_CSV_FILENAME = "band_definitions.csv"
 BAND_MEASUREMENTS_CSV_FILENAME = "band_measurements.csv"
 CONSENSUS_CENTER_MAP_FILENAME = "consensus_center_map.png"
 CONSENSUS_WINDOWS_OVERLAY_FILENAME = "overlay_consensus_windows_by_occupancy.png"
+# Slice B3 output.
+SATURATION_DERIVATION_FILENAME = "saturation_derivation.png"
 
 CONTAINER_MAXIMUM_VALUE_16_BIT = 65535
+
+# Slice B3 saturation, option 1: the effective ceiling is DERIVED per image, not
+# baked, because the clip level is a sensor/processing property that moves between
+# scans. On s0002 (Amersham Imager 680, Auto High-dynamic-range exposure) the high
+# tail decays smoothly to the 16-bit container with no sub-ceiling pile-up, so the
+# effective ceiling IS the container and the measured crop has zero saturated
+# pixels; the derivation must report that honestly rather than assert a plateau
+# that is not there. On a differently-exposed gel the sensor may clip below the
+# container, which shows as an over-populated DN with almost nothing above it, and
+# then that DN is the effective ceiling. The knee search below detects that case
+# and otherwise defaults to the container.
+#
+# A sub-ceiling knee is the LOWEST DN, at or above this fraction of the container,
+# whose pixel count is a strong spike over the local tail baseline just under it
+# AND above which essentially no pixels exist. The search only looks below the
+# container; a pile-up AT the container is the container clip, not a sensor knee.
+SUB_CEILING_KNEE_SEARCH_FLOOR_FRACTION = 0.6
+SUB_CEILING_KNEE_SPIKE_FACTOR = 8.0
+SUB_CEILING_KNEE_LOCAL_BASELINE_SPAN_VALUES = 200
+SUB_CEILING_KNEE_ABOVE_TOLERANCE_FRACTION = 0.001
+
+# A cell whose window-by-strip patch has more than this fraction of pixels at or
+# above the effective ceiling is flagged: its integrated intensity is a floor, not
+# a measure, because clipped pixels lost their true height. A handful of hot or
+# dust pixels should not condemn a cell, so this is a small fraction, not any-pixel.
+DEFAULT_SATURATION_WARN_FRACTION = 0.005
 
 # A migration column elevated down its whole length is a plate edge or scratch,
 # not a lane; exclude columns whose median exceeds this multiple of the typical
@@ -207,6 +235,12 @@ argument_parser.add_argument(
     default=DEFAULT_BASELINE_FLANK_SEARCH_MILLIMETRES,
 )
 argument_parser.add_argument(
+    "--saturation-warn-fraction", type=float,
+    default=DEFAULT_SATURATION_WARN_FRACTION,
+    help="a cell is flagged saturated when this fraction of its window-by-strip "
+         "pixels sit at or above the derived effective ceiling",
+)
+argument_parser.add_argument(
     "--use-existing-band-definitions", action="store_true",
     help="read canonical band positions and windows from an existing "
          "band_definitions.csv (operator override) instead of deriving them",
@@ -265,6 +299,7 @@ if lane_well_indices is None or len(lane_well_indices) != len(lane_centres_stack
 
 # Convert the millimetre config to pixels once, using the report's pixel size.
 millimetres_per_pixel = micrometres_per_pixel / 1000.0
+saturation_warn_fraction = parsed_arguments.saturation_warn_fraction
 region_window_width_pixels = parsed_arguments.region_window_width_millimetres / millimetres_per_pixel
 minimum_band_separation_pixels = max(
     1.0, parsed_arguments.minimum_band_separation_millimetres / millimetres_per_pixel
@@ -278,10 +313,19 @@ lane_strip_fixed_half_height_pixels = int(round(
 
 BAND_DETECTION_FINDINGS = []
 
-# The read path, float64 for headroom, cropped exactly as Slice A cropped.
+# The read path, float64 for headroom, cropped exactly as Slice A cropped. The raw
+# ImageDescription is captured here too: it carries the instrument's dark offset
+# (the electronic pedestal under every pixel) and the exposure mode, both of which
+# the saturation derivation records so a reader can see WHY the clip sits where it
+# does (on s0002 the High-dynamic-range mode is why there is no sub-ceiling knee).
+raw_image_description_text = ""
 try:
     with tifffile.TiffFile(str(input_tiff_absolute_path)) as tiff_handle:
-        raw_pixel_array = tiff_handle.pages[parsed_arguments.page_index].asarray()
+        tiff_page = tiff_handle.pages[parsed_arguments.page_index]
+        raw_pixel_array = tiff_page.asarray()
+        image_description_tag = tiff_page.tags.get("ImageDescription")
+        if image_description_tag is not None:
+            raw_image_description_text = str(image_description_tag.value)
 except Exception as pixel_read_error:
     die("pixels", "page " + str(parsed_arguments.page_index) + " would not decode: "
         + str(pixel_read_error))
@@ -290,6 +334,65 @@ crop_pixels = pixel_array[
     crop_y_pixels:crop_y_pixels + crop_height_pixels,
     crop_x_pixels:crop_x_pixels + crop_width_pixels,
 ]
+
+# Parse the "Key = Value" lines of the instrument description for the two fields
+# the saturation block records. Absent or unparseable fields degrade to None
+# rather than fail: they are provenance, not control.
+image_description_fields = {}
+for description_line in raw_image_description_text.splitlines():
+    if "=" in description_line:
+        key_text, _, value_text = description_line.partition("=")
+        image_description_fields[key_text.strip()] = value_text.strip()
+exposure_mode_text = image_description_fields.get("Exposure mode")
+dark_offset_text = image_description_fields.get("Dark offset")
+dark_offset_value = None
+if dark_offset_text is not None:
+    try:
+        dark_offset_value = int(round(float(dark_offset_text)))
+    except ValueError:
+        dark_offset_value = None
+
+# Derive the effective ceiling from the whole page (more clipped pixels than the
+# crop, so a knee, if any, is better evidenced). Default to the 16-bit container;
+# lower it only if a real sub-ceiling pile-up is found. See the constants block for
+# the definition of a knee. On s0002 no knee is found and this stays 65535.
+page_value_counts = numpy.bincount(
+    raw_pixel_array.astype(numpy.int64).ravel(),
+    minlength=CONTAINER_MAXIMUM_VALUE_16_BIT + 1,
+)
+knee_search_floor_value = int(
+    SUB_CEILING_KNEE_SEARCH_FLOOR_FRACTION * CONTAINER_MAXIMUM_VALUE_16_BIT
+)
+pixel_count_above_search_floor = int(page_value_counts[knee_search_floor_value:].sum())
+sub_ceiling_knee_value = None
+for candidate_value in range(CONTAINER_MAXIMUM_VALUE_16_BIT - 1, knee_search_floor_value, -1):
+    candidate_count = int(page_value_counts[candidate_value])
+    if candidate_count == 0:
+        continue
+    local_baseline_start = max(
+        knee_search_floor_value, candidate_value - SUB_CEILING_KNEE_LOCAL_BASELINE_SPAN_VALUES
+    )
+    local_baseline_counts = page_value_counts[local_baseline_start:candidate_value]
+    local_baseline_count = (
+        float(numpy.median(local_baseline_counts)) if local_baseline_counts.size else 0.0
+    )
+    pixels_strictly_above_candidate = int(page_value_counts[candidate_value + 1:].sum())
+    above_fraction = pixels_strictly_above_candidate / float(
+        max(1, pixel_count_above_search_floor)
+    )
+    candidate_is_spike = candidate_count >= SUB_CEILING_KNEE_SPIKE_FACTOR * max(1.0, local_baseline_count)
+    candidate_is_empty_above = above_fraction <= SUB_CEILING_KNEE_ABOVE_TOLERANCE_FRACTION
+    if candidate_is_spike and candidate_is_empty_above:
+        sub_ceiling_knee_value = candidate_value
+        break
+if sub_ceiling_knee_value is not None:
+    effective_ceiling_value = sub_ceiling_knee_value
+    sub_ceiling_knee_detected = True
+else:
+    effective_ceiling_value = CONTAINER_MAXIMUM_VALUE_16_BIT
+    sub_ceiling_knee_detected = False
+page_pixels_at_effective_ceiling = int(page_value_counts[effective_ceiling_value:].sum())
+crop_pixels_at_effective_ceiling = int((crop_pixels >= effective_ceiling_value).sum())
 
 # Re-derive background and the edge-column mask exactly as Slice A did, rather than
 # trust a passed array, so the two scripts cannot silently diverge on preprocessing.
@@ -301,8 +404,10 @@ signal_above_plate[signal_above_plate < 0.0] = 0.0
 # (bands), whatever the scan orientation, so the per-lane logic is written once.
 if gel_migration_axis == "horizontal":
     stacking_by_migration_signal = signal_above_plate
+    oriented_raw_stacking_by_migration = crop_pixels
 else:
     stacking_by_migration_signal = signal_above_plate.T
+    oriented_raw_stacking_by_migration = crop_pixels.T
 stacking_extent_pixels = stacking_by_migration_signal.shape[0]
 migration_extent_pixels = stacking_by_migration_signal.shape[1]
 
@@ -313,7 +418,7 @@ typical_column_median = (
 )
 per_migration_column_saturated_fraction = numpy.mean(
     (crop_pixels if gel_migration_axis == "horizontal" else crop_pixels.T)
-    >= CONTAINER_MAXIMUM_VALUE_16_BIT, axis=0
+    >= effective_ceiling_value, axis=0
 )
 usable_migration_column_mask = (
     (per_migration_column_median <= EDGE_COLUMN_MEDIAN_MULTIPLE * typical_column_median)
@@ -644,6 +749,7 @@ for lane_record in per_lane_records:
 band_measurement_rows = []
 locally_detected_cell_count = 0
 consensus_only_cell_count = 0
+saturated_cell_count = 0
 for lane_record in per_lane_records:
     well_index = lane_record["well_index"]
     lane_migration_profile = lane_profile_by_well_index[well_index]
@@ -712,6 +818,27 @@ for lane_record in per_lane_records:
                 else:
                     measurement_status = "ok"
 
+        # Per-cell saturation, counted on the raw-DN 2-D patch (strip by window),
+        # not on the collapsed profile, because a clipped pixel is a 2-D pixel that
+        # summing to a profile would hide. Saturation is a raw-value property, so it
+        # is judged against the raw crop and the derived effective ceiling, entirely
+        # independent of the background subtraction and baseline. A saturated cell's
+        # integrated_intensity is a floor: the clipped pixels lost their true height.
+        saturation_patch = oriented_raw_stacking_by_migration[
+            strip_top:strip_bottom, window_start:window_end
+        ]
+        saturation_patch_pixel_count = int(saturation_patch.size)
+        saturated_pixel_count = int((saturation_patch >= effective_ceiling_value).sum())
+        saturated_pixel_fraction = (
+            saturated_pixel_count / float(saturation_patch_pixel_count)
+            if saturation_patch_pixel_count else 0.0
+        )
+        if saturated_pixel_fraction > saturation_warn_fraction:
+            saturation_status = "saturated_intensity_is_floor"
+            saturated_cell_count += 1
+        else:
+            saturation_status = "clean"
+
         occupancy = (
             "locally_detected"
             if (well_index, canonical_position_index) in locally_detected_well_canonical_pairs
@@ -742,9 +869,40 @@ for lane_record in per_lane_records:
             "canonical_member_well_count": len(canonical_band["member_wells"]),
             "cross_lane_spread_pixels": canonical_band["cross_lane_spread_pixels"],
             "measurement_status": measurement_status,
+            "saturated_pixel_count": saturated_pixel_count,
+            "saturated_pixel_fraction": round(saturated_pixel_fraction, 5),
+            "saturation_status": saturation_status,
         })
 
 canonical_band_count = len(canonical_band_records)
+
+# Surface saturation as findings. A sub-ceiling knee means the sensor clipped below
+# the container, which changes the ceiling every downstream count is judged against,
+# so it is worth stating even when no cell ends up flagged. Saturated cells mean the
+# affected integrated intensities are floors, not measures. Both are warnings with a
+# suggested action, not hard stops; a clean image adds nothing here.
+if sub_ceiling_knee_detected:
+    BAND_DETECTION_FINDINGS.append({
+        "check_name": "effective_ceiling_below_container",
+        "status": "warning",
+        "is_hard_stop": False,
+        "detail": "a sub-ceiling saturation knee was detected at DN %d (container is "
+                  "%d); intensities are counted as saturated against the knee, not the "
+                  "container. Confirm against the saturation_derivation panel."
+                  % (effective_ceiling_value, CONTAINER_MAXIMUM_VALUE_16_BIT),
+    })
+if saturated_cell_count > 0:
+    BAND_DETECTION_FINDINGS.append({
+        "check_name": "no_cell_saturated",
+        "status": "warning",
+        "is_hard_stop": False,
+        "detail": "%d cell(s) have more than %.3f%% of their pixels at or above the "
+                  "effective ceiling %d; their integrated_intensity is a floor, not a "
+                  "measure. See saturation_status in band_measurements.csv and re-scan "
+                  "at a shorter exposure to quantify those bands."
+                  % (saturated_cell_count, saturation_warn_fraction * 100.0,
+                     effective_ceiling_value),
+    })
 
 # band_measurements.csv, long format per DESIGN 5.10: one row per lane x canonical
 # band x baseline method (one baseline method in B2; B3 adds rolling-ball).
@@ -757,6 +915,7 @@ measurement_column_names = [
     "net_above_baseline_unclipped", "raw_window_sum",
     "baseline_mean_value", "occupancy", "canonical_member_well_count",
     "cross_lane_spread_pixels", "measurement_status",
+    "saturated_pixel_count", "saturated_pixel_fraction", "saturation_status",
 ]
 measurement_csv_lines = [",".join(measurement_column_names)]
 for measurement_row in band_measurement_rows:
@@ -925,6 +1084,74 @@ band_centers_csv_path = output_directory_path / BAND_CENTERS_CSV_FILENAME
 band_centers_csv_path.write_text("\n".join(band_centers_csv_lines) + "\n")
 emit_message("csv", "wrote " + str(band_centers_csv_path))
 
+# Saturation derivation panel: the standing check that makes the effective-ceiling
+# decision auditable at a glance. Left, the high-DN histogram of the full page and
+# of the measured crop with the container and the effective ceiling marked, so a
+# pile-up below the container (a knee) or its absence is visible. Right, the profile
+# of the brightest crop band through its peak, so a resolved peak (unsaturated) is
+# distinguishable from a flat top kissing the ceiling (clipped). Display-only arrays,
+# built here from the raw crop, kept separate from the measured arrays above.
+saturation_figure, saturation_axes = matplotlib.pyplot.subplots(1, 2, figsize=(13, 5))
+high_tail_floor_value = knee_search_floor_value
+histogram_bin_edges = numpy.arange(
+    high_tail_floor_value, CONTAINER_MAXIMUM_VALUE_16_BIT + 200, 200
+)
+page_high_tail_values = raw_pixel_array[raw_pixel_array >= high_tail_floor_value].ravel()
+crop_high_tail_values = crop_pixels[crop_pixels >= high_tail_floor_value].ravel()
+saturation_axes[0].hist(page_high_tail_values, bins=histogram_bin_edges,
+                        color="0.6", log=True, label="full page")
+saturation_axes[0].hist(crop_high_tail_values, bins=histogram_bin_edges,
+                        color="C0", alpha=0.8, log=True, label="measured crop")
+saturation_axes[0].axvline(CONTAINER_MAXIMUM_VALUE_16_BIT, color="r", linestyle="--",
+                           linewidth=1.5, label="container 65535")
+saturation_axes[0].axvline(effective_ceiling_value, color="g", linestyle="-",
+                           linewidth=1.2,
+                           label="effective ceiling %d" % effective_ceiling_value)
+saturation_axes[0].set_xlabel("stored DN")
+saturation_axes[0].set_ylabel("pixel count (log)")
+saturation_axes[0].set_title("high-DN histogram; knee below container: %s"
+                             % ("yes" if sub_ceiling_knee_detected else "no"))
+saturation_axes[0].legend(fontsize=7, loc="upper center")
+
+brightest_row_index, brightest_column_index = numpy.unravel_index(
+    int(numpy.argmax(oriented_raw_stacking_by_migration)),
+    oriented_raw_stacking_by_migration.shape,
+)
+peak_offsets = numpy.arange(-25, 26)
+migration_lo = max(0, brightest_column_index - 25)
+migration_hi = min(migration_extent_pixels, brightest_column_index + 26)
+stacking_lo = max(0, brightest_row_index - 25)
+stacking_hi = min(stacking_extent_pixels, brightest_row_index + 26)
+migration_slice = oriented_raw_stacking_by_migration[brightest_row_index, migration_lo:migration_hi]
+stacking_slice = oriented_raw_stacking_by_migration[stacking_lo:stacking_hi, brightest_column_index]
+saturation_axes[1].plot(numpy.arange(migration_lo, migration_hi) - brightest_column_index,
+                        migration_slice, "-o", markersize=3,
+                        label="migration profile through peak")
+saturation_axes[1].plot(numpy.arange(stacking_lo, stacking_hi) - brightest_row_index,
+                        stacking_slice, "-s", markersize=3,
+                        label="stacking profile through peak")
+saturation_axes[1].axhline(CONTAINER_MAXIMUM_VALUE_16_BIT, color="r", linestyle="--",
+                           linewidth=1.5, label="container 65535")
+saturation_axes[1].axhline(effective_ceiling_value, color="g", linestyle=":",
+                           linewidth=1.0, label="effective ceiling %d" % effective_ceiling_value)
+saturation_axes[1].set_ylim(0, CONTAINER_MAXIMUM_VALUE_16_BIT * 1.03)
+saturation_axes[1].set_xlabel("pixels from brightest peak")
+saturation_axes[1].set_ylabel("raw stored DN")
+saturation_axes[1].set_title("brightest crop band: peak %d"
+                             % int(oriented_raw_stacking_by_migration[brightest_row_index, brightest_column_index]))
+saturation_axes[1].legend(fontsize=7, loc="upper right")
+
+saturation_figure.suptitle(
+    "saturation derivation: dark offset %s, exposure mode %s, %d saturated cell(s)"
+    % (str(dark_offset_value), str(exposure_mode_text), saturated_cell_count),
+    fontsize=10,
+)
+saturation_figure.tight_layout()
+saturation_derivation_path = output_directory_path / SATURATION_DERIVATION_FILENAME
+saturation_figure.savefig(saturation_derivation_path, dpi=FIGURE_DOTS_PER_INCH)
+matplotlib.pyplot.close(saturation_figure)
+emit_message("saturation", "wrote " + str(saturation_derivation_path))
+
 # Single exit point: assemble and write the provenance report, then set the code.
 failed_hard_stops = [
     finding["check_name"] for finding in BAND_DETECTION_FINDINGS
@@ -974,7 +1201,18 @@ band_detection_report = {
         "band_cluster_tolerance_source": cluster_tolerance_source,
         "canonical_spread_warn_fraction": CANONICAL_SPREAD_WARN_FRACTION,
         "baseline_flank_search_pixels": baseline_flank_search_pixels,
+        "saturation_warn_fraction": saturation_warn_fraction,
         "band_definition_source": band_definition_source,
+    },
+    "saturation": {
+        "container_maximum_value": CONTAINER_MAXIMUM_VALUE_16_BIT,
+        "effective_ceiling_value": effective_ceiling_value,
+        "sub_ceiling_knee_detected": sub_ceiling_knee_detected,
+        "page_pixels_at_effective_ceiling": page_pixels_at_effective_ceiling,
+        "crop_pixels_at_effective_ceiling": crop_pixels_at_effective_ceiling,
+        "saturated_cell_count": saturated_cell_count,
+        "dark_offset_value": dark_offset_value,
+        "exposure_mode_text": exposure_mode_text,
     },
     "total_band_count": total_band_count,
     "per_lane": [
@@ -1022,6 +1260,7 @@ band_detection_report = {
         "band_measurements_csv": str(band_measurements_csv_path),
         "consensus_center_map": str(consensus_center_map_path),
         "consensus_windows_overlay": str(consensus_windows_overlay_path),
+        "saturation_derivation": str(saturation_derivation_path),
     },
 }
 band_detection_report_path = output_directory_path / BAND_DETECTION_REPORT_FILENAME
