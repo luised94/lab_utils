@@ -105,6 +105,7 @@ CONSENSUS_CENTER_MAP_FILENAME = "consensus_center_map.png"
 CONSENSUS_WINDOWS_OVERLAY_FILENAME = "overlay_consensus_windows_by_occupancy.png"
 # Slice B3 output.
 SATURATION_DERIVATION_FILENAME = "saturation_derivation.png"
+BASELINE_COMPARISON_FILENAME = "baseline_comparison.png"
 
 CONTAINER_MAXIMUM_VALUE_16_BIT = 65535
 
@@ -133,6 +134,31 @@ SUB_CEILING_KNEE_ABOVE_TOLERANCE_FRACTION = 0.001
 # a measure, because clipped pixels lost their true height. A handful of hot or
 # dust pixels should not condemn a cell, so this is a small fraction, not any-pixel.
 DEFAULT_SATURATION_WARN_FRACTION = 0.005
+
+# Slice B3.2 rolling-ball cross-check. Width pinned to 4.0 mm on the s0002 profiles:
+# it exceeds the doublet (~40 px) and single-band support (15-40 px) so an isolated
+# band sits fully above the opened baseline, but stays below the ~5 mm point where
+# the plate begins bridging genuinely separate close bands into one. Converted
+# through the report pixel size so a differently-scanned gel does not silently shift.
+DEFAULT_ROLLING_BALL_WIDTH_MILLIMETRES = 4.0
+DEFAULT_STERNBERG_BALL_RADIUS_MILLIMETRES = 4.0
+DEFAULT_STERNBERG_BALL_VERTICAL_SCALE = 1.0
+
+# A cell is baseline-fragile when the two baselines' nets differ by more than this
+# fraction of the lane's signal scale (largest opened net in the lane). Normalising
+# by the lane scale, not by the cell's own net, is what stops near-empty cells from
+# reading as maximally fragile.
+BASELINE_FRAGILE_DISAGREEMENT_FRACTION = 0.15
+# A lane whose signal scale is below this fraction of the strongest lane's scale is
+# treated as having no signal, so its cells read no_signal rather than fragile.
+LANE_SIGNAL_SCALE_NO_SIGNAL_FRACTION = 0.05
+# Width-adequacy: if even the best-case lane's opened baseline still rides this far
+# up into its tallest band (as a fraction of peak), the width is too small globally.
+WIDTH_ADEQUACY_CLIMB_WARN_FRACTION = 0.15
+# A band whose opened baseline sits this far above the lane's opened-baseline floor
+# (as a fraction of the lane's peak-above-floor) is being bridged by a neighbour, so
+# its opened net is a cluster-shoulder quantity, not a clean per-band background.
+OPENING_BASELINE_ELEVATED_FRACTION = 0.10
 
 # A migration column elevated down its whole length is a plate edge or scratch,
 # not a lane; exclude columns whose median exceeds this multiple of the typical
@@ -194,6 +220,59 @@ def die(source_tag, message_text):
     sys.exit(2)
 
 
+def rolling_ball_opening_baseline(profile_values, width_pixels):
+    """Flat morphological opening as the DESIGN 5.4 rolling-ball cross-check.
+
+    A flat structuring element of the given odd width is slid beneath the 1-D
+    migration profile (grey erosion then dilation). This is the DEFAULT cross-check
+    because it has a single, unambiguous parameter (the width) and no vertical
+    intensity-to-pixel scaling to choose. The opened baseline lies at or below the
+    profile by construction, so net-above-it is always non-negative and can never
+    produce the baseline-above-signal clip that valley-to-valley does. The width
+    must exceed the widest single-band feature or the plate rides up into bands;
+    that is the width-adequacy check downstream.
+    """
+    odd_width = max(1, int(round(width_pixels)))
+    if odd_width % 2 == 0:
+        odd_width += 1
+    return scipy.ndimage.grey_opening(profile_values, size=odd_width, mode="nearest")
+
+
+def sternberg_ball_baseline(profile_values, radius_pixels, vertical_scale):
+    """Sternberg rolling ball, KEPT AS A SELECTABLE REFERENCE, not the default.
+
+    A parabolic (ball-cap) element is rolled beneath the profile. Unlike the flat
+    opening this element has a vertical extent, so it needs a scale relating
+    intensity units to pixel units; that scale is an unpinned degree of freedom
+    that drives the baseline as much as the radius does (this is exactly why the
+    flat opening is the default). It is retained because DESIGN 5.4 names the
+    rolling ball and the comparison is a useful reference; treat vertical_scale as
+    experimental and confirm any run against the baseline_comparison panel.
+    """
+    ball_radius = max(1, int(round(radius_pixels)))
+    offsets = numpy.arange(-ball_radius, ball_radius + 1)
+    # Concave-down cap; curvature set by the radius, height set by vertical_scale.
+    element_cap = vertical_scale * (
+        numpy.sqrt(numpy.maximum(0.0, ball_radius ** 2 - offsets ** 2)) - ball_radius
+    )
+    padded = numpy.pad(profile_values, ball_radius, mode="edge")
+    eroded = numpy.empty_like(profile_values, dtype=float)
+    for index in range(profile_values.size):
+        eroded[index] = numpy.min(padded[index:index + 2 * ball_radius + 1] - element_cap)
+    padded_eroded = numpy.pad(eroded, ball_radius, mode="edge")
+    opened = numpy.empty_like(profile_values, dtype=float)
+    for index in range(profile_values.size):
+        opened[index] = numpy.max(padded_eroded[index:index + 2 * ball_radius + 1] + element_cap)
+    return opened
+
+
+def cross_check_baseline(profile_values, method_name, width_pixels, radius_pixels, vertical_scale):
+    """Dispatch to the selected cross-check baseline. Opening is the default."""
+    if method_name == "sternberg_ball":
+        return sternberg_ball_baseline(profile_values, radius_pixels, vertical_scale)
+    return rolling_ball_opening_baseline(profile_values, width_pixels)
+
+
 argument_parser = argparse.ArgumentParser(
     description="Stage 3 Slice B1: per-lane band-centre detection and windows, "
                 "drawn and dumped. Reads the Slice A geometry report. No integration."
@@ -239,6 +318,28 @@ argument_parser.add_argument(
     default=DEFAULT_SATURATION_WARN_FRACTION,
     help="a cell is flagged saturated when this fraction of its window-by-strip "
          "pixels sit at or above the derived effective ceiling",
+)
+argument_parser.add_argument(
+    "--baseline-cross-check-method", choices=["opening", "sternberg_ball"],
+    default="opening",
+    help="rolling-ball-family baseline used to cross-check valley-to-valley; the "
+         "flat opening is the default, the Sternberg ball is a reference option",
+)
+argument_parser.add_argument(
+    "--rolling-ball-width-millimetres", type=float,
+    default=DEFAULT_ROLLING_BALL_WIDTH_MILLIMETRES,
+    help="flat-opening structuring-element width for the cross-check baseline",
+)
+argument_parser.add_argument(
+    "--sternberg-ball-radius-millimetres", type=float,
+    default=DEFAULT_STERNBERG_BALL_RADIUS_MILLIMETRES,
+    help="reference-only: Sternberg ball radius when that method is selected",
+)
+argument_parser.add_argument(
+    "--sternberg-ball-vertical-scale", type=float,
+    default=DEFAULT_STERNBERG_BALL_VERTICAL_SCALE,
+    help="reference-only, experimental: Sternberg ball intensity-to-pixel scale; "
+         "this is the unpinned degree of freedom that motivated the flat default",
 )
 argument_parser.add_argument(
     "--use-existing-band-definitions", action="store_true",
@@ -300,6 +401,8 @@ if lane_well_indices is None or len(lane_well_indices) != len(lane_centres_stack
 # Convert the millimetre config to pixels once, using the report's pixel size.
 millimetres_per_pixel = micrometres_per_pixel / 1000.0
 saturation_warn_fraction = parsed_arguments.saturation_warn_fraction
+rolling_ball_width_pixels = parsed_arguments.rolling_ball_width_millimetres / millimetres_per_pixel
+sternberg_ball_radius_pixels = parsed_arguments.sternberg_ball_radius_millimetres / millimetres_per_pixel
 region_window_width_pixels = parsed_arguments.region_window_width_millimetres / millimetres_per_pixel
 minimum_band_separation_pixels = max(
     1.0, parsed_arguments.minimum_band_separation_millimetres / millimetres_per_pixel
@@ -746,10 +849,79 @@ for lane_record in per_lane_records:
 # Region integration: apply the same canonical windows to every lane (complete
 # rectangular table), integrate above a local valley-to-valley baseline, tag
 # occupancy so a real band and background-at-a-shared-position are distinguishable.
+# Cross-check pre-pass: the opened (or Sternberg-ball) baseline is one curve per
+# lane, so compute it and every window's net-above-it up front, before the main
+# loop, because the per-cell fragility flag must normalise by the lane signal scale
+# (the largest opened net in the lane) and the no-signal gate by the strongest lane.
+# The lane's opened-baseline floor and peak are stored too: a band whose opened
+# baseline sits well above the lane floor is being bridged by a neighbour (a
+# cluster shoulder), which is annotated per cell rather than passed off as a clean
+# per-band baseline.
+cross_check_baseline_by_well_index = {}
+cross_check_net_by_well_and_canonical = {}
+lane_signal_scale_by_well_index = {}
+lane_climb_into_peak_by_well_index = {}
+lane_baseline_floor_by_well_index = {}
+lane_peak_value_by_well_index = {}
+for lane_record in per_lane_records:
+    well_index = lane_record["well_index"]
+    lane_migration_profile = lane_profile_by_well_index[well_index]
+    lane_cross_check_baseline = cross_check_baseline(
+        lane_migration_profile, parsed_arguments.baseline_cross_check_method,
+        rolling_ball_width_pixels, sternberg_ball_radius_pixels,
+        parsed_arguments.sternberg_ball_vertical_scale,
+    )
+    cross_check_baseline_by_well_index[well_index] = lane_cross_check_baseline
+    lane_net_by_canonical = {}
+    for canonical_position_index in range(len(canonical_band_records)):
+        window_start = canonical_band_records[canonical_position_index]["window_start_migration_pixels"]
+        window_end = canonical_band_records[canonical_position_index]["window_end_migration_pixels"]
+        if window_end > window_start:
+            net_segment = (
+                lane_migration_profile[window_start:window_end]
+                - lane_cross_check_baseline[window_start:window_end]
+            )
+            net_segment[net_segment < 0.0] = 0.0
+            lane_net_by_canonical[canonical_position_index] = float(net_segment.sum())
+        else:
+            lane_net_by_canonical[canonical_position_index] = 0.0
+    cross_check_net_by_well_and_canonical[well_index] = lane_net_by_canonical
+    lane_signal_scale_by_well_index[well_index] = (
+        max(lane_net_by_canonical.values()) if lane_net_by_canonical else 0.0
+    )
+    lane_baseline_floor_by_well_index[well_index] = (
+        float(lane_cross_check_baseline.min()) if lane_cross_check_baseline.size else 0.0
+    )
+    # Width-adequacy climb: how far the baseline rides up at the lane's tallest
+    # column, as a fraction of that peak. Small on an isolated band well-cleared by
+    # the plate; large only if the width is too small (or the lane is a cluster).
+    lane_peak_value = float(lane_migration_profile.max()) if lane_migration_profile.size else 0.0
+    lane_peak_column = int(numpy.argmax(lane_migration_profile)) if lane_migration_profile.size else 0
+    lane_peak_value_by_well_index[well_index] = lane_peak_value
+    lane_climb_into_peak_by_well_index[well_index] = (
+        float(lane_cross_check_baseline[lane_peak_column]) / lane_peak_value
+        if lane_peak_value > 0.0 else 0.0
+    )
+
+global_max_lane_signal_scale = (
+    max(lane_signal_scale_by_well_index.values()) if lane_signal_scale_by_well_index else 0.0
+)
+no_signal_scale_floor = LANE_SIGNAL_SCALE_NO_SIGNAL_FRACTION * global_max_lane_signal_scale
+# The best-case lane sets the width-adequacy verdict: if even it rides up, the
+# width is too small for every lane, not just the clusters.
+minimum_lane_climb_into_peak = (
+    min(lane_climb_into_peak_by_well_index.values())
+    if lane_climb_into_peak_by_well_index else 0.0
+)
+
 band_measurement_rows = []
+valley_to_valley_display_segments_by_well = {
+    lane_record["well_index"]: [] for lane_record in per_lane_records
+}
 locally_detected_cell_count = 0
 consensus_only_cell_count = 0
 saturated_cell_count = 0
+baseline_fragile_cell_count = 0
 for lane_record in per_lane_records:
     well_index = lane_record["well_index"]
     lane_migration_profile = lane_profile_by_well_index[well_index]
@@ -796,6 +968,14 @@ for lane_record in per_lane_records:
                 )
             else:
                 baseline_over_window = numpy.full(window_columns.shape, left_reference_value)
+            # Keep the drawn valley-to-valley baseline for the comparison panel: the
+            # sloped line actually used, as a display array separate from the measured
+            # net, so the panel shows both baselines rather than the opening alone.
+            valley_to_valley_display_segments_by_well[well_index].append(
+                (int(window_start), int(window_end),
+                 float(left_reference_value), float(right_reference_value),
+                 int(left_reference_column), int(right_reference_column))
+            )
             profile_over_window = lane_migration_profile[window_start:window_end]
             raw_window_sum = float(profile_over_window.sum())
             net_above_baseline = float((profile_over_window - baseline_over_window).sum())
@@ -849,7 +1029,54 @@ for lane_record in per_lane_records:
         else:
             consensus_only_cell_count += 1
 
-        band_measurement_rows.append({
+        # Cross-baseline agreement. The opened net is >= 0 by construction, so the
+        # comparison uses the UNCLIPPED valley-to-valley net; that keeps a sign flip
+        # (vtv drove the clipped intensity to zero while the opening still sees a
+        # band) visible instead of hidden by the clip. Disagreement is normalised by
+        # the lane signal scale so near-empty cells cannot read as maximally fragile,
+        # and it is only judged where the lane carries signal. A canonical band that
+        # shares the opening width with a neighbour is bridged by the plate, so its
+        # opened net is a per-cluster quantity and is labelled as such rather than
+        # offered as a clean per-band disagreement.
+        lane_signal_scale = lane_signal_scale_by_well_index[well_index]
+        cross_check_net = cross_check_net_by_well_and_canonical[well_index][canonical_position_index]
+        cross_check_baseline_mean_value = (
+            float(cross_check_baseline_by_well_index[well_index][window_start:window_end].mean())
+            if window_end > window_start else 0.0
+        )
+        if lane_signal_scale > 0.0:
+            disagreement_fraction = abs(net_above_baseline - cross_check_net) / lane_signal_scale
+        else:
+            disagreement_fraction = 0.0
+        # A sign flip only counts when the opening sees a NON-trivial band where vtv
+        # clipped to nothing; otherwise both baselines are agreeing on ~zero and the
+        # bare inequality (0.0 vs a hair above 0) is noise, not disagreement.
+        sign_flip_vtv_clipped_opening_positive = bool(
+            integrated_intensity == 0.0 and cross_check_net > no_signal_scale_floor
+        )
+        # Elevation annotation: is the opened baseline under this band well above the
+        # lane's own baseline floor? If so a neighbour is holding the plate up and the
+        # opened net is a cluster-shoulder quantity. Kept separate from the verdict so
+        # it explains, rather than overrides, agree/fragile.
+        lane_baseline_floor = lane_baseline_floor_by_well_index[well_index]
+        lane_peak_value = lane_peak_value_by_well_index[well_index]
+        lane_peak_above_floor = lane_peak_value - lane_baseline_floor
+        opening_baseline_elevated = bool(
+            lane_peak_above_floor > 0.0
+            and (cross_check_baseline_mean_value - lane_baseline_floor)
+            > OPENING_BASELINE_ELEVATED_FRACTION * lane_peak_above_floor
+        )
+        if lane_signal_scale < no_signal_scale_floor:
+            baseline_agreement_status = "no_signal"
+        elif disagreement_fraction >= BASELINE_FRAGILE_DISAGREEMENT_FRACTION:
+            baseline_agreement_status = "fragile"
+            baseline_fragile_cell_count += 1
+        else:
+            baseline_agreement_status = "agree"
+
+        # Fields shared by both baseline rows of this cell. The agreement fields are
+        # properties of the cell comparison, so they ride on both rows identically.
+        shared_cell_fields = {
             "well_index": well_index,
             "lane_centre_stacking_pixels": round(lane_record["lane_centre_stacking_pixels"], 2),
             "canonical_band_index": canonical_position_index,
@@ -860,11 +1087,6 @@ for lane_record in per_lane_records:
             "lane_strip_top_stacking_pixels": strip_top,
             "lane_strip_bottom_stacking_pixels": strip_bottom,
             "integration_method": "region",
-            "baseline_method": "valley_to_valley",
-            "integrated_intensity": round(integrated_intensity, 2),
-            "net_above_baseline_unclipped": round(net_above_baseline, 2),
-            "raw_window_sum": round(raw_window_sum, 2),
-            "baseline_mean_value": round(baseline_mean_value, 2),
             "occupancy": occupancy,
             "canonical_member_well_count": len(canonical_band["member_wells"]),
             "cross_lane_spread_pixels": canonical_band["cross_lane_spread_pixels"],
@@ -872,7 +1094,29 @@ for lane_record in per_lane_records:
             "saturated_pixel_count": saturated_pixel_count,
             "saturated_pixel_fraction": round(saturated_pixel_fraction, 5),
             "saturation_status": saturation_status,
+            "baseline_disagreement_fraction": round(disagreement_fraction, 5),
+            "baseline_agreement_status": baseline_agreement_status,
+            "sign_flip_vtv_clipped_opening_positive": sign_flip_vtv_clipped_opening_positive,
+            "opening_baseline_elevated": opening_baseline_elevated,
+        }
+        valley_to_valley_row = dict(shared_cell_fields)
+        valley_to_valley_row.update({
+            "baseline_method": "valley_to_valley",
+            "integrated_intensity": round(integrated_intensity, 2),
+            "net_above_baseline_unclipped": round(net_above_baseline, 2),
+            "raw_window_sum": round(raw_window_sum, 2),
+            "baseline_mean_value": round(baseline_mean_value, 2),
         })
+        opening_row = dict(shared_cell_fields)
+        opening_row.update({
+            "baseline_method": parsed_arguments.baseline_cross_check_method,
+            "integrated_intensity": round(cross_check_net, 2),
+            "net_above_baseline_unclipped": round(cross_check_net, 2),
+            "raw_window_sum": round(raw_window_sum, 2),
+            "baseline_mean_value": round(cross_check_baseline_mean_value, 2),
+        })
+        band_measurement_rows.append(valley_to_valley_row)
+        band_measurement_rows.append(opening_row)
 
 canonical_band_count = len(canonical_band_records)
 
@@ -904,6 +1148,40 @@ if saturated_cell_count > 0:
                      effective_ceiling_value),
     })
 
+# Width-adequacy: if even the best-case lane's opened baseline still rides up into
+# its tallest band, the cross-check width is too small everywhere and the opened
+# nets are systematically low. Fired on the min-over-lanes climb so clusters, which
+# legitimately ride up, do not raise a false alarm.
+if minimum_lane_climb_into_peak > WIDTH_ADEQUACY_CLIMB_WARN_FRACTION:
+    BAND_DETECTION_FINDINGS.append({
+        "check_name": "cross_check_width_clears_bands",
+        "status": "warning",
+        "is_hard_stop": False,
+        "detail": "the %s baseline rides %.1f%% into the tallest band of even the "
+                  "clearest lane; the width (%.2f mm) is likely too small and its "
+                  "nets are low. Increase --rolling-ball-width-millimetres and "
+                  "confirm against baseline_comparison.png."
+                  % (parsed_arguments.baseline_cross_check_method,
+                     minimum_lane_climb_into_peak * 100.0,
+                     parsed_arguments.rolling_ball_width_millimetres),
+    })
+
+# Baseline-fragile cells: the two baselines disagree by more than the threshold on a
+# signal-bearing, non-clustered cell, so which number to trust is not obvious there.
+if baseline_fragile_cell_count > 0:
+    BAND_DETECTION_FINDINGS.append({
+        "check_name": "baselines_agree_on_signal_cells",
+        "status": "warning",
+        "is_hard_stop": False,
+        "detail": "%d signal-bearing cell(s) disagree between valley-to-valley and "
+                  "the %s baseline by more than %.0f%% of the lane signal scale; treat "
+                  "their intensity as baseline-sensitive. See baseline_agreement_status "
+                  "in band_measurements.csv and baseline_comparison.png."
+                  % (baseline_fragile_cell_count,
+                     parsed_arguments.baseline_cross_check_method,
+                     BASELINE_FRAGILE_DISAGREEMENT_FRACTION * 100.0),
+    })
+
 # band_measurements.csv, long format per DESIGN 5.10: one row per lane x canonical
 # band x baseline method (one baseline method in B2; B3 adds rolling-ball).
 measurement_column_names = [
@@ -916,6 +1194,8 @@ measurement_column_names = [
     "baseline_mean_value", "occupancy", "canonical_member_well_count",
     "cross_lane_spread_pixels", "measurement_status",
     "saturated_pixel_count", "saturated_pixel_fraction", "saturation_status",
+    "baseline_disagreement_fraction", "baseline_agreement_status",
+    "sign_flip_vtv_clipped_opening_positive", "opening_baseline_elevated",
 ]
 measurement_csv_lines = [",".join(measurement_column_names)]
 for measurement_row in band_measurement_rows:
@@ -1152,6 +1432,89 @@ saturation_figure.savefig(saturation_derivation_path, dpi=FIGURE_DOTS_PER_INCH)
 matplotlib.pyplot.close(saturation_figure)
 emit_message("saturation", "wrote " + str(saturation_derivation_path))
 
+# Baseline comparison panel: the standing visualisation of the cross-check. One row
+# per lane, each showing the raw integrated profile, the valley-to-valley reference
+# points that set the local baseline, and the opened (or ball) baseline curve, with
+# each canonical band centre marked and coloured by its agreement status. This is
+# the operational form of the radius-probe overlay: it makes visible where the two
+# baselines part company (the clusters) and where they agree (isolated bands), so a
+# fragile flag can be eyeballed rather than trusted blind. Display-only.
+comparison_lane_count = len(per_lane_records)
+baseline_comparison_figure, baseline_comparison_axes = matplotlib.pyplot.subplots(
+    max(1, comparison_lane_count), 1,
+    figsize=(11, 2.3 * max(1, comparison_lane_count)), sharex=True,
+)
+if comparison_lane_count <= 1:
+    baseline_comparison_axes = [baseline_comparison_axes]
+agreement_status_colour = {
+    "agree": "tab:green",
+    "fragile": "tab:red",
+    "no_signal": "0.6",
+}
+for lane_axis, lane_record in zip(baseline_comparison_axes, per_lane_records):
+    well_index = lane_record["well_index"]
+    lane_migration_profile = lane_profile_by_well_index[well_index]
+    lane_cross_check_baseline = cross_check_baseline_by_well_index[well_index]
+    lane_axis.plot(lane_migration_profile, color="k", linewidth=0.8,
+                   label="well %d profile" % well_index)
+    # Valley-to-valley: the per-window sloped baseline actually integrated (the
+    # adaptive, per-band baseline). Each segment is drawn as the full line between
+    # its two flanking-minima (valley) reference points so it visibly spans valley
+    # to valley, with the narrower sub-span that is actually integrated (the region
+    # window) overdrawn thicker, and the valley anchors marked. This is display only.
+    first_vtv_segment = True
+    for (segment_start, segment_end, left_value, right_value,
+         left_column, right_column) in valley_to_valley_display_segments_by_well[well_index]:
+        if right_column != left_column:
+            def baseline_at(columns_array):
+                return left_value + (
+                    (right_value - left_value) * (columns_array - left_column)
+                    / float(right_column - left_column)
+                )
+        else:
+            def baseline_at(columns_array):
+                return numpy.full(numpy.shape(columns_array), left_value)
+        valley_span_columns = numpy.arange(left_column, right_column + 1)
+        window_span_columns = numpy.arange(segment_start, segment_end)
+        lane_axis.plot(valley_span_columns, baseline_at(valley_span_columns),
+                       color="tab:orange", linewidth=0.8, alpha=0.5,
+                       label="valley-to-valley (anchors)" if first_vtv_segment else None)
+        lane_axis.plot(window_span_columns, baseline_at(window_span_columns),
+                       color="tab:orange", linewidth=1.8,
+                       label="valley-to-valley (integrated window)" if first_vtv_segment else None)
+        lane_axis.plot([left_column, right_column],
+                       [left_value, right_value], "o", color="tab:orange", markersize=2.5)
+        first_vtv_segment = False
+    lane_axis.plot(lane_cross_check_baseline, color="tab:blue", linewidth=1.0,
+                   label="%s baseline" % parsed_arguments.baseline_cross_check_method)
+    for measurement_row in band_measurement_rows:
+        if measurement_row["well_index"] != well_index:
+            continue
+        if measurement_row["baseline_method"] == "valley_to_valley":
+            continue
+        band_column = measurement_row["canonical_position_migration_pixels"]
+        status_colour = agreement_status_colour.get(
+            measurement_row["baseline_agreement_status"], "k"
+        )
+        lane_axis.axvline(band_column, color=status_colour, linewidth=0.8,
+                          alpha=0.4, linestyle=":")
+    lane_axis.set_ylabel("sum DN")
+    lane_axis.legend(fontsize=6, loc="upper right")
+baseline_comparison_axes[-1].set_xlabel("migration column (pixels)")
+baseline_comparison_figure.suptitle(
+    "baseline cross-check (width %.2f mm): orange = valley-to-valley (per-band, "
+    "integrated), blue = %s (fixed-width cross-check); dotted ticks green=agree, "
+    "red=fragile"
+    % (parsed_arguments.rolling_ball_width_millimetres,
+       parsed_arguments.baseline_cross_check_method),
+    fontsize=9,
+)
+baseline_comparison_figure.tight_layout()
+baseline_comparison_path = output_directory_path / BASELINE_COMPARISON_FILENAME
+baseline_comparison_figure.savefig(baseline_comparison_path, dpi=FIGURE_DOTS_PER_INCH)
+matplotlib.pyplot.close(baseline_comparison_figure)
+emit_message("baseline", "wrote " + str(baseline_comparison_path))
+
 # Single exit point: assemble and write the provenance report, then set the code.
 failed_hard_stops = [
     finding["check_name"] for finding in BAND_DETECTION_FINDINGS
@@ -1202,6 +1565,9 @@ band_detection_report = {
         "canonical_spread_warn_fraction": CANONICAL_SPREAD_WARN_FRACTION,
         "baseline_flank_search_pixels": baseline_flank_search_pixels,
         "saturation_warn_fraction": saturation_warn_fraction,
+        "baseline_cross_check_method": parsed_arguments.baseline_cross_check_method,
+        "rolling_ball_width_millimetres": parsed_arguments.rolling_ball_width_millimetres,
+        "rolling_ball_width_pixels": round(rolling_ball_width_pixels, 2),
         "band_definition_source": band_definition_source,
     },
     "saturation": {
@@ -1213,6 +1579,20 @@ band_detection_report = {
         "saturated_cell_count": saturated_cell_count,
         "dark_offset_value": dark_offset_value,
         "exposure_mode_text": exposure_mode_text,
+    },
+    "baseline_cross_check": {
+        "method": parsed_arguments.baseline_cross_check_method,
+        "width_millimetres": parsed_arguments.rolling_ball_width_millimetres,
+        "width_pixels": round(rolling_ball_width_pixels, 2),
+        "fragile_disagreement_fraction": BASELINE_FRAGILE_DISAGREEMENT_FRACTION,
+        "baseline_fragile_cell_count": baseline_fragile_cell_count,
+        "opening_baseline_elevated_cell_count": sum(
+            1 for measurement_row in band_measurement_rows
+            if measurement_row["baseline_method"] != "valley_to_valley"
+            and measurement_row["opening_baseline_elevated"]
+        ),
+        "minimum_lane_climb_into_peak": round(minimum_lane_climb_into_peak, 4),
+        "width_adequacy_climb_warn_fraction": WIDTH_ADEQUACY_CLIMB_WARN_FRACTION,
     },
     "total_band_count": total_band_count,
     "per_lane": [
@@ -1261,6 +1641,7 @@ band_detection_report = {
         "consensus_center_map": str(consensus_center_map_path),
         "consensus_windows_overlay": str(consensus_windows_overlay_path),
         "saturation_derivation": str(saturation_derivation_path),
+        "baseline_comparison": str(baseline_comparison_path),
     },
 }
 band_detection_report_path = output_directory_path / BAND_DETECTION_REPORT_FILENAME
