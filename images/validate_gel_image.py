@@ -271,6 +271,14 @@ CROP_AREA_FRACTION_WARNING_CEILING = 0.98
 # integer stride to keep the file small.
 PREVIEW_MAXIMUM_DIMENSION_PIXELS = 1400
 
+# True-horizontal and true-vertical reference lines over the preview, so tilt and
+# smile are judgeable by eye against a straight edge (this is what made the s0003
+# smile visible, FINDINGS.md section 2). Dashed and teal, deliberately distinct
+# from the red crop box and the blue landmarks so the reference is never misread as
+# a band or lane edge. Roughly this many lines span the longer axis.
+CROP_PREVIEW_REFERENCE_GRID_LINE_COUNT = 10
+CROP_PREVIEW_REFERENCE_GRID_COLOR = "#00a0a0"
+
 HISTOGRAM_FIGURE_SIZE_INCHES = (11.0, 6.0)
 PREVIEW_FIGURE_SIZE_INCHES = (9.0, 9.0)
 FIGURE_DOTS_PER_INCH = 110
@@ -2874,6 +2882,37 @@ if (
         interpolation="nearest",
         origin="upper",
     )
+    # Reference gridlines, drawn before the crop box and landmarks so those stay on
+    # top. Evenly spaced in preview pixels; the spacing is set off the longer axis so
+    # both directions share it and the lines read as a true square reference.
+    preview_row_count, preview_column_count = preview_array.shape
+    reference_grid_spacing_pixels = max(
+        1,
+        int(
+            round(
+                max(preview_row_count, preview_column_count)
+                / float(CROP_PREVIEW_REFERENCE_GRID_LINE_COUNT)
+            )
+        ),
+    )
+    for reference_row in range(0, preview_row_count, reference_grid_spacing_pixels):
+        preview_axes.axhline(
+            reference_row,
+            color=CROP_PREVIEW_REFERENCE_GRID_COLOR,
+            linestyle=(0, (4, 4)),
+            linewidth=0.7,
+            alpha=0.5,
+        )
+    for reference_column in range(
+        0, preview_column_count, reference_grid_spacing_pixels
+    ):
+        preview_axes.axvline(
+            reference_column,
+            color=CROP_PREVIEW_REFERENCE_GRID_COLOR,
+            linestyle=(0, (4, 4)),
+            linewidth=0.7,
+            alpha=0.5,
+        )
     preview_axes.add_patch(
         matplotlib.patches.Rectangle(
             (
@@ -2909,6 +2948,7 @@ if (
         + DISPLAY_COLORMAP_NAME
         + " to match Fiji's inverting LUT; migration axis "
         + preview_geometry["gel_migration_axis"]
+        + "\nteal dashes are a true horizontal/vertical reference for tilt and smile"
     )
     if preprocess_sidecar_record["derived_tilt_angle_degrees"] is not None:
         preview_title_text += "\nderived tilt %.4f degrees over a %.0f pixel span" % (
