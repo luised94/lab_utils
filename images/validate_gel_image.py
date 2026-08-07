@@ -80,7 +80,14 @@ INF_SIDECAR_SUFFIX = ".inf"
 # does not understand instead of reading a missing key as absent.
 VALIDATION_REPORT_SCHEMA_VERSION = 1
 
-SUPPORTED_SIDECAR_SCHEMA_VERSION = 2
+# Version 2 is the historical sidecar. Version 3 adds the rotation-provenance
+# fields (see SIDECAR_ROTATION_KEY_NAMES). Both are accepted: a v2 sidecar is read
+# with those fields absent, which is taken to mean "no rotation applied", the good
+# historical case, so existing v2 sidecars keep passing. CURRENT is what the
+# template ships and what a new sidecar should declare.
+SUPPORTED_SIDECAR_SCHEMA_VERSIONS = (2, 3)
+CURRENT_SIDECAR_SCHEMA_VERSION = 3
+FIRST_SCHEMA_VERSION_WITH_ROTATION_FIELDS = 3
 
 # Coordinates are meaningless without the frame they were measured in. This exists
 # so that if the convention ever changes, old sidecars fail loudly instead of being
@@ -112,8 +119,36 @@ REQUIRED_SIDECAR_KEY_NAMES = (
     "notes",
 )
 
-# The two free-text fields. Everything else must be non-empty.
-SIDECAR_KEY_NAMES_PERMITTED_EMPTY = ("rotation_landmark_description", "notes")
+# Schema-version 3 additions: rotation provenance. Recorded so stage 1 can enforce
+# operator-side the same invariant the measure stage now enforces internally by
+# never rotating - an interpolated rotation is interpolation blur on the
+# measurement whether the pipeline did it or the operator did it in Fiji. Absent on
+# a v2 sidecar, which is read as "no rotation applied". See FINDINGS.md section 1.
+SIDECAR_ROTATION_KEY_NAMES = (
+    "rotation_applied_degrees",
+    "rotation_interpolation_method",
+    "rotation_enlarged_canvas",
+    "rotation_reference",
+)
+
+# Every key this script recognizes, across all schema versions. An unknown key
+# (not in here) is still a hard stop, which is what keeps the template and this
+# script from drifting apart; a known key that is not required for the declared
+# version is allowed to be absent.
+KNOWN_SIDECAR_KEY_NAMES = REQUIRED_SIDECAR_KEY_NAMES + SIDECAR_ROTATION_KEY_NAMES
+
+# The free-text and may-be-blank fields. rotation_applied_degrees blank means no
+# rotation; rotation_enlarged_canvas and rotation_reference are moot when there was
+# none. rotation_interpolation_method is NOT here: a v3 sidecar must state it, and
+# the template pre-fills 'none', so a blank is a real omission rather than a
+# default. Everything else must be non-empty.
+SIDECAR_KEY_NAMES_PERMITTED_EMPTY = (
+    "rotation_landmark_description",
+    "notes",
+    "rotation_applied_degrees",
+    "rotation_enlarged_canvas",
+    "rotation_reference",
+)
 
 # Always integers, and always pixels regardless of coordinate_unit: schema and the
 # image dimensions read from the tags, and the lane count.
@@ -136,6 +171,7 @@ SIDECAR_NUMERIC_KEY_NAMES = (
     "crop_y",
     "crop_width",
     "crop_height",
+    "rotation_applied_degrees",
 )
 
 # Closed vocabularies. gel_migration_axis has no default (an old gel imaged in the
@@ -144,7 +180,33 @@ SIDECAR_NUMERIC_KEY_NAMES = (
 SIDECAR_ENUM_KEY_ALLOWED_VALUES = {
     "gel_migration_axis": ("horizontal", "vertical"),
     "coordinate_unit": ("pixels", "centimetres"),
+    # 'none' is the wanted case: gel placed square, nothing resampled. bilinear and
+    # bicubic both blend neighbours, so both make the pixels no longer raw counts.
+    "rotation_interpolation_method": ("none", "bilinear", "bicubic"),
+    # ImageJ's "Enlarge image to fit" flag. When on, the rotate pads the exposed
+    # corners with zeros, which is what produced the s0003 scan-pad-lookalike border.
+    "rotation_enlarged_canvas": ("yes", "no"),
 }
+
+# Provenance guard. A file that reached us through ImageJ has been resampled and
+# has its instrument tags stripped, so its pixels may no longer be raw counts and
+# its scan metadata is gone (FINDINGS.md section 1). These substrings are matched
+# case-insensitively against Model, Make, Software, and the ImageDescription. This
+# is the allowlist of trusted acquisition software; extend it when a new instrument
+# is qualified, or the guard will warn (never stop) on that instrument's normal
+# output. Warn-not-stop is deliberate: the signal is a heuristic, and a knowingly
+# resampled file may still be processed.
+TRUSTED_ACQUISITION_SIGNATURES = (
+    "amersham typhoon",
+    "amersham imager",
+    "typhoon",
+    "imagequant",
+)
+
+# ImageJ and Fiji stamp "ImageJ=<version>" into ImageDescription on save. This is
+# the specific fingerprint of a resave, distinct from merely lacking a known
+# instrument tag.
+IMAGEJ_RESAVE_SIGNATURE = "imagej="
 
 PRIVATE_TAG_CODE_FLOOR = 65000
 
@@ -977,6 +1039,63 @@ for pair_key, pair_value in image_description_pairs:
     image_description_first_value_by_key.setdefault(pair_key, pair_value)
 
 # =============================================================================
+# Provenance: straight from a trusted instrument, or resampled via a resave?
+# =============================================================================
+
+# The wrong file nearly got measured on s0003: a sidecar pointed at an ImageJ
+# resave (resampled, tags stripped) instead of the pristine Typhoon scan. This
+# guard reads the acquisition signature from the tags and the resave fingerprint
+# from ImageDescription, and warns when the file is not a clean instrument scan.
+# The rotation cross-checks against the sidecar happen later, once it is parsed.
+provenance_signature_parts = []
+for provenance_tag_name in ("Model", "Make", "Software"):
+    if provenance_tag_name in tag_values_by_name:
+        provenance_signature_parts.append(
+            tag_values_by_name[provenance_tag_name][0]["value_repr"]
+        )
+provenance_signature_parts.extend(image_description_raw_texts)
+provenance_signature_haystack = " ".join(provenance_signature_parts).lower()
+trusted_instrument_signature_found = any(
+    signature in provenance_signature_haystack
+    for signature in TRUSTED_ACQUISITION_SIGNATURES
+)
+imagej_resave_signature_found = any(
+    IMAGEJ_RESAVE_SIGNATURE in description_text.lower()
+    for description_text in image_description_raw_texts
+)
+file_appears_resampled = (
+    imagej_resave_signature_found or not trusted_instrument_signature_found
+)
+if imagej_resave_signature_found:
+    provenance_detail = (
+        "ImageDescription carries an ImageJ resave stamp, so this file has been "
+        "resampled and its instrument tags may be stripped; its pixels may no longer "
+        "be raw counts. Point the pipeline at the pristine instrument scan. See "
+        "FINDINGS.md section 1."
+    )
+elif not trusted_instrument_signature_found:
+    provenance_detail = (
+        "no recognized acquisition-software signature in Model, Make, Software, or "
+        "ImageDescription (allowlist: "
+        + ", ".join(TRUSTED_ACQUISITION_SIGNATURES)
+        + "). Provenance is unverified. If this instrument is trusted, add its "
+        "signature to TRUSTED_ACQUISITION_SIGNATURES."
+    )
+else:
+    provenance_detail = (
+        "recognized a trusted acquisition signature and no resave stamp; the file "
+        "looks like a clean instrument scan"
+    )
+VALIDATION_FINDINGS.append(
+    {
+        "check_name": "input_file_provenance",
+        "status": "warning" if file_appears_resampled else "pass",
+        "is_hard_stop": False,
+        "detail": provenance_detail,
+    }
+)
+
+# =============================================================================
 # Cross-checks between sources inside the TIFF
 # =============================================================================
 
@@ -1801,13 +1920,32 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
         # under the no-sharing rule: a key added to one and not the other fails on
         # the next run instead of being silently ignored. It also catches a
         # misspelling, which would otherwise leave a required value at its default.
+        # The required set depends on the declared version: a v3 sidecar must carry
+        # the rotation keys, a v2 sidecar must not be failed for lacking them. The
+        # version string is read defensively here, before the integer check below
+        # has run, so a non-integer version falls back to the v2 core and the bad
+        # value is caught by that check rather than crashing here.
+        declared_schema_version_text = raw_sidecar_values.get("schema_version", "")
+        declared_schema_version = (
+            int(declared_schema_version_text)
+            if re.match(r"^-?\d+$", declared_schema_version_text)
+            else None
+        )
+        required_sidecar_key_names = REQUIRED_SIDECAR_KEY_NAMES
+        if (
+            declared_schema_version is not None
+            and declared_schema_version >= FIRST_SCHEMA_VERSION_WITH_ROTATION_FIELDS
+        ):
+            required_sidecar_key_names = (
+                REQUIRED_SIDECAR_KEY_NAMES + SIDECAR_ROTATION_KEY_NAMES
+            )
         unknown_sidecar_keys = sorted(
-            set(raw_sidecar_values) - set(REQUIRED_SIDECAR_KEY_NAMES)
+            set(raw_sidecar_values) - set(KNOWN_SIDECAR_KEY_NAMES)
         )
         missing_sidecar_keys = sorted(
-            set(REQUIRED_SIDECAR_KEY_NAMES) - set(raw_sidecar_values)
+            set(required_sidecar_key_names) - set(raw_sidecar_values)
         )
-        for sidecar_key in REQUIRED_SIDECAR_KEY_NAMES:
+        for sidecar_key in required_sidecar_key_names:
             if (
                 sidecar_key in raw_sidecar_values
                 and raw_sidecar_values[sidecar_key] == ""
@@ -1826,11 +1964,15 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                     + repr(sidecar_value)
                 )
         # Geometry values may carry a decimal point because centimetres are
-        # fractional; a bare integer is also valid (pixel coordinates).
+        # fractional; a bare integer is also valid (pixel coordinates). A
+        # permitted-empty numeric (rotation_applied_degrees left blank) means the
+        # value is absent, not malformed, so it is not type-checked.
         for sidecar_key in SIDECAR_NUMERIC_KEY_NAMES:
             if sidecar_key not in raw_sidecar_values:
                 continue
             sidecar_value = raw_sidecar_values[sidecar_key]
+            if sidecar_value == "" and sidecar_key in SIDECAR_KEY_NAMES_PERMITTED_EMPTY:
+                continue
             if not re.match(r"^-?\d+(?:\.\d+)?$", sidecar_value):
                 sidecar_parse_problems.append(
                     "key "
@@ -1839,11 +1981,14 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                     + repr(sidecar_value)
                 )
         # Enum values must be one of a closed set, so a typo like coordinate_unit=px
-        # is a hard stop rather than a silently unrecognised value.
+        # is a hard stop rather than a silently unrecognised value. A permitted-empty
+        # enum (rotation_enlarged_canvas left blank) is absent, not a bad value.
         for sidecar_key, allowed_values in SIDECAR_ENUM_KEY_ALLOWED_VALUES.items():
             if sidecar_key not in raw_sidecar_values:
                 continue
             sidecar_value = raw_sidecar_values[sidecar_key]
+            if sidecar_value == "" and sidecar_key in SIDECAR_KEY_NAMES_PERMITTED_EMPTY:
+                continue
             if sidecar_value not in allowed_values:
                 sidecar_parse_problems.append(
                     "key "
@@ -1865,8 +2010,9 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                 "status": "pass" if sidecar_structure_is_valid else "fail",
                 "is_hard_stop": True,
                 "detail": (
-                    "all " + str(len(REQUIRED_SIDECAR_KEY_NAMES)) + " keys present and "
-                    "well formed"
+                    "all "
+                    + str(len(required_sidecar_key_names))
+                    + " keys present and well formed"
                     if sidecar_structure_is_valid
                     else "unknown keys: "
                     + repr(unknown_sidecar_keys)
@@ -1887,6 +2033,13 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                     parsed_sidecar_values[sidecar_key]
                 )
             for sidecar_key in SIDECAR_NUMERIC_KEY_NAMES:
+                # A permitted-empty numeric (rotation_applied_degrees) may be blank
+                # or absent; leave it as-is so downstream reads it as "no rotation".
+                if (
+                    sidecar_key not in parsed_sidecar_values
+                    or parsed_sidecar_values[sidecar_key] == ""
+                ):
+                    continue
                 parsed_sidecar_values[sidecar_key] = float(
                     parsed_sidecar_values[sidecar_key]
                 )
@@ -1978,16 +2131,86 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                     "status": (
                         "pass"
                         if parsed_sidecar_values["schema_version"]
-                        == SUPPORTED_SIDECAR_SCHEMA_VERSION
+                        in SUPPORTED_SIDECAR_SCHEMA_VERSIONS
                         else "fail"
                     ),
                     "is_hard_stop": True,
                     "detail": "sidecar declares schema_version "
                     + str(parsed_sidecar_values["schema_version"])
-                    + "; this script "
-                    "understands " + str(SUPPORTED_SIDECAR_SCHEMA_VERSION),
+                    + "; this script understands "
+                    + repr(list(SUPPORTED_SIDECAR_SCHEMA_VERSIONS))
+                    + " (current "
+                    + str(CURRENT_SIDECAR_SCHEMA_VERSION)
+                    + ")",
                 }
             )
+
+            # Rotation provenance cross-checks. What the sidecar records about
+            # rotation is held against what the file itself looks like (computed
+            # above in the provenance section). A v2 sidecar carries none of these
+            # keys, which reads as "no rotation applied". See FINDINGS.md section 1.
+            rotation_interpolation_method = parsed_sidecar_values.get(
+                "rotation_interpolation_method", "none"
+            )
+            if rotation_interpolation_method == "":
+                rotation_interpolation_method = "none"
+            recorded_rotation_degrees = parsed_sidecar_values.get(
+                "rotation_applied_degrees", ""
+            )
+            rotation_was_applied = (
+                isinstance(recorded_rotation_degrees, float)
+                and abs(recorded_rotation_degrees) > 0.0
+            )
+
+            if rotation_interpolation_method in ("bilinear", "bicubic"):
+                VALIDATION_FINDINGS.append(
+                    {
+                        "check_name": "sidecar_rotation_interpolation",
+                        "status": "warning",
+                        "is_hard_stop": False,
+                        "detail": "sidecar records a "
+                        + rotation_interpolation_method
+                        + " rotation, so the image was resampled by neighbour "
+                        "blending and its pixel values are no longer raw counts. This "
+                        "stacks on encoding_verified: false. Prefer placing the gel "
+                        "square and recording rotation_interpolation_method=none.",
+                    }
+                )
+
+            if (
+                not rotation_was_applied
+                and rotation_interpolation_method == "none"
+                and imagej_resave_signature_found
+            ):
+                VALIDATION_FINDINGS.append(
+                    {
+                        "check_name": "sidecar_rotation_matches_file",
+                        "status": "warning",
+                        "is_hard_stop": False,
+                        "detail": "sidecar records no rotation, but the file carries an "
+                        "ImageJ resave stamp, so it was resampled outside this record. "
+                        "Either point the pipeline at the pristine instrument scan, or "
+                        "record the rotation that was applied. See FINDINGS.md "
+                        "section 1.",
+                    }
+                )
+
+            if (
+                rotation_was_applied
+                and trusted_instrument_signature_found
+                and not imagej_resave_signature_found
+            ):
+                VALIDATION_FINDINGS.append(
+                    {
+                        "check_name": "sidecar_rotation_matches_file",
+                        "status": "warning",
+                        "is_hard_stop": False,
+                        "detail": "sidecar records a rotation of %s degrees, but the "
+                        "file looks like the raw instrument scan (trusted acquisition "
+                        "signature, no resave stamp). You may be pointing at the wrong "
+                        "file." % recorded_rotation_degrees,
+                    }
+                )
 
             frame_name_matches = (
                 parsed_sidecar_values["measured_in_frame"]
@@ -2713,6 +2936,12 @@ validation_report = {
             else None
         ),
         "orientation_sources": orientation_sources,
+    },
+    "input_provenance": {
+        "trusted_instrument_signature_found": trusted_instrument_signature_found,
+        "imagej_resave_signature_found": imagej_resave_signature_found,
+        "file_appears_resampled": file_appears_resampled,
+        "trusted_acquisition_signatures": list(TRUSTED_ACQUISITION_SIGNATURES),
     },
     "pixel_statistics_were_computed": pixel_statistics_were_computed,
     "pixel_statistics": None
