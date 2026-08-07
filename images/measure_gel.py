@@ -172,6 +172,13 @@ DEFAULT_BAND_PEAK_PROMINENCE_FRACTION = 0.12
 DEFAULT_LANE_STRIP_CROSS_SECTION_FRACTION = 0.25
 
 # Slice B2 consensus and integration config.
+# A predicted-empty comb position that integrates to more than this fraction of the
+# strongest locally detected band is flagged. An empty lane adjacent to a strong
+# loaded lane catches real bleed across the half-pitch gap (about 20 percent on the
+# dense s0002 comb), so the threshold sits above that: only a signal approaching a
+# real band's magnitude, a lane detection likely missed, trips it.
+PREDICTED_LANE_SIGNAL_FRACTION_OF_STRONGEST = 0.40
+
 # The cluster tolerance is NOT derived from a gap histogram: on real gels the
 # pooled adjacent-gap distribution is not reliably bimodal (verified on s0002,
 # where it is a continuous ramp with no clean valley), so a valley-based tolerance
@@ -1408,10 +1415,158 @@ for lane_position in range(len(ordered_lane_centres)):
             ],
             "merged_center_flags": merged_center_flags,
             "profile_smoothed": lane_migration_profile_smoothed,
+            # lane_position is the rank of this lane among the populated lanes,
+            # ascending along stacking, so it is the loaded-lane index the plate map
+            # joins on: leftmost loaded lane is 0, independent of comb-slot questions
+            # and of a flipped placement (which R's plate map resolves).
+            "loaded_lane_index": lane_position,
+            "lane_detection_status": "detected",
+            "prediction_span": "",
         }
     )
 
 total_band_count = len(band_centers_csv_rows)
+
+# Predicted lanes for expected comb positions with no detected lane. A loaded-but-
+# defective well (a negative control, a dead mutant) is part of the experiment and
+# must get a real integrated value at the consensus positions, not be an absent row
+# that R backfills with a synthetic zero. The comb fitted to the populated lanes
+# places each missing position; the integration below measures it (consensus_only),
+# so the value is a real near-zero rather than an asserted 0. Detected lanes are
+# untouched here - predicted lanes are appended with their own half-pitch strips and
+# never re-bound a detected lane - so detected measurements stay byte-identical.
+# Only positions bracketed by populated lanes are trusted (interpolated); positions
+# past the outermost populated lane are marked extrapolated for R to weigh or drop.
+# comb_well_index anchors to the leftmost populated lane as comb slot 0, which is
+# right when loading runs left-to-right from the controls; a flipped placement or a
+# leading empty is resolved in R's plate map, not guessed from pixels.
+predicted_lane_count = 0
+comb_prediction_supported = (
+    lane_well_indices is not None
+    and populated_lane_count >= 2
+    and expected_lane_count > populated_lane_count
+)
+if comb_prediction_supported:
+    populated_comb_indices = set(ordered_well_indices)
+    lowest_populated_slot = min(populated_comb_indices)
+    highest_populated_slot = max(populated_comb_indices)
+    # Comb slot 0's stacking centre, averaged over the populated lanes so one off
+    # lane does not shift the whole comb.
+    comb_slot_zero_centre = float(
+        numpy.mean(
+            [
+                ordered_lane_centres[position]
+                - ordered_well_indices[position] * lane_pitch_pixels
+                for position in range(len(ordered_lane_centres))
+            ]
+        )
+    )
+    # Predicted centres for every missing comb slot, then the full set of lane
+    # centres (detected plus predicted) sorted, so a predicted lane can be bounded at
+    # the midpoint to its true nearest neighbour and cannot bleed into an adjacent
+    # loaded lane's band (the fixed-height strip did exactly that on s0002 wells 1
+    # and 10). Detected lane strips are untouched, so their measurements stay
+    # byte-identical.
+    predicted_centre_by_slot = {}
+    for comb_slot in range(expected_lane_count):
+        if comb_slot in populated_comb_indices:
+            continue
+        predicted_centre = comb_slot_zero_centre + comb_slot * lane_pitch_pixels
+        if 0 <= predicted_centre < stacking_extent_pixels:
+            predicted_centre_by_slot[comb_slot] = predicted_centre
+    all_lane_centres_sorted = sorted(
+        list(ordered_lane_centres) + list(predicted_centre_by_slot.values())
+    )
+    for comb_slot in sorted(predicted_centre_by_slot):
+        predicted_centre = predicted_centre_by_slot[comb_slot]
+        centre_position = all_lane_centres_sorted.index(predicted_centre)
+        if centre_position > 0:
+            lower_bound = 0.5 * (
+                all_lane_centres_sorted[centre_position - 1] + predicted_centre
+            )
+        else:
+            lower_bound = predicted_centre - lane_pitch_pixels
+        if centre_position < len(all_lane_centres_sorted) - 1:
+            upper_bound = 0.5 * (
+                predicted_centre + all_lane_centres_sorted[centre_position + 1]
+            )
+        else:
+            upper_bound = predicted_centre + lane_pitch_pixels
+        predicted_strip_top = max(0, int(math.floor(lower_bound)))
+        predicted_strip_bottom = min(
+            stacking_extent_pixels, int(math.ceil(upper_bound))
+        )
+        predicted_strip_signal = usable_stacking_by_migration_signal[
+            predicted_strip_top:predicted_strip_bottom, :
+        ]
+        predicted_profile = predicted_strip_signal.sum(axis=0)
+        predicted_profile_smoothed = scipy.ndimage.uniform_filter1d(
+            predicted_profile,
+            size=migration_profile_smoothing_pixels,
+            mode="nearest",
+        )
+        per_lane_records.append(
+            {
+                "well_index": comb_slot,
+                "lane_centre_stacking_pixels": round(predicted_centre, 2),
+                "strip_top_stacking_pixels": predicted_strip_top,
+                "strip_bottom_stacking_pixels": predicted_strip_bottom,
+                "measured_strip_height_pixels": predicted_strip_bottom
+                - predicted_strip_top,
+                "fixed_strip_height_pixels": predicted_strip_bottom
+                - predicted_strip_top,
+                "band_count": 0,
+                "band_centre_migration_pixels": [],
+                "merged_center_flags": [],
+                "profile_smoothed": predicted_profile_smoothed,
+                "loaded_lane_index": "",
+                "lane_detection_status": "predicted_from_comb",
+                "prediction_span": (
+                    "interpolated"
+                    if lowest_populated_slot < comb_slot < highest_populated_slot
+                    else "extrapolated"
+                ),
+            }
+        )
+        predicted_lane_count += 1
+
+# Detected-vs-expected and comb-support warnings for the operator, distinct from the
+# lane_grid finding above so R sees the prediction outcome explicitly.
+if comb_prediction_supported and predicted_lane_count > 0:
+    ANALYSIS_FINDINGS.append(
+        {
+            "check_name": "empty_lane_prediction",
+            "status": "warning",
+            "is_hard_stop": False,
+            "detail": "predicted %d empty comb position(s) from %d populated lane(s) of "
+            "%d expected; they carry real integrated values flagged "
+            "lane_detection_status=predicted_from_comb (interpolated within the "
+            "populated span, extrapolated beyond it). A plate map decides which are "
+            "loaded-but-defective versus simply unused."
+            % (predicted_lane_count, populated_lane_count, expected_lane_count)
+            + (
+                " Pitch fell back to geometry rather than being measured, so these "
+                "predictions rest on the assumed even spacing; treat them with extra "
+                "caution."
+                if lane_pitch_source.startswith("fell_back")
+                else ""
+            ),
+        }
+    )
+if lane_well_indices is not None and any(
+    index >= expected_lane_count for index in ordered_well_indices
+):
+    ANALYSIS_FINDINGS.append(
+        {
+            "check_name": "comb_count_consistency",
+            "status": "warning",
+            "is_hard_stop": False,
+            "detail": "a populated lane was assigned a comb slot at or beyond the "
+            "expected_lane_count of %d, so the measured pitch and the expected comb "
+            "count disagree. expected_lane_count may be wrong, or the pitch was "
+            "mismeasured; check lane_profiles.png and the sidecar." % expected_lane_count,
+        }
+    )
 
 # Display array, computed once and shared by every overlay. Separate from the
 # measured signal per DESIGN 5.9: contrast scaling is display-only.
@@ -2012,6 +2167,9 @@ for lane_record in per_lane_records:
         # properties of the cell comparison, so they ride on both rows identically.
         shared_cell_fields = {
             "well_index": well_index,
+            "loaded_lane_index": lane_record["loaded_lane_index"],
+            "lane_detection_status": lane_record["lane_detection_status"],
+            "prediction_span": lane_record["prediction_span"],
             "lane_centre_stacking_pixels": round(
                 lane_record["lane_centre_stacking_pixels"], 2
             ),
@@ -2071,6 +2229,50 @@ for lane_record in per_lane_records:
         band_measurement_rows.append(opening_row)
 
 canonical_band_count = len(canonical_band_records)
+
+# Detected-late self-check. A position filled as predicted-empty is supposed to be
+# background; if it integrates to real signal, detection missed a lane (faint bands,
+# prominence floor too high), so the "empty" label is wrong. Flag it rather than let
+# a real lane pass as a synthetic zero. The reference is the strongest locally
+# detected cell, so the threshold scales with this gel's signal.
+detected_cell_reported_values = [
+    row["reported_value"]
+    for row in band_measurement_rows
+    if row["occupancy"] == "locally_detected"
+]
+strongest_detected_reported_value = (
+    max(detected_cell_reported_values) if detected_cell_reported_values else 0.0
+)
+predicted_lane_signal_threshold = (
+    PREDICTED_LANE_SIGNAL_FRACTION_OF_STRONGEST * strongest_detected_reported_value
+)
+predicted_lanes_carrying_signal = sorted(
+    {
+        row["well_index"]
+        for row in band_measurement_rows
+        if row["lane_detection_status"] == "predicted_from_comb"
+        and predicted_lane_signal_threshold > 0.0
+        and row["reported_value"] > predicted_lane_signal_threshold
+    }
+)
+if predicted_lanes_carrying_signal:
+    ANALYSIS_FINDINGS.append(
+        {
+            "check_name": "predicted_lane_carries_signal",
+            "status": "warning",
+            "is_hard_stop": False,
+            "detail": "comb slot(s) %s were filled as predicted-empty but integrate to "
+            "more than %.0f%% of the strongest detected band. Either a real lane was "
+            "missed by detection there (lower the band prominence floor and check "
+            "lane_profiles.png), or a strong adjacent lane is bleeding across; do not "
+            "trust these as empty without checking."
+            % (
+                predicted_lanes_carrying_signal,
+                100.0 * PREDICTED_LANE_SIGNAL_FRACTION_OF_STRONGEST,
+            ),
+        }
+    )
+
 
 # Surface saturation as findings. A sub-ceiling knee means the sensor clipped below
 # the container, which changes the ceiling every downstream count is judged against,
@@ -2169,6 +2371,9 @@ if multi_maximum_window_count > 0:
 # band x baseline method (one baseline method in B2; B3 adds rolling-ball).
 measurement_column_names = [
     "well_index",
+    "loaded_lane_index",
+    "lane_detection_status",
+    "prediction_span",
     "lane_centre_stacking_pixels",
     "canonical_band_index",
     "canonical_position_migration_pixels",
@@ -2292,6 +2497,34 @@ occupancy_axes.set_title(
 )
 occupancy_axes.set_xlabel("crop column / 1")
 occupancy_axes.set_ylabel("crop row / 1")
+
+# Index-origin marker: where the pipeline started counting lanes (loaded_lane_index
+# 0, the lowest-stacking loaded lane). Labelled as the pipeline frame, not "well 0",
+# because a flipped gel placement is resolved in R's plate map, not here. It lets
+# the operator catch a flip by eye against the picture, the way the crop preview
+# catches a bad landmark.
+origin_lane_record = None
+for lane_record in per_lane_records:
+    if lane_record["loaded_lane_index"] == 0:
+        origin_lane_record = lane_record
+        break
+if origin_lane_record is not None:
+    origin_stacking = origin_lane_record["lane_centre_stacking_pixels"]
+    if gel_migration_axis == "horizontal":
+        origin_x, origin_y = 0, origin_stacking
+        origin_rotation = 90
+    else:
+        origin_x, origin_y = origin_stacking, 0
+        origin_rotation = 0
+    occupancy_axes.annotate(
+        "loaded index 0 (pipeline frame)",
+        xy=(origin_x, origin_y),
+        color="#1f77b4",
+        fontsize="small",
+        rotation=origin_rotation,
+        va="center",
+        ha="left",
+    )
 occupancy_figure.tight_layout()
 consensus_windows_overlay_path = (
     output_directory_path / CONSENSUS_WINDOWS_OVERLAY_FILENAME
