@@ -326,7 +326,9 @@ argument_parser.add_argument(
 )
 parsed_arguments = argument_parser.parse_args()
 
-emit_message("arguments", "input tiff path as given: " + repr(parsed_arguments.input_tiff_path))
+emit_message(
+    "arguments", "input tiff path as given: " + repr(parsed_arguments.input_tiff_path)
+)
 
 # =============================================================================
 # Path normalization
@@ -353,7 +355,9 @@ for quote_character in SURROUNDING_QUOTE_CHARACTERS:
         and working_path_text.startswith(quote_character)
         and working_path_text.endswith(quote_character)
     ):
-        emit_message("path", "removed a surrounding pair of " + quote_character + " characters")
+        emit_message(
+            "path", "removed a surrounding pair of " + quote_character + " characters"
+        )
         working_path_text = working_path_text[1:-1]
         break
 if working_path_text == "":
@@ -374,7 +378,10 @@ if working_path_text.startswith("~"):
     except RuntimeError as tilde_expansion_error:
         die("path", "cannot expand the leading tilde: " + str(tilde_expansion_error))
     if tilde_expanded_path_text == working_path_text:
-        die("path", "the leading tilde in " + repr(working_path_text) + " did not expand")
+        die(
+            "path",
+            "the leading tilde in " + repr(working_path_text) + " did not expand",
+        )
     emit_message("path", "expanded leading tilde to " + tilde_expanded_path_text)
     working_path_text = tilde_expanded_path_text
 
@@ -383,8 +390,10 @@ input_tiff_physical_path = pathlib.Path(working_path_text).resolve()
 if input_tiff_physical_path != input_tiff_absolute_path:
     emit_message(
         "path",
-        "path traverses a symlink: given form " + str(input_tiff_absolute_path)
-        + " resolves to physical form " + str(input_tiff_physical_path),
+        "path traverses a symlink: given form "
+        + str(input_tiff_absolute_path)
+        + " resolves to physical form "
+        + str(input_tiff_physical_path),
     )
 emit_message("path", "normalized to " + str(input_tiff_absolute_path))
 
@@ -396,14 +405,16 @@ if input_tiff_absolute_path.suffix.lower() in DISPLAY_RENDERING_SUFFIXES:
     die(
         "arguments",
         "the input is a display rendering, not the 16-bit TIFF: "
-        + str(input_tiff_absolute_path) + ". The Amersham Imager 680 writes a .png and "
+        + str(input_tiff_absolute_path)
+        + ". The Amersham Imager 680 writes a .png and "
         "a .jpg beside the .tif; both are 8-bit and quantifying either is silent "
         "nonsense. Pass the .tif.",
     )
 if input_tiff_absolute_path.suffix.lower() == INF_SIDECAR_SUFFIX:
     die(
         "arguments",
-        "the input is the .inf sidecar itself: " + str(input_tiff_absolute_path)
+        "the input is the .inf sidecar itself: "
+        + str(input_tiff_absolute_path)
         + ". Pass the .tif; the sidecars are located from its stem.",
     )
 
@@ -413,22 +424,30 @@ if input_tiff_absolute_path.suffix.lower() == INF_SIDECAR_SUFFIX:
 
 if not os.path.lexists(input_tiff_absolute_path):
     first_missing_path_component = input_tiff_absolute_path
-    for candidate_ancestor_path in [input_tiff_absolute_path] + list(input_tiff_absolute_path.parents):
+    for candidate_ancestor_path in [input_tiff_absolute_path] + list(
+        input_tiff_absolute_path.parents
+    ):
         if os.path.lexists(candidate_ancestor_path):
             break
         first_missing_path_component = candidate_ancestor_path
     die(
         "existence",
-        "input not found: " + str(input_tiff_absolute_path)
-        + ". Highest path component that does not exist: " + str(first_missing_path_component),
+        "input not found: "
+        + str(input_tiff_absolute_path)
+        + ". Highest path component that does not exist: "
+        + str(first_missing_path_component),
     )
 
 input_tiff_link_status = os.lstat(input_tiff_absolute_path)
-if stat.S_ISLNK(input_tiff_link_status.st_mode) and not os.path.exists(input_tiff_absolute_path):
+if stat.S_ISLNK(input_tiff_link_status.st_mode) and not os.path.exists(
+    input_tiff_absolute_path
+):
     die(
         "existence",
-        str(input_tiff_absolute_path) + " is a symlink whose target "
-        + str(input_tiff_physical_path) + " does not exist.",
+        str(input_tiff_absolute_path)
+        + " is a symlink whose target "
+        + str(input_tiff_physical_path)
+        + " does not exist.",
     )
 
 input_tiff_file_status = os.stat(input_tiff_absolute_path)
@@ -436,7 +455,10 @@ input_tiff_file_status = os.stat(input_tiff_absolute_path)
 # Rejecting non-regular files before opening anything: opening a named pipe blocks
 # until a writer appears, so the readability probe below would hang rather than
 # fail.
-for non_regular_type_name, non_regular_type_predicate in NON_REGULAR_FILE_TYPE_PREDICATES:
+for (
+    non_regular_type_name,
+    non_regular_type_predicate,
+) in NON_REGULAR_FILE_TYPE_PREDICATES:
     if non_regular_type_predicate(input_tiff_file_status.st_mode):
         directory_hint_text = ""
         if non_regular_type_name == "directory":
@@ -445,14 +467,19 @@ for non_regular_type_name, non_regular_type_predicate in NON_REGULAR_FILE_TYPE_P
             )
         die(
             "file type",
-            str(input_tiff_absolute_path) + " is a " + non_regular_type_name
-            + ", not a regular file." + directory_hint_text,
+            str(input_tiff_absolute_path)
+            + " is a "
+            + non_regular_type_name
+            + ", not a regular file."
+            + directory_hint_text,
         )
 if not stat.S_ISREG(input_tiff_file_status.st_mode):
     die(
         "file type",
-        str(input_tiff_absolute_path) + " is not a regular file (st_mode "
-        + oct(input_tiff_file_status.st_mode) + ").",
+        str(input_tiff_absolute_path)
+        + " is not a regular file (st_mode "
+        + oct(input_tiff_file_status.st_mode)
+        + ").",
     )
 
 # DESIGN.md section 3 names reading a partially synced Dropbox file as a real risk,
@@ -470,25 +497,36 @@ if input_tiff_file_status.st_size == 0:
 # only test that answers the question actually being asked.
 try:
     with open(input_tiff_absolute_path, "rb") as input_tiff_file_handle:
-        readability_probe_bytes = input_tiff_file_handle.read(READABILITY_PROBE_BYTE_COUNT)
+        readability_probe_bytes = input_tiff_file_handle.read(
+            READABILITY_PROBE_BYTE_COUNT
+        )
 except PermissionError as permission_error:
     die(
         "readability",
-        str(input_tiff_absolute_path) + " exists but cannot be opened for reading: "
+        str(input_tiff_absolute_path)
+        + " exists but cannot be opened for reading: "
         + str(permission_error),
     )
 except OSError as open_error:
-    die("readability", str(input_tiff_absolute_path) + " failed to open: " + str(open_error))
+    die(
+        "readability",
+        str(input_tiff_absolute_path) + " failed to open: " + str(open_error),
+    )
 if len(readability_probe_bytes) != READABILITY_PROBE_BYTE_COUNT:
     die(
         "readability",
-        str(input_tiff_absolute_path) + " opened but returned "
-        + str(len(readability_probe_bytes)) + " bytes instead of "
-        + str(READABILITY_PROBE_BYTE_COUNT) + ".",
+        str(input_tiff_absolute_path)
+        + " opened but returned "
+        + str(len(readability_probe_bytes))
+        + " bytes instead of "
+        + str(READABILITY_PROBE_BYTE_COUNT)
+        + ".",
     )
 emit_message(
     "readability",
-    "opened and read 1 byte; reported size is " + str(input_tiff_file_status.st_size) + " bytes",
+    "opened and read 1 byte; reported size is "
+    + str(input_tiff_file_status.st_size)
+    + " bytes",
 )
 
 # =============================================================================
@@ -499,7 +537,11 @@ if parsed_arguments.output_parent_directory is None:
     output_parent_directory_path = input_tiff_absolute_path.parent
 else:
     output_parent_directory_path = pathlib.Path(
-        os.path.abspath(os.path.expanduser(parsed_arguments.output_parent_directory.strip(" \t\r\n")))
+        os.path.abspath(
+            os.path.expanduser(
+                parsed_arguments.output_parent_directory.strip(" \t\r\n")
+            )
+        )
     )
 
 output_directory_path = output_parent_directory_path / (
@@ -534,19 +576,32 @@ except Exception as tiff_open_error:
     # for this script, and the exception type is itself the diagnostic.
     die(
         "tiff",
-        "tifffile could not parse " + str(input_tiff_absolute_path) + " as TIFF: "
-        + type(tiff_open_error).__name__ + ": " + str(tiff_open_error),
+        "tifffile could not parse "
+        + str(input_tiff_absolute_path)
+        + " as TIFF: "
+        + type(tiff_open_error).__name__
+        + ": "
+        + str(tiff_open_error),
     )
 
 tiff_page_count = len(tiff_file_handle.pages)
-emit_message("tiff", "opened; byte order " + str(tiff_file_handle.byteorder)
-             + ", bigtiff " + str(tiff_file_handle.is_bigtiff)
-             + ", " + str(tiff_page_count) + " page(s)")
+emit_message(
+    "tiff",
+    "opened; byte order "
+    + str(tiff_file_handle.byteorder)
+    + ", bigtiff "
+    + str(tiff_file_handle.is_bigtiff)
+    + ", "
+    + str(tiff_page_count)
+    + " page(s)",
+)
 
 # DESIGN.md section 6 forbids defaulting to page zero. A single-page file has no
 # ambiguity to resolve, so the requirement bites only above one.
 if tiff_page_count == 0:
-    die("tiff", str(input_tiff_absolute_path) + " parsed as TIFF but contains no pages.")
+    die(
+        "tiff", str(input_tiff_absolute_path) + " parsed as TIFF but contains no pages."
+    )
 if parsed_arguments.page_index is None:
     if tiff_page_count > 1:
         # The one hard stop that deliberately produces no report: without a page
@@ -555,16 +610,26 @@ if parsed_arguments.page_index is None:
         page_summary_texts = []
         for candidate_page_index, candidate_page in enumerate(tiff_file_handle.pages):
             page_summary_texts.append(
-                str(candidate_page_index) + ": shape " + str(getattr(candidate_page, "shape", None))
-                + ", dtype " + str(getattr(candidate_page, "dtype", None))
-                + ", " + str(getattr(candidate_page, "bitspersample", None)) + " bits"
+                str(candidate_page_index)
+                + ": shape "
+                + str(getattr(candidate_page, "shape", None))
+                + ", dtype "
+                + str(getattr(candidate_page, "dtype", None))
+                + ", "
+                + str(getattr(candidate_page, "bitspersample", None))
+                + " bits"
             )
         die(
             "tiff",
-            str(input_tiff_absolute_path) + " has " + str(tiff_page_count) + " pages, so "
+            str(input_tiff_absolute_path)
+            + " has "
+            + str(tiff_page_count)
+            + " pages, so "
             "--page-index is required: DESIGN.md section 6 forbids defaulting to page "
             "zero, because a reduced-resolution or differently-exposed page would be "
-            "quantified without complaint. Pages are [" + "; ".join(page_summary_texts) + "].",
+            "quantified without complaint. Pages are ["
+            + "; ".join(page_summary_texts)
+            + "].",
         )
     selected_page_index = 0
 else:
@@ -572,8 +637,11 @@ else:
     if selected_page_index < 0 or selected_page_index >= tiff_page_count:
         die(
             "tiff",
-            "--page-index " + str(selected_page_index) + " is outside the range 0 to "
-            + str(tiff_page_count - 1) + " for this file.",
+            "--page-index "
+            + str(selected_page_index)
+            + " is outside the range 0 to "
+            + str(tiff_page_count - 1)
+            + " for this file.",
         )
 selected_tiff_page = tiff_file_handle.pages[selected_page_index]
 emit_message("tiff", "reading page " + str(selected_page_index))
@@ -624,8 +692,11 @@ standard_tag_records.sort(key=lambda record: record["code"])
 private_tag_records.sort(key=lambda record: record["code"])
 emit_message(
     "tiff",
-    "inventoried " + str(len(standard_tag_records)) + " standard tags and "
-    + str(len(private_tag_records)) + " private tags at or above "
+    "inventoried "
+    + str(len(standard_tag_records))
+    + " standard tags and "
+    + str(len(private_tag_records))
+    + " private tags at or above "
     + str(PRIVATE_TAG_CODE_FLOOR),
 )
 
@@ -639,92 +710,138 @@ duplicated_tag_names = sorted(
     tag_name for tag_name, records in tag_values_by_name.items() if len(records) > 1
 )
 if len(duplicated_tag_names) > 0:
-    VALIDATION_FINDINGS.append({
-        "check_name": "tiff_duplicate_tag_codes",
-        "status": "reported",
-        "is_hard_stop": False,
-        "detail": "tags present more than once, all copies recorded: "
-                  + ", ".join(duplicated_tag_names),
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "tiff_duplicate_tag_codes",
+            "status": "reported",
+            "is_hard_stop": False,
+            "detail": "tags present more than once, all copies recorded: "
+            + ", ".join(duplicated_tag_names),
+        }
+    )
 
 # =============================================================================
 # TIFF hard stops (DESIGN.md section 6)
 # =============================================================================
 
-VALIDATION_FINDINGS.append({
-    "check_name": "tiff_opens_as_tiff",
-    "status": "pass",
-    "is_hard_stop": True,
-    "detail": "tifffile parsed the file; byte order " + str(tiff_file_handle.byteorder)
-              + ", bigtiff " + str(tiff_file_handle.is_bigtiff),
-})
+VALIDATION_FINDINGS.append(
+    {
+        "check_name": "tiff_opens_as_tiff",
+        "status": "pass",
+        "is_hard_stop": True,
+        "detail": "tifffile parsed the file; byte order "
+        + str(tiff_file_handle.byteorder)
+        + ", bigtiff "
+        + str(tiff_file_handle.is_bigtiff),
+    }
+)
 
-VALIDATION_FINDINGS.append({
-    "check_name": "tiff_page_count_and_explicit_selection",
-    "status": "pass",
-    "is_hard_stop": True,
-    "detail": "page count " + str(tiff_page_count) + ", page " + str(selected_page_index)
-              + " selected "
-              + ("by default because there is only one" if tiff_page_count == 1
-                 else "explicitly via --page-index"),
-})
+VALIDATION_FINDINGS.append(
+    {
+        "check_name": "tiff_page_count_and_explicit_selection",
+        "status": "pass",
+        "is_hard_stop": True,
+        "detail": "page count "
+        + str(tiff_page_count)
+        + ", page "
+        + str(selected_page_index)
+        + " selected "
+        + (
+            "by default because there is only one"
+            if tiff_page_count == 1
+            else "explicitly via --page-index"
+        ),
+    }
+)
 
 page_samples_per_pixel = selected_tiff_page.samplesperpixel
-VALIDATION_FINDINGS.append({
-    "check_name": "tiff_samples_per_pixel_is_one",
-    "status": "pass" if page_samples_per_pixel == 1 else "fail",
-    "is_hard_stop": True,
-    "detail": "SamplesPerPixel is " + str(page_samples_per_pixel)
-              + (". A value of 3 means RGB, which means something rendered this file "
-                 "rather than the instrument writing it." if page_samples_per_pixel != 1 else ""),
-})
+VALIDATION_FINDINGS.append(
+    {
+        "check_name": "tiff_samples_per_pixel_is_one",
+        "status": "pass" if page_samples_per_pixel == 1 else "fail",
+        "is_hard_stop": True,
+        "detail": "SamplesPerPixel is "
+        + str(page_samples_per_pixel)
+        + (
+            ". A value of 3 means RGB, which means something rendered this file "
+            "rather than the instrument writing it."
+            if page_samples_per_pixel != 1
+            else ""
+        ),
+    }
+)
 
 page_bits_per_sample = selected_tiff_page.bitspersample
 if isinstance(page_bits_per_sample, tuple):
     page_bits_per_sample = page_bits_per_sample[0]
-VALIDATION_FINDINGS.append({
-    "check_name": "tiff_bits_per_sample_permits_quantification",
-    "status": "pass" if page_bits_per_sample >= MINIMUM_QUANTIFIABLE_BITS_PER_SAMPLE else "fail",
-    "is_hard_stop": True,
-    "detail": "BitsPerSample is " + str(page_bits_per_sample) + "; the minimum for "
-              "quantification is " + str(MINIMUM_QUANTIFIABLE_BITS_PER_SAMPLE)
-              + (". An 8-bit file is a display rendering, or a 16-bit file that was "
-                 "converted; either way quantification is off the table."
-                 if page_bits_per_sample < MINIMUM_QUANTIFIABLE_BITS_PER_SAMPLE else ""),
-})
+VALIDATION_FINDINGS.append(
+    {
+        "check_name": "tiff_bits_per_sample_permits_quantification",
+        "status": "pass"
+        if page_bits_per_sample >= MINIMUM_QUANTIFIABLE_BITS_PER_SAMPLE
+        else "fail",
+        "is_hard_stop": True,
+        "detail": "BitsPerSample is " + str(page_bits_per_sample) + "; the minimum for "
+        "quantification is "
+        + str(MINIMUM_QUANTIFIABLE_BITS_PER_SAMPLE)
+        + (
+            ". An 8-bit file is a display rendering, or a 16-bit file that was "
+            "converted; either way quantification is off the table."
+            if page_bits_per_sample < MINIMUM_QUANTIFIABLE_BITS_PER_SAMPLE
+            else ""
+        ),
+    }
+)
 
 page_sample_format = selected_tiff_page.sampleformat
-VALIDATION_FINDINGS.append({
-    "check_name": "tiff_sample_format",
-    "status": "reported",
-    "is_hard_stop": False,
-    "detail": "SampleFormat is " + repr(page_sample_format)
-              + " (1 unsigned integer, 2 signed integer, 3 floating point)",
-})
+VALIDATION_FINDINGS.append(
+    {
+        "check_name": "tiff_sample_format",
+        "status": "reported",
+        "is_hard_stop": False,
+        "detail": "SampleFormat is "
+        + repr(page_sample_format)
+        + " (1 unsigned integer, 2 signed integer, 3 floating point)",
+    }
+)
 
 page_compression = selected_tiff_page.compression
 page_compression_name = getattr(page_compression, "name", str(page_compression))
 compression_is_lossless = int(page_compression) in (1, 5, 8, 32773, 32946, 34925)
-VALIDATION_FINDINGS.append({
-    "check_name": "tiff_compression_is_not_lossy",
-    "status": "pass" if compression_is_lossless else "fail",
-    "is_hard_stop": True,
-    "detail": "Compression is " + page_compression_name + " (" + str(int(page_compression)) + ")"
-              + ("" if compression_is_lossless else
-                 ". Lossy compression has already discarded pixel values, so no "
-                 "quantification from this file is defensible."),
-})
+VALIDATION_FINDINGS.append(
+    {
+        "check_name": "tiff_compression_is_not_lossy",
+        "status": "pass" if compression_is_lossless else "fail",
+        "is_hard_stop": True,
+        "detail": "Compression is "
+        + page_compression_name
+        + " ("
+        + str(int(page_compression))
+        + ")"
+        + (
+            ""
+            if compression_is_lossless
+            else ". Lossy compression has already discarded pixel values, so no "
+            "quantification from this file is defensible."
+        ),
+    }
+)
 
 page_photometric = selected_tiff_page.photometric
 page_photometric_name = getattr(page_photometric, "name", str(page_photometric))
-VALIDATION_FINDINGS.append({
-    "check_name": "tiff_photometric_interpretation",
-    "status": "reported",
-    "is_hard_stop": False,
-    "detail": "PhotometricInterpretation is " + page_photometric_name + " ("
-              + str(int(page_photometric)) + "). Cross-checked against the "
-              "histogram-inferred signal direction below.",
-})
+VALIDATION_FINDINGS.append(
+    {
+        "check_name": "tiff_photometric_interpretation",
+        "status": "reported",
+        "is_hard_stop": False,
+        "detail": "PhotometricInterpretation is "
+        + page_photometric_name
+        + " ("
+        + str(int(page_photometric))
+        + "). Cross-checked against the "
+        "histogram-inferred signal direction below.",
+    }
+)
 
 page_image_width_pixels = int(selected_tiff_page.tags["ImageWidth"].value)
 page_image_length_pixels = int(selected_tiff_page.tags["ImageLength"].value)
@@ -762,38 +879,49 @@ for resolution_tag_name, axis_name in (("XResolution", "x"), ("YResolution", "y"
     )
 
 if len(micrometres_per_pixel_by_axis) == 2:
-    axis_difference = abs(micrometres_per_pixel_by_axis["x"] - micrometres_per_pixel_by_axis["y"])
-    VALIDATION_FINDINGS.append({
-        "check_name": "tiff_pixel_size_axes_agree",
-        "status": "pass" if axis_difference < 1e-6 else "fail",
-        "is_hard_stop": True,
-        "detail": "x is %.4f and y is %.4f micrometres per pixel"
-                  % (micrometres_per_pixel_by_axis["x"], micrometres_per_pixel_by_axis["y"])
-                  + ("" if axis_difference < 1e-6 else
-                     ". Anisotropic pixels are not handled: every millimetre-to-pixel "
-                     "conversion downstream assumes one scale factor."),
-    })
+    axis_difference = abs(
+        micrometres_per_pixel_by_axis["x"] - micrometres_per_pixel_by_axis["y"]
+    )
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "tiff_pixel_size_axes_agree",
+            "status": "pass" if axis_difference < 1e-6 else "fail",
+            "is_hard_stop": True,
+            "detail": "x is %.4f and y is %.4f micrometres per pixel"
+            % (micrometres_per_pixel_by_axis["x"], micrometres_per_pixel_by_axis["y"])
+            + (
+                ""
+                if axis_difference < 1e-6
+                else ". Anisotropic pixels are not handled: every millimetre-to-pixel "
+                "conversion downstream assumes one scale factor."
+            ),
+        }
+    )
     micrometres_per_pixel = micrometres_per_pixel_by_axis["x"]
 elif len(micrometres_per_pixel_by_axis) == 1:
     micrometres_per_pixel = list(micrometres_per_pixel_by_axis.values())[0]
-    VALIDATION_FINDINGS.append({
-        "check_name": "tiff_pixel_size_axes_agree",
-        "status": "warning",
-        "is_hard_stop": False,
-        "detail": "only one resolution axis is present; assuming square pixels at "
-                  "%.4f micrometres" % micrometres_per_pixel,
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "tiff_pixel_size_axes_agree",
+            "status": "warning",
+            "is_hard_stop": False,
+            "detail": "only one resolution axis is present; assuming square pixels at "
+            "%.4f micrometres" % micrometres_per_pixel,
+        }
+    )
 else:
     micrometres_per_pixel = None
-    VALIDATION_FINDINGS.append({
-        "check_name": "tiff_pixel_size_is_readable",
-        "status": "fail",
-        "is_hard_stop": True,
-        "detail": "no usable XResolution/YResolution with a supported ResolutionUnit "
-                  "(got ResolutionUnit " + repr(resolution_unit_value) + "). Every "
-                  "millimetre value in the config converts through this, so there is "
-                  "nothing to convert with.",
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "tiff_pixel_size_is_readable",
+            "status": "fail",
+            "is_hard_stop": True,
+            "detail": "no usable XResolution/YResolution with a supported ResolutionUnit "
+            "(got ResolutionUnit " + repr(resolution_unit_value) + "). Every "
+            "millimetre value in the config converts through this, so there is "
+            "nothing to convert with.",
+        }
+    )
 
 # =============================================================================
 # ImageDescription, parsed as ordered pairs because keys repeat
@@ -814,7 +942,9 @@ for description_value in image_description_tag_values:
         stripped_description_line = description_line.strip().strip("\r")
         if stripped_description_line == "" or "=" not in stripped_description_line:
             continue
-        description_key, description_value_text = stripped_description_line.split("=", 1)
+        description_key, description_value_text = stripped_description_line.split(
+            "=", 1
+        )
         image_description_pairs.append(
             [description_key.strip(), description_value_text.strip()]
         )
@@ -827,17 +957,20 @@ for pair_key, _ in image_description_pairs:
         image_description_key_occurrence_counts.get(pair_key, 0) + 1
     )
 image_description_duplicate_keys = sorted(
-    pair_key for pair_key, occurrence_count
-    in image_description_key_occurrence_counts.items() if occurrence_count > 1
+    pair_key
+    for pair_key, occurrence_count in image_description_key_occurrence_counts.items()
+    if occurrence_count > 1
 )
 if len(image_description_duplicate_keys) > 0:
-    VALIDATION_FINDINGS.append({
-        "check_name": "image_description_duplicate_keys",
-        "status": "reported",
-        "is_hard_stop": False,
-        "detail": "keys appearing more than once, all occurrences recorded in order: "
-                  + ", ".join(image_description_duplicate_keys),
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "image_description_duplicate_keys",
+            "status": "reported",
+            "is_hard_stop": False,
+            "detail": "keys appearing more than once, all occurrences recorded in order: "
+            + ", ".join(image_description_duplicate_keys),
+        }
+    )
 
 image_description_first_value_by_key = {}
 for pair_key, pair_value in image_description_pairs:
@@ -852,29 +985,43 @@ for pair_key, pair_value in image_description_pairs:
 # field at all, so its absence is not a failure.
 description_pixel_size_text = image_description_first_value_by_key.get("Pixel size")
 if description_pixel_size_text is not None and micrometres_per_pixel is not None:
-    description_pixel_size_match = re.match(r"^\s*([0-9]+(?:\.[0-9]+)?)", description_pixel_size_text)
+    description_pixel_size_match = re.match(
+        r"^\s*([0-9]+(?:\.[0-9]+)?)", description_pixel_size_text
+    )
     if description_pixel_size_match is None:
-        VALIDATION_FINDINGS.append({
-            "check_name": "pixel_size_description_matches_resolution_tags",
-            "status": "warning",
-            "is_hard_stop": False,
-            "detail": "ImageDescription Pixel size " + repr(description_pixel_size_text)
-                      + " does not begin with a number, so it could not be compared",
-        })
+        VALIDATION_FINDINGS.append(
+            {
+                "check_name": "pixel_size_description_matches_resolution_tags",
+                "status": "warning",
+                "is_hard_stop": False,
+                "detail": "ImageDescription Pixel size "
+                + repr(description_pixel_size_text)
+                + " does not begin with a number, so it could not be compared",
+            }
+        )
     else:
-        description_pixel_size_micrometres = float(description_pixel_size_match.group(1))
-        pixel_size_difference = abs(description_pixel_size_micrometres - micrometres_per_pixel)
-        VALIDATION_FINDINGS.append({
-            "check_name": "pixel_size_description_matches_resolution_tags",
-            "status": "pass" if pixel_size_difference <= 0.05 else "fail",
-            "is_hard_stop": True,
-            "detail": "ImageDescription says %.4f micrometres per pixel and the "
-                      "resolution tags say %.4f"
-                      % (description_pixel_size_micrometres, micrometres_per_pixel)
-                      + ("" if pixel_size_difference <= 0.05 else
-                         ". Two sources inside one file disagree about the scale, which "
-                         "DESIGN.md section 11 makes a hard stop rather than a preference."),
-        })
+        description_pixel_size_micrometres = float(
+            description_pixel_size_match.group(1)
+        )
+        pixel_size_difference = abs(
+            description_pixel_size_micrometres - micrometres_per_pixel
+        )
+        VALIDATION_FINDINGS.append(
+            {
+                "check_name": "pixel_size_description_matches_resolution_tags",
+                "status": "pass" if pixel_size_difference <= 0.05 else "fail",
+                "is_hard_stop": True,
+                "detail": "ImageDescription says %.4f micrometres per pixel and the "
+                "resolution tags say %.4f"
+                % (description_pixel_size_micrometres, micrometres_per_pixel)
+                + (
+                    ""
+                    if pixel_size_difference <= 0.05
+                    else ". Two sources inside one file disagree about the scale, which "
+                    "DESIGN.md section 11 makes a hard stop rather than a preference."
+                ),
+            }
+        )
 
 # Orientation. Tag 274 is absent from both instruments' files, so the TIFF's own
 # statement lives in ImageDescription. DESIGN.md section 11 required orientation to
@@ -882,10 +1029,13 @@ if description_pixel_size_text is not None and micrometres_per_pixel is not None
 # is the form that requirement actually takes on these files.
 orientation_sources = {}
 if "Orientation" in tag_values_by_name:
-    orientation_sources["tiff_tag_274"] = tag_values_by_name["Orientation"][0]["value_repr"]
+    orientation_sources["tiff_tag_274"] = tag_values_by_name["Orientation"][0][
+        "value_repr"
+    ]
 if "Orientation" in image_description_first_value_by_key:
-    orientation_sources["tiff_image_description"] = \
+    orientation_sources["tiff_image_description"] = (
         image_description_first_value_by_key["Orientation"]
+    )
 
 # =============================================================================
 # Pixel data and the single-pass statistics
@@ -905,49 +1055,74 @@ try:
 except Exception as pixel_read_error:
     # Deliberately broad: lossy or unsupported compression, a truncated strip and a
     # missing codec all land here, and the exception type is itself the diagnostic.
-    VALIDATION_FINDINGS.append({
-        "check_name": "pixel_data_decodes",
-        "status": "fail",
-        "is_hard_stop": True,
-        "detail": "page " + str(selected_page_index) + " would not decode: "
-                  + type(pixel_read_error).__name__ + ": " + str(pixel_read_error),
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "pixel_data_decodes",
+            "status": "fail",
+            "is_hard_stop": True,
+            "detail": "page "
+            + str(selected_page_index)
+            + " would not decode: "
+            + type(pixel_read_error).__name__
+            + ": "
+            + str(pixel_read_error),
+        }
+    )
 
 if pixel_array is not None and pixel_array.ndim != 2:
-    VALIDATION_FINDINGS.append({
-        "check_name": "pixel_data_is_single_channel_two_dimensional",
-        "status": "fail",
-        "is_hard_stop": True,
-        "detail": "decoded array has shape " + str(pixel_array.shape) + "; stage 1 handles "
-                  "a single-channel two-dimensional page only. SamplesPerPixel above 1 is "
-                  "already a hard stop above, and a 3 there means something rendered this "
-                  "file rather than the instrument writing it.",
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "pixel_data_is_single_channel_two_dimensional",
+            "status": "fail",
+            "is_hard_stop": True,
+            "detail": "decoded array has shape "
+            + str(pixel_array.shape)
+            + "; stage 1 handles "
+            "a single-channel two-dimensional page only. SamplesPerPixel above 1 is "
+            "already a hard stop above, and a 3 there means something rendered this "
+            "file rather than the instrument writing it.",
+        }
+    )
     pixel_array = None
 
 if pixel_array is not None and pixel_array.dtype != numpy.uint16:
-    VALIDATION_FINDINGS.append({
-        "check_name": "pixel_dtype_is_unsigned_16_bit",
-        "status": "fail",
-        "is_hard_stop": True,
-        "detail": "decoded dtype is " + str(pixel_array.dtype) + " rather than uint16. The "
-                  "value-count statistics assume a 16-bit unsigned container, so they are "
-                  "omitted from this report rather than computed on a container that "
-                  "cannot hold the range they describe.",
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "pixel_dtype_is_unsigned_16_bit",
+            "status": "fail",
+            "is_hard_stop": True,
+            "detail": "decoded dtype is "
+            + str(pixel_array.dtype)
+            + " rather than uint16. The "
+            "value-count statistics assume a 16-bit unsigned container, so they are "
+            "omitted from this report rather than computed on a container that "
+            "cannot hold the range they describe.",
+        }
+    )
     pixel_array = None
 
 if pixel_array is not None:
     pixel_array_height_pixels, pixel_array_width_pixels = pixel_array.shape
-    VALIDATION_FINDINGS.append({
-        "check_name": "tiff_tag_dimensions_match_decoded_array",
-        "status": "pass" if (pixel_array_width_pixels == page_image_width_pixels
-                             and pixel_array_height_pixels == page_image_length_pixels) else "fail",
-        "is_hard_stop": True,
-        "detail": "tags say ImageWidth " + str(page_image_width_pixels) + " by ImageLength "
-                  + str(page_image_length_pixels) + "; the decoded array is "
-                  + str(pixel_array_width_pixels) + " by " + str(pixel_array_height_pixels),
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "tiff_tag_dimensions_match_decoded_array",
+            "status": "pass"
+            if (
+                pixel_array_width_pixels == page_image_width_pixels
+                and pixel_array_height_pixels == page_image_length_pixels
+            )
+            else "fail",
+            "is_hard_stop": True,
+            "detail": "tags say ImageWidth "
+            + str(page_image_width_pixels)
+            + " by ImageLength "
+            + str(page_image_length_pixels)
+            + "; the decoded array is "
+            + str(pixel_array_width_pixels)
+            + " by "
+            + str(pixel_array_height_pixels),
+        }
+    )
 else:
     # Sidecar geometry can still be checked against the tags, which parsed, so a
     # bad crop box is still caught on a file whose pixels are unreadable.
@@ -956,8 +1131,10 @@ else:
     emit_message(
         "pixels",
         "pixel statistics omitted; the report records why and the tag-based checks "
-        "below still run against ImageWidth " + str(page_image_width_pixels)
-        + " by ImageLength " + str(page_image_length_pixels),
+        "below still run against ImageWidth "
+        + str(page_image_width_pixels)
+        + " by ImageLength "
+        + str(page_image_length_pixels),
     )
 
 if pixel_array is not None:
@@ -1015,8 +1192,12 @@ if pixel_statistics_were_computed:
     # Mean, variance, median and MAD computed from the value counts rather than from
     # the array, so nothing sorts and nothing allocates a float64 copy of the image.
     present_values_float = present_pixel_values.astype(numpy.float64)
-    present_counts_float = pixel_value_counts[present_pixel_values].astype(numpy.float64)
-    mean_pixel_value = float((present_values_float * present_counts_float).sum() / total_pixel_count)
+    present_counts_float = pixel_value_counts[present_pixel_values].astype(
+        numpy.float64
+    )
+    mean_pixel_value = float(
+        (present_values_float * present_counts_float).sum() / total_pixel_count
+    )
     variance_pixel_value = float(
         (((present_values_float - mean_pixel_value) ** 2) * present_counts_float).sum()
         / total_pixel_count
@@ -1024,29 +1205,42 @@ if pixel_statistics_were_computed:
     standard_deviation_pixel_value = math.sqrt(variance_pixel_value)
 
     cumulative_pixel_counts = numpy.cumsum(pixel_value_counts)
-    median_pixel_value = int(numpy.searchsorted(
-        cumulative_pixel_counts, (total_pixel_count + 1) // 2, side="left"
-    ))
+    median_pixel_value = int(
+        numpy.searchsorted(
+            cumulative_pixel_counts, (total_pixel_count + 1) // 2, side="left"
+        )
+    )
 
     # Absolute deviation d from the median is contributed by the two values median-d
     # and median+d, so the MAD comes out of the same count array without touching the
     # image again.
     maximum_absolute_deviation = max(
-        median_pixel_value - minimum_pixel_value, maximum_pixel_value - median_pixel_value
+        median_pixel_value - minimum_pixel_value,
+        maximum_pixel_value - median_pixel_value,
     )
     deviation_magnitudes = numpy.arange(0, maximum_absolute_deviation + 1)
     lower_values = median_pixel_value - deviation_magnitudes
     upper_values = median_pixel_value + deviation_magnitudes
-    lower_in_range = (lower_values >= 0)
-    upper_in_range = (upper_values < CONTAINER_VALUE_SLOT_COUNT_16_BIT)
-    absolute_deviation_counts = numpy.zeros(maximum_absolute_deviation + 1, dtype=numpy.int64)
-    absolute_deviation_counts[lower_in_range] += pixel_value_counts[lower_values[lower_in_range]]
-    absolute_deviation_counts[upper_in_range] += pixel_value_counts[upper_values[upper_in_range]]
+    lower_in_range = lower_values >= 0
+    upper_in_range = upper_values < CONTAINER_VALUE_SLOT_COUNT_16_BIT
+    absolute_deviation_counts = numpy.zeros(
+        maximum_absolute_deviation + 1, dtype=numpy.int64
+    )
+    absolute_deviation_counts[lower_in_range] += pixel_value_counts[
+        lower_values[lower_in_range]
+    ]
+    absolute_deviation_counts[upper_in_range] += pixel_value_counts[
+        upper_values[upper_in_range]
+    ]
     # Deviation zero was counted once from each side.
     absolute_deviation_counts[0] = pixel_value_counts[median_pixel_value]
-    median_absolute_deviation_counts = int(numpy.searchsorted(
-        numpy.cumsum(absolute_deviation_counts), (total_pixel_count + 1) // 2, side="left"
-    ))
+    median_absolute_deviation_counts = int(
+        numpy.searchsorted(
+            numpy.cumsum(absolute_deviation_counts),
+            (total_pixel_count + 1) // 2,
+            side="left",
+        )
+    )
     robust_standard_deviation_counts = (
         MEDIAN_ABSOLUTE_DEVIATION_TO_SIGMA * median_absolute_deviation_counts
     )
@@ -1054,26 +1248,40 @@ if pixel_statistics_were_computed:
     # Stride over the present values. A stride of 16 means 12 real bits left-shifted
     # into a 16-bit container, in which case the ceiling is 65520 rather than 65535 and
     # an equality test against 65535 reports zero saturation on a clipped image.
-    pixel_value_stride = int(numpy.gcd.reduce(present_pixel_values)) if distinct_pixel_value_count > 1 else 1
+    pixel_value_stride = (
+        int(numpy.gcd.reduce(present_pixel_values))
+        if distinct_pixel_value_count > 1
+        else 1
+    )
     if pixel_value_stride < 1:
         pixel_value_stride = 1
-    effective_bits_per_sample = STRIDE_TO_EFFECTIVE_BITS_PER_SAMPLE.get(pixel_value_stride)
+    effective_bits_per_sample = STRIDE_TO_EFFECTIVE_BITS_PER_SAMPLE.get(
+        pixel_value_stride
+    )
     if effective_bits_per_sample is None:
         inferred_ceiling_value = CONTAINER_MAXIMUM_VALUE_16_BIT
         effective_bit_depth_detail = (
-            "stride " + str(pixel_value_stride) + " is not a power of two consistent with "
+            "stride "
+            + str(pixel_value_stride)
+            + " is not a power of two consistent with "
             "left-shifted data; treating the container maximum as the ceiling"
         )
     else:
         inferred_ceiling_value = (
-            (CONTAINER_MAXIMUM_VALUE_16_BIT // pixel_value_stride) * pixel_value_stride
-        )
+            CONTAINER_MAXIMUM_VALUE_16_BIT // pixel_value_stride
+        ) * pixel_value_stride
         effective_bit_depth_detail = (
-            "stride " + str(pixel_value_stride) + " implies " + str(effective_bits_per_sample)
-            + " effective bits, so the container ceiling is " + str(inferred_ceiling_value)
+            "stride "
+            + str(pixel_value_stride)
+            + " implies "
+            + str(effective_bits_per_sample)
+            + " effective bits, so the container ceiling is "
+            + str(inferred_ceiling_value)
         )
 
-    at_container_maximum_pixel_count = int(pixel_value_counts[CONTAINER_MAXIMUM_VALUE_16_BIT])
+    at_container_maximum_pixel_count = int(
+        pixel_value_counts[CONTAINER_MAXIMUM_VALUE_16_BIT]
+    )
     at_inferred_ceiling_pixel_count = int(pixel_value_counts[inferred_ceiling_value])
     at_maximum_observed_pixel_count = int(pixel_value_counts[maximum_pixel_value])
     at_floor_pixel_count = int(pixel_value_counts[0])
@@ -1083,8 +1291,10 @@ if pixel_statistics_were_computed:
     # any particular number, and the instrument can saturate below the numeric ceiling.
     # The comparison population is the present values immediately below the maximum.
     comparison_values = present_pixel_values[
-        max(0, distinct_pixel_value_count - 1 - SATURATION_SPIKE_NEIGHBOURHOOD_VALUE_COUNT):
-        distinct_pixel_value_count - 1
+        max(
+            0,
+            distinct_pixel_value_count - 1 - SATURATION_SPIKE_NEIGHBOURHOOD_VALUE_COUNT,
+        ) : distinct_pixel_value_count - 1
     ]
     if comparison_values.size > 0:
         comparison_mean_count = float(pixel_value_counts[comparison_values].mean())
@@ -1095,23 +1305,30 @@ if pixel_statistics_were_computed:
     else:
         saturation_spike_ratio = None
 
-    VALIDATION_FINDINGS.append({
-        "check_name": "effective_bit_depth_and_ceiling",
-        "status": "reported",
-        "is_hard_stop": False,
-        "detail": effective_bit_depth_detail,
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "effective_bit_depth_and_ceiling",
+            "status": "reported",
+            "is_hard_stop": False,
+            "detail": effective_bit_depth_detail,
+        }
+    )
 
     saturation_status = "pass"
     saturation_detail = (
-        "maximum observed value " + str(maximum_pixel_value) + " held by "
-        + str(at_maximum_observed_pixel_count) + " pixels; "
-        + str(at_container_maximum_pixel_count) + " pixels at the container maximum "
+        "maximum observed value "
+        + str(maximum_pixel_value)
+        + " held by "
+        + str(at_maximum_observed_pixel_count)
+        + " pixels; "
+        + str(at_container_maximum_pixel_count)
+        + " pixels at the container maximum "
         + str(CONTAINER_MAXIMUM_VALUE_16_BIT)
     )
     if saturation_spike_ratio is not None:
-        saturation_detail += "; spike ratio at the maximum is %.2f against the %d present values below it" % (
-            saturation_spike_ratio, comparison_values.size
+        saturation_detail += (
+            "; spike ratio at the maximum is %.2f against the %d present values below it"
+            % (saturation_spike_ratio, comparison_values.size)
         )
     if at_container_maximum_pixel_count > 0 or (
         saturation_spike_ratio is not None
@@ -1124,27 +1341,43 @@ if pixel_statistics_were_computed:
             "particular measurement is affected, and the plateau statistic is the primary "
             "detector because the detector can saturate below the numeric ceiling."
         )
-    VALIDATION_FINDINGS.append({
-        "check_name": "whole_image_saturation",
-        "status": saturation_status,
-        "is_hard_stop": False,
-        "detail": saturation_detail,
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "whole_image_saturation",
+            "status": saturation_status,
+            "is_hard_stop": False,
+            "detail": saturation_detail,
+        }
+    )
 
     floor_population_fraction = at_floor_pixel_count / total_pixel_count
-    VALIDATION_FINDINGS.append({
-        "check_name": "floor_population",
-        "status": ("warning" if floor_population_fraction
-                   > FLOOR_POPULATION_FRACTION_WARNING_THRESHOLD else "pass"),
-        "is_hard_stop": False,
-        "detail": str(at_floor_pixel_count) + " pixels at zero (%.6f of the image), minimum "
-                  "observed value %d held by %d pixels"
-                  % (floor_population_fraction, minimum_pixel_value, at_minimum_observed_pixel_count)
-                  + (". A large floor population means the image was already background "
-                     "subtracted or clipped at zero, which changes what a baseline means."
-                     if floor_population_fraction > FLOOR_POPULATION_FRACTION_WARNING_THRESHOLD
-                     else ""),
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "floor_population",
+            "status": (
+                "warning"
+                if floor_population_fraction
+                > FLOOR_POPULATION_FRACTION_WARNING_THRESHOLD
+                else "pass"
+            ),
+            "is_hard_stop": False,
+            "detail": str(at_floor_pixel_count)
+            + " pixels at zero (%.6f of the image), minimum "
+            "observed value %d held by %d pixels"
+            % (
+                floor_population_fraction,
+                minimum_pixel_value,
+                at_minimum_observed_pixel_count,
+            )
+            + (
+                ". A large floor population means the image was already background "
+                "subtracted or clipped at zero, which changes what a baseline means."
+                if floor_population_fraction
+                > FLOOR_POPULATION_FRACTION_WARNING_THRESHOLD
+                else ""
+            ),
+        }
+    )
 
     # Polarity, inferred from the data rather than from the tag, then cross-checked
     # against the tag. The mode is the background, because background is almost all of
@@ -1152,7 +1385,7 @@ if pixel_statistics_were_computed:
     histogram_mode_value = int(numpy.argmax(pixel_value_counts))
     span_above_mode = maximum_pixel_value - histogram_mode_value
     span_below_mode = histogram_mode_value - minimum_pixel_value
-    pixels_above_mode = int(pixel_value_counts[histogram_mode_value + 1:].sum())
+    pixels_above_mode = int(pixel_value_counts[histogram_mode_value + 1 :].sum())
     pixels_below_mode = int(pixel_value_counts[:histogram_mode_value].sum())
     if span_above_mode > span_below_mode:
         inferred_signal_direction = "higher_value_is_more_signal"
@@ -1166,31 +1399,49 @@ if pixel_statistics_were_computed:
     # the conventional autoradiograph appearance and is what Fiji shows.
     photometric_is_miniswhite = int(page_photometric) == 0
     polarity_is_consistent = (
-        (photometric_is_miniswhite and inferred_signal_direction == "higher_value_is_more_signal")
-        or (not photometric_is_miniswhite and inferred_signal_direction == "lower_value_is_more_signal")
+        photometric_is_miniswhite
+        and inferred_signal_direction == "higher_value_is_more_signal"
+    ) or (
+        not photometric_is_miniswhite
+        and inferred_signal_direction == "lower_value_is_more_signal"
     )
-    VALIDATION_FINDINGS.append({
-        "check_name": "polarity_histogram_against_photometric_interpretation",
-        "status": "pass" if polarity_is_consistent else "warning",
-        "is_hard_stop": False,
-        "detail": "histogram mode is " + str(histogram_mode_value) + " with "
-                  + str(pixels_above_mode) + " pixels above and " + str(pixels_below_mode)
-                  + " below; the tail runs " + str(span_above_mode) + " counts up and "
-                  + str(span_below_mode) + " counts down, so the inference is "
-                  + inferred_signal_direction + ", against PhotometricInterpretation "
-                  + page_photometric_name
-                  + (". Consistent: bands render dark on a light field, which is what Fiji "
-                     "shows." if polarity_is_consistent else
-                     ". Inconsistent. Integrating with the wrong sign inverts every ratio, "
-                     "so resolve this before measuring."),
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "polarity_histogram_against_photometric_interpretation",
+            "status": "pass" if polarity_is_consistent else "warning",
+            "is_hard_stop": False,
+            "detail": "histogram mode is "
+            + str(histogram_mode_value)
+            + " with "
+            + str(pixels_above_mode)
+            + " pixels above and "
+            + str(pixels_below_mode)
+            + " below; the tail runs "
+            + str(span_above_mode)
+            + " counts up and "
+            + str(span_below_mode)
+            + " counts down, so the inference is "
+            + inferred_signal_direction
+            + ", against PhotometricInterpretation "
+            + page_photometric_name
+            + (
+                ". Consistent: bands render dark on a light field, which is what Fiji "
+                "shows."
+                if polarity_is_consistent
+                else ". Inconsistent. Integrating with the wrong sign inverts every ratio, "
+                "so resolve this before measuring."
+            ),
+        }
+    )
 
     # Isolated extreme pixels: cosmic rays and screen contamination on a phosphor
     # plate, cosmic rays and hot pixels on a CCD cooled to -25 C through a 77 second
     # exposure. Reported, never filtered; DESIGN.md section 6 leaves the decision to
     # the user. The margin is in robust standard deviations rather than counts so that
     # it means the same thing on both instruments.
-    isolation_margin_counts = ISOLATION_MARGIN_ROBUST_SIGMAS * robust_standard_deviation_counts
+    isolation_margin_counts = (
+        ISOLATION_MARGIN_ROBUST_SIGMAS * robust_standard_deviation_counts
+    )
     interior_pixel_values = pixel_array[1:-1, 1:-1]
     neighbour_maximum_values = numpy.zeros_like(interior_pixel_values)
     for row_offset in (-1, 0, 1):
@@ -1198,31 +1449,51 @@ if pixel_statistics_were_computed:
             if row_offset == 0 and column_offset == 0:
                 continue
             shifted_view = pixel_array[
-                1 + row_offset: pixel_array_height_pixels - 1 + row_offset,
-                1 + column_offset: pixel_array_width_pixels - 1 + column_offset,
+                1 + row_offset : pixel_array_height_pixels - 1 + row_offset,
+                1 + column_offset : pixel_array_width_pixels - 1 + column_offset,
             ]
-            numpy.maximum(neighbour_maximum_values, shifted_view, out=neighbour_maximum_values)
-    isolated_extreme_pixel_count = int((
-        interior_pixel_values.astype(numpy.int32) - neighbour_maximum_values.astype(numpy.int32)
-        > isolation_margin_counts
-    ).sum())
-    VALIDATION_FINDINGS.append({
-        "check_name": "isolated_extreme_pixels",
-        "status": "reported",
-        "is_hard_stop": False,
-        "detail": str(isolated_extreme_pixel_count) + " interior pixels exceed all eight "
-                  "neighbours by more than %.1f counts (%.1f robust standard deviations, "
-                  "MAD %d). Reported, not filtered."
-                  % (isolation_margin_counts, ISOLATION_MARGIN_ROBUST_SIGMAS,
-                     median_absolute_deviation_counts),
-    })
+            numpy.maximum(
+                neighbour_maximum_values, shifted_view, out=neighbour_maximum_values
+            )
+    isolated_extreme_pixel_count = int(
+        (
+            interior_pixel_values.astype(numpy.int32)
+            - neighbour_maximum_values.astype(numpy.int32)
+            > isolation_margin_counts
+        ).sum()
+    )
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "isolated_extreme_pixels",
+            "status": "reported",
+            "is_hard_stop": False,
+            "detail": str(isolated_extreme_pixel_count)
+            + " interior pixels exceed all eight "
+            "neighbours by more than %.1f counts (%.1f robust standard deviations, "
+            "MAD %d). Reported, not filtered."
+            % (
+                isolation_margin_counts,
+                ISOLATION_MARGIN_ROBUST_SIGMAS,
+                median_absolute_deviation_counts,
+            ),
+        }
+    )
 
     emit_message(
         "statistics",
-        "min " + str(minimum_pixel_value) + ", max " + str(maximum_pixel_value)
+        "min "
+        + str(minimum_pixel_value)
+        + ", max "
+        + str(maximum_pixel_value)
         + ", mean %.2f, median %d, sd %.2f, distinct %d, stride %d, isolated extremes %d"
-        % (mean_pixel_value, median_pixel_value, standard_deviation_pixel_value,
-           distinct_pixel_value_count, pixel_value_stride, isolated_extreme_pixel_count),
+        % (
+            mean_pixel_value,
+            median_pixel_value,
+            standard_deviation_pixel_value,
+            distinct_pixel_value_count,
+            pixel_value_stride,
+            isolated_extreme_pixel_count,
+        ),
     )
 
 # =============================================================================
@@ -1252,12 +1523,15 @@ if os.path.isfile(inf_sidecar_absolute_path):
         inf_sidecar_bytes = inf_sidecar_absolute_path.read_bytes()
     except OSError as inf_read_error:
         inf_sidecar_bytes = None
-        VALIDATION_FINDINGS.append({
-            "check_name": "inf_sidecar_readable",
-            "status": "warning",
-            "is_hard_stop": False,
-            "detail": "sidecar exists but could not be read: " + str(inf_read_error),
-        })
+        VALIDATION_FINDINGS.append(
+            {
+                "check_name": "inf_sidecar_readable",
+                "status": "warning",
+                "is_hard_stop": False,
+                "detail": "sidecar exists but could not be read: "
+                + str(inf_read_error),
+            }
+        )
     if inf_sidecar_bytes is not None:
         inf_sidecar_record["is_present"] = True
         inf_sidecar_record["size_bytes"] = len(inf_sidecar_bytes)
@@ -1272,7 +1546,9 @@ if os.path.isfile(inf_sidecar_absolute_path):
         # position 3, and the whole point of a verbatim record is that it is
         # verbatim.
         inf_sidecar_lines = inf_sidecar_text.replace("\r\n", "\n").split("\n")
-        inf_sidecar_lines = [single_line.rstrip("\r") for single_line in inf_sidecar_lines]
+        inf_sidecar_lines = [
+            single_line.rstrip("\r") for single_line in inf_sidecar_lines
+        ]
         inf_sidecar_record["line_count"] = len(inf_sidecar_lines)
         inf_sidecar_record["lines_verbatim"] = inf_sidecar_lines
 
@@ -1284,9 +1560,13 @@ if os.path.isfile(inf_sidecar_absolute_path):
                 continue
             if first_keyed_line_index is None:
                 first_keyed_line_index = line_index
-            inf_keyed_pairs.append([
-                keyed_match.group(1), keyed_match.group(2).strip(), keyed_match.group(3).strip()
-            ])
+            inf_keyed_pairs.append(
+                [
+                    keyed_match.group(1),
+                    keyed_match.group(2).strip(),
+                    keyed_match.group(3).strip(),
+                ]
+            )
         inf_sidecar_record["keyed_pairs"] = inf_keyed_pairs
 
         # Located relative to the first keyed line rather than by absolute index,
@@ -1294,31 +1574,44 @@ if os.path.isfile(inf_sidecar_absolute_path):
         if first_keyed_line_index is not None and first_keyed_line_index > 0:
             declared_count_text = inf_sidecar_lines[first_keyed_line_index - 1].strip()
             inf_sidecar_record["declared_keyed_line_count_text"] = declared_count_text
-            declared_count_matches = (
-                declared_count_text.isdigit()
-                and int(declared_count_text) == len(inf_keyed_pairs)
+            declared_count_matches = declared_count_text.isdigit() and int(
+                declared_count_text
+            ) == len(inf_keyed_pairs)
+            VALIDATION_FINDINGS.append(
+                {
+                    "check_name": "inf_declared_keyed_line_count",
+                    "status": "reported" if declared_count_matches else "warning",
+                    "is_hard_stop": False,
+                    "detail": "the line before the first keyed line reads "
+                    + repr(declared_count_text)
+                    + " and there are "
+                    + str(len(inf_keyed_pairs))
+                    + " keyed lines"
+                    + (
+                        ""
+                        if declared_count_matches
+                        else ". Recorded as provenance only; nothing reads the .inf for "
+                        "a decision."
+                    ),
+                }
             )
-            VALIDATION_FINDINGS.append({
-                "check_name": "inf_declared_keyed_line_count",
-                "status": "reported" if declared_count_matches else "warning",
-                "is_hard_stop": False,
-                "detail": "the line before the first keyed line reads "
-                          + repr(declared_count_text) + " and there are "
-                          + str(len(inf_keyed_pairs)) + " keyed lines"
-                          + ("" if declared_count_matches else
-                             ". Recorded as provenance only; nothing reads the .inf for "
-                             "a decision."),
-            })
 
-        first_line_text = inf_sidecar_lines[0].strip() if len(inf_sidecar_lines) > 0 else ""
-        VALIDATION_FINDINGS.append({
-            "check_name": "inf_magic_string",
-            "status": "reported" if first_line_text == "FLA_IMAGE_FILE" else "warning",
-            "is_hard_stop": False,
-            "detail": "first line is " + repr(first_line_text)
-                      + ". Compared after stripping, because the file is CRLF and an "
-                      "unstripped comparison fails on every real file.",
-        })
+        first_line_text = (
+            inf_sidecar_lines[0].strip() if len(inf_sidecar_lines) > 0 else ""
+        )
+        VALIDATION_FINDINGS.append(
+            {
+                "check_name": "inf_magic_string",
+                "status": "reported"
+                if first_line_text == "FLA_IMAGE_FILE"
+                else "warning",
+                "is_hard_stop": False,
+                "detail": "first line is "
+                + repr(first_line_text)
+                + ". Compared after stripping, because the file is CRLF and an "
+                "unstripped comparison fails on every real file.",
+            }
+        )
 
         # Both timestamps live in the positional block, so section 6's cross-check
         # would have been lost with the positional parser. Located by pattern
@@ -1328,11 +1621,18 @@ if os.path.isfile(inf_sidecar_absolute_path):
         inf_epoch_timestamp_text = None
         for single_line in inf_sidecar_lines:
             stripped_line = single_line.strip()
-            if inf_human_timestamp_text is None and INF_HUMAN_TIMESTAMP_PATTERN.match(stripped_line):
+            if inf_human_timestamp_text is None and INF_HUMAN_TIMESTAMP_PATTERN.match(
+                stripped_line
+            ):
                 inf_human_timestamp_text = stripped_line
-            if inf_epoch_timestamp_text is None and INF_EPOCH_TIMESTAMP_PATTERN.match(stripped_line):
+            if inf_epoch_timestamp_text is None and INF_EPOCH_TIMESTAMP_PATTERN.match(
+                stripped_line
+            ):
                 inf_epoch_timestamp_text = stripped_line
-        if inf_human_timestamp_text is not None and inf_epoch_timestamp_text is not None:
+        if (
+            inf_human_timestamp_text is not None
+            and inf_epoch_timestamp_text is not None
+        ):
             try:
                 human_timestamp = datetime.datetime.strptime(
                     inf_human_timestamp_text, "%a %b %d %H:%M:%S %Y"
@@ -1357,20 +1657,30 @@ if os.path.isfile(inf_sidecar_absolute_path):
                     and human_timestamp.minute == epoch_timestamp.minute
                     and human_timestamp.second == epoch_timestamp.second
                 )
-                VALIDATION_FINDINGS.append({
-                    "check_name": "inf_timestamps_agree_modulo_whole_hours",
-                    "status": "reported" if whole_hours_apart else "warning",
-                    "is_hard_stop": False,
-                    "detail": inf_human_timestamp_text + " against epoch "
-                              + inf_epoch_timestamp_text + " ("
-                              + epoch_timestamp.strftime("%a %b %d %H:%M:%S %Y") + " UTC), "
-                              + "%.0f seconds apart, %.4f hours"
-                              % (timestamp_difference_seconds,
-                                 timestamp_difference_seconds / 3600.0)
-                              + ("" if whole_hours_apart else
-                                 ". Not a whole number of hours with matching minutes and "
-                                 "seconds, which is what a corrupted header looks like."),
-                })
+                VALIDATION_FINDINGS.append(
+                    {
+                        "check_name": "inf_timestamps_agree_modulo_whole_hours",
+                        "status": "reported" if whole_hours_apart else "warning",
+                        "is_hard_stop": False,
+                        "detail": inf_human_timestamp_text
+                        + " against epoch "
+                        + inf_epoch_timestamp_text
+                        + " ("
+                        + epoch_timestamp.strftime("%a %b %d %H:%M:%S %Y")
+                        + " UTC), "
+                        + "%.0f seconds apart, %.4f hours"
+                        % (
+                            timestamp_difference_seconds,
+                            timestamp_difference_seconds / 3600.0,
+                        )
+                        + (
+                            ""
+                            if whole_hours_apart
+                            else ". Not a whole number of hours with matching minutes and "
+                            "seconds, which is what a corrupted header looks like."
+                        ),
+                    }
+                )
 
         # Orientation from the .inf, recorded and cross-checked against the TIFF's
         # own statement. DESIGN.md section 11 makes disagreement a hard stop.
@@ -1381,40 +1691,53 @@ if os.path.isfile(inf_sidecar_absolute_path):
 else:
     # Not a failure. The read path is the .tif, which is self-describing, and the
     # fluorescence and loading scans from the Amersham Imager 680 never have a .inf.
-    VALIDATION_FINDINGS.append({
-        "check_name": "inf_sidecar_present",
-        "status": "reported",
-        "is_hard_stop": False,
-        "detail": "no .inf beside this file, which is expected for Amersham Imager 680 "
-                  "output. Nothing is lost: the .tif carries dimensions, bits per "
-                  "sample, pixel size, timestamp and orientation.",
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "inf_sidecar_present",
+            "status": "reported",
+            "is_hard_stop": False,
+            "detail": "no .inf beside this file, which is expected for Amersham Imager 680 "
+            "output. Nothing is lost: the .tif carries dimensions, bits per "
+            "sample, pixel size, timestamp and orientation.",
+        }
+    )
 
-distinct_orientation_statements = sorted({
-    orientation_text.strip().lower() for orientation_text in orientation_sources.values()
-})
+distinct_orientation_statements = sorted(
+    {
+        orientation_text.strip().lower()
+        for orientation_text in orientation_sources.values()
+    }
+)
 if len(orientation_sources) == 0:
-    VALIDATION_FINDINGS.append({
-        "check_name": "orientation_sources_agree",
-        "status": "warning",
-        "is_hard_stop": False,
-        "detail": "no orientation statement in tag 274, in ImageDescription, or in a "
-                  ".inf. Row order is then unverified and must be confirmed by eye on "
-                  "the first overlay before any band label is trusted.",
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "orientation_sources_agree",
+            "status": "warning",
+            "is_hard_stop": False,
+            "detail": "no orientation statement in tag 274, in ImageDescription, or in a "
+            ".inf. Row order is then unverified and must be confirmed by eye on "
+            "the first overlay before any band label is trusted.",
+        }
+    )
 else:
-    VALIDATION_FINDINGS.append({
-        "check_name": "orientation_sources_agree",
-        "status": "pass" if len(distinct_orientation_statements) == 1 else "fail",
-        "is_hard_stop": True,
-        "detail": "; ".join(
-            source_name + " says " + repr(orientation_text)
-            for source_name, orientation_text in sorted(orientation_sources.items())
-        ) + (". Agreed." if len(distinct_orientation_statements) == 1 else
-             ". Sources disagree, which DESIGN.md section 11 makes a hard stop rather "
-             "than a preference: getting row order wrong inverts band labels while "
-             "leaving lane order correct, producing entirely plausible wrong numbers."),
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "orientation_sources_agree",
+            "status": "pass" if len(distinct_orientation_statements) == 1 else "fail",
+            "is_hard_stop": True,
+            "detail": "; ".join(
+                source_name + " says " + repr(orientation_text)
+                for source_name, orientation_text in sorted(orientation_sources.items())
+            )
+            + (
+                ". Agreed."
+                if len(distinct_orientation_statements) == 1
+                else ". Sources disagree, which DESIGN.md section 11 makes a hard stop rather "
+                "than a preference: getting row order wrong inverts band labels while "
+                "leaving lane order correct, producing entirely plausible wrong numbers."
+            ),
+        }
+    )
 
 # =============================================================================
 # The preprocessing sidecar, when present
@@ -1436,15 +1759,20 @@ parsed_sidecar_values = None
 if os.path.isfile(preprocess_sidecar_absolute_path):
     preprocess_sidecar_record["is_present"] = True
     try:
-        preprocess_sidecar_text = preprocess_sidecar_absolute_path.read_bytes().decode("latin-1")
+        preprocess_sidecar_text = preprocess_sidecar_absolute_path.read_bytes().decode(
+            "latin-1"
+        )
     except OSError as sidecar_read_error:
         preprocess_sidecar_text = None
-        VALIDATION_FINDINGS.append({
-            "check_name": "preprocess_sidecar_readable",
-            "status": "fail",
-            "is_hard_stop": True,
-            "detail": "sidecar exists but could not be read: " + str(sidecar_read_error),
-        })
+        VALIDATION_FINDINGS.append(
+            {
+                "check_name": "preprocess_sidecar_readable",
+                "status": "fail",
+                "is_hard_stop": True,
+                "detail": "sidecar exists but could not be read: "
+                + str(sidecar_read_error),
+            }
+        )
     if preprocess_sidecar_text is not None:
         raw_sidecar_values = {}
         sidecar_parse_problems = []
@@ -1492,7 +1820,10 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
             sidecar_value = raw_sidecar_values[sidecar_key]
             if not re.match(r"^-?\d+$", sidecar_value):
                 sidecar_parse_problems.append(
-                    "key " + repr(sidecar_key) + " is not an integer: " + repr(sidecar_value)
+                    "key "
+                    + repr(sidecar_key)
+                    + " is not an integer: "
+                    + repr(sidecar_value)
                 )
         # Geometry values may carry a decimal point because centimetres are
         # fractional; a bare integer is also valid (pixel coordinates).
@@ -1502,7 +1833,10 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
             sidecar_value = raw_sidecar_values[sidecar_key]
             if not re.match(r"^-?\d+(?:\.\d+)?$", sidecar_value):
                 sidecar_parse_problems.append(
-                    "key " + repr(sidecar_key) + " is not a number: " + repr(sidecar_value)
+                    "key "
+                    + repr(sidecar_key)
+                    + " is not a number: "
+                    + repr(sidecar_value)
                 )
         # Enum values must be one of a closed set, so a typo like coordinate_unit=px
         # is a hard stop rather than a silently unrecognised value.
@@ -1512,8 +1846,12 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
             sidecar_value = raw_sidecar_values[sidecar_key]
             if sidecar_value not in allowed_values:
                 sidecar_parse_problems.append(
-                    "key " + repr(sidecar_key) + " is " + repr(sidecar_value)
-                    + "; allowed: " + repr(allowed_values)
+                    "key "
+                    + repr(sidecar_key)
+                    + " is "
+                    + repr(sidecar_value)
+                    + "; allowed: "
+                    + repr(allowed_values)
                 )
 
         sidecar_structure_is_valid = (
@@ -1521,25 +1859,37 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
             and len(missing_sidecar_keys) == 0
             and len(sidecar_parse_problems) == 0
         )
-        VALIDATION_FINDINGS.append({
-            "check_name": "preprocess_sidecar_structure",
-            "status": "pass" if sidecar_structure_is_valid else "fail",
-            "is_hard_stop": True,
-            "detail": ("all " + str(len(REQUIRED_SIDECAR_KEY_NAMES)) + " keys present and "
-                       "well formed" if sidecar_structure_is_valid else
-                       "unknown keys: " + repr(unknown_sidecar_keys) + "; missing keys: "
-                       + repr(missing_sidecar_keys) + "; other problems: "
-                       + repr(sidecar_parse_problems)
-                       + ". preprocess_sidecar_template.txt is the authority for the key "
-                         "list."),
-        })
+        VALIDATION_FINDINGS.append(
+            {
+                "check_name": "preprocess_sidecar_structure",
+                "status": "pass" if sidecar_structure_is_valid else "fail",
+                "is_hard_stop": True,
+                "detail": (
+                    "all " + str(len(REQUIRED_SIDECAR_KEY_NAMES)) + " keys present and "
+                    "well formed"
+                    if sidecar_structure_is_valid
+                    else "unknown keys: "
+                    + repr(unknown_sidecar_keys)
+                    + "; missing keys: "
+                    + repr(missing_sidecar_keys)
+                    + "; other problems: "
+                    + repr(sidecar_parse_problems)
+                    + ". preprocess_sidecar_template.txt is the authority for the key "
+                    "list."
+                ),
+            }
+        )
 
         if sidecar_structure_is_valid:
             parsed_sidecar_values = dict(raw_sidecar_values)
             for sidecar_key in SIDECAR_INTEGER_KEY_NAMES:
-                parsed_sidecar_values[sidecar_key] = int(parsed_sidecar_values[sidecar_key])
+                parsed_sidecar_values[sidecar_key] = int(
+                    parsed_sidecar_values[sidecar_key]
+                )
             for sidecar_key in SIDECAR_NUMERIC_KEY_NAMES:
-                parsed_sidecar_values[sidecar_key] = float(parsed_sidecar_values[sidecar_key])
+                parsed_sidecar_values[sidecar_key] = float(
+                    parsed_sidecar_values[sidecar_key]
+                )
             preprocess_sidecar_record["values"] = parsed_sidecar_values
 
             gel_migration_axis = parsed_sidecar_values["gel_migration_axis"]
@@ -1557,30 +1907,57 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
             else:
                 pixels_per_coordinate_unit = None
             coordinate_conversion_ok = pixels_per_coordinate_unit is not None
-            VALIDATION_FINDINGS.append({
-                "check_name": "preprocess_sidecar_coordinate_unit_convertible",
-                "status": "pass" if coordinate_conversion_ok else "fail",
-                "is_hard_stop": True,
-                "detail": (("coordinate_unit 'pixels' needs no conversion"
+            VALIDATION_FINDINGS.append(
+                {
+                    "check_name": "preprocess_sidecar_coordinate_unit_convertible",
+                    "status": "pass" if coordinate_conversion_ok else "fail",
+                    "is_hard_stop": True,
+                    "detail": (
+                        (
+                            "coordinate_unit 'pixels' needs no conversion"
                             if coordinate_unit == "pixels"
                             else "coordinate_unit 'centimetres' converts at %.6f pixels "
-                                 "per centimetre from the file's pixel size"
-                                 % pixels_per_coordinate_unit)
-                           if coordinate_conversion_ok else
-                           "coordinate_unit is 'centimetres' but the file carries no usable "
-                           "pixel size, so the coordinates cannot be converted to pixels"),
-            })
+                            "per centimetre from the file's pixel size"
+                            % pixels_per_coordinate_unit
+                        )
+                        if coordinate_conversion_ok
+                        else "coordinate_unit is 'centimetres' but the file carries no usable "
+                        "pixel size, so the coordinates cannot be converted to pixels"
+                    ),
+                }
+            )
 
             if coordinate_conversion_ok:
-                landmark_a_x_pixels = parsed_sidecar_values["landmark_a_x"] * pixels_per_coordinate_unit
-                landmark_a_y_pixels = parsed_sidecar_values["landmark_a_y"] * pixels_per_coordinate_unit
-                landmark_b_x_pixels = parsed_sidecar_values["landmark_b_x"] * pixels_per_coordinate_unit
-                landmark_b_y_pixels = parsed_sidecar_values["landmark_b_y"] * pixels_per_coordinate_unit
+                landmark_a_x_pixels = (
+                    parsed_sidecar_values["landmark_a_x"] * pixels_per_coordinate_unit
+                )
+                landmark_a_y_pixels = (
+                    parsed_sidecar_values["landmark_a_y"] * pixels_per_coordinate_unit
+                )
+                landmark_b_x_pixels = (
+                    parsed_sidecar_values["landmark_b_x"] * pixels_per_coordinate_unit
+                )
+                landmark_b_y_pixels = (
+                    parsed_sidecar_values["landmark_b_y"] * pixels_per_coordinate_unit
+                )
                 # Crop bounds must be whole pixels for slicing and the preview rectangle.
-                crop_x_pixels = int(round(parsed_sidecar_values["crop_x"] * pixels_per_coordinate_unit))
-                crop_y_pixels = int(round(parsed_sidecar_values["crop_y"] * pixels_per_coordinate_unit))
-                crop_width_pixels = int(round(parsed_sidecar_values["crop_width"] * pixels_per_coordinate_unit))
-                crop_height_pixels = int(round(parsed_sidecar_values["crop_height"] * pixels_per_coordinate_unit))
+                crop_x_pixels = int(
+                    round(parsed_sidecar_values["crop_x"] * pixels_per_coordinate_unit)
+                )
+                crop_y_pixels = int(
+                    round(parsed_sidecar_values["crop_y"] * pixels_per_coordinate_unit)
+                )
+                crop_width_pixels = int(
+                    round(
+                        parsed_sidecar_values["crop_width"] * pixels_per_coordinate_unit
+                    )
+                )
+                crop_height_pixels = int(
+                    round(
+                        parsed_sidecar_values["crop_height"]
+                        * pixels_per_coordinate_unit
+                    )
+                )
                 preprocess_sidecar_record["geometry_pixels"] = {
                     "gel_migration_axis": gel_migration_axis,
                     "coordinate_unit": coordinate_unit,
@@ -1595,31 +1972,45 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                     "crop_height_pixels": crop_height_pixels,
                 }
 
-            VALIDATION_FINDINGS.append({
-                "check_name": "preprocess_sidecar_schema_version",
-                "status": ("pass" if parsed_sidecar_values["schema_version"]
-                           == SUPPORTED_SIDECAR_SCHEMA_VERSION else "fail"),
-                "is_hard_stop": True,
-                "detail": "sidecar declares schema_version "
-                          + str(parsed_sidecar_values["schema_version"]) + "; this script "
-                          "understands " + str(SUPPORTED_SIDECAR_SCHEMA_VERSION),
-            })
+            VALIDATION_FINDINGS.append(
+                {
+                    "check_name": "preprocess_sidecar_schema_version",
+                    "status": (
+                        "pass"
+                        if parsed_sidecar_values["schema_version"]
+                        == SUPPORTED_SIDECAR_SCHEMA_VERSION
+                        else "fail"
+                    ),
+                    "is_hard_stop": True,
+                    "detail": "sidecar declares schema_version "
+                    + str(parsed_sidecar_values["schema_version"])
+                    + "; this script "
+                    "understands " + str(SUPPORTED_SIDECAR_SCHEMA_VERSION),
+                }
+            )
 
             frame_name_matches = (
-                parsed_sidecar_values["measured_in_frame"] == REQUIRED_SIDECAR_FRAME_NAME
+                parsed_sidecar_values["measured_in_frame"]
+                == REQUIRED_SIDECAR_FRAME_NAME
             )
-            VALIDATION_FINDINGS.append({
-                "check_name": "preprocess_sidecar_measurement_frame",
-                "status": "pass" if frame_name_matches else "fail",
-                "is_hard_stop": True,
-                "detail": "measured_in_frame is "
-                          + repr(parsed_sidecar_values["measured_in_frame"]) + "; required "
-                          + repr(REQUIRED_SIDECAR_FRAME_NAME)
-                          + ("" if frame_name_matches else
-                             ". Coordinates are meaningless without the frame they were "
-                             "measured in, and a crop measured on a flipped view lands on "
-                             "the wrong bands while every number stays plausible."),
-            })
+            VALIDATION_FINDINGS.append(
+                {
+                    "check_name": "preprocess_sidecar_measurement_frame",
+                    "status": "pass" if frame_name_matches else "fail",
+                    "is_hard_stop": True,
+                    "detail": "measured_in_frame is "
+                    + repr(parsed_sidecar_values["measured_in_frame"])
+                    + "; required "
+                    + repr(REQUIRED_SIDECAR_FRAME_NAME)
+                    + (
+                        ""
+                        if frame_name_matches
+                        else ". Coordinates are meaningless without the frame they were "
+                        "measured in, and a crop measured on a flipped view lands on "
+                        "the wrong bands while every number stays plausible."
+                    ),
+                }
+            )
 
             # The filename check exists because the dimension check alone does not
             # catch the likeliest hand-editing error: copying one scan's sidecar to
@@ -1630,14 +2021,17 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                 parsed_sidecar_values["measured_against_input_filename"]
                 == input_tiff_absolute_path.name
             )
-            VALIDATION_FINDINGS.append({
-                "check_name": "preprocess_sidecar_filename_matches_input",
-                "status": "pass" if filename_matches else "fail",
-                "is_hard_stop": True,
-                "detail": "sidecar was measured against "
-                          + repr(parsed_sidecar_values["measured_against_input_filename"])
-                          + " and the input is " + repr(input_tiff_absolute_path.name),
-            })
+            VALIDATION_FINDINGS.append(
+                {
+                    "check_name": "preprocess_sidecar_filename_matches_input",
+                    "status": "pass" if filename_matches else "fail",
+                    "is_hard_stop": True,
+                    "detail": "sidecar was measured against "
+                    + repr(parsed_sidecar_values["measured_against_input_filename"])
+                    + " and the input is "
+                    + repr(input_tiff_absolute_path.name),
+                }
+            )
 
             dimensions_match = (
                 parsed_sidecar_values["measured_against_image_width_pixels"]
@@ -1645,17 +2039,21 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                 and parsed_sidecar_values["measured_against_image_height_pixels"]
                 == pixel_array_height_pixels
             )
-            VALIDATION_FINDINGS.append({
-                "check_name": "preprocess_sidecar_dimensions_match_input",
-                "status": "pass" if dimensions_match else "fail",
-                "is_hard_stop": True,
-                "detail": "sidecar was measured against "
-                          + str(parsed_sidecar_values["measured_against_image_width_pixels"])
-                          + " by "
-                          + str(parsed_sidecar_values["measured_against_image_height_pixels"])
-                          + " and the input is " + str(pixel_array_width_pixels) + " by "
-                          + str(pixel_array_height_pixels),
-            })
+            VALIDATION_FINDINGS.append(
+                {
+                    "check_name": "preprocess_sidecar_dimensions_match_input",
+                    "status": "pass" if dimensions_match else "fail",
+                    "is_hard_stop": True,
+                    "detail": "sidecar was measured against "
+                    + str(parsed_sidecar_values["measured_against_image_width_pixels"])
+                    + " by "
+                    + str(parsed_sidecar_values["measured_against_image_height_pixels"])
+                    + " and the input is "
+                    + str(pixel_array_width_pixels)
+                    + " by "
+                    + str(pixel_array_height_pixels),
+                }
+            )
 
             # Everything below works in pixel space, which only exists once the
             # coordinate conversion above succeeded. If it did not, the convertible
@@ -1669,16 +2067,23 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                         (landmark_b_x_pixels, landmark_b_y_pixels),
                     )
                 )
-                VALIDATION_FINDINGS.append({
-                    "check_name": "preprocess_sidecar_landmarks_inside_image",
-                    "status": "pass" if landmarks_inside_image else "fail",
-                    "is_hard_stop": True,
-                    "detail": "landmarks a (%.1f, %.1f) and b (%.1f, %.1f) against an image "
-                              "of %d by %d"
-                              % (landmark_a_x_pixels, landmark_a_y_pixels,
-                                 landmark_b_x_pixels, landmark_b_y_pixels,
-                                 pixel_array_width_pixels, pixel_array_height_pixels),
-                })
+                VALIDATION_FINDINGS.append(
+                    {
+                        "check_name": "preprocess_sidecar_landmarks_inside_image",
+                        "status": "pass" if landmarks_inside_image else "fail",
+                        "is_hard_stop": True,
+                        "detail": "landmarks a (%.1f, %.1f) and b (%.1f, %.1f) against an image "
+                        "of %d by %d"
+                        % (
+                            landmark_a_x_pixels,
+                            landmark_a_y_pixels,
+                            landmark_b_x_pixels,
+                            landmark_b_y_pixels,
+                            pixel_array_width_pixels,
+                            pixel_array_height_pixels,
+                        ),
+                    }
+                )
 
                 # Delta runs a -> b. The landmark line is the level feature; how its
                 # angle becomes a tilt depends on gel_migration_axis, derived below.
@@ -1719,89 +2124,126 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                         derived_tilt_angle_degrees -= 180.0
                     while derived_tilt_angle_degrees <= -90.0:
                         derived_tilt_angle_degrees += 180.0
-                    preprocess_sidecar_record["derived_tilt_angle_degrees"] = derived_tilt_angle_degrees
-                    angle_uncertainty_degrees = math.degrees(math.atan(1.0 / landmark_span_pixels))
+                    preprocess_sidecar_record["derived_tilt_angle_degrees"] = (
+                        derived_tilt_angle_degrees
+                    )
+                    angle_uncertainty_degrees = math.degrees(
+                        math.atan(1.0 / landmark_span_pixels)
+                    )
                     preprocess_sidecar_record[
                         "angle_uncertainty_degrees_per_pixel_of_click_error"
                     ] = angle_uncertainty_degrees
-                    VALIDATION_FINDINGS.append({
-                        "check_name": "preprocess_sidecar_tilt_angle_is_plausible",
-                        "status": ("pass" if abs(derived_tilt_angle_degrees)
-                                   <= MAXIMUM_PLAUSIBLE_TILT_DEGREES else "fail"),
-                        "is_hard_stop": True,
-                        "detail": "derived tilt %.4f degrees over a %.1f pixel span, "
-                                  "uncertainty %.4f degrees per pixel of click error"
-                                  % (derived_tilt_angle_degrees, landmark_span_pixels,
-                                     angle_uncertainty_degrees)
-                                  + ("" if abs(derived_tilt_angle_degrees)
-                                     <= MAXIMUM_PLAUSIBLE_TILT_DEGREES else
-                                     ". Beyond %.1f degrees the landmarks were almost "
-                                     "certainly not the level feature intended, or the two "
-                                     "pairs were entered in the wrong order."
-                                     % MAXIMUM_PLAUSIBLE_TILT_DEGREES),
-                    })
+                    VALIDATION_FINDINGS.append(
+                        {
+                            "check_name": "preprocess_sidecar_tilt_angle_is_plausible",
+                            "status": (
+                                "pass"
+                                if abs(derived_tilt_angle_degrees)
+                                <= MAXIMUM_PLAUSIBLE_TILT_DEGREES
+                                else "fail"
+                            ),
+                            "is_hard_stop": True,
+                            "detail": "derived tilt %.4f degrees over a %.1f pixel span, "
+                            "uncertainty %.4f degrees per pixel of click error"
+                            % (
+                                derived_tilt_angle_degrees,
+                                landmark_span_pixels,
+                                angle_uncertainty_degrees,
+                            )
+                            + (
+                                ""
+                                if abs(derived_tilt_angle_degrees)
+                                <= MAXIMUM_PLAUSIBLE_TILT_DEGREES
+                                else ". Beyond %.1f degrees the landmarks were almost "
+                                "certainly not the level feature intended, or the two "
+                                "pairs were entered in the wrong order."
+                                % MAXIMUM_PLAUSIBLE_TILT_DEGREES
+                            ),
+                        }
+                    )
                     if landmark_span_pixels < LANDMARK_SPAN_WARNING_PIXELS:
-                        VALIDATION_FINDINGS.append({
-                            "check_name": "preprocess_sidecar_landmark_span_is_generous",
-                            "status": "warning",
-                            "is_hard_stop": False,
-                            "detail": "span is only %.1f pixels, giving %.3f degrees of "
-                                      "uncertainty per pixel of click error. Re-measure with "
-                                      "the landmarks further apart: 0.5 degrees of residual "
-                                      "tilt walks a band a full band height across a 1125 "
-                                      "pixel image."
-                                      % (landmark_span_pixels, angle_uncertainty_degrees),
-                        })
+                        VALIDATION_FINDINGS.append(
+                            {
+                                "check_name": "preprocess_sidecar_landmark_span_is_generous",
+                                "status": "warning",
+                                "is_hard_stop": False,
+                                "detail": "span is only %.1f pixels, giving %.3f degrees of "
+                                "uncertainty per pixel of click error. Re-measure with "
+                                "the landmarks further apart: 0.5 degrees of residual "
+                                "tilt walks a band a full band height across a 1125 "
+                                "pixel image."
+                                % (landmark_span_pixels, angle_uncertainty_degrees),
+                            }
+                        )
                 else:
-                    VALIDATION_FINDINGS.append({
-                        "check_name": "preprocess_sidecar_tilt_angle_is_plausible",
-                        "status": "fail",
-                        "is_hard_stop": True,
-                        "detail": "landmark span is only %.1f pixels, below the floor of %d, "
-                                  "so no angle worth having can be derived from it"
-                                  % (landmark_span_pixels, MINIMUM_LANDMARK_SPAN_PIXELS),
-                    })
+                    VALIDATION_FINDINGS.append(
+                        {
+                            "check_name": "preprocess_sidecar_tilt_angle_is_plausible",
+                            "status": "fail",
+                            "is_hard_stop": True,
+                            "detail": "landmark span is only %.1f pixels, below the floor of %d, "
+                            "so no angle worth having can be derived from it"
+                            % (landmark_span_pixels, MINIMUM_LANDMARK_SPAN_PIXELS),
+                        }
+                    )
 
                 crop_x = crop_x_pixels
                 crop_y = crop_y_pixels
                 crop_width = crop_width_pixels
                 crop_height = crop_height_pixels
                 crop_is_inside_image = (
-                    crop_width > 0 and crop_height > 0
-                    and 0 <= crop_x and 0 <= crop_y
+                    crop_width > 0
+                    and crop_height > 0
+                    and 0 <= crop_x
+                    and 0 <= crop_y
                     and crop_x + crop_width <= pixel_array_width_pixels
                     and crop_y + crop_height <= pixel_array_height_pixels
                 )
-                VALIDATION_FINDINGS.append({
-                    "check_name": "preprocess_sidecar_crop_inside_image",
-                    "status": "pass" if crop_is_inside_image else "fail",
-                    "is_hard_stop": True,
-                    "detail": "crop x %d y %d width %d height %d against an image of %d by %d"
-                              % (crop_x, crop_y, crop_width, crop_height,
-                                 pixel_array_width_pixels, pixel_array_height_pixels),
-                })
+                VALIDATION_FINDINGS.append(
+                    {
+                        "check_name": "preprocess_sidecar_crop_inside_image",
+                        "status": "pass" if crop_is_inside_image else "fail",
+                        "is_hard_stop": True,
+                        "detail": "crop x %d y %d width %d height %d against an image of %d by %d"
+                        % (
+                            crop_x,
+                            crop_y,
+                            crop_width,
+                            crop_height,
+                            pixel_array_width_pixels,
+                            pixel_array_height_pixels,
+                        ),
+                    }
+                )
 
                 if crop_is_inside_image:
-                    crop_area_fraction = (
-                        (crop_width * crop_height)
-                        / float(pixel_array_width_pixels * pixel_array_height_pixels)
+                    crop_area_fraction = (crop_width * crop_height) / float(
+                        pixel_array_width_pixels * pixel_array_height_pixels
                     )
                     crop_fraction_is_plausible = (
                         CROP_AREA_FRACTION_WARNING_FLOOR
                         <= crop_area_fraction
                         <= CROP_AREA_FRACTION_WARNING_CEILING
                     )
-                    VALIDATION_FINDINGS.append({
-                        "check_name": "preprocess_sidecar_crop_area_fraction",
-                        "status": "pass" if crop_fraction_is_plausible else "warning",
-                        "is_hard_stop": False,
-                        "detail": "the crop covers %.4f of the image" % crop_area_fraction
-                                  + ("" if crop_fraction_is_plausible else
-                                     ". Outside the plausible range. A crop that is too tight "
-                                     "biases every baseline in the image, and one that covers "
-                                     "everything has excluded neither the wells nor the plate "
-                                     "background."),
-                    })
+                    VALIDATION_FINDINGS.append(
+                        {
+                            "check_name": "preprocess_sidecar_crop_area_fraction",
+                            "status": "pass"
+                            if crop_fraction_is_plausible
+                            else "warning",
+                            "is_hard_stop": False,
+                            "detail": "the crop covers %.4f of the image"
+                            % crop_area_fraction
+                            + (
+                                ""
+                                if crop_fraction_is_plausible
+                                else ". Outside the plausible range. A crop that is too tight "
+                                "biases every baseline in the image, and one that covers "
+                                "everything has excluded neither the wells nor the plate "
+                                "background."
+                            ),
+                        }
+                    )
 
                     # Cross-check the geometry against the pixel size read from this
                     # file's own tags. DESIGN.md section 2 records a 5 mm lane pitch,
@@ -1816,43 +2258,59 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                     else:
                         lane_stacking_extent_pixels = crop_width
                     if expected_lane_count <= 0:
-                        VALIDATION_FINDINGS.append({
-                            "check_name": "preprocess_sidecar_expected_lane_count",
-                            "status": "fail",
-                            "is_hard_stop": True,
-                            "detail": "expected_lane_count is " + str(expected_lane_count)
-                                      + ", which must be a positive integer",
-                        })
+                        VALIDATION_FINDINGS.append(
+                            {
+                                "check_name": "preprocess_sidecar_expected_lane_count",
+                                "status": "fail",
+                                "is_hard_stop": True,
+                                "detail": "expected_lane_count is "
+                                + str(expected_lane_count)
+                                + ", which must be a positive integer",
+                            }
+                        )
                     elif micrometres_per_pixel is not None:
                         implied_lane_pitch_millimetres = (
                             (lane_stacking_extent_pixels / float(expected_lane_count))
-                            * micrometres_per_pixel / 1000.0
+                            * micrometres_per_pixel
+                            / 1000.0
                         )
-                        preprocess_sidecar_record[
-                            "implied_lane_pitch_millimetres"
-                        ] = implied_lane_pitch_millimetres
+                        preprocess_sidecar_record["implied_lane_pitch_millimetres"] = (
+                            implied_lane_pitch_millimetres
+                        )
                         pitch_is_plausible = (
                             MINIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES
                             <= implied_lane_pitch_millimetres
                             <= MAXIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES
                         )
-                        VALIDATION_FINDINGS.append({
-                            "check_name": "preprocess_sidecar_implied_lane_pitch",
-                            "status": "pass" if pitch_is_plausible else "warning",
-                            "is_hard_stop": False,
-                            "detail": "%d lanes across %d crop pixels (the %s dimension) at "
-                                      "%.4f micrometres per pixel implies a lane pitch of "
-                                      "%.2f mm"
-                                      % (expected_lane_count, lane_stacking_extent_pixels,
-                                         "height" if gel_migration_axis == "horizontal"
-                                         else "width",
-                                         micrometres_per_pixel, implied_lane_pitch_millimetres)
-                                      + ("" if pitch_is_plausible else
-                                         ". Outside the plausible range of %.1f to %.1f mm, so "
-                                         "either the lane count or the crop is wrong."
-                                         % (MINIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES,
-                                            MAXIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES)),
-                        })
+                        VALIDATION_FINDINGS.append(
+                            {
+                                "check_name": "preprocess_sidecar_implied_lane_pitch",
+                                "status": "pass" if pitch_is_plausible else "warning",
+                                "is_hard_stop": False,
+                                "detail": "%d lanes across %d crop pixels (the %s dimension) at "
+                                "%.4f micrometres per pixel implies a lane pitch of "
+                                "%.2f mm"
+                                % (
+                                    expected_lane_count,
+                                    lane_stacking_extent_pixels,
+                                    "height"
+                                    if gel_migration_axis == "horizontal"
+                                    else "width",
+                                    micrometres_per_pixel,
+                                    implied_lane_pitch_millimetres,
+                                )
+                                + (
+                                    ""
+                                    if pitch_is_plausible
+                                    else ". Outside the plausible range of %.1f to %.1f mm, so "
+                                    "either the lane count or the crop is wrong."
+                                    % (
+                                        MINIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES,
+                                        MAXIMUM_PLAUSIBLE_LANE_PITCH_MILLIMETRES,
+                                    )
+                                ),
+                            }
+                        )
 
                     # In-crop statistics, computed the same single-pass way as the
                     # whole-image block above but over the crop only. The whole-image
@@ -1864,10 +2322,11 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                     # proper is a per-band local estimate in stage 2, not a crop-wide one.
                     if pixel_statistics_were_computed:
                         crop_pixels = pixel_array[
-                            crop_y:crop_y + crop_height, crop_x:crop_x + crop_width
+                            crop_y : crop_y + crop_height, crop_x : crop_x + crop_width
                         ]
                         crop_value_counts = numpy.bincount(
-                            crop_pixels.ravel(), minlength=CONTAINER_VALUE_SLOT_COUNT_16_BIT
+                            crop_pixels.ravel(),
+                            minlength=CONTAINER_VALUE_SLOT_COUNT_16_BIT,
                         ).astype(numpy.int64)
                         crop_total_pixel_count = int(crop_value_counts.sum())
                         crop_present_values = numpy.nonzero(crop_value_counts)[0]
@@ -1875,25 +2334,40 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                         crop_maximum_value = int(crop_present_values[-1])
                         crop_mode_value = int(crop_value_counts.argmax())
                         crop_present_float = crop_present_values.astype(numpy.float64)
-                        crop_counts_float = crop_value_counts[crop_present_values].astype(numpy.float64)
+                        crop_counts_float = crop_value_counts[
+                            crop_present_values
+                        ].astype(numpy.float64)
                         crop_mean_value = float(
-                            (crop_present_float * crop_counts_float).sum() / crop_total_pixel_count
+                            (crop_present_float * crop_counts_float).sum()
+                            / crop_total_pixel_count
                         )
                         crop_cumulative_counts = numpy.cumsum(crop_value_counts)
-                        crop_median_value = int(numpy.searchsorted(
-                            crop_cumulative_counts, (crop_total_pixel_count + 1) // 2, side="left"
-                        ))
+                        crop_median_value = int(
+                            numpy.searchsorted(
+                                crop_cumulative_counts,
+                                (crop_total_pixel_count + 1) // 2,
+                                side="left",
+                            )
+                        )
                         # MAD from the value counts, same trick as the whole-image block:
                         # deviation d is contributed by median-d and median+d.
                         crop_maximum_absolute_deviation = max(
                             crop_median_value - crop_minimum_value,
                             crop_maximum_value - crop_median_value,
                         )
-                        crop_deviation_magnitudes = numpy.arange(0, crop_maximum_absolute_deviation + 1)
-                        crop_lower_values = crop_median_value - crop_deviation_magnitudes
-                        crop_upper_values = crop_median_value + crop_deviation_magnitudes
-                        crop_lower_in_range = (crop_lower_values >= 0)
-                        crop_upper_in_range = (crop_upper_values < CONTAINER_VALUE_SLOT_COUNT_16_BIT)
+                        crop_deviation_magnitudes = numpy.arange(
+                            0, crop_maximum_absolute_deviation + 1
+                        )
+                        crop_lower_values = (
+                            crop_median_value - crop_deviation_magnitudes
+                        )
+                        crop_upper_values = (
+                            crop_median_value + crop_deviation_magnitudes
+                        )
+                        crop_lower_in_range = crop_lower_values >= 0
+                        crop_upper_in_range = (
+                            crop_upper_values < CONTAINER_VALUE_SLOT_COUNT_16_BIT
+                        )
                         crop_absolute_deviation_counts = numpy.zeros(
                             crop_maximum_absolute_deviation + 1, dtype=numpy.int64
                         )
@@ -1903,16 +2377,23 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                         crop_absolute_deviation_counts[crop_upper_in_range] += (
                             crop_value_counts[crop_upper_values[crop_upper_in_range]]
                         )
-                        crop_absolute_deviation_counts[0] = crop_value_counts[crop_median_value]
-                        crop_median_absolute_deviation = int(numpy.searchsorted(
-                            numpy.cumsum(crop_absolute_deviation_counts),
-                            (crop_total_pixel_count + 1) // 2, side="left"
-                        ))
+                        crop_absolute_deviation_counts[0] = crop_value_counts[
+                            crop_median_value
+                        ]
+                        crop_median_absolute_deviation = int(
+                            numpy.searchsorted(
+                                numpy.cumsum(crop_absolute_deviation_counts),
+                                (crop_total_pixel_count + 1) // 2,
+                                side="left",
+                            )
+                        )
                         crop_robust_standard_deviation = (
-                            MEDIAN_ABSOLUTE_DEVIATION_TO_SIGMA * crop_median_absolute_deviation
+                            MEDIAN_ABSOLUTE_DEVIATION_TO_SIGMA
+                            * crop_median_absolute_deviation
                         )
                         crop_isolation_margin_counts = (
-                            ISOLATION_MARGIN_ROBUST_SIGMAS * crop_robust_standard_deviation
+                            ISOLATION_MARGIN_ROBUST_SIGMAS
+                            * crop_robust_standard_deviation
                         )
                         whole_image_mode_value = int(pixel_value_counts.argmax())
                         preprocess_sidecar_record["in_crop_statistics"] = {
@@ -1928,30 +2409,40 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                             "whole_image_mode_value_for_comparison": whole_image_mode_value,
                             "whole_image_median_value_for_comparison": median_pixel_value,
                         }
-                        VALIDATION_FINDINGS.append({
-                            "check_name": "preprocess_sidecar_in_crop_statistics",
-                            "status": "reported",
-                            "is_hard_stop": False,
-                            "detail": "in-crop mode %d, median %d, MAD %d, isolation margin "
-                                      "%.1f counts over %d pixels; whole-image mode %d and "
-                                      "median %d for comparison. The whole-image mode is the "
-                                      "bare plate, so the baseline and the isolation margin "
-                                      "belong on these in-crop numbers, not the whole-image "
-                                      "ones."
-                                      % (crop_mode_value, crop_median_value,
-                                         crop_median_absolute_deviation,
-                                         crop_isolation_margin_counts, crop_total_pixel_count,
-                                         whole_image_mode_value, median_pixel_value),
-                        })
+                        VALIDATION_FINDINGS.append(
+                            {
+                                "check_name": "preprocess_sidecar_in_crop_statistics",
+                                "status": "reported",
+                                "is_hard_stop": False,
+                                "detail": "in-crop mode %d, median %d, MAD %d, isolation margin "
+                                "%.1f counts over %d pixels; whole-image mode %d and "
+                                "median %d for comparison. The whole-image mode is the "
+                                "bare plate, so the baseline and the isolation margin "
+                                "belong on these in-crop numbers, not the whole-image "
+                                "ones."
+                                % (
+                                    crop_mode_value,
+                                    crop_median_value,
+                                    crop_median_absolute_deviation,
+                                    crop_isolation_margin_counts,
+                                    crop_total_pixel_count,
+                                    whole_image_mode_value,
+                                    median_pixel_value,
+                                ),
+                            }
+                        )
 else:
-    VALIDATION_FINDINGS.append({
-        "check_name": "preprocess_sidecar_present",
-        "status": "reported",
-        "is_hard_stop": False,
-        "detail": "no sidecar at " + str(preprocess_sidecar_absolute_path)
-                  + ". Statistics and the tag inventory are unaffected; there is no crop "
-                  "preview and no tilt angle. See PROTOCOL.md section 4.",
-    })
+    VALIDATION_FINDINGS.append(
+        {
+            "check_name": "preprocess_sidecar_present",
+            "status": "reported",
+            "is_hard_stop": False,
+            "detail": "no sidecar at "
+            + str(preprocess_sidecar_absolute_path)
+            + ". Statistics and the tag inventory are unaffected; there is no crop "
+            "preview and no tilt angle. See PROTOCOL.md section 4.",
+        }
+    )
 
 # =============================================================================
 # Histogram
@@ -1971,17 +2462,28 @@ else:
         figsize=HISTOGRAM_FIGURE_SIZE_INCHES
     )
     histogram_axes.fill_between(
-        present_pixel_values, 1, pixel_value_counts[present_pixel_values], step="mid", linewidth=0
+        present_pixel_values,
+        1,
+        pixel_value_counts[present_pixel_values],
+        step="mid",
+        linewidth=0,
     )
     histogram_axes.set_yscale("log")
     histogram_axes.set_xlabel("pixel value, counts")
     histogram_axes.set_ylabel("number of pixels, log scale")
     histogram_axes.set_title(
-        "Value distribution: " + input_tiff_absolute_path.name
-        + "\n" + str(pixel_array_width_pixels) + " by " + str(pixel_array_height_pixels)
+        "Value distribution: "
+        + input_tiff_absolute_path.name
+        + "\n"
+        + str(pixel_array_width_pixels)
+        + " by "
+        + str(pixel_array_height_pixels)
         + " pixels, "
-        + ("%.4f micrometres per pixel" % micrometres_per_pixel
-           if micrometres_per_pixel is not None else "pixel size unavailable")
+        + (
+            "%.4f micrometres per pixel" % micrometres_per_pixel
+            if micrometres_per_pixel is not None
+            else "pixel size unavailable"
+        )
     )
     for marker_value, marker_label, marker_style in (
         (minimum_pixel_value, "minimum " + str(minimum_pixel_value), "dotted"),
@@ -1989,24 +2491,32 @@ else:
         (histogram_mode_value, "mode " + str(histogram_mode_value), "dashdot"),
         (maximum_pixel_value, "maximum " + str(maximum_pixel_value), "solid"),
     ):
-        histogram_axes.axvline(marker_value, linestyle=marker_style, linewidth=1.0, label=marker_label)
+        histogram_axes.axvline(
+            marker_value, linestyle=marker_style, linewidth=1.0, label=marker_label
+        )
     # Limited to the observed range rather than the container range. Background sits
     # near 2,800 counts of a possible 65,535, so an axis spanning the container
     # crushes the entire distribution into a sliver a few pixels wide and the plot
     # stops doing the one job it has. Found by looking at the output.
     observed_value_margin = max(1.0, 0.02 * (maximum_pixel_value - minimum_pixel_value))
     histogram_axes.set_xlim(
-        minimum_pixel_value - observed_value_margin, maximum_pixel_value + observed_value_margin
+        minimum_pixel_value - observed_value_margin,
+        maximum_pixel_value + observed_value_margin,
     )
     if minimum_pixel_value <= inferred_ceiling_value <= maximum_pixel_value:
         histogram_axes.axvline(
-            inferred_ceiling_value, linestyle=(0, (1, 3)), linewidth=1.0,
+            inferred_ceiling_value,
+            linestyle=(0, (1, 3)),
+            linewidth=1.0,
             label="inferred ceiling " + str(inferred_ceiling_value),
         )
     else:
         # Stated rather than drawn, because drawing it is what stretched the axis.
         histogram_axes.plot(
-            [], [], linestyle=(0, (1, 3)), linewidth=1.0,
+            [],
+            [],
+            linestyle=(0, (1, 3)),
+            linewidth=1.0,
             label="inferred ceiling " + str(inferred_ceiling_value) + ", off scale",
         )
     histogram_axes.legend(loc="upper right", fontsize="small")
@@ -2015,8 +2525,13 @@ else:
     try:
         histogram_figure.savefig(histogram_image_output_path, dpi=FIGURE_DOTS_PER_INCH)
     except OSError as histogram_write_error:
-        die("histogram", "could not write " + str(histogram_image_output_path)
-            + ": " + str(histogram_write_error))
+        die(
+            "histogram",
+            "could not write "
+            + str(histogram_image_output_path)
+            + ": "
+            + str(histogram_write_error),
+        )
     matplotlib.pyplot.close(histogram_figure)
     histogram_was_written = True
     emit_message("histogram", "wrote " + str(histogram_image_output_path))
@@ -2026,17 +2541,26 @@ else:
 # =============================================================================
 
 crop_preview_was_written = False
-if (parsed_sidecar_values is not None and pixel_statistics_were_computed
-        and "geometry_pixels" in preprocess_sidecar_record):
+if (
+    parsed_sidecar_values is not None
+    and pixel_statistics_were_computed
+    and "geometry_pixels" in preprocess_sidecar_record
+):
     preview_geometry = preprocess_sidecar_record["geometry_pixels"]
     # Downsampled by an integer stride: this exists to be looked at, not measured.
     preview_stride = max(
         1,
-        int(math.ceil(max(pixel_array_height_pixels, pixel_array_width_pixels)
-                      / float(PREVIEW_MAXIMUM_DIMENSION_PIXELS))),
+        int(
+            math.ceil(
+                max(pixel_array_height_pixels, pixel_array_width_pixels)
+                / float(PREVIEW_MAXIMUM_DIMENSION_PIXELS)
+            )
+        ),
     )
     preview_array = pixel_array[::preview_stride, ::preview_stride]
-    preview_figure, preview_axes = matplotlib.pyplot.subplots(figsize=PREVIEW_FIGURE_SIZE_INCHES)
+    preview_figure, preview_axes = matplotlib.pyplot.subplots(
+        figsize=PREVIEW_FIGURE_SIZE_INCHES
+    )
     # gray_r, not gray. PhotometricInterpretation is MINISWHITE, so Fiji renders
     # these files with an inverting lookup table and bands appear dark. A default
     # colormap would show bright bands, and anyone comparing this against Fiji would
@@ -2049,56 +2573,86 @@ if (parsed_sidecar_values is not None and pixel_statistics_were_computed
         interpolation="nearest",
         origin="upper",
     )
-    preview_axes.add_patch(matplotlib.patches.Rectangle(
-        (preview_geometry["crop_x_pixels"] / preview_stride - 0.5,
-         preview_geometry["crop_y_pixels"] / preview_stride - 0.5),
-        preview_geometry["crop_width_pixels"] / preview_stride,
-        preview_geometry["crop_height_pixels"] / preview_stride,
-        fill=False, linewidth=1.6, linestyle="solid", edgecolor="red",
-    ))
+    preview_axes.add_patch(
+        matplotlib.patches.Rectangle(
+            (
+                preview_geometry["crop_x_pixels"] / preview_stride - 0.5,
+                preview_geometry["crop_y_pixels"] / preview_stride - 0.5,
+            ),
+            preview_geometry["crop_width_pixels"] / preview_stride,
+            preview_geometry["crop_height_pixels"] / preview_stride,
+            fill=False,
+            linewidth=1.6,
+            linestyle="solid",
+            edgecolor="red",
+        )
+    )
     preview_axes.plot(
-        [preview_geometry["landmark_a_x_pixels"] / preview_stride,
-         preview_geometry["landmark_b_x_pixels"] / preview_stride],
-        [preview_geometry["landmark_a_y_pixels"] / preview_stride,
-         preview_geometry["landmark_b_y_pixels"] / preview_stride],
-        marker="+", markersize=11, linewidth=1.2, color="blue",
+        [
+            preview_geometry["landmark_a_x_pixels"] / preview_stride,
+            preview_geometry["landmark_b_x_pixels"] / preview_stride,
+        ],
+        [
+            preview_geometry["landmark_a_y_pixels"] / preview_stride,
+            preview_geometry["landmark_b_y_pixels"] / preview_stride,
+        ],
+        marker="+",
+        markersize=11,
+        linewidth=1.2,
+        color="blue",
     )
     preview_title_text = (
-        "Crop and landmarks as measured, unflipped: " + input_tiff_absolute_path.name
-        + "\nrendered with " + DISPLAY_COLORMAP_NAME
+        "Crop and landmarks as measured, unflipped: "
+        + input_tiff_absolute_path.name
+        + "\nrendered with "
+        + DISPLAY_COLORMAP_NAME
         + " to match Fiji's inverting LUT; migration axis "
         + preview_geometry["gel_migration_axis"]
     )
     if preprocess_sidecar_record["derived_tilt_angle_degrees"] is not None:
-        preview_title_text += (
-            "\nderived tilt %.4f degrees over a %.0f pixel span"
-            % (preprocess_sidecar_record["derived_tilt_angle_degrees"],
-               preprocess_sidecar_record["landmark_span_pixels"])
+        preview_title_text += "\nderived tilt %.4f degrees over a %.0f pixel span" % (
+            preprocess_sidecar_record["derived_tilt_angle_degrees"],
+            preprocess_sidecar_record["landmark_span_pixels"],
         )
     preview_axes.set_title(preview_title_text, fontsize="medium")
     preview_axes.set_xlabel("column / " + str(preview_stride) + " (Fiji x)")
-    preview_axes.set_ylabel("row / " + str(preview_stride) + " (Fiji y, increasing downward)")
+    preview_axes.set_ylabel(
+        "row / " + str(preview_stride) + " (Fiji y, increasing downward)"
+    )
     preview_figure.tight_layout()
     try:
         preview_figure.savefig(crop_preview_image_output_path, dpi=FIGURE_DOTS_PER_INCH)
         crop_preview_was_written = True
     except OSError as preview_write_error:
-        die("crop preview", "could not write " + str(crop_preview_image_output_path)
-            + ": " + str(preview_write_error))
+        die(
+            "crop preview",
+            "could not write "
+            + str(crop_preview_image_output_path)
+            + ": "
+            + str(preview_write_error),
+        )
     matplotlib.pyplot.close(preview_figure)
-    emit_message("crop preview", "wrote " + str(crop_preview_image_output_path)
-                 + " at stride " + str(preview_stride))
+    emit_message(
+        "crop preview",
+        "wrote "
+        + str(crop_preview_image_output_path)
+        + " at stride "
+        + str(preview_stride),
+    )
 
 # =============================================================================
 # Report
 # =============================================================================
 
 failed_hard_stop_check_names = [
-    finding["check_name"] for finding in VALIDATION_FINDINGS
+    finding["check_name"]
+    for finding in VALIDATION_FINDINGS
     if finding["is_hard_stop"] and finding["status"] == "fail"
 ]
 warning_check_names = [
-    finding["check_name"] for finding in VALIDATION_FINDINGS if finding["status"] == "warning"
+    finding["check_name"]
+    for finding in VALIDATION_FINDINGS
+    if finding["status"] == "warning"
 ]
 overall_status = "fail" if len(failed_hard_stop_check_names) > 0 else "pass"
 
@@ -2136,8 +2690,12 @@ validation_report = {
         "photometric_integer": int(page_photometric),
         "photometric_name": page_photometric_name,
         "decoded_dtype": str(pixel_array.dtype) if pixel_array is not None else None,
-        "decoded_width_pixels": pixel_array_width_pixels if pixel_statistics_were_computed else None,
-        "decoded_height_pixels": pixel_array_height_pixels if pixel_statistics_were_computed else None,
+        "decoded_width_pixels": pixel_array_width_pixels
+        if pixel_statistics_were_computed
+        else None,
+        "decoded_height_pixels": pixel_array_height_pixels
+        if pixel_statistics_were_computed
+        else None,
         "estimated_float64_footprint_bytes": (
             int(page_image_width_pixels * page_image_length_pixels * 8)
         ),
@@ -2147,14 +2705,19 @@ validation_report = {
         "micrometres_per_pixel_by_axis": micrometres_per_pixel_by_axis,
         "resolution_unit_integer": resolution_unit_value,
         "image_extent_millimetres": (
-            [pixel_array_width_pixels * micrometres_per_pixel / 1000.0,
-             pixel_array_height_pixels * micrometres_per_pixel / 1000.0]
-            if micrometres_per_pixel is not None else None
+            [
+                pixel_array_width_pixels * micrometres_per_pixel / 1000.0,
+                pixel_array_height_pixels * micrometres_per_pixel / 1000.0,
+            ]
+            if micrometres_per_pixel is not None
+            else None
         ),
         "orientation_sources": orientation_sources,
     },
     "pixel_statistics_were_computed": pixel_statistics_were_computed,
-    "pixel_statistics": None if not pixel_statistics_were_computed else {
+    "pixel_statistics": None
+    if not pixel_statistics_were_computed
+    else {
         "total_pixel_count": total_pixel_count,
         "minimum_value": minimum_pixel_value,
         "maximum_value": maximum_pixel_value,
@@ -2172,10 +2735,11 @@ validation_report = {
         "effective_bits_per_sample": effective_bits_per_sample,
         "inferred_ceiling_value": inferred_ceiling_value,
         "at_inferred_ceiling_pixel_count": at_inferred_ceiling_pixel_count,
-        "at_inferred_ceiling_pixel_fraction": at_inferred_ceiling_pixel_count / total_pixel_count,
+        "at_inferred_ceiling_pixel_fraction": at_inferred_ceiling_pixel_count
+        / total_pixel_count,
         "at_container_maximum_pixel_count": at_container_maximum_pixel_count,
-        "at_container_maximum_pixel_fraction":
-            at_container_maximum_pixel_count / total_pixel_count,
+        "at_container_maximum_pixel_fraction": at_container_maximum_pixel_count
+        / total_pixel_count,
         "at_maximum_observed_pixel_count": at_maximum_observed_pixel_count,
         "saturation_spike_ratio": saturation_spike_ratio,
         "at_floor_pixel_count": at_floor_pixel_count,
@@ -2190,7 +2754,7 @@ validation_report = {
         "encoding_verified": False,
         "read_path_container": "tif",
         "vendor_claim_for_tif": "linear 16-bit grayscale, per Cytiva/GE documentation as "
-                               "reported in DESIGN.md section 10",
+        "reported in DESIGN.md section 10",
         "inf_scale_type": None,
         "inf_signal_process_2": None,
         "exposure_time_text": image_description_first_value_by_key.get("Exposure time"),
@@ -2222,7 +2786,9 @@ validation_report = {
     "preprocess_sidecar": preprocess_sidecar_record,
     "outputs": {
         "validation_report": str(validation_report_output_path),
-        "histogram_image": str(histogram_image_output_path) if histogram_was_written else None,
+        "histogram_image": str(histogram_image_output_path)
+        if histogram_was_written
+        else None,
         "crop_preview_image": (
             str(crop_preview_image_output_path) if crop_preview_was_written else None
         ),
@@ -2231,7 +2797,7 @@ validation_report = {
     "run_log_lines": ACCUMULATED_RUN_LOG_LINES,
 }
 
-for keyed_prefix, keyed_name, keyed_value in (inf_sidecar_record["keyed_pairs"] or []):
+for keyed_prefix, keyed_name, keyed_value in inf_sidecar_record["keyed_pairs"] or []:
     if keyed_name == "ScaleType":
         validation_report["linearity_evidence"]["inf_scale_type"] = keyed_value
     elif keyed_name == "SignalProcess2":
@@ -2247,13 +2813,23 @@ except TypeError as serialization_error:
     # wrongly, which is the good case. If this fires, a value reached the report
     # without being converted, and writing a partial report would be worse than
     # saying so.
-    die("report", "the report contains a value that will not serialize: "
-        + str(serialization_error))
+    die(
+        "report",
+        "the report contains a value that will not serialize: "
+        + str(serialization_error),
+    )
 try:
-    validation_report_output_path.write_text(validation_report_text + "\n", encoding="ascii")
+    validation_report_output_path.write_text(
+        validation_report_text + "\n", encoding="ascii"
+    )
 except OSError as report_write_error:
-    die("report", "could not write " + str(validation_report_output_path)
-        + ": " + str(report_write_error))
+    die(
+        "report",
+        "could not write "
+        + str(validation_report_output_path)
+        + ": "
+        + str(report_write_error),
+    )
 emit_message("report", "wrote " + str(validation_report_output_path))
 
 tiff_file_handle.close()
@@ -2264,20 +2840,34 @@ print("failed_hard_stop_count\t" + str(len(failed_hard_stop_check_names)))
 print("warning_count\t" + str(len(warning_check_names)))
 print("validation_report_path\t" + str(validation_report_output_path))
 print("histogram_image_path\t" + str(histogram_image_output_path))
-print("crop_preview_image_path\t"
-      + (str(crop_preview_image_output_path) if crop_preview_was_written else "not written"))
+print(
+    "crop_preview_image_path\t"
+    + (
+        str(crop_preview_image_output_path)
+        if crop_preview_was_written
+        else "not written"
+    )
+)
 
 for finding in VALIDATION_FINDINGS:
     if finding["status"] == "fail":
-        emit_message("finding", "FAIL " + finding["check_name"] + ": " + finding["detail"])
+        emit_message(
+            "finding", "FAIL " + finding["check_name"] + ": " + finding["detail"]
+        )
     elif finding["status"] == "warning":
-        emit_message("finding", "WARNING " + finding["check_name"] + ": " + finding["detail"])
+        emit_message(
+            "finding", "WARNING " + finding["check_name"] + ": " + finding["detail"]
+        )
 
 emit_message(
     "stage 1",
-    "complete; overall status " + overall_status + ", "
-    + str(len(failed_hard_stop_check_names)) + " failed hard stop(s), "
-    + str(len(warning_check_names)) + " warning(s). The report was written either way, "
+    "complete; overall status "
+    + overall_status
+    + ", "
+    + str(len(failed_hard_stop_check_names))
+    + " failed hard stop(s), "
+    + str(len(warning_check_names))
+    + " warning(s). The report was written either way, "
     "so a failure is diagnosable from the file rather than only from this scrollback.",
 )
 sys.exit(1 if overall_status == "fail" else 0)

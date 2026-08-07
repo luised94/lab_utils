@@ -153,11 +153,14 @@ argument_parser.add_argument(
 )
 parsed_arguments = argument_parser.parse_args()
 
-emit_message("arguments", "input image path as given: " + repr(parsed_arguments.input_image_path))
+emit_message(
+    "arguments", "input image path as given: " + repr(parsed_arguments.input_image_path)
+)
 if parsed_arguments.output_parent_directory is not None:
     emit_message(
         "arguments",
-        "output parent directory as given: " + repr(parsed_arguments.output_parent_directory),
+        "output parent directory as given: "
+        + repr(parsed_arguments.output_parent_directory),
     )
 
 
@@ -185,7 +188,9 @@ for path_role_name, raw_path_text in path_normalization_inputs:
     # every session, the named-with-space case has not happened here.
     whitespace_stripped_path_text = working_path_text.strip(" \t\r\n")
     if whitespace_stripped_path_text != working_path_text:
-        emit_message(path_role_name, "stripped surrounding whitespace from the supplied path")
+        emit_message(
+            path_role_name, "stripped surrounding whitespace from the supplied path"
+        )
         working_path_text = whitespace_stripped_path_text
     if working_path_text == "":
         die(path_role_name, "path is empty after stripping surrounding whitespace")
@@ -245,12 +250,18 @@ for path_role_name, raw_path_text in path_normalization_inputs:
             if wslpath_result.returncode != 0:
                 die(
                     path_role_name,
-                    "wslpath refused to convert " + repr(working_path_text) + ": "
+                    "wslpath refused to convert "
+                    + repr(working_path_text)
+                    + ": "
                     + wslpath_result.stderr.strip(),
                 )
             converted_path_text = wslpath_result.stdout.strip("\n")
             if converted_path_text == "":
-                die(path_role_name, "wslpath returned an empty conversion for " + repr(working_path_text))
+                die(
+                    path_role_name,
+                    "wslpath returned an empty conversion for "
+                    + repr(working_path_text),
+                )
             emit_message(
                 path_role_name,
                 "converted Windows path via wslpath to " + converted_path_text,
@@ -262,22 +273,30 @@ for path_role_name, raw_path_text in path_normalization_inputs:
             # [automount] root = / is a common change, and hardcoding /mnt/ there
             # produces a path that silently does not exist.
             try:
-                wsl_configuration_text = pathlib.Path(WSL_CONFIGURATION_FILE_PATH).read_text()
+                wsl_configuration_text = pathlib.Path(
+                    WSL_CONFIGURATION_FILE_PATH
+                ).read_text()
             except OSError:
                 wsl_configuration_text = ""
             inside_automount_section = False
             for wsl_configuration_line in wsl_configuration_text.splitlines():
                 stripped_configuration_line = wsl_configuration_line.strip()
                 if stripped_configuration_line.startswith("["):
-                    inside_automount_section = stripped_configuration_line.lower() == "[automount]"
+                    inside_automount_section = (
+                        stripped_configuration_line.lower() == "[automount]"
+                    )
                     continue
                 if inside_automount_section and "=" in stripped_configuration_line:
-                    configuration_key, configuration_value = stripped_configuration_line.split("=", 1)
+                    configuration_key, configuration_value = (
+                        stripped_configuration_line.split("=", 1)
+                    )
                     if configuration_key.strip().lower() == "root":
                         windows_drive_mount_root = configuration_value.strip()
                         if not windows_drive_mount_root.endswith("/"):
                             windows_drive_mount_root = windows_drive_mount_root + "/"
-            path_remainder_after_drive = working_path_text[len(windows_drive_match.group(0)):]
+            path_remainder_after_drive = working_path_text[
+                len(windows_drive_match.group(0)) :
+            ]
             converted_path_text = (
                 windows_drive_mount_root
                 + windows_drive_letter
@@ -287,7 +306,10 @@ for path_role_name, raw_path_text in path_normalization_inputs:
             emit_message(
                 path_role_name,
                 "wslpath is unavailable; converted Windows path by string transform "
-                "using mount root " + windows_drive_mount_root + " to " + converted_path_text,
+                "using mount root "
+                + windows_drive_mount_root
+                + " to "
+                + converted_path_text,
             )
             working_path_text = converted_path_text
 
@@ -299,14 +321,19 @@ for path_role_name, raw_path_text in path_normalization_inputs:
         try:
             tilde_expanded_path_text = os.path.expanduser(working_path_text)
         except RuntimeError as tilde_expansion_error:
-            die(path_role_name, "cannot expand the leading tilde: " + str(tilde_expansion_error))
+            die(
+                path_role_name,
+                "cannot expand the leading tilde: " + str(tilde_expansion_error),
+            )
         if tilde_expanded_path_text == working_path_text:
             die(
                 path_role_name,
                 "the leading tilde in " + repr(working_path_text) + " did not expand; "
                 "the named user probably does not exist on this machine.",
             )
-        emit_message(path_role_name, "expanded leading tilde to " + tilde_expanded_path_text)
+        emit_message(
+            path_role_name, "expanded leading tilde to " + tilde_expanded_path_text
+        )
         working_path_text = tilde_expanded_path_text
 
     if not pathlib.Path(working_path_text).is_absolute():
@@ -335,11 +362,16 @@ for path_role_name, raw_path_text in path_normalization_inputs:
     # stdout is a tab separated report, so a tab or newline in a path would
     # corrupt it. Both are legal in POSIX filenames, so this is checked rather
     # than assumed away.
-    for forbidden_character_name, forbidden_character in (("tab", "\t"), ("newline", "\n")):
+    for forbidden_character_name, forbidden_character in (
+        ("tab", "\t"),
+        ("newline", "\n"),
+    ):
         if forbidden_character in str(lexically_absolute_path):
             die(
                 path_role_name,
-                "path contains a literal " + forbidden_character_name + ", which cannot "
+                "path contains a literal "
+                + forbidden_character_name
+                + ", which cannot "
                 "be represented in the tab separated report written to stdout.",
             )
 
@@ -364,15 +396,20 @@ emit_message("stage 0", "path normalization complete")
 # Existence, file type and readability of the input and its .inf sidecar
 # =============================================================================
 
-input_image_absolute_path = normalized_paths_by_role["input_image_path"]["lexically_absolute_path"]
-input_image_physical_path = normalized_paths_by_role["input_image_path"]["symlink_resolved_absolute_path"]
+input_image_absolute_path = normalized_paths_by_role["input_image_path"][
+    "lexically_absolute_path"
+]
+input_image_physical_path = normalized_paths_by_role["input_image_path"][
+    "symlink_resolved_absolute_path"
+]
 
 # Passing the sidecar where the image belongs would otherwise survive stage 0 and
 # reach stage 1, where 1,170 bytes of text get reshaped as if they were pixels.
 if input_image_absolute_path.suffix.lower() == INF_SIDECAR_SUFFIX:
     die(
         "arguments",
-        "the input is the .inf sidecar itself: " + str(input_image_absolute_path)
+        "the input is the .inf sidecar itself: "
+        + str(input_image_absolute_path)
         + ". Pass the image; the sidecar is located from its stem.",
     )
 
@@ -418,18 +455,23 @@ else:
         if len(case_variant_names) > 0:
             case_variant_hint_text = (
                 " A file differing only in case exists: "
-                + ", ".join(case_variant_names) + "."
+                + ", ".join(case_variant_names)
+                + "."
             )
     emit_message(
         "inf sidecar",
-        "WARNING: no sidecar at " + str(inf_sidecar_absolute_path)
+        "WARNING: no sidecar at "
+        + str(inf_sidecar_absolute_path)
         + ". Pixel size, orientation, ScaleType, Invert and PMT voltage are then "
         "unavailable and must come from the container's own tags or be recorded as "
         "unknown." + case_variant_hint_text,
     )
 
-for file_role_label, file_absolute_path, file_not_found_hint_text in files_requiring_checks:
-
+for (
+    file_role_label,
+    file_absolute_path,
+    file_not_found_hint_text,
+) in files_requiring_checks:
     # lexists rather than exists, so that a broken symlink is reported as a broken
     # symlink instead of as a missing file.
     if not os.path.lexists(file_absolute_path):
@@ -437,7 +479,9 @@ for file_role_label, file_absolute_path, file_not_found_hint_text in files_requi
         # an actionable message when the real fault is an unmounted drive or a
         # mistyped directory several levels up.
         first_missing_path_component = file_absolute_path
-        for candidate_ancestor_path in [file_absolute_path] + list(file_absolute_path.parents):
+        for candidate_ancestor_path in [file_absolute_path] + list(
+            file_absolute_path.parents
+        ):
             if os.path.lexists(candidate_ancestor_path):
                 break
             first_missing_path_component = candidate_ancestor_path
@@ -455,22 +499,33 @@ for file_role_label, file_absolute_path, file_not_found_hint_text in files_requi
             if len(case_variant_names) > 0:
                 case_variant_hint_text = (
                     " A file differing only in case exists: "
-                    + ", ".join(case_variant_names) + "."
+                    + ", ".join(case_variant_names)
+                    + "."
                 )
         die(
             "existence",
-            file_role_label + " not found: " + str(file_absolute_path)
+            file_role_label
+            + " not found: "
+            + str(file_absolute_path)
             + ". Highest path component that does not exist: "
-            + str(first_missing_path_component) + "."
-            + case_variant_hint_text + file_not_found_hint_text,
+            + str(first_missing_path_component)
+            + "."
+            + case_variant_hint_text
+            + file_not_found_hint_text,
         )
 
     file_link_status = os.lstat(file_absolute_path)
-    if stat.S_ISLNK(file_link_status.st_mode) and not os.path.exists(file_absolute_path):
+    if stat.S_ISLNK(file_link_status.st_mode) and not os.path.exists(
+        file_absolute_path
+    ):
         die(
             "existence",
-            file_role_label + " " + str(file_absolute_path) + " is a symlink whose target "
-            + str(pathlib.Path(file_absolute_path).resolve()) + " does not exist.",
+            file_role_label
+            + " "
+            + str(file_absolute_path)
+            + " is a symlink whose target "
+            + str(pathlib.Path(file_absolute_path).resolve())
+            + " does not exist.",
         )
 
     file_status = os.stat(file_absolute_path)
@@ -478,17 +533,26 @@ for file_role_label, file_absolute_path, file_not_found_hint_text in files_requi
     # Rejecting non-regular files before opening anything is not pedantry: opening
     # a named pipe blocks until a writer appears, so the readability probe below
     # would hang forever rather than fail.
-    for non_regular_type_name, non_regular_type_predicate in NON_REGULAR_FILE_TYPE_PREDICATES:
+    for (
+        non_regular_type_name,
+        non_regular_type_predicate,
+    ) in NON_REGULAR_FILE_TYPE_PREDICATES:
         if non_regular_type_predicate(file_status.st_mode):
             directory_hint_text = ""
-            if non_regular_type_name == "directory" and file_role_label == "input image":
-                directory_hint_text = (
-                    " Directory mode is stage 4 in DESIGN.md section 7; pass a single file."
-                )
+            if (
+                non_regular_type_name == "directory"
+                and file_role_label == "input image"
+            ):
+                directory_hint_text = " Directory mode is stage 4 in DESIGN.md section 7; pass a single file."
             die(
                 "file type",
-                file_role_label + " " + str(file_absolute_path) + " is a "
-                + non_regular_type_name + ", not a regular file." + directory_hint_text,
+                file_role_label
+                + " "
+                + str(file_absolute_path)
+                + " is a "
+                + non_regular_type_name
+                + ", not a regular file."
+                + directory_hint_text,
             )
     if not stat.S_ISREG(file_status.st_mode):
         die(
@@ -530,15 +594,24 @@ for file_role_label, file_absolute_path, file_not_found_hint_text in files_requi
     if len(readability_probe_bytes) != READABILITY_PROBE_BYTE_COUNT:
         die(
             "readability",
-            file_role_label + " " + str(file_absolute_path) + " opened but returned "
-            + str(len(readability_probe_bytes)) + " bytes instead of "
-            + str(READABILITY_PROBE_BYTE_COUNT) + ".",
+            file_role_label
+            + " "
+            + str(file_absolute_path)
+            + " opened but returned "
+            + str(len(readability_probe_bytes))
+            + " bytes instead of "
+            + str(READABILITY_PROBE_BYTE_COUNT)
+            + ".",
         )
 
     emit_message(
         "readability",
-        file_role_label + ": opened and read " + str(len(readability_probe_bytes))
-        + " byte; reported size is " + str(file_status.st_size) + " bytes",
+        file_role_label
+        + ": opened and read "
+        + str(len(readability_probe_bytes))
+        + " byte; reported size is "
+        + str(file_status.st_size)
+        + " bytes",
     )
 
 emit_message("stage 0", "input checks complete")
@@ -562,7 +635,9 @@ else:
     if not output_parent_directory_path.is_dir():
         die(
             "output directory",
-            "--output-parent-directory " + str(output_parent_directory_path) + " does not "
+            "--output-parent-directory "
+            + str(output_parent_directory_path)
+            + " does not "
             "exist as a directory. Only the per-input output directory is created; the "
             "parent must already exist so that a typo cannot build a tree elsewhere.",
         )
@@ -591,23 +666,32 @@ try:
 except PermissionError as directory_permission_error:
     die(
         "output directory",
-        "cannot create " + str(output_directory_path) + ": " + str(directory_permission_error)
+        "cannot create "
+        + str(output_directory_path)
+        + ": "
+        + str(directory_permission_error)
         + ". If the input sits on a read-only mount, pass --output-parent-directory.",
     )
 except OSError as directory_creation_error:
     die(
         "output directory",
-        "cannot create " + str(output_directory_path) + ": " + str(directory_creation_error),
+        "cannot create "
+        + str(output_directory_path)
+        + ": "
+        + str(directory_creation_error),
     )
 
-existing_output_entry_names = sorted(entry.name for entry in output_directory_path.iterdir())
+existing_output_entry_names = sorted(
+    entry.name for entry in output_directory_path.iterdir()
+)
 if len(existing_output_entry_names) > 0:
     # DESIGN.md 5.9 makes reruns overwrite deliberately, so this is not an error.
     # It is worth saying out loud, because the directory contents after a failed
     # run are a mixture of two runs until the next one completes.
     emit_message(
         "output directory",
-        "WARNING: already contains " + str(len(existing_output_entry_names))
+        "WARNING: already contains "
+        + str(len(existing_output_entry_names))
         + " entries which a full run will overwrite: "
         + ", ".join(existing_output_entry_names),
     )
@@ -622,11 +706,14 @@ try:
 except OSError as writability_error:
     die(
         "output directory",
-        str(output_directory_path) + " exists but cannot be written to: "
+        str(output_directory_path)
+        + " exists but cannot be written to: "
         + str(writability_error)
         + ". Pass --output-parent-directory to place outputs elsewhere.",
     )
-emit_message("output directory", "created and confirmed writable: " + str(output_directory_path))
+emit_message(
+    "output directory", "created and confirmed writable: " + str(output_directory_path)
+)
 
 # =============================================================================
 # Resolved path report
@@ -643,7 +730,8 @@ print("output_directory_path\t" + str(output_directory_path))
 
 emit_message(
     "stage 0",
-    "complete; no image data was read and " + str(len(ACCUMULATED_RUN_LOG_LINES))
+    "complete; no image data was read and "
+    + str(len(ACCUMULATED_RUN_LOG_LINES))
     + " run log lines accumulated for the stage 2 provenance JSON",
 )
 sys.exit(0)

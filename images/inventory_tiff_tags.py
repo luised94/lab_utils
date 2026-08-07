@@ -125,7 +125,9 @@ for quote_character in SURROUNDING_QUOTE_CHARACTERS:
         and working_path_text.startswith(quote_character)
         and working_path_text.endswith(quote_character)
     ):
-        emit_message("path", "removed a surrounding pair of " + quote_character + " characters")
+        emit_message(
+            "path", "removed a surrounding pair of " + quote_character + " characters"
+        )
         working_path_text = working_path_text[1:-1]
         break
 
@@ -144,7 +146,10 @@ if working_path_text.startswith("~"):
     except RuntimeError as tilde_expansion_error:
         die("path", "cannot expand the leading tilde: " + str(tilde_expansion_error))
     if tilde_expanded_path_text == working_path_text:
-        die("path", "the leading tilde in " + repr(working_path_text) + " did not expand")
+        die(
+            "path",
+            "the leading tilde in " + repr(working_path_text) + " did not expand",
+        )
     emit_message("path", "expanded leading tilde to " + tilde_expanded_path_text)
     working_path_text = tilde_expanded_path_text
 
@@ -153,8 +158,10 @@ input_tiff_physical_path = pathlib.Path(working_path_text).resolve()
 if input_tiff_physical_path != input_tiff_absolute_path:
     emit_message(
         "path",
-        "path traverses a symlink: given form " + str(input_tiff_absolute_path)
-        + " resolves to physical form " + str(input_tiff_physical_path),
+        "path traverses a symlink: given form "
+        + str(input_tiff_absolute_path)
+        + " resolves to physical form "
+        + str(input_tiff_physical_path),
     )
 emit_message("path", "normalized to " + str(input_tiff_absolute_path))
 
@@ -164,33 +171,46 @@ emit_message("path", "normalized to " + str(input_tiff_absolute_path))
 
 if not os.path.lexists(input_tiff_absolute_path):
     first_missing_path_component = input_tiff_absolute_path
-    for candidate_ancestor_path in [input_tiff_absolute_path] + list(input_tiff_absolute_path.parents):
+    for candidate_ancestor_path in [input_tiff_absolute_path] + list(
+        input_tiff_absolute_path.parents
+    ):
         if os.path.lexists(candidate_ancestor_path):
             break
         first_missing_path_component = candidate_ancestor_path
     die(
         "existence",
-        "input not found: " + str(input_tiff_absolute_path)
-        + ". Highest path component that does not exist: " + str(first_missing_path_component),
+        "input not found: "
+        + str(input_tiff_absolute_path)
+        + ". Highest path component that does not exist: "
+        + str(first_missing_path_component),
     )
 
 input_tiff_link_status = os.lstat(input_tiff_absolute_path)
-if stat.S_ISLNK(input_tiff_link_status.st_mode) and not os.path.exists(input_tiff_absolute_path):
+if stat.S_ISLNK(input_tiff_link_status.st_mode) and not os.path.exists(
+    input_tiff_absolute_path
+):
     die(
         "existence",
-        str(input_tiff_absolute_path) + " is a symlink whose target "
-        + str(input_tiff_physical_path) + " does not exist.",
+        str(input_tiff_absolute_path)
+        + " is a symlink whose target "
+        + str(input_tiff_physical_path)
+        + " does not exist.",
     )
 
 input_tiff_file_status = os.stat(input_tiff_absolute_path)
 
 # Rejecting non-regular files before opening anything: opening a named pipe blocks
 # until a writer appears, so the probe below would hang rather than fail.
-for non_regular_type_name, non_regular_type_predicate in NON_REGULAR_FILE_TYPE_PREDICATES:
+for (
+    non_regular_type_name,
+    non_regular_type_predicate,
+) in NON_REGULAR_FILE_TYPE_PREDICATES:
     if non_regular_type_predicate(input_tiff_file_status.st_mode):
         die(
             "file type",
-            str(input_tiff_absolute_path) + " is a " + non_regular_type_name
+            str(input_tiff_absolute_path)
+            + " is a "
+            + non_regular_type_name
             + ", not a regular file.",
         )
 if not stat.S_ISREG(input_tiff_file_status.st_mode):
@@ -203,15 +223,22 @@ if input_tiff_file_status.st_size == 0:
 # real permissions, and access() as root returns true for nearly everything.
 try:
     with open(input_tiff_absolute_path, "rb") as input_tiff_file_handle:
-        readability_probe_bytes = input_tiff_file_handle.read(READABILITY_PROBE_BYTE_COUNT)
+        readability_probe_bytes = input_tiff_file_handle.read(
+            READABILITY_PROBE_BYTE_COUNT
+        )
 except OSError as open_error:
-    die("readability", str(input_tiff_absolute_path) + " failed to open: " + str(open_error))
+    die(
+        "readability",
+        str(input_tiff_absolute_path) + " failed to open: " + str(open_error),
+    )
 if len(readability_probe_bytes) != READABILITY_PROBE_BYTE_COUNT:
     die("readability", str(input_tiff_absolute_path) + " opened but returned no bytes.")
 
 emit_message(
     "readability",
-    "opened and read 1 byte; reported size is " + str(input_tiff_file_status.st_size) + " bytes",
+    "opened and read 1 byte; reported size is "
+    + str(input_tiff_file_status.st_size)
+    + " bytes",
 )
 
 # =============================================================================
@@ -225,8 +252,12 @@ except Exception as tiff_open_error:
     # so any failure to parse it as TIFF is a result to report, not a crash.
     die(
         "tiff",
-        "tifffile could not parse " + str(input_tiff_absolute_path) + " as TIFF: "
-        + type(tiff_open_error).__name__ + ": " + str(tiff_open_error),
+        "tifffile could not parse "
+        + str(input_tiff_absolute_path)
+        + " as TIFF: "
+        + type(tiff_open_error).__name__
+        + ": "
+        + str(tiff_open_error),
     )
 
 print("file_path\t" + str(input_tiff_absolute_path))
@@ -241,9 +272,18 @@ print("page_count\t" + str(len(tiff_file_handle.pages)))
 for page_index, tiff_page in enumerate(tiff_file_handle.pages):
     print()
     print("=== page " + str(page_index) + " ===")
-    for page_attribute_name in ("shape", "dtype", "axes", "photometric", "compression",
-                                "planarconfig", "predictor", "sampleformat",
-                                "bitspersample", "samplesperpixel"):
+    for page_attribute_name in (
+        "shape",
+        "dtype",
+        "axes",
+        "photometric",
+        "compression",
+        "planarconfig",
+        "predictor",
+        "sampleformat",
+        "bitspersample",
+        "samplesperpixel",
+    ):
         page_attribute_value = getattr(tiff_page, page_attribute_name, None)
         print("page_" + page_attribute_name + "\t" + repr(page_attribute_value))
 
@@ -254,40 +294,59 @@ for page_index, tiff_page in enumerate(tiff_file_handle.pages):
         if len(tag_value_text) > TAG_VALUE_CHARACTER_LIMIT:
             tag_value_text = (
                 tag_value_text[:TAG_VALUE_CHARACTER_LIMIT]
-                + "... [truncated, " + str(len(tag_value_text)) + " characters total]"
+                + "... [truncated, "
+                + str(len(tag_value_text))
+                + " characters total]"
             )
         # repr keeps the output ASCII even when a tag holds arbitrary bytes, which
         # CONVENTIONS.md section 4 requires of every emitted message.
-        tag_line = "\t".join([
-            str(tiff_tag.code),
-            str(tiff_tag.name),
-            str(tiff_tag.dtype),
-            str(tiff_tag.count),
-            tag_value_text,
-        ])
+        tag_line = "\t".join(
+            [
+                str(tiff_tag.code),
+                str(tiff_tag.name),
+                str(tiff_tag.dtype),
+                str(tiff_tag.count),
+                tag_value_text,
+            ]
+        )
         if tiff_tag.code >= PRIVATE_TAG_CODE_FLOOR:
             private_tag_lines.append(tag_line)
         else:
             ordinary_tag_lines.append(tag_line)
 
     print()
-    print("-- standard tags, page " + str(page_index) + " (code, name, dtype, count, value) --")
-    for tag_line in sorted(ordinary_tag_lines, key=lambda line: int(line.split("\t")[0])):
+    print(
+        "-- standard tags, page "
+        + str(page_index)
+        + " (code, name, dtype, count, value) --"
+    )
+    for tag_line in sorted(
+        ordinary_tag_lines, key=lambda line: int(line.split("\t")[0])
+    ):
         print(tag_line)
 
     print()
-    print("-- private tags " + str(PRIVATE_TAG_CODE_FLOOR) + " and above, page "
-          + str(page_index) + " --")
+    print(
+        "-- private tags "
+        + str(PRIVATE_TAG_CODE_FLOOR)
+        + " and above, page "
+        + str(page_index)
+        + " --"
+    )
     if len(private_tag_lines) == 0:
         print("(none)")
     else:
-        for tag_line in sorted(private_tag_lines, key=lambda line: int(line.split("\t")[0])):
+        for tag_line in sorted(
+            private_tag_lines, key=lambda line: int(line.split("\t")[0])
+        ):
             print(tag_line)
 
 tiff_file_handle.close()
 
 emit_message(
     "inventory",
-    "complete; " + str(len(tiff_file_handle.pages)) + " page(s) inventoried, nothing interpreted",
+    "complete; "
+    + str(len(tiff_file_handle.pages))
+    + " page(s) inventoried, nothing interpreted",
 )
 sys.exit(0)
