@@ -12,7 +12,11 @@
 # Format:
 #   - one key=value per line, no spaces around the =
 #   - lines starting with # are comments, blank lines are ignored
-#   - every key below is REQUIRED; the two free-text ones may be left empty
+#   - every key below is REQUIRED; the free-text and rotation-provenance ones may
+#     be left empty (a blank rotation field means no rotation was applied)
+#
+# A schema_version=2 sidecar (without the rotation block at the end) is still
+# accepted and read as "no rotation applied". schema_version=3 is current.
 #
 # WHAT FRAME YOU MEASURE IN. Open the raw .tif in Fiji and measure it exactly as
 # it opens: no rotation, no flip, no save. Fiji is a ruler here, nothing else.
@@ -21,7 +25,7 @@
 # bottom on screen. You do not need to correct for this. Record what you see; the
 # pipeline performs the flip later. The measured_in_frame key pins this contract.
 
-schema_version=2
+schema_version=3
 
 # Must be exactly raw_as_opened_unflipped. If the measuring convention ever
 # changes, old sidecars fail loudly instead of being silently reinterpreted.
@@ -106,3 +110,32 @@ expected_lane_count=0
 
 # Anything worth remembering about this scan. May be empty.
 notes=
+
+# ---------------------------------------------------------------------------
+# ROTATION PROVENANCE (schema_version 3). The measure stage never rotates,
+# because interpolating a rotation blurs the measurement. If you rotate the gel
+# in Fiji before measuring, that is the same blur moved upstream, so it is
+# recorded here and stage 1 warns on it. The wanted case is to place the gel
+# square on the scanner and leave all of this at its default: no rotation,
+# interpolation none.
+#
+# Degrees you rotated in Fiji (Image > Transform > Rotate). EMPTY means none,
+# which is the good case. A non-empty value here on a file that looks like the
+# raw instrument scan triggers a "wrong file?" warning.
+rotation_applied_degrees=
+
+# The interpolation Fiji's Rotate dialog used. REQUIRED (not blank): the template
+# ships 'none' and you change it only if you actually rotated.
+#   none     = no rotation applied, pixels untouched (the wanted case)
+#   bilinear = neighbour-blended; pixels are no longer raw counts (warns)
+#   bicubic  = neighbour-blended; pixels are no longer raw counts (warns)
+rotation_interpolation_method=none
+
+# Whether "Enlarge image to fit" was ticked in the Rotate dialog. When on, the
+# rotate pads the exposed corners with zeros. yes or no; may be empty if you did
+# not rotate.
+rotation_enlarged_canvas=
+
+# What you aligned to when rotating (gridlines, well line, cast edge), in words.
+# May be empty.
+rotation_reference=
