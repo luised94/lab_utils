@@ -2125,6 +2125,84 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                     "crop_height_pixels": crop_height_pixels,
                 }
 
+                # Floor-location split. The whole-image floor_population check above
+                # cannot tell a benign scan-pad border from real in-gel clipping,
+                # because it does not know the crop. On s0003 the 21 percent floor is
+                # all border and none of it is in the measured region. With the crop
+                # known, split the zero population inside versus outside the crop and
+                # escalate only when it is inside, where it would actually corrupt a
+                # baseline. See FINDINGS.md section 1.
+                if pixel_statistics_were_computed:
+                    crop_row_start = max(0, crop_y_pixels)
+                    crop_column_start = max(0, crop_x_pixels)
+                    crop_row_end = min(
+                        pixel_array_height_pixels, crop_y_pixels + crop_height_pixels
+                    )
+                    crop_column_end = min(
+                        pixel_array_width_pixels, crop_x_pixels + crop_width_pixels
+                    )
+                    crop_view = pixel_array[
+                        crop_row_start:crop_row_end, crop_column_start:crop_column_end
+                    ]
+                    crop_pixel_count = int(crop_view.size)
+                    floor_within_crop_count = int((crop_view == 0).sum())
+                    floor_outside_crop_count = at_floor_pixel_count - floor_within_crop_count
+                    outside_pixel_count = total_pixel_count - crop_pixel_count
+                    floor_within_crop_fraction = (
+                        floor_within_crop_count / crop_pixel_count
+                        if crop_pixel_count > 0
+                        else 0.0
+                    )
+                    floor_outside_crop_fraction = (
+                        floor_outside_crop_count / outside_pixel_count
+                        if outside_pixel_count > 0
+                        else 0.0
+                    )
+                    preprocess_sidecar_record["floor_within_crop"] = {
+                        "crop_pixel_count": crop_pixel_count,
+                        "floor_within_crop_count": floor_within_crop_count,
+                        "floor_within_crop_fraction": floor_within_crop_fraction,
+                        "floor_outside_crop_count": floor_outside_crop_count,
+                        "floor_outside_crop_fraction": floor_outside_crop_fraction,
+                    }
+                    floor_within_crop_exceeds = (
+                        floor_within_crop_fraction
+                        > FLOOR_POPULATION_FRACTION_WARNING_THRESHOLD
+                    )
+                    floor_within_crop_detail = (
+                        "%d of %d crop pixels are at zero (%.6f); outside the crop %d "
+                        "pixels are at zero (%.6f of the non-crop area)"
+                        % (
+                            floor_within_crop_count,
+                            crop_pixel_count,
+                            floor_within_crop_fraction,
+                            floor_outside_crop_count,
+                            floor_outside_crop_fraction,
+                        )
+                    )
+                    if floor_within_crop_exceeds:
+                        floor_within_crop_detail += (
+                            ". Zeros are inside the measured region, so a baseline "
+                            "there is against already-subtracted or clipped values."
+                        )
+                    elif (
+                        floor_population_fraction is not None
+                        and floor_population_fraction
+                        > FLOOR_POPULATION_FRACTION_WARNING_THRESHOLD
+                    ):
+                        floor_within_crop_detail += (
+                            ". The whole-image floor warning is a border outside the "
+                            "measured region and does not affect the crop."
+                        )
+                    VALIDATION_FINDINGS.append(
+                        {
+                            "check_name": "floor_population_within_crop",
+                            "status": "warning" if floor_within_crop_exceeds else "pass",
+                            "is_hard_stop": False,
+                            "detail": floor_within_crop_detail,
+                        }
+                    )
+
             VALIDATION_FINDINGS.append(
                 {
                     "check_name": "preprocess_sidecar_schema_version",
