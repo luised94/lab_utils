@@ -67,6 +67,7 @@ VALIDATION_REPORT_FILENAME = "input_file_validation_report.json"
 LANE_GRID_OVERLAY_FILENAME = "lane_grid_overlay.png"
 LANE_PROFILES_PLOT_FILENAME = "lane_profiles.png"
 LANE_PROFILES_CSV_FILENAME = "lane_profiles.csv"
+LANE_MIGRATION_PROFILES_CSV_FILENAME = "lane_migration_profiles.csv"
 
 # Tilt above this many degrees raises a warning (straighten and re-scan, or rotate
 # in Fiji before cropping); the gel is measured un-rotated either way. This was
@@ -1636,6 +1637,52 @@ for lane_record in per_lane_records:
     lane_detected_centres_by_well_index[lane_record["well_index"]] = list(
         lane_record["band_centre_migration_pixels"]
     )
+
+# Per-lane migration profiles for every expected lane, predicted-empty ones
+# included, on the shared crop migration axis. lane_profiles.csv holds the two
+# global projections (a misnomer kept for compatibility); this is the actual
+# per-lane trace R needs to plot a lane, blank or not, and to build a lane-by-
+# position matrix for vector work. Detrended with the same uniform-filter baseline
+# the projections use, so the column means the same thing here. Raw is the faithful
+# summed strip. Scaling for display is left to R by design.
+lane_migration_profiles_csv_lines = [
+    "well_index,loaded_lane_index,lane_detection_status,prediction_span,"
+    "migration_position_pixels,migration_position_millimetres,raw_value,"
+    "detrended_value"
+]
+for lane_record in sorted(per_lane_records, key=lambda record: record["well_index"]):
+    profile_well_index = lane_record["well_index"]
+    raw_lane_profile = lane_profile_by_well_index[profile_well_index]
+    profile_length = raw_lane_profile.size
+    profile_smoothing_window = max(
+        3, int(round(2.0 * profile_length / float(expected_lane_count)))
+    )
+    profile_baseline = scipy.ndimage.uniform_filter1d(
+        raw_lane_profile, size=profile_smoothing_window, mode="nearest"
+    )
+    detrended_lane_profile = raw_lane_profile - profile_baseline
+    detrended_lane_profile = detrended_lane_profile - detrended_lane_profile.mean()
+    for position_index in range(profile_length):
+        lane_migration_profiles_csv_lines.append(
+            "%d,%s,%s,%s,%d,%.6f,%.6f,%.6f"
+            % (
+                profile_well_index,
+                str(lane_record["loaded_lane_index"]),
+                lane_record["lane_detection_status"],
+                lane_record["prediction_span"],
+                position_index,
+                position_index * millimetres_per_pixel,
+                float(raw_lane_profile[position_index]),
+                float(detrended_lane_profile[position_index]),
+            )
+        )
+lane_migration_profiles_csv_path = (
+    output_directory_path / LANE_MIGRATION_PROFILES_CSV_FILENAME
+)
+lane_migration_profiles_csv_path.write_text(
+    "\n".join(lane_migration_profiles_csv_lines) + "\n"
+)
+emit_message("profiles", "wrote " + str(lane_migration_profiles_csv_path))
 
 canonical_band_records = []
 if (
