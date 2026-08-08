@@ -1477,6 +1477,21 @@ if comb_prediction_supported:
     all_lane_centres_sorted = sorted(
         list(ordered_lane_centres) + list(predicted_centre_by_slot.values())
     )
+    # Footprint fairness: a predicted lane must integrate the same stacking height a
+    # real lane does, or its "empty" value is measured over a wider area than a real
+    # band and pulls in inter-comb background, biasing any cross-lane comparison. Use
+    # the median detected strip height, centred on the comb position, still clamped
+    # to the neighbour midpoints so it cannot bleed into an adjacent loaded lane.
+    detected_strip_heights = [
+        record["strip_bottom_stacking_pixels"] - record["strip_top_stacking_pixels"]
+        for record in per_lane_records
+        if record["lane_detection_status"] == "detected"
+    ]
+    predicted_strip_half_height = (
+        int(round(0.5 * float(numpy.median(detected_strip_heights))))
+        if detected_strip_heights
+        else lane_strip_fixed_half_height_pixels
+    )
     for comb_slot in sorted(predicted_centre_by_slot):
         predicted_centre = predicted_centre_by_slot[comb_slot]
         centre_position = all_lane_centres_sorted.index(predicted_centre)
@@ -1492,9 +1507,15 @@ if comb_prediction_supported:
             )
         else:
             upper_bound = predicted_centre + lane_pitch_pixels
-        predicted_strip_top = max(0, int(math.floor(lower_bound)))
+        territory_top = max(0, int(math.floor(lower_bound)))
+        territory_bottom = min(stacking_extent_pixels, int(math.ceil(upper_bound)))
+        predicted_strip_top = max(
+            territory_top,
+            int(round(predicted_centre)) - predicted_strip_half_height,
+        )
         predicted_strip_bottom = min(
-            stacking_extent_pixels, int(math.ceil(upper_bound))
+            territory_bottom,
+            int(round(predicted_centre)) + predicted_strip_half_height,
         )
         predicted_strip_signal = usable_stacking_by_migration_signal[
             predicted_strip_top:predicted_strip_bottom, :
