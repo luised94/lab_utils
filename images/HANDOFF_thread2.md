@@ -27,7 +27,7 @@ FAILED and must not be retried (straight-line fit to a curve, cross-correlation
 across mismatched ends, deskew/Radon hijacked by blobs, fixed-window tracker that
 clamps on real tilt). Section 4 is the deferred smile-metric brief.
 
-Stage 2 (`measure_gel.py`, final md5 b59ca42f):
+Stage 2 (`measure_gel.py`, final md5 653b6d45):
 - Empty-lane / pitch prediction: loaded-but-defective comb positions (negative
   control, dead mutant) now get a real integrated value at the consensus positions
   instead of an absent row. The comb fitted to populated lanes places every missing
@@ -42,6 +42,11 @@ Stage 2 (`measure_gel.py`, final md5 b59ca42f):
 - Guards (warn): fallback pitch; a comb slot at/beyond expected_lane_count; a
   predicted lane carrying >40% of the strongest band (missed lane or strong-neighbour
   bleed). Index-origin marker on the consensus overlay for flip-checking by eye.
+- Per-lane migration profiles: lane_migration_profiles.csv carries every expected
+  lane's migration trace on the shared crop axis, predicted-empty lanes included,
+  tagged with lane_detection_status and prediction_span, long/tidy, raw and
+  detrended, px and mm. lane_profiles.csv (the two global projections) is a legacy
+  misnomer, left as-is. Display scaling is R's job.
 
 ## Verified vs provisional
 
