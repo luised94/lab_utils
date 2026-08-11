@@ -63,7 +63,11 @@ ANALYSIS_REPORT_SCHEMA_VERSION = 1
 # handful of stage-1-derived gel-level facts echoed forward, so a downstream
 # reader gets everything at the gel level from this one report. Purely additive;
 # no existing field changed. Nothing in the pipeline asserts an exact value here.
-BAND_DETECTION_REPORT_SCHEMA_VERSION = 2
+# Version 3 adds the top-level "gel_id" field (the input stem) here and the same
+# value as the first column of band_measurements.csv, so a multi-gel consumer joins
+# replicates on one stable key instead of re-deriving it from a path that may have
+# been renamed. Still purely additive; nothing asserts an exact value here either.
+BAND_DETECTION_REPORT_SCHEMA_VERSION = 3
 
 # Filenames inherited from Slice A. The unified report is written to Slice B's
 # BAND_DETECTION_REPORT_FILENAME (defined below); Slice A's stage2_analysis_report
@@ -442,6 +446,15 @@ if not input_tiff_absolute_path.is_file():
 output_directory_path = input_tiff_absolute_path.parent / (
     input_tiff_absolute_path.stem + "_gel_analysis"
 )
+
+# The gel identity key carried into band_detection_report.json and as the first
+# column of band_measurements.csv. It is the input stem, which is exactly what the
+# analysis directory name strips back to, so the report, the directory, and the CSV
+# all name the same value; a downstream multi-gel step joins replicates on this
+# rather than re-deriving it from a path that may have been renamed. This is an
+# identity, distinct from output_directory_path, which is a filesystem location.
+gel_identifier = input_tiff_absolute_path.stem
+
 if not output_directory_path.is_dir():
     die(
         "output",
@@ -2271,6 +2284,7 @@ for lane_record in per_lane_records:
         # Fields shared by both baseline rows of this cell. The agreement fields are
         # properties of the cell comparison, so they ride on both rows identically.
         shared_cell_fields = {
+            "gel_id": gel_identifier,
             "well_index": well_index,
             "loaded_lane_index": lane_record["loaded_lane_index"],
             "lane_detection_status": lane_record["lane_detection_status"],
@@ -2475,6 +2489,7 @@ if multi_maximum_window_count > 0:
 # band_measurements.csv, long format per DESIGN 5.10: one row per lane x canonical
 # band x baseline method (one baseline method in B2; B3 adds rolling-ball).
 measurement_column_names = [
+    "gel_id",
     "well_index",
     "loaded_lane_index",
     "lane_detection_status",
@@ -3379,6 +3394,9 @@ gel_measurement_report = {
     "gel_measurement_report_schema_version": GEL_MEASUREMENT_REPORT_SCHEMA_VERSION,
     "analysis_report_schema_version": ANALYSIS_REPORT_SCHEMA_VERSION,
     "band_detection_report_schema_version": BAND_DETECTION_REPORT_SCHEMA_VERSION,
+    # The gel identity key (the input stem), same value as the first column of
+    # band_measurements.csv. A downstream multi-gel step joins replicates on this.
+    "gel_id": gel_identifier,
     "overall_status": overall_status,
     "failed_hard_stop_check_names": failed_hard_stops,
     "warning_check_names": warnings,
