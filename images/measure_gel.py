@@ -37,6 +37,7 @@ forget that every quantitative number here is provisional.
 
 import argparse
 import datetime
+import hashlib
 import json
 import math
 import pathlib
@@ -58,7 +59,11 @@ import matplotlib.patches
 # the schema it was written against.
 GEL_MEASUREMENT_REPORT_SCHEMA_VERSION = 1
 ANALYSIS_REPORT_SCHEMA_VERSION = 1
-BAND_DETECTION_REPORT_SCHEMA_VERSION = 1
+# Version 2 adds the top-level "provenance" block: the input SHA-256 plus the
+# handful of stage-1-derived gel-level facts echoed forward, so a downstream
+# reader gets everything at the gel level from this one report. Purely additive;
+# no existing field changed. Nothing in the pipeline asserts an exact value here.
+BAND_DETECTION_REPORT_SCHEMA_VERSION = 2
 
 # Filenames inherited from Slice A. The unified report is written to Slice B's
 # BAND_DETECTION_REPORT_FILENAME (defined below); Slice A's stage2_analysis_report
@@ -495,6 +500,37 @@ micrometres_per_pixel = validation_report.get("geometry", {}).get(
 )
 encoding_verified = validation_report.get("linearity_evidence", {}).get(
     "encoding_verified"
+)
+
+# Gel-level provenance for the self-sufficient report. The stage-1 facts below are
+# copied, not moved: stage 1 stays the source of record, but echoing them here lets
+# a gel-level consumer (the R script) read one report instead of two. The input
+# SHA-256 is computed here because stage 1 does not record it, and it is the single
+# field that ties every number in this report to the exact bytes it came from; it
+# is read in 1 MiB chunks so an 11 MB scan does not land in memory twice.
+stage1_linearity_evidence = validation_report.get("linearity_evidence", {})
+stage1_geometry_block = validation_report.get("geometry", {})
+stage1_input_provenance = validation_report.get("input_provenance", {})
+echoed_exposure_time_text = stage1_linearity_evidence.get("exposure_time_text")
+echoed_micrometres_per_pixel_by_axis = stage1_geometry_block.get(
+    "micrometres_per_pixel_by_axis"
+)
+echoed_resolution_unit_integer = stage1_geometry_block.get("resolution_unit_integer")
+echoed_image_extent_millimetres = stage1_geometry_block.get("image_extent_millimetres")
+
+input_file_size_bytes = input_tiff_absolute_path.stat().st_size
+input_file_sha256_accumulator = hashlib.sha256()
+with open(input_tiff_absolute_path, "rb") as sha256_file_handle:
+    for one_megabyte_chunk in iter(lambda: sha256_file_handle.read(1024 * 1024), b""):
+        input_file_sha256_accumulator.update(one_megabyte_chunk)
+input_file_sha256_hexdigest = input_file_sha256_accumulator.hexdigest()
+emit_message(
+    "provenance",
+    "input SHA-256 "
+    + input_file_sha256_hexdigest
+    + " over "
+    + str(input_file_size_bytes)
+    + " bytes",
 )
 
 ANALYSIS_FINDINGS = []
@@ -1586,7 +1622,8 @@ if lane_well_indices is not None and any(
             "detail": "a populated lane was assigned a comb slot at or beyond the "
             "expected_lane_count of %d, so the measured pitch and the expected comb "
             "count disagree. expected_lane_count may be wrong, or the pitch was "
-            "mismeasured; check lane_profiles.png and the sidecar." % expected_lane_count,
+            "mismeasured; check lane_profiles.png and the sidecar."
+            % expected_lane_count,
         }
     )
 
@@ -3351,6 +3388,25 @@ gel_measurement_report = {
     # Carried through untouched so no consumer can forget that the pixel values may
     # not be linear in signal.
     "encoding_verified": encoding_verified,
+    # Input identity plus the stage-1-derived gel-level facts a downstream reader
+    # needs, gathered here so this report is self-sufficient at the gel level and
+    # the consumer does not have to open the stage 1 report as well. The values
+    # under here are echoed from stage 1; stage 1 remains the source of record.
+    "provenance": {
+        "input_file_sha256": input_file_sha256_hexdigest,
+        "input_file_size_bytes": input_file_size_bytes,
+        "exposure_time_text": echoed_exposure_time_text,
+        "micrometres_per_pixel_by_axis": echoed_micrometres_per_pixel_by_axis,
+        "resolution_unit_integer": echoed_resolution_unit_integer,
+        "image_extent_millimetres": echoed_image_extent_millimetres,
+        "trusted_instrument_signature_found": stage1_input_provenance.get(
+            "trusted_instrument_signature_found"
+        ),
+        "imagej_resave_signature_found": stage1_input_provenance.get(
+            "imagej_resave_signature_found"
+        ),
+        "file_appears_resampled": stage1_input_provenance.get("file_appears_resampled"),
+    },
     "geometry_used": {
         "gel_migration_axis": gel_migration_axis,
         "crop_x_pixels": crop_x_pixels,

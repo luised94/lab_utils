@@ -2154,7 +2154,9 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                     ]
                     crop_pixel_count = int(crop_view.size)
                     floor_within_crop_count = int((crop_view == 0).sum())
-                    floor_outside_crop_count = at_floor_pixel_count - floor_within_crop_count
+                    floor_outside_crop_count = (
+                        at_floor_pixel_count - floor_within_crop_count
+                    )
                     outside_pixel_count = total_pixel_count - crop_pixel_count
                     floor_within_crop_fraction = (
                         floor_within_crop_count / crop_pixel_count
@@ -2205,7 +2207,9 @@ if os.path.isfile(preprocess_sidecar_absolute_path):
                     VALIDATION_FINDINGS.append(
                         {
                             "check_name": "floor_population_within_crop",
-                            "status": "warning" if floor_within_crop_exceeds else "pass",
+                            "status": "warning"
+                            if floor_within_crop_exceeds
+                            else "pass",
                             "is_hard_stop": False,
                             "detail": floor_within_crop_detail,
                         }
