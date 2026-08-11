@@ -204,6 +204,35 @@ gel_provenance_block <- gel_report[["provenance"]]
 gel_input_sha256 <- if (!is.null(gel_provenance_block)) gel_provenance_block[["input_file_sha256"]] else NA_character_
 gel_exposure_time_text <- if (!is.null(gel_provenance_block)) gel_provenance_block[["exposure_time_text"]] else NA_character_
 
+# gel_id is the stable identity key the later multi-gel aggregation step joins
+# replicates on. It is authoritative from the report (schema >= 3). Older reports
+# do not carry it, so fall back to the directory-derived stem, which is the same
+# value on any run whose files were not renamed. gel_stem stays the value used to
+# LOCATE files (sample sheet, output directory); gel_identifier is the value
+# CARRIED into the output CSVs. They are normally equal; a mismatch means this
+# report was produced for a different gel than the directory holds, which is worth
+# a loud warning rather than silently trusting one over the other.
+gel_identifier_from_report <- gel_report[["gel_id"]]
+if (is.null(gel_identifier_from_report)) {
+    warning(
+        "band_detection_report has no gel_id (schema ",
+        if (is.null(band_detection_report_schema_version)) "absent"
+        else band_detection_report_schema_version,
+        " < 3); falling back to the directory-derived stem '", gel_stem, "'."
+    )
+    gel_identifier <- gel_stem
+} else {
+    gel_identifier <- gel_identifier_from_report
+    if (!identical(gel_identifier, gel_stem)) {
+        warning(
+            "gel_id from the report ('", gel_identifier, "') does not match the ",
+            "directory-derived stem ('", gel_stem, "'); the report may have been ",
+            "produced for a different gel than this analysis directory holds."
+        )
+    }
+}
+message("gel_id: ", gel_identifier)
+
 if (isFALSE(gel_encoding_verified)) {
     message("NOTE: encoding_verified is FALSE. Every normalized number is ",
             "PROVISIONAL until a dilution series confirms linearity.")
@@ -349,10 +378,12 @@ per_band_with_identity <- per_band %>%
         by = "well_index"
     ) %>%
     mutate(
+        gel_id = gel_identifier,
         gel_overall_status = gel_overall_status,
         encoding_verified = gel_encoding_verified,
         input_file_sha256 = gel_input_sha256
-    )
+    ) %>%
+    relocate("gel_id")
 
 # ==============================================================================
 # Normalization 1: whole-lane total, relative to the reference lane
@@ -411,13 +442,15 @@ per_lane_results <- joined_identity %>%
         percent_of_reference_control_band =
             100 * .data$control_band_value / reference_control_band_value,
         is_excluded_from_normalization = .data$role %in% ROLES_EXCLUDED_FROM_NORMALIZATION,
+        gel_id = gel_identifier,
         gel_overall_status = gel_overall_status,
         encoding_verified = gel_encoding_verified,
         input_file_sha256 = gel_input_sha256,
         exposure_time_text = gel_exposure_time_text,
         flip_direction = FLIP_DIRECTION
     ) %>%
-    arrange(.data$well_number)
+    arrange(.data$well_number) %>%
+    relocate("gel_id")
 
 # ==============================================================================
 # Write CSV outputs
