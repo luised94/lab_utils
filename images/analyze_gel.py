@@ -7,24 +7,34 @@
 # ]
 # ///
 r"""
-Stage 3a of the manual gel path: read the ImageJ export (manual_lane_profiles.csv),
-assert the invariants that must hold for a well-formed export, add the same
-detrended_value that measure_gel.py computes per lane, and plot every lane so the
-peaks can be checked by eye. This stage calls no bands and integrates nothing; it
-exists to make the export trustworthy and legible before anything is built on it.
+The manual gel analysis: read the ImageJ export (manual_lane_profiles.csv) plus the
+validated sample sheet, assert the export invariants, add the detrended_value that
+measure_gel.py computes per lane, detect bands (per-lane and consensus), then
+integrate every measured lane at the consensus windows to produce band_measurements
+.csv, reusing measure_gel.py's valley-to-valley and rolling-ball baselines verbatim.
+Reports both a region-net AREA and an apex HEIGHT per band, flags saturated bands
+from the at_ceiling_count column, and scores the designated reference lane so a bad
+divisor is caught before normalization. Every stage writes a checkable artifact.
 
 Reuses only what the pipeline already depends on (numpy, scipy, matplotlib). Every
 non-standard-library call is written at its call site with the full namespace, per
 the project convention (numpy.x, scipy.ndimage.x, matplotlib.pyplot.x).
 
-Outputs, written next to the input CSV so they travel with the analysis and are
-checked every run rather than discarded:
-    profile_checks.json            the invariant checks and their verdicts
+Outputs, written into the gel analysis directory so they travel with the analysis
+and are checked every run rather than discarded:
+    profile_checks.json            the export invariant checks and verdicts
     lane_profiles_with_detrend.csv the input plus a detrended_value column
     lane_profiles_grid.png         one small-multiple panel per lane
+    band_candidates_per_lane.csv   per-lane detected peaks
+    consensus_bands.csv            consensus band positions, windows, occupancy
+    band_model_diagnostics.json    consensus-vs-per-lane agreement metrics
+    band_detection_overlay.png     peaks, windows, apex exclusion, by lane
+    band_measurements.csv          per (well, band) area, height, baselines, flags
+    reference_quality.json         the reference lane score and per-input ranking
+    band_measurement_overlay.png   windows, baselines, and both quantities by lane
 
-Usage:
-    uv run analyze_profiles.py '/mnt/c/.../manual_lane_profiles.csv'
+Usage (directory-addressed, like the manifest and the sheet validator):
+    uv run analyze_gel.py '<gel_analysis_dir>'
 """
 
 import argparse
@@ -99,6 +109,25 @@ CONSENSUS_BANDS_CSV_FILENAME = "consensus_bands.csv"
 BAND_MODEL_DIAGNOSTICS_FILENAME = "band_model_diagnostics.json"
 BAND_DETECTION_PLOT_FILENAME = "band_detection_overlay.png"
 
+# --- Integration, copied from measure_gel.py so the manual path integrates bands
+# the same way as the automated pipeline. ---
+# How far outside each window the valley-to-valley baseline searches for a flanking
+# minimum (mm), so neighbouring bands sit on a consistent local baseline.
+BASELINE_FLANK_SEARCH_MILLIMETRES = 1.5
+# Width of the flat rolling-ball opening element (mm), the cross-check baseline.
+# Must exceed the widest single band or the baseline rides up into the peak.
+ROLLING_BALL_WIDTH_MILLIMETRES = 4.0
+# A band with at least this many at-ceiling pixels anywhere in its window is
+# saturated: its area is a floor (clipped pixels lost their true height), so the
+# saturation basis wins the reported-value contract.
+SATURATION_AT_CEILING_PIXEL_FLOOR = 1
+# A cell where the two baselines disagree by more than this fraction of the lane's
+# signal scale is fragile; there the cluster-inclusive opening net is reported.
+BASELINE_FRAGILE_DISAGREEMENT_FRACTION = 0.25
+BAND_MEASUREMENTS_CSV_FILENAME = "band_measurements.csv"
+REFERENCE_QUALITY_FILENAME = "reference_quality.json"
+BAND_MEASUREMENT_PLOT_FILENAME = "band_measurement_overlay.png"
+
 # =============================================================================
 # The two permitted helpers, matching the example scripts' logging contract.
 # =============================================================================
@@ -123,22 +152,65 @@ def die(source_tag, message_text):
 # =============================================================================
 
 argument_parser = argparse.ArgumentParser(
-    prog="analyze_profiles.py",
-    description="Validate and detrend an ImageJ lane-profile export; plot each lane.",
+    prog="analyze_gel.py",
+    description="Validate, detrend, detect bands, and measure a manual gel export.",
     allow_abbrev=False,
 )
+# Directory-addressed, matching the sheet validator and the manifest: point at the
+# gel analysis directory (or any file in it) and the standard files are resolved
+# inside it. The sample sheet is REQUIRED, not optional: this stage measures only
+# the lanes the sheet marks measured/reference, so running without it is undefined.
 argument_parser.add_argument(
-    "input_profile_csv_path", help="Path to manual_lane_profiles.csv"
+    "gel_directory_or_file", help="The gel analysis directory, or any file inside it"
+)
+argument_parser.add_argument(
+    "--profile-csv", default=None, help="Override profile CSV path"
+)
+argument_parser.add_argument(
+    "--sample-sheet", default=None, help="Override sample sheet path"
 )
 parsed_arguments = argument_parser.parse_args()
 
-input_profile_csv_path = pathlib.Path(
-    os.path.abspath(parsed_arguments.input_profile_csv_path)
+STANDARD_PROFILE_FILENAME = "manual_lane_profiles.csv"
+STANDARD_SAMPLE_SHEET_FILENAME = "sample_sheet.csv"
+
+gel_path_argument = pathlib.Path(
+    os.path.abspath(parsed_arguments.gel_directory_or_file)
 )
+if gel_path_argument.is_dir():
+    gel_directory_path = gel_path_argument
+elif gel_path_argument.is_file():
+    gel_directory_path = gel_path_argument.parent
+else:
+    die("input", "not a file or directory: " + str(gel_path_argument))
+output_directory_path = gel_directory_path
+emit_message("input", "gel analysis directory: " + str(gel_directory_path))
+
+if parsed_arguments.profile_csv is not None:
+    input_profile_csv_path = pathlib.Path(os.path.abspath(parsed_arguments.profile_csv))
+else:
+    input_profile_csv_path = gel_directory_path / STANDARD_PROFILE_FILENAME
+if parsed_arguments.sample_sheet is not None:
+    sample_sheet_csv_path = pathlib.Path(os.path.abspath(parsed_arguments.sample_sheet))
+else:
+    sample_sheet_csv_path = gel_directory_path / STANDARD_SAMPLE_SHEET_FILENAME
+
 if not input_profile_csv_path.is_file():
-    die("input", "not a file: " + str(input_profile_csv_path))
-output_directory_path = input_profile_csv_path.parent
-emit_message("input", "reading " + str(input_profile_csv_path))
+    die(
+        "input",
+        "profile CSV not found at "
+        + str(input_profile_csv_path)
+        + ". Run the ImageJ export macro first, or pass --profile-csv.",
+    )
+if not sample_sheet_csv_path.is_file():
+    die(
+        "input",
+        "sample sheet not found at "
+        + str(sample_sheet_csv_path)
+        + ". Author and validate it first, or pass --sample-sheet.",
+    )
+emit_message("input", "profile CSV: " + str(input_profile_csv_path))
+emit_message("input", "sample sheet: " + str(sample_sheet_csv_path))
 
 # =============================================================================
 # Read the CSV. Flat: one pass into typed column lists keyed by lane.
@@ -159,9 +231,12 @@ EXPECTED_COLUMNS = [
     "migration_position_pixels",
     "migration_position_millimetres",
     "raw_value",
+    "at_ceiling_count",
 ]
 
-with open(input_profile_csv_path, newline="") as input_file_handle:
+with open(
+    input_profile_csv_path, newline="", encoding="utf-8-sig"
+) as input_file_handle:
     csv_reader = csv.DictReader(input_file_handle)
     csv_header_fields = csv_reader.fieldnames
     all_rows = list(csv_reader)
@@ -174,7 +249,7 @@ if missing_columns:
         "schema",
         "CSV is missing required columns: "
         + ", ".join(missing_columns)
-        + ". Re-export with the current export_lane_profiles.ijm.",
+        + ". Re-export with the current export_lane_profiles.ijm (needs at_ceiling_count).",
     )
 if len(all_rows) == 0:
     die("schema", "CSV has a header but no data rows.")
@@ -200,6 +275,80 @@ emit_message(
         len(sorted_lane_indices),
         comb_well_count,
         plate_background_median,
+    ),
+)
+
+# =============================================================================
+# Read the sample sheet. It is required and assumed already validated by
+# validate_sample_sheet.py; a few load-bearing invariants are re-checked here
+# (lanes match, exactly one reference) because this CSV may outlive that run, and
+# a mismatch would silently measure the wrong lanes.
+# =============================================================================
+
+with open(sample_sheet_csv_path, newline="", encoding="utf-8-sig") as sheet_file_handle:
+    sheet_reader = csv.DictReader(sheet_file_handle)
+    sheet_rows = []
+    for raw_sheet_row in sheet_reader:
+        sheet_rows.append(
+            {key: (value or "").strip() for key, value in raw_sheet_row.items()}
+        )
+
+for required_sheet_column in (
+    "lane_index",
+    "well_number",
+    "lane_content",
+    "analysis_role",
+):
+    if not sheet_rows or required_sheet_column not in sheet_rows[0]:
+        die(
+            "sheet",
+            "sample sheet missing column %r; validate it first."
+            % required_sheet_column,
+        )
+
+well_number_by_lane_index = {}
+analysis_role_by_lane_index = {}
+lane_content_by_lane_index = {}
+sample_label_by_lane_index = {}
+for sheet_row in sheet_rows:
+    sheet_lane_index = int(sheet_row["lane_index"])
+    well_number_by_lane_index[sheet_lane_index] = int(sheet_row["well_number"])
+    analysis_role_by_lane_index[sheet_lane_index] = sheet_row["analysis_role"]
+    lane_content_by_lane_index[sheet_lane_index] = sheet_row["lane_content"]
+    sample_label_by_lane_index[sheet_lane_index] = sheet_row.get("sample_label", "")
+
+if sorted(well_number_by_lane_index.keys()) != sorted_lane_indices:
+    die(
+        "sheet",
+        "sample sheet lanes %s do not match profile lanes %s; wrong sheet?"
+        % (sorted(well_number_by_lane_index.keys()), sorted_lane_indices),
+    )
+reference_lane_indices = [
+    lane for lane, role in analysis_role_by_lane_index.items() if role == "reference"
+]
+if len(reference_lane_indices) != 1:
+    die(
+        "sheet",
+        "need exactly one analysis_role=reference; found %d. Re-validate the sheet."
+        % len(reference_lane_indices),
+    )
+reference_lane_index = reference_lane_indices[0]
+
+# Lanes to measure: reference and measured. Excluded (ladder/empty) are skipped for
+# integration but stay in detection and plots.
+measured_lane_indices = sorted(
+    lane
+    for lane, role in analysis_role_by_lane_index.items()
+    if role in ("reference", "measured")
+)
+emit_message(
+    "sheet",
+    "%d measured lane(s), reference is lane %d (well %d, %s)"
+    % (
+        len(measured_lane_indices),
+        reference_lane_index,
+        well_number_by_lane_index[reference_lane_index],
+        sample_label_by_lane_index.get(reference_lane_index, ""),
     ),
 )
 
@@ -865,15 +1014,447 @@ band_figure.savefig(band_detection_plot_path, dpi=FIGURE_DOTS_PER_INCH)
 matplotlib.pyplot.close(band_figure)
 emit_message("bands", "wrote " + str(band_detection_plot_path))
 
+# =============================================================================
+# Measurement. Integrate each MEASURED lane at the consensus windows, reusing
+# measure_gel.py's math: a valley-to-valley baseline (flanking minima, sloped line,
+# region net, negative-clip) and a rolling-ball opening cross-check, reporting both
+# a region-net AREA and an apex HEIGHT per band. Saturation (from at_ceiling_count)
+# and baseline fragility select the reported basis exactly as measure_gel.py does.
+# Excluded lanes (ladder/empty) are not measured.
+# =============================================================================
+
+baseline_flank_search_pixels = max(
+    1, int(round(BASELINE_FLANK_SEARCH_MILLIMETRES / millimetres_per_pixel))
+)
+rolling_ball_width_pixels = max(
+    1, int(round(ROLLING_BALL_WIDTH_MILLIMETRES / millimetres_per_pixel))
+)
+
+# Per-lane raw profile and per-row at-ceiling count, keyed by lane, for the lanes
+# we measure. Also a lane signal scale (the profile's own spread) used to judge
+# baseline fragility, matching measure_gel.py's use of a lane-scaled tolerance.
+raw_profile_by_lane = {}
+at_ceiling_by_lane = {}
+lane_signal_scale_by_lane = {}
+for lane_index_value in measured_lane_indices:
+    lane_rows = rows_by_lane_index[lane_index_value]
+    raw_profile_by_lane[lane_index_value] = numpy.array(
+        [float(r["raw_value"]) for r in lane_rows], dtype=float
+    )
+    at_ceiling_by_lane[lane_index_value] = numpy.array(
+        [int(r["at_ceiling_count"]) for r in lane_rows], dtype=int
+    )
+    lane_profile = raw_profile_by_lane[lane_index_value]
+    lane_signal_scale_by_lane[lane_index_value] = float(
+        numpy.percentile(lane_profile, 99.0) - numpy.median(lane_profile)
+    )
+
+migration_extent_pixels = raw_profile_by_lane[measured_lane_indices[0]].size
+
+band_measurement_rows = []
+for lane_index_value in measured_lane_indices:
+    lane_profile = raw_profile_by_lane[lane_index_value]
+    lane_ceiling_counts = at_ceiling_by_lane[lane_index_value]
+    lane_signal_scale = lane_signal_scale_by_lane[lane_index_value]
+    # Rolling-ball opening baseline for the whole lane once (the cross-check).
+    opening_odd_width = rolling_ball_width_pixels + (1 - rolling_ball_width_pixels % 2)
+    opening_baseline = scipy.ndimage.grey_opening(
+        lane_profile, size=opening_odd_width, mode="nearest"
+    )
+
+    for consensus_band_index, consensus_band in enumerate(consensus_band_records):
+        window_start = consensus_band["window_start_pixels"]
+        window_end = consensus_band["window_end_pixels"]
+
+        # --- valley-to-valley baseline: flanking minima just outside the window ---
+        left_search_start = max(0, window_start - baseline_flank_search_pixels)
+        left_flank = lane_profile[left_search_start : window_start + 1]
+        if left_flank.size:
+            left_reference_column = left_search_start + int(numpy.argmin(left_flank))
+            left_reference_value = float(lane_profile[left_reference_column])
+        else:
+            left_reference_column = window_start
+            left_reference_value = float(lane_profile[window_start])
+        right_search_end = min(
+            migration_extent_pixels, window_end + baseline_flank_search_pixels
+        )
+        right_flank = lane_profile[max(window_start, window_end - 1) : right_search_end]
+        if right_flank.size:
+            right_reference_column = max(window_start, window_end - 1) + int(
+                numpy.argmin(right_flank)
+            )
+            right_reference_value = float(lane_profile[right_reference_column])
+        else:
+            right_reference_column = max(window_start, window_end - 1)
+            right_reference_value = float(lane_profile[right_reference_column])
+
+        window_columns = numpy.arange(window_start, window_end)
+        if window_columns.size == 0:
+            valley_net_area = 0.0
+            opening_net_area = 0.0
+            apex_height_above_valley = 0.0
+            apex_raw_value = 0.0
+            apex_migration_pixels = int(window_start)
+            measurement_status = "empty_window"
+        else:
+            if right_reference_column != left_reference_column:
+                valley_baseline = left_reference_value + (
+                    (right_reference_value - left_reference_value)
+                    * (window_columns - left_reference_column)
+                    / float(right_reference_column - left_reference_column)
+                )
+            else:
+                valley_baseline = numpy.full(window_columns.shape, left_reference_value)
+            profile_over_window = lane_profile[window_start:window_end]
+            valley_net_unclipped = float((profile_over_window - valley_baseline).sum())
+            opening_net_area = float(
+                (profile_over_window - opening_baseline[window_start:window_end]).sum()
+            )
+            if valley_net_unclipped < 0.0:
+                valley_net_area = 0.0
+                if window_start == 0 or window_end == migration_extent_pixels:
+                    measurement_status = "window_truncated_at_crop_edge"
+                else:
+                    measurement_status = "baseline_above_signal_clipped_to_zero"
+            else:
+                valley_net_area = valley_net_unclipped
+                if window_start == 0 or window_end == migration_extent_pixels:
+                    measurement_status = "window_truncated_at_crop_edge"
+                else:
+                    measurement_status = "ok"
+            apex_offset = int(numpy.argmax(profile_over_window))
+            apex_raw_value = float(profile_over_window[apex_offset])
+            apex_migration_pixels = int(window_start + apex_offset)
+            apex_height_above_valley = float(
+                (profile_over_window - valley_baseline).max()
+            )
+
+        # --- saturation, from the at-ceiling counts inside the window ---
+        window_at_ceiling_total = int(
+            lane_ceiling_counts[window_start:window_end].sum()
+        )
+        is_saturated = window_at_ceiling_total >= SATURATION_AT_CEILING_PIXEL_FLOOR
+
+        # --- baseline fragility: the two nets disagree relative to lane scale ---
+        if lane_signal_scale > 0.0:
+            baseline_disagreement_fraction = (
+                abs(valley_net_area - opening_net_area) / lane_signal_scale
+            )
+        else:
+            baseline_disagreement_fraction = 0.0
+        baseline_is_fragile = (
+            baseline_disagreement_fraction >= BASELINE_FRAGILE_DISAGREEMENT_FRACTION
+        )
+
+        # --- reported-value contract, verbatim from measure_gel.py: saturation is a
+        # floor and wins first; a fragile cell reports the cluster-inclusive opening
+        # net; otherwise the valley-to-valley region net. Basis recorded either way.
+        if is_saturated:
+            reported_area = valley_net_area
+            reported_value_basis = "saturated_floor"
+        elif baseline_is_fragile:
+            reported_area = opening_net_area
+            reported_value_basis = "opening_net_cluster_inclusive"
+        else:
+            reported_area = valley_net_area
+            reported_value_basis = "region_net"
+
+        band_measurement_rows.append(
+            {
+                "gel_id": input_profile_csv_path.parent.name,
+                "well_number": well_number_by_lane_index[lane_index_value],
+                "lane_index": lane_index_value,
+                "sample_label": sample_label_by_lane_index.get(lane_index_value, ""),
+                "analysis_role": analysis_role_by_lane_index[lane_index_value],
+                "canonical_band_index": consensus_band_index,
+                "canonical_position_millimetres": round(
+                    consensus_band["canonical_position_pixels"] * millimetres_per_pixel,
+                    4,
+                ),
+                "window_start_pixels": window_start,
+                "window_end_pixels": window_end,
+                "region_net_area": round(valley_net_area, 2),
+                "opening_net_area": round(opening_net_area, 2),
+                "reported_area": round(reported_area, 2),
+                "reported_value_basis": reported_value_basis,
+                "apex_height_above_baseline": round(apex_height_above_valley, 2),
+                "apex_raw_value": round(apex_raw_value, 2),
+                "apex_migration_pixels": apex_migration_pixels,
+                "cross_lane_spread_millimetres": round(
+                    consensus_band["cross_lane_spread_pixels"] * millimetres_per_pixel,
+                    4,
+                ),
+                "window_at_ceiling_pixels": window_at_ceiling_total,
+                "saturation_status": "saturated" if is_saturated else "clean",
+                "baseline_disagreement_fraction": round(
+                    baseline_disagreement_fraction, 5
+                ),
+                "baseline_agreement_status": "fragile"
+                if baseline_is_fragile
+                else "agree",
+                "measurement_status": measurement_status,
+                "band_occupancy": consensus_band["occupancy"],
+                "band_is_well_supported": "yes"
+                if consensus_band["is_well_supported"]
+                else "no",
+            }
+        )
+
+band_measurements_csv_path = output_directory_path / BAND_MEASUREMENTS_CSV_FILENAME
+band_measurement_field_order = [
+    "gel_id",
+    "well_number",
+    "lane_index",
+    "sample_label",
+    "analysis_role",
+    "canonical_band_index",
+    "canonical_position_millimetres",
+    "window_start_pixels",
+    "window_end_pixels",
+    "region_net_area",
+    "opening_net_area",
+    "reported_area",
+    "reported_value_basis",
+    "apex_height_above_baseline",
+    "apex_raw_value",
+    "apex_migration_pixels",
+    "cross_lane_spread_millimetres",
+    "window_at_ceiling_pixels",
+    "saturation_status",
+    "baseline_disagreement_fraction",
+    "baseline_agreement_status",
+    "measurement_status",
+    "band_occupancy",
+    "band_is_well_supported",
+]
+with open(band_measurements_csv_path, "w", newline="") as measurement_file_handle:
+    measurement_writer = csv.DictWriter(
+        measurement_file_handle, fieldnames=band_measurement_field_order
+    )
+    measurement_writer.writeheader()
+    for measurement_row in band_measurement_rows:
+        measurement_writer.writerow(measurement_row)
+emit_message(
+    "measure",
+    "wrote "
+    + str(band_measurements_csv_path)
+    + " (%d bands x %d measured lanes)"
+    % (len(consensus_band_records), len(measured_lane_indices)),
+)
+
+# =============================================================================
+# Reference quality. The reference lane's control band divides every normalized
+# value, so score the designated reference and every input lane on the four
+# properties that make a divisor trustworthy, and warn if the pick is weak. The
+# control band is the earliest consensus band (canonical_band_index 0) by default,
+# matching the loading-control convention.
+# =============================================================================
+
+CONTROL_BAND_CANONICAL_INDEX = 0
+measurements_by_lane_and_band = {}
+for measurement_row in band_measurement_rows:
+    measurements_by_lane_and_band[
+        (measurement_row["lane_index"], measurement_row["canonical_band_index"])
+    ] = measurement_row
+
+# Total lane signal (for the "typical loading" property) over the measured lanes.
+total_signal_by_lane = {
+    lane: float(raw_profile_by_lane[lane].sum()) for lane in measured_lane_indices
+}
+median_total_signal = float(numpy.median(list(total_signal_by_lane.values())))
+
+reference_quality_by_lane = {}
+for lane_index_value in measured_lane_indices:
+    control_measurement = measurements_by_lane_and_band.get(
+        (lane_index_value, CONTROL_BAND_CANONICAL_INDEX)
+    )
+    if control_measurement is None:
+        continue
+    control_not_saturated = control_measurement["saturation_status"] == "clean"
+    lane_scale = lane_signal_scale_by_lane[lane_index_value]
+    control_snr = (
+        (control_measurement["apex_height_above_baseline"] / lane_scale)
+        if lane_scale > 0
+        else 0.0
+    )
+    # Alignment: this lane's deviation of its control apex from the consensus centre.
+    control_band_record = consensus_band_records[CONTROL_BAND_CANONICAL_INDEX]
+    consensus_centre_millimetres = (
+        control_band_record["canonical_position_pixels"] * millimetres_per_pixel
+    )
+    control_alignment_deviation_millimetres = abs(
+        control_measurement["apex_migration_pixels"] * millimetres_per_pixel
+        - consensus_centre_millimetres
+    )
+    loading_ratio = (
+        (total_signal_by_lane[lane_index_value] / median_total_signal)
+        if median_total_signal > 0
+        else 0.0
+    )
+    reference_quality_by_lane[lane_index_value] = {
+        "well_number": well_number_by_lane_index[lane_index_value],
+        "sample_label": sample_label_by_lane_index.get(lane_index_value, ""),
+        "control_not_saturated": control_not_saturated,
+        "control_band_snr": round(control_snr, 3),
+        "control_alignment_deviation_mm": round(
+            control_alignment_deviation_millimetres, 3
+        ),
+        "loading_ratio_vs_median": round(loading_ratio, 3),
+    }
+
+
+# Rank candidate references: disqualify saturated control bands, then prefer high
+# SNR, tight alignment, and loading near the median. A single scalar for ordering.
+def reference_candidate_score(lane_index_value):
+    quality = reference_quality_by_lane[lane_index_value]
+    if not quality["control_not_saturated"]:
+        return -1.0
+    alignment_penalty = 1.0 / (1.0 + quality["control_alignment_deviation_mm"])
+    loading_penalty = 1.0 / (1.0 + abs(quality["loading_ratio_vs_median"] - 1.0))
+    return quality["control_band_snr"] * alignment_penalty * loading_penalty
+
+
+ranked_reference_candidates = sorted(
+    reference_quality_by_lane.keys(), key=reference_candidate_score, reverse=True
+)
+best_candidate_lane = (
+    ranked_reference_candidates[0] if ranked_reference_candidates else None
+)
+designated_score = reference_candidate_score(reference_lane_index)
+best_score = (
+    reference_candidate_score(best_candidate_lane)
+    if best_candidate_lane is not None
+    else 0.0
+)
+
+reference_warnings = []
+if not reference_quality_by_lane.get(reference_lane_index, {}).get(
+    "control_not_saturated", True
+):
+    reference_warnings.append(
+        "designated reference lane %d has a SATURATED control band"
+        % reference_lane_index
+    )
+if (
+    best_candidate_lane is not None
+    and best_candidate_lane != reference_lane_index
+    and best_score > 1.5 * max(designated_score, 1e-9)
+):
+    reference_warnings.append(
+        "lane %d (well %d) scores clearly higher as reference than your pick, lane %d (well %d)"
+        % (
+            best_candidate_lane,
+            well_number_by_lane_index[best_candidate_lane],
+            reference_lane_index,
+            well_number_by_lane_index[reference_lane_index],
+        )
+    )
+
+reference_quality_report = {
+    "schema_version": "reference_quality_1",
+    "generated_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+    "designated_reference_lane_index": reference_lane_index,
+    "designated_reference_well_number": well_number_by_lane_index[reference_lane_index],
+    "control_band_canonical_index": CONTROL_BAND_CANONICAL_INDEX,
+    "best_candidate_lane_index": best_candidate_lane,
+    "per_lane_quality": {
+        str(lane): reference_quality_by_lane[lane]
+        for lane in sorted(reference_quality_by_lane)
+    },
+    "warnings": reference_warnings,
+}
+reference_quality_path = output_directory_path / REFERENCE_QUALITY_FILENAME
+reference_quality_path.write_text(json.dumps(reference_quality_report, indent=2) + "\n")
+emit_message("reference", "wrote " + str(reference_quality_path))
+for reference_warning in reference_warnings:
+    emit_message("reference", "WARNING " + reference_warning)
+
+# =============================================================================
+# Measurement overlay: per measured lane, the profile with consensus windows, the
+# apex marked, and saturated bands flagged, so the numbers have a visual gate.
+# =============================================================================
+
+measured_panel_count = len(measured_lane_indices)
+measure_grid_columns = int(math.ceil(math.sqrt(measured_panel_count)))
+measure_grid_rows = int(math.ceil(measured_panel_count / float(measure_grid_columns)))
+measure_figure, measure_axes = matplotlib.pyplot.subplots(
+    measure_grid_rows,
+    measure_grid_columns,
+    figsize=(measure_grid_columns * 2.6, measure_grid_rows * 2.0),
+    squeeze=False,
+)
+for panel_index in range(measure_grid_rows * measure_grid_columns):
+    panel_axis = measure_axes[panel_index // measure_grid_columns][
+        panel_index % measure_grid_columns
+    ]
+    if panel_index >= measured_panel_count:
+        panel_axis.axis("off")
+        continue
+    lane_index_value = measured_lane_indices[panel_index]
+    lane_profile = raw_profile_by_lane[lane_index_value]
+    position_millimetres = numpy.arange(lane_profile.size) * millimetres_per_pixel
+    panel_axis.plot(position_millimetres, lane_profile, color="black", linewidth=0.7)
+    for consensus_band_index, consensus_band in enumerate(consensus_band_records):
+        measurement_row = measurements_by_lane_and_band.get(
+            (lane_index_value, consensus_band_index)
+        )
+        window_color = (
+            "tab:red"
+            if (measurement_row and measurement_row["saturation_status"] == "saturated")
+            else "tab:blue"
+        )
+        panel_axis.axvspan(
+            consensus_band["window_start_pixels"] * millimetres_per_pixel,
+            consensus_band["window_end_pixels"] * millimetres_per_pixel,
+            color=window_color,
+            alpha=0.10,
+            linewidth=0,
+        )
+        if measurement_row:
+            panel_axis.plot(
+                measurement_row["apex_migration_pixels"] * millimetres_per_pixel,
+                measurement_row["apex_raw_value"],
+                marker="v",
+                color="tab:green",
+                markersize=3,
+            )
+    role_tag = "REF" if lane_index_value == reference_lane_index else ""
+    panel_axis.set_title(
+        "lane %d w%d %s"
+        % (lane_index_value, well_number_by_lane_index[lane_index_value], role_tag),
+        fontsize="small",
+    )
+    panel_axis.tick_params(labelsize=6)
+measure_figure.supxlabel("migration position (mm)", fontsize="small")
+measure_figure.suptitle(
+    "Measurement: blue=window, red=saturated window, green=apex. REF=reference lane.",
+    fontsize="small",
+)
+measure_figure.tight_layout()
+band_measurement_plot_path = output_directory_path / BAND_MEASUREMENT_PLOT_FILENAME
+measure_figure.savefig(band_measurement_plot_path, dpi=FIGURE_DOTS_PER_INCH)
+matplotlib.pyplot.close(measure_figure)
+emit_message("measure", "wrote " + str(band_measurement_plot_path))
+
+saturated_measurement_count = sum(
+    1 for row in band_measurement_rows if row["saturation_status"] == "saturated"
+)
+fragile_measurement_count = sum(
+    1 for row in band_measurement_rows if row["baseline_agreement_status"] == "fragile"
+)
 emit_message(
     "done",
-    "overall %s; %d warning(s). Inspect %s, %s, and %s before choosing a band model."
+    "measured %d bands x %d lanes; %d saturated, %d fragile; %d reference warning(s). "
+    "Inspect %s, %s, and %s."
     % (
-        checks_report["overall_status"],
-        len(soft_warnings),
-        BAND_DETECTION_PLOT_FILENAME,
-        BAND_MODEL_DIAGNOSTICS_FILENAME,
-        CONSENSUS_BANDS_CSV_FILENAME,
+        len(consensus_band_records),
+        len(measured_lane_indices),
+        saturated_measurement_count,
+        fragile_measurement_count,
+        len(reference_warnings),
+        BAND_MEASUREMENT_PLOT_FILENAME,
+        BAND_MEASUREMENTS_CSV_FILENAME,
+        REFERENCE_QUALITY_FILENAME,
     ),
 )
 sys.exit(0)
