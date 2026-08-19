@@ -38,10 +38,17 @@ MICROMETRES_PER_MILLIMETRE = 1000.0;
 // The chosen value is stamped into every row so the export records the comb the
 // operator intended, and is asserted against the ROI count below.
 COMB_WELL_COUNT_CHOICES = newArray("15", "12", "10", "other");
+// 16-bit container maximum. A pixel at or above this is clipped. Counted per
+// migration row so the Python measure stage can flag a saturated band: saturation
+// is a 2-D pixel fact that the width sum would otherwise hide. This is the raw
+// container ceiling, not the detector's effective ceiling (which validate derives
+// separately); the raw count is cheap, unambiguous, and enough to flag a band.
+CONTAINER_MAXIMUM_VALUE_16_BIT = 65535;
 CSV_HEADER = "lane_index,drawn_order,roi_name,lane_detection_status,prediction_span,"
            + "comb_well_count,"
            + "roi_x,roi_y,roi_w,roi_h,plate_background_median,"
-           + "migration_position_pixels,migration_position_millimetres,raw_value";
+           + "migration_position_pixels,migration_position_millimetres,raw_value,"
+           + "at_ceiling_count";
 
 if (nImages == 0)
     exit("No image open. Open the rotated .tif first.");
@@ -155,6 +162,7 @@ for (lane_roi_index = 0; lane_roi_index < lane_roi_count; lane_roi_index++) {
 
     for (migration_position_index = 0; migration_position_index < migration_axis_length; migration_position_index++) {
         summed_signal_across_width = 0.0;
+        at_ceiling_count = 0;
         for (width_column_index = 0; width_column_index < width_axis_length; width_column_index++) {
             if (MIGRATION_AXIS_IS_VERTICAL) {
                 current_pixel_x = roi_bounds_x + width_column_index;
@@ -163,7 +171,12 @@ for (lane_roi_index = 0; lane_roi_index < lane_roi_count; lane_roi_index++) {
                 current_pixel_x = roi_bounds_x + migration_position_index;
                 current_pixel_y = roi_bounds_y + width_column_index;
             }
-            background_subtracted_value = getPixel(current_pixel_x, current_pixel_y) - plate_background_median;
+            raw_pixel_value = getPixel(current_pixel_x, current_pixel_y);
+            // Saturation is judged on the RAW value, before background subtraction,
+            // because the container ceiling is a raw-DN fact.
+            if (raw_pixel_value >= CONTAINER_MAXIMUM_VALUE_16_BIT)
+                at_ceiling_count++;
+            background_subtracted_value = raw_pixel_value - plate_background_median;
             // Clip negatives so plate-noise dips below the median cannot subtract
             // from real band signal; matches measure_gel.py signal_above_plate.
             if (background_subtracted_value < 0)
@@ -187,7 +200,8 @@ for (lane_roi_index = 0; lane_roi_index < lane_roi_count; lane_roi_index++) {
                         + "," + d2s(plate_background_median, 6)
                         + "," + migration_position_index
                         + "," + migration_millimetres_text
-                        + "," + d2s(summed_signal_across_width, 6);
+                        + "," + d2s(summed_signal_across_width, 6)
+                        + "," + at_ceiling_count;
         String.append(output_row_text + "\n");
     }
     showProgress(lane_roi_index + 1, lane_roi_count);
