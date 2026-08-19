@@ -55,6 +55,10 @@ CONDITION_TYPE_VOCABULARY = (
 # and cannot be measured; these are the only legal dispositions for such lanes.
 NON_ANALYTE_CONTENTS = ("ladder", "empty")
 CONTROL_CONDITION_TYPES = ("positive_control", "negative_control")
+# Reserved token meaning "this column cannot apply to this row" (e.g. a ladder has
+# no sample_label). Required on non-sample rows so a deliberate not-applicable is
+# distinct from an unfilled cell; blank is treated as a mistake, not as this.
+NOT_APPLICABLE_SENTINEL = "not_applicable"
 REQUIRED_SHEET_COLUMNS = (
     "lane_index",
     "well_number",
@@ -94,22 +98,69 @@ argument_parser = argparse.ArgumentParser(
     description="Validate a per-gel sample sheet against its lane profiles.",
     allow_abbrev=False,
 )
+# Primary argument is the gel analysis directory (or any file inside it). The two
+# CSVs are resolved from it by their standard names, so the common case is a
+# one-argument run, matching how the manifest addresses a gel. Explicit overrides
+# stay available for the rare case where the convention does not hold (a renamed
+# profile, or two sheets in one folder).
 argument_parser.add_argument(
-    "sample_sheet_csv_path", help="Path to the sample sheet CSV"
+    "gel_directory_or_file", help="The gel analysis directory, or any file inside it"
 )
 argument_parser.add_argument(
-    "profile_csv_path", help="Path to manual_lane_profiles.csv"
+    "--sample-sheet",
+    default=None,
+    help="Override: explicit path to the sample sheet CSV",
+)
+argument_parser.add_argument(
+    "--profile-csv",
+    default=None,
+    help="Override: explicit path to manual_lane_profiles.csv",
 )
 parsed_arguments = argument_parser.parse_args()
 
-sample_sheet_csv_path = pathlib.Path(
-    os.path.abspath(parsed_arguments.sample_sheet_csv_path)
+STANDARD_SAMPLE_SHEET_FILENAME = "sample_sheet.csv"
+STANDARD_PROFILE_FILENAME = "manual_lane_profiles.csv"
+
+# Resolve the gel directory from whatever was passed: a directory is used as is, a
+# file contributes its parent. This is the single addressing scheme the pipeline
+# uses everywhere, so pointing at any artifact in the folder works.
+gel_path_argument = pathlib.Path(
+    os.path.abspath(parsed_arguments.gel_directory_or_file)
 )
-profile_csv_path = pathlib.Path(os.path.abspath(parsed_arguments.profile_csv_path))
+if gel_path_argument.is_dir():
+    gel_directory_path = gel_path_argument
+elif gel_path_argument.is_file():
+    gel_directory_path = gel_path_argument.parent
+else:
+    die("input", "not a file or directory: " + str(gel_path_argument))
+emit_message("input", "gel analysis directory: " + str(gel_directory_path))
+
+if parsed_arguments.sample_sheet is not None:
+    sample_sheet_csv_path = pathlib.Path(os.path.abspath(parsed_arguments.sample_sheet))
+else:
+    sample_sheet_csv_path = gel_directory_path / STANDARD_SAMPLE_SHEET_FILENAME
+if parsed_arguments.profile_csv is not None:
+    profile_csv_path = pathlib.Path(os.path.abspath(parsed_arguments.profile_csv))
+else:
+    profile_csv_path = gel_directory_path / STANDARD_PROFILE_FILENAME
+
 if not sample_sheet_csv_path.is_file():
-    die("input", "sample sheet not found: " + str(sample_sheet_csv_path))
+    die(
+        "input",
+        "sample sheet not found at "
+        + str(sample_sheet_csv_path)
+        + ". Author it in this gel directory (or pass --sample-sheet).",
+    )
 if not profile_csv_path.is_file():
-    die("input", "profile CSV not found: " + str(profile_csv_path))
+    die(
+        "input",
+        "profile CSV not found at "
+        + str(profile_csv_path)
+        + ". Run the ImageJ export macro first, or pass --profile-csv.",
+    )
+emit_message("input", "using sample sheet: " + str(sample_sheet_csv_path))
+emit_message("input", "using profile CSV: " + str(profile_csv_path))
+
 # The checks report lands next to the sample sheet, which lives in the gel_analysis
 # directory, so it travels with the analysis it validates.
 output_directory_path = sample_sheet_csv_path.parent
@@ -355,21 +406,56 @@ record_check(
     ),
 )
 
-# --- sample rows must carry a label ---
-unlabelled_samples = [
-    "lane %s" % row.get("lane_index")
-    for row in sheet_rows
-    if row.get("lane_content", "") == "sample" and row.get("sample_label", "") == ""
-]
+# --- label and prep_source: distinguish "deliberately nothing" from "forgot".
+# Sample rows carry a real label and prep. Non-sample rows carry the reserved
+# NOT_APPLICABLE_SENTINEL, never blank, so an unfilled cell cannot masquerade as a
+# deliberate "not applicable". This is the explicit-over-blank rule made a gate. ---
+label_and_prep_violations = []
+for row in sheet_rows:
+    lane_content_value = row.get("lane_content", "")
+    sample_label_value = row.get("sample_label", "")
+    prep_source_value = row.get("prep_source", "")
+    lane_label = "lane %s" % row.get("lane_index")
+    if lane_content_value == "sample":
+        if sample_label_value == "" or sample_label_value == NOT_APPLICABLE_SENTINEL:
+            label_and_prep_violations.append(
+                "%s: sample needs a real sample_label" % lane_label
+            )
+        if prep_source_value == "" or prep_source_value == NOT_APPLICABLE_SENTINEL:
+            label_and_prep_violations.append(
+                "%s: sample needs a real prep_source" % lane_label
+            )
+    else:
+        if sample_label_value != NOT_APPLICABLE_SENTINEL:
+            label_and_prep_violations.append(
+                "%s (%s): sample_label must be %s, not %r"
+                % (
+                    lane_label,
+                    lane_content_value,
+                    NOT_APPLICABLE_SENTINEL,
+                    sample_label_value,
+                )
+            )
+        if prep_source_value != NOT_APPLICABLE_SENTINEL:
+            label_and_prep_violations.append(
+                "%s (%s): prep_source must be %s, not %r"
+                % (
+                    lane_label,
+                    lane_content_value,
+                    NOT_APPLICABLE_SENTINEL,
+                    prep_source_value,
+                )
+            )
 record_check(
-    "sample_rows_have_label",
+    "label_and_prep_source_explicit",
     "hard",
-    len(unlabelled_samples) == 0,
-    "sample lanes missing sample_label: "
-    + ("; ".join(unlabelled_samples) if unlabelled_samples else "none"),
+    len(label_and_prep_violations) == 0,
+    "samples need real label/prep; non-samples need %s (never blank); "
+    % NOT_APPLICABLE_SENTINEL
+    + ("; ".join(label_and_prep_violations) if label_and_prep_violations else "ok"),
 )
 
-# --- soft: controls present, prep_source present on samples ---
+# --- soft: controls present ---
 present_condition_types = {row.get("condition_type", "") for row in sheet_rows}
 record_check(
     "positive_control_present",
@@ -382,22 +468,6 @@ record_check(
     "soft",
     "negative_control" in present_condition_types,
     "no lane marked condition_type=negative_control",
-)
-samples_missing_prep_source = [
-    "lane %s" % row.get("lane_index")
-    for row in sheet_rows
-    if row.get("lane_content", "") == "sample" and row.get("prep_source", "") == ""
-]
-record_check(
-    "samples_have_prep_source",
-    "soft",
-    len(samples_missing_prep_source) == 0,
-    "sample lanes missing prep_source: "
-    + (
-        "; ".join(samples_missing_prep_source)
-        if samples_missing_prep_source
-        else "none"
-    ),
 )
 
 # =============================================================================
