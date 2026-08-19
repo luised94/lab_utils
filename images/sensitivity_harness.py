@@ -102,9 +102,16 @@ input_tiff_path = pathlib.Path(parsed_arguments.input_tiff_path).resolve()
 if not input_tiff_path.is_file():
     fail("input", "input image not found: " + str(input_tiff_path))
 pipeline_directory = pathlib.Path(parsed_arguments.pipeline_directory).resolve()
-for stage_script_name in ("prepare_gel_image.py", "validate_gel_image.py", "measure_gel.py"):
+for stage_script_name in (
+    "prepare_gel_image.py",
+    "validate_gel_image.py",
+    "measure_gel.py",
+):
     if not (pipeline_directory / stage_script_name).is_file():
-        fail("pipeline", "missing stage script in pipeline directory: " + stage_script_name)
+        fail(
+            "pipeline",
+            "missing stage script in pipeline directory: " + stage_script_name,
+        )
 output_directory = pathlib.Path(parsed_arguments.output_directory).resolve()
 output_directory.mkdir(parents=True, exist_ok=True)
 
@@ -113,15 +120,21 @@ image_filename = input_tiff_path.name
 
 base_sidecar_path = input_tiff_path.with_name(image_stem + PREPROCESS_SIDECAR_SUFFIX)
 if not base_sidecar_path.is_file():
-    fail("sidecar", "preprocess sidecar not found next to image: " + str(base_sidecar_path))
+    fail(
+        "sidecar",
+        "preprocess sidecar not found next to image: " + str(base_sidecar_path),
+    )
 
 if parsed_arguments.sample_sheet is not None:
     sample_sheet_path = pathlib.Path(parsed_arguments.sample_sheet).resolve()
 else:
     sample_sheet_path = input_tiff_path.with_name(image_stem + SAMPLE_SHEET_SUFFIX)
 if not sample_sheet_path.is_file():
-    fail("sample_sheet", "sample sheet not found (needed for the reference lane): "
-         + str(sample_sheet_path))
+    fail(
+        "sample_sheet",
+        "sample sheet not found (needed for the reference lane): "
+        + str(sample_sheet_path),
+    )
 
 # ==============================================================================
 # Reference lane from the sample sheet (R-free; well_index = well_number - 1)
@@ -136,7 +149,9 @@ with open(sample_sheet_path, newline="") as sample_sheet_file:
         role_by_well_index[well_index] = role_text
         if role_text == "reference":
             if reference_well_index is not None:
-                fail("sample_sheet", "more than one reference lane in the sample sheet.")
+                fail(
+                    "sample_sheet", "more than one reference lane in the sample sheet."
+                )
             reference_well_index = well_index
 if reference_well_index is None:
     fail("sample_sheet", "no reference lane (role=reference) in the sample sheet.")
@@ -151,7 +166,9 @@ corrected_sidecar_lines = []
 sidecar_crop_values = {}
 for sidecar_line in base_sidecar_lines:
     if sidecar_line.startswith("measured_against_input_filename="):
-        corrected_sidecar_lines.append("measured_against_input_filename=" + image_filename)
+        corrected_sidecar_lines.append(
+            "measured_against_input_filename=" + image_filename
+        )
         continue
     for crop_field_name in ("crop_x", "crop_y", "crop_width", "crop_height"):
         if sidecar_line.startswith(crop_field_name + "="):
@@ -162,13 +179,17 @@ for crop_field_name in ("crop_x", "crop_y", "crop_width", "crop_height"):
         fail("sidecar", "sidecar is missing crop field: " + crop_field_name)
 
 
-def write_cell_sidecar(cell_directory, delta_crop_x, delta_crop_y, delta_crop_width, delta_crop_height):
+def write_cell_sidecar(
+    cell_directory, delta_crop_x, delta_crop_y, delta_crop_width, delta_crop_height
+):
     perturbed_lines = []
     for sidecar_line in corrected_sidecar_lines:
         replaced = False
         for crop_field_name, delta_value in (
-            ("crop_x", delta_crop_x), ("crop_y", delta_crop_y),
-            ("crop_width", delta_crop_width), ("crop_height", delta_crop_height),
+            ("crop_x", delta_crop_x),
+            ("crop_y", delta_crop_y),
+            ("crop_width", delta_crop_width),
+            ("crop_height", delta_crop_height),
         ):
             if sidecar_line.startswith(crop_field_name + "="):
                 new_value = sidecar_crop_values[crop_field_name] + delta_value
@@ -186,29 +207,57 @@ def write_cell_sidecar(cell_directory, delta_crop_x, delta_crop_y, delta_crop_wi
 # Run one full chain into a crop-cell directory (stage 0 -> stage 1). Returns the
 # analysis directory, or None if a stage failed.
 # ==============================================================================
-def build_crop_cell(cell_label, delta_crop_x, delta_crop_y, delta_crop_width, delta_crop_height):
+def build_crop_cell(
+    cell_label, delta_crop_x, delta_crop_y, delta_crop_width, delta_crop_height
+):
     cell_directory = output_directory / cell_label
     if cell_directory.exists():
         shutil.rmtree(cell_directory)
     cell_directory.mkdir(parents=True)
     cell_image_path = cell_directory / image_filename
-    shutil.copy2(input_tiff_path, cell_image_path)  # real copy: stage 2 resolves symlinks
-    write_cell_sidecar(cell_directory, delta_crop_x, delta_crop_y, delta_crop_width, delta_crop_height)
+    shutil.copy2(
+        input_tiff_path, cell_image_path
+    )  # real copy: stage 2 resolves symlinks
+    write_cell_sidecar(
+        cell_directory, delta_crop_x, delta_crop_y, delta_crop_width, delta_crop_height
+    )
     shutil.copy2(sample_sheet_path, cell_directory / (image_stem + SAMPLE_SHEET_SUFFIX))
 
     stage0 = subprocess.run(
-        ["uv", "run", "prepare_gel_image.py", "--output-parent-directory",
-         str(cell_directory), str(cell_image_path)],
-        cwd=str(pipeline_directory), capture_output=True, text=True,
+        [
+            "uv",
+            "run",
+            "prepare_gel_image.py",
+            "--output-parent-directory",
+            str(cell_directory),
+            str(cell_image_path),
+        ],
+        cwd=str(pipeline_directory),
+        capture_output=True,
+        text=True,
     )
     if stage0.returncode != 0:
-        log("cell_failed", cell_label + ": stage 0 failed; skipping. tail: "
-            + stage0.stderr.strip().splitlines()[-1] if stage0.stderr.strip() else cell_label)
+        log(
+            "cell_failed",
+            cell_label
+            + ": stage 0 failed; skipping. tail: "
+            + stage0.stderr.strip().splitlines()[-1]
+            if stage0.stderr.strip()
+            else cell_label,
+        )
         return None
     stage1 = subprocess.run(
-        ["uv", "run", "validate_gel_image.py", "--output-parent-directory",
-         str(cell_directory), str(cell_image_path)],
-        cwd=str(pipeline_directory), capture_output=True, text=True,
+        [
+            "uv",
+            "run",
+            "validate_gel_image.py",
+            "--output-parent-directory",
+            str(cell_directory),
+            str(cell_image_path),
+        ],
+        cwd=str(pipeline_directory),
+        capture_output=True,
+        text=True,
     )
     if stage1.returncode != 0:
         log("cell_failed", cell_label + ": stage 1 failed; skipping.")
@@ -219,14 +268,27 @@ def build_crop_cell(cell_label, delta_crop_x, delta_crop_y, delta_crop_width, de
 # ==============================================================================
 # Run stage 2 with given baseline knobs; return per-lane de-duped totals or None.
 # ==============================================================================
-def measure_and_total(cell_image_path, flank_search_millimetres, rolling_ball_width_millimetres):
+def measure_and_total(
+    cell_image_path, flank_search_millimetres, rolling_ball_width_millimetres
+):
     stage2 = subprocess.run(
-        ["uv", "run", "measure_gel.py", str(cell_image_path),
-         "--baseline-flank-search-millimetres", str(flank_search_millimetres),
-         "--rolling-ball-width-millimetres", str(rolling_ball_width_millimetres)],
-        cwd=str(pipeline_directory), capture_output=True, text=True,
+        [
+            "uv",
+            "run",
+            "measure_gel.py",
+            str(cell_image_path),
+            "--baseline-flank-search-millimetres",
+            str(flank_search_millimetres),
+            "--rolling-ball-width-millimetres",
+            str(rolling_ball_width_millimetres),
+        ],
+        cwd=str(pipeline_directory),
+        capture_output=True,
+        text=True,
     )
-    analysis_directory = cell_image_path.parent / (image_stem + ANALYSIS_DIRECTORY_SUFFIX)
+    analysis_directory = cell_image_path.parent / (
+        image_stem + ANALYSIS_DIRECTORY_SUFFIX
+    )
     band_measurements_path = analysis_directory / BAND_MEASUREMENTS_FILENAME
     if stage2.returncode != 0 or not band_measurements_path.is_file():
         return None, None
@@ -239,7 +301,9 @@ def measure_and_total(cell_image_path, flank_search_millimetres, rolling_ball_wi
             if band_key in seen_band_keys:
                 continue
             seen_band_keys.add(band_key)
-            per_lane_total[well_index] = per_lane_total.get(well_index, 0.0) + float(band_row["reported_value"])
+            per_lane_total[well_index] = per_lane_total.get(well_index, 0.0) + float(
+                band_row["reported_value"]
+            )
     lane_grid = tuple(sorted(per_lane_total.keys()))
     return per_lane_total, lane_grid
 
@@ -273,15 +337,23 @@ def collect_from_totals(cell_label, factor, level, measurement):
         return
     reference_total = per_lane_total[reference_well_index]
     if reference_total <= 0:
-        failed_cells.append((cell_label, factor, str(level) + " (nonpositive reference)"))
+        failed_cells.append(
+            (cell_label, factor, str(level) + " (nonpositive reference)")
+        )
         return
     for well_index in sorted(per_lane_total):
         normalized_value = 100.0 * per_lane_total[well_index] / reference_total
-        collected_records.append((
-            cell_label, factor, str(level), well_index,
-            role_by_well_index.get(well_index, "?"),
-            per_lane_total[well_index], normalized_value,
-        ))
+        collected_records.append(
+            (
+                cell_label,
+                factor,
+                str(level),
+                well_index,
+                role_by_well_index.get(well_index, "?"),
+                per_lane_total[well_index],
+                normalized_value,
+            )
+        )
 
 
 # Nominal crop cell (reused for all baseline sweeps).
@@ -294,7 +366,8 @@ nominal_cell_directory, nominal_cell_image_path = nominal_build
 # Nominal measurement establishes the reference lane grid all other cells match.
 nominal_measurement = measure_and_total(
     nominal_cell_image_path,
-    NOMINAL_FLANK_SEARCH_MILLIMETRES, NOMINAL_ROLLING_BALL_WIDTH_MILLIMETRES,
+    NOMINAL_FLANK_SEARCH_MILLIMETRES,
+    NOMINAL_ROLLING_BALL_WIDTH_MILLIMETRES,
 )
 if nominal_measurement[0] is None or reference_well_index not in nominal_measurement[0]:
     fail("nominal", "nominal measurement failed; cannot establish the lane grid.")
@@ -304,14 +377,24 @@ collect_from_totals("crop_nominal", "nominal", "nominal", nominal_measurement)
 # Flank sweep (crop nominal, rolling-ball nominal).
 for flank_value in BASELINE_FLANK_SEARCH_MILLIMETRES_SWEEP:
     collect_from_totals(
-        "crop_nominal", "flank_search_millimetres", flank_value,
-        measure_and_total(nominal_cell_image_path, flank_value, NOMINAL_ROLLING_BALL_WIDTH_MILLIMETRES),
+        "crop_nominal",
+        "flank_search_millimetres",
+        flank_value,
+        measure_and_total(
+            nominal_cell_image_path, flank_value, NOMINAL_ROLLING_BALL_WIDTH_MILLIMETRES
+        ),
     )
 # Rolling-ball width sweep (crop nominal, flank nominal).
 for rolling_ball_value in ROLLING_BALL_WIDTH_MILLIMETRES_SWEEP:
     collect_from_totals(
-        "crop_nominal", "rolling_ball_width_millimetres", rolling_ball_value,
-        measure_and_total(nominal_cell_image_path, NOMINAL_FLANK_SEARCH_MILLIMETRES, rolling_ball_value),
+        "crop_nominal",
+        "rolling_ball_width_millimetres",
+        rolling_ball_value,
+        measure_and_total(
+            nominal_cell_image_path,
+            NOMINAL_FLANK_SEARCH_MILLIMETRES,
+            rolling_ball_value,
+        ),
     )
 
 # Crop sweep (each nudge is its own full chain; baseline nominal).
@@ -324,10 +407,14 @@ for cell_label, dx, dy, dwidth, dheight in CROP_PERTURBATIONS_PIXELS:
         continue
     _, crop_cell_image_path = crop_build
     collect_from_totals(
-        cell_label, "crop_pixels",
+        cell_label,
+        "crop_pixels",
         "dx=%d,dy=%d,dw=%d,dh=%d" % (dx, dy, dwidth, dheight),
-        measure_and_total(crop_cell_image_path,
-                          NOMINAL_FLANK_SEARCH_MILLIMETRES, NOMINAL_ROLLING_BALL_WIDTH_MILLIMETRES),
+        measure_and_total(
+            crop_cell_image_path,
+            NOMINAL_FLANK_SEARCH_MILLIMETRES,
+            NOMINAL_ROLLING_BALL_WIDTH_MILLIMETRES,
+        ),
     )
 
 if not collected_records:
@@ -339,8 +426,17 @@ if not collected_records:
 per_cell_path = output_directory / "per_cell_lane_values.csv"
 with open(per_cell_path, "w", newline="") as per_cell_file:
     writer = csv.writer(per_cell_file)
-    writer.writerow(["cell_label", "factor", "level", "well_index", "role",
-                     "lane_total_reported_value", "normalized_value_percent_of_reference"])
+    writer.writerow(
+        [
+            "cell_label",
+            "factor",
+            "level",
+            "well_index",
+            "role",
+            "lane_total_reported_value",
+            "normalized_value_percent_of_reference",
+        ]
+    )
     for record in collected_records:
         writer.writerow(record)
 
@@ -364,10 +460,24 @@ for well_index in sorted(normalized_values_by_well):
     maximum_value = max(values)
     value_range = maximum_value - minimum_value
     nominal_value = nominal_normalized_by_well.get(well_index, float("nan"))
-    fractional_range = (value_range / nominal_value) if nominal_value not in (0.0, float("nan")) else float("nan")
+    fractional_range = (
+        (value_range / nominal_value)
+        if nominal_value not in (0.0, float("nan"))
+        else float("nan")
+    )
     role_text = role_by_well_index.get(well_index, "?")
-    summary_rows.append([well_index, role_text, len(values), nominal_value,
-                         minimum_value, maximum_value, value_range, fractional_range])
+    summary_rows.append(
+        [
+            well_index,
+            role_text,
+            len(values),
+            nominal_value,
+            minimum_value,
+            maximum_value,
+            value_range,
+            fractional_range,
+        ]
+    )
     if role_text != EMPTY_ROLE and value_range > worst_case_range_non_empty:
         worst_case_range_non_empty = value_range
         worst_case_well = well_index
@@ -375,9 +485,18 @@ for well_index in sorted(normalized_values_by_well):
 summary_path = output_directory / "lane_sensitivity_summary.csv"
 with open(summary_path, "w", newline="") as summary_file:
     writer = csv.writer(summary_file)
-    writer.writerow(["well_index", "role", "cell_count", "nominal_normalized_value",
-                     "minimum_normalized_value", "maximum_normalized_value",
-                     "normalized_value_range", "fractional_range"])
+    writer.writerow(
+        [
+            "well_index",
+            "role",
+            "cell_count",
+            "nominal_normalized_value",
+            "minimum_normalized_value",
+            "maximum_normalized_value",
+            "normalized_value_range",
+            "fractional_range",
+        ]
+    )
     for summary_row in summary_rows:
         writer.writerow(summary_row)
 
@@ -387,44 +506,81 @@ report_lines.append("# Sensitivity report (PROVISIONAL)")
 report_lines.append("")
 report_lines.append("Gel: " + image_stem)
 report_lines.append("")
-report_lines.append("This gel's numbers are provisional (encoding_verified is FALSE upstream); "
-                    "this harness reports how much they move, not whether they are correct.")
+report_lines.append(
+    "This gel's numbers are provisional (encoding_verified is FALSE upstream); "
+    "this harness reports how much they move, not whether they are correct."
+)
 report_lines.append("")
 report_lines.append("Perturbations applied, one factor at a time around a nominal:")
-report_lines.append("  - crop rectangle nudges (pixels): "
-                    + ", ".join(label for label, *_ in CROP_PERTURBATIONS_PIXELS))
-report_lines.append("  - baseline flank search (mm): "
-                    + ", ".join(str(v) for v in BASELINE_FLANK_SEARCH_MILLIMETRES_SWEEP))
-report_lines.append("  - rolling-ball width (mm): "
-                    + ", ".join(str(v) for v in ROLLING_BALL_WIDTH_MILLIMETRES_SWEEP))
+report_lines.append(
+    "  - crop rectangle nudges (pixels): "
+    + ", ".join(label for label, *_ in CROP_PERTURBATIONS_PIXELS)
+)
+report_lines.append(
+    "  - baseline flank search (mm): "
+    + ", ".join(str(v) for v in BASELINE_FLANK_SEARCH_MILLIMETRES_SWEEP)
+)
+report_lines.append(
+    "  - rolling-ball width (mm): "
+    + ", ".join(str(v) for v in ROLLING_BALL_WIDTH_MILLIMETRES_SWEEP)
+)
 report_lines.append("")
-report_lines.append("Metric: per-lane normalized value (percent of the reference lane), recomputed "
-                    "R-free from stage-2 band_measurements.csv. Spread is reported as the range "
-                    "(max minus min) over all cells.")
+report_lines.append(
+    "Metric: per-lane normalized value (percent of the reference lane), recomputed "
+    "R-free from stage-2 band_measurements.csv. Spread is reported as the range "
+    "(max minus min) over all cells."
+)
 report_lines.append("")
 if worst_case_well is not None:
-    report_lines.append("HEADLINE: worst-case normalized-value range across non-empty lanes is "
-                        + ("%.3f" % worst_case_range_non_empty)
-                        + " percent-of-reference (well_index " + str(worst_case_well) + ").")
+    report_lines.append(
+        "HEADLINE: worst-case normalized-value range across non-empty lanes is "
+        + ("%.3f" % worst_case_range_non_empty)
+        + " percent-of-reference (well_index "
+        + str(worst_case_well)
+        + ")."
+    )
 report_lines.append("")
-report_lines.append("Per-lane spread is in lane_sensitivity_summary.csv; every cell value is in "
-                    "per_cell_lane_values.csv.")
+report_lines.append(
+    "Per-lane spread is in lane_sensitivity_summary.csv; every cell value is in "
+    "per_cell_lane_values.csv."
+)
 if lane_grid_changed_cells:
     report_lines.append("")
-    report_lines.append("Cells EXCLUDED from the per-lane spread because they changed the detected "
-                        "lane count (the well_index labels reindex, so lane-to-lane comparison is "
-                        "invalid). This is itself a sensitivity finding: these input choices "
-                        "destabilize lane detection on this gel.")
+    report_lines.append(
+        "Cells EXCLUDED from the per-lane spread because they changed the detected "
+        "lane count (the well_index labels reindex, so lane-to-lane comparison is "
+        "invalid). This is itself a sensitivity finding: these input choices "
+        "destabilize lane detection on this gel."
+    )
     for changed_cell in lane_grid_changed_cells:
-        report_lines.append("  - " + changed_cell[0] + " (" + changed_cell[1] + "=" + changed_cell[2]
-                            + "): lanes " + str(changed_cell[3]) + " -> " + str(changed_cell[4]))
+        report_lines.append(
+            "  - "
+            + changed_cell[0]
+            + " ("
+            + changed_cell[1]
+            + "="
+            + changed_cell[2]
+            + "): lanes "
+            + str(changed_cell[3])
+            + " -> "
+            + str(changed_cell[4])
+        )
 if failed_cells:
     report_lines.append("")
-    report_lines.append("Cells that did not produce a measurement (excluded from the spread):")
+    report_lines.append(
+        "Cells that did not produce a measurement (excluded from the spread):"
+    )
     for failed_cell in failed_cells:
         report_lines.append("  - " + " / ".join(failed_cell))
 report_path.write_text("\n".join(report_lines) + "\n")
 
-log("done", "wrote " + per_cell_path.name + ", " + summary_path.name + ", " + report_path.name)
-log("done", "worst-case non-empty normalized range: "
-    + ("%.3f" % worst_case_range_non_empty) + " percent-of-reference")
+log(
+    "done",
+    "wrote " + per_cell_path.name + ", " + summary_path.name + ", " + report_path.name,
+)
+log(
+    "done",
+    "worst-case non-empty normalized range: "
+    + ("%.3f" % worst_case_range_non_empty)
+    + " percent-of-reference",
+)
