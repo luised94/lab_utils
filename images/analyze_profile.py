@@ -38,6 +38,7 @@ import sys
 
 import numpy
 import scipy.ndimage
+import scipy.signal
 import matplotlib
 
 matplotlib.use("Agg")  # no display in WSL; write files only
@@ -71,6 +72,32 @@ CHECKS_JSON_FILENAME = "profile_checks.json"
 DETRENDED_CSV_FILENAME = "lane_profiles_with_detrend.csv"
 GRID_PLOT_FILENAME = "lane_profiles_grid.png"
 FIGURE_DOTS_PER_INCH = 150
+
+# --- Band detection, all values copied from measure_gel.py so the manual path
+# calls bands with the same behaviour as the automated pipeline. ---
+# Smoothing applied to the raw profile before peak finding (mm of migration).
+BAND_MIGRATION_PROFILE_SMOOTHING_MILLIMETRES = 0.4
+# A peak must rise this fraction of the lane's own maximum to be called.
+BAND_PEAK_PROMINENCE_FRACTION = 0.12
+# Two called peaks closer than this are one band (mm). Also the consensus cluster
+# tolerance, tied together exactly as measure_gel.py ties them.
+BAND_MINIMUM_SEPARATION_MILLIMETRES = 1.0
+# Fixed integration-window width centred on each consensus band (mm), before it is
+# clipped at the midpoint to each neighbour so windows never overlap.
+BAND_REGION_WINDOW_WIDTH_MILLIMETRES = 2.0
+# Top-of-lane zone excluded from DETECTION only (not from the data or the plot).
+# Justified on this gel: the apex feature sits within ~1 mm of the ROI top in
+# every lane and the nearest real band is >15 mm below it, so this cannot clip a
+# real band. The plot hatches this zone so the claim is checkable every run.
+APEX_EXCLUSION_MILLIMETRES = 5.0
+# A consensus cluster is "well supported" if this fraction of lanes contributed a
+# peak; used only to score whether consensus is trustworthy, never to drop bands.
+CONSENSUS_WELL_SUPPORTED_LANE_FRACTION = 0.5
+
+BAND_CANDIDATES_CSV_FILENAME = "band_candidates_per_lane.csv"
+CONSENSUS_BANDS_CSV_FILENAME = "consensus_bands.csv"
+BAND_MODEL_DIAGNOSTICS_FILENAME = "band_model_diagnostics.json"
+BAND_DETECTION_PLOT_FILENAME = "band_detection_overlay.png"
 
 # =============================================================================
 # The two permitted helpers, matching the example scripts' logging contract.
@@ -468,14 +495,385 @@ grid_figure.savefig(grid_plot_path, dpi=FIGURE_DOTS_PER_INCH)
 matplotlib.pyplot.close(grid_figure)
 emit_message("plot", "wrote " + str(grid_plot_path))
 
+# =============================================================================
+# Band detection. Two models computed side by side so the choice between them is
+# made from the diagnostics below, not assumed: per-lane (each lane's own peaks)
+# and consensus (peaks that line up across lanes, clustered as measure_gel.py
+# clusters them). Integration is deliberately NOT done here; this stage proposes
+# bands and reports how well the two models agree, then stops for a human gate.
+# =============================================================================
+
+# The single mm-per-pixel already asserted constant above; recover it from any
+# row with a non-zero position so windows can be reported in mm.
+millimetres_per_pixel = 0.0
+for row in all_rows:
+    position_pixels = int(row["migration_position_pixels"])
+    if position_pixels > 0:
+        millimetres_per_pixel = (
+            float(row["migration_position_millimetres"]) / position_pixels
+        )
+        break
+if millimetres_per_pixel <= 0.0:
+    die(
+        "bands",
+        "cannot recover mm-per-pixel; migration_position_millimetres looks unset.",
+    )
+
+band_smoothing_pixels = max(
+    1, int(round(BAND_MIGRATION_PROFILE_SMOOTHING_MILLIMETRES / millimetres_per_pixel))
+)
+band_minimum_separation_pixels = max(
+    1, int(round(BAND_MINIMUM_SEPARATION_MILLIMETRES / millimetres_per_pixel))
+)
+band_region_window_pixels = BAND_REGION_WINDOW_WIDTH_MILLIMETRES / millimetres_per_pixel
+apex_exclusion_pixels = int(round(APEX_EXCLUSION_MILLIMETRES / millimetres_per_pixel))
+
+# Per-lane detection. find_peaks on the smoothed raw profile with lane-scaled
+# prominence, dropping any peak inside the apex zone. Kept per lane so both the
+# per-lane model and the consensus pool are built from the same peaks.
+peaks_by_lane_index = {}
+band_candidate_rows = []
+for lane_index_value in sorted_lane_indices:
+    lane_rows = rows_by_lane_index[lane_index_value]
+    raw_lane_profile = numpy.array(
+        [float(r["raw_value"]) for r in lane_rows], dtype=float
+    )
+    smoothed_lane_profile = scipy.ndimage.uniform_filter1d(
+        raw_lane_profile, size=band_smoothing_pixels, mode="nearest"
+    )
+    lane_profile_maximum = float(smoothed_lane_profile.max())
+    detected_peak_positions, _ = scipy.signal.find_peaks(
+        smoothed_lane_profile,
+        distance=band_minimum_separation_pixels,
+        prominence=BAND_PEAK_PROMINENCE_FRACTION * lane_profile_maximum,
+    )
+    kept_peak_positions = [
+        int(p) for p in detected_peak_positions if int(p) >= apex_exclusion_pixels
+    ]
+    peaks_by_lane_index[lane_index_value] = kept_peak_positions
+    for peak_rank, peak_position in enumerate(detected_peak_positions):
+        band_candidate_rows.append(
+            {
+                "lane_index": lane_index_value,
+                "peak_position_pixels": int(peak_position),
+                "peak_position_millimetres": "%.4f"
+                % (int(peak_position) * millimetres_per_pixel),
+                "peak_smoothed_value": "%.2f"
+                % float(smoothed_lane_profile[int(peak_position)]),
+                "in_apex_zone": "yes"
+                if int(peak_position) < apex_exclusion_pixels
+                else "no",
+            }
+        )
+
+band_candidates_csv_path = output_directory_path / BAND_CANDIDATES_CSV_FILENAME
+with open(band_candidates_csv_path, "w", newline="") as candidate_file_handle:
+    candidate_writer = csv.DictWriter(
+        candidate_file_handle,
+        fieldnames=[
+            "lane_index",
+            "peak_position_pixels",
+            "peak_position_millimetres",
+            "peak_smoothed_value",
+            "in_apex_zone",
+        ],
+    )
+    candidate_writer.writeheader()
+    for candidate_row in band_candidate_rows:
+        candidate_writer.writerow(candidate_row)
+emit_message("bands", "wrote " + str(band_candidates_csv_path))
+
+# Consensus clustering, verbatim in spirit from measure_gel.py: pool every kept
+# peak with its lane, sort, then single-linkage cluster within the separation
+# tolerance with a same-lane exclusion so one lane cannot appear twice in a band.
+pooled_peak_records = []
+for lane_index_value in sorted_lane_indices:
+    for peak_position in peaks_by_lane_index[lane_index_value]:
+        pooled_peak_records.append((peak_position, lane_index_value))
+pooled_peak_records.sort()
+
+consensus_clusters = []
+if pooled_peak_records:
+    current_cluster = [pooled_peak_records[0]]
+    for peak_position, lane_index_value in pooled_peak_records[1:]:
+        lanes_in_current_cluster = {member_lane for _, member_lane in current_cluster}
+        if (
+            peak_position - current_cluster[-1][0] <= band_minimum_separation_pixels
+            and lane_index_value not in lanes_in_current_cluster
+        ):
+            current_cluster.append((peak_position, lane_index_value))
+        else:
+            consensus_clusters.append(current_cluster)
+            current_cluster = [(peak_position, lane_index_value)]
+    consensus_clusters.append(current_cluster)
+
+# One canonical position per cluster (median of members), with occupancy and the
+# cross-lane spread that says whether the peaks actually line up.
+consensus_band_records = []
+for cluster in consensus_clusters:
+    member_positions = [position for position, _ in cluster]
+    member_lanes = sorted({member_lane for _, member_lane in cluster})
+    cross_lane_spread_pixels = int(max(member_positions) - min(member_positions))
+    consensus_band_records.append(
+        {
+            "canonical_position_pixels": float(numpy.median(member_positions)),
+            "member_lanes": member_lanes,
+            "occupancy": len(member_lanes),
+            "cross_lane_spread_pixels": cross_lane_spread_pixels,
+        }
+    )
+consensus_band_records.sort(key=lambda record: record["canonical_position_pixels"])
+
+# Fixed-width windows clipped at neighbour midpoints so no two windows overlap.
+# The per-band decision flags (well-supported, spread-fits-window) are computed
+# here, once the window exists, so the CSV and the diagnostics report the same
+# flags rather than one preceding the other.
+lane_count_for_support = len(sorted_lane_indices)
+for band_position_index in range(len(consensus_band_records)):
+    canonical_position = consensus_band_records[band_position_index][
+        "canonical_position_pixels"
+    ]
+    window_start = canonical_position - band_region_window_pixels / 2.0
+    window_end = canonical_position + band_region_window_pixels / 2.0
+    if band_position_index > 0:
+        left_midpoint = 0.5 * (
+            consensus_band_records[band_position_index - 1]["canonical_position_pixels"]
+            + canonical_position
+        )
+        window_start = max(window_start, left_midpoint)
+    if band_position_index < len(consensus_band_records) - 1:
+        right_midpoint = 0.5 * (
+            canonical_position
+            + consensus_band_records[band_position_index + 1][
+                "canonical_position_pixels"
+            ]
+        )
+        window_end = min(window_end, right_midpoint)
+    clipped_window_start = max(0, int(round(window_start)))
+    clipped_window_end = int(round(window_end))
+    consensus_band_records[band_position_index]["window_start_pixels"] = (
+        clipped_window_start
+    )
+    consensus_band_records[band_position_index]["window_end_pixels"] = (
+        clipped_window_end
+    )
+    # A band is safe for consensus integration when its cross-lane spread fits
+    # inside the window every member is measured in; smile wider than the window
+    # is what would actually corrupt the measurement.
+    band_window_width_pixels = clipped_window_end - clipped_window_start
+    consensus_band_records[band_position_index]["spread_fits_window"] = (
+        consensus_band_records[band_position_index]["cross_lane_spread_pixels"]
+        <= band_window_width_pixels
+    )
+    consensus_band_records[band_position_index]["is_well_supported"] = (
+        consensus_band_records[band_position_index]["occupancy"]
+        >= CONSENSUS_WELL_SUPPORTED_LANE_FRACTION * lane_count_for_support
+    )
+
+consensus_bands_csv_path = output_directory_path / CONSENSUS_BANDS_CSV_FILENAME
+with open(consensus_bands_csv_path, "w", newline="") as consensus_file_handle:
+    consensus_writer = csv.DictWriter(
+        consensus_file_handle,
+        fieldnames=[
+            "consensus_band_index",
+            "canonical_position_pixels",
+            "canonical_position_millimetres",
+            "window_start_pixels",
+            "window_end_pixels",
+            "occupancy",
+            "member_lanes",
+            "cross_lane_spread_pixels",
+            "cross_lane_spread_millimetres",
+            "is_well_supported",
+            "spread_fits_window",
+        ],
+    )
+    consensus_writer.writeheader()
+    for consensus_band_index, consensus_band in enumerate(consensus_band_records):
+        consensus_writer.writerow(
+            {
+                "consensus_band_index": consensus_band_index,
+                "canonical_position_pixels": "%.1f"
+                % consensus_band["canonical_position_pixels"],
+                "canonical_position_millimetres": "%.4f"
+                % (consensus_band["canonical_position_pixels"] * millimetres_per_pixel),
+                "window_start_pixels": consensus_band["window_start_pixels"],
+                "window_end_pixels": consensus_band["window_end_pixels"],
+                "occupancy": consensus_band["occupancy"],
+                "member_lanes": " ".join(
+                    str(member_lane) for member_lane in consensus_band["member_lanes"]
+                ),
+                "cross_lane_spread_pixels": consensus_band["cross_lane_spread_pixels"],
+                "cross_lane_spread_millimetres": "%.4f"
+                % (consensus_band["cross_lane_spread_pixels"] * millimetres_per_pixel),
+                "is_well_supported": "yes"
+                if consensus_band["is_well_supported"]
+                else "no",
+                "spread_fits_window": "yes"
+                if consensus_band["spread_fits_window"]
+                else "no",
+            }
+        )
+emit_message("bands", "wrote " + str(consensus_bands_csv_path))
+
+# Agreement diagnostics: the numbers that decide consensus vs per-lane. A peak is
+# "consensus-explained" if it sits in a cluster that both spans enough lanes and
+# is tight; the fraction of peaks so explained is the headline score.
+total_kept_peaks = sum(len(peaks_by_lane_index[lane]) for lane in sorted_lane_indices)
+# Score consensus by what actually breaks integration: a well-supported band is
+# safe if its cross-lane spread fits inside its own window (flags already set per
+# band above). Absolute mm thresholds punish honest smile; window-fit does not.
+well_supported_band_count = 0
+peaks_in_well_supported_bands = 0
+peaks_in_safe_bands = 0
+singleton_band_count = 0
+max_cross_lane_spread_millimetres = 0.0
+well_supported_spread_values_millimetres = []
+for consensus_band in consensus_band_records:
+    spread_millimetres = (
+        consensus_band["cross_lane_spread_pixels"] * millimetres_per_pixel
+    )
+    max_cross_lane_spread_millimetres = max(
+        max_cross_lane_spread_millimetres, spread_millimetres
+    )
+    if consensus_band["is_well_supported"]:
+        well_supported_band_count += 1
+        peaks_in_well_supported_bands += consensus_band["occupancy"]
+        well_supported_spread_values_millimetres.append(spread_millimetres)
+        if consensus_band["spread_fits_window"]:
+            peaks_in_safe_bands += consensus_band["occupancy"]
+    if consensus_band["occupancy"] == 1:
+        singleton_band_count += 1
+# Headline: of the peaks that landed in well-supported bands, what fraction sit in
+# bands whose spread still fits the window. Near 1.0 means consensus is safe here.
+consensus_safe_fraction = (
+    peaks_in_safe_bands / float(peaks_in_well_supported_bands)
+    if peaks_in_well_supported_bands
+    else 0.0
+)
+median_well_supported_spread_millimetres = (
+    float(numpy.median(well_supported_spread_values_millimetres))
+    if well_supported_spread_values_millimetres
+    else 0.0
+)
+
+band_model_diagnostics = {
+    "schema_version": "band_model_diagnostics_1",
+    "generated_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+    "millimetres_per_pixel": millimetres_per_pixel,
+    "apex_exclusion_millimetres": APEX_EXCLUSION_MILLIMETRES,
+    "lane_count": lane_count_for_support,
+    "per_lane_peak_counts": {
+        str(lane): len(peaks_by_lane_index[lane]) for lane in sorted_lane_indices
+    },
+    "total_kept_peaks": total_kept_peaks,
+    "consensus_band_count": len(consensus_band_records),
+    "well_supported_band_count": well_supported_band_count,
+    "singleton_band_count": singleton_band_count,
+    "consensus_safe_fraction": round(consensus_safe_fraction, 4),
+    "median_well_supported_cross_lane_spread_millimetres": round(
+        median_well_supported_spread_millimetres, 4
+    ),
+    "max_cross_lane_spread_millimetres": round(max_cross_lane_spread_millimetres, 4),
+    "region_window_width_millimetres": BAND_REGION_WINDOW_WIDTH_MILLIMETRES,
+    "interpretation": (
+        "consensus_safe_fraction near 1.0 means the well-supported bands' cross-lane "
+        "spread fits inside their integration windows, so consensus is safe. A large "
+        "median spread relative to the window is lane smile: widen the window or "
+        "prefer a reference template. Many singletons favour per-lane."
+    ),
+}
+band_model_diagnostics_path = output_directory_path / BAND_MODEL_DIAGNOSTICS_FILENAME
+band_model_diagnostics_path.write_text(
+    json.dumps(band_model_diagnostics, indent=2) + "\n"
+)
+emit_message(
+    "bands",
+    "wrote "
+    + str(band_model_diagnostics_path)
+    + "; consensus safe fraction = %.2f, median smile = %.2f mm over %d consensus bands"
+    % (
+        consensus_safe_fraction,
+        median_well_supported_spread_millimetres,
+        len(consensus_band_records),
+    ),
+)
+
+# Gate plot: every lane profile with its own detected peaks (dots), the consensus
+# windows shaded across all lanes, and the apex exclusion zone hatched.
+band_figure, band_axes = matplotlib.pyplot.subplots(
+    grid_row_count,
+    grid_column_count,
+    figsize=(grid_column_count * 2.6, grid_row_count * 2.0),
+    squeeze=False,
+)
+apex_zone_millimetres = apex_exclusion_pixels * millimetres_per_pixel
+for panel_index in range(grid_row_count * grid_column_count):
+    panel_axis = band_axes[panel_index // grid_column_count][
+        panel_index % grid_column_count
+    ]
+    if panel_index >= lane_panel_count:
+        panel_axis.axis("off")
+        continue
+    lane_index_value = sorted_lane_indices[panel_index]
+    lane_rows = rows_by_lane_index[lane_index_value]
+    position_millimetres = numpy.array(
+        [float(r["migration_position_millimetres"]) for r in lane_rows]
+    )
+    raw_lane_profile = numpy.array([float(r["raw_value"]) for r in lane_rows])
+    panel_axis.plot(
+        position_millimetres, raw_lane_profile, color="black", linewidth=0.7
+    )
+    for consensus_band in consensus_band_records:
+        panel_axis.axvspan(
+            consensus_band["window_start_pixels"] * millimetres_per_pixel,
+            consensus_band["window_end_pixels"] * millimetres_per_pixel,
+            color="tab:blue",
+            alpha=0.10,
+            linewidth=0,
+        )
+    panel_axis.axvspan(
+        0.0,
+        apex_zone_millimetres,
+        facecolor="none",
+        edgecolor="0.5",
+        hatch="///",
+        linewidth=0,
+    )
+    for peak_position in peaks_by_lane_index[lane_index_value]:
+        panel_axis.plot(
+            peak_position * millimetres_per_pixel,
+            raw_lane_profile[peak_position],
+            marker="v",
+            color="tab:red",
+            markersize=4,
+        )
+    panel_axis.set_title(
+        "lane %d (%d peaks)"
+        % (lane_index_value, len(peaks_by_lane_index[lane_index_value])),
+        fontsize="small",
+    )
+    panel_axis.tick_params(labelsize=6)
+band_figure.supxlabel("migration position (mm)", fontsize="small")
+band_figure.suptitle(
+    "Band detection: red = per-lane peaks, blue = consensus windows, hatched = apex excluded",
+    fontsize="small",
+)
+band_figure.tight_layout()
+band_detection_plot_path = output_directory_path / BAND_DETECTION_PLOT_FILENAME
+band_figure.savefig(band_detection_plot_path, dpi=FIGURE_DOTS_PER_INCH)
+matplotlib.pyplot.close(band_figure)
+emit_message("bands", "wrote " + str(band_detection_plot_path))
+
 emit_message(
     "done",
-    "overall %s; %d warning(s). Inspect %s and %s before continuing."
+    "overall %s; %d warning(s). Inspect %s, %s, and %s before choosing a band model."
     % (
         checks_report["overall_status"],
         len(soft_warnings),
-        GRID_PLOT_FILENAME,
-        CHECKS_JSON_FILENAME,
+        BAND_DETECTION_PLOT_FILENAME,
+        BAND_MODEL_DIAGNOSTICS_FILENAME,
+        CONSENSUS_BANDS_CSV_FILENAME,
     ),
 )
 sys.exit(0)
