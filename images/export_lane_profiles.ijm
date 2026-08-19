@@ -1,179 +1,195 @@
 // export_lane_profiles.ijm
 // ---------------------------------------------------------------------------
-// Manual densitometry bridge for the gel pipeline.
+// Manual densitometry bridge for the gel pipeline. Runs on the CURRENTLY OPEN
+// rotated 16-bit image and, in one pass:
+//   1) Saves the lane rectangles from the ROI Manager as a RoiSet zip that
+//      restores the exact rectangles later (replay for the analysis).
+//   2) Writes a raw per-lane migration profile CSV whose raw_value uses the
+//      same background convention as measure_gel.py: signal = pixel minus the
+//      whole-image median, negatives clipped to zero, summed across the lane
+//      width at each migration position.
 //
-// What it does, in one pass, on the CURRENTLY OPEN rotated 16-bit image:
-//   1) Saves the lane rectangles you added to the ROI Manager as a RoiSet.zip
-//      (replayable: roiManager("Open", path) restores the exact rectangles).
-//   2) Exports a raw per-lane migration profile CSV whose raw_value matches
-//      measure_gel.py: signal = pixel - median(whole image), clipped at 0,
-//      then summed across the lane width at each migration position.
+// detrended_value and band integration are intentionally NOT done here. They
+// stay in Python so that math matches measure_gel.py's own functions exactly.
 //
-// The CSV is intentionally raw. detrended_value and band integration are done
-// in Python so that math stays identical to measure_gel.py's own functions.
-//
-// PREP (do this before running):
-//   - Open the rotated .tif. Do NOT invert. Do NOT apply "Invert Peaks".
-//   - Draw each lane with the rectangle tool; press  t  to add it to the
-//     ROI Manager. Order does not matter; the macro records both drawn order
-//     and a left-to-right (or top-to-bottom) position order.
+// PREP before running:
+//   - Open the rotated .tif. Do not invert, do not apply Invert Peaks. On these
+//     MinIsWhite scans the inverting LUT is display only: getPixel returns the
+//     raw stored value, which is high at bands, which is what the sum needs.
+//   - Draw each lane with the rectangle tool and press t to add it to the ROI
+//     Manager. Draw order does not matter; the CSV records both the draw order
+//     and a position-sorted lane index.
 //   - Then run this macro (Plugins > Macros > Run...).
-//
-// ASSUMPTIONS:
-//   - LANES_ARE_VERTICAL = true means migration runs down the image (Y axis)
-//     and lanes are side by side across X. Set false for horizontal gels.
-//   - Raw pixel values are bright-on-dark (bands = high values). Confirmed for
-//     these MinIsWhite scans: the LUT inverts display only, not the data.
 // ---------------------------------------------------------------------------
 
-// -------------------- operator settings --------------------
-LANES_ARE_VERTICAL = true;   // migration axis = Y when true, X when false
-// -----------------------------------------------------------
+// A number-first "+" chain is evaluated as arithmetic by the macro interpreter
+// and collapses to NaN, so every string built below starts from "" to force
+// string concatenation, and rows accumulate in the String buffer for speed on
+// images with tens of thousands of migration rows.
 
-if (nImages == 0) exit("No image open. Open the rotated .tif first.");
-n_rois = roiManager("count");
-if (n_rois == 0)
-    exit("ROI Manager is empty. Draw each lane and press t to add it, then re-run.");
+MIGRATION_AXIS_IS_VERTICAL = true;   // true: migration runs down (Y), lanes across X
+OUTPUT_SUBDIRECTORY_SUFFIX = "_gel_analysis";
+PROFILE_CSV_FILENAME = "manual_lane_profiles.csv";
+ROI_ZIP_FILENAME = "manual_lane_rois.zip";
+PROVENANCE_FILENAME = "manual_export_provenance.txt";
+CENTIMETRES_TO_MILLIMETRES = 10.0;
+MICROMETRES_PER_MILLIMETRE = 1000.0;
+CSV_HEADER = "lane_index,drawn_order,roi_name,lane_detection_status,prediction_span,"
+           + "roi_x,roi_y,roi_w,roi_h,plate_background_median,"
+           + "migration_position_pixels,migration_position_millimetres,raw_value";
+
+if (nImages == 0)
+    exit("No image open. Open the rotated .tif first.");
+lane_roi_count = roiManager("count");
+if (lane_roi_count == 0)
+    exit("ROI Manager is empty. Draw each lane, press t to add it, then re-run.");
 
 image_title = getTitle();
 
-// Output directory: reuse the pipeline's <stem>_gel_analysis folder next to the
-// image if it exists, otherwise create it, so files land where the rest of the
-// pipeline expects them.
-image_dir = getDirectory("image");
-if (image_dir == "")
+// Reuse the pipeline's <stem>_gel_analysis folder next to the image if it exists
+// (prepare_gel_image.py makes it), otherwise create it, so files land where the
+// rest of the pipeline expects them.
+image_directory = getDirectory("image");
+if (image_directory == "")
     exit("This image has no directory on disk. Save it first, then re-run.");
-stem = image_title;
-stem = replace(stem, "\\.tif$", "");
-stem = replace(stem, "\\.tiff$", "");
-out_dir = image_dir + stem + "_gel_analysis" + File.separator;
-if (!File.exists(out_dir)) File.makeDirectory(out_dir);
+image_stem = image_title;
+image_stem = replace(image_stem, "\\.tif$", "");
+image_stem = replace(image_stem, "\\.tiff$", "");
+output_directory = image_directory + image_stem + OUTPUT_SUBDIRECTORY_SUFFIX + File.separator;
+if (!File.exists(output_directory))
+    File.makeDirectory(output_directory);
 
-// Plate background = whole-image median, matching measure_gel.py line 774.
+// Plate background is the whole-image median (matches measure_gel.py). Select
+// None first so the statistic covers the whole image, not a leftover selection.
 run("Select None");
 List.setMeasurements;
-plate_bg = List.getValue("Median");
+plate_background_median = List.getValue("Median");
 
-// Pixel size for the millimetre column. getVoxelSize returns size per pixel in
-// the image's own unit; convert to mm. If the scale was zeroed to pixels, leave
-// mm blank rather than emit a wrong number.
-getVoxelSize(vx_w, vx_h, vx_d, vx_unit);
-mm_per_pixel_migration = 0;   // 0 means "unknown / not set"
-axis_pixel_size = vx_h;                       // migration = Y -> use pixel height
-if (!LANES_ARE_VERTICAL) axis_pixel_size = vx_w;  // migration = X -> pixel width
-u = toLowerCase(vx_unit);
-if (u == "cm" || u == "centimeter" || u == "centimetre")
-    mm_per_pixel_migration = axis_pixel_size * 10.0;
-else if (u == "mm" || u == "millimeter" || u == "millimetre")
-    mm_per_pixel_migration = axis_pixel_size;
-else if (u == "um" || u == "micron" || u == "microns" || u == "micrometer" || u == "micrometre")
-    mm_per_pixel_migration = axis_pixel_size / 1000.0;
-// any other unit (e.g. "pixel") leaves mm_per_pixel_migration = 0
+// Pixel size for the millimetre column, taken from the image calibration. If the
+// scale was zeroed to pixels the unit is not a length, so the mm column is left
+// blank rather than filled with a wrong number.
+getVoxelSize(voxel_width, voxel_height, voxel_depth, voxel_unit);
+if (MIGRATION_AXIS_IS_VERTICAL)
+    pixel_size_along_migration_axis = voxel_height;
+else
+    pixel_size_along_migration_axis = voxel_width;
+millimetres_per_migration_pixel = 0;   // 0 means unknown / not calibrated
+voxel_unit_lowercase = toLowerCase(voxel_unit);
+if (voxel_unit_lowercase == "cm" || voxel_unit_lowercase == "centimeter" || voxel_unit_lowercase == "centimetre")
+    millimetres_per_migration_pixel = pixel_size_along_migration_axis * CENTIMETRES_TO_MILLIMETRES;
+else if (voxel_unit_lowercase == "mm" || voxel_unit_lowercase == "millimeter" || voxel_unit_lowercase == "millimetre")
+    millimetres_per_migration_pixel = pixel_size_along_migration_axis;
+else if (voxel_unit_lowercase == "um" || voxel_unit_lowercase == "micron" || voxel_unit_lowercase == "microns" || voxel_unit_lowercase == "micrometer" || voxel_unit_lowercase == "micrometre")
+    millimetres_per_migration_pixel = pixel_size_along_migration_axis / MICROMETRES_PER_MILLIMETRE;
 
-// Determine position order of lanes so a stable lane_index can be assigned.
-// Vertical lanes: order by ROI centre X (left to right).
-// Horizontal lanes: order by ROI centre Y (top to bottom).
-centre_key = newArray(n_rois);
-for (i = 0; i < n_rois; i++) {
-    roiManager("select", i);
-    Roi.getBounds(rx, ry, rw, rh);
-    if (LANES_ARE_VERTICAL) centre_key[i] = rx + rw / 2.0;
-    else                    centre_key[i] = ry + rh / 2.0;
+// A stable lane_index that does not depend on draw order: rank each ROI by the
+// centre coordinate across the lanes (X for vertical lanes, Y for horizontal),
+// so lane 1 is the physically first lane regardless of the order it was added.
+lane_centre_coordinate = newArray(lane_roi_count);
+for (ranked_roi_index = 0; ranked_roi_index < lane_roi_count; ranked_roi_index++) {
+    roiManager("select", ranked_roi_index);
+    Roi.getBounds(ranked_roi_x, ranked_roi_y, ranked_roi_width, ranked_roi_height);
+    if (MIGRATION_AXIS_IS_VERTICAL)
+        lane_centre_coordinate[ranked_roi_index] = ranked_roi_x + ranked_roi_width / 2.0;
+    else
+        lane_centre_coordinate[ranked_roi_index] = ranked_roi_y + ranked_roi_height / 2.0;
 }
-// rank[i] = number of ROIs whose centre_key is strictly less (ties broken by index)
-position_rank = newArray(n_rois);
-for (i = 0; i < n_rois; i++) {
-    rank = 0;
-    for (j = 0; j < n_rois; j++) {
-        if (centre_key[j] < centre_key[i]) rank++;
-        else if (centre_key[j] == centre_key[i] && j < i) rank++;
+lane_index_by_roi = newArray(lane_roi_count);
+for (outer_roi_index = 0; outer_roi_index < lane_roi_count; outer_roi_index++) {
+    lanes_positioned_before = 0;
+    for (inner_roi_index = 0; inner_roi_index < lane_roi_count; inner_roi_index++) {
+        if (lane_centre_coordinate[inner_roi_index] < lane_centre_coordinate[outer_roi_index])
+            lanes_positioned_before++;
+        // Break centre-coordinate ties by draw order so two lanes never share an index.
+        else if (lane_centre_coordinate[inner_roi_index] == lane_centre_coordinate[outer_roi_index] && inner_roi_index < outer_roi_index)
+            lanes_positioned_before++;
     }
-    position_rank[i] = rank;   // 0-based; lane_index below is 1-based
+    lane_index_by_roi[outer_roi_index] = lanes_positioned_before + 1;   // 1-based
 }
 
-// Build the CSV. One row per (lane, migration position).
-header = "lane_index,drawn_order,roi_name,lane_detection_status,prediction_span,"
-       + "roi_x,roi_y,roi_w,roi_h,plate_background_median,"
-       + "migration_position_pixels,migration_position_millimetres,raw_value";
-csv = header + "\n";
+String.resetBuffer;
+String.append(CSV_HEADER + "\n");
 
 setBatchMode(true);
-for (i = 0; i < n_rois; i++) {
-    roiManager("select", i);
-    roi_name = Roi.getName;
-    if (roi_name == "") roi_name = "lane_" + IJ.pad(i + 1, 3);
-    Roi.getBounds(rx, ry, rw, rh);
-    lane_index = position_rank[i] + 1;   // 1-based, position-sorted
-    drawn_order = i + 1;                  // 1-based, order added to manager
+for (lane_roi_index = 0; lane_roi_index < lane_roi_count; lane_roi_index++) {
+    roiManager("select", lane_roi_index);
+    lane_roi_name = Roi.getName;
+    if (lane_roi_name == "")
+        lane_roi_name = "lane_" + IJ.pad(lane_roi_index + 1, 3);
+    Roi.getBounds(roi_bounds_x, roi_bounds_y, roi_bounds_width, roi_bounds_height);
+    lane_index_for_this_roi = lane_index_by_roi[lane_roi_index];
+    drawn_order_number = lane_roi_index + 1;
 
-    if (LANES_ARE_VERTICAL) {
-        // migration = Y: one value per row, summed across the lane width (X)
-        n_pos = rh;
-        for (p = 0; p < n_pos; p++) {
-            y = ry + p;
-            row_sum = 0.0;
-            for (x = rx; x < rx + rw; x++) {
-                v = getPixel(x, y) - plate_bg;
-                if (v < 0) v = 0;
-                row_sum += v;
-            }
-            csv = csv + line_for(lane_index, drawn_order, roi_name, rx, ry, rw, rh,
-                                 plate_bg, p, mm_per_pixel_migration, row_sum);
-        }
+    if (MIGRATION_AXIS_IS_VERTICAL) {
+        migration_axis_length = roi_bounds_height;
+        width_axis_length = roi_bounds_width;
     } else {
-        // migration = X: one value per column, summed across the lane height (Y)
-        n_pos = rw;
-        for (p = 0; p < n_pos; p++) {
-            x = rx + p;
-            col_sum = 0.0;
-            for (y = ry; y < ry + rh; y++) {
-                v = getPixel(x, y) - plate_bg;
-                if (v < 0) v = 0;
-                col_sum += v;
-            }
-            csv = csv + line_for(lane_index, drawn_order, roi_name, rx, ry, rw, rh,
-                                 plate_bg, p, mm_per_pixel_migration, col_sum);
-        }
+        migration_axis_length = roi_bounds_width;
+        width_axis_length = roi_bounds_height;
     }
-    showProgress(i + 1, n_rois);
+
+    for (migration_position_index = 0; migration_position_index < migration_axis_length; migration_position_index++) {
+        summed_signal_across_width = 0.0;
+        for (width_column_index = 0; width_column_index < width_axis_length; width_column_index++) {
+            if (MIGRATION_AXIS_IS_VERTICAL) {
+                current_pixel_x = roi_bounds_x + width_column_index;
+                current_pixel_y = roi_bounds_y + migration_position_index;
+            } else {
+                current_pixel_x = roi_bounds_x + migration_position_index;
+                current_pixel_y = roi_bounds_y + width_column_index;
+            }
+            background_subtracted_value = getPixel(current_pixel_x, current_pixel_y) - plate_background_median;
+            // Clip negatives so plate-noise dips below the median cannot subtract
+            // from real band signal; matches measure_gel.py signal_above_plate.
+            if (background_subtracted_value < 0)
+                background_subtracted_value = 0;
+            summed_signal_across_width += background_subtracted_value;
+        }
+
+        migration_millimetres_text = "";
+        if (millimetres_per_migration_pixel > 0)
+            migration_millimetres_text = d2s(migration_position_index * millimetres_per_migration_pixel, 6);
+
+        // Leading "" forces string concatenation over the whole chain; without it
+        // the interpreter reads lane_index_for_this_roi + "," as arithmetic (NaN).
+        output_row_text = "" + lane_index_for_this_roi
+                        + "," + drawn_order_number
+                        + "," + lane_roi_name
+                        + ",manual,manual,"
+                        + roi_bounds_x + "," + roi_bounds_y
+                        + "," + roi_bounds_width + "," + roi_bounds_height
+                        + "," + d2s(plate_background_median, 6)
+                        + "," + migration_position_index
+                        + "," + migration_millimetres_text
+                        + "," + d2s(summed_signal_across_width, 6);
+        String.append(output_row_text + "\n");
+    }
+    showProgress(lane_roi_index + 1, lane_roi_count);
 }
 setBatchMode(false);
 
-// Write the profile CSV.
-profile_path = out_dir + "manual_lane_profiles.csv";
-File.saveString(csv, profile_path);
+profile_csv_path = output_directory + PROFILE_CSV_FILENAME;
+File.saveString(String.buffer, profile_csv_path);
 
-// Save the exact rectangles for replay.
-roi_zip_path = out_dir + "manual_lane_rois.zip";
+// Save the exact rectangles for replay. Deselect first so the whole set is saved
+// rather than only the single selected ROI.
+roi_zip_path = output_directory + ROI_ZIP_FILENAME;
 roiManager("Deselect");
 roiManager("Save", roi_zip_path);
 
-// Small provenance sidecar so the export is self-describing.
-prov = "image_title\t" + image_title + "\n"
-     + "image_dir\t" + image_dir + "\n"
-     + "lane_count\t" + n_rois + "\n"
-     + "lanes_are_vertical\t" + LANES_ARE_VERTICAL + "\n"
-     + "plate_background_median\t" + plate_bg + "\n"
-     + "voxel_unit\t" + vx_unit + "\n"
-     + "mm_per_pixel_migration\t" + mm_per_pixel_migration + "\n"
-     + "profile_csv\t" + profile_path + "\n"
-     + "roi_zip\t" + roi_zip_path + "\n";
-File.saveString(prov, out_dir + "manual_export_provenance.txt");
+provenance_text = "" + "image_title\t" + image_title + "\n"
+                + "image_directory\t" + image_directory + "\n"
+                + "lane_count\t" + lane_roi_count + "\n"
+                + "migration_axis_is_vertical\t" + MIGRATION_AXIS_IS_VERTICAL + "\n"
+                + "plate_background_median\t" + plate_background_median + "\n"
+                + "voxel_unit\t" + voxel_unit + "\n"
+                + "millimetres_per_migration_pixel\t" + millimetres_per_migration_pixel + "\n"
+                + "profile_csv\t" + profile_csv_path + "\n"
+                + "roi_zip\t" + roi_zip_path + "\n";
+File.saveString(provenance_text, output_directory + PROVENANCE_FILENAME);
 
-print("[export] wrote " + profile_path);
+print("[export] wrote " + profile_csv_path);
 print("[export] wrote " + roi_zip_path);
-print("[export] plate background median = " + plate_bg
-      + " ; mm/pixel = " + mm_per_pixel_migration
-      + " ; lanes = " + n_rois);
-
-// Helper: format one CSV row. mm column left blank when scale is unknown.
-function line_for(lane_index, drawn_order, roi_name, rx, ry, rw, rh,
-                  plate_bg, pos, mm_per_pixel, value) {
-    mm_text = "";
-    if (mm_per_pixel > 0) mm_text = d2s(pos * mm_per_pixel, 6);
-    return lane_index + "," + drawn_order + "," + roi_name
-         + ",manual,manual,"
-         + rx + "," + ry + "," + rw + "," + rh + ","
-         + d2s(plate_bg, 6) + ","
-         + pos + "," + mm_text + "," + d2s(value, 6) + "\n";
-}
+print("[export] plate background median = " + plate_background_median
+      + " ; mm/pixel = " + millimetres_per_migration_pixel
+      + " ; lanes = " + lane_roi_count);
