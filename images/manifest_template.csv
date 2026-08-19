@@ -1,2 +1,2 @@
 experiment_id,analysis_path,gel_id,replicate,notes
-example-remove-this-row,path/to/YOURGEL_gel_analysis,YOURGEL,1,paths may be relative to this manifest; analysis_path is the gel dir or any file in it
+example-remove-this-row,path/to/YOURGEL_gel_analysis,YOURGEL,1,analysis_path may be relative to this manifest and is the gel dir or any file in it; remove this example row before use
