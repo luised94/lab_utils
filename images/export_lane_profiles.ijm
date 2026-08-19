@@ -34,7 +34,12 @@ ROI_ZIP_FILENAME = "manual_lane_rois.zip";
 PROVENANCE_FILENAME = "manual_export_provenance.txt";
 CENTIMETRES_TO_MILLIMETRES = 10.0;
 MICROMETRES_PER_MILLIMETRE = 1000.0;
+// Standard comb sizes offered in the up-front dialog, plus a custom escape hatch.
+// The chosen value is stamped into every row so the export records the comb the
+// operator intended, and is asserted against the ROI count below.
+COMB_WELL_COUNT_CHOICES = newArray("15", "12", "10", "other");
 CSV_HEADER = "lane_index,drawn_order,roi_name,lane_detection_status,prediction_span,"
+           + "comb_well_count,"
            + "roi_x,roi_y,roi_w,roi_h,plate_background_median,"
            + "migration_position_pixels,migration_position_millimetres,raw_value";
 
@@ -43,6 +48,26 @@ if (nImages == 0)
 lane_roi_count = roiManager("count");
 if (lane_roi_count == 0)
     exit("ROI Manager is empty. Draw each lane, press t to add it, then re-run.");
+
+// Ask the comb size once, up front, before any pixels are read. Making it an
+// explicit choice (rather than inferring it from the ROI count) is what lets the
+// assertion below catch a missed or extra box instead of silently trusting it.
+Dialog.create("Gel comb");
+Dialog.addChoice("Wells in the comb:", COMB_WELL_COUNT_CHOICES, COMB_WELL_COUNT_CHOICES[0]);
+Dialog.addNumber("If 'other', wells:", lane_roi_count);
+Dialog.show();
+comb_well_count_choice = Dialog.getChoice();
+comb_well_count_custom = Dialog.getNumber();
+if (comb_well_count_choice == "other")
+    comb_well_count = comb_well_count_custom;
+else
+    comb_well_count = parseInt(comb_well_count_choice);
+
+// Draw every comb position, loaded or not, so lane_index maps one-to-one onto
+// well number across gels. A mismatch here means a box was missed or doubled.
+if (lane_roi_count != comb_well_count)
+    exit("Drew " + lane_roi_count + " lanes but the comb has " + comb_well_count
+       + ". Add or remove ROIs so every well is drawn exactly once, then re-run.");
 
 image_title = getTitle();
 
@@ -156,6 +181,7 @@ for (lane_roi_index = 0; lane_roi_index < lane_roi_count; lane_roi_index++) {
                         + "," + drawn_order_number
                         + "," + lane_roi_name
                         + ",manual,manual,"
+                        + comb_well_count + ","
                         + roi_bounds_x + "," + roi_bounds_y
                         + "," + roi_bounds_width + "," + roi_bounds_height
                         + "," + d2s(plate_background_median, 6)
@@ -180,6 +206,7 @@ roiManager("Save", roi_zip_path);
 provenance_text = "" + "image_title\t" + image_title + "\n"
                 + "image_directory\t" + image_directory + "\n"
                 + "lane_count\t" + lane_roi_count + "\n"
+                + "comb_well_count\t" + comb_well_count + "\n"
                 + "migration_axis_is_vertical\t" + MIGRATION_AXIS_IS_VERTICAL + "\n"
                 + "plate_background_median\t" + plate_background_median + "\n"
                 + "voxel_unit\t" + voxel_unit + "\n"
