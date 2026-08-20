@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gel band / region picker</title>
+<style>
+  :root{
+    --box:#F4F6F7; --panel:#FFFFFF; --rule:#CBD5D8; --ink:#14191C;
+    --fluor:#06BF9B; --fluor-soft:rgba(6,191,155,0.16); --amber:#E09A38;
+    --violet:#6C5CE0; --muted:#9AA6AB; --ink-2:#4A565B;
+    --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--box);color:var(--ink);font-family:var(--sans);
+       font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;
+           text-transform:uppercase;color:var(--ink-2)}
+  h1{font-size:20px;font-weight:650;margin:.15em 0 .1em;letter-spacing:-.01em}
+  .gelid{font-family:var(--mono);font-size:11px;color:var(--muted);
+         word-break:break-all;margin-bottom:16px}
+  .bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;
+       padding:12px 14px;background:var(--panel);border:1px solid var(--rule);
+       border-radius:10px;margin-bottom:14px}
+  .seg{display:inline-flex;border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+  .seg button{font-family:var(--mono);font-size:12px;letter-spacing:.04em;
+    border:0;background:var(--panel);color:var(--ink-2);padding:7px 14px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+  .seg button:focus-visible{outline:2px solid var(--fluor);outline-offset:-2px}
+  .readout{font-family:var(--mono);font-size:13px;color:var(--ink)}
+  .readout b{color:var(--fluor);font-weight:650}
+  .hint{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .panel{background:var(--panel);border:1px solid var(--rule);border-radius:10px;
+         padding:12px 14px;margin-bottom:14px}
+  .ptitle{font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--ink-2);margin:0 0 10px}
+  #stage{width:100%;display:block;border-radius:8px;touch-action:none;cursor:crosshair}
+  .stagewrap{position:relative}
+  .axis{font-family:var(--mono);font-size:10px;fill:var(--muted)}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-family:var(--mono);
+    font-size:11px;color:var(--ink-2);margin-top:10px}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;
+    vertical-align:-1px;margin-right:5px}
+  .bars{display:grid;grid-template-columns:repeat(15,1fr);gap:6px;align-items:end;
+    height:150px;padding-top:6px}
+  .col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .stalk{width:70%;max-width:26px;background:var(--ink);border-radius:2px 2px 0 0;
+    position:relative;transition:height .18s ease}
+  .stalk.ref{background:var(--violet)} .stalk.exc{background:var(--muted)}
+  .stalk .cap{position:absolute;top:-4px;left:0;right:0;height:4px;background:var(--amber);
+    border-radius:2px 2px 0 0}
+  .col small{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:5px;
+    text-align:center;line-height:1.15;height:26px;overflow:hidden}
+  .col .lab{color:var(--ink-2)}
+  .col.sel .stalk{outline:2px solid var(--fluor);outline-offset:1px}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+  .metric{border-left:2px solid var(--rule);padding:2px 0 2px 10px}
+  .metric .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted)}
+  .metric .v{font-family:var(--mono);font-size:18px;color:var(--ink);font-weight:600}
+  .verdict{margin-top:12px;font-family:var(--mono);font-size:12.5px;padding:8px 11px;
+    border-radius:8px;background:#EAF6F2;color:#0A6B57;border:1px solid #BEE6DB}
+  .verdict.warn{background:#FBF1E1;color:#8A5A18;border-color:#EAD4AC}
+  .repro{font-family:var(--mono);font-size:12.5px;background:#0F1417;color:#E8EEF0;
+    border-radius:8px;padding:12px 13px;display:flex;gap:10px;align-items:center;
+    justify-content:space-between;overflow:auto}
+  .repro code{white-space:nowrap}
+  .repro .dollar{color:var(--fluor)}
+  .copy{font-family:var(--mono);font-size:11px;letter-spacing:.06em;border:1px solid #33424A;
+    background:#1B242A;color:#CFE7E0;border-radius:6px;padding:6px 11px;cursor:pointer;flex:none}
+  .copy:focus-visible{outline:2px solid var(--fluor)}
+  select{font-family:var(--mono);font-size:12px;border:1px solid var(--rule);
+    border-radius:7px;padding:5px 8px;background:var(--panel);color:var(--ink)}
+  label.inline{font-family:var(--mono);font-size:11px;color:var(--ink-2);
+    display:inline-flex;gap:6px;align-items:center}
+  @media (max-width:640px){ .bars{height:120px} .col small{font-size:8px} }
+  @media (prefers-reduced-motion:reduce){ .stalk{transition:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">gel densitometry &middot; band / region picker</div>
+  <h1>Pick the band or region to quantify</h1>
+  <div class="gelid" id="gelid"></div>
+
+  <div class="bar">
+    <div class="seg" role="group" aria-label="selection mode">
+      <button id="mode-region" aria-pressed="true">REGION</button>
+      <button id="mode-band" aria-pressed="false">BAND</button>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div class="hint" id="hint" style="margin-left:auto"></div>
+  </div>
+
+  <div class="panel">
+    <div class="stagewrap">
+      <canvas id="stage"></canvas>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--ink)"></i>measured lane</span>
+      <span><i style="background:var(--violet)"></i>reference lane</span>
+      <span><i style="background:var(--muted)"></i>excluded (ladder / empty)</span>
+      <span><i style="background:var(--amber)"></i>fragile baseline in this band</span>
+      <span><i style="background:var(--fluor)"></i>current selection</span>
+      <span style="color:var(--muted)">profiles sqrt-scaled per lane for visibility; migration runs top&rarr;bottom</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="ptitle" style="display:flex;justify-content:space-between;align-items:center">
+      <span>per-lane value &mdash; current selection</span>
+      <span style="display:inline-flex;gap:14px">
+        <label class="inline">order
+          <select id="order"><option value="lane">by lane</option><option value="well">by well</option></select>
+        </label>
+        <label class="inline" id="qwrap">quantity
+          <select id="quantity"><option value="area">area</option><option value="apex">apex height</option></select>
+        </label>
+      </span>
+    </p>
+    <div class="bars" id="bars"></div>
+  </div>
+
+  <div class="panel">
+    <p class="ptitle">consistency across lanes</p>
+    <div class="metrics" id="metrics"></div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <div class="panel">
+    <p class="ptitle">reproduce &mdash; run this to write the traceable per-lane CSV</p>
+    <div class="repro">
+      <code><span class="dollar">$ </span><span id="cmd"></span></code>
+      <button class="copy" id="copy">copy</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = __PAYLOAD__;
+const GELDIR = "<gel_dir>";
+(function(){
+  "use strict";
+  const $ = s => document.querySelector(s);
+  const N = DATA.N, MMPP = DATA.mm_per_px, MAXMM = (N-1)*MMPP;
+  const lanes = DATA.lanes.slice();
+  const px2mm = p => p*MMPP, mm2px = m => m/MMPP;
+  document.getElementById('gelid').textContent = DATA.gel_id;
+
+  // ---- state ----
+  let mode = 'region';
+  let regionA = 34, regionB = 45;      // mm
+  let bandIndex = DATA.bands.find(b=>b.supported) ? DATA.bands.find(b=>b.supported).index : DATA.bands[0].index;
+  let quantity = 'area';
+  let order = 'lane';
+
+  // ---- gel image ----
+  const gelImg = new Image(); let gelReady=false;
+  gelImg.onload = ()=>{ gelReady=true; draw(); };
+  gelImg.src = DATA.gel_png;
+
+  // ---- precompute per-lane display scale (sqrt of per-lane max) ----
+  const laneMaxSqrt = {};
+  lanes.forEach(li=>{
+    const p = DATA.profiles[li]; let m=0; for(const v of p){ const s=Math.sqrt(Math.max(v,0)); if(s>m)m=s; }
+    laneMaxSqrt[li] = m || 1;
+  });
+
+  // ---- canvas geometry ----
+  const cv = $('#stage'), ctx = cv.getContext('2d');
+  let geom = null;
+  function layout(){
+    const cssW = cv.parentElement.clientWidth;
+    const cssH = Math.max(360, Math.min(560, Math.round(cssW*0.62)));
+    const dpr = window.devicePixelRatio||1;
+    cv.style.width=cssW+'px'; cv.style.height=cssH+'px';
+    cv.width=Math.round(cssW*dpr); cv.height=Math.round(cssH*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const padT=18, padB=8, padL=34, gelW=Math.round(cssW*0.20), gap=10;
+    const trackX0=padL+gelW+gap;
+    const trackArea=cssW-trackX0-6;
+    const tw=trackArea/lanes.length;
+    const plotH=cssH-padT-padB;
+    geom={cssW,cssH,padT,padB,padL,gelW,gap,trackX0,tw,plotH,
+          yOf:p=>padT+(p/(N-1))*plotH,
+          pOfY:y=>Math.max(0,Math.min(N-1,Math.round((y-padT)/plotH*(N-1))))};
+  }
+  function draw(){
+    if(!geom) layout();
+    const g=geom;
+    ctx.clearRect(0,0,g.cssW,g.cssH);
+    // migration axis ticks (mm)
+    ctx.fillStyle='#9AA6AB'; ctx.font='10px ui-monospace,Menlo,monospace'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    for(let mm=0; mm<=MAXMM; mm+=10){ const y=g.yOf(mm2px(mm)); ctx.fillText(mm.toString(), g.padL-6, y);
+      ctx.strokeStyle='#EEF2F3'; ctx.beginPath(); ctx.moveTo(g.padL-2,y); ctx.lineTo(g.trackX0+g.tw*lanes.length,y); ctx.stroke(); }
+    // gel crop
+    if(gelReady){ ctx.imageSmoothingEnabled=true;
+      ctx.drawImage(gelImg,0,0,gelImg.width,gelImg.height,g.padL,g.padT,g.gelW,g.plotH);
+      ctx.strokeStyle='#CBD5D8'; ctx.strokeRect(g.padL,g.padT,g.gelW,g.plotH); }
+    // profile tracks
+    lanes.forEach((li,i)=>{
+      const x0=g.trackX0+i*g.tw, w=g.tw*0.9;
+      const id=DATA.ident[li]; const role=id?id.role:'excluded';
+      const prof=DATA.profiles[li], sc=laneMaxSqrt[li];
+      // baseline
+      ctx.strokeStyle='#E4E9EB'; ctx.beginPath(); ctx.moveTo(x0,g.padT); ctx.lineTo(x0,g.padT+g.plotH); ctx.stroke();
+      // filled profile (signal deflects right, migration down)
+      ctx.beginPath(); ctx.moveTo(x0,g.padT);
+      for(let p=0;p<N;p++){ const s=Math.sqrt(Math.max(prof[p],0))/sc; ctx.lineTo(x0+s*w, g.yOf(p)); }
+      ctx.lineTo(x0,g.padT+g.plotH); ctx.closePath();
+      ctx.fillStyle = role==='reference' ? 'rgba(108,92,224,0.16)' : (id? 'rgba(20,25,28,0.12)':'rgba(154,166,171,0.10)');
+      ctx.fill();
+      ctx.strokeStyle = role==='reference' ? 'rgba(108,92,224,0.7)' : (id?'rgba(20,25,28,0.55)':'rgba(154,166,171,0.5)');
+      ctx.lineWidth=1; ctx.beginPath();
+      for(let p=0;p<N;p++){ const s=Math.sqrt(Math.max(prof[p],0))/sc; const X=x0+s*w,Y=g.yOf(p); p?ctx.lineTo(X,Y):ctx.moveTo(X,Y); }
+      ctx.stroke();
+      // lane header tick
+      ctx.fillStyle=role==='reference'?'#6C5CE0':(id?'#4A565B':'#9AA6AB');
+      ctx.font='9px ui-monospace,Menlo,monospace'; ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText('L'+li, x0+w/2, 2);
+    });
+    // selection overlay
+    if(mode==='region'){
+      const yA=g.yOf(mm2px(regionA)), yB=g.yOf(mm2px(regionB));
+      const xR=g.trackX0+g.tw*lanes.length;
+      ctx.fillStyle='var(--fluor-soft)'; ctx.fillStyle='rgba(6,191,155,0.15)';
+      ctx.fillRect(g.padL,yA,xR-g.padL,yB-yA);
+      ctx.strokeStyle='#06BF9B'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(g.padL,yA); ctx.lineTo(xR,yA); ctx.moveTo(g.padL,yB); ctx.lineTo(xR,yB); ctx.stroke();
+      // handles
+      ctx.fillStyle='#06BF9B';
+      [yA,yB].forEach(y=>{ ctx.fillRect(g.padL,y-3,14,6); ctx.fillRect(xR-14,y-3,14,6); });
+    } else {
+      const b=DATA.bands.find(x=>x.index===bandIndex);
+      const yW=g.yOf(b.ws), yE=g.yOf(b.we); const xR=g.trackX0+g.tw*lanes.length;
+      ctx.fillStyle='rgba(6,191,155,0.15)'; ctx.fillRect(g.padL,yW,xR-g.padL,yE-yW);
+      ctx.strokeStyle='#06BF9B'; ctx.lineWidth=2; ctx.strokeRect(g.padL,yW,xR-g.padL,yE-yW);
+      // all band markers (clickable)
+      DATA.bands.forEach(bb=>{ const y=g.yOf(mm2px(bb.mm));
+        ctx.strokeStyle = bb.index===bandIndex ? '#06BF9B' : (bb.supported?'rgba(20,25,28,0.28)':'rgba(154,166,171,0.5)');
+        ctx.lineWidth = bb.index===bandIndex?1.5:1; ctx.setLineDash(bb.supported?[]:[3,3]);
+        ctx.beginPath(); ctx.moveTo(g.trackX0,y); ctx.lineTo(xR,y); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle=bb.index===bandIndex?'#06BF9B':'#9AA6AB'; ctx.font='9px ui-monospace,Menlo,monospace';
+        ctx.textAlign='left'; ctx.textBaseline='bottom'; ctx.fillText('b'+bb.index, g.trackX0+2, y-1);
+      });
+    }
+  }
+
+  // ---- values for current selection ----
+  function currentValues(){
+    // returns [{li, val, role, id, fragile}]
+    return lanes.map(li=>{
+      const id=DATA.ident[li]; const role=id?id.role:'excluded';
+      let val=null, fragile=false;
+      if(mode==='band'){
+        const pb = DATA.per[li] && DATA.per[li][bandIndex];
+        if(pb){ val = quantity==='area'?pb.area:pb.apex; fragile=pb.fragile; }
+      } else {
+        const prof=DATA.profiles[li]; const pA=Math.max(0,Math.round(mm2px(regionA))), pB=Math.min(N-1,Math.round(mm2px(regionB)));
+        let s=0; for(let p=pA;p<=pB;p++) s+=Math.max(prof[p],0); val=s;
+      }
+      return {li,val,role,id,fragile};
+    });
+  }
+  function measuredVals(rows){ return rows.filter(r=>r.id && r.val!=null).map(r=>r.val); }
+  function stats(a){ if(!a.length) return null; const n=a.length, s=[...a].sort((x,y)=>x-y);
+    const mean=a.reduce((p,c)=>p+c,0)/n; const med=n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2;
+    const varc=n>1?a.reduce((p,c)=>p+(c-mean)*(c-mean),0)/(n-1):0;
+    const cv=mean?Math.sqrt(varc)/Math.abs(mean):null;
+    return {n,min:s[0],max:s[n-1],med,cv}; }
+  const fmt=v=> v==null?'-': (Math.abs(v)>=1e6? (v/1e6).toFixed(2)+'M' : Math.abs(v)>=1e3? (v/1e3).toFixed(1)+'k' : (''+Math.round(v)));
+
+  // ---- render bars + metrics + repro ----
+  function renderPanels(){
+    const rows=currentValues();
+    let ordered=[...rows];
+    if(order==='well') ordered.sort((a,b)=>((a.id?a.id.well:99)-(b.id?b.id.well:99)));
+    const maxv=Math.max(1,...rows.filter(r=>r.val!=null).map(r=>r.val));
+    const bars=$('#bars'); bars.innerHTML='';
+    ordered.forEach(r=>{
+      const col=document.createElement('div'); col.className='col';
+      const stalk=document.createElement('div'); stalk.className='stalk'+(r.role==='reference'?' ref':(r.id?'':' exc'));
+      stalk.style.height=(r.val!=null? Math.max(2, r.val/maxv*118):0)+'px';
+      if(mode==='band' && r.fragile){ const cap=document.createElement('div'); cap.className='cap'; stalk.appendChild(cap); }
+      stalk.title = 'lane '+r.li+(r.id?' / well '+r.id.well+' / '+r.id.label:'')+'\nvalue '+ (r.val==null?'-':r.val.toLocaleString());
+      const lab=document.createElement('small');
+      lab.innerHTML = 'L'+r.li + (r.id? '<br><span class="lab">w'+r.id.well+'</span>' : '<br><span>excl</span>');
+      col.appendChild(stalk); col.appendChild(lab); bars.appendChild(col);
+    });
+    // metrics
+    const st=stats(measuredVals(rows));
+    const M=$('#metrics'); M.innerHTML='';
+    const chip=(k,v)=>{ const d=document.createElement('div'); d.className='metric';
+      d.innerHTML='<div class="k">'+k+'</div><div class="v">'+v+'</div>'; M.appendChild(d); };
+    if(mode==='band'){
+      const b=DATA.bands.find(x=>x.index===bandIndex);
+      chip('band', 'b'+b.index+' @ '+b.mm.toFixed(1)+'mm');
+      chip('occupancy', b.occupancy+' lanes');
+      chip('fragile lanes', b.fragile_lanes);
+      chip('smile spread', b.spread_mm.toFixed(2)+' mm');
+      chip('CV ('+quantity+')', st&&st.cv!=null? (100*st.cv).toFixed(0)+'%':'-');
+      chip('min / med / max', st? fmt(st.min)+' / '+fmt(st.med)+' / '+fmt(st.max):'-');
+    } else {
+      const inb=DATA.bands.filter(b=>b.mm>=regionA && b.mm<=regionB).map(b=>'b'+b.index);
+      chip('region', regionA.toFixed(1)+'-'+regionB.toFixed(1)+' mm');
+      chip('lanes w/ signal', st?st.n:'-');
+      chip('CV (raw sum)', st&&st.cv!=null? (100*st.cv).toFixed(0)+'%':'-');
+      chip('bands inside', inb.length? inb.join(' '):'none');
+      chip('min / med / max', st? fmt(st.min)+' / '+fmt(st.med)+' / '+fmt(st.max):'-');
+    }
+    // verdict
+    const V=$('#verdict');
+    if(mode==='band'){
+      const b=DATA.bands.find(x=>x.index===bandIndex);
+      const measuredCount=lanes.filter(li=>DATA.ident[li]).length;
+      const bad = b.fragile_lanes>0 || b.occupancy<measuredCount || b.spread_mm>1.5;
+      if(bad){ V.className='verdict warn';
+        const parts=[];
+        if(b.occupancy<measuredCount) parts.push('missing in some lanes');
+        if(b.fragile_lanes>0) parts.push(b.fragile_lanes+' lanes baseline-fragile');
+        if(b.spread_mm>1.5) parts.push('smile spread '+b.spread_mm.toFixed(1)+' mm');
+        V.textContent='This band is '+parts.join('; ')+'. Cross-check apex height, or pick a cleaner band.'; }
+      else { V.className='verdict';
+        V.textContent='Clean: present in every lane, baselines agree, low smile spread. A dependable band to quantify on.'; }
+    } else {
+      V.className='verdict warn';
+      V.textContent='A fixed migration window is smile-affected: the same species can drift out of the window in bowed lanes. Good for a quick region sum; prefer a single clean band (apex) when smile is large.';
+    }
+    // repro command
+    let cmd;
+    if(mode==='band') cmd='uv run extract_lane_values.py '+GELDIR+' --band '+bandIndex+' --quantity '+quantity;
+    else cmd='uv run extract_lane_values.py '+GELDIR+' --region '+regionA.toFixed(1)+' '+regionB.toFixed(1);
+    $('#cmd').textContent=cmd;
+    // top readout
+    if(mode==='band'){ const b=DATA.bands.find(x=>x.index===bandIndex);
+      $('#readout').innerHTML='band <b>b'+b.index+'</b> at <b>'+b.mm.toFixed(1)+' mm</b> &middot; '+quantity;
+      $('#hint').textContent='click a band line to select'; }
+    else { $('#readout').innerHTML='region <b>'+regionA.toFixed(1)+'</b> &ndash; <b>'+regionB.toFixed(1)+'</b> mm';
+      $('#hint').textContent='drag the green edges to set the window'; }
+  }
+
+  function refresh(){ draw(); renderPanels(); }
+
+  // ---- interaction ----
+  let drag=null; // 'top'|'bottom'|'move'
+  function evPos(e){ const r=cv.getBoundingClientRect(); const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top; return cy; }
+  cv.addEventListener('pointerdown',e=>{ const g=geom; const y=evPos(e);
+    if(mode==='region'){ const yA=g.yOf(mm2px(regionA)), yB=g.yOf(mm2px(regionB));
+      if(Math.abs(y-yA)<8) drag='top'; else if(Math.abs(y-yB)<8) drag='bottom';
+      else if(y>yA&&y<yB) { drag='move'; drag_={y0:y,a:regionA,b:regionB}; }
+      if(drag) cv.setPointerCapture(e.pointerId);
+    } else { // band: pick nearest band line
+      let best=null,bd=1e9; DATA.bands.forEach(b=>{ const yy=g.yOf(mm2px(b.mm)); const d=Math.abs(yy-y); if(d<bd){bd=d;best=b.index;} });
+      if(best!=null){ bandIndex=best; refresh(); }
+    }
+  });
+  let drag_=null;
+  window.addEventListener('pointermove',e=>{ if(!drag) return; const g=geom; const y=evPos(e);
+    let mm=px2mm(g.pOfY(y)); mm=Math.max(0,Math.min(MAXMM,mm));
+    if(drag==='top') regionA=Math.min(mm,regionB-0.2);
+    else if(drag==='bottom') regionB=Math.max(mm,regionA+0.2);
+    else if(drag==='move'){ const dmm=px2mm(g.pOfY(y))-px2mm(g.pOfY(drag_.y0)); let a=drag_.a+dmm,b=drag_.b+dmm;
+      const w=drag_.b-drag_.a; if(a<0){a=0;b=w;} if(b>MAXMM){b=MAXMM;a=MAXMM-w;} regionA=a;regionB=b; }
+    refresh();
+  });
+  window.addEventListener('pointerup',()=>{ drag=null;drag_=null; });
+
+  // controls
+  function setMode(m){ mode=m; $('#mode-region').setAttribute('aria-pressed',m==='region');
+    $('#mode-band').setAttribute('aria-pressed',m==='band');
+    $('#qwrap').style.visibility = m==='band'?'visible':'hidden';
+    cv.style.cursor = m==='region'?'ns-resize':'pointer'; refresh(); }
+  $('#mode-region').onclick=()=>setMode('region');
+  $('#mode-band').onclick=()=>setMode('band');
+  $('#quantity').onchange=e=>{ quantity=e.target.value; refresh(); };
+  $('#order').onchange=e=>{ order=e.target.value; renderPanels(); };
+  $('#copy').onclick=()=>{ const t=$('#cmd').textContent; navigator.clipboard&&navigator.clipboard.writeText(t);
+    $('#copy').textContent='copied'; setTimeout(()=>$('#copy').textContent='copy',1200); };
+  window.addEventListener('resize',()=>{ layout(); refresh(); });
+
+  // init
+  layout(); setMode('region');
+})();
+</script>
+</body>
+</html>
