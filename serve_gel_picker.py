@@ -124,16 +124,65 @@ for required_path in (profile_csv_path, band_measurements_path, extractor_script
     if not required_path.is_file():
         die("input", "missing required file: " + str(required_path))
 
-# Locate the rotated TIFF: an explicit override, else the sole .tif beside the
-# analysis dir or one level up (where the pipeline keeps <stem>.tif next to
-# <stem>_gel_analysis). If none resolves, the page still works without the crop.
+# Locate the rotated TIFF the ROIs were drawn on. Priority: an explicit override;
+# then the export provenance the ImageJ macro wrote (authoritative); then the
+# pipeline convention <stem>.tif beside the <stem>_gel_analysis directory. A blind
+# *.tif glob is deliberately NOT used: an experiment folder holds several gels'
+# TIFFs, and the alphabetically-first one is usually the wrong gel (a leading
+# "2026.07.10..." sorts before "20260818..." because '.' precedes '0').
+GEL_ANALYSIS_DIRECTORY_SUFFIX = "_gel_analysis"
+expected_tiff_stem = gel_analysis_directory.name
+if expected_tiff_stem.endswith(GEL_ANALYSIS_DIRECTORY_SUFFIX):
+    expected_tiff_stem = expected_tiff_stem[: -len(GEL_ANALYSIS_DIRECTORY_SUFFIX)]
+expected_tiff_filename = expected_tiff_stem + ".tif"
+
+provenance_image_directory = None
+provenance_image_title = None
+provenance_path = gel_analysis_directory / "manual_export_provenance.txt"
+if provenance_path.is_file():
+    for provenance_line in provenance_path.read_text(encoding="utf-8-sig").splitlines():
+        stripped_line = provenance_line.strip()
+        lowered_line = stripped_line.lower()
+        # Accept "key: value", "key = value", "key<tab>value", or "key value".
+        if lowered_line.startswith("image_title"):
+            provenance_image_title = stripped_line[len("image_title"):].lstrip(" \t:=")
+        elif lowered_line.startswith("image_directory"):
+            provenance_image_directory = stripped_line[len("image_directory"):].lstrip(" \t:=")
+
 if parsed_arguments.tiff_override:
     tiff_path = pathlib.Path(parsed_arguments.tiff_override)
+    if not tiff_path.is_file():
+        die("input", "--tiff not found: " + str(tiff_path))
 else:
-    tiff_candidates = sorted(gel_analysis_directory.glob("*.tif")) + sorted(
-        gel_analysis_directory.parent.glob("*.tif")
-    )
-    tiff_path = tiff_candidates[0] if tiff_candidates else None
+    tiff_path = None
+    tiff_search_candidates = []
+    if provenance_image_directory and provenance_image_title:
+        tiff_search_candidates.append(pathlib.Path(provenance_image_directory) / provenance_image_title)
+    # The pipeline keeps <stem>.tif as a sibling of <stem>_gel_analysis, but also
+    # check inside the analysis dir in case a copy lives there.
+    tiff_search_candidates.append(gel_analysis_directory.parent / expected_tiff_filename)
+    tiff_search_candidates.append(gel_analysis_directory / expected_tiff_filename)
+    for candidate_path in tiff_search_candidates:
+        if candidate_path.is_file():
+            tiff_path = candidate_path
+            break
+    # Last resort: a TIFF whose name contains this gel's stem, never a blind first
+    # match across unrelated gels in the same folder.
+    if tiff_path is None:
+        for search_directory in (gel_analysis_directory, gel_analysis_directory.parent):
+            stem_matched_tiffs = sorted(
+                found_tiff for found_tiff in search_directory.glob("*.tif")
+                if expected_tiff_stem in found_tiff.name
+            )
+            if stem_matched_tiffs:
+                tiff_path = stem_matched_tiffs[0]
+                break
+    if tiff_path is None:
+        emit_message(
+            "input",
+            "no TIFF matching '" + expected_tiff_filename + "' found beside the gel "
+            "directory; serving without the gel crop (pass --tiff to set it explicitly)",
+        )
 
 # =============================================================================
 # Read the two CSVs (utf-8-sig strips the Excel BOM; every cell trimmed) so the
