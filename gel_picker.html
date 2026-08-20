@@ -75,13 +75,31 @@
     border-radius:7px;padding:5px 8px;background:var(--panel);color:var(--ink)}
   label.inline{font-family:var(--mono);font-size:11px;color:var(--ink-2);
     display:inline-flex;gap:6px;align-items:center}
+  .feedback{font-family:var(--mono);font-size:12px;color:var(--ink-2);
+    background:#EEF3F4;border:1px solid var(--rule);border-radius:8px;
+    padding:8px 12px;margin-bottom:14px}
+  .feedback b{color:var(--ink);font-weight:600}
+  .feedback .amber{color:var(--amber)}
+  .layers{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-bottom:10px}
+  .layerslabel{font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--ink-2)}
+  .layers input{accent-color:var(--fluor)}
+  .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+  .finalize{font-family:var(--sans);font-size:13px;font-weight:600;border:0;
+    background:var(--fluor);color:#04352B;border-radius:8px;padding:9px 16px;cursor:pointer}
+  .finalize:hover{filter:brightness(1.05)} .finalize:disabled{opacity:.5;cursor:default}
+  .finalize:focus-visible,.close:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .close{font-family:var(--sans);font-size:13px;border:1px solid var(--rule);
+    background:var(--panel);color:var(--ink-2);border-radius:8px;padding:9px 14px;cursor:pointer}
+  .result{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+  .result.ok{color:#0A6B57} .result.err{color:#B23A2E}
   @media (max-width:640px){ .bars{height:120px} .col small{font-size:8px} }
   @media (prefers-reduced-motion:reduce){ .stalk{transition:none} }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">gel densitometry &middot; band / region picker</div>
+  <div class="eyebrow">gel densitometry - band / region picker</div>
   <h1>Pick the band or region to quantify</h1>
   <div class="gelid" id="gelid"></div>
 
@@ -94,7 +112,17 @@
     <div class="hint" id="hint" style="margin-left:auto"></div>
   </div>
 
+  <div class="feedback" id="selfeedback"></div>
+
   <div class="panel">
+    <div class="layers">
+      <span class="layerslabel">layers</span>
+      <label class="inline"><input type="checkbox" id="lyr-gel" checked> gel image</label>
+      <label class="inline"><input type="checkbox" id="lyr-trace" checked> profiles</label>
+      <label class="inline"><input type="checkbox" id="lyr-rois"> ROIs</label>
+      <label class="inline"><input type="checkbox" id="lyr-bands"> band regions</label>
+      <label class="inline"><input type="checkbox" id="lyr-peaks"> apex peaks</label>
+    </div>
     <div class="stagewrap">
       <canvas id="stage"></canvas>
     </div>
@@ -104,13 +132,13 @@
       <span><i style="background:var(--muted)"></i>excluded (ladder / empty)</span>
       <span><i style="background:var(--amber)"></i>fragile baseline in this band</span>
       <span><i style="background:var(--fluor)"></i>current selection</span>
-      <span style="color:var(--muted)">profiles sqrt-scaled per lane for visibility; migration runs top&rarr;bottom</span>
+      <span style="color:var(--muted)">profiles sqrt-scaled per lane for visibility; migration runs top->bottom</span>
     </div>
   </div>
 
   <div class="panel">
     <p class="ptitle" style="display:flex;justify-content:space-between;align-items:center">
-      <span>per-lane value &mdash; current selection</span>
+      <span>per-lane value -- current selection</span>
       <span style="display:inline-flex;gap:14px">
         <label class="inline">order
           <select id="order"><option value="lane">by lane</option><option value="well">by well</option></select>
@@ -130,10 +158,15 @@
   </div>
 
   <div class="panel">
-    <p class="ptitle">reproduce &mdash; run this to write the traceable per-lane CSV</p>
+    <p class="ptitle">reproduce -- run this to write the traceable per-lane CSV</p>
     <div class="repro">
       <code><span class="dollar">$ </span><span id="cmd"></span></code>
       <button class="copy" id="copy">copy</button>
+    </div>
+    <div class="actions">
+      <button class="finalize" id="finalize">Write CSV to gel folder</button>
+      <button class="close" id="close">Close server</button>
+      <span class="result" id="result"></span>
     </div>
   </div>
 </div>
@@ -165,6 +198,11 @@
   let bandIndex = DATA.bands.find(b=>b.supported) ? DATA.bands.find(b=>b.supported).index : DATA.bands[0].index;
   let quantity = 'area';
   let order = 'lane';
+  const layers = { gel:true, trace:true, rois:false, bands:false, peaks:false };
+
+  // roi_x is in original image pixels; the gel crop spans roi_left..roi_right and
+  // is drawn into the gel column, so an original x maps there (used in draw()).
+  const roiSpanPixels = DATA.roi_right_edge_pixels - DATA.roi_left_edge_pixels;
 
   // ---- gel image ----
   const gelImg = new Image(); let gelReady=false;
@@ -204,27 +242,53 @@
     ctx.fillStyle='#9AA6AB'; ctx.font='10px ui-monospace,Menlo,monospace'; ctx.textAlign='right'; ctx.textBaseline='middle';
     for(let mm=0; mm<=MAXMM; mm+=10){ const y=g.yOf(mm2px(mm)); ctx.fillText(mm.toString(), g.padL-6, y);
       ctx.strokeStyle='#EEF2F3'; ctx.beginPath(); ctx.moveTo(g.padL-2,y); ctx.lineTo(g.trackX0+g.tw*lanes.length,y); ctx.stroke(); }
+    const trackRight = g.trackX0+g.tw*lanes.length;
     // gel crop
-    if(gelReady){ ctx.imageSmoothingEnabled=true;
+    if(gelReady && layers.gel){ ctx.imageSmoothingEnabled=true;
       ctx.drawImage(gelImg,0,0,gelImg.width,gelImg.height,g.padL,g.padT,g.gelW,g.plotH);
       ctx.strokeStyle='#CBD5D8'; ctx.strokeRect(g.padL,g.padT,g.gelW,g.plotH); }
+    // ROI boxes on the gel crop (the exact rectangles that were drawn in ImageJ)
+    if(layers.rois && DATA.gel_png){
+      ctx.strokeStyle='rgba(108,92,224,0.85)'; ctx.lineWidth=1;
+      lanes.forEach(li=>{ const r=DATA.roi[li]; if(!r) return;
+        const gx=g.padL+(r.roi_x-DATA.roi_left_edge_pixels)/roiSpanPixels*g.gelW;
+        const gw=r.roi_w/roiSpanPixels*g.gelW;
+        ctx.strokeRect(gx,g.padT,gw,g.plotH); });
+    }
+    // consensus band regions: the migration windows the detector integrates
+    if(layers.bands){
+      DATA.bands.forEach(b=>{ const y1=g.yOf(b.ws), y2=g.yOf(b.we);
+        ctx.fillStyle = b.supported ? 'rgba(20,25,28,0.06)' : 'rgba(224,154,56,0.08)';
+        ctx.fillRect(g.padL,y1,trackRight-g.padL,Math.max(1,y2-y1)); });
+    }
     // profile tracks
     lanes.forEach((li,i)=>{
       const x0=g.trackX0+i*g.tw, w=g.tw*0.9;
       const id=DATA.ident[li]; const role=id?id.role:'excluded';
       const prof=DATA.profiles[li], sc=laneMaxSqrt[li];
-      // baseline
+      // baseline (kept even when the trace is hidden, so tracks stay legible)
       ctx.strokeStyle='#E4E9EB'; ctx.beginPath(); ctx.moveTo(x0,g.padT); ctx.lineTo(x0,g.padT+g.plotH); ctx.stroke();
-      // filled profile (signal deflects right, migration down)
-      ctx.beginPath(); ctx.moveTo(x0,g.padT);
-      for(let p=0;p<N;p++){ const s=Math.sqrt(Math.max(prof[p],0))/sc; ctx.lineTo(x0+s*w, g.yOf(p)); }
-      ctx.lineTo(x0,g.padT+g.plotH); ctx.closePath();
-      ctx.fillStyle = role==='reference' ? 'rgba(108,92,224,0.16)' : (id? 'rgba(20,25,28,0.12)':'rgba(154,166,171,0.10)');
-      ctx.fill();
-      ctx.strokeStyle = role==='reference' ? 'rgba(108,92,224,0.7)' : (id?'rgba(20,25,28,0.55)':'rgba(154,166,171,0.5)');
-      ctx.lineWidth=1; ctx.beginPath();
-      for(let p=0;p<N;p++){ const s=Math.sqrt(Math.max(prof[p],0))/sc; const X=x0+s*w,Y=g.yOf(p); p?ctx.lineTo(X,Y):ctx.moveTo(X,Y); }
-      ctx.stroke();
+      if(layers.trace){
+        // filled profile (signal deflects right, migration down)
+        ctx.beginPath(); ctx.moveTo(x0,g.padT);
+        for(let p=0;p<N;p++){ const s=Math.sqrt(Math.max(prof[p],0))/sc; ctx.lineTo(x0+s*w, g.yOf(p)); }
+        ctx.lineTo(x0,g.padT+g.plotH); ctx.closePath();
+        ctx.fillStyle = role==='reference' ? 'rgba(108,92,224,0.16)' : (id? 'rgba(20,25,28,0.12)':'rgba(154,166,171,0.10)');
+        ctx.fill();
+        ctx.strokeStyle = role==='reference' ? 'rgba(108,92,224,0.7)' : (id?'rgba(20,25,28,0.55)':'rgba(154,166,171,0.5)');
+        ctx.lineWidth=1; ctx.beginPath();
+        for(let p=0;p<N;p++){ const s=Math.sqrt(Math.max(prof[p],0))/sc; const X=x0+s*w,Y=g.yOf(p); p?ctx.lineTo(X,Y):ctx.moveTo(X,Y); }
+        ctx.stroke();
+      }
+      // apex peaks: the per-lane detected apex for each consensus band, a short
+      // tick at that migration; amber where the baseline was fragile there.
+      if(layers.peaks){
+        const perBand=DATA.per[li]||{};
+        Object.keys(perBand).forEach(bandKey=>{ const peak=perBand[bandKey];
+          const y=g.yOf(peak.apex_pixels);
+          ctx.strokeStyle = peak.fragile ? '#E09A38' : '#14191C'; ctx.lineWidth=1.5;
+          ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x0+g.tw*0.32,y); ctx.stroke(); });
+      }
       // lane header tick
       ctx.fillStyle=role==='reference'?'#6C5CE0':(id?'#4A565B':'#9AA6AB');
       ctx.font='9px ui-monospace,Menlo,monospace'; ctx.textAlign='center'; ctx.textBaseline='top';
@@ -344,10 +408,25 @@
     $('#cmd').textContent=cmd;
     // top readout
     if(mode==='band'){ const b=DATA.bands.find(x=>x.index===bandIndex);
-      $('#readout').innerHTML='band <b>b'+b.index+'</b> at <b>'+b.mm.toFixed(1)+' mm</b> &middot; '+quantity;
+      $('#readout').innerHTML='band <b>b'+b.index+'</b> at <b>'+b.mm.toFixed(1)+' mm</b> - '+quantity;
       $('#hint').textContent='click a band line to select'; }
-    else { $('#readout').innerHTML='region <b>'+regionA.toFixed(1)+'</b> &ndash; <b>'+regionB.toFixed(1)+'</b> mm';
+    else { $('#readout').innerHTML='region <b>'+regionA.toFixed(1)+'</b> - <b>'+regionB.toFixed(1)+'</b> mm';
       $('#hint').textContent='drag the green edges to set the window'; }
+    // selection feedback: state exactly what number each lane will get
+    const FB=$('#selfeedback');
+    if(mode==='band'){ const b=DATA.bands.find(x=>x.index===bandIndex);
+      FB.innerHTML='Extract: <b>consensus band b'+b.index+'</b> at <b>'+b.mm.toFixed(1)+' mm</b>, quantity <b>'
+        +quantity+'</b> ('+(quantity==='area'?'region-net area at the fixed window '+b.ws+'-'+b.we+' px'
+        :'apex height above baseline, per lane')+'). One value per measured lane.'
+        +(quantity==='area' && b.fragile_lanes>0? ' <span class="amber">'+b.fragile_lanes+' lanes fragile here.</span>':'');
+    } else {
+      const pA=Math.round(mm2px(regionA)), pB=Math.round(mm2px(regionB));
+      const inb=DATA.bands.filter(b=>b.mm>=regionA && b.mm<=regionB).map(b=>'b'+b.index);
+      FB.innerHTML='Extract: <b>integrate the span</b> '+regionA.toFixed(1)+'-'+regionB.toFixed(1)
+        +' mm = raw sum of the plate-background-corrected profile over <b>'+(pB-pA+1)+' migration rows</b>, per lane. '
+        +'Detected bands inside: <b>'+(inb.length?inb.join(' '):'none')+'</b>. '
+        +'<span class="amber">Fixed window, so smile-affected.</span>';
+    }
   }
 
   function refresh(){ draw(); renderPanels(); }
@@ -387,6 +466,33 @@
   $('#order').onchange=e=>{ order=e.target.value; renderPanels(); };
   $('#copy').onclick=()=>{ const t=$('#cmd').textContent; navigator.clipboard&&navigator.clipboard.writeText(t);
     $('#copy').textContent='copied'; setTimeout(()=>$('#copy').textContent='copy',1200); };
+  // layer toggles
+  [['lyr-gel','gel'],['lyr-trace','trace'],['lyr-rois','rois'],['lyr-bands','bands'],['lyr-peaks','peaks']]
+    .forEach(([id,key])=>{ $('#'+id).onchange=e=>{ layers[key]=e.target.checked; draw(); }; });
+  // current selection as the JSON the server hands to extract_lane_values.py
+  function currentSelection(){
+    return mode==='band'
+      ? { mode:'band', band_index:bandIndex, quantity:quantity }
+      : { mode:'region', start_millimetres:+regionA.toFixed(1), end_millimetres:+regionB.toFixed(1), net_baseline:'none' };
+  }
+  $('#finalize').onclick=async()=>{
+    const result=$('#result'); const button=$('#finalize');
+    button.disabled=true; result.className='result'; result.textContent='writing...';
+    try{
+      const response=await fetch('/extract',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(currentSelection())});
+      const data=await response.json();
+      if(data.ok){ result.className='result ok';
+        result.textContent='wrote '+data.csv_path+'  ('+data.rows.length+' lanes)'; }
+      else { result.className='result err'; result.textContent='failed: '+(data.error||'unknown'); }
+    } catch(err){ result.className='result err'; result.textContent='failed: '+err.message; }
+    button.disabled=false;
+  };
+  $('#close').onclick=async()=>{
+    try{ await fetch('/shutdown',{method:'POST'}); }catch(err){}
+    $('#result').className='result'; $('#result').textContent='server stopped; you can close this tab.';
+    $('#finalize').disabled=true; $('#close').disabled=true;
+  };
   window.addEventListener('resize',()=>{ layout(); refresh(); });
 
   // init
