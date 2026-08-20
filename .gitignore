@@ -43,3 +43,6 @@ venv/
 .mypy_cache/
 build/
 dist/
+gt/
+*.pyc
+__pycache__/
