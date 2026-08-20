@@ -46,3 +46,8 @@ dist/
 gt/
 *.pyc
 __pycache__/
+testgel/
+serve.log
+*.png
+payload_check.json
+payload.json

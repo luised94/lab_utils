@@ -139,10 +139,20 @@
 </div>
 
 <script>
-const DATA = __PAYLOAD__;
-const GELDIR = "<gel_dir>";
-(function(){
+(async function(){
   "use strict";
+  const served = await (await fetch('/payload')).json();
+  const DATA = served;
+  // Boundary mapping: the server uses fully descriptive field names; alias the
+  // handful the view code reads, in one visible place, rather than threading the
+  // long names through every draw call.
+  DATA.N = served.migration_row_count;
+  DATA.mm_per_px = served.millimetres_per_pixel;
+  DATA.ident = served.identity;
+  DATA.per = served.per_lane_per_band;
+  DATA.gel_png = served.gel_crop;
+  served.bands.forEach(b=>{ b.ws=b.window_start_pixels; b.we=b.window_end_pixels; });
+  const GELDIR = served.gel_dir;
   const $ = s => document.querySelector(s);
   const N = DATA.N, MMPP = DATA.mm_per_px, MAXMM = (N-1)*MMPP;
   const lanes = DATA.lanes.slice();
@@ -158,8 +168,7 @@ const GELDIR = "<gel_dir>";
 
   // ---- gel image ----
   const gelImg = new Image(); let gelReady=false;
-  gelImg.onload = ()=>{ gelReady=true; draw(); };
-  gelImg.src = DATA.gel_png;
+  if(DATA.gel_png){ gelImg.onload = ()=>{ gelReady=true; draw(); }; gelImg.src = DATA.gel_png; }
 
   // ---- precompute per-lane display scale (sqrt of per-lane max) ----
   const laneMaxSqrt = {};
