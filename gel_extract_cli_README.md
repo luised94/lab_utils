@@ -49,6 +49,40 @@ byte-for-byte the command-line value; the two cannot drift.
     make_payload.py          builds an inlined static copy of the page (no server),
                              for a frozen, shareable picker
 
+## The value column, background, and blank lanes
+
+The `value` column is the number to carry into your Bradford adjustment. It is
+already background-corrected once: `raw_value` in the profile is each migration
+row's width sum of (pixel - plate_background_median), clipped at zero, so the
+global plate background is subtracted per pixel before the span is summed. The
+TIFF is not involved in `value` at all; it is only rasterised for the picker's
+background image. So a wrong TIFF changes the picture, never the numbers.
+
+Blank (empty) lanes still read non-zero (order 1e6) against protein lanes (order
+1e7 to 1e8) because the global plate median removes the plate level, not the
+local gel background: the gel lane sits slightly above the surrounding plate, and
+that residual, summed over the whole span (roughly 138 rows x 60 px), accumulates
+to about 1e6. It is local background and streak, not protein. Against protein
+lanes it is 1 to 2 percent, so it barely moves the ratios of strong lanes, but it
+matters for any weak lane.
+
+To remove it, subtract a blank baseline: the average `value` of the empty lanes,
+subtracted from every lane's `value`. This is a simple constant offset and is
+easiest to do in the Excel sheet where the Bradford planning already lives
+(value_corrected = value - AVERAGE(empty-lane values)). It is deliberately not a
+column here yet: distinguishing empty from ladder needs the sample sheet's
+lane_content, which the extractor does not currently read (see Deferred).
+
+## Decisions settled
+
+- Reference scoring is scrapped; the picker chooses by eye, not by a metric.
+- Region means integrate the span: the raw sum of the plate-background-corrected
+  profile over the window. Not "sum the detected bands in the span", because a
+  negative control or defective prep may lack those bands entirely.
+- Band mode offers area (fixed-window, smile-affected) and apex (smile-robust).
+- The TIFF is resolved by the expected <stem>.tif name, never a blind glob.
+
+
 ## Deferred, on purpose (with the trigger to revisit)
 
 - Fuller per-lane peaks overlay. The picker flags each lane's per-band apex. The
@@ -63,6 +97,10 @@ byte-for-byte the command-line value; the two cannot drift.
   export plus lane identity, not band detection. If band mode and the guiding
   metrics stop being needed, the picker could read the profile and the sample
   sheet directly and drop the band_measurements dependency.
+- Blank-lane background subtraction as an output column. Doing it needs the sample
+  sheet's lane_content to know which lanes are empty; until then, subtract the
+  empty-lane average in the Excel sheet (see above). Add
+  value_blank_subtracted to the extractor when the sample sheet is wired in.
 - Aggregation across replicate gels (means, SD, plots) is a separate step, later.
 
 ## Conventions
