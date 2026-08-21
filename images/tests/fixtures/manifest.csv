@@ -1,0 +1,2 @@
+experiment_id,analysis_path,gel_id,replicate,notes
+MCM_test,20260818_rotated_LM-0008_s0012_SDSPAGE_run-old-MCM-aliquots_Fl-Green_gel_analysis,20260818_rotated_LM-0008_s0012_SDSPAGE_run-old-MCM-aliquots_Fl-Green_gel_analysis,1,single-gel regression fixture; add a second analysis_path row to exercise replicate averaging
