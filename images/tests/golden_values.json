@@ -1,6 +1,6 @@
 {
   "schema_version": "gel_pipeline_regression_goldens_1",
-  "generated_at": "2026-08-21T17:03:37+00:00",
+  "generated_at": "2026-08-21T14:33:43-04:00",
   "seed_fixtures_hash": "476a57509c3252f81e782980bff7bf4f16fab0f377572997df9b5526591fa9a0",
   "default_relative_tolerance": 1e-06,
   "goldens": {

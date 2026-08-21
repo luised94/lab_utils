@@ -68,14 +68,15 @@ import urllib.request
 # meaning, per the house rule that a bare literal in the body is a defect.
 # =============================================================================
 
-# The interpreter used to invoke every stage. sys.executable rather than a bare
-# "python3" so the subprocesses run under the exact interpreter running the
-# harness (matters under uv, a venv, or a non-default python3 on PATH). The
-# scripts carry uv inline dependency blocks, but their non-stdlib dependencies
-# (numpy, scipy, matplotlib) are assumed already importable by this interpreter;
-# invoking through "uv run" instead would re-resolve them per stage and can reach
-# the network, which is not wanted in a test.
-STAGE_INTERPRETER = sys.executable
+# The command prefix used to invoke every stage. "uv run" so each stage runs under
+# an environment satisfying its own inline dependency block (# /// script), exactly
+# as the pipeline is run by hand: analyze_gel, plot, aggregate, and serve declare
+# numpy/scipy/matplotlib/tifffile there, and those are not assumed to be importable
+# by the interpreter running this harness. Invoking with a bare sys.executable
+# instead fails on any machine whose system python lacks those packages (the common
+# case, and the reason these scripts carry inline deps at all); uv resolves them per
+# stage and caches after the first run. uv must be on PATH.
+STAGE_INVOCATION_PREFIX = ["uv", "run"]
 
 # The pipeline scripts live one directory up from this tests/ directory.
 TESTS_DIRECTORY = pathlib.Path(__file__).resolve().parent
@@ -133,9 +134,15 @@ GOLDEN_RELATIVE_TOLERANCE_OVERRIDES = {
 # retry range below handles the port being momentarily busy.
 SERVE_BASE_PORT = 8734
 SERVE_PORT_RETRY_COUNT = 8
-SERVE_READINESS_POLL_COUNT = 60
-SERVE_READINESS_POLL_SECONDS = 0.1
-SERVE_REQUEST_TIMEOUT_SECONDS = 15
+# The readiness budget (count * seconds) must cover the FIRST launch of serve under
+# "uv run", when uv may still be resolving and downloading numpy/tifffile into its
+# cache before the script even begins importing. 120 * 0.5s = 60s tolerates a cold
+# cache; once warm, readiness is reached in the first poll or two and the rest of
+# the budget is never spent. A genuine failure to start still ends at 60s, not a
+# hang, and the process is torn down in the finally block.
+SERVE_READINESS_POLL_COUNT = 120
+SERVE_READINESS_POLL_SECONDS = 0.5
+SERVE_REQUEST_TIMEOUT_SECONDS = 30
 SERVE_SHUTDOWN_JOIN_SECONDS = 5
 
 ACCUMULATED_RUN_LOG_LINES = []
@@ -428,9 +435,7 @@ def run_stage_and_assert_contract(
     for required_input_file in required_input_files:
         if not required_input_file.is_file():
             return False, "prerequisite missing: " + required_input_file.name
-    completed_process = subprocess.run(
-        stage_command, capture_output=True, text=True
-    )
+    completed_process = subprocess.run(stage_command, capture_output=True, text=True)
     if completed_process.returncode != 0:
         last_stderr_line = ""
         if completed_process.stderr.strip():
@@ -484,8 +489,7 @@ def register_step_outcome(step_name, passed, detail_text):
 # filename below. It consumes the two seed CSVs and writes sample_sheet_checks.json.
 # -----------------------------------------------------------------------------
 step_name = "validate_sample_sheet"
-stage_command = [
-    STAGE_INTERPRETER,
+stage_command = STAGE_INVOCATION_PREFIX + [
     str(REPOSITORY_ROOT_DIRECTORY / "validate_sample_sheet.py"),
     str(working_gel_directory),
 ]
@@ -514,8 +518,7 @@ register_step_outcome(step_name, contract_passed, contract_detail)
 # -----------------------------------------------------------------------------
 step_name = "analyze_gel"
 band_measurements_path = working_gel_directory / "band_measurements.csv"
-stage_command = [
-    STAGE_INTERPRETER,
+stage_command = STAGE_INVOCATION_PREFIX + [
     str(REPOSITORY_ROOT_DIRECTORY / "analyze_gel.py"),
     str(working_gel_directory),
 ]
@@ -547,7 +550,10 @@ if contract_passed:
         "reported_area",
     )
     if analyze_reported_area is None:
-        contract_passed, contract_detail = False, "golden cell not found in band_measurements"
+        contract_passed, contract_detail = (
+            False,
+            "golden cell not found in band_measurements",
+        )
     else:
         contract_passed, contract_detail = evaluate_golden(
             step_name, "lane5_band%d_reported_area" % BAND_INDEX, analyze_reported_area
@@ -566,8 +572,7 @@ extract_region_csv_path = working_gel_directory / (
     "extract_region_%g-%gmm_%s.csv"
     % (REGION_START_MILLIMETRES, REGION_END_MILLIMETRES, REGION_NET_BASELINE)
 )
-stage_command = [
-    STAGE_INTERPRETER,
+stage_command = STAGE_INVOCATION_PREFIX + [
     str(REPOSITORY_ROOT_DIRECTORY / "extract_lane_values.py"),
     str(working_gel_directory),
     "--region",
@@ -600,7 +605,10 @@ if contract_passed:
             extract_region_csv_path, "lane_index", golden_lane_index, "value"
         )
         if observed_value is None:
-            contract_passed, contract_detail = False, "golden lane %d not found" % golden_lane_index
+            contract_passed, contract_detail = (
+                False,
+                "golden lane %d not found" % golden_lane_index,
+            )
             break
         golden_passed, golden_detail = evaluate_golden(
             step_name, golden_key, observed_value
@@ -620,8 +628,7 @@ step_name = "extract_band"
 extract_band_csv_path = working_gel_directory / (
     "extract_band_%d_%s.csv" % (BAND_INDEX, BAND_QUANTITY)
 )
-stage_command = [
-    STAGE_INTERPRETER,
+stage_command = STAGE_INVOCATION_PREFIX + [
     str(REPOSITORY_ROOT_DIRECTORY / "extract_lane_values.py"),
     str(working_gel_directory),
     "--band",
@@ -643,9 +650,7 @@ contract_passed, contract_detail = run_stage_and_assert_contract(
 )
 if contract_passed:
     # Golden: the reference lane's per-band value.
-    observed_value = read_named_cell(
-        extract_band_csv_path, "lane_index", 6, "value"
-    )
+    observed_value = read_named_cell(extract_band_csv_path, "lane_index", 6, "value")
     if observed_value is None:
         contract_passed, contract_detail = False, "golden lane 6 not found"
     else:
@@ -664,8 +669,7 @@ step_name = "plot_single_experiment"
 single_experiment_csv_path = working_gel_directory / (
     "single_experiment_%s.csv" % REGION_SELECTOR
 )
-stage_command = [
-    STAGE_INTERPRETER,
+stage_command = STAGE_INVOCATION_PREFIX + [
     str(REPOSITORY_ROOT_DIRECTORY / "plot_single_experiment.py"),
     str(working_gel_directory),
     "--extract-csv",
@@ -711,8 +715,7 @@ register_step_outcome(step_name, contract_passed, contract_detail)
 # -----------------------------------------------------------------------------
 step_name = "validate_manifest"
 manifest_checks_path = working_root_directory / "manifest_checks.json"
-stage_command = [
-    STAGE_INTERPRETER,
+stage_command = STAGE_INVOCATION_PREFIX + [
     str(REPOSITORY_ROOT_DIRECTORY / "validate_manifest.py"),
     str(working_manifest_path),
 ]
@@ -742,15 +745,16 @@ register_step_outcome(step_name, contract_passed, contract_detail)
 # -----------------------------------------------------------------------------
 step_name = "aggregate_repeats"
 aggregate_csv_path = working_root_directory / ("aggregate_%s.csv" % REGION_SELECTOR)
-stage_command = [
-    STAGE_INTERPRETER,
+stage_command = STAGE_INVOCATION_PREFIX + [
     str(REPOSITORY_ROOT_DIRECTORY / "aggregate_repeats.py"),
     str(working_manifest_path),
     "--selector",
     REGION_SELECTOR,
 ]
 required_input_files = [working_manifest_path, single_experiment_csv_path]
-checks_json_file = working_root_directory / ("aggregate_%s_checks.json" % REGION_SELECTOR)
+checks_json_file = working_root_directory / (
+    "aggregate_%s_checks.json" % REGION_SELECTOR
+)
 expected_output_files = [
     aggregate_csv_path,
     working_root_directory / ("aggregate_%s.png" % REGION_SELECTOR),
@@ -800,9 +804,10 @@ serve_passed = True
 try:
     # Claim a port from a small range in case the base port is momentarily busy.
     serve_port = None
-    for candidate_port in range(SERVE_BASE_PORT, SERVE_BASE_PORT + SERVE_PORT_RETRY_COUNT):
-        serve_command = [
-            STAGE_INTERPRETER,
+    for candidate_port in range(
+        SERVE_BASE_PORT, SERVE_BASE_PORT + SERVE_PORT_RETRY_COUNT
+    ):
+        serve_command = STAGE_INVOCATION_PREFIX + [
             str(REPOSITORY_ROOT_DIRECTORY / "serve_gel_picker.py"),
             str(working_gel_directory),
             "--port",
@@ -860,8 +865,9 @@ try:
         ) as extract_response:
             extract_result = json.loads(extract_response.read())
         if not extract_result.get("ok"):
-            serve_passed, serve_detail = False, "server /extract failed: " + str(
-                extract_result.get("error")
+            serve_passed, serve_detail = (
+                False,
+                "server /extract failed: " + str(extract_result.get("error")),
             )
         else:
             # Compare the server's returned rows to the command-line region CSV on
@@ -887,8 +893,9 @@ try:
                 != server_values_by_lane.get(lane_index)
             ]
             if mismatched_lanes:
-                serve_passed, serve_detail = False, "serve vs CLI mismatch at lanes %s" % (
-                    mismatched_lanes[:5]
+                serve_passed, serve_detail = (
+                    False,
+                    "serve vs CLI mismatch at lanes %s" % (mismatched_lanes[:5]),
                 )
             else:
                 serve_detail = "serve /extract equals CLI over %d lanes" % len(
