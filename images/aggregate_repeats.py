@@ -51,6 +51,7 @@ import sys
 # Never render interactively; this script only writes a PNG file and must never
 # open a display. Set the non-interactive backend before importing pyplot.
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot
 
@@ -65,7 +66,11 @@ SINGLE_EXPERIMENT_GLOB = "single_experiment_*.csv"
 REQUIRED_MANIFEST_COLUMNS = ["gel_id", "replicate", "analysis_path"]
 
 # Columns the single_experiment CSV must carry for aggregation.
-REQUIRED_SINGLE_EXPERIMENT_COLUMNS = ["sample_label", "condition_type", "value_corrected"]
+REQUIRED_SINGLE_EXPERIMENT_COLUMNS = [
+    "sample_label",
+    "condition_type",
+    "value_corrected",
+]
 
 # Template example markers (duplicated from validate_manifest.py) so the same
 # leftover example row is caught here rather than aggregated.
@@ -212,13 +217,18 @@ with manifest_path.open(newline="", encoding="utf-8-sig") as manifest_handle:
     manifest_column_names = manifest_reader.fieldnames or []
     manifest_rows = [
         {
-            column_name: (cell_value.strip() if isinstance(cell_value, str) else cell_value)
+            column_name: (
+                cell_value.strip() if isinstance(cell_value, str) else cell_value
+            )
             for column_name, cell_value in raw_row.items()
         }
         for raw_row in manifest_reader
     ]
 record_check(
-    "manifest has data rows", "hard", len(manifest_rows) > 0, "%d data row(s)" % len(manifest_rows)
+    "manifest has data rows",
+    "hard",
+    len(manifest_rows) > 0,
+    "%d data row(s)" % len(manifest_rows),
 )
 missing_required_columns = [
     column_name
@@ -229,7 +239,8 @@ record_check(
     "required manifest columns present",
     "hard",
     len(missing_required_columns) == 0,
-    "missing: " + (", ".join(missing_required_columns) if missing_required_columns else "none"),
+    "missing: "
+    + (", ".join(missing_required_columns) if missing_required_columns else "none"),
 )
 
 example_row_numbers = []
@@ -248,7 +259,12 @@ record_check(
     "template example row removed",
     "hard",
     len(example_row_numbers) == 0,
-    "example row(s) at " + (", ".join(str(n) for n in example_row_numbers) if example_row_numbers else "none"),
+    "example row(s) at "
+    + (
+        ", ".join(str(n) for n in example_row_numbers)
+        if example_row_numbers
+        else "none"
+    ),
 )
 
 gel_id_counts = {}
@@ -268,7 +284,11 @@ record_check(
 rows_with_bad_replicate = []
 for row_ordinal, manifest_row in enumerate(non_example_rows, start=1):
     replicate_cell = manifest_row.get("replicate", "")
-    if not (isinstance(replicate_cell, str) and replicate_cell.isdigit() and int(replicate_cell) >= 1):
+    if not (
+        isinstance(replicate_cell, str)
+        and replicate_cell.isdigit()
+        and int(replicate_cell) >= 1
+    ):
         rows_with_bad_replicate.append(
             "row %d gel_id=%s replicate=%r"
             % (row_ordinal, manifest_row.get("gel_id", ""), replicate_cell)
@@ -277,7 +297,8 @@ record_check(
     "replicate is a positive integer",
     "hard",
     len(rows_with_bad_replicate) == 0,
-    "bad: " + ("; ".join(rows_with_bad_replicate) if rows_with_bad_replicate else "none"),
+    "bad: "
+    + ("; ".join(rows_with_bad_replicate) if rows_with_bad_replicate else "none"),
 )
 
 # Resolve each gel's analysis directory relative to the manifest and gate existence.
@@ -288,7 +309,9 @@ for manifest_row in non_example_rows:
     analysis_path_cell = manifest_row.get("analysis_path", "")
     candidate_path = pathlib.Path(analysis_path_cell)
     resolved_analysis_path = (
-        candidate_path if candidate_path.is_absolute() else manifest_directory / candidate_path
+        candidate_path
+        if candidate_path.is_absolute()
+        else manifest_directory / candidate_path
     )
     if not resolved_analysis_path.exists():
         rows_with_missing_path.append(
@@ -304,7 +327,8 @@ record_check(
     "every analysis_path exists",
     "hard",
     len(rows_with_missing_path) == 0,
-    "missing: " + ("; ".join(rows_with_missing_path) if rows_with_missing_path else "none"),
+    "missing: "
+    + ("; ".join(rows_with_missing_path) if rows_with_missing_path else "none"),
 )
 
 # =============================================================================
@@ -346,7 +370,7 @@ for gel_id_value, gel_directory in resolved_gel_directory_by_gel_id.items():
         else:
             single_experiment_path = found_single_experiments[0]
             selector_by_gel_id[gel_id_value] = single_experiment_path.stem[
-                len(SINGLE_EXPERIMENT_PREFIX):
+                len(SINGLE_EXPERIMENT_PREFIX) :
             ]
             single_experiment_path_by_gel_id[gel_id_value] = single_experiment_path
 
@@ -354,14 +378,23 @@ record_check(
     "every gel has its single_experiment CSV",
     "hard",
     len(gels_missing_single_experiment) == 0,
-    "missing: " + ("; ".join(gels_missing_single_experiment) if gels_missing_single_experiment else "none"),
+    "missing: "
+    + (
+        "; ".join(gels_missing_single_experiment)
+        if gels_missing_single_experiment
+        else "none"
+    ),
 )
 record_check(
     "single_experiment CSV is unambiguous per gel",
     "hard",
     len(gels_with_ambiguous_single_experiment) == 0,
     "ambiguous (pass --selector): "
-    + ("; ".join(gels_with_ambiguous_single_experiment) if gels_with_ambiguous_single_experiment else "none"),
+    + (
+        "; ".join(gels_with_ambiguous_single_experiment)
+        if gels_with_ambiguous_single_experiment
+        else "none"
+    ),
 )
 
 distinct_selectors = sorted(set(selector_by_gel_id.values()))
@@ -384,12 +417,16 @@ gels_missing_group_by_column = []
 rows_by_gel_id = {}
 for gel_id_value in resolved_gel_directory_by_gel_id:
     single_experiment_path = single_experiment_path_by_gel_id[gel_id_value]
-    with single_experiment_path.open(newline="", encoding="utf-8-sig") as single_experiment_handle:
+    with single_experiment_path.open(
+        newline="", encoding="utf-8-sig"
+    ) as single_experiment_handle:
         single_experiment_reader = csv.DictReader(single_experiment_handle)
         single_experiment_column_names = single_experiment_reader.fieldnames or []
         single_experiment_rows = [
             {
-                column_name: (cell_value.strip() if isinstance(cell_value, str) else cell_value)
+                column_name: (
+                    cell_value.strip() if isinstance(cell_value, str) else cell_value
+                )
                 for column_name, cell_value in raw_row.items()
             }
             for raw_row in single_experiment_reader
@@ -404,7 +441,10 @@ for gel_id_value in resolved_gel_directory_by_gel_id:
             "%s missing %s" % (gel_id_value, ", ".join(missing_here))
         )
         continue
-    if group_by_column is not None and group_by_column not in single_experiment_column_names:
+    if (
+        group_by_column is not None
+        and group_by_column not in single_experiment_column_names
+    ):
         gels_missing_group_by_column.append(gel_id_value)
         continue
     parsed_rows = []
@@ -415,7 +455,11 @@ for gel_id_value in resolved_gel_directory_by_gel_id:
         except (TypeError, ValueError):
             gels_with_unparseable_values.append(
                 "%s sample_label=%s value_corrected=%r"
-                % (gel_id_value, single_experiment_row.get("sample_label", ""), value_corrected_cell)
+                % (
+                    gel_id_value,
+                    single_experiment_row.get("sample_label", ""),
+                    value_corrected_cell,
+                )
             )
             value_corrected = None
         parsed_rows.append(
@@ -436,16 +480,23 @@ record_check(
     "every single_experiment CSV has the required columns",
     "hard",
     len(gels_missing_required_columns) == 0,
-    "; ".join(gels_missing_required_columns) if gels_missing_required_columns else "none",
+    "; ".join(gels_missing_required_columns)
+    if gels_missing_required_columns
+    else "none",
 )
 record_check(
     "group-by column present in every single_experiment CSV",
     "hard",
     len(gels_missing_group_by_column) == 0,
     (
-        "column %r missing in: %s" % (group_by_column, ", ".join(gels_missing_group_by_column))
+        "column %r missing in: %s"
+        % (group_by_column, ", ".join(gels_missing_group_by_column))
         if gels_missing_group_by_column
-        else ("group-by=%s" % group_by_column if group_by_column is not None else "grouping by sample_label")
+        else (
+            "group-by=%s" % group_by_column
+            if group_by_column is not None
+            else "grouping by sample_label"
+        )
     ),
 )
 record_check(
@@ -476,26 +527,38 @@ if normalize_to_sample_label is not None:
         elif matching_normalizer_rows[0]["value_corrected"] in (None, 0.0):
             gels_with_zero_normalizer.append(gel_id_value)
         else:
-            normalizer_by_gel_id[gel_id_value] = matching_normalizer_rows[0]["value_corrected"]
+            normalizer_by_gel_id[gel_id_value] = matching_normalizer_rows[0][
+                "value_corrected"
+            ]
     record_check(
         "normalizer sample present in every gel",
         "hard",
         len(gels_missing_normalizer) == 0,
         "sample %r missing in: %s"
-        % (normalize_to_sample_label, ", ".join(gels_missing_normalizer) if gels_missing_normalizer else "none"),
+        % (
+            normalize_to_sample_label,
+            ", ".join(gels_missing_normalizer) if gels_missing_normalizer else "none",
+        ),
     )
     record_check(
         "normalizer value is non-zero in every gel",
         "hard",
         len(gels_with_zero_normalizer) == 0,
         "sample %r zero/blank in: %s"
-        % (normalize_to_sample_label, ", ".join(gels_with_zero_normalizer) if gels_with_zero_normalizer else "none"),
+        % (
+            normalize_to_sample_label,
+            ", ".join(gels_with_zero_normalizer)
+            if gels_with_zero_normalizer
+            else "none",
+        ),
     )
     for gel_id_value, parsed_rows in rows_by_gel_id.items():
         normalizer_value = normalizer_by_gel_id[gel_id_value]
         for parsed_row in parsed_rows:
             if parsed_row["value_corrected"] is not None:
-                parsed_row["value_corrected"] = parsed_row["value_corrected"] / normalizer_value
+                parsed_row["value_corrected"] = (
+                    parsed_row["value_corrected"] / normalizer_value
+                )
 
 # =============================================================================
 # Group across all gels and compute n / mean / sd / cv. The group key is the
@@ -514,7 +577,9 @@ for gel_id_value, parsed_rows in rows_by_gel_id.items():
             if group_by_column is not None
             else parsed_row["sample_label"]
         )
-        values_by_group_key.setdefault(group_key, []).append(parsed_row["value_corrected"])
+        values_by_group_key.setdefault(group_key, []).append(
+            parsed_row["value_corrected"]
+        )
         condition_types_by_group_key.setdefault(group_key, set()).add(
             parsed_row["condition_type"]
         )
@@ -528,10 +593,10 @@ for group_key in sorted(values_by_group_key):
     replicate_count = len(group_values)
     mean_value = sum(group_values) / replicate_count
     if replicate_count > 1:
-        sample_variance = sum(
-            (value - mean_value) ** 2 for value in group_values
-        ) / (replicate_count - 1)
-        standard_deviation = sample_variance ** 0.5
+        sample_variance = sum((value - mean_value) ** 2 for value in group_values) / (
+            replicate_count - 1
+        )
+        standard_deviation = sample_variance**0.5
         coefficient_of_variation = (
             standard_deviation / abs(mean_value) if mean_value != 0 else None
         )
@@ -554,7 +619,11 @@ for group_key in sorted(values_by_group_key):
             "n": replicate_count,
             "mean": round(mean_value, 4),
             "sd": ("" if standard_deviation is None else round(standard_deviation, 4)),
-            "cv": ("" if coefficient_of_variation is None else round(coefficient_of_variation, 4)),
+            "cv": (
+                ""
+                if coefficient_of_variation is None
+                else round(coefficient_of_variation, 4)
+            ),
         }
     )
 
@@ -563,7 +632,11 @@ record_check(
     "soft",
     len(single_replicate_group_keys) == 0,
     "single-replicate group(s) (sd/cv left blank): "
-    + (", ".join(single_replicate_group_keys) if single_replicate_group_keys else "none"),
+    + (
+        ", ".join(single_replicate_group_keys)
+        if single_replicate_group_keys
+        else "none"
+    ),
 )
 record_check(
     "condition_type is consistent within every group",
@@ -602,7 +675,9 @@ condition_types_in_order = sorted(
 colour_by_condition_type = {}
 for condition_ordinal, condition_type_value in enumerate(condition_types_in_order):
     if condition_ordinal < len(CONDITION_COLOUR_PALETTE):
-        colour_by_condition_type[condition_type_value] = CONDITION_COLOUR_PALETTE[condition_ordinal]
+        colour_by_condition_type[condition_type_value] = CONDITION_COLOUR_PALETTE[
+            condition_ordinal
+        ]
     else:
         colour_by_condition_type[condition_type_value] = FALLBACK_CONDITION_COLOUR
 
@@ -614,7 +689,8 @@ bar_error_bars = [
     for aggregate_row in aggregate_rows
 ]
 bar_colours = [
-    colour_by_condition_type[aggregate_row["condition_type"]] for aggregate_row in aggregate_rows
+    colour_by_condition_type[aggregate_row["condition_type"]]
+    for aggregate_row in aggregate_rows
 ]
 bar_tick_labels = [
     str(aggregate_row[group_key_column_name]) + "\n(n=" + str(aggregate_row["n"]) + ")"
@@ -703,7 +779,9 @@ emit_message(
         selector,
         len(rows_by_gel_id),
         len(aggregate_rows),
-        "" if normalize_to_sample_label is None else " normalized to " + normalize_to_sample_label,
+        ""
+        if normalize_to_sample_label is None
+        else " normalized to " + normalize_to_sample_label,
     ),
 )
 for aggregate_row in aggregate_rows:

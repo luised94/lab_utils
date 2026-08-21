@@ -198,7 +198,9 @@ if not band_measurements_path.is_file():
 with band_measurements_path.open(newline="", encoding="utf-8-sig") as band_csv_handle:
     band_measurement_rows = [
         {
-            column_name: (cell_value.strip() if isinstance(cell_value, str) else cell_value)
+            column_name: (
+                cell_value.strip() if isinstance(cell_value, str) else cell_value
+            )
             for column_name, cell_value in raw_row.items()
         }
         for raw_row in csv.DictReader(band_csv_handle)
@@ -313,8 +315,7 @@ if parsed_arguments.band is not None:
         "all selected values finite",
         "hard",
         all(
-            extracted_value == extracted_value
-            and abs(extracted_value) != float("inf")
+            extracted_value == extracted_value and abs(extracted_value) != float("inf")
             for extracted_value in extracted_values
         ),
         "%d values" % len(extracted_values),
@@ -433,7 +434,11 @@ else:
         migration_samples = profile_samples_by_lane_index[lane_index]
         samples_in_window = [
             (migration_pixels, migration_millimetres, summed_signal)
-            for (migration_pixels, migration_millimetres, summed_signal) in migration_samples
+            for (
+                migration_pixels,
+                migration_millimetres,
+                summed_signal,
+            ) in migration_samples
             if region_start_millimetres
             <= migration_millimetres
             <= region_end_millimetres
@@ -488,8 +493,12 @@ else:
                 "net_baseline": net_baseline_name,
                 "region_start_millimetres": region_start_millimetres,
                 "region_end_millimetres": region_end_millimetres,
-                "window_start_pixels": "" if window_start_pixels is None else window_start_pixels,
-                "window_end_pixels": "" if window_end_pixels is None else window_end_pixels,
+                "window_start_pixels": ""
+                if window_start_pixels is None
+                else window_start_pixels,
+                "window_end_pixels": ""
+                if window_end_pixels is None
+                else window_end_pixels,
                 "row_count": window_row_count,
                 "raw_sum": "" if raw_window_sum is None else round(raw_window_sum, 4),
                 "baseline_subtracted": round(baseline_subtracted_area, 4),
@@ -564,10 +573,10 @@ if present_values:
             ordered_values[value_count // 2 - 1] + ordered_values[value_count // 2]
         )
     if value_count > 1 and mean_value != 0:
-        sample_variance = sum(
-            (value - mean_value) ** 2 for value in ordered_values
-        ) / (value_count - 1)
-        coefficient_of_variation = (sample_variance ** 0.5) / abs(mean_value)
+        sample_variance = sum((value - mean_value) ** 2 for value in ordered_values) / (
+            value_count - 1
+        )
+        coefficient_of_variation = (sample_variance**0.5) / abs(mean_value)
     else:
         coefficient_of_variation = None
     value_summary = {

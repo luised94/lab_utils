@@ -118,9 +118,16 @@ band_measurements_path = (
     if parsed_arguments.band_measurements_override
     else gel_analysis_directory / BAND_MEASUREMENTS_FILENAME
 )
-extractor_script_path = pathlib.Path(__file__).resolve().parent / "extract_lane_values.py"
+extractor_script_path = (
+    pathlib.Path(__file__).resolve().parent / "extract_lane_values.py"
+)
 picker_html_path = pathlib.Path(__file__).resolve().parent / "gel_picker.html"
-for required_path in (profile_csv_path, band_measurements_path, extractor_script_path, picker_html_path):
+for required_path in (
+    profile_csv_path,
+    band_measurements_path,
+    extractor_script_path,
+    picker_html_path,
+):
     if not required_path.is_file():
         die("input", "missing required file: " + str(required_path))
 
@@ -145,9 +152,11 @@ if provenance_path.is_file():
         lowered_line = stripped_line.lower()
         # Accept "key: value", "key = value", "key<tab>value", or "key value".
         if lowered_line.startswith("image_title"):
-            provenance_image_title = stripped_line[len("image_title"):].lstrip(" \t:=")
+            provenance_image_title = stripped_line[len("image_title") :].lstrip(" \t:=")
         elif lowered_line.startswith("image_directory"):
-            provenance_image_directory = stripped_line[len("image_directory"):].lstrip(" \t:=")
+            provenance_image_directory = stripped_line[len("image_directory") :].lstrip(
+                " \t:="
+            )
 
 if parsed_arguments.tiff_override:
     tiff_path = pathlib.Path(parsed_arguments.tiff_override)
@@ -157,10 +166,14 @@ else:
     tiff_path = None
     tiff_search_candidates = []
     if provenance_image_directory and provenance_image_title:
-        tiff_search_candidates.append(pathlib.Path(provenance_image_directory) / provenance_image_title)
+        tiff_search_candidates.append(
+            pathlib.Path(provenance_image_directory) / provenance_image_title
+        )
     # The pipeline keeps <stem>.tif as a sibling of <stem>_gel_analysis, but also
     # check inside the analysis dir in case a copy lives there.
-    tiff_search_candidates.append(gel_analysis_directory.parent / expected_tiff_filename)
+    tiff_search_candidates.append(
+        gel_analysis_directory.parent / expected_tiff_filename
+    )
     tiff_search_candidates.append(gel_analysis_directory / expected_tiff_filename)
     for candidate_path in tiff_search_candidates:
         if candidate_path.is_file():
@@ -171,7 +184,8 @@ else:
     if tiff_path is None:
         for search_directory in (gel_analysis_directory, gel_analysis_directory.parent):
             stem_matched_tiffs = sorted(
-                found_tiff for found_tiff in search_directory.glob("*.tif")
+                found_tiff
+                for found_tiff in search_directory.glob("*.tif")
                 if expected_tiff_stem in found_tiff.name
             )
             if stem_matched_tiffs:
@@ -192,7 +206,9 @@ else:
 with band_measurements_path.open(newline="", encoding="utf-8-sig") as band_csv_handle:
     band_measurement_rows = [
         {
-            column_name: (cell_value.strip() if isinstance(cell_value, str) else cell_value)
+            column_name: (
+                cell_value.strip() if isinstance(cell_value, str) else cell_value
+            )
             for column_name, cell_value in raw_row.items()
         }
         for raw_row in csv.DictReader(band_csv_handle)
@@ -200,7 +216,9 @@ with band_measurements_path.open(newline="", encoding="utf-8-sig") as band_csv_h
 with profile_csv_path.open(newline="", encoding="utf-8-sig") as profile_csv_handle:
     profile_rows = [
         {
-            column_name: (cell_value.strip() if isinstance(cell_value, str) else cell_value)
+            column_name: (
+                cell_value.strip() if isinstance(cell_value, str) else cell_value
+            )
             for column_name, cell_value in raw_row.items()
         }
         for raw_row in csv.DictReader(profile_csv_handle)
@@ -217,7 +235,10 @@ plate_background_median = None
 for profile_row in profile_rows:
     lane_index = int(profile_row["lane_index"])
     profile_values_by_lane_index.setdefault(lane_index, []).append(
-        (int(profile_row["migration_position_pixels"]), int(round(float(profile_row["raw_value"]))))
+        (
+            int(profile_row["migration_position_pixels"]),
+            int(round(float(profile_row["raw_value"]))),
+        )
     )
     if lane_index not in roi_by_lane_index:
         roi_by_lane_index[lane_index] = {
@@ -226,8 +247,8 @@ for profile_row in profile_rows:
             "roi_w": int(profile_row["roi_w"]),
             "roi_h": int(profile_row["roi_h"]),
         }
-    migration_millimetres_by_pixel[int(profile_row["migration_position_pixels"])] = float(
-        profile_row["migration_position_millimetres"]
+    migration_millimetres_by_pixel[int(profile_row["migration_position_pixels"])] = (
+        float(profile_row["migration_position_millimetres"])
     )
     if plate_background_median is None:
         plate_background_median = float(profile_row["plate_background_median"])
@@ -235,14 +256,21 @@ for profile_row in profile_rows:
 sorted_lane_indices = sorted(profile_values_by_lane_index)
 profiles_payload = {}
 for lane_index in sorted_lane_indices:
-    profile_values_by_lane_index[lane_index].sort(key=lambda migration_sample: migration_sample[0])
+    profile_values_by_lane_index[lane_index].sort(
+        key=lambda migration_sample: migration_sample[0]
+    )
     profiles_payload[str(lane_index)] = [
-        summed_signal for (_migration_pixels, summed_signal) in profile_values_by_lane_index[lane_index]
+        summed_signal
+        for (_migration_pixels, summed_signal) in profile_values_by_lane_index[
+            lane_index
+        ]
     ]
 
 migration_row_count = len(profiles_payload[str(sorted_lane_indices[0])])
 maximum_migration_pixel = max(migration_millimetres_by_pixel)
-millimetres_per_pixel = migration_millimetres_by_pixel[maximum_migration_pixel] / maximum_migration_pixel
+millimetres_per_pixel = (
+    migration_millimetres_by_pixel[maximum_migration_pixel] / maximum_migration_pixel
+)
 roi_y_origin = roi_by_lane_index[sorted_lane_indices[0]]["roi_y"]
 
 # Lane identity, from band_measurements (a ladder/empty lane absent there gets no
@@ -275,7 +303,9 @@ for measurement_row in band_measurement_rows:
         }
     if measurement_row["baseline_agreement_status"] == "fragile":
         band_metadata_by_index[band_index]["fragile_lanes"] += 1
-bands_payload = [band_metadata_by_index[band_index] for band_index in sorted(band_metadata_by_index)]
+bands_payload = [
+    band_metadata_by_index[band_index] for band_index in sorted(band_metadata_by_index)
+]
 
 per_lane_per_band_payload = {}
 for measurement_row in band_measurement_rows:
@@ -295,7 +325,9 @@ for measurement_row in band_measurement_rows:
 # =============================================================================
 
 roi_left_edge_pixels = min(roi["roi_x"] for roi in roi_by_lane_index.values())
-roi_right_edge_pixels = max(roi["roi_x"] + roi["roi_w"] for roi in roi_by_lane_index.values())
+roi_right_edge_pixels = max(
+    roi["roi_x"] + roi["roi_w"] for roi in roi_by_lane_index.values()
+)
 gel_crop_data_uri = None
 if tiff_path is not None and tiff_path.is_file():
     gel_image = tifffile.imread(str(tiff_path))
@@ -312,8 +344,12 @@ if tiff_path is not None and tiff_path.is_file():
     gray_reversed = (EIGHT_BIT_MAXIMUM * (1.0 - display_scaled)).astype(numpy.uint8)
     downsample_scale = gray_reversed.shape[1] / GEL_CROP_TARGET_WIDTH_PIXELS
     target_height_pixels = int(round(gray_reversed.shape[0] / downsample_scale))
-    row_indices = numpy.linspace(0, gray_reversed.shape[0] - 1, target_height_pixels).astype(int)
-    column_indices = numpy.linspace(0, gray_reversed.shape[1] - 1, GEL_CROP_TARGET_WIDTH_PIXELS).astype(int)
+    row_indices = numpy.linspace(
+        0, gray_reversed.shape[0] - 1, target_height_pixels
+    ).astype(int)
+    column_indices = numpy.linspace(
+        0, gray_reversed.shape[1] - 1, GEL_CROP_TARGET_WIDTH_PIXELS
+    ).astype(int)
     downsampled = gray_reversed[numpy.ix_(row_indices, column_indices)]
     # Build an 8-bit grayscale PNG: each scanline prefixed with filter byte 0.
     raw_scanlines = bytearray()
@@ -333,8 +369,14 @@ if tiff_path is not None and tiff_path.is_file():
         png_bytes += struct.pack(">I", len(chunk_data))
         png_bytes += chunk_tag + chunk_data
         png_bytes += struct.pack(">I", zlib.crc32(chunk_tag + chunk_data) & 0xFFFFFFFF)
-    gel_crop_data_uri = "data:image/png;base64," + base64.b64encode(bytes(png_bytes)).decode("ascii")
-    emit_message("payload", "gel crop %dx%d encoded from %s" % (downsampled.shape[1], downsampled.shape[0], tiff_path.name))
+    gel_crop_data_uri = "data:image/png;base64," + base64.b64encode(
+        bytes(png_bytes)
+    ).decode("ascii")
+    emit_message(
+        "payload",
+        "gel crop %dx%d encoded from %s"
+        % (downsampled.shape[1], downsampled.shape[0], tiff_path.name),
+    )
 else:
     emit_message("payload", "no TIFF resolved; serving without the gel crop")
 
@@ -349,7 +391,10 @@ payload = {
     "plate_background_median": plate_background_median,
     "lanes": sorted_lane_indices,
     "profiles": profiles_payload,
-    "roi": {str(lane_index): roi_by_lane_index[lane_index] for lane_index in sorted_lane_indices},
+    "roi": {
+        str(lane_index): roi_by_lane_index[lane_index]
+        for lane_index in sorted_lane_indices
+    },
     "identity": identity_by_lane_index,
     "bands": bands_payload,
     "per_lane_per_band": per_lane_per_band_payload,
@@ -397,9 +442,18 @@ class GelPickerRequestHandler(http.server.BaseHTTPRequestHandler):
             return
         selection = json.loads(request_body)
         # Build the exact command line; the extractor writes into the gel dir.
-        extractor_command = [sys.executable, str(extractor_script_path), str(gel_analysis_directory)]
+        extractor_command = [
+            sys.executable,
+            str(extractor_script_path),
+            str(gel_analysis_directory),
+        ]
         if selection.get("mode") == "band":
-            extractor_command += ["--band", str(int(selection["band_index"])), "--quantity", selection.get("quantity", "area")]
+            extractor_command += [
+                "--band",
+                str(int(selection["band_index"])),
+                "--quantity",
+                selection.get("quantity", "area"),
+            ]
         elif selection.get("mode") == "region":
             extractor_command += [
                 "--region",
@@ -409,18 +463,33 @@ class GelPickerRequestHandler(http.server.BaseHTTPRequestHandler):
             if selection.get("net_baseline") in ("none", "straight"):
                 extractor_command += ["--net-baseline", selection["net_baseline"]]
         else:
-            self._respond(400, "application/json", b'{"ok":false,"error":"bad selection"}')
+            self._respond(
+                400, "application/json", b'{"ok":false,"error":"bad selection"}'
+            )
             return
         completed = subprocess.run(extractor_command, capture_output=True, text=True)
         if completed.returncode != 0:
-            self._respond(200, "application/json", json.dumps(
-                {"ok": False, "error": completed.stderr.strip().splitlines()[-1] if completed.stderr.strip() else "extractor failed", "command": extractor_command}
-            ).encode("utf-8"))
+            self._respond(
+                200,
+                "application/json",
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": completed.stderr.strip().splitlines()[-1]
+                        if completed.stderr.strip()
+                        else "extractor failed",
+                        "command": extractor_command,
+                    }
+                ).encode("utf-8"),
+            )
             return
         # Recover the written CSV: the extractor names it deterministically from
         # the selection, so re-derive the stem and read it back for the page.
         if selection["mode"] == "band":
-            output_stem = "extract_band_%d_%s" % (int(selection["band_index"]), selection.get("quantity", "area"))
+            output_stem = "extract_band_%d_%s" % (
+                int(selection["band_index"]),
+                selection.get("quantity", "area"),
+            )
         else:
             output_stem = "extract_region_%g-%gmm_%s" % (
                 float(selection["start_millimetres"]),
@@ -428,16 +497,31 @@ class GelPickerRequestHandler(http.server.BaseHTTPRequestHandler):
                 selection.get("net_baseline", "none"),
             )
         written_csv_path = gel_analysis_directory / (output_stem + ".csv")
-        with written_csv_path.open(newline="", encoding="utf-8-sig") as written_csv_handle:
+        with written_csv_path.open(
+            newline="", encoding="utf-8-sig"
+        ) as written_csv_handle:
             written_rows = list(csv.DictReader(written_csv_handle))
-        self._respond(200, "application/json", json.dumps(
-            {"ok": True, "csv_path": str(written_csv_path), "command": " ".join(extractor_command), "rows": written_rows}
-        ).encode("utf-8"))
+        self._respond(
+            200,
+            "application/json",
+            json.dumps(
+                {
+                    "ok": True,
+                    "csv_path": str(written_csv_path),
+                    "command": " ".join(extractor_command),
+                    "rows": written_rows,
+                }
+            ).encode("utf-8"),
+        )
 
 
-http_server = http.server.ThreadingHTTPServer(("127.0.0.1", parsed_arguments.port), GelPickerRequestHandler)
+http_server = http.server.ThreadingHTTPServer(
+    ("127.0.0.1", parsed_arguments.port), GelPickerRequestHandler
+)
 emit_message("serve", "gel %s" % gel_id)
-emit_message("serve", "open http://localhost:%d  (Ctrl-C to stop)" % parsed_arguments.port)
+emit_message(
+    "serve", "open http://localhost:%d  (Ctrl-C to stop)" % parsed_arguments.port
+)
 try:
     http_server.serve_forever()
 except KeyboardInterrupt:

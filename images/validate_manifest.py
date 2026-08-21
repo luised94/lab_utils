@@ -175,7 +175,9 @@ with manifest_path.open(newline="", encoding="utf-8-sig") as manifest_handle:
     manifest_column_names = manifest_reader.fieldnames or []
     manifest_rows = [
         {
-            column_name: (cell_value.strip() if isinstance(cell_value, str) else cell_value)
+            column_name: (
+                cell_value.strip() if isinstance(cell_value, str) else cell_value
+            )
             for column_name, cell_value in raw_row.items()
         }
         for raw_row in manifest_reader
@@ -298,7 +300,9 @@ for manifest_row in non_example_rows:
         if candidate_path.is_absolute()
         else manifest_directory / candidate_path
     )
-    resolved_analysis_path_by_gel_id[manifest_row.get("gel_id", "")] = resolved_analysis_path
+    resolved_analysis_path_by_gel_id[manifest_row.get("gel_id", "")] = (
+        resolved_analysis_path
+    )
     if not resolved_analysis_path.exists():
         rows_with_missing_path.append(
             "gel_id=%s analysis_path=%s -> %s"

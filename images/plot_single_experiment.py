@@ -51,6 +51,7 @@ import sys
 # Never render interactively; this script only writes a PNG file and must never
 # open a display. Set the non-interactive backend before importing pyplot.
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot
 
@@ -177,7 +178,10 @@ given_path = pathlib.Path(parsed_arguments.gel_path)
 if parsed_arguments.extract_csv_override:
     extract_csv_path = pathlib.Path(parsed_arguments.extract_csv_override)
     if not extract_csv_path.is_file():
-        print("[input] ERROR: --extract-csv not found: " + str(extract_csv_path), file=sys.stderr)
+        print(
+            "[input] ERROR: --extract-csv not found: " + str(extract_csv_path),
+            file=sys.stderr,
+        )
         sys.exit(1)
 elif given_path.is_file() and (
     given_path.name.startswith("extract_region_")
@@ -228,7 +232,7 @@ if not extract_filename_stem.startswith(EXTRACT_FILENAME_PREFIX):
         file=sys.stderr,
     )
     sys.exit(1)
-selector = extract_filename_stem[len(EXTRACT_FILENAME_PREFIX):]
+selector = extract_filename_stem[len(EXTRACT_FILENAME_PREFIX) :]
 output_stem = "single_experiment_" + selector
 
 sample_sheet_path = (
@@ -250,7 +254,9 @@ gel_id = ""
 with extract_csv_path.open(newline="", encoding="utf-8-sig") as extract_csv_handle:
     extract_rows = [
         {
-            column_name: (cell_value.strip() if isinstance(cell_value, str) else cell_value)
+            column_name: (
+                cell_value.strip() if isinstance(cell_value, str) else cell_value
+            )
             for column_name, cell_value in raw_row.items()
         }
         for raw_row in csv.DictReader(extract_csv_handle)
@@ -298,7 +304,9 @@ record_check(
 with sample_sheet_path.open(newline="", encoding="utf-8-sig") as sample_sheet_handle:
     sample_sheet_rows = [
         {
-            column_name: (cell_value.strip() if isinstance(cell_value, str) else cell_value)
+            column_name: (
+                cell_value.strip() if isinstance(cell_value, str) else cell_value
+            )
             for column_name, cell_value in raw_row.items()
         }
         for raw_row in csv.DictReader(sample_sheet_handle)
@@ -461,10 +469,10 @@ else:
         ordered_values[value_count // 2 - 1] + ordered_values[value_count // 2]
     )
 if value_count > 1 and mean_value != 0:
-    sample_variance = sum(
-        (value - mean_value) ** 2 for value in ordered_values
-    ) / (value_count - 1)
-    coefficient_of_variation = (sample_variance ** 0.5) / abs(mean_value)
+    sample_variance = sum((value - mean_value) ** 2 for value in ordered_values) / (
+        value_count - 1
+    )
+    coefficient_of_variation = (sample_variance**0.5) / abs(mean_value)
 else:
     coefficient_of_variation = None
 value_summary = {
@@ -590,8 +598,11 @@ emit_message("output", "wrote " + str(checks_path))
 # the per-sample corrected values and their spread.
 emit_message("summary", "gel " + gel_id)
 emit_message("summary", "selector: " + selector)
-emit_message("summary", "blank_baseline=%.4f from %d empty lane(s) %s"
-    % (blank_baseline, len(empty_lane_values), empty_lane_indices))
+emit_message(
+    "summary",
+    "blank_baseline=%.4f from %d empty lane(s) %s"
+    % (blank_baseline, len(empty_lane_values), empty_lane_indices),
+)
 for output_row in output_rows:
     emit_message(
         "value",
