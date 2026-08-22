@@ -1,2 +1,3 @@
 experiment_id,analysis_path,gel_id,replicate,notes
-MCM_test,20260818_rotated_LM-0008_s0012_SDSPAGE_run-old-MCM-aliquots_Fl-Green_gel_analysis,20260818_rotated_LM-0008_s0012_SDSPAGE_run-old-MCM-aliquots_Fl-Green_gel_analysis,1,single-gel regression fixture; add a second analysis_path row to exercise replicate averaging
+MCM_test,20260818_rotated_LM-0008_s0012_SDSPAGE_run-old-MCM-aliquots_Fl-Green_gel_analysis,20260818_rotated_LM-0008_s0012_SDSPAGE_run-old-MCM-aliquots_Fl-Green_gel_analysis,1,first replicate; the real hand-checked gel
+MCM_test,20260819_rotated_LM-0008_s0013_SDSPAGE_run-old-MCM-aliquots_Fl-Green_gel_analysis,20260819_rotated_LM-0008_s0013_SDSPAGE_run-old-MCM-aliquots_Fl-Green_gel_analysis,2,synthetic second replicate authored by tests/make_replicate_fixture.py; per-lane perturbed raw_value; replace with a real repeat when available and re-bless
