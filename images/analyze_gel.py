@@ -9,9 +9,9 @@
 r"""
 The manual gel analysis: read the ImageJ export (manual_lane_profiles.csv) plus the
 validated sample sheet, assert the export invariants, add the detrended_value that
-measure_gel.py computes per lane, detect bands (per-lane and consensus), then
+archive/measure_gel.py computes per lane, detect bands (per-lane and consensus), then
 integrate every measured lane at the consensus windows to produce band_measurements
-.csv, reusing measure_gel.py's valley-to-valley and rolling-ball baselines verbatim.
+.csv, reusing archive/measure_gel.py's valley-to-valley and rolling-ball baselines verbatim.
 Reports both a region-net AREA and an apex HEIGHT per band, flags saturated bands
 from the at_ceiling_count column, and scores the designated reference lane so a bad
 divisor is caught before normalization. Every stage writes a checkable artifact.
@@ -73,7 +73,7 @@ PLATE_BACKGROUND_PLAUSIBLE_MAXIMUM = 8000.0
 # Flagged (not failed): empty and ladder lanes legitimately look like this.
 EMPTY_LANE_PEAK_OVER_MEDIAN_RATIO = 3.0
 
-# Detrend window, copied verbatim from measure_gel.py's per-lane migration profile
+# Detrend window, copied verbatim from archive/measure_gel.py's per-lane migration profile
 # so detrended_value here is identical to what the automated pipeline would write.
 DETREND_WINDOW_PROFILE_FRACTION = 2.0
 DETREND_WINDOW_MINIMUM_PIXELS = 3
@@ -83,14 +83,14 @@ DETRENDED_CSV_FILENAME = "lane_profiles_with_detrend.csv"
 GRID_PLOT_FILENAME = "lane_profiles_grid.png"
 FIGURE_DOTS_PER_INCH = 150
 
-# --- Band detection, all values copied from measure_gel.py so the manual path
+# --- Band detection, all values copied from archive/measure_gel.py so the manual path
 # calls bands with the same behaviour as the automated pipeline. ---
 # Smoothing applied to the raw profile before peak finding (mm of migration).
 BAND_MIGRATION_PROFILE_SMOOTHING_MILLIMETRES = 0.4
 # A peak must rise this fraction of the lane's own maximum to be called.
 BAND_PEAK_PROMINENCE_FRACTION = 0.12
 # Two called peaks closer than this are one band (mm). Also the consensus cluster
-# tolerance, tied together exactly as measure_gel.py ties them.
+# tolerance, tied together exactly as archive/measure_gel.py ties them.
 BAND_MINIMUM_SEPARATION_MILLIMETRES = 1.0
 # Fixed integration-window width centred on each consensus band (mm), before it is
 # clipped at the midpoint to each neighbour so windows never overlap.
@@ -109,7 +109,7 @@ CONSENSUS_BANDS_CSV_FILENAME = "consensus_bands.csv"
 BAND_MODEL_DIAGNOSTICS_FILENAME = "band_model_diagnostics.json"
 BAND_DETECTION_PLOT_FILENAME = "band_detection_overlay.png"
 
-# --- Integration, copied from measure_gel.py so the manual path integrates bands
+# --- Integration, copied from archive/measure_gel.py so the manual path integrates bands
 # the same way as the automated pipeline. ---
 # How far outside each window the valley-to-valley baseline searches for a flanking
 # minimum (mm), so neighbouring bands sit on a consistent local baseline.
@@ -542,7 +542,7 @@ if hard_failures:
     )
 
 # =============================================================================
-# Detrend, identical to measure_gel.py's per-lane migration profile, and write the
+# Detrend, identical to archive/measure_gel.py's per-lane migration profile, and write the
 # augmented CSV.
 # =============================================================================
 
@@ -647,7 +647,7 @@ emit_message("plot", "wrote " + str(grid_plot_path))
 # =============================================================================
 # Band detection. Two models computed side by side so the choice between them is
 # made from the diagnostics below, not assumed: per-lane (each lane's own peaks)
-# and consensus (peaks that line up across lanes, clustered as measure_gel.py
+# and consensus (peaks that line up across lanes, clustered as archive/measure_gel.py
 # clusters them). Integration is deliberately NOT done here; this stage proposes
 # bands and reports how well the two models agree, then stops for a human gate.
 # =============================================================================
@@ -732,7 +732,7 @@ with open(band_candidates_csv_path, "w", newline="") as candidate_file_handle:
         candidate_writer.writerow(candidate_row)
 emit_message("bands", "wrote " + str(band_candidates_csv_path))
 
-# Consensus clustering, verbatim in spirit from measure_gel.py: pool every kept
+# Consensus clustering, verbatim in spirit from archive/measure_gel.py: pool every kept
 # peak with its lane, sort, then single-linkage cluster within the separation
 # tolerance with a same-lane exclusion so one lane cannot appear twice in a band.
 pooled_peak_records = []
@@ -1016,10 +1016,10 @@ emit_message("bands", "wrote " + str(band_detection_plot_path))
 
 # =============================================================================
 # Measurement. Integrate each MEASURED lane at the consensus windows, reusing
-# measure_gel.py's math: a valley-to-valley baseline (flanking minima, sloped line,
+# archive/measure_gel.py's math: a valley-to-valley baseline (flanking minima, sloped line,
 # region net, negative-clip) and a rolling-ball opening cross-check, reporting both
 # a region-net AREA and an apex HEIGHT per band. Saturation (from at_ceiling_count)
-# and baseline fragility select the reported basis exactly as measure_gel.py does.
+# and baseline fragility select the reported basis exactly as archive/measure_gel.py does.
 # Excluded lanes (ladder/empty) are not measured.
 # =============================================================================
 
@@ -1032,7 +1032,7 @@ rolling_ball_width_pixels = max(
 
 # Per-lane raw profile and per-row at-ceiling count, keyed by lane, for the lanes
 # we measure. Also a lane signal scale (the profile's own spread) used to judge
-# baseline fragility, matching measure_gel.py's use of a lane-scaled tolerance.
+# baseline fragility, matching archive/measure_gel.py's use of a lane-scaled tolerance.
 raw_profile_by_lane = {}
 at_ceiling_by_lane = {}
 lane_signal_scale_by_lane = {}
@@ -1146,7 +1146,7 @@ for lane_index_value in measured_lane_indices:
             baseline_disagreement_fraction >= BASELINE_FRAGILE_DISAGREEMENT_FRACTION
         )
 
-        # --- reported-value contract, verbatim from measure_gel.py: saturation is a
+        # --- reported-value contract, verbatim from archive/measure_gel.py: saturation is a
         # floor and wins first; a fragile cell reports the cluster-inclusive opening
         # net; otherwise the valley-to-valley region net. Basis recorded either way.
         if is_saturated:
