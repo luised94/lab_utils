@@ -40,6 +40,17 @@ Picker (live, server-based):
     gel_picker.html             the picker page; fetch('/payload'), POST selection.
                                 serve computes its path as a sibling too.
 
+Operator docs and session driver:
+
+    HOWTO.md                    the LIVE operator guide (replaced the retired
+                                PROTOCOL.md, now in archive/). References
+                                session_template.sh by name for nvim gf navigation.
+    session_template.sh         per-session CLI driver template; copied to a
+                                gitignored session.sh for actual use. Not tested by
+                                the harness; a break here will not turn it red.
+    export_lane_profiles.ijm    (listed above) the live export macro
+    distribute_selection.ijm    lane-drawing aid (tiles one ROI at fixed spacing)
+
 Regression harness:
 
     tests/run_pipeline_tests.py         the harness (drives the 7 scripts + serve)
@@ -82,6 +93,9 @@ ARCHIVED - superseded, kept for reference/reuse, NOT run (see archive/README.md)
     archive/validate_manifest_sheet.py  old manifest validator. Strict subset of
                                         validate_manifest.py (older schema, no
                                         is_example support, no template writing).
+    archive/PROTOCOL.md                 operator guide for the RETIRED automated
+                                        pipeline. Replaced by HOWTO.md. Kept for
+                                        reference; carries an ARCHIVED header.
 
 Nothing live imports or execs any archived file. analyze_gel.py MENTIONS
 archive/measure_gel.py in comments only (provenance of copied math), never at

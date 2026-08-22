@@ -1,4 +1,5 @@
 loading/.Rprofile
+session.sh
 *renv*
 **/bmc_config.R
 pymol/pymol_configuration.py

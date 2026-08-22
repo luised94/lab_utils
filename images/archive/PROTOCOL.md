@@ -1,3 +1,8 @@
+# ARCHIVED 2026-08-22. This describes the RETIRED automated pipeline
+# (prepare_gel_image / validate_gel_image / measure_gel / the R scripts), all now in
+# archive/. The LIVE operator guide is HOWTO.md at the repo root. Kept for reference
+# only; do not follow these steps for current gels.
+#
 # Measurement protocol - gel densitometry pipeline
 
 Operator instructions. Companion to `DESIGN.md`, which records why; this records
