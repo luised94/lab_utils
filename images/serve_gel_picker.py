@@ -1,8 +1,8 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "numpy",
-#     "tifffile",
+#     "numpy>=2.5.2",
+#     "tifffile>=2026.8.16",
 # ]
 # ///
 r"""

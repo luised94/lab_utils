@@ -1,9 +1,9 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "numpy",
-#     "scipy",
-#     "matplotlib",
+#     "numpy>=2.5.2",
+#     "scipy>=1.18.1",
+#     "matplotlib>=3.11.1",
 # ]
 # ///
 r"""

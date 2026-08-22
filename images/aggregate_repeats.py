@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "matplotlib>=3.7",
+#     "matplotlib>=3.11.1",
 # ]
 # ///
 r"""
