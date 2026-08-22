@@ -108,6 +108,24 @@ FIXTURE_REPLICATE_GEL_DIRECTORY_NAME = (
 )
 FIXTURE_MANIFEST_FILENAME = "manifest.csv"
 
+# Failure-mode fixtures live under fixtures/failure_modes/. Only the malformed sample
+# sheet needs a committed file (a byte-faithful copy of the good seed sheet with a
+# single cell blanked); the bad manifests are constructed in-runner from string
+# literals because they are test inputs, not seeds, and pointing their analysis_path
+# at the staged good gel keeps the intended gate the FIRST hard failure. Each failure
+# block asserts a SPECIFIC named hard check fired, never merely a nonzero exit.
+FAILURE_MODES_DIRECTORY_NAME = "failure_modes"
+FAILURE_MALFORMED_SHEET_FILENAME = "malformed_sample_sheet.csv"
+# The reserved example markers, duplicated from validate_manifest.py so the example-row
+# failure fixture trips the "template example row removed" gate deterministically.
+MANIFEST_EXAMPLE_GEL_ID = "EXAMPLE_replace_me"
+# A region window entirely outside the profile's migration range (~0-80mm), so every
+# lane's window is empty and the "region spans enough rows" hard check fires. Chosen
+# over swapped bounds, which extract_lane_values silently normalizes (a separate
+# finding) and which therefore exit 0 rather than gating.
+OUT_OF_RANGE_REGION_START_MILLIMETRES = 200.0
+OUT_OF_RANGE_REGION_END_MILLIMETRES = 250.0
+
 # The region window and band index the harness extracts. These choose which
 # per-lane numbers become goldens; they are named here so a change to the tested
 # selection is a one-line edit rather than scattered literals. The region matches
@@ -254,13 +272,21 @@ def read_named_cell_two_keys(
 
 
 def checks_json_has_failed_hard_check(checks_json_path):
-    # The uniform contract across every pipeline script: a top-level "checks" array
-    # whose records carry severity ("hard"/"soft") and passed (bool). A failed hard
-    # check invalidates the stage's output. Returns (has_failure, detail_text).
+    # A failed hard check invalidates the stage's output. Returns (has_failure,
+    # check_name). Every script writes a top-level "checks" array of records carrying
+    # severity and passed, BUT the name field is not uniform: validate_sample_sheet
+    # writes "check_name" while extract/plot/aggregate/validate_manifest write
+    # "check". Both spellings are read here so this one helper serves every stage;
+    # the happy-path callers only ever see "check", so the fallback is a no-op for
+    # them. (The schema divergence is noted for the FINDINGS doc; not fixed here.)
     checks_report = json.loads(checks_json_path.read_text(encoding="utf-8-sig"))
     for check_record in checks_report.get("checks", []):
         if check_record.get("severity") == "hard" and not check_record.get("passed"):
-            return True, check_record.get("check", "unnamed hard check")
+            return True, (
+                check_record.get("check_name")
+                or check_record.get("check")
+                or "unnamed hard check"
+            )
     return False, ""
 
 
@@ -301,6 +327,16 @@ if not seed_replicate_gel_directory.is_dir():
 if not seed_manifest_path.is_file():
     die("fixtures", "seed manifest not found: " + str(seed_manifest_path))
 
+seed_failure_modes_directory = FIXTURES_DIRECTORY / FAILURE_MODES_DIRECTORY_NAME
+seed_malformed_sheet_path = (
+    seed_failure_modes_directory / FAILURE_MALFORMED_SHEET_FILENAME
+)
+if not seed_malformed_sheet_path.is_file():
+    die(
+        "fixtures",
+        "failure-mode fixture not found: " + str(seed_malformed_sheet_path),
+    )
+
 # The gel directory name must end in the analysis suffix, because analyze_gel and
 # serve derive gel_id and the expected TIFF stem from it. Asserted, not assumed.
 if not seed_gel_directory.name.endswith(GEL_ANALYSIS_DIRECTORY_SUFFIX):
@@ -339,6 +375,15 @@ working_replicate_gel_directory = (
 shutil.copytree(seed_replicate_gel_directory, working_replicate_gel_directory)
 shutil.copy2(seed_manifest_path, working_root_directory / FIXTURE_MANIFEST_FILENAME)
 working_manifest_path = working_root_directory / FIXTURE_MANIFEST_FILENAME
+# Stage the failure-mode fixtures into the writable tree. The malformed sheet must be
+# writable-adjacent because validate_sample_sheet writes its checks JSON beside the
+# sheet it is given; the read-only fixtures/ directory cannot receive that write.
+working_failure_modes_directory = working_root_directory / FAILURE_MODES_DIRECTORY_NAME
+working_failure_modes_directory.mkdir()
+working_malformed_sheet_path = (
+    working_failure_modes_directory / FAILURE_MALFORMED_SHEET_FILENAME
+)
+shutil.copy2(seed_malformed_sheet_path, working_malformed_sheet_path)
 emit_message("fixtures", "staged working tree at " + str(working_root_directory))
 
 # Guard the serve no-crop path: there must be no .tif matching the gel stem beside
@@ -482,6 +527,47 @@ def run_stage_and_assert_contract(
     return True, "contract ok"
 
 
+def run_stage_and_assert_named_hard_check(
+    step_name, stage_command, expected_check_name, checks_json_file
+):
+    # The inverse of run_stage_and_assert_contract: assert a stage that SHOULD fail
+    # does fail, at the SPECIFIC gate we mean. This is what proves the gates gate.
+    # A bare "nonzero exit" assertion is not enough: an unrelated crash (a typo in the
+    # fixture, a missing file, a different check firing first) also exits nonzero and
+    # would masquerade as the gate working. So this asserts BOTH that the exit is
+    # nonzero AND that the named hard check is the one that failed in the checks JSON.
+    # Returns (passed, detail_text) with the same self-triaging detail style as the
+    # happy-path steps. The checks JSON is required: a stage that dies before writing
+    # it (e.g. an argparse-level rejection) is a DIFFERENT failure than the gate we
+    # are testing, and is reported as such rather than counted as a pass.
+    completed_process = subprocess.run(stage_command, capture_output=True, text=True)
+    if completed_process.returncode == 0:
+        return False, "expected nonzero exit but stage succeeded"
+    if not checks_json_file.is_file():
+        last_stderr_line = ""
+        if completed_process.stderr.strip():
+            last_stderr_line = completed_process.stderr.strip().splitlines()[-1]
+        return False, (
+            "exited nonzero but wrote no checks JSON (%s); expected hard check %r. "
+            "last stderr: %s"
+            % (checks_json_file.name, expected_check_name, last_stderr_line)
+        )
+    has_hard_failure, failed_check_name = checks_json_has_failed_hard_check(
+        checks_json_file
+    )
+    if not has_hard_failure:
+        return False, (
+            "exited nonzero but no hard check failed in %s; expected %r"
+            % (checks_json_file.name, expected_check_name)
+        )
+    if failed_check_name != expected_check_name:
+        return False, (
+            "wrong gate fired: got %r, expected %r"
+            % (failed_check_name, expected_check_name)
+        )
+    return True, "gated on %r as expected" % expected_check_name
+
+
 def register_step_outcome(step_name, passed, detail_text):
     # One line per step to stderr, self-triaging: the detail says whether a failure
     # was a wiring break (prerequisite/product/exit) or a numbers change (golden),
@@ -510,6 +596,10 @@ def register_step_outcome(step_name, passed, detail_text):
 #   6. validate_manifest       gate the replicate manifest
 #   7. aggregate_repeats       stack BOTH replicates -> aggregate_<sel>.csv (n=2)
 #   8. serve_gel_picker        no-crop serve; POST /extract equals the CLI region
+#
+#   Then a FAILURE MODES section: four inputs that SHOULD be rejected, each asserting
+#   a specific named hard check fired (malformed sheet, duplicate gel_id, leftover
+#   example row, out-of-range region). These prove the gates gate.
 #
 # =============================================================================
 
@@ -1081,6 +1171,138 @@ finally:
             serve_process.kill()
             serve_process.wait(timeout=SERVE_SHUTDOWN_JOIN_SECONDS)
 register_step_outcome(step_name, serve_passed, serve_detail)
+
+# =============================================================================
+# FAILURE MODES. The inverse contract: inputs that SHOULD be rejected, each asserting
+# that a SPECIFIC named hard check fired (not merely that the run exited nonzero), so
+# a different bug that also crashes cannot masquerade as the gate working. These run
+# after the happy path because two of them reuse its already-analyzed staged gel: the
+# out-of-range region needs band_measurements.csv (a STEP 2 product), and the bad
+# manifests point analysis_path at the staged gel so the gate under test is the FIRST
+# hard failure rather than an earlier "analysis_path does not exist". Each block is
+# self-contained: command, the checks JSON to read, and the exact check name expected.
+# Reorganizing a validator's checks: update the expected check name in the one block.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# FAILURE 1: malformed sample sheet. A non-sample lane (lane 4, a ladder) carries a
+# BLANK sample_label where the not_applicable sentinel is required; blank is an
+# authoring mistake, not a deliberate not-applicable. validate_sample_sheet writes its
+# checks JSON beside the sheet it is given (the staged, writable copy), so the check
+# name is read from there. This validator uses the "check_name" schema; the shared
+# reader handles both spellings.
+# -----------------------------------------------------------------------------
+step_name = "failure_malformed_sheet"
+malformed_sheet_checks_path = (
+    working_failure_modes_directory / "sample_sheet_checks.json"
+)
+failure_passed, failure_detail = run_stage_and_assert_named_hard_check(
+    step_name,
+    STAGE_INVOCATION_PREFIX
+    + [
+        str(REPOSITORY_ROOT_DIRECTORY / "validate_sample_sheet.py"),
+        str(working_gel_directory),
+        "--sample-sheet",
+        str(working_malformed_sheet_path),
+        "--profile-csv",
+        str(working_gel_directory / "manual_lane_profiles.csv"),
+    ],
+    "label_and_prep_source_explicit",
+    malformed_sheet_checks_path,
+)
+register_step_outcome(step_name, failure_passed, failure_detail)
+
+# -----------------------------------------------------------------------------
+# FAILURE 2: duplicated gel_id in the manifest. Two rows carry the same gel_id, which
+# would silently double-count a gel in the aggregate. Both analysis_paths point at the
+# staged good gel so "every analysis_path exists" passes and "gel_id is unique" is the
+# first gate to fail. The manifest is authored in-runner (a test input, not a seed).
+# -----------------------------------------------------------------------------
+step_name = "failure_duplicate_gel_id"
+duplicate_gel_id_directory = working_root_directory / "failure_duplicate_gel_id"
+duplicate_gel_id_directory.mkdir()
+duplicate_gel_id_manifest_path = duplicate_gel_id_directory / "manifest.csv"
+duplicate_gel_id_manifest_path.write_text(
+    "experiment_id,analysis_path,gel_id,replicate,notes\n"
+    + "E,%s,SAME_ID,1,first\n" % str(working_gel_directory)
+    + "E,%s,SAME_ID,2,duplicate of the first gel_id\n" % str(working_gel_directory),
+    encoding="utf-8",
+)
+duplicate_gel_id_checks_path = duplicate_gel_id_directory / "manifest_checks.json"
+failure_passed, failure_detail = run_stage_and_assert_named_hard_check(
+    step_name,
+    STAGE_INVOCATION_PREFIX
+    + [
+        str(REPOSITORY_ROOT_DIRECTORY / "validate_manifest.py"),
+        str(duplicate_gel_id_manifest_path),
+    ],
+    "gel_id is unique",
+    duplicate_gel_id_checks_path,
+)
+register_step_outcome(step_name, failure_passed, failure_detail)
+
+# -----------------------------------------------------------------------------
+# FAILURE 3: the template example row was never removed. A row marked
+# is_example=true (and carrying the reserved example gel_id) remains in the manifest;
+# it would corrupt an aggregate. A second, real row makes the manifest otherwise
+# valid so "template example row removed" is the gate that fires.
+# -----------------------------------------------------------------------------
+step_name = "failure_example_row_present"
+example_row_directory = working_root_directory / "failure_example_row_present"
+example_row_directory.mkdir()
+example_row_manifest_path = example_row_directory / "manifest.csv"
+example_row_manifest_path.write_text(
+    "experiment_id,analysis_path,gel_id,replicate,notes,is_example\n"
+    + "example-remove-this-row,%s,%s,1,leftover template row,true\n"
+    % (str(working_gel_directory), MANIFEST_EXAMPLE_GEL_ID)
+    + "E,%s,a_real_gel,1,real,false\n" % str(working_gel_directory),
+    encoding="utf-8",
+)
+example_row_checks_path = example_row_directory / "manifest_checks.json"
+failure_passed, failure_detail = run_stage_and_assert_named_hard_check(
+    step_name,
+    STAGE_INVOCATION_PREFIX
+    + [
+        str(REPOSITORY_ROOT_DIRECTORY / "validate_manifest.py"),
+        str(example_row_manifest_path),
+    ],
+    "template example row removed",
+    example_row_checks_path,
+)
+register_step_outcome(step_name, failure_passed, failure_detail)
+
+# -----------------------------------------------------------------------------
+# FAILURE 4: an out-of-range region. The window sits entirely outside the profile's
+# migration range, so every lane's window is empty and "region spans enough rows"
+# fires. This reuses the staged gel's band_measurements.csv (a STEP 2 product) and
+# needs no fixture file, only a bad argument. It writes its checks JSON into the gel
+# directory under the out-of-range stem.
+# -----------------------------------------------------------------------------
+step_name = "failure_out_of_range_region"
+out_of_range_checks_path = working_gel_directory / (
+    "extract_region_%g-%gmm_%s_checks.json"
+    % (
+        OUT_OF_RANGE_REGION_START_MILLIMETRES,
+        OUT_OF_RANGE_REGION_END_MILLIMETRES,
+        REGION_NET_BASELINE,
+    )
+)
+failure_passed, failure_detail = run_stage_and_assert_named_hard_check(
+    step_name,
+    STAGE_INVOCATION_PREFIX
+    + [
+        str(REPOSITORY_ROOT_DIRECTORY / "extract_lane_values.py"),
+        str(working_gel_directory),
+        "--region",
+        "%g" % OUT_OF_RANGE_REGION_START_MILLIMETRES,
+        "%g" % OUT_OF_RANGE_REGION_END_MILLIMETRES,
+        "--net-baseline",
+        REGION_NET_BASELINE,
+    ],
+    "region spans enough rows",
+    out_of_range_checks_path,
+)
+register_step_outcome(step_name, failure_passed, failure_detail)
 
 # =============================================================================
 # Persist goldens on --update, then the summary and exit code. The goldens file is
