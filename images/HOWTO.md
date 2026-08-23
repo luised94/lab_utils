@@ -41,7 +41,7 @@ ImageJ (Windows):
                                               manual_lane_profiles.csv  (the signal)
                                               lane_rois.zip             (the ROIs)
                                               export provenance
-  author sample sheet in Excel -> export sample_sheet.csv INTO that folder
+  author sample sheet in Excel -> export sample_sheet.csv INTO the <stem>_gel_analysis/ folder
 
 WSL (from images/), per gel:
   validate_sample_sheet.py   gate the sheet against the profiles
@@ -60,7 +60,7 @@ STEP 1 - ImageJ: draw lanes and export  (Windows side)
 
 1. Open the gel image in ImageJ/Fiji. Save it to disk first if it is not already;
    the export macro writes next to the image and refuses to run on an unsaved image.
-2. Draw one rectangular ROI per lane, left to right, and add each to the ROI
+2. WRONG Draw one rectangular ROI per lane, left to right, and add each to the ROI
    Manager. For evenly-spaced lanes, the `Distribute Selection.ijm` macro tiles a
    copies of one ROI at a fixed spacing (see `distribute_selection.ijm` and its
    header).
@@ -71,6 +71,7 @@ STEP 1 - ImageJ: draw lanes and export  (Windows side)
      is the width-summed signal down each lane),
    - saves `lane_rois.zip` (the exact rectangles, for replay),
    - writes an export provenance file.
+   - ADD other is also an option
 
 Why lane_index is not biological: the macro numbers lanes by image position, left
 to right. Which sample sits in which lane is recorded by YOU in the sample sheet
@@ -81,7 +82,7 @@ relationship but never guesses a flip.
 STEP 2 - Author the sample sheet  (Excel, exported into the folder)
 ===============================================================================
 
-Fill one row per lane and export as `sample_sheet.csv` INTO the
+Fill one row per lane in the experiments' respective excel file and export as `sample_sheet.csv` INTO the
 `<stem>_gel_analysis/` folder. The columns, the vocabulary, and the not_applicable
 vs blank rule are in `sample_sheet_schema.md` -- read it once; it is the source of
 truth. The essentials:
@@ -205,16 +206,3 @@ If two repeats will NOT aggregate, the checks JSON says why: a hard failure on
 one imager calibration across gels; if you ever change imager settings between
 repeats, that assumption breaks and the width proxy is no longer faithful (it would
 have to be verified from the TIFF). Log anything surprising in the friction section.
-
-===============================================================================
-Friction / deviations log  (append as you go)
-===============================================================================
-
-The point of this section: as you quantify real gels, write down anything awkward,
-wrong, or surprising, keyed to the step number above. This is the raw material for
-the next round of refinements, and it is how deferred decisions (the region caveat,
-measurement-selection ergonomics, plotter styling) get settled by real use instead
-of guessing. One line each is fine.
-
-- (step N) what happened / what was awkward / what you expected instead
--
