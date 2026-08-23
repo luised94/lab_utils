@@ -180,15 +180,31 @@ output), stack them.
    directory has more than one. `--normalize-to <sample_label>` divides each gel's
    values by a reference sample before averaging, if you want ratios rather than raw.
 
-CAVEAT you will hit with real repeats: the aggregator currently requires every gel
-to share the SAME selector, i.e. the same absolute migration window in millimetres.
-Two repeats of the same gel imaged at different positions on the platen migrate to
-slightly different absolute mm ranges, so their windows differ and the aggregator
-refuses the join. This is a known limitation, deferred to the region-definition
-design decision; the intended fix is to require equal WIDTH and warn (not fail) on a
-different offset. Until then, if two repeats will not aggregate, check whether their
-region windows differ -- and log it in the friction section below, because your real
-repeats are exactly the data that will settle how this should behave.
+REPEATS AT DIFFERENT PLATEN POSITIONS (the common real case). Two repeats of the
+same gel imaged at different positions migrate to slightly different absolute mm
+ranges, so the SAME band sits at a different window on each -- e.g. 31.3-46.1mm on
+one, 29.8-44.6mm on another. The aggregator handles this: it requires the same
+window WIDTH (end - start) and the same baseline across gels -- the proxy for the
+same molecular-size range under one imager calibration -- and only WARNS on a
+different offset. So extract EACH gel over its own window (same width, positioned
+over the band on that gel), then aggregate:
+
+  - If every gel used the identical window, pin `--selector` as above.
+  - If gels used different offsets (same width), do NOT pin `--selector`; each gel's
+    selector string differs. Omit it and let the aggregator auto-discover one
+    `single_experiment_*.csv` per gel. It joins them, warns about the offset
+    difference in the checks JSON, and names the output by the shared width, e.g.
+    `aggregate_region_14.8mm_none_multi.csv` (the `_multi` marks an offset-spanning
+    aggregate). For auto-discovery to be unambiguous, keep exactly one
+    `single_experiment_*.csv` per gel directory (extract only the window you intend
+    to aggregate for that gel).
+
+If two repeats will NOT aggregate, the checks JSON says why: a hard failure on
+"region extractions share one width" means the windows are genuinely different sizes
+(a different size range) -- re-extract them at matching widths. A width check assumes
+one imager calibration across gels; if you ever change imager settings between
+repeats, that assumption breaks and the width proxy is no longer faithful (it would
+have to be verified from the TIFF). Log anything surprising in the friction section.
 
 ===============================================================================
 Friction / deviations log  (append as you go)

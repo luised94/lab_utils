@@ -1305,6 +1305,161 @@ failure_passed, failure_detail = run_stage_and_assert_named_hard_check(
 register_step_outcome(step_name, failure_passed, failure_detail)
 
 # =============================================================================
+# REGION-OFFSET COMPATIBILITY. The aggregator averages replicates whose windows share
+# baseline and WIDTH but sit at different OFFSETS (the same band migrates to a
+# different absolute mm range on a gel imaged at a different platen position). The n=2
+# happy-path fixture is same-offset, so these two dedicated steps exercise the offset
+# path directly with tiny hand-built single_experiment CSVs (two gels, two lanes each;
+# no analyze chain needed -- aggregate only reads single_experiment CSVs). One asserts
+# different offset + same width is TOLERATED (exit 0, a mean, the soft warn fired); the
+# other asserts different WIDTH is REJECTED at its named hard check.
+# =============================================================================
+
+# Column set aggregate needs from a single_experiment CSV (identity + corrected value).
+OFFSET_TEST_SINGLE_EXPERIMENT_HEADER = "lane_index,well_number,sample_label,condition_type,value,blank_baseline,value_corrected"
+# Two lanes reused by both offset tests. value_corrected differs per gel so the mean
+# is non-trivial; BK_blue is lane 7 to echo the happy-path golden sample.
+OFFSET_TEST_GEL_A_ROWS = "5,11,Cdt1,input,1000,0,1000\n7,9,BK_blue,input,2000,0,2000\n"
+OFFSET_TEST_GEL_B_ROWS = "5,11,Cdt1,input,1200,0,1200\n7,9,BK_blue,input,2400,0,2400\n"
+
+# -----------------------------------------------------------------------------
+# STEP: aggregate tolerates different offsets at equal width. Gel A window
+# 31.3-46.1mm, gel B window 29.8-44.6mm: both width 14.8mm, baseline none, offset
+# differs. Expect exit 0, a group mean, and the soft "replicate window offsets match"
+# warning present-and-not-passed (a warn, not a failure).
+# -----------------------------------------------------------------------------
+step_name = "aggregate_offset_tolerated"
+offset_ok_root = working_root_directory / "aggregate_offset_tolerated"
+(offset_ok_root / "gelA_gel_analysis").mkdir(parents=True)
+(offset_ok_root / "gelB_gel_analysis").mkdir(parents=True)
+(
+    offset_ok_root
+    / "gelA_gel_analysis"
+    / "single_experiment_region_31.3-46.1mm_none.csv"
+).write_text(
+    OFFSET_TEST_SINGLE_EXPERIMENT_HEADER + "\n" + OFFSET_TEST_GEL_A_ROWS,
+    encoding="utf-8",
+)
+(
+    offset_ok_root
+    / "gelB_gel_analysis"
+    / "single_experiment_region_29.8-44.6mm_none.csv"
+).write_text(
+    OFFSET_TEST_SINGLE_EXPERIMENT_HEADER + "\n" + OFFSET_TEST_GEL_B_ROWS,
+    encoding="utf-8",
+)
+offset_ok_manifest = offset_ok_root / "manifest.csv"
+offset_ok_manifest.write_text(
+    "experiment_id,analysis_path,gel_id,replicate,notes\n"
+    + "E,%s,gelA_gel_analysis,1,offset A\n" % str(offset_ok_root / "gelA_gel_analysis")
+    + "E,%s,gelB_gel_analysis,2,offset B\n" % str(offset_ok_root / "gelB_gel_analysis"),
+    encoding="utf-8",
+)
+offset_ok_completed = subprocess.run(
+    STAGE_INVOCATION_PREFIX
+    + [
+        str(REPOSITORY_ROOT_DIRECTORY / "aggregate_repeats.py"),
+        str(offset_ok_manifest),
+    ],
+    capture_output=True,
+    text=True,
+)
+# The offset-spanning stem names the shared width+baseline: region_14.8mm_none_multi.
+offset_ok_output_csv = offset_ok_root / "aggregate_region_14.8mm_none_multi.csv"
+offset_ok_checks = offset_ok_root / "aggregate_region_14.8mm_none_multi_checks.json"
+if offset_ok_completed.returncode != 0:
+    offset_passed, offset_detail = (
+        False,
+        "expected exit 0, got %d" % offset_ok_completed.returncode,
+    )
+elif not offset_ok_output_csv.is_file():
+    offset_passed, offset_detail = False, "no aggregate CSV written at the _multi stem"
+else:
+    # The offset warning must be present as a soft, not-passed check; and the BK_blue
+    # mean must be (2000+2400)/2 = 2200 (a real join across the two offset windows).
+    offset_checks_report = json.loads(offset_ok_checks.read_text(encoding="utf-8-sig"))
+    offset_warning_fired = any(
+        (record.get("check_name") or record.get("check"))
+        == "replicate window offsets match"
+        and record.get("severity") == "soft"
+        and not record.get("passed")
+        for record in offset_checks_report.get("checks", [])
+    )
+    aggregated_bk_blue_mean = None
+    with offset_ok_output_csv.open(
+        newline="", encoding="utf-8-sig"
+    ) as offset_csv_handle:
+        for aggregate_row in csv.DictReader(offset_csv_handle):
+            if aggregate_row["sample_label"].strip() == "BK_blue":
+                aggregated_bk_blue_mean = aggregate_row["mean"].strip()
+                break
+    if not offset_warning_fired:
+        offset_passed, offset_detail = (
+            False,
+            "offset difference did not raise the soft warning",
+        )
+    elif aggregated_bk_blue_mean != "2200.0":
+        offset_passed, offset_detail = (
+            False,
+            "BK_blue mean across offsets = %s, expected 2200.0"
+            % aggregated_bk_blue_mean,
+        )
+    else:
+        offset_passed, offset_detail = (
+            True,
+            "different offset tolerated; mean joined across windows",
+        )
+register_step_outcome(step_name, offset_passed, offset_detail)
+
+# -----------------------------------------------------------------------------
+# STEP: aggregate rejects different WIDTHS. Gel A width 14.8mm (31.3-46.1), gel B
+# width 20.0mm (30-50): different size range, incomparable. Expect the named hard
+# check "region extractions share one width" to fire (asserted specifically, not just
+# a nonzero exit).
+# -----------------------------------------------------------------------------
+step_name = "aggregate_width_mismatch_rejected"
+width_bad_root = working_root_directory / "aggregate_width_mismatch"
+(width_bad_root / "gelA_gel_analysis").mkdir(parents=True)
+(width_bad_root / "gelB_gel_analysis").mkdir(parents=True)
+(
+    width_bad_root
+    / "gelA_gel_analysis"
+    / "single_experiment_region_31.3-46.1mm_none.csv"
+).write_text(
+    OFFSET_TEST_SINGLE_EXPERIMENT_HEADER + "\n" + OFFSET_TEST_GEL_A_ROWS,
+    encoding="utf-8",
+)
+(
+    width_bad_root / "gelB_gel_analysis" / "single_experiment_region_30-50mm_none.csv"
+).write_text(
+    OFFSET_TEST_SINGLE_EXPERIMENT_HEADER + "\n" + OFFSET_TEST_GEL_B_ROWS,
+    encoding="utf-8",
+)
+width_bad_manifest = width_bad_root / "manifest.csv"
+width_bad_manifest.write_text(
+    "experiment_id,analysis_path,gel_id,replicate,notes\n"
+    + "E,%s,gelA_gel_analysis,1,width 14.8\n"
+    % str(width_bad_root / "gelA_gel_analysis")
+    + "E,%s,gelB_gel_analysis,2,width 20.0\n"
+    % str(width_bad_root / "gelB_gel_analysis"),
+    encoding="utf-8",
+)
+# The checks JSON is written under the selector-independent "aggregate" stem because
+# the run fails at the width gate BEFORE a shared selector/stem is settled.
+width_bad_checks = width_bad_root / "aggregate_checks.json"
+width_passed, width_detail = run_stage_and_assert_named_hard_check(
+    step_name,
+    STAGE_INVOCATION_PREFIX
+    + [
+        str(REPOSITORY_ROOT_DIRECTORY / "aggregate_repeats.py"),
+        str(width_bad_manifest),
+    ],
+    "region extractions share one width",
+    width_bad_checks,
+)
+register_step_outcome(step_name, width_passed, width_detail)
+
+# =============================================================================
 # Persist goldens on --update, then the summary and exit code. The goldens file is
 # written only after all steps ran, so a mid-run failure never leaves a half-written
 # golden set. On a non-update run the file is untouched.

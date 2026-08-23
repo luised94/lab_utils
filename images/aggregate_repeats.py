@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "matplotlib>=3.11.1",
+#     "matplotlib>=3.7",
 # ]
 # ///
 r"""
@@ -14,9 +14,13 @@ ratio, name a denominator explicitly with --normalize-to.
 
 The manifest is validated up front by the same hard gates validate_manifest.py
 applies (duplicated here so this script is runnable on its own and refuses a bad
-manifest rather than aggregating garbage). All replicates must share ONE selector,
-so a "none" baseline extract is never silently averaged with a "straight" one; a
-mismatch is a hard failure.
+manifest rather than aggregating garbage). Replicates must share one BASELINE and
+one window WIDTH (the proxy for one size range under shared imager calibration), so
+a "none" baseline extract is never averaged with a "straight" one and a wider window
+is never averaged with a narrower one; either is a hard failure. Different window
+OFFSETS are expected and allowed (the same band migrates to a different absolute mm
+range on a gel imaged at a different platen position); an offset difference is a soft
+warning, not a failure. See the SELECTOR DATA MODEL note below for the fields.
 
 Options:
     --normalize-to SAMPLE_LABEL
@@ -59,6 +63,61 @@ import matplotlib.pyplot
 MANIFEST_FILENAME = "manifest.csv"
 SINGLE_EXPERIMENT_PREFIX = "single_experiment_"
 SINGLE_EXPERIMENT_GLOB = "single_experiment_*.csv"
+
+# -----------------------------------------------------------------------------
+# SELECTOR DATA MODEL. A selector is the extract filename stem with "extract_"
+# removed, carried through plot into single_experiment_<selector>.csv. It names WHAT
+# was measured, and it is the only compatibility signal aggregate has (the
+# single_experiment CSV itself carries no window info). Two forms, produced by
+# extract_lane_values.py:
+#
+#   region_<START>-<END>mm_<BASELINE>   e.g. region_31.3-46.1mm_none
+#       START, END : window edges in MIGRATION MILLIMETRES (floats, %g-formatted, so
+#                    no trailing zeros; START < END; range roughly 0..gel length ~80).
+#       WIDTH      : END - START, in mm. This is the load-bearing field for
+#                    cross-gel comparability (see below).
+#       BASELINE   : the net-baseline mode, one of the NET_BASELINE names
+#                    ("none", "straight"). Must match across gels; a different
+#                    baseline subtracts differently and the values are not comparable.
+#
+#   band_<INDEX>_<QUANTITY>             e.g. band_1_reported_area
+#       INDEX    : consensus band index (int >= 1). Band identity is intrinsic, so
+#                  band selectors are offset-independent and compared by EXACT equality.
+#       QUANTITY : the measured quantity name (e.g. reported_area).
+#
+# WHY WIDTH IS THE COMPATIBILITY KEY (and what it is a proxy FOR). The samples are
+# size-separated, so a region window is a migration-distance range that corresponds
+# to a MOLECULAR-SIZE RANGE via the ladder. The real invariant for averaging two
+# replicates is "same size range". aggregate cannot see size (no ladder here), so it
+# uses mm WIDTH as the checkable proxy: under a SHARED IMAGER CALIBRATION (same
+# mm-per-pixel across gels, which holds when gels are imaged on one instrument at one
+# setting), equal mm width spans an equal size range and sums an equal number of
+# migration samples, so the values are comparable. The OFFSET (absolute START) may
+# and SHOULD differ between gels imaged at different platen positions -- the same band
+# migrates to a different absolute mm range -- so offset difference is expected, not
+# an error. If calibration ever differs across gels (not verifiable here; it would
+# have to be read from the TIFF, as the archived validate_gel_image.py did), width
+# stops being a faithful proxy; the compatibility check states this assumption in its
+# detail so a future violation is diagnosable.
+# -----------------------------------------------------------------------------
+SELECTOR_REGION_PREFIX = "region_"
+SELECTOR_BAND_PREFIX = "band_"
+SELECTOR_REGION_MILLIMETRE_MARKER = (
+    "mm_"  # separates the "<A>-<B>mm" span from baseline
+)
+SELECTOR_REGION_SPAN_SEPARATOR = "-"  # between START and END inside "<A>-<B>mm"
+# Two region windows count as the same width when their widths differ by less than
+# this. Small on purpose: a genuinely different drag (a different size range) is a
+# hard incompatibility, while this only absorbs float formatting noise from %g and
+# sub-pixel rounding when the same-width window is placed at different offsets. One
+# migration sample is ~0.08 mm here, so 0.05 mm is well under a single sample step.
+WIDTH_TOLERANCE_MILLIMETRES = 0.05
+# Output stem when replicates share width+baseline but sit at different offsets, so no
+# single region_<A>-<B>mm_<baseline> stem describes them all. Width and baseline ARE
+# shared, so the canonical stem names those: region_<WIDTH>mm_<BASELINE>_multi. The
+# "_multi" suffix marks it as an offset-spanning aggregate (as opposed to a single
+# shared-window aggregate, which keeps the exact region_<A>-<B>mm_<baseline> stem).
+OFFSET_SPANNING_STEM_SUFFIX = "_multi"
 
 # Required manifest columns (duplicated from validate_manifest.py so this script
 # refuses a bad manifest on its own). Free condition columns beyond these are
@@ -398,14 +457,145 @@ record_check(
 )
 
 distinct_selectors = sorted(set(selector_by_gel_id.values()))
+
+# Compatibility across gels. The old rule "all gels share ONE selector" rejected real
+# replicates imaged at different platen offsets, because the same band lands in a
+# different absolute mm window and so gets a different region_<A>-<B>mm stem. The
+# invariant that actually matters is same size range, proxied by same mm WIDTH under
+# shared calibration (see the SELECTOR DATA MODEL note above). So: region selectors
+# are compatible when they share BASELINE and WIDTH; differing OFFSET is expected and
+# only WARNED. Band selectors carry no width and are compared by exact equality. A mix
+# of region and band selectors across gels is incomparable.
+#
+# Parse each distinct selector into (kind, baseline_or_quantity, width_or_none,
+# offset_or_none). A region stem is region_<A>-<B>mm_<BASELINE>; the "<A>-<B>mm" span
+# ends at the "mm_" marker, and inside it START and END are separated by "-".
+region_widths_seen = []
+region_baselines_seen = []
+region_offsets_seen = []
+band_selectors_seen = []
+unparseable_selectors = []
+for selector_value in distinct_selectors:
+    if selector_value.startswith(SELECTOR_REGION_PREFIX):
+        span_and_baseline = selector_value[len(SELECTOR_REGION_PREFIX) :]
+        millimetre_marker_index = span_and_baseline.find(
+            SELECTOR_REGION_MILLIMETRE_MARKER
+        )
+        if millimetre_marker_index < 0:
+            unparseable_selectors.append(selector_value)
+            continue
+        span_text = span_and_baseline[:millimetre_marker_index]
+        baseline_text = span_and_baseline[
+            millimetre_marker_index + len(SELECTOR_REGION_MILLIMETRE_MARKER) :
+        ]
+        span_parts = span_text.split(SELECTOR_REGION_SPAN_SEPARATOR)
+        if len(span_parts) != 2:
+            unparseable_selectors.append(selector_value)
+            continue
+        try:
+            region_start_of_selector = float(span_parts[0])
+            region_end_of_selector = float(span_parts[1])
+        except ValueError:
+            unparseable_selectors.append(selector_value)
+            continue
+        region_widths_seen.append(region_end_of_selector - region_start_of_selector)
+        region_baselines_seen.append(baseline_text)
+        region_offsets_seen.append(region_start_of_selector)
+    elif selector_value.startswith(SELECTOR_BAND_PREFIX):
+        band_selectors_seen.append(selector_value)
+    else:
+        unparseable_selectors.append(selector_value)
+
+# A selector that matches neither known form is a wiring break, not a science
+# question; fail hard and name it rather than guess a comparison.
 record_check(
-    "all gels share one selector",
+    "every selector is a known region or band form",
     "hard",
-    len(distinct_selectors) == 1,
-    "selectors seen: " + ", ".join(distinct_selectors),
+    len(unparseable_selectors) == 0,
+    "unparseable: "
+    + ("; ".join(unparseable_selectors) if unparseable_selectors else "none"),
 )
-selector = distinct_selectors[0]
-output_stem = "aggregate_" + selector
+
+# Region and band selectors cannot be averaged together.
+record_check(
+    "selectors are all region or all band",
+    "hard",
+    not (region_widths_seen and band_selectors_seen),
+    "region selectors: %d, band selectors: %d"
+    % (len(region_widths_seen), len(band_selectors_seen)),
+)
+
+if band_selectors_seen and not region_widths_seen:
+    # Band mode: identity is the band index, so every gel must name the SAME band.
+    record_check(
+        "all gels share one band selector",
+        "hard",
+        len(set(band_selectors_seen)) == 1,
+        "band selectors seen: " + ", ".join(sorted(set(band_selectors_seen))),
+    )
+    # Only one distinct band selector survives the check; use it verbatim as the stem.
+    selector = band_selectors_seen[0]
+    output_stem = "aggregate_" + selector
+else:
+    # Region mode: require one baseline and one width (within tolerance); warn if the
+    # offsets differ. distinct_baselines/widths drive the two verdicts.
+    distinct_region_baselines = sorted(set(region_baselines_seen))
+    record_check(
+        "region extractions share one baseline",
+        "hard",
+        len(distinct_region_baselines) == 1,
+        "baselines seen: " + ", ".join(distinct_region_baselines),
+    )
+    minimum_region_width = min(region_widths_seen) if region_widths_seen else 0.0
+    maximum_region_width = max(region_widths_seen) if region_widths_seen else 0.0
+    widths_agree = (
+        maximum_region_width - minimum_region_width
+    ) <= WIDTH_TOLERANCE_MILLIMETRES
+    record_check(
+        "region extractions share one width",
+        "hard",
+        widths_agree,
+        "widths mm: %s (spread %.4f, tol %.4f); width is the proxy for equal size "
+        "range and assumes one imager calibration across gels"
+        % (
+            ", ".join("%.4f" % width for width in sorted(region_widths_seen)),
+            maximum_region_width - minimum_region_width,
+            WIDTH_TOLERANCE_MILLIMETRES,
+        ),
+    )
+    # Offsets differing is EXPECTED for replicates imaged at different platen
+    # positions; surface it as a soft warning so it is visible in the checks JSON
+    # without stopping the run.
+    distinct_region_offsets = sorted(set(region_offsets_seen))
+    record_check(
+        "replicate window offsets match",
+        "soft",
+        len(distinct_region_offsets) == 1,
+        "start offsets mm: "
+        + ", ".join("%g" % offset for offset in distinct_region_offsets)
+        + (
+            " (same window)"
+            if len(distinct_region_offsets) == 1
+            else " (different offsets, tolerated: same width and baseline)"
+        ),
+    )
+    # Output stem. If every gel used the exact same window, keep its stem verbatim.
+    # If widths+baseline agree but offsets differ, no single region_<A>-<B>mm stem
+    # describes them, so name the shared invariant: region_<WIDTH>mm_<BASELINE>_multi.
+    if len(distinct_selectors) == 1:
+        selector = distinct_selectors[0]
+        output_stem = "aggregate_" + selector
+    else:
+        shared_baseline = (
+            distinct_region_baselines[0] if distinct_region_baselines else "unknown"
+        )
+        selector = "%s%gmm_%s%s" % (
+            SELECTOR_REGION_PREFIX,
+            maximum_region_width,
+            shared_baseline,
+            OFFSET_SPANNING_STEM_SUFFIX,
+        )
+        output_stem = "aggregate_" + selector
 
 # =============================================================================
 # Load each gel's single_experiment rows, keyed by gel so normalization is per gel.

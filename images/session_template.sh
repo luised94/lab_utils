@@ -38,10 +38,14 @@ GEL_PASTED_PATHS=(
     ""
 )
 
-# The picker / plot region, shared across every gel in the session. Kept here so one
-# edit changes the whole session and every gel is extracted over the same window.
-# (The aggregator currently requires the same selector across gels; see HOWTO.md for
-# the offset caveat.) Millimetres.
+# The picker / plot region. Kept here as the DEFAULT window for the session so one
+# edit covers the common case where every gel is imaged at the same platen position
+# and shares one window. When a gel is imaged at a different offset, its band sits at
+# a different absolute mm range: extract THAT gel over its own window (edit these two
+# values for that gel, or run extract_lane_values.py by hand for it). The aggregator
+# no longer requires an identical window across gels -- it requires the same WIDTH
+# (END - START) and the same baseline, and only WARNS on a different offset. So a
+# per-gel offset is fine as long as the width matches. See HOWTO.md. Millimetres.
 REGION_START_MILLIMETRES=31.3
 REGION_END_MILLIMETRES=46.1
 REGION_NET_BASELINE="none"
@@ -160,11 +164,22 @@ done
 # 4. Cross-gel aggregation (run once, after every gel above is measured).
 # -----------------------------------------------------------------------------
 # Uncomment and point MANIFEST at a manifest.csv whose analysis_path rows are this
-# session's gels. See HOWTO.md for authoring the manifest and the region caveat.
+# session's gels. See HOWTO.md for authoring the manifest.
+#
+# If EVERY gel used the same window (same offset), pin --selector so the aggregator
+# reads exactly that single_experiment file per gel:
 #
 # MANIFEST="/path/to/manifest.csv"
 # uv run validate_manifest.py "$MANIFEST"
 # uv run aggregate_repeats.py "$MANIFEST" \
 #     --selector "region_${REGION_START_MILLIMETRES}-${REGION_END_MILLIMETRES}mm_${REGION_NET_BASELINE}"
+#
+# If gels were extracted at DIFFERENT offsets (their windows share width+baseline but
+# not offset), do NOT pin --selector -- each gel has a different selector string. Omit
+# it and let the aggregator auto-discover each gel's single_experiment CSV; it accepts
+# the differing offsets and warns. This requires exactly one single_experiment_*.csv
+# per gel directory (extract only the one window you intend to aggregate for that gel):
+#
+# uv run aggregate_repeats.py "$MANIFEST"
 
 echo "[session] done."
