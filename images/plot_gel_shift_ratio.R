@@ -72,7 +72,25 @@ PLOT_CONFIG <- list(
         device = cairo_pdf,
         width = 7.5,
         height = 4.5
-    )
+    ),
+    # Fixed y-axis, applied identically to every plot so the figures are directly
+    # comparable across datasets. bound_fraction is bounded [0, 1] by construction
+    # (bound / (bound + free)), so 1.2 leaves headroom above the tallest bar-plus-
+    # error without any real data ever reaching it; a dataset that never rises above
+    # ~0.9 (e.g. the orc5/6 set) still plots on the same axis as one that does.
+    # breaks are set EXPLICITLY rather than left to auto-selection: the requirement
+    # is that the 1.0 tick always appears, and auto-breaks over [0, 1.2] can land on
+    # 0/0.3/0.6/0.9/1.2 and skip 1.0. seq(0, 1.2, 0.2) puts 1.0 on the axis every
+    # time. NOTE: y_axis_limits clips (drops to NA) anything above 1.2; safe for
+    # bound_fraction, but revisit before reusing this config for an unbounded
+    # quantity such as a ratio-to-reference that can exceed 1.
+    y_axis_limits = c(0, 1.2),
+    y_axis_breaks = seq(0, 1.2, 0.2),
+    # A hard upper limit means the top expansion must be ~0, or the visible axis
+    # runs past 1.2 and the fixed max is defeated; a small ADDITIVE pad keeps the
+    # 1.2 label from clipping at the panel edge without floating the max. Bottom
+    # stays flush at 0 so bars sit on the axis.
+    y_axis_expand = expansion(mult = c(0, 0), add = c(0, 0.02))
 )
 
 # The ATP axis order and the genotype axis order are fixed here so bars and facets
@@ -500,7 +518,11 @@ plot_p1 <- ggplot(
         labels = c("1" = "Replicate 1", "2" = "Replicate 2", "3" = "Replicate 3"),
         name = "Replicate"
     ) +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
+    scale_y_continuous(
+        limits = PLOT_CONFIG$y_axis_limits,
+        breaks = PLOT_CONFIG$y_axis_breaks,
+        expand = PLOT_CONFIG$y_axis_expand
+    ) +
     labs(
         x = "Genotype", y = "Bound fraction  [ bound / (bound + free) ]",
         title = "Gel shift bound fraction by genotype and ATP"
@@ -573,7 +595,11 @@ plot_p5 <- ggplot(
         labels = c("1" = "Replicate 1", "2" = "Replicate 2", "3" = "Replicate 3"),
         name = "Replicate"
     ) +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
+    scale_y_continuous(
+        limits = PLOT_CONFIG$y_axis_limits,
+        breaks = PLOT_CONFIG$y_axis_breaks,
+        expand = PLOT_CONFIG$y_axis_expand
+    ) +
     labs(
         x = "ATP", y = "Bound fraction  [ bound / (bound + free) ]",
         title = "Gel shift ATP effect per replicate gel"
