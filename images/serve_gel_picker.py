@@ -59,6 +59,11 @@ DEFAULT_PORT = 8080
 
 PROFILE_CSV_FILENAME = "manual_lane_profiles.csv"
 BAND_MEASUREMENTS_FILENAME = "band_measurements.csv"
+# The export macro names the analysis directory <image_stem>_gel_analysis next to
+# the image, so this suffix is the single bridge between a gel TIFF and its data.
+# Defined here (not beside its use lower down) because both the entry-point
+# resolver and the TIFF search need it.
+GEL_ANALYSIS_DIRECTORY_SUFFIX = "_gel_analysis"
 
 ACCUMULATED_RUN_LOG_LINES = []
 
@@ -85,7 +90,9 @@ argument_parser = argparse.ArgumentParser(
     allow_abbrev=False,
 )
 argument_parser.add_argument(
-    "gel_path", help="the gel analysis directory, or any file inside it"
+    "gel_path",
+    help="the gel analysis directory, or the gel .tif beside it (stem maps to "
+    "<stem>_gel_analysis)",
 )
 argument_parser.add_argument(
     "--tiff",
@@ -104,7 +111,33 @@ given_path = pathlib.Path(parsed_arguments.gel_path)
 if given_path.is_dir():
     gel_analysis_directory = given_path
 elif given_path.is_file():
-    gel_analysis_directory = given_path.parent
+    # A file entry point is the gel TIFF, never a file already inside the analysis
+    # dir. The earlier ".parent" rule silently pointed at the wrong directory when
+    # the TIFF was passed: a gel TIFF is a SIBLING of <stem>_gel_analysis, so its
+    # parent is the experiment folder, not the data directory, and every required
+    # CSV then reported missing (see friction.md 2026-08-23). The TIFF stem is the
+    # single fact everything derives from, so derive the sibling directory from it
+    # and require the .tif extension -- any other file is refused rather than
+    # guessed, because a wrong-directory guess is exactly the friction being removed.
+    if given_path.suffix.lower() != ".tif":
+        die(
+            "input",
+            "file entry point must be the gel .tif (stem maps to <stem>"
+            + GEL_ANALYSIS_DIRECTORY_SUFFIX
+            + "); got: "
+            + str(given_path),
+        )
+    gel_analysis_directory = (
+        given_path.parent
+        / (given_path.stem + GEL_ANALYSIS_DIRECTORY_SUFFIX)
+    )
+    if not gel_analysis_directory.is_dir():
+        die(
+            "input",
+            "derived analysis directory does not exist: "
+            + str(gel_analysis_directory)
+            + " (expected beside the TIFF; run the ImageJ export first)",
+        )
 else:
     die("input", "path does not exist: " + str(given_path))
 
@@ -137,7 +170,6 @@ for required_path in (
 # *.tif glob is deliberately NOT used: an experiment folder holds several gels'
 # TIFFs, and the alphabetically-first one is usually the wrong gel (a leading
 # "2026.07.10..." sorts before "20260818..." because '.' precedes '0').
-GEL_ANALYSIS_DIRECTORY_SUFFIX = "_gel_analysis"
 expected_tiff_stem = gel_analysis_directory.name
 if expected_tiff_stem.endswith(GEL_ANALYSIS_DIRECTORY_SUFFIX):
     expected_tiff_stem = expected_tiff_stem[: -len(GEL_ANALYSIS_DIRECTORY_SUFFIX)]
