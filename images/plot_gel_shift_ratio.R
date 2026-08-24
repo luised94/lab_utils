@@ -45,6 +45,11 @@ PLOT_CONFIG <- list(
     ),
     bar = list(width = 0.7, color = "black", linewidth = 0.4),
     errorbar = list(width = 0.25, linewidth = 0.6),
+    # noATP bars are the genotype colour lightened by this fraction toward white,
+    # so genotype reads by hue and ATP state reads by shade (plusATP = full colour,
+    # the stronger-binding condition, so the fuller colour). No extra dependency:
+    # the lighten helper below is base grDevices.
+    noatp_lighten_amount = 0.55,
     point = list(
         size = 2, fill = "grey30", color = "black", stroke = 0.5,
         jitter_width = 0.15, jitter_seed = 42
@@ -244,8 +249,12 @@ message("wrote ", percent_difference_csv_path)
 # Data subsets for plotting. The ATP contrast plots exclude the No ORC control
 # (it has no ATP pair); it appears only where a baseline is drawn.
 # ------------------------------------------------------------------------------
-summary_with_atp <- summary_data %>% filter(.data$genotype != "No ORC")
-points_with_atp <- analysis_data %>% filter(.data$genotype != "No ORC")
+summary_with_atp <- summary_data %>%
+    filter(.data$genotype != "No ORC") %>%
+    mutate(genotype = droplevels(.data$genotype))
+points_with_atp <- analysis_data %>%
+    filter(.data$genotype != "No ORC") %>%
+    mutate(genotype = droplevels(.data$genotype))
 no_orc_mean <- summary_data %>%
     filter(.data$genotype == "No ORC") %>%
     pull(.data$mean_bound_fraction)
@@ -260,17 +269,74 @@ house_theme <- theme_classic(
         strip.background = element_rect(fill = "gray90", color = "black"),
         strip.text = element_text(face = "bold", size = 12),
         legend.position = PLOT_CONFIG$theme$legend_position,
+        # Stack the fill and shape legends as separate boxes. With the eight-entry
+        # genotype/ATP fill legend laid out in two rows, a side-by-side shape legend
+        # gets consumed by ggplot's guide layout and collapses to one key; stacking
+        # them vertically keeps the three replicate keys intact.
+        legend.box = "vertical",
         panel.spacing = unit(1, "lines")
+    )
+
+# Fill is genotype x ATP: each genotype keeps its palette hue, and noATP is that
+# hue lightened toward white so the ATP state reads by shade. lighten_colour mixes
+# the colour toward white by a fraction; base grDevices only, no new dependency.
+lighten_colour <- function(hex_colour, amount) {
+    rgb_fraction <- col2rgb(hex_colour) / 255
+    lightened_fraction <- rgb_fraction + (1 - rgb_fraction) * amount
+    rgb(lightened_fraction[1], lightened_fraction[2], lightened_fraction[3])
+}
+genotype_atp_fill_values <- c()
+genotype_atp_fill_labels <- c()
+for (genotype_name in GENOTYPE_LEVELS_IN_ORDER) {
+    if (genotype_name == "No ORC") {
+        next  # No ORC has no ATP pair; it is not a filled bar in the ATP plots
+    }
+    full_colour <- PLOT_CONFIG$fill_colors[[genotype_name]]
+    plus_key <- paste0(genotype_name, ".plusATP")
+    no_key <- paste0(genotype_name, ".noATP")
+    genotype_atp_fill_values[[plus_key]] <- full_colour
+    genotype_atp_fill_values[[no_key]] <- lighten_colour(
+        full_colour, PLOT_CONFIG$noatp_lighten_amount
+    )
+    genotype_atp_fill_labels[[plus_key]] <- paste0(genotype_name, " +ATP")
+    genotype_atp_fill_labels[[no_key]] <- paste0(genotype_name, " -ATP")
+}
+# The interaction key ties each bar to its genotype-and-ATP fill. The factor level
+# order (genotype outer, ATP inner with noATP first) matches the dodge order so the
+# lighter noATP bar sits left of the fuller plusATP bar within each genotype.
+genotype_atp_level_order <- unlist(lapply(
+    setdiff(GENOTYPE_LEVELS_IN_ORDER, "No ORC"),
+    function(genotype_name) c(
+        paste0(genotype_name, ".noATP"), paste0(genotype_name, ".plusATP")
+    )
+))
+summary_with_atp <- summary_with_atp %>%
+    mutate(
+        genotype_atp = factor(
+            paste0(as.character(.data$genotype), ".", as.character(.data$atp)),
+            levels = genotype_atp_level_order
+        )
+    )
+points_with_atp <- points_with_atp %>%
+    mutate(
+        genotype_atp = factor(
+            paste0(as.character(.data$genotype), ".", as.character(.data$atp)),
+            levels = genotype_atp_level_order
+        )
     )
 
 # ==============================================================================
 # P1: x = genotype, dodged noATP/plusATP bars, SD error bars, replicate dots.
 # One panel; the ATP pair sits adjacent within each genotype for direct contrast.
+# Fill encodes genotype (hue) and ATP (shade): noATP lighter, plusATP full.
 # ==============================================================================
 dodge_width <- 0.8
 plot_p1 <- ggplot(
     summary_with_atp,
-    aes(x = .data$genotype, y = .data$mean_bound_fraction, fill = .data$atp)
+    aes(
+        x = .data$genotype, y = .data$mean_bound_fraction,
+        fill = .data$genotype_atp, group = .data$atp
+    )
 ) +
     geom_col(
         position = position_dodge(width = dodge_width),
@@ -304,7 +370,12 @@ plot_p1 <- ggplot(
         stroke = PLOT_CONFIG$point$stroke,
         inherit.aes = FALSE
     ) +
-    scale_fill_manual(values = c("noATP" = "#B0B0B0", "plusATP" = "#377EB8"), name = "ATP") +
+    scale_fill_manual(
+        values = genotype_atp_fill_values,
+        labels = genotype_atp_fill_labels,
+        name = "Genotype / ATP",
+        breaks = genotype_atp_level_order
+    ) +
     scale_shape_manual(
         values = PLOT_CONFIG$replicate_shapes,
         labels = c("1" = "Replicate 1", "2" = "Replicate 2", "3" = "Replicate 3"),
@@ -313,8 +384,14 @@ plot_p1 <- ggplot(
     scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
     labs(
         x = "Genotype", y = "Bound fraction  [ bound / (bound + free) ]",
-        title = "Gel shift bound fraction by genotype and ATP",
-        fill = "ATP"
+        title = "Gel shift bound fraction by genotype and ATP"
+    ) +
+    guides(
+        # The fill scale has eight entries (four genotypes x two ATP states); lay it
+        # out in two rows so the legend stays compact. The shape guide lists the
+        # three replicates; keep it a single row beside the fill legend.
+        fill = guide_legend(nrow = 2, order = 1),
+        shape = guide_legend(nrow = 1, order = 2)
     ) +
     house_theme
 p1_path <- file.path(output_directory, "gel_shift_P1_genotype_dodged_ATP.pdf")
