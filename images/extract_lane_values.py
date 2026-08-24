@@ -126,7 +126,8 @@ argument_parser = argparse.ArgumentParser(
 )
 argument_parser.add_argument(
     "gel_path",
-    help="the gel analysis directory, or any file inside it",
+    help="the gel analysis directory, or the gel .tif beside it (stem maps to "
+    "<stem>_gel_analysis)",
 )
 selection_mode_group = argument_parser.add_mutually_exclusive_group(required=True)
 selection_mode_group.add_argument(
@@ -161,13 +162,38 @@ argument_parser.add_argument(
 )
 parsed_arguments = argument_parser.parse_args()
 
-# Resolve the gel analysis directory from the directory itself or any file in it,
-# matching the manifest and sheet-validator addressing rule.
+# Resolve the gel analysis directory. A directory is used as is. A file must be the
+# gel TIFF: the analysis directory is <stem>_gel_analysis beside it, derived from
+# the stem, because a gel TIFF is a SIBLING of that directory -- its parent is the
+# experiment folder, not the data directory. The earlier ".parent" rule pointed at
+# the experiment folder and every required CSV then reported missing (friction.md
+# 2026-08-23). The stem is the single fact everything derives from; any non-.tif
+# file is refused rather than guessed. gel_analysis_directory is referenced by
+# record_check on early failure, so these fatals exit plainly (print+exit), before
+# the first check, exactly as the not-exist case below does.
+GEL_ANALYSIS_DIRECTORY_SUFFIX = "_gel_analysis"
 given_path = pathlib.Path(parsed_arguments.gel_path)
 if given_path.is_dir():
     gel_analysis_directory = given_path
 elif given_path.is_file():
-    gel_analysis_directory = given_path.parent
+    if given_path.suffix.lower() != ".tif":
+        print(
+            "[input] ERROR: file entry point must be the gel .tif (stem maps to "
+            "<stem>" + GEL_ANALYSIS_DIRECTORY_SUFFIX + "); got: " + str(given_path),
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    gel_analysis_directory = given_path.parent / (
+        given_path.stem + GEL_ANALYSIS_DIRECTORY_SUFFIX
+    )
+    if not gel_analysis_directory.is_dir():
+        print(
+            "[input] ERROR: derived analysis directory does not exist: "
+            + str(gel_analysis_directory)
+            + " (expected beside the TIFF; run the ImageJ export first)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 else:
     # gel_analysis_directory is referenced by record_check on early failure, so it
     # must exist before the first check; a bad path is fatal here, plainly.

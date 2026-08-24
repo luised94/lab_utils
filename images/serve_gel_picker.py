@@ -127,9 +127,8 @@ elif given_path.is_file():
             + "); got: "
             + str(given_path),
         )
-    gel_analysis_directory = (
-        given_path.parent
-        / (given_path.stem + GEL_ANALYSIS_DIRECTORY_SUFFIX)
+    gel_analysis_directory = given_path.parent / (
+        given_path.stem + GEL_ANALYSIS_DIRECTORY_SUFFIX
     )
     if not gel_analysis_directory.is_dir():
         die(
