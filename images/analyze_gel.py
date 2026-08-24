@@ -161,7 +161,9 @@ argument_parser = argparse.ArgumentParser(
 # inside it. The sample sheet is REQUIRED, not optional: this stage measures only
 # the lanes the sheet marks measured/reference, so running without it is undefined.
 argument_parser.add_argument(
-    "gel_directory_or_file", help="The gel analysis directory, or any file inside it"
+    "gel_directory_or_file",
+    help="the gel analysis directory, or the gel .tif beside it (stem maps to "
+    "<stem>_gel_analysis)",
 )
 argument_parser.add_argument(
     "--profile-csv", default=None, help="Override profile CSV path"
@@ -174,13 +176,39 @@ parsed_arguments = argument_parser.parse_args()
 STANDARD_PROFILE_FILENAME = "manual_lane_profiles.csv"
 STANDARD_SAMPLE_SHEET_FILENAME = "sample_sheet.csv"
 
+# Resolve the gel analysis directory. A directory is used as is. A file must be the
+# gel TIFF: the analysis directory is <stem>_gel_analysis beside it, derived from
+# the stem, because a gel TIFF is a SIBLING of that directory -- its parent is the
+# experiment folder, not the data directory. The earlier ".parent" rule pointed at
+# the experiment folder and every required CSV then reported missing (friction.md
+# 2026-08-23). The stem is the single fact everything derives from; any non-.tif
+# file is refused rather than guessed, because a wrong-directory guess is the
+# friction being removed.
+GEL_ANALYSIS_DIRECTORY_SUFFIX = "_gel_analysis"
 gel_path_argument = pathlib.Path(
     os.path.abspath(parsed_arguments.gel_directory_or_file)
 )
 if gel_path_argument.is_dir():
     gel_directory_path = gel_path_argument
 elif gel_path_argument.is_file():
-    gel_directory_path = gel_path_argument.parent
+    if gel_path_argument.suffix.lower() != ".tif":
+        die(
+            "input",
+            "file entry point must be the gel .tif (stem maps to <stem>"
+            + GEL_ANALYSIS_DIRECTORY_SUFFIX
+            + "); got: "
+            + str(gel_path_argument),
+        )
+    gel_directory_path = gel_path_argument.parent / (
+        gel_path_argument.stem + GEL_ANALYSIS_DIRECTORY_SUFFIX
+    )
+    if not gel_directory_path.is_dir():
+        die(
+            "input",
+            "derived analysis directory does not exist: "
+            + str(gel_directory_path)
+            + " (expected beside the TIFF; run the ImageJ export first)",
+        )
 else:
     die("input", "not a file or directory: " + str(gel_path_argument))
 output_directory_path = gel_directory_path
