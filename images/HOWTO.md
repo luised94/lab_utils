@@ -142,15 +142,17 @@ Existence is all the driver checks; schema validation stays in the scripts, on
 purpose, so there is one source of truth for what a valid input is.
 
 Running a single gel by hand (no driver) is of course fine:
+All tif filepaths has to be absolute paths. Use printf in an accesbile tmux pane to be able to copy paste easily.
 
-    uv run validate_sample_sheet.py '<stem>_gel_analysis'
-    uv run analyze_gel.py           '<stem>_gel_analysis'
-    uv run serve_gel_picker.py      '<stem>_gel_analysis'
-    uv run extract_lane_values.py   '<stem>_gel_analysis' --region 31.3 46.1
-    uv run plot_gel_shift_ratio.py  '<stem>_gel_analysis'
-    uv run plot_single_experiment.py '<stem>_gel_analysis' \
-        --extract-csv '<stem>_gel_analysis/extract_region_31.3-46.1mm_none.csv'
-
+    uv run validate_sample_sheet.py '<stem>.tif'
+    uv run analyze_gel.py           '<stem>.tif'
+    uv run serve_gel_picker.py      '<stem>.tif'
+    uv run extract_lane_values.py   '<stem>.tif' --region MM.M MM,M # copy from the bottom of the html file while picking the region.
+    uv run calculate_gel_shift_ratio.py  '<stem>.tif'
+    Rscript plot_gel_shift_ratio.R  '<path-to-csv>/manifest.csv' <path-to-csv> # printf '%s\n' "$(pwd)"/**/gel_shift_ratio_*.csv to display the files to add to manifest csv
+    OR
+    uv run calculate_loading_value.py '<stem>.tif'
+    uv run plot_loading.R 'manifest.csv'
 Choosing the number: `extract_lane_values.py` has two modes. `--region A B`
 integrates a migration window you choose (millimetres); `--band N` takes consensus
 band N from `band_measurements.csv`. If you would rather see the gel and drag the

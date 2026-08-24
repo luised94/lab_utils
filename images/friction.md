@@ -110,3 +110,118 @@ I really do just overengineer.
 Good. After fixing the sample sheet, running the pipeline was relatively easy.
 Did two regions per gel for gel shift assays. Pretty nice. Also proper metric is top / top + bottom region/band. Avoids dividing or denominator as zero or small number.
 Made the calculate_gel_shift_ratio.py
+## 2026-08-24
+Tried to get some sleep.
+So far so good. Working on the second set. Imagej part was pretty straightforward. Making the sample sheet as well.
+Go to the directory in wsl and use the printf snippet.
+Weird. Something happened to the sample sheets. Then did not paste as csv.
+usb[ ]luis@Luis:~/personal_repos/lab_utils/images$ uv run validate_sample_sheet.py $GEL_PATH
+[input] gel analysis directory: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220303_rotated_s0001_wt,4r,5,6-sofa-repeat-1-1000-Phosphor_gel_analysis
+[input] using sample sheet: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220303_rotated_s0001_wt,4r,5,6-sofa-repeat-1-1000-Phosphor_gel_analysis/sample_sheet.csv
+[input] using profile CSV: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220303_rotated_s0001_wt,4r,5,6-sofa-repeat-1-1000-Phosphor_gel_analysis/manual_lane_profiles.csv
+[profile] profile has 9 lanes, comb_well_count=9
+[schema] ERROR: sample sheet is missing required columns: lane_index, well_number, lane_content, analysis_role, condition_type, sample_label, prep_source
+Just repasted from the excel sheet into each of the csvs.
+sb[ ]luis@Luis:~/personal_repos/lab_utils/images$ uv run validate_sample_sheet.py $GEL_PATH
+[input] gel analysis directory: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220303_rotated_s0001_wt,4r,5,6-sofa-repeat-1-1000-Phosphor_gel_analysis
+[input] using sample sheet: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220303_rotated_s0001_wt,4r,5,6-sofa-repeat-1-1000-Phosphor_gel_analysis/sample_sheet.csv
+[input] using profile CSV: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220303_rotated_s0001_wt,4r,5,6-sofa-repeat-1-1000-Phosphor_gel_analysis/manual_lane_profiles.csv
+[profile] profile has 9 lanes, comb_well_count=9
+[read] sample sheet has 9 rows and columns: lane_index, well_number, lane_content, analysis_role, condition_type, sample_label, prep_source, orc4, suppressor, atp_presence
+[identity] lane-to-well relationship: identity (well_number == lane_index)
+[checks] wrote /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220303_rotated_s0001_wt,4r,5,6-sofa-repeat-1-1000-Phosphor_gel_analysis/sample_sheet_checks.json; overall fail
+[checks] WARNING positive_control_present: no lane marked condition_type=positive_control
+[checks] WARNING negative_control_present: no lane marked condition_type=negative_control
+[checks] FAIL condition_type_in_vocabulary: allowed ['input', 'experiment', 'positive_control', 'negative_control', 'not_applicable']; offending: lane 1: 'negative control'
+[checks] FAIL sample_lanes_have_real_disposition: sample lanes need a real condition_type and analysis_role in {reference, measured}; lane 1: condition_type=negative control, analysis_role=excluded
+[checks] FAIL label_and_prep_source_explicit: samples need real label/prep; non-samples need not_applicable (never blank); lane 1: sample needs a real prep_source
+[checks] ERROR: 3 hard failure(s); sample sheet is not usable. See /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220303_rotated_s0001_wt,4r,5,6-sofa-repeat-1-1000-Phosphor_gel_analysis/sample_sheet_checks.json.
+Similar errors as first time.
+
+Accumulate the region commands:
+uv run extract_lane_values.py /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220303_rotated_s0001_wt,4r,5,6-sofa-repeat-1-1000-Phosphor_gel_analysis --region 16.8 21.4
+uv run extract_lane_values.py /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220303_rotated_s0001_wt,4r,5,6-sofa-repeat-1-1000-Phosphor_gel_analysis --region 42.8 52.4
+
+uv run extract_lane_values.py /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220304_rotated_s0002_wt,4r,5,6-sofa-repeat-2-1000-Phosphor_gel_analysis --region 15.6 22.2
+uv run extract_lane_values.py /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220304_rotated_s0002_wt,4r,5,6-sofa-repeat-2-1000-Phosphor_gel_analysis --region 43.2 54.6
+
+uv run extract_lane_values.py /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220307_rotated_s0003_wt,4r,5,6-sofa-repeat-3-1000-Phosphor_gel_analysis --region 19.0 23.8
+uv run extract_lane_values.py /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/20220307_rotated_s0003_wt,4r,5,6-sofa-repeat-3-1000-Phosphor_gel_analysis --region 44.2 53.4
+
+Run the calculate scripts.
+Run the plot script poiting to manifest csv.
+Use printf to have the filepaths for copy pasting then run Rscript:
+Rscript plot_gel_shift_ratio.R /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/manifest.csv /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/
+
+usb[ ]luis@Luis:~/personal_repos/lab_utils/images$ Rscript plot_gel_shift_ratio.R /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/manifest.csv /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/
+WARNING: ignoring environment value of R_HOME
+ÄÄ Attaching core tidyverse packages ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ tidyverse 2.0.0 ÄÄ
+? dplyr     1.2.1     ? readr     2.1.6
+? forcats   1.0.1     ? stringr   1.6.0
+? ggplot2   4.0.2     ? tibble    3.3.1
+? lubridate 1.9.4     ? tidyr     1.3.2
+? purrr     1.2.2
+ÄÄ Conflicts ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ tidyverse_conflicts() ÄÄ
+? dplyr::filter() masks stats::filter()
+? dplyr::lag()    masks stats::lag()
+? Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+Error in `mutate()`:
+? In argument: `genotype = map2_chr(.data$`orc4-R267`, .data$suppressor, derive_genotype_label)`.
+Caused by error in `` .data$`orc4-R267` ``:
+! Column `orc4-R267` not found in `.data`.
+Backtrace:
+     ?
+  1. ÃÄcombined_data %>% ...
+  2. ÃÄdplyr::mutate(...)
+  3. ÃÄdplyr:::mutate.data.frame(...)
+  4. ³ ÀÄdplyr:::mutate_cols(.data, dplyr_quosures(...), by)
+  5. ³   ÃÄbase::withCallingHandlers(...)
+  6. ³   ÀÄdplyr:::mutate_col(dots[[i]], data, mask, new_columns)
+  7. ³     ÀÄmask$eval_all_mutate(quo)
+  8. ³       ÀÄdplyr (local) eval()
+  9. ÃÄpurrr::map2_chr(.data$`orc4-R267`, .data$suppressor, derive_genotype_label)
+ 10. ³ ÀÄpurrr:::map2_("character", .x, .y, .f, ..., .progress = .progress)
+ 11. ³   ÀÄpurrr:::vctrs_vec_compat(.x, .purrr_user_env)
+ 12. ÃÄorc4-R267
+ 13. ÃÄrlang:::`$.rlang_data_pronoun`(.data, `orc4-R267`)
+ 14. ³ ÀÄrlang:::data_pronoun_get(...)
+ 15. ÀÄrlang:::abort_data_pronoun(x, call = y)
+ 16.   ÀÄrlang::abort(msg, "rlang_error_data_pronoun_not_found", call = call)
+Execution halted
+Manually edited the gel shift ratio csv and the sample sheet to orc4-R267. 
+Had to fix the plotting Rscript but all good.
+usb[ ]luis@Luis:~/personal_repos/lab_utils/images$ Rscript plot_gel_shift_ratio.R /mnt/c/Users/Luised94/Desktop/lab/experiments/20260716_LM-0009_gs_1-3-4-repeats/manifest.csv /mnt/c/Users/Luised94/Desktop/lab/experiments/20260716_LM-0009_gs_1-3-4-repeats/
+WARNING: ignoring environment value of R_HOME
+ÄÄ Attaching core tidyverse packages ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ tidyverse 2.0.0 ÄÄ
+? dplyr     1.2.1     ? readr     2.1.6
+? forcats   1.0.1     ? stringr   1.6.0
+? ggplot2   4.0.2     ? tibble    3.3.1
+? lubridate 1.9.4     ? tidyr     1.3.2
+? purrr     1.2.2
+ÄÄ Conflicts ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ tidyverse_conflicts() ÄÄ
+? dplyr::filter() masks stats::filter()
+? dplyr::lag()    masks stats::lag()
+? Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+Error: derive_genotype_label produced NA for 3 lane-row(s); unmapped factor combination(s):
+  orc4-R267=not_applicable, suppressor=not_applicable
+Add the mapping to derive_genotype_label (and the label to GENOTYPE_LEVELS_IN_ORDER and fill_colors) before plotting.
+Execution halted
+usb[ ]luis@Luis:~/personal_repos/lab_utils/images$ Rscript plot_gel_shift_ratio.R /mnt/c/Users/Luised94/Desktop/lab/experiments/20260716_LM-0009_gs_1-3-4-repeats/manifest.csv /mnt/c/Users/Luised94/Desktop/lab/experiments/20260716_LM-0009_gs_1-3-4-repeats/
+WARNING: ignoring environment value of R_HOME
+ÄÄ Attaching core tidyverse packages ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ tidyverse 2.0.0 ÄÄ
+? dplyr     1.2.1     ? readr     2.1.6
+? forcats   1.0.1     ? stringr   1.6.0
+? ggplot2   4.0.2     ? tibble    3.3.1
+? lubridate 1.9.4     ? tidyr     1.3.2
+? purrr     1.2.2
+ÄÄ Conflicts ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ tidyverse_conflicts() ÄÄ
+? dplyr::filter() masks stats::filter()
+? dplyr::lag()    masks stats::lag()
+? Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+Error: derive_atp_label produced NA for 1 lane-row(s); unmapped atp_presence value(s): none
+Execution halte
+Manually edited the gel shift ratio csvs (sample sheets up to date)
+ Rscript plot_gel_shift_ratio.R /mnt/c/Users/Luised94/Desktop/lab/experiments/20260716_LM-0009_gs_1-3-4-repeats/manifest.csv /mnt/c/Users/Luised94/Desktop/lab/experiments/20260716_LM-0009_gs_1-3-4-repeats/
+
+Rscript plot_gel_shift_ratio.R /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/manifest.csv /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/
+

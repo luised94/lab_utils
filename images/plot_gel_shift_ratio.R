@@ -36,11 +36,23 @@ library(tidyverse)
 # genotype keeps one colour across figures.
 # ------------------------------------------------------------------------------
 PLOT_CONFIG <- list(
+    # Canonical palette, copied verbatim from the loading reference scripts
+    # (orc4r-screen_loading-*.R) so a genotype keeps one colour across every
+    # figure in the series. Label form is "+Nsofa" (not "4R +orcNsofa"): the
+    # reference convention. "No ORC" is NOT in the canonical loading palette
+    # (loading uses No ORC only for background subtraction, never as a bar); it
+    # exists here only because gel shift draws it as a baseline line, so it keeps
+    # the prior grey. All seven canonical labels are listed even when a given
+    # dataset uses only a subset, so this one script serves both the orc1/3/4 and
+    # the orc5/6 manifests without edits; scale_fill_manual ignores unused keys.
     fill_colors = c(
         "WT" = "#E41A1C",
-        "4R +orc1sofa" = "#FF7F00",
-        "4R +orc3sofa" = "#984EA3",
-        "4R +orc4sofa" = "#4DAF4A",
+        "ORC4R" = "#377EB8",
+        "+1sofa" = "#FF7F00",
+        "+3sofa" = "#984EA3",
+        "+4sofa" = "#4DAF4A",
+        "+5sofa" = "#FFFF33",
+        "+6sofa" = "#A65628",
         "No ORC" = "#999999"
     ),
     bar = list(width = 0.7, color = "black", linewidth = 0.4),
@@ -66,8 +78,16 @@ PLOT_CONFIG <- list(
 # The ATP axis order and the genotype axis order are fixed here so bars and facets
 # read left-to-right in experiment order rather than alphabetically.
 ATP_LEVELS_IN_ORDER <- c("noATP", "plusATP")
+# All seven canonical genotypes plus the No ORC baseline, in experiment order:
+# baseline line first, then WT and the ORC4R mutant, then the suppressors by orcN.
+# The list is the union across BOTH datasets (orc1/3/4 and orc5/6) so the same
+# script plots either manifest; a genotype absent from a given dataset simply
+# yields no bar. A lane whose derived label is NOT in this list is a hard failure
+# (see the NA-label assertion after derive_genotype_label), never a silent drop --
+# that silent drop is exactly what collapsed the orc5/6 bars into pooled NA rows.
 GENOTYPE_LEVELS_IN_ORDER <- c(
-    "No ORC", "WT", "4R +orc1sofa", "4R +orc3sofa", "4R +orc4sofa"
+    "No ORC", "WT", "ORC4R",
+    "+1sofa", "+3sofa", "+4sofa", "+5sofa", "+6sofa"
 )
 
 # ------------------------------------------------------------------------------
@@ -125,24 +145,65 @@ combined_data <- bind_rows(per_gel_frames)
 # A lane with an undefined bound_fraction (both bands absent) is dropped from the
 # analysis with a message; it carries no proportion to average.
 # ------------------------------------------------------------------------------
+# DATA-MODEL SHIM (temporary; scoped to the orc1/3/4 and orc5/6 gel-shift datasets
+# only). This pipeline's ratio CSVs spell the factors differently from the
+# canonical loading scripts (orc4r-screen_loading-*.R): here orc4-R267 is one of
+# {WT, 4R, none} and suppressor is {none, orcN-sofa}; canon uses orc4 {WT, RA} and
+# sofa {none, orcN}. Rather than rewrite every cell of every ratio CSV (which would
+# mean changing the data model and re-running the pipeline), the spellings are
+# mapped to canonical labels HERE. The long-term fix is to make the pipeline emit
+# canonical factor values; this shim exists so the two current datasets plot now.
+#
+# The branch ORDER matters: No ORC (orc4-R267 == "none") and ORC4R (orc4-R267 ==
+# "4R", suppressor == "none") both have suppressor == "none" and are separable ONLY
+# by orc4-R267, so orc4-R267 is tested BEFORE suppressor. A suppressor-first rule
+# (the previous version) mapped both to one label and merged the control into the
+# mutant bar.
 derive_genotype_label <- function(orc4_r267_value, suppressor_value) {
-    # not_applicable/not_applicable is the No ORC control lane.
-    if (orc4_r267_value == "not_applicable") {
+    # orc4-R267 == "none" is the No ORC lane (real, but held out of the ATP
+    # contrast and drawn as a baseline line, not a bar). Tested first so it never
+    # falls through to the ORC4R/suppressor branches below.
+    if (orc4_r267_value == "none") {
         return("No ORC")
     }
     if (orc4_r267_value == "WT") {
         return("WT")
     }
-    # 4R carries a suppressor; name it by the suppressor's orcN identity.
-    if (suppressor_value == "orc1-sofa") return("4R +orc1sofa")
-    if (suppressor_value == "orc3-sofa") return("4R +orc3sofa")
-    if (suppressor_value == "orc4-sofa") return("4R +orc4sofa")
-    return(paste0("4R +", suppressor_value))
+    # From here orc4-R267 == "4R" (the RA mutant, canon's ORC4R). With no
+    # suppressor it is ORC4R itself; with a suppressor it is that suppressor.
+    if (suppressor_value == "none") {
+        return("ORC4R")
+    }
+    # suppressor is "orcN-sofa"; the canonical label is "+Nsofa". Only the KNOWN
+    # suppressors are accepted (the union across both datasets: orc1,3,4,5,6).
+    # Enumerating rather than regex-extracting the digit is deliberate: a
+    # well-formed but unknown value like "orc9-sofa" must NOT silently become a
+    # plausible "+9sofa" that then vanishes at the factor() call (a value outside
+    # GENOTYPE_LEVELS_IN_ORDER becomes NA there) -- that silent-drop-at-factor is
+    # the ORIGINAL bug. An unknown suppressor returns NA HERE and is caught by the
+    # loud assertion below, naming the offending combination. When a real new
+    # suppressor arrives, add it to this set, to GENOTYPE_LEVELS_IN_ORDER, and to
+    # fill_colors together.
+    KNOWN_SUPPRESSOR_LABELS <- c(
+        "orc1-sofa" = "+1sofa",
+        "orc3-sofa" = "+3sofa",
+        "orc4-sofa" = "+4sofa",
+        "orc5-sofa" = "+5sofa",
+        "orc6-sofa" = "+6sofa"
+    )
+    if (!(suppressor_value %in% names(KNOWN_SUPPRESSOR_LABELS))) {
+        return(NA_character_)
+    }
+    return(unname(KNOWN_SUPPRESSOR_LABELS[[suppressor_value]]))
 }
 derive_atp_label <- function(atp_presence_value) {
     if (atp_presence_value == "yes") return("plusATP")
     if (atp_presence_value == "no") return("noATP")
-    return(NA_character_)  # not_applicable (the No ORC control)
+    # Any other value (e.g. a "none"/"not_applicable" atp cell) yields NA. In the
+    # current data the No ORC lane carries atp_presence == "yes", so it maps to
+    # plusATP here and is held out of the ATP contrast downstream by genotype, NOT
+    # by an NA atp; this branch is a guard for an unexpected atp spelling.
+    return(NA_character_)
 }
 
 analysis_data <- combined_data %>%
@@ -151,6 +212,40 @@ analysis_data <- combined_data %>%
         atp = map_chr(.data$atp_presence, derive_atp_label),
         bound_fraction = as.numeric(.data$bound_fraction)
     )
+
+# NA-label assertion, ported from the canonical loading scripts. This is the
+# guard whose ABSENCE caused the orc5/6 bars to vanish: a genotype label not in
+# the vocabulary silently became NA at the factor() call and the NA rows pooled
+# into meaningless "NA / noATP" and "NA / plusATP" summary rows. Catch it here,
+# loudly, naming the exact (orc4-R267, suppressor) combinations that failed to
+# map, so an unrecognized factor value stops the run instead of corrupting the
+# figure. Same for an unmapped atp value.
+unmapped_genotype_rows <- combined_data[is.na(analysis_data$genotype), ]
+if (nrow(unmapped_genotype_rows) > 0) {
+    offending_combinations <- unique(
+        paste0(
+            "orc4-R267=", unmapped_genotype_rows$`orc4-R267`,
+            ", suppressor=", unmapped_genotype_rows$suppressor
+        )
+    )
+    stop(
+        "derive_genotype_label produced NA for ", nrow(unmapped_genotype_rows),
+        " lane-row(s); unmapped factor combination(s):\n  ",
+        paste(offending_combinations, collapse = "\n  "),
+        "\nAdd the mapping to derive_genotype_label (and the label to ",
+        "GENOTYPE_LEVELS_IN_ORDER and fill_colors) before plotting.",
+        call. = FALSE
+    )
+}
+unmapped_atp_rows <- combined_data[is.na(analysis_data$atp), ]
+if (nrow(unmapped_atp_rows) > 0) {
+    stop(
+        "derive_atp_label produced NA for ", nrow(unmapped_atp_rows),
+        " lane-row(s); unmapped atp_presence value(s): ",
+        paste(unique(unmapped_atp_rows$atp_presence), collapse = ", "),
+        call. = FALSE
+    )
+}
 
 undefined_row_count <- sum(is.na(analysis_data$bound_fraction))
 if (undefined_row_count > 0) {
@@ -161,15 +256,39 @@ if (undefined_row_count > 0) {
     analysis_data <- analysis_data %>% filter(!is.na(.data$bound_fraction))
 }
 
-# The No ORC control has no ATP condition; keep it as its own single-bar genotype
-# for the baseline, and give it an atp level so it can sit on the axis. It is
-# assigned to noATP purely for placement and is excluded from the ATP contrast.
+# The No ORC control is held out of the ATP contrast and drawn as a baseline line,
+# not a paired bar. In the current data it carries atp_presence == "yes" (so its
+# atp label is plusATP), which is fine: its atp value is never read as a contrast,
+# and the condition key below collapses No ORC to a single "No ORC" group
+# regardless of atp. The if_else remains only as a guard for a No ORC lane that
+# arrived with an unmapped (NA) atp, pinning it to an axis level so factor() does
+# not drop it; with atp == "yes" here the guard is inert.
+# Capture the character labels BEFORE factoring so a label that is valid but
+# absent from GENOTYPE_LEVELS_IN_ORDER (a mapping/levels drift) can be caught: a
+# value outside the levels silently becomes NA at factor(), which is the original
+# silent-drop bug one layer down. derive_genotype_label already rejected unmapped
+# factor combinations; this catches the OTHER direction, a mapped label the levels
+# list forgot.
+genotype_labels_before_factoring <- analysis_data$genotype
+atp_labels_before_factoring <- analysis_data$atp
 analysis_data <- analysis_data %>%
     mutate(
         atp = if_else(.data$genotype == "No ORC" & is.na(.data$atp), "noATP", .data$atp),
         genotype = factor(.data$genotype, levels = GENOTYPE_LEVELS_IN_ORDER),
         atp = factor(.data$atp, levels = ATP_LEVELS_IN_ORDER)
     )
+labels_dropped_by_factoring <- setdiff(
+    unique(genotype_labels_before_factoring[!is.na(genotype_labels_before_factoring)]),
+    GENOTYPE_LEVELS_IN_ORDER
+)
+if (length(labels_dropped_by_factoring) > 0) {
+    stop(
+        "genotype label(s) not in GENOTYPE_LEVELS_IN_ORDER, dropped to NA at ",
+        "factor(): ", paste(labels_dropped_by_factoring, collapse = ", "),
+        "\nAdd them to GENOTYPE_LEVELS_IN_ORDER and fill_colors.",
+        call. = FALSE
+    )
+}
 
 # A single condition key (genotype x ATP) used as the grouping unit for the
 # summary and for the all-against-all matrices.
