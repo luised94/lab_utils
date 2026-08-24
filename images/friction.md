@@ -38,3 +38,75 @@ Got to the session run. Not sure what regions to pick and it doesnt work for gel
 Went back to the serve gel picker (should be in the howto. think its purpose was mistaken at some point.)
 Had to go to the directory in wsl and use the printf line.
 Error using serve gel picker. The parent directory gets set by tif file so the script looks in that parent directory when the file is in the <stem>_gel_analysis directory. I think files should have the gel as point of entry. Everything is then derived from that.
+
+Dealt with the serve gel picker but forgot that I have to run the other scripts before.
+Had to do manually.
+usb[ ]luis@Luis:~/personal_repos/lab_utils/images$ GEL_PATH="/mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green.tif"
+Went back to the HOWTO.md to see order. serve gel picker not there.
+Had to patch the first three files of the pipeline as well. then got the error as predicted:
+usb[ ]luis@Luis:~/personal_repos/lab_utils/images$ uv run validate_sample_sheet.py "$GEL_PATH"
+[input] gel analysis directory: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis
+[input] using sample sheet: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/sample_sheet.csv
+[input] using profile CSV: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/manual_lane_profiles.csv
+[profile] profile has 14 lanes, comb_well_count=14
+[read] sample sheet has 15 rows and columns: lane_index, well_number, lane_content, analysis_role, condition_type, sample_label, prep_source
+[identity] lane-to-well relationship: undetermined
+[checks] wrote /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/sample_sheet_checks.json; overall fail
+[checks] WARNING positive_control_present: no lane marked condition_type=positive_control
+[checks] WARNING negative_control_present: no lane marked condition_type=negative_control
+[checks] FAIL row_count_matches_comb: sheet rows=15, profile comb_well_count=14
+[checks] FAIL lane_index_is_full_set: lane_index set = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], expected 1..14 each once
+[checks] FAIL well_number_is_permutation: well_number set = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], expected a permutation of 1..14
+[checks] FAIL lane_index_matches_profile: sheet lanes [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] vs profile lanes [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+[checks] FAIL label_and_prep_source_explicit: samples need real label/prep; non-samples need not_applicable (never blank); lane 1 (ladder): sample_label must be not_applicable, not 'ladder'; lane 2: sample needs a real prep_source; lane 11 (empty): sample_label must be not_applicable, not 'empty'; lane 12 (empty): sample_label must be not_applicable, not 'empty'; lane 13 (empty): sample_label must be not_applicable, not 'empty'; lane 14 (empty): sample_label must be not_applicable, not 'empty'; lane 15 (empty): sample_label must be not_applicable, not 'empty'
+[checks] ERROR: 5 hard failure(s); sample sheet is not usable. See /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/sample_sheet_checks.json.
+Maybe its better to do more than 10 but less than 15 as ok? Not sure how to deal with the issue of the lanes I cant see. So maybe its just incorrect.
+Deleted the lane 15 entry as simple fix.
+[checks] FAIL label_and_prep_source_explicit: samples need real label/prep; non-samples need not_applicable (never blank); lane 1 (ladder): sample_label must be not_applicable, not 'ladder'; lane 2: sample needs a real prep_source; lane 11 (empty): sample_label must be not_applicable, not 'empty'; lane 12 (empty): sample_label must be not_applicable, not 'empty'; lane 13 (empty): sample_label must be not_applicable, not 'empty'; lane 14 (empty): sample_label must be not_applicable, not 'empty'
+[checks] ERROR: 1 hard failure(s); sample sheet is not usable. See /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/sample_sheet_checks.json
+[checks] FAIL label_and_prep_source_explicit: samples need real label/prep; non-samples need not_applicable (never blank); lane 1 (ladder): sample_label must be not_applicable, not 'ladder'; lane 2: sample needs a real prep_source
+[checks] ERROR: 1 hard failure(s); sample sheet is not usable. See /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/sample_sheet_checks.json.
+[checks] FAIL label_and_prep_source_explicit: samples need real label/prep; non-samples need not_applicable (never blank); lane 2: sample needs a real prep_source
+[checks] ERROR: 1 hard failure(s); sample sheet is not usable. See /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/sample_sheet_checks.json.
+usb[ ]luis@Luis:~/personal_repos/lab_utils/images$ uv run validate_sample_sheet.py "$GEL_PATH"
+[input] gel analysis directory: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis
+[input] using sample sheet: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/sample_sheet.csv
+[input] using profile CSV: /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/manual_lane_profiles.csv
+[profile] profile has 14 lanes, comb_well_count=14
+[read] sample sheet has 14 rows and columns: lane_index, well_number, lane_content, analysis_role, condition_type, sample_label, prep_source
+[identity] lane-to-well relationship: identity (well_number == lane_index)
+[checks] wrote /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/sample_sheet_checks.json; overall warning
+[checks] WARNING positive_control_present: no lane marked condition_type=positive_control
+[checks] WARNING negative_control_present: no lane marked condition_type=negative_control
+[done] sample sheet valid; relationship is identity (well_number == lane_index); 2 warning(s).
+The checks were rough but I was able to fix them at least. Could be clearer.
+Ran the analyze gel
+[reference] WARNING lane 8 (well 8) scores clearly higher as reference than your pick, lane 3 (well 3)
+[measure] wrote /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/band_measurement_overlay.png
+[done] measured 12 bands x 8 lanes; 0 saturated, 38 fragile; 1 reference warning(s). Inspect band_measurement_overlay.png, band_measurements.csv, and reference_quality.json.
+usb[ ]luis@Luis:~/personal_repos/lab_utils/images$ uv run extract_lane_values.py /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis --region 62.2 65.0
+[output] wrote /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/extract_region_62.2-65mm_none.csv
+[output] wrote /mnt/c/Users/Luised94/Desktop/lab/experiments/20260708_LM-0008_load_repeat2-KGlut300mM-allsupps/2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis/extract_region_62.2-65mm_none_checks.json
+[summary] gel 2026.08.22_20.11.54_rotated_LM-0008_s0015_SDSPAGE_input-double-check-of-ORC-preps_Fl-Green_gel_analysis
+[summary] selection: {"mode": "region", "start_millimetres": 62.2, "end_millimetres": 65.0, "net_baseline": "none"}
+[value] lane  1 well    role not_in_measurements                 value 2953309.0
+[value] lane  2 well  2 role measured             wt             value 18575366.0
+[value] lane  3 well  3 role reference            4r             value 12069448.0
+[value] lane  4 well  4 role measured             1ek            value 11914628.0
+[value] lane  5 well  5 role measured             3pl            value 13486116.0
+[value] lane  6 well  6 role measured             4ps            value 8402105.0
+[value] lane  7 well  7 role measured             5ek            value 17371812.0
+[value] lane  8 well  8 role measured             6ek            value 7892439.0
+[value] lane  9 well  9 role measured             unknown        value 17030184.0
+[value] lane 10 well    role not_in_measurements                 value 555891.0
+[value] lane 11 well    role not_in_measurements                 value 415570.0
+[value] lane 12 well    role not_in_measurements                 value 429134.0
+[value] lane 13 well    role not_in_measurements                 value 447964.0
+[value] lane 14 well    role not_in_measurements                 value 324987.0
+[summary] n=14 min=324987.0 median=8147272.0 max=18575366.0 CV=0.8883
+gel picker was probably the coolest idea. Life realtime feedback with rich visual data. Bret victor would approve (even though its kinda trash and not impreesive at the moment, I think its very cool.)
+After this, manually processed the excel file to calculate the updated concentrations. Next steps for that is to perform more experiments. Now I can move on to the gel shift files.
+I really do just overengineer.
+Good. After fixing the sample sheet, running the pipeline was relatively easy.
+Did two regions per gel for gel shift assays. Pretty nice. Also proper metric is top / top + bottom region/band. Avoids dividing or denominator as zero or small number.
+Made the calculate_gel_shift_ratio.py

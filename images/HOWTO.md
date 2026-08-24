@@ -145,7 +145,9 @@ Running a single gel by hand (no driver) is of course fine:
 
     uv run validate_sample_sheet.py '<stem>_gel_analysis'
     uv run analyze_gel.py           '<stem>_gel_analysis'
+    uv run serve_gel_picker.py      '<stem>_gel_analysis'
     uv run extract_lane_values.py   '<stem>_gel_analysis' --region 31.3 46.1
+    uv run plot_gel_shift_ratio.py  '<stem>_gel_analysis'
     uv run plot_single_experiment.py '<stem>_gel_analysis' \
         --extract-csv '<stem>_gel_analysis/extract_region_31.3-46.1mm_none.csv'
 
