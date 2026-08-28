@@ -69,9 +69,21 @@ PLOT_CONFIG <- list(
     point = list(size = 2, color = "black", stroke = 0.5,
                  jitter_width = 0.15, jitter_seed = 42),
     # noATP fill is the genotype hue lightened toward white so ATP reads by shade,
-    # matching the per-screen P1. Only used by the faceted figure's optional shade;
-    # the two single-ATP figures use the flat genotype hue.
+    # matching the per-screen P1 (fill = genotype x ATP). Used by the dodged panel.
     noatp_lighten_amount = 0.55,
+    # Replicate point shapes, matching the per-screen P1. Replicate numbering is
+    # per-screen (each screen has its own 1/2/3), so in the color=screen variant a
+    # shape identifies the within-screen replicate and the colour identifies which
+    # screen; the two together are unique. Three shapes cover the max replicates per
+    # screen; extend if a screen has more than three gels.
+    replicate_shapes = c("1" = 21, "2" = 24, "3" = 22),
+    # Fixed y-axis carried over from the per-screen P1. bound_fraction is bounded
+    # [0, 1] by construction, so 1.2 leaves headroom without ever clipping real data,
+    # and the explicit breaks guarantee the 1.0 tick appears (auto-breaks can skip
+    # it). Unlike the loading ratio, this quantity is bounded, so a fixed max is safe.
+    y_axis_limits = c(0, 1.2),
+    y_axis_breaks = seq(0, 1.2, 0.2),
+    y_axis_expand = expansion(mult = c(0, 0), add = c(0, 0.02)),
     theme = list(base_family = "Arial", base_size = 12, legend_position = "bottom"),
     output = list(device = cairo_pdf, width = 8.5, height = 4.5)
 )
@@ -346,10 +358,149 @@ house_theme <- theme_classic(base_size = PLOT_CONFIG$theme$base_size,
           panel.spacing = unit(1, "lines"))
 
 # ------------------------------------------------------------------------------
-# The two single-ATP figures. Each shows every genotype present at that ATP state
-# as one bar (fill = genotype hue), WT folded to its pooled bar, replicate points
-# coloured by screen so the folded controls visibly draw from both screens. The
-# No ORC baseline (pooled) is drawn as a line.
+# Fill = genotype x ATP: each genotype keeps its palette hue, and noATP is that hue
+# lightened toward white so the ATP state reads by shade. DUPLICATED from the
+# per-screen P1 (house rule: no shared module). lighten_colour mixes toward white by
+# a fraction using base grDevices only.
+# ------------------------------------------------------------------------------
+lighten_colour <- function(hex_colour, amount) {
+    rgb_fraction <- col2rgb(hex_colour) / 255
+    lightened_fraction <- rgb_fraction + (1 - rgb_fraction) * amount
+    rgb(lightened_fraction[1], lightened_fraction[2], lightened_fraction[3])
+}
+genotype_atp_fill_values <- c()
+genotype_atp_fill_labels <- c()
+for (genotype_name in GENOTYPE_LEVELS_IN_ORDER) {
+    full_colour <- PLOT_CONFIG$fill_colors[[genotype_name]]
+    plus_key <- paste0(genotype_name, ".plusATP")
+    no_key <- paste0(genotype_name, ".noATP")
+    genotype_atp_fill_values[[plus_key]] <- full_colour
+    genotype_atp_fill_values[[no_key]] <- lighten_colour(
+        full_colour, PLOT_CONFIG$noatp_lighten_amount)
+    genotype_atp_fill_labels[[plus_key]] <- paste0(genotype_name, " +ATP")
+    genotype_atp_fill_labels[[no_key]] <- paste0(genotype_name, " -ATP")
+}
+# Level order: genotype outer, ATP inner with noATP first, so within each genotype
+# the lighter noATP bar dodges to the left of the fuller plusATP bar -- the adjacent
+# ATP pair the professor asked for.
+genotype_atp_level_order <- unlist(lapply(
+    GENOTYPE_LEVELS_IN_ORDER,
+    function(genotype_name) c(paste0(genotype_name, ".noATP"),
+                             paste0(genotype_name, ".plusATP"))))
+summary_data <- summary_data %>%
+    mutate(genotype_atp = factor(
+        paste0(as.character(.data$genotype), ".", as.character(.data$atp)),
+        levels = genotype_atp_level_order))
+analyte_data <- analyte_data %>%
+    mutate(genotype_atp = factor(
+        paste0(as.character(.data$genotype), ".", as.character(.data$atp)),
+        levels = genotype_atp_level_order))
+
+# ==============================================================================
+# PRIMARY OUTPUT: the dodged P1 panel. x = genotype; within each genotype the noATP
+# and plusATP bars sit adjacent for direct contrast; fill = genotype hue with ATP as
+# shade (noATP lighter, plusATP full); SD error bars; replicate dots. WT and No ORC
+# are folded across screens (one bar each). Emitted in TWO point-encoding variants
+# so you can choose:
+#   _shape_rep_color_screen : shape = replicate, colour = screen (keeps provenance,
+#                             so the folded WT dots visibly come from both screens)
+#   _shape_rep_plain        : plain grey dots, shape = replicate, no screen colour
+# Everything else about the two figures is identical.
+# ==============================================================================
+dodge_width <- 0.8
+
+# The bars and error bars are identical across both variants; only the geom_point
+# layer differs. Build the shared base once, then add the two point layers.
+combined_dodged_base <- ggplot(
+    summary_data,
+    aes(x = .data$genotype, y = .data$mean_bound_fraction,
+        fill = .data$genotype_atp, group = .data$atp)) +
+    geom_col(position = position_dodge(width = dodge_width),
+             width = PLOT_CONFIG$bar$width, color = PLOT_CONFIG$bar$color,
+             linewidth = PLOT_CONFIG$bar$linewidth) +
+    geom_errorbar(
+        aes(ymin = pmax(0, .data$mean_bound_fraction - .data$sd_bound_fraction),
+            ymax = .data$mean_bound_fraction + .data$sd_bound_fraction),
+        position = position_dodge(width = dodge_width),
+        width = PLOT_CONFIG$errorbar$width,
+        linewidth = PLOT_CONFIG$errorbar$linewidth) +
+    scale_fill_manual(values = genotype_atp_fill_values,
+                      labels = genotype_atp_fill_labels, name = "Genotype / ATP",
+                      breaks = genotype_atp_level_order) +
+    scale_y_continuous(limits = PLOT_CONFIG$y_axis_limits,
+                       breaks = PLOT_CONFIG$y_axis_breaks,
+                       expand = PLOT_CONFIG$y_axis_expand) +
+    labs(x = "Genotype", y = "Bound fraction  [ bound / (bound + free) ]",
+         title = "Gel shift bound fraction by genotype and ATP (WT folded across screens)")
+
+if (!is.na(no_orc_baseline)) {
+    combined_dodged_base <- combined_dodged_base +
+        geom_hline(yintercept = no_orc_baseline, linetype = "dashed",
+                   color = "grey40", linewidth = 0.5) +
+        annotate("text", x = 0.6, y = no_orc_baseline, vjust = -0.4, hjust = 0,
+                 label = "No ORC", size = 3, color = "grey40")
+}
+
+# Variant A: shape = replicate, colour = screen.
+plot_dodged_screen <- combined_dodged_base +
+    geom_point(
+        data = analyte_data,
+        aes(x = .data$genotype, y = .data$bound_fraction, group = .data$atp,
+            shape = factor(.data$replicate), color = .data$screen),
+        position = position_jitterdodge(
+            jitter.width = PLOT_CONFIG$point$jitter_width, dodge.width = dodge_width,
+            seed = PLOT_CONFIG$point$jitter_seed),
+        size = PLOT_CONFIG$point$size, stroke = PLOT_CONFIG$point$stroke,
+        inherit.aes = FALSE) +
+    scale_shape_manual(values = PLOT_CONFIG$replicate_shapes,
+                       labels = c("1" = "Replicate 1", "2" = "Replicate 2",
+                                  "3" = "Replicate 3"), name = "Replicate") +
+    scale_color_manual(values = PLOT_CONFIG$screen_colors, name = "Screen",
+                       drop = FALSE) +
+    guides(fill = guide_legend(nrow = 2, order = 1),
+           shape = guide_legend(nrow = 1, order = 2),
+           color = guide_legend(nrow = 1, order = 3)) +
+    house_theme
+plot_dodged_screen_path <- file.path(
+    output_directory, "combined_dodged_ATP_shape_rep_color_screen.pdf")
+ggsave(plot_dodged_screen_path, plot = plot_dodged_screen,
+       device = PLOT_CONFIG$output$device,
+       width = PLOT_CONFIG$output$width, height = PLOT_CONFIG$output$height)
+message("wrote ", plot_dodged_screen_path, " (PRIMARY)")
+
+# Variant B: plain grey dots, shape = replicate, no screen colour.
+plot_dodged_plain <- combined_dodged_base +
+    geom_point(
+        data = analyte_data,
+        aes(x = .data$genotype, y = .data$bound_fraction, group = .data$atp,
+            shape = factor(.data$replicate)),
+        position = position_jitterdodge(
+            jitter.width = PLOT_CONFIG$point$jitter_width, dodge.width = dodge_width,
+            seed = PLOT_CONFIG$point$jitter_seed),
+        size = PLOT_CONFIG$point$size, fill = "grey30",
+        color = PLOT_CONFIG$point$color, stroke = PLOT_CONFIG$point$stroke,
+        inherit.aes = FALSE) +
+    scale_shape_manual(values = PLOT_CONFIG$replicate_shapes,
+                       labels = c("1" = "Replicate 1", "2" = "Replicate 2",
+                                  "3" = "Replicate 3"), name = "Replicate") +
+    guides(fill = guide_legend(nrow = 2, order = 1),
+           shape = guide_legend(nrow = 1, order = 2)) +
+    house_theme
+plot_dodged_plain_path <- file.path(
+    output_directory, "combined_dodged_ATP_shape_rep_plain.pdf")
+ggsave(plot_dodged_plain_path, plot = plot_dodged_plain,
+       device = PLOT_CONFIG$output$device,
+       width = PLOT_CONFIG$output$width, height = PLOT_CONFIG$output$height)
+message("wrote ", plot_dodged_plain_path, " (PRIMARY, plain-dot variant)")
+
+# ==============================================================================
+# NON-PRIMARY OUTPUTS below. The dodged panel above is the primary figure; the two
+# single-ATP files and the ATP facet are kept only as alternate views and can be
+# ignored for the main figure. They are not maintained to the same standard.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# NON-PRIMARY: the two single-ATP figures (one bar per genotype, flat hue).
 # ------------------------------------------------------------------------------
 for (atp_state in ATP_LEVELS_IN_ORDER) {
     summary_this_atp <- summary_data %>% filter(.data$atp == atp_state)
@@ -358,7 +509,6 @@ for (atp_state in ATP_LEVELS_IN_ORDER) {
         message("no data for ATP state ", atp_state, "; skipping its figure.")
         next
     }
-
     single_atp_plot <- ggplot(
         summary_this_atp,
         aes(x = .data$genotype, y = .data$mean_bound_fraction, fill = .data$genotype)) +
@@ -380,12 +530,13 @@ for (atp_state in ATP_LEVELS_IN_ORDER) {
                           guide = "none") +
         scale_color_manual(values = PLOT_CONFIG$screen_colors, name = "Screen",
                            drop = FALSE) +
-        scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
+        scale_y_continuous(limits = PLOT_CONFIG$y_axis_limits,
+                           breaks = PLOT_CONFIG$y_axis_breaks,
+                           expand = PLOT_CONFIG$y_axis_expand) +
         labs(x = "Genotype", y = "Bound fraction",
              title = paste0("Gel shift bound fraction (", atp_state,
-                            ", WT folded across screens)")) +
+                            ", WT folded across screens) [non-primary]")) +
         house_theme
-
     if (!is.na(no_orc_baseline)) {
         single_atp_plot <- single_atp_plot +
             geom_hline(yintercept = no_orc_baseline, linetype = "dashed",
@@ -393,18 +544,16 @@ for (atp_state in ATP_LEVELS_IN_ORDER) {
             annotate("text", x = 0.6, y = no_orc_baseline, vjust = -0.4, hjust = 0,
                      label = "No ORC", size = 3, color = "grey40")
     }
-
     single_atp_path <- file.path(output_directory,
                                  paste0("combined_", atp_state, ".pdf"))
     ggsave(single_atp_path, plot = single_atp_plot, device = PLOT_CONFIG$output$device,
            width = PLOT_CONFIG$output$width, height = PLOT_CONFIG$output$height)
-    message("wrote ", single_atp_path)
+    message("wrote ", single_atp_path, " (non-primary)")
 }
 
 # ------------------------------------------------------------------------------
-# The combined faceted figure: both ATP states side by side, faceted by ATP, so the
-# WT-folded bar and the suppressors read across the ATP contrast in one figure.
-# Points coloured by screen here too.
+# NON-PRIMARY: the ATP-faceted figure. Superseded by the dodged panel above, which
+# puts the ATP pair adjacent; kept only as an alternate view.
 # ------------------------------------------------------------------------------
 faceted_plot <- ggplot(
     summary_data,
@@ -427,23 +576,22 @@ faceted_plot <- ggplot(
                       guide = "none") +
     scale_color_manual(values = PLOT_CONFIG$screen_colors, name = "Screen",
                        drop = FALSE) +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
+    scale_y_continuous(limits = PLOT_CONFIG$y_axis_limits,
+                       breaks = PLOT_CONFIG$y_axis_breaks,
+                       expand = PLOT_CONFIG$y_axis_expand) +
     facet_wrap(~ .data$atp, nrow = 1) +
     labs(x = "Genotype", y = "Bound fraction",
-         title = "Gel shift bound fraction by genotype and ATP (WT folded across screens)") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+         title = "Gel shift bound fraction by genotype and ATP (WT folded) [non-primary]") +
     house_theme +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
 if (!is.na(no_orc_baseline)) {
     faceted_plot <- faceted_plot +
         geom_hline(yintercept = no_orc_baseline, linetype = "dashed",
                    color = "grey40", linewidth = 0.5)
 }
-
 faceted_path <- file.path(output_directory, "combined_faceted_by_ATP.pdf")
 ggsave(faceted_path, plot = faceted_plot, device = PLOT_CONFIG$output$device,
        width = PLOT_CONFIG$output$width, height = PLOT_CONFIG$output$height)
-message("wrote ", faceted_path)
+message("wrote ", faceted_path, " (non-primary)")
 
 message("done.")
