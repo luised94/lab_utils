@@ -225,3 +225,10 @@ Manually edited the gel shift ratio csvs (sample sheets up to date)
 
 Rscript plot_gel_shift_ratio.R /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/manifest.csv /mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/
 
+## 2026-08-26
+Thought it was all done but steve wants minor changes. Lets see. Tryign to get the script first.
+
+## 2026-08-28
+All this time it was a misunderstanding. Well just need to consolidate the two plots, make figures and adjust manuscript
+usb[ ]luis@Luis:~/personal_repos/lab_utils/images$ Rscript plot_gel_shift_combined.R /mnt/c/Users/Luised94/Desktop/lab/experiments/20260716_LM-0009_gs_1-3-4-repeats/ orc1-3-4=/mnt/c/Users/Luised94/Desktop/lab/experiments/20260716_LM-0009_gs_1-3-4-repeats/manifest.csv orc5-6=/mnt/c/Users/Luised94/Desktop/lab/experiments/20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis/manifest.csv
+Slightly different plot than P1.
