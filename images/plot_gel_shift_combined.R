@@ -88,10 +88,25 @@ PLOT_CONFIG <- list(
     output = list(device = cairo_pdf, width = 8.5, height = 4.5)
 )
 
-# No ORC is NOT in this list: like the per-screen plots it is drawn as a baseline
-# line, not a bar, and a label outside this list is a hard failure below.
+# Genotype axis order, CLUSTERED BY SCREEN/SET so the figure mirrors how the sets
+# sit on the gel. WT is placed first as the shared reference control (it is folded
+# across BOTH screens, so it belongs to neither set exclusively and is pulled out
+# rather than forced into one). Then each set clusters, and within a set the ORC4R
+# bar (orc4 = 4R, no suppressor) precedes its suppressors, which sort by number:
+#   WT                          shared control (both screens, folded n=6)
+#   +1sofa, +3sofa, +4sofa      SET 1  (orc1-3-4 screen)
+#   ORC4R, +5sofa, +6sofa       SET 2  (orc5-6 screen; ORC4R is orc5-6-only)
+# This is DISPLAY ORDER only -- it does not change the fold, the counts, or any
+# value; it only moves where each bar sits. When a third screen is added, insert its
+# block here (ORC4R/orc4 bar first if present, then its suppressors by number) and
+# add the new suppressor labels to fill_colors and derive_genotype_label together.
+# No ORC is deliberately absent (drawn as a baseline line, not a bar). The list must
+# contain exactly the canonical analyte labels -- a derived label not here is a hard
+# failure at the post-factor guard, and a label here with no data simply draws no bar.
 GENOTYPE_LEVELS_IN_ORDER <- c(
-    "WT", "ORC4R", "+1sofa", "+3sofa", "+4sofa", "+5sofa", "+6sofa"
+    "WT",
+    "ORC4R", "+5sofa", "+6sofa",
+    "+1sofa", "+3sofa", "+4sofa"
 )
 ATP_LEVELS_IN_ORDER <- c("noATP", "plusATP")
 
