@@ -893,4 +893,235 @@ ggsave(plot_separate_normalized_path, plot = plot_separate_normalized,
        width = PLOT_CONFIG$output$width, height = PLOT_CONFIG$output$height)
 message("wrote ", plot_separate_normalized_path, " (TASK B, gel sets separate normalized)")
 
+# ==============================================================================
+# TASK B (plusATP divisor): the same normalized figures, but every lane in BOTH
+# ATP states is divided by that gel's WT PLUSATP (not its own ATP state's WT).
+# Added because the per-ATP divisor above puts WT noATP at 100% next to WT
+# plusATP, flattening the ATP contrast. Dividing both states by WT plusATP keeps
+# WT noATP low (verified 0.27 of WT plusATP), so the ATP effect stays visible
+# while mutants are still expressed as a fraction of maximal WT binding.
+#
+# Divisor lookup is (screen_replicate, genotype==WT, atp=="plusATP") applied to
+# every lane regardless of that lane's own ATP state -- the one difference from
+# the per-ATP block. WT plusATP = 1.0 (SD 0); WT noATP and all mutants float
+# below. Verified max normalized value 1.0, so the raw y-limit does not clip and
+# is reused here.
+# ==============================================================================
+
+# One WT plusATP divisor per gel (ignores the lane's own ATP state on purpose).
+wt_plusatp_divisor_table <- analyte_data %>%
+    filter(.data$genotype == "WT", .data$atp == "plusATP") %>%
+    group_by(.data$screen_replicate) %>%
+    summarise(wt_plusatp_bound_fraction = mean(.data$bound_fraction),
+              wt_plusatp_row_count = n(), .groups = "drop")
+if (any(wt_plusatp_divisor_table$wt_plusatp_row_count != 1)) {
+    offending <- wt_plusatp_divisor_table %>% filter(.data$wt_plusatp_row_count != 1)
+    stop("per-gel WT plusATP divisor is not exactly one lane for ",
+         nrow(offending), " gel(s); e.g. ",
+         paste(paste0(offending$screen_replicate,
+                      " (n=", offending$wt_plusatp_row_count, ")"), collapse = ", "),
+         ". Need exactly one WT plusATP lane per gel.", call. = FALSE)
+}
+tiny_wt_plusatp <- wt_plusatp_divisor_table %>%
+    filter(.data$wt_plusatp_bound_fraction < WT_DIVISOR_FLOOR)
+if (nrow(tiny_wt_plusatp) > 0) {
+    stop("per-gel WT plusATP divisor below floor ", WT_DIVISOR_FLOOR, " for ",
+         nrow(tiny_wt_plusatp), " gel(s): ",
+         paste(paste0(tiny_wt_plusatp$screen_replicate, " (WT+ATP=",
+                      round(tiny_wt_plusatp$wt_plusatp_bound_fraction, 4), ")"),
+               collapse = ", "),
+         ". A near-zero WT plusATP would produce explosive ratios.", call. = FALSE)
+}
+
+analyte_data_normalized_plusatp <- analyte_data %>%
+    left_join(wt_plusatp_divisor_table %>% select(-.data$wt_plusatp_row_count),
+              by = "screen_replicate") %>%
+    mutate(normalized_bound_fraction =
+               .data$bound_fraction / .data$wt_plusatp_bound_fraction)
+unjoined_plusatp_count <- sum(is.na(analyte_data_normalized_plusatp$wt_plusatp_bound_fraction))
+if (unjoined_plusatp_count > 0) {
+    stop(unjoined_plusatp_count, " analyte lane-row(s) found no per-gel WT plusATP ",
+         "divisor; a gel is missing its WT plusATP lane.", call. = FALSE)
+}
+
+# Reuse the raw y-limit: verified max is 1.0 here, but round up defensively the
+# same way as the per-ATP block so a future higher value cannot clip silently.
+normalized_plusatp_max_value <- max(analyte_data_normalized_plusatp$normalized_bound_fraction)
+normalized_plusatp_y_upper <- max(1.2, ceiling(normalized_plusatp_max_value / 0.2) * 0.2)
+message("plusATP-divisor normalized max value = ",
+        round(normalized_plusatp_max_value, 4), "; y-limit set to ",
+        normalized_plusatp_y_upper, ".")
+normalized_plusatp_y_breaks <- seq(0, normalized_plusatp_y_upper, 0.2)
+
+summary_data_normalized_plusatp <- analyte_data_normalized_plusatp %>%
+    group_by(.data$genotype, .data$atp) %>%
+    summarise(
+        replicate_count = n(),
+        mean_normalized = mean(.data$normalized_bound_fraction),
+        sd_normalized = sd(.data$normalized_bound_fraction),
+        cv_normalized = if_else(mean(.data$normalized_bound_fraction) != 0,
+                                sd(.data$normalized_bound_fraction) /
+                                    abs(mean(.data$normalized_bound_fraction)),
+                                NA_real_),
+        se_normalized = sd(.data$normalized_bound_fraction) / sqrt(n()),
+        .groups = "drop") %>%
+    arrange(.data$genotype, .data$atp) %>%
+    mutate(genotype_atp = factor(
+        paste0(as.character(.data$genotype), ".", as.character(.data$atp)),
+        levels = genotype_atp_level_order))
+write.csv(summary_data_normalized_plusatp,
+          file.path(output_directory, "combined_summary_normalized_plusATP.csv"),
+          row.names = FALSE)
+message("wrote ",
+        file.path(output_directory, "combined_summary_normalized_plusATP.csv"))
+
+# ------------------------------------------------------------------------------
+# TASK B FIGURE 3: combined / folded, plusATP-divisor normalized. Mirrors Figure
+# 1 exactly; only the divisor and the summary/points frames differ.
+# ------------------------------------------------------------------------------
+combined_dodged_base_normalized_plusatp <- ggplot(
+    summary_data_normalized_plusatp,
+    aes(x = .data$genotype, y = .data$mean_normalized,
+        fill = .data$genotype_atp, group = .data$atp)) +
+    geom_col(position = position_dodge(width = dodge_width),
+             width = PLOT_CONFIG$bar$width, color = PLOT_CONFIG$bar$color,
+             linewidth = PLOT_CONFIG$bar$linewidth) +
+    geom_errorbar(
+        aes(ymin = pmax(0, .data$mean_normalized - .data$sd_normalized),
+            ymax = .data$mean_normalized + .data$sd_normalized),
+        position = position_dodge(width = dodge_width),
+        width = PLOT_CONFIG$errorbar$width,
+        linewidth = PLOT_CONFIG$errorbar$linewidth) +
+    scale_fill_manual(values = genotype_atp_fill_values,
+                      labels = genotype_atp_fill_labels, name = "Genotype / ATP",
+                      breaks = genotype_atp_level_order) +
+    scale_y_continuous(limits = c(0, normalized_plusatp_y_upper),
+                       breaks = normalized_plusatp_y_breaks,
+                       expand = PLOT_CONFIG$y_axis_expand) +
+    labs(x = "Genotype", y = "Bound fraction, normalized  (per-gel WT +ATP = 1.0)",
+         title = "Gel shift normalized to per-gel WT plusATP by ATP (WT folded)")
+
+plot_dodged_screen_normalized_plusatp <- combined_dodged_base_normalized_plusatp +
+    geom_point(
+        data = analyte_data_normalized_plusatp,
+        aes(x = .data$genotype, y = .data$normalized_bound_fraction, group = .data$atp,
+            shape = factor(.data$replicate), color = .data$screen),
+        position = position_jitterdodge(
+            jitter.width = PLOT_CONFIG$point$jitter_width, dodge.width = dodge_width,
+            seed = PLOT_CONFIG$point$jitter_seed),
+        size = PLOT_CONFIG$point$size, stroke = PLOT_CONFIG$point$stroke,
+        inherit.aes = FALSE) +
+    scale_shape_manual(values = PLOT_CONFIG$replicate_shapes,
+                       labels = c("1" = "Replicate 1", "2" = "Replicate 2",
+                                  "3" = "Replicate 3"), name = "Replicate") +
+    scale_color_manual(values = PLOT_CONFIG$screen_colors, name = "Screen",
+                       drop = FALSE) +
+    guides(fill = guide_legend(nrow = 2, order = 1),
+           shape = guide_legend(nrow = 1, order = 2),
+           color = guide_legend(nrow = 1, order = 3)) +
+    house_theme
+plot_dodged_screen_normalized_plusatp_path <- file.path(
+    output_directory, "combined_dodged_ATP_normalized_plusATP_shape_rep_color_screen.pdf")
+ggsave(plot_dodged_screen_normalized_plusatp_path,
+       plot = plot_dodged_screen_normalized_plusatp,
+       device = PLOT_CONFIG$output$device,
+       width = PLOT_CONFIG$output$width, height = PLOT_CONFIG$output$height)
+message("wrote ", plot_dodged_screen_normalized_plusatp_path,
+        " (TASK B, combined normalized plusATP)")
+
+plot_dodged_plain_normalized_plusatp <- combined_dodged_base_normalized_plusatp +
+    geom_point(
+        data = analyte_data_normalized_plusatp,
+        aes(x = .data$genotype, y = .data$normalized_bound_fraction, group = .data$atp,
+            shape = factor(.data$replicate)),
+        position = position_jitterdodge(
+            jitter.width = PLOT_CONFIG$point$jitter_width, dodge.width = dodge_width,
+            seed = PLOT_CONFIG$point$jitter_seed),
+        size = PLOT_CONFIG$point$size, fill = "grey30",
+        color = PLOT_CONFIG$point$color, stroke = PLOT_CONFIG$point$stroke,
+        inherit.aes = FALSE) +
+    scale_shape_manual(values = PLOT_CONFIG$replicate_shapes,
+                       labels = c("1" = "Replicate 1", "2" = "Replicate 2",
+                                  "3" = "Replicate 3"), name = "Replicate") +
+    guides(fill = guide_legend(nrow = 2, order = 1),
+           shape = guide_legend(nrow = 1, order = 2)) +
+    house_theme
+plot_dodged_plain_normalized_plusatp_path <- file.path(
+    output_directory, "combined_dodged_ATP_normalized_plusATP_shape_rep_plain.pdf")
+ggsave(plot_dodged_plain_normalized_plusatp_path,
+       plot = plot_dodged_plain_normalized_plusatp,
+       device = PLOT_CONFIG$output$device,
+       width = PLOT_CONFIG$output$width, height = PLOT_CONFIG$output$height)
+message("wrote ", plot_dodged_plain_normalized_plusatp_path,
+        " (TASK B, combined normalized plusATP, plain)")
+
+# ------------------------------------------------------------------------------
+# TASK B FIGURE 4: gel sets separate, plusATP-divisor normalized. Mirrors Figure
+# 2; WT plusATP is the 100% anchor per facet, WT noATP floats below it.
+# ------------------------------------------------------------------------------
+summary_data_normalized_plusatp_by_screen <- analyte_data_normalized_plusatp %>%
+    group_by(.data$screen, .data$genotype, .data$atp) %>%
+    summarise(
+        replicate_count = n(),
+        mean_normalized = mean(.data$normalized_bound_fraction),
+        sd_normalized = sd(.data$normalized_bound_fraction),
+        .groups = "drop") %>%
+    arrange(.data$screen, .data$genotype, .data$atp) %>%
+    mutate(genotype_atp = factor(
+        paste0(as.character(.data$genotype), ".", as.character(.data$atp)),
+        levels = genotype_atp_level_order))
+write.csv(summary_data_normalized_plusatp_by_screen,
+          file.path(output_directory,
+                    "combined_summary_normalized_plusATP_by_screen.csv"),
+          row.names = FALSE)
+message("wrote ",
+        file.path(output_directory, "combined_summary_normalized_plusATP_by_screen.csv"))
+
+plot_separate_normalized_plusatp <- ggplot(
+    summary_data_normalized_plusatp_by_screen,
+    aes(x = .data$genotype, y = .data$mean_normalized,
+        fill = .data$genotype_atp, group = .data$atp)) +
+    geom_col(position = position_dodge(width = dodge_width),
+             width = PLOT_CONFIG$bar$width, color = PLOT_CONFIG$bar$color,
+             linewidth = PLOT_CONFIG$bar$linewidth) +
+    geom_errorbar(
+        aes(ymin = pmax(0, .data$mean_normalized - .data$sd_normalized),
+            ymax = .data$mean_normalized + .data$sd_normalized),
+        position = position_dodge(width = dodge_width),
+        width = PLOT_CONFIG$errorbar$width,
+        linewidth = PLOT_CONFIG$errorbar$linewidth) +
+    geom_point(
+        data = analyte_data_normalized_plusatp,
+        aes(x = .data$genotype, y = .data$normalized_bound_fraction, group = .data$atp,
+            shape = factor(.data$replicate)),
+        position = position_jitterdodge(
+            jitter.width = PLOT_CONFIG$point$jitter_width, dodge.width = dodge_width,
+            seed = PLOT_CONFIG$point$jitter_seed),
+        size = PLOT_CONFIG$point$size, fill = "grey30",
+        color = PLOT_CONFIG$point$color, stroke = PLOT_CONFIG$point$stroke,
+        inherit.aes = FALSE) +
+    scale_fill_manual(values = genotype_atp_fill_values,
+                      labels = genotype_atp_fill_labels, name = "Genotype / ATP",
+                      breaks = genotype_atp_level_order) +
+    scale_shape_manual(values = PLOT_CONFIG$replicate_shapes,
+                       labels = c("1" = "Replicate 1", "2" = "Replicate 2",
+                                  "3" = "Replicate 3"), name = "Replicate") +
+    scale_y_continuous(limits = c(0, normalized_plusatp_y_upper),
+                       breaks = normalized_plusatp_y_breaks,
+                       expand = PLOT_CONFIG$y_axis_expand) +
+    facet_wrap(~ .data$screen, nrow = 1) +
+    labs(x = "Genotype", y = "Bound fraction, normalized  (per-gel WT +ATP = 1.0)",
+         title = "Gel shift normalized to per-gel WT plusATP, gel sets separate") +
+    guides(fill = guide_legend(nrow = 2, order = 1),
+           shape = guide_legend(nrow = 1, order = 2)) +
+    house_theme +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+plot_separate_normalized_plusatp_path <- file.path(
+    output_directory, "separate_gelsets_ATP_normalized_plusATP.pdf")
+ggsave(plot_separate_normalized_plusatp_path, plot = plot_separate_normalized_plusatp,
+       device = PLOT_CONFIG$output$device,
+       width = PLOT_CONFIG$output$width, height = PLOT_CONFIG$output$height)
+message("wrote ", plot_separate_normalized_plusatp_path,
+        " (TASK B, gel sets separate normalized plusATP)")
+
 message("done.")
