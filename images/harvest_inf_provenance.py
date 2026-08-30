@@ -85,19 +85,19 @@ EXPECTED_GELS = [
         "screen": "4r-5-6",
         "replicate": 1,
         "csv_basename": "gel_shift_ratio_16.8-21.4mm_bound_over_42.8-52.4mm_free.csv",
-        "inf_windows_path": r"C:\Users\Luised94\Desktop\lab\experiments\20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis\20220303_rotated_s0001_wt,4r,5,6-sofa-repeat-1-1000-Phosphor_gel_analysis\20220303_s0001_wt,4r,5,6-sofa-repeat-1-1000-[Phosphor].inf",
+        "inf_windows_path": r"C:\Users\Luised94\Desktop\lab\experiments\20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis\20220303_LM-0013_s0001_gelshift_wt,4r,5,6-sofa-repeat-1-1000_Phosphor.inf",
     },
     {
         "screen": "4r-5-6",
         "replicate": 2,
         "csv_basename": "gel_shift_ratio_15.6-22.2mm_bound_over_43.2-54.6mm_free.csv",
-        "inf_windows_path": r"C:\Users\Luised94\Desktop\lab\experiments\20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis\20220304_rotated_s0002_wt,4r,5,6-sofa-repeat-2-1000-Phosphor_gel_analysis\20220304_s0002_wt,4r,5,6-sofa-repeat-2-1000-[Phosphor].inf",
+        "inf_windows_path": r"C:\Users\Luised94\Desktop\lab\experiments\20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis\20220304_LM-0013_s0002_gelshift_wt,4r,5,6-sofa-repeat-2-1000_Phosphor.inf",
     },
     {
         "screen": "4r-5-6",
         "replicate": 3,
         "csv_basename": "gel_shift_ratio_19-23.8mm_bound_over_44.2-53.4mm_free.csv",
-        "inf_windows_path": r"C:\Users\Luised94\Desktop\lab\experiments\20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis\20220307_rotated_s0003_wt,4r,5,6-sofa-repeat-3-1000-Phosphor_gel_analysis\20220307_s0003_wt,4r,5,6-sofa-repeat-3-1000-[Phosphor].inf",
+        "inf_windows_path": r"C:\Users\Luised94\Desktop\lab\experiments\20260803_LM-0013_gs_ORC5-6-sofa-data-for-analysis\20220307_LM-0013_s0003_gelshift_wt,4r,5,6-sofa-repeat-3-1000_Phosphor.inf",
     },
 ]
 
@@ -119,8 +119,8 @@ def normalize_windows_path_to_wsl(windows_path):
     # is what actually decides whether the path is usable, not this conversion.
     try:
         completed = subprocess.run(
-            ["wslpath", "-u", windows_path],
-            capture_output=True, text=True, check=True)
+            ["wslpath", "-u", windows_path], capture_output=True, text=True, check=True
+        )
         return completed.stdout.strip()
     except FileNotFoundError:
         # wslpath itself is absent: not in WSL. Return as-is and let the open fail
@@ -130,7 +130,9 @@ def normalize_windows_path_to_wsl(windows_path):
         # wslpath ran but rejected the path. Surface its stderr rather than guessing.
         raise RuntimeError(
             "wslpath failed to convert '{}': {}".format(
-                windows_path, conversion_error.stderr.strip())) from conversion_error
+                windows_path, conversion_error.stderr.strip()
+            )
+        ) from conversion_error
 
 
 def extract_experiment_and_task_ids(text_to_search):
@@ -200,7 +202,9 @@ def read_one_inf(inf_windows_path):
     if not os.path.exists(wsl_path):
         raise FileNotFoundError(
             "resolved path does not exist: {} (from Windows path {})".format(
-                wsl_path, inf_windows_path))
+                wsl_path, inf_windows_path
+            )
+        )
     # .inf files are short ASCII/latin-1 text. latin-1 never raises on a stray byte,
     # which a strict utf-8 read could, and every field of interest is plain ASCII.
     with open(wsl_path, "r", encoding="latin-1") as inf_handle:
@@ -213,18 +217,25 @@ def read_one_inf(inf_windows_path):
     # samples), so V is the PMT voltage, distinct from LaserPowerMode which is
     # surfaced separately below so the two are never conflated.
     pmt_voltage_text = keyed.get("V")
-    pmt_voltage = int(pmt_voltage_text) if pmt_voltage_text and re.fullmatch(
-        r"\d+", pmt_voltage_text) else None
+    pmt_voltage = (
+        int(pmt_voltage_text)
+        if pmt_voltage_text and re.fullmatch(r"\d+", pmt_voltage_text)
+        else None
+    )
 
     # RangeHigh: the largest pixel value present. Headroom to the 16-bit ceiling is
     # the direct saturation read -- a value near SIXTEEN_BIT_CEILING means the
     # brightest band is close to clipping; a value far below it (as in both samples:
     # 21139 and 33664) means there is no saturation to find.
     range_high_text = keyed.get("RangeHigh")
-    range_high = int(range_high_text) if range_high_text and re.fullmatch(
-        r"\d+", range_high_text) else None
+    range_high = (
+        int(range_high_text)
+        if range_high_text and re.fullmatch(r"\d+", range_high_text)
+        else None
+    )
     headroom_to_ceiling = (
-        SIXTEEN_BIT_CEILING - range_high if range_high is not None else None)
+        SIXTEEN_BIT_CEILING - range_high if range_high is not None else None
+    )
 
     # The date line is the first line matching a "Www Mmm DD HH:MM:SS YYYY" shape;
     # it is positional in practice but located by pattern so a shifted header does
@@ -271,7 +282,8 @@ def main():
     provenance_rows = []
     for gel in EXPECTED_GELS:
         expected_experiment_id, expected_task_id = extract_experiment_and_task_ids(
-            gel["csv_basename"] + " " + str(gel["inf_windows_path"]))
+            gel["csv_basename"] + " " + str(gel["inf_windows_path"])
+        )
 
         base_row = {
             "screen": gel["screen"],
@@ -297,28 +309,33 @@ def main():
         # human can eyeball that each row's ids line up with its screen/replicate.
         inf_experiment_id = parsed["inf_experiment_id"]
         inf_task_id = parsed["inf_task_id"]
-        status = "OK" if (inf_experiment_id is not None and inf_task_id is not None) \
+        status = (
+            "OK"
+            if (inf_experiment_id is not None and inf_task_id is not None)
             else "ID_PARSE_INCOMPLETE"
+        )
 
-        base_row.update({
-            "status": status,
-            "inf_experiment_id_LM": inf_experiment_id,
-            "inf_task_id_s": inf_task_id,
-            "pmt_voltage_V": parsed["pmt_voltage"],
-            "range_high": parsed["range_high"],
-            "headroom_to_16bit_ceiling": parsed["headroom_to_ceiling"],
-            "scale_type": parsed["scale_type"],
-            "bit_depth": parsed["bit_depth"],
-            "pixel_size_um": parsed["pixel_size_micrometres"],
-            "pixel_dim_a": parsed["pixel_dimension_a"],
-            "pixel_dim_b": parsed["pixel_dimension_b"],
-            "laser": parsed["laser_name"],
-            "filter": parsed["filter_name"],
-            "laser_power_mode": parsed["laser_power_mode"],
-            "range_low": parsed["range_low"],
-            "scan_date": parsed["scan_date"],
-            "resolved_wsl_path": parsed["resolved_wsl_path"],
-        })
+        base_row.update(
+            {
+                "status": status,
+                "inf_experiment_id_LM": inf_experiment_id,
+                "inf_task_id_s": inf_task_id,
+                "pmt_voltage_V": parsed["pmt_voltage"],
+                "range_high": parsed["range_high"],
+                "headroom_to_16bit_ceiling": parsed["headroom_to_ceiling"],
+                "scale_type": parsed["scale_type"],
+                "bit_depth": parsed["bit_depth"],
+                "pixel_size_um": parsed["pixel_size_micrometres"],
+                "pixel_dim_a": parsed["pixel_dimension_a"],
+                "pixel_dim_b": parsed["pixel_dimension_b"],
+                "laser": parsed["laser_name"],
+                "filter": parsed["filter_name"],
+                "laser_power_mode": parsed["laser_power_mode"],
+                "range_low": parsed["range_low"],
+                "scan_date": parsed["scan_date"],
+                "resolved_wsl_path": parsed["resolved_wsl_path"],
+            }
+        )
         provenance_rows.append(base_row)
 
     # Stable order: screen then replicate, so the table is deterministic run to run.
@@ -329,17 +346,34 @@ def main():
     # READ_ERROR rows (which carry fewer fields) still line up under a stable header.
     # ------------------------------------------------------------------------------
     column_order = [
-        "screen", "replicate", "status", "csv_basename",
-        "inf_experiment_id_LM", "inf_task_id_s",
-        "pmt_voltage_V", "range_high", "headroom_to_16bit_ceiling", "range_low",
-        "scale_type", "bit_depth", "pixel_size_um", "pixel_dim_a", "pixel_dim_b",
-        "laser", "filter", "laser_power_mode", "scan_date",
-        "detail", "resolved_wsl_path",
+        "screen",
+        "replicate",
+        "status",
+        "csv_basename",
+        "inf_experiment_id_LM",
+        "inf_task_id_s",
+        "pmt_voltage_V",
+        "range_high",
+        "headroom_to_16bit_ceiling",
+        "range_low",
+        "scale_type",
+        "bit_depth",
+        "pixel_size_um",
+        "pixel_dim_a",
+        "pixel_dim_b",
+        "laser",
+        "filter",
+        "laser_power_mode",
+        "scan_date",
+        "detail",
+        "resolved_wsl_path",
     ]
     os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
     output_csv_path = os.path.join(OUTPUT_DIRECTORY, "inf_provenance.csv")
     with open(output_csv_path, "w", newline="", encoding="utf-8") as csv_handle:
-        writer = csv.DictWriter(csv_handle, fieldnames=column_order, extrasaction="ignore")
+        writer = csv.DictWriter(
+            csv_handle, fieldnames=column_order, extrasaction="ignore"
+        )
         writer.writeheader()
         for row in provenance_rows:
             writer.writerow(row)
@@ -354,7 +388,8 @@ def main():
     print()
     print("Saturation / provenance summary (PMT voltage and 16-bit headroom):")
     header = "{:<9} {:>4} {:>7} {:>4} {:>7} {:>10} {:>10}  {}".format(
-        "screen", "rep", "status", "PMT", "RangeHi", "headroom", "scale", "note")
+        "screen", "rep", "status", "PMT", "RangeHi", "headroom", "scale", "note"
+    )
     print(header)
     print("-" * len(header))
     for row in provenance_rows:
@@ -363,36 +398,48 @@ def main():
             note = "no .inf kept for this scan"
         elif row.get("status") == "READ_ERROR":
             note = "unreadable: " + str(row.get("detail", ""))[:60]
-        elif row.get("headroom_to_16bit_ceiling") is not None \
-                and row["headroom_to_16bit_ceiling"] < 3277:  # within 5% of ceiling
+        elif (
+            row.get("headroom_to_16bit_ceiling") is not None
+            and row["headroom_to_16bit_ceiling"] < 3277
+        ):  # within 5% of ceiling
             note = "WARNING: within 5% of 16-bit ceiling -- possible saturation"
-        print("{:<9} {:>4} {:>7} {:>4} {:>7} {:>10} {:>10}  {}".format(
-            str(row.get("screen", "")),
-            str(row.get("replicate", "")),
-            str(row.get("status", "")),
-            str(row.get("pmt_voltage_V", "")),
-            str(row.get("range_high", "")),
-            str(row.get("headroom_to_16bit_ceiling", "")),
-            str(row.get("scale_type", "")),
-            note))
+        print(
+            "{:<9} {:>4} {:>7} {:>4} {:>7} {:>10} {:>10}  {}".format(
+                str(row.get("screen", "")),
+                str(row.get("replicate", "")),
+                str(row.get("status", "")),
+                str(row.get("pmt_voltage_V", "")),
+                str(row.get("range_high", "")),
+                str(row.get("headroom_to_16bit_ceiling", "")),
+                str(row.get("scale_type", "")),
+                note,
+            )
+        )
 
     # A one-line verdict on the shared-PMT question, computed rather than asserted: are
     # all successfully-read scans at the same PMT voltage?
     # Count any row whose PMT was read, regardless of whether the filename id parsed:
     # the shared-sensitivity question is about the scan setting, not the filename, so
     # an ID_PARSE_INCOMPLETE row with a valid PMT still belongs in this verdict.
-    read_pmts = [row.get("pmt_voltage_V") for row in provenance_rows
-                 if row.get("pmt_voltage_V") is not None]
+    read_pmts = [
+        row.get("pmt_voltage_V")
+        for row in provenance_rows
+        if row.get("pmt_voltage_V") is not None
+    ]
     print()
     if read_pmts and len(set(read_pmts)) == 1:
-        print("All {} readable scans share PMT voltage {} V -- no sensitivity "
-              "difference between gels.".format(len(read_pmts), read_pmts[0]))
+        print(
+            "All {} readable scans share PMT voltage {} V -- no sensitivity "
+            "difference between gels.".format(len(read_pmts), read_pmts[0])
+        )
     elif read_pmts:
-        print("PMT voltages differ across scans: {} -- inspect which gel differs."
-              .format(sorted(set(read_pmts))))
+        print(
+            "PMT voltages differ across scans: {} -- inspect which gel differs.".format(
+                sorted(set(read_pmts))
+            )
+        )
     else:
         print("No PMT voltages were read; check the .inf paths above.")
-
 
 
 if __name__ == "__main__":

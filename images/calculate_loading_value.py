@@ -460,6 +460,11 @@ if defined_values:
     emit_message(
         "summary",
         "n=%d value_corrected min=%.4f max=%.4f blank=%.4f"
-        % (len(defined_values), min(defined_values), max(defined_values), blank_baseline),
+        % (
+            len(defined_values),
+            min(defined_values),
+            max(defined_values),
+            blank_baseline,
+        ),
     )
 print(str(output_csv_path))
