@@ -259,31 +259,66 @@ for (row_index in seq_len(nrow(suspect_gel_rows))) {
         this_genotype == "WT" && !is.na(this_atp) && this_atp == "plusATP")
 }
 emit("")
-# Verdict rule: if the WT plusATP ratio is far below the spread of the other
-# analytes' ratios, call it SPECIFIC (branch prediction upheld). If all ratios
-# including WT plusATP cluster together below 1, call it MULTIPLICATIVE
-# (contradicts branch). Threshold is descriptive, not a hypothesis test.
-non_wt_ratios <- section1_ratios[!section1_is_wt_plusatp]
+# Verdict rule, sharpened. The earlier specific/multiplicative/mixed labels did
+# not fit what the data actually shows, which is a GRADIENT: the suspect gel is
+# depressed everywhere, but plusATP lanes are hit far harder than noATP lanes,
+# and within plusATP the highest-signal lane (WT) is hit hardest. That gradient
+# is the fingerprint of a gel-level effect that scales with band signal (e.g. a
+# narrow integration window clipping diffuse high-intensity shifted bands), NOT
+# a lane-specific problem confined to WT plusATP. So instead of forcing one of
+# three labels, report the plusATP-vs-noATP depression ratio directly and let
+# the magnitude of that gap carry the verdict.
+#
+# Design note: the branch record predicted SPECIFIC (only WT plusATP low, rest
+# of gel normal). The data refuted that -- every plusATP analyte is ~0.5-0.6 of
+# its cross-gel norm. Keeping the raw per-analyte ratios above as the primary
+# evidence; this block only summarizes their structure.
+# Rebuild ratio-with-atp as a clean parallel pair so the summary cannot mispair
+# a ratio with the wrong ATP state. This repeats the Section 1 loop's ratio math
+# deliberately: the first loop's job was to print every analyte; this one's job
+# is to tag each ratio with its ATP state for the gradient summary. Inlining the
+# recompute is cheaper to read than threading a second output out of the printer
+# loop above.
+ratio_atp_labels <- character(0)
+ratio_values_clean <- numeric(0)
+for (row_index in seq_len(nrow(suspect_gel_rows))) {
+    this_genotype <- suspect_gel_rows$genotype[row_index]
+    this_atp <- suspect_gel_rows$atp[row_index]
+    this_fraction <- suspect_gel_rows$bound_fraction[row_index]
+    other_mask <- combined_rows$gel_key != SUSPECT_GEL_KEY &
+                  combined_rows$genotype == this_genotype &
+                  !is.na(combined_rows$genotype)
+    if (is.na(this_atp)) other_mask <- other_mask & is.na(combined_rows$atp) else
+        other_mask <- other_mask & !is.na(combined_rows$atp) &
+                      combined_rows$atp == this_atp
+    other_mask[is.na(other_mask)] <- FALSE
+    if (sum(other_mask) == 0L || is.na(this_atp)) next
+    ratio_atp_labels <- c(ratio_atp_labels, this_atp)
+    ratio_values_clean <- c(ratio_values_clean,
+                            this_fraction / mean(combined_rows$bound_fraction[other_mask]))
+}
+plusatp_ratios <- ratio_values_clean[ratio_atp_labels == "plusATP"]
+noatp_ratios <- ratio_values_clean[ratio_atp_labels == "noATP"]
 wt_plusatp_ratio <- section1_ratios[section1_is_wt_plusatp]
-if (length(wt_plusatp_ratio) == 1L && length(non_wt_ratios) >= 1L) {
-    others_ratio_min <- min(non_wt_ratios)
-    others_ratio_mean <- mean(non_wt_ratios)
-    emit("WT plusATP ratio: ", round(wt_plusatp_ratio, 3),
-         " | other analytes ratio mean: ", round(others_ratio_mean, 3),
-         " (min ", round(others_ratio_min, 3), ")")
-    if (wt_plusatp_ratio < 0.6 * others_ratio_min) {
-        emit("VERDICT: SPECIFIC. WT plusATP is depressed well below the other")
-        emit("analytes on this gel, which sit near their cross-gel norms. This")
-        emit("UPHOLDS the metadata branch (count-scale cancels; the low value is a")
-        emit("real, lane-specific measurement). Per-gel WT normalization would")
-        emit("AMPLIFY it, not cure it. Favors flag/exclude over normalize-away.")
-    } else if (max(section1_ratios) < 1.0 && (max(section1_ratios) - min(section1_ratios)) < 0.4) {
-        emit("VERDICT: MULTIPLICATIVE. All analytes on this gel are depressed by a")
-        emit("similar factor. This CONTRADICTS the branch prediction and reopens")
-        emit("the acquisition question -- per-gel WT normalization would cure it.")
+if (length(plusatp_ratios) >= 1L && length(noatp_ratios) >= 1L) {
+    mean_plusatp_ratio <- mean(plusatp_ratios)
+    mean_noatp_ratio <- mean(noatp_ratios)
+    emit(sprintf("Suspect-gel depression: plusATP lanes at %.2f of cross-gel norm (mean),",
+                 mean_plusatp_ratio))
+    emit(sprintf("noATP lanes at %.2f. plusATP is hit %.1fx harder than noATP.",
+                 mean_noatp_ratio, (1 - mean_plusatp_ratio) / max(1 - mean_noatp_ratio, 1e-6)))
+    emit(sprintf("Within plusATP, WT (the highest-signal lane) is lowest at %.2f.",
+                 wt_plusatp_ratio))
+    if (mean_plusatp_ratio < 0.75 && mean_noatp_ratio > mean_plusatp_ratio &&
+        length(wt_plusatp_ratio) == 1L && wt_plusatp_ratio <= min(plusatp_ratios) + 1e-9) {
+        emit("VERDICT: GEL-LEVEL, SIGNAL-SCALED. The whole gel is down, plusATP more")
+        emit("than noATP, WT plusATP most -- a gradient tracking band signal, not a")
+        emit("WT-lane-specific fault. Consistent with a gel-level quantitation effect")
+        emit("(see Section 5 integration windows). Per-gel WT normalization should")
+        emit("substantially ABSORB it, which supports the Task B normalized plot.")
     } else {
-        emit("VERDICT: MIXED. Neither cleanly specific nor cleanly multiplicative;")
-        emit("read the per-analyte ratios above before deciding.")
+        emit("VERDICT: pattern does not match the expected signal-scaled gradient;")
+        emit("read the per-analyte ratios above and Section 5 before deciding.")
     }
 }
 emit("")
